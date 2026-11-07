@@ -7,13 +7,21 @@ public enum CIRuns {
         status == "completed" && !["success", "skipped", "neutral", nil].contains(conclusion)
     }
     public struct Step: Codable, Sendable, Equatable {
-        public var name: String; public var status: String; public var conclusion: String?
+        public var name: String
+        public var status: String
+        public var conclusion: String?
         /// Its place in the job, which a link to the step names.
         public var number: Int?, startedAt: String?, completedAt: String?
-        public init(name: String, status: String, conclusion: String?, number: Int? = nil, startedAt: String? = nil,
-                    completedAt: String? = nil) {
-            self.name = name; self.status = status; self.conclusion = conclusion
-            self.number = number; self.startedAt = startedAt; self.completedAt = completedAt
+        public init(
+            name: String, status: String, conclusion: String?, number: Int? = nil, startedAt: String? = nil,
+            completedAt: String? = nil
+        ) {
+            self.name = name
+            self.status = status
+            self.conclusion = conclusion
+            self.number = number
+            self.startedAt = startedAt
+            self.completedAt = completedAt
         }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
     }
@@ -21,33 +29,61 @@ public enum CIRuns {
         public var id: Int, name: String, status: String, conclusion: String?, url: String?
         public var steps: [Step]
         public var startedAt: String?, completedAt: String?
-        public init(id: Int, name: String, status: String, conclusion: String?, url: String?, steps: [Step],
-                    startedAt: String? = nil, completedAt: String? = nil) {
-            self.id = id; self.name = name; self.status = status; self.conclusion = conclusion; self.url = url; self.steps = steps
-            self.startedAt = startedAt; self.completedAt = completedAt
+        public init(
+            id: Int, name: String, status: String, conclusion: String?, url: String?, steps: [Step],
+            startedAt: String? = nil, completedAt: String? = nil
+        ) {
+            self.id = id
+            self.name = name
+            self.status = status
+            self.conclusion = conclusion
+            self.url = url
+            self.steps = steps
+            self.startedAt = startedAt
+            self.completedAt = completedAt
         }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
     }
     public struct Run: Codable, Sendable, Equatable {
-        public var id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String, createdAt: String
+        public var id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String,
+            url: String, createdAt: String
         /// The forge's count of the workflow's runs, the commit, which try this is; when this try began and last changed.
         public var number: Int?, sha: String?, attempt: Int?, startedAt: String?, updatedAt: String?
-        public init(id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String, createdAt: String,
-                    number: Int? = nil, sha: String? = nil, attempt: Int? = nil, startedAt: String? = nil, updatedAt: String? = nil) {
-            self.id = id; self.title = title; self.workflow = workflow; self.status = status; self.conclusion = conclusion
-            self.event = event; self.url = url; self.createdAt = createdAt
-            self.number = number; self.sha = sha; self.attempt = attempt; self.startedAt = startedAt; self.updatedAt = updatedAt
+        public init(
+            id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String,
+            createdAt: String,
+            number: Int? = nil, sha: String? = nil, attempt: Int? = nil, startedAt: String? = nil,
+            updatedAt: String? = nil
+        ) {
+            self.id = id
+            self.title = title
+            self.workflow = workflow
+            self.status = status
+            self.conclusion = conclusion
+            self.event = event
+            self.url = url
+            self.createdAt = createdAt
+            self.number = number
+            self.sha = sha
+            self.attempt = attempt
+            self.startedAt = startedAt
+            self.updatedAt = updatedAt
         }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
         /// When this try began: `createdAt` stays at the first one, however much later a re-run comes.
         public var began: String { startedAt ?? createdAt }
         public var finished: Bool { status == "completed" }
         /// Seconds this try took, or has taken so far.
-        public func seconds(now: Date = Date()) -> Double? { CIRuns.seconds(from: began, to: finished ? updatedAt : nil, now: now) }
+        public func seconds(now: Date = Date()) -> Double? {
+            CIRuns.seconds(from: began, to: finished ? updatedAt : nil, now: now)
+        }
         /// The commit's page on the forge, from the run's own: ".../actions/runs/1" → ".../commit/<sha>".
         public var commitURL: String? {
-            guard let sha, let cut = url.range(of: "/actions/runs/") ?? url.range(of: "/-/pipelines/") else { return nil }
-            return url[..<cut.lowerBound] + (cut.lowerBound < url.endIndex && url[cut].hasPrefix("/-/") ? "/-/commit/" : "/commit/") + sha
+            guard let sha, let cut = url.range(of: "/actions/runs/") ?? url.range(of: "/-/pipelines/") else {
+                return nil
+            }
+            return url[..<cut.lowerBound]
+                + (cut.lowerBound < url.endIndex && url[cut].hasPrefix("/-/") ? "/-/commit/" : "/commit/") + sha
         }
         /// Seven characters, as git shows it.
         public var shortSHA: String? { sha.map { String($0.prefix(7)) } }
@@ -81,7 +117,9 @@ public enum CIRuns {
     /// cancelled ones (someone stopped it: nothing to fix).
     public static func state(_ runs: [Run]) -> State? {
         let now = latest(runs)
-        if now.contains(where: { $0.failed && !["cancelled", "action_required"].contains($0.conclusion) }) { return .failed }
+        if now.contains(where: { $0.failed && !["cancelled", "action_required"].contains($0.conclusion) }) {
+            return .failed
+        }
         if now.contains(where: { $0.status == "waiting" || $0.conclusion == "action_required" }) { return .waiting }
         if now.contains(where: { $0.status != "completed" }) { return .running }
         return now.contains { $0.conclusion == "success" } ? .passed : nil
@@ -95,11 +133,19 @@ public enum CIRuns {
         public struct Input: Codable, Sendable, Equatable {
             public var name: String, description: String, defaultValue: String, options: [String], required: Bool
             public init(name: String, description: String, defaultValue: String, options: [String], required: Bool) {
-                self.name = name; self.description = description; self.defaultValue = defaultValue; self.options = options; self.required = required
+                self.name = name
+                self.description = description
+                self.defaultValue = defaultValue
+                self.options = options
+                self.required = required
             }
         }
         public var file: String, name: String, inputs: [Input]
-        public init(file: String, name: String, inputs: [Input]) { self.file = file; self.name = name; self.inputs = inputs }
+        public init(file: String, name: String, inputs: [Input]) {
+            self.file = file
+            self.name = name
+            self.inputs = inputs
+        }
     }
 }
 
@@ -152,7 +198,8 @@ extension CIRuns {
         let passed = done.filter { !["skipped", "cancelled"].contains($0.conclusion) }
         let ones = steps.filter { $0.failed || $0.status == "in_progress" }
         func fold(_ s: [Step], _ row: ([Step]) -> StepRow) -> [StepRow] { s.count > 1 ? [row(s)] : s.map(StepRow.one) }
-        return fold(passed, StepRow.passed) + ones.map(StepRow.one) + fold(skipped, StepRow.skipped) + fold(upcoming, StepRow.upcoming)
+        return fold(passed, StepRow.passed) + ones.map(StepRow.one) + fold(skipped, StepRow.skipped)
+            + fold(upcoming, StepRow.upcoming)
     }
 }
 
@@ -160,7 +207,9 @@ extension CIRuns {
     /// How long this workflow usually takes: the middle of its green runs, the newest five. Failed runs stop early and say
     /// nothing about it. Nil under three.
     public static func typicalSeconds(_ runs: [Run], workflow: String) -> Double? {
-        let green = runs.filter { $0.workflow == workflow && $0.conclusion == "success" }.prefix(5).compactMap { $0.seconds() }.sorted()
+        let green = runs.filter { $0.workflow == workflow && $0.conclusion == "success" }.prefix(5).compactMap {
+            $0.seconds()
+        }.sorted()
         guard green.count >= 3 else { return nil }
         return green.count % 2 == 1 ? green[green.count / 2] : (green[green.count / 2 - 1] + green[green.count / 2]) / 2
     }
@@ -177,7 +226,9 @@ extension CIRuns {
         let own = runs.filter { $0.workflow == workflow }
         guard own.count > 1 else { return nil }
         let row = own.prefix { $0.conclusion == "success" }.count
-        return History(runs: own.prefix(12).reversed(), lastGreen: row > 0 ? nil : own.first { $0.conclusion == "success" }, greenInARow: row)
+        return History(
+            runs: own.prefix(12).reversed(), lastGreen: row > 0 ? nil : own.first { $0.conclusion == "success" },
+            greenInARow: row)
     }
 }
 
@@ -185,7 +236,10 @@ extension CIRuns.Report {
     /// Whether an earlier try broke the same way: then it's the code, not a fluke of the runner.
     public func failsLike(_ other: CIRuns.Report) -> Bool {
         func names(_ r: CIRuns.Report) -> Set<String> {
-            Set(r.failures.map { [$0.suite, $0.test, $0.test == nil ? $0.place : nil].compactMap { $0 }.joined(separator: ".") })
+            Set(
+                r.failures.map {
+                    [$0.suite, $0.test, $0.test == nil ? $0.place : nil].compactMap { $0 }.joined(separator: ".")
+                })
         }
         return !failures.isEmpty && names(self) == names(other)
     }

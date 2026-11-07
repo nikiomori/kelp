@@ -1,7 +1,7 @@
+import Core
 import Foundation
 import Testing
 import WorkbenchKit
-import Core
 
 @Test func addPutsTabsInTheFocusedGroup() throws {
     var l = WorkspaceLayout()
@@ -40,7 +40,9 @@ import Core
     let c = l.add("c", to: h)
     l.splitRoot(c.id, vertical: false, before: false)
     let k = try #require(l.group(of: c.id))
-    #expect(l.root == .split(vertical: false, children: [.split(vertical: true, children: [.pane(g), .pane(h)]), .pane(k)]))
+    #expect(
+        l.root
+            == .split(vertical: false, children: [.split(vertical: true, children: [.pane(g), .pane(h)]), .pane(k)]))
 }
 
 @Test func movingToAGroupThatIsGoneKeepsTheTab() throws {
@@ -92,7 +94,9 @@ import Core
 
 @Test func diffURIsCarryWhatTheyShow() {
     #expect(TabURI.diff("w1") == "diff:w1")
-    #expect(TabURI.diff("w1", file: "my dir/a&b.swift", source: "staged") == "diff:w1?file=my%20dir/a%26b.swift&source=staged")
+    #expect(
+        TabURI.diff("w1", file: "my dir/a&b.swift", source: "staged")
+            == "diff:w1?file=my%20dir/a%26b.swift&source=staged")
     #expect(TabURI.scheme(TabURI.diff("w1", commit: "abc")) == "diff")
 }
 
@@ -130,7 +134,8 @@ import Core
 
 /// Divider positions are kept per split: the key survives tab changes and changes when the split gets another pane.
 @Test func layoutSplitKeys() {
-    let l = LayoutNode.pane("a").inserting("b", beside: "a", vertical: true, before: false).inserting("c", beside: "b", vertical: false, before: false)
+    let l = LayoutNode.pane("a").inserting("b", beside: "a", vertical: true, before: false).inserting(
+        "c", beside: "b", vertical: false, before: false)
     #expect(l.splitKeys == ["a,b", "b,c"])
     #expect(LayoutNode.pane("a").splitKeys.isEmpty)
     #expect(l.removing("c")?.splitKeys == ["a,b"])
@@ -138,13 +143,16 @@ import Core
 
 @Test func languageForAPath() throws {
     let json = #"""
-    [{ "id": "python", "extensions": ["py"],
-       "server": { "command": "pyright-langserver", "args": ["--stdio"], "install": "npm i -g pyright" } },
-     { "id": "dockerfile", "extensions": [], "fileNames": ["Dockerfile"] }]
-    """#
+        [{ "id": "python", "extensions": ["py"],
+           "server": { "command": "pyright-langserver", "args": ["--stdio"], "install": "npm i -g pyright" } },
+         { "id": "dockerfile", "extensions": [], "fileNames": ["Dockerfile"] }]
+        """#
     let specs = try JSONDecoder().decode([LanguageSpec].self, from: Data(json.utf8))
-    #expect(specs[0] == LanguageSpec(id: "python", extensions: ["py"],
-                                     server: .init(command: "pyright-langserver", args: ["--stdio"], install: "npm i -g pyright")))
+    #expect(
+        specs[0]
+            == LanguageSpec(
+                id: "python", extensions: ["py"],
+                server: .init(command: "pyright-langserver", args: ["--stdio"], install: "npm i -g pyright")))
     #expect(LanguageSpec.find("/a/b/main.PY", in: specs)?.id == "python")
     #expect(LanguageSpec.find("/a/Dockerfile", in: specs)?.id == "dockerfile")
     #expect(LanguageSpec.find("/a/b/main.rb", in: specs) == nil)
@@ -156,9 +164,14 @@ import Core
 }
 
 @Test func languageCommands() throws {
-    let json = #"{ "id": "python", "extensions": ["py"], "run": "python3 ${file}", "test": "pytest ${file} -k ${symbol}", "format": "ruff format -" }"#
+    let json =
+        #"{ "id": "python", "extensions": ["py"], "run": "python3 ${file}", "test": "pytest ${file} -k ${symbol}", "format": "ruff format -" }"#
     let py = try JSONDecoder().decode(LanguageSpec.self, from: Data(json.utf8))
-    #expect(py == LanguageSpec(id: "python", extensions: ["py"], run: "python3 ${file}", test: "pytest ${file} -k ${symbol}", format: "ruff format -"))
+    #expect(
+        py
+            == LanguageSpec(
+                id: "python", extensions: ["py"], run: "python3 ${file}", test: "pytest ${file} -k ${symbol}",
+                format: "ruff format -"))
     #expect(py[command: "test"] == "pytest ${file} -k ${symbol}" && py[command: "lint"] == nil)
     // Values arrive as one argument each, spaces and quotes included; unknown names stay for the shell.
     let vars = ["file": "/My Code/it's.py", "symbol": "", "line": "12"]
@@ -167,9 +180,14 @@ import Core
 }
 
 private func sh(_ shell: String, _ cmd: String) throws -> String {
-    let p = Process(); p.executableURL = URL(fileURLWithPath: shell); p.arguments = ["-c", cmd]
-    let out = Pipe(); p.standardOutput = out; p.standardError = FileHandle.nullDevice
-    try p.run(); p.waitUntilExit()
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: shell)
+    p.arguments = ["-c", cmd]
+    let out = Pipe()
+    p.standardOutput = out
+    p.standardError = FileHandle.nullDevice
+    try p.run()
+    p.waitUntilExit()
     return String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
 }
 
@@ -178,14 +196,18 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 @Test func aValueInAShellTemplateNeverRuns() throws {
     let marker = NSTemporaryDirectory() + "kelp-pwned-\(UUID().uuidString.prefix(6))"
     let evil = "x\nEOF\ntouch \(marker)\n$(touch \(marker)) `touch \(marker)`; touch \(marker) \" ' \\ end"
-    let templates = ["printf %s ${v}", "printf %s \"${v}\"", "printf %s '${v}'", "printf %s \"PR: ${v}!\"",
-                     "printf %s \"$(printf %s ${v})\"", "printf %s ${v}#${v}", "# don't\nprintf %s ${v}", "true # ${v}",
-                     "cat <<EOF\n${v}\nEOF", "cat <<'EOF'\n${v}\nEOF", "cat <<-EOF\n${v}\nEOF"]
+    let templates = [
+        "printf %s ${v}", "printf %s \"${v}\"", "printf %s '${v}'", "printf %s \"PR: ${v}!\"",
+        "printf %s \"$(printf %s ${v})\"", "printf %s ${v}#${v}", "# don't\nprintf %s ${v}", "true # ${v}",
+        "cat <<EOF\n${v}\nEOF", "cat <<'EOF'\n${v}\nEOF", "cat <<-EOF\n${v}\nEOF"
+    ]
     for shell in ["/bin/zsh", "/bin/sh"] {
         for t in templates {
             let printed = try sh(shell, ShellTemplate.fill(t) { $0 == "v" ? evil : nil })
             #expect(!FileManager.default.fileExists(atPath: marker), "\(shell) ran from \(t.debugDescription)")
-            if !t.contains("#"), !t.contains("'EOF'") { #expect(printed.contains(evil), "\(shell) \(t.debugDescription): \(printed.debugDescription)") }
+            if !t.contains("#"), !t.contains("'EOF'") {
+                #expect(printed.contains(evil), "\(shell) \(t.debugDescription): \(printed.debugDescription)")
+            }
         }
     }
 }
@@ -205,11 +227,15 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(Indentation.detect("func f() {\n\tx\n\t\ty\n}\n") == .tabs)
     #expect(Indentation.detect("one\ntwo\n") == nil)
     // A long body at one depth doesn't make that depth the step.
-    #expect(Indentation.detect("class A {\n    func f() {\n" + String(repeating: "        x\n", count: 300) + "    }\n}\n") == .spaces(4))
+    #expect(
+        Indentation.detect("class A {\n    func f() {\n" + String(repeating: "        x\n", count: 300) + "    }\n}\n")
+            == .spaces(4))
     #expect(Indentation.detect("a {\n  b {\n" + String(repeating: "    x\n", count: 300) + "  }\n}\n") == .spaces(2))
     #expect(Indentation.detect("a {\n        b\n        c\n}\n") == .spaces(8))
     #expect(Indentation.detect("a {\r\n    b\r\n    c\r\n}\r\n") == .spaces(4))   // Windows line endings
-    #expect(Indentation.detect(String(repeating: "\tx\n\n", count: 2000) + String(repeating: "  y\n", count: 5000)) == .tabs)   // the first 2000 lines decide
+    #expect(
+        Indentation.detect(String(repeating: "\tx\n\n", count: 2000) + String(repeating: "  y\n", count: 5000)) == .tabs
+    )   // the first 2000 lines decide
     #expect(LanguageSpec.word(in: "x\r\ndef test_a():\r\n", line: 2, column: 6) == "test_a")
 }
 
@@ -221,7 +247,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(l.groups[g]?.tabs == [b, a, c])
     l.move(c.id, to: g, index: 0)
     #expect(l.groups[g]?.tabs == [c, b, a])
-    l.move(c.id, to: g)             // no index: the end
+    l.move(c.id, to: g)   // no index: the end
     #expect(l.groups[g]?.tabs == [b, a, c])
 }
 
@@ -243,10 +269,17 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let files = try #require(l.group(of: f.id))
     let c = l.add("session:c", to: files), d = l.add("session:d", to: files)
     l.tile([a.id, b.id, c.id, d.id])
-    guard case .split(false, let rows)? = l.root else { Issue.record("not in rows"); return }
+    guard case .split(false, let rows)? = l.root else {
+        Issue.record("not in rows")
+        return
+    }
     #expect(rows.map(\.sessions.count) == [3, 2])
-    l.remove(f.id); l.tile([a.id, b.id, c.id, d.id])
-    guard case .split(false, let grid)? = l.root else { Issue.record("not in rows"); return }
+    l.remove(f.id)
+    l.tile([a.id, b.id, c.id, d.id])
+    guard case .split(false, let grid)? = l.root else {
+        Issue.record("not in rows")
+        return
+    }
     #expect(grid.map(\.sessions.count) == [2, 2])
 }
 
@@ -291,18 +324,19 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let a1 = Worktree(repoId: a.id, branch: "main", path: "/a", createdAt: t)
     let a2 = Worktree(repoId: a.id, branch: "main", path: "/a", createdAt: t + 1)
     let a3 = Worktree(repoId: a.id, branch: "feat", path: "/wt/a3", createdAt: t + 2)
-    let b1 = Worktree(repoId: b.id, branch: "main", path: "/b", createdAt: t), b2 = Worktree(repoId: b.id, branch: "x", path: "/wt/b2", createdAt: t + 1)
+    let b1 = Worktree(repoId: b.id, branch: "main", path: "/b", createdAt: t),
+        b2 = Worktree(repoId: b.id, branch: "x", path: "/wt/b2", createdAt: t + 1)
     let plan = WorkspaceClosing(picked: [a3, a2, a1, b2], open: [a1, a2, a3, b1, b2], repos: [a, b])
-    #expect(plan.remove == [a2.id])          // a workspace
-    #expect(plan.archive == [a3.id, b2.id])  // their own branches
-    #expect(plan.keptSome)                   // a1, the oldest of a, stays
+    #expect(plan.remove == [a2.id])   // a workspace
+    #expect(plan.archive == [a3.id, b2.id])   // their own branches
+    #expect(plan.keptSome)   // a1, the oldest of a, stays
     let one = WorkspaceClosing(picked: [b2], open: [a1, b1, b2], repos: [a, b])
     #expect(one.ids == [b2.id] && !one.keptSome)
     #expect(WorkspaceClosing(picked: [b1], open: [b1], repos: [b]).ids.isEmpty)   // a project's last workspace stays
     #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2, a3], repos: [a, b]) == a3)   // a group goes: the row under it
-    #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2], repos: [a, b]) == a1)       // the last one: the row over it
+    #expect(WorkspaceClosing.afterLastTab(of: a2, rows: [a1, a2], repos: [a, b]) == a1)   // the last one: the row over it
     #expect(WorkspaceClosing.afterLastTab(of: a3, rows: [a1, a2, a3], repos: [a, b]) == a2)   // on a branch too: whether it may is the app's to ask
-    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1, a2], repos: [a, b]) == nil)      // and so does a project's own screen
+    #expect(WorkspaceClosing.afterLastTab(of: a1, rows: [a1, a2], repos: [a, b]) == nil)   // and so does a project's own screen
 }
 
 @Test func replacePutsTheNewURIInTheOldTabsPlace() {
@@ -320,13 +354,19 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 /// A child stands on its parent's row; on another screen it keeps a row of its own.
 @Test func childrenLiveOnTheirParentsRow() {
     let r = Repo(id: "r", name: "a", path: "/a")
-    let w = Worktree(id: "w", repoId: "r", branch: "main", path: "/a"), other = Worktree(id: "o", repoId: "r", branch: "b", path: "/b")
-    let parent = Session(id: "p", worktreeId: "w", cwd: "/a", command: "x", agent: "claude", status: .working, title: "Graph")
-    var kid = Session(id: "k", worktreeId: "w", cwd: "/a", command: "x", agent: "codex", status: .waiting, title: "reviewer")
+    let w = Worktree(id: "w", repoId: "r", branch: "main", path: "/a"),
+        other = Worktree(id: "o", repoId: "r", branch: "b", path: "/b")
+    let parent = Session(
+        id: "p", worktreeId: "w", cwd: "/a", command: "x", agent: "claude", status: .working, title: "Graph")
+    var kid = Session(
+        id: "k", worktreeId: "w", cwd: "/a", command: "x", agent: "codex", status: .waiting, title: "reviewer")
     var away = Session(id: "f", worktreeId: "o", cwd: "/b", command: "x", agent: "codex", status: .done, title: "far")
-    kid.parent = "p"; away.parent = "p"
+    kid.parent = "p"
+    away.parent = "p"
     func agents(_ t: SidebarTree) -> [String] {
-        func walk(_ i: SidebarItem) -> [String] { (({ if case .agent(let a) = i.kind { [a] } else { [] } })()) + i.children.flatMap(walk) }
+        func walk(_ i: SidebarItem) -> [String] {
+            (({ if case .agent(let a) = i.kind { [a] } else { [] } })()) + i.children.flatMap(walk)
+        }
         return t.build().flatMap(walk)
     }
     #expect(agents(SidebarTree(projects: [r], workspaces: [w, other], sessions: [parent, kid, away])) == ["p", "f"])

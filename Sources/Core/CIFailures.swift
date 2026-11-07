@@ -7,8 +7,14 @@ extension CIRuns {
         /// Relative to the project where the log says enough to tell.
         public var file: String?, line: Int?
         public var messages: [String]
-        public init(test: String? = nil, suite: String? = nil, file: String? = nil, line: Int? = nil, messages: [String] = []) {
-            self.test = test; self.suite = suite; self.file = file; self.line = line; self.messages = messages
+        public init(
+            test: String? = nil, suite: String? = nil, file: String? = nil, line: Int? = nil, messages: [String] = []
+        ) {
+            self.test = test
+            self.suite = suite
+            self.file = file
+            self.line = line
+            self.messages = messages
         }
         /// "Tests/AppTests.swift:12".
         public var place: String? { file.map { f in line.map { "\(f):\($0)" } ?? f } }
@@ -25,8 +31,16 @@ extension CIRuns {
         public var exitCode: Int?, lastLines: [String]
         /// The log's tail.
         public var log: String
-        public init(failures: [Failure] = [], more: Int = 0, tests: Int? = nil, exitCode: Int? = nil, lastLines: [String] = [], log: String = "") {
-            self.failures = failures; self.more = more; self.tests = tests; self.exitCode = exitCode; self.lastLines = lastLines; self.log = log
+        public init(
+            failures: [Failure] = [], more: Int = 0, tests: Int? = nil, exitCode: Int? = nil, lastLines: [String] = [],
+            log: String = ""
+        ) {
+            self.failures = failures
+            self.more = more
+            self.tests = tests
+            self.exitCode = exitCode
+            self.lastLines = lastLines
+            self.log = log
         }
 
         /// The failures alone, to copy or to read at a glance.

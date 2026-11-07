@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 /// "host:<name>" — a server at a glance: four meters with the last two minutes, the busiest processes with whose agent each
@@ -22,7 +22,9 @@ final class ServerTab: KelpKit.TabContent {   // not SwiftUI's
         host = TabURI.body(uri)
         watched = Watched(.hostDetail, in: app)
         watched.key = host
-        let v = NSHostingView(rootView: ServerView(app: app, host: host).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        let v = NSHostingView(
+            rootView: ServerView(app: app, host: host).frame(
+                maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
         v.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
         view = v
     }
@@ -44,7 +46,8 @@ struct ServerView: View {
             if let s = stats, s.connected {
                 ServerDetail(app: app, host: host, stats: s, history: history)
             } else if stats == nil || dialing {
-                LoadingLine(String(localized: "Connecting…")).offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingLine(String(localized: "Connecting…")).offset(y: -Metrics.emptyLift).frame(
+                    maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 offline
             }
@@ -68,9 +71,11 @@ struct ServerView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(host, forType: .string)
                 }
-            } label: { Image(systemName: "ellipsis.circle") }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .accessibilityLabel(String(localized: "More"))
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .accessibilityLabel(String(localized: "More"))
         }
         .controlSize(.small)
         .padding(.leading, Metrics.inset).padding(.trailing, Metrics.gap)
@@ -81,16 +86,22 @@ struct ServerView: View {
     private var offline: some View {
         let error = stats?.error
         return ContentUnavailableView {
-            Label(error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can't reach \(host)"),
-                  systemImage: error == nil ? "server.rack" : "exclamationmark.triangle")
+            Label(
+                error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can't reach \(host)"),
+                systemImage: error == nil ? "server.rack" : "exclamationmark.triangle")
         } description: {
             VStack(spacing: 8) {
-                Text(error == nil ? String(localized: "Kelp connects when you ask: it doesn't dial a machine by itself.")
-                     : String(localized: "Check that the machine is on and on this network, then try again."))
-                if let error { Text(error).font(.ui(11).monospaced()).foregroundStyle(.secondary).textSelection(.enabled) }
+                Text(
+                    error == nil
+                        ? String(localized: "Kelp connects when you ask: it doesn't dial a machine by itself.")
+                        : String(localized: "Check that the machine is on and on this network, then try again."))
+                if let error {
+                    Text(error).font(.ui(11).monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                }
             }
         } actions: {
-            Button(error == nil ? String(localized: "Connect") : String(localized: "Try Again")) { dial() }.keyboardShortcut(.defaultAction)
+            Button(error == nil ? String(localized: "Connect") : String(localized: "Try Again")) { dial() }
+                .keyboardShortcut(.defaultAction)
             Button(String(localized: "Open Terminal")) { app.runOnServer(host) }
         }
     }

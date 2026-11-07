@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import GitKit
 
 /// What a trusted folder lets an agent run on its own: hooks, MCP servers, its settings. A branch (someone else's PR)
@@ -11,8 +11,10 @@ enum AgentConfig {
     static func changed(_ path: String, base: String, remotes: Remotes) -> Bool {
         guard Git.isRevision(base) else { return true }   // a base that reads as an option can't be compared: the user is asked
         // exit 1: differs (base: checked above)
-        let committed = (try? Git.run(["diff", "--quiet", base, "HEAD", "--"] + specs, cwd: path, remotes: remotes)) == nil
-        let pending = (try? Git.run(["status", "--porcelain", "--"] + specs, cwd: path, remotes: remotes))?.isEmpty != true
+        let committed =
+            (try? Git.run(["diff", "--quiet", base, "HEAD", "--"] + specs, cwd: path, remotes: remotes)) == nil
+        let pending =
+            (try? Git.run(["status", "--porcelain", "--"] + specs, cwd: path, remotes: remotes))?.isEmpty != true
         return committed || pending
     }
 }

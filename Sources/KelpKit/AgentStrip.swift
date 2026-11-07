@@ -35,12 +35,19 @@ struct StripPlace: Equatable {
 
     private static let key = "agents.dockStrip.place"
     static func load() -> StripPlace? {
-        guard let d = UserDefaults.standard.dictionary(forKey: key), let c = (d["corner"] as? String).flatMap(StripCorner.init) else { return nil }
-        return StripPlace(corner: c, display: (d["display"] as? NSNumber)?.uint32Value, edge: (d["edge"] as? String).flatMap(StripEdge.init),
-                          y: (d["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
+        guard let d = UserDefaults.standard.dictionary(forKey: key),
+            let c = (d["corner"] as? String).flatMap(StripCorner.init)
+        else { return nil }
+        return StripPlace(
+            corner: c, display: (d["display"] as? NSNumber)?.uint32Value,
+            edge: (d["edge"] as? String).flatMap(StripEdge.init),
+            y: (d["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
     }
     static func save(_ place: StripPlace?) {
-        guard let place else { UserDefaults.standard.removeObject(forKey: key); return }
+        guard let place else {
+            UserDefaults.standard.removeObject(forKey: key)
+            return
+        }
         var d: [String: Any] = ["corner": place.corner.rawValue, "y": Double(place.y)]
         d["display"] = place.display
         d["edge"] = place.edge?.rawValue
@@ -74,23 +81,33 @@ enum StripModel {
         }
     }
 
-    static func items(_ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()) -> [StripItem] {
+    static func items(
+        _ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()
+    ) -> [StripItem] {
         workspaces.compactMap { w in
-            func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) { (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt) }
-            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }.sorted { rank($0) < rank($1) }
+            func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) {
+                (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt)
+            }
+            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }
+                .sorted { rank($0) < rank($1) }
             guard let (lead, worst) = own.first else { return nil }
             let says = lead.summary.isEmpty ? nil : lead.summary, busy = own.count { $0.1 == .working }
-            let words = switch worst {
-            case .asks: says ?? String(localized: "Needs your input")
-            case .failed: says ?? String(localized: "Failed")
-            case .done: says.map { String(localized: "Done: \($0)") } ?? String(localized: "Done")
-            case .working where busy > 1: String(localized: "Working: \(busy)")
-            case .working: String(localized: "Working")
-            }
+            let words =
+                switch worst {
+                case .asks: says ?? String(localized: "Needs your input")
+                case .failed: says ?? String(localized: "Failed")
+                case .done: says.map { String(localized: "Done: \($0)") } ?? String(localized: "Done")
+                case .working where busy > 1: String(localized: "Working: \(busy)")
+                case .working: String(localized: "Working")
+                }
             let said = worst == .working ? status(worst).words : brief(words)
-            let agents = ["\(said) · \(lead.displayTitle)"] + own.dropFirst().map { "\(status($0.1).words) · \($0.0.displayTitle)" }
-            return StripItem(workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, agents: agents, words: words,
-                             since: lead.statusAt ?? lead.createdAt)
+            let agents =
+                ["\(said) · \(lead.displayTitle)"]
+                + own.dropFirst().map { "\(status($0.1).words) · \($0.0.displayTitle)" }
+            return StripItem(
+                workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, agents: agents,
+                words: words,
+                since: lead.statusAt ?? lead.createdAt)
         }
     }
 
@@ -105,11 +122,12 @@ enum StripModel {
     static func shows(_ items: [StripItem], mode: String?, comesFor: String?, front: Bool) -> Bool {
         guard !front, mode != "off" else { return false }
         guard mode == "needed" else { return !items.isEmpty }   // Always, the default: it's where you see them working
-        let loudest: DockFace.Cell = switch comesFor {
-        case "questions": .asks
-        case "all": .done
-        default: .failed
-        }
+        let loudest: DockFace.Cell =
+            switch comesFor {
+            case "questions": .asks
+            case "all": .done
+            default: .failed
+            }
         return items.contains { $0.cell != .working && $0.cell <= loudest }
     }
 
@@ -127,7 +145,9 @@ enum StripModel {
 
     /// At its corner, whole on the screen.
     static func frame(_ size: NSSize, in area: NSRect, at corner: StripCorner) -> NSRect {
-        let x = corner.isLeft ? area.minX + margin : corner.isRight ? area.maxX - size.width - margin : area.midX - size.width / 2
+        let x =
+            corner.isLeft
+            ? area.minX + margin : corner.isRight ? area.maxX - size.width - margin : area.midX - size.width / 2
         let y = corner.isTop ? area.maxY - size.height - margin : area.minY + margin
         return NSRect(x: x, y: y, width: size.width, height: size.height)
     }
@@ -187,7 +207,11 @@ final class AgentStrip {
     init(app: AppModel) { self.app = app }
 
     func start() {
-        track(owner: self) { [app] in Self.state(app, putOff: []) } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in
+            Self.state(app, putOff: [])
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
         let names = [NSApplication.didBecomeActiveNotification, NSApplication.didChangeScreenParametersNotification]
         observers = names.map { name in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -195,9 +219,10 @@ final class AgentStrip {
             }
         }
         let behind = NSApplication.didResignActiveNotification
-        observers.append(NotificationCenter.default.addObserver(forName: behind, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.settleThenRefresh() }   // queue: .main
-        })
+        observers.append(
+            NotificationCenter.default.addObserver(forName: behind, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.settleThenRefresh() }   // queue: .main
+            })
     }
 
     private func settleThenRefresh() {
@@ -210,11 +235,16 @@ final class AgentStrip {
     /// A row muted is quiet here as on a banner, and so is what was put off.
     private static func state(_ app: AppModel, putOff: Set<String>) -> State {
         let shown = app.worktrees.filter { !$0.archived }.map { w in
-            (id: w.id, name: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName, repo: app.repo(w.repoId)?.path)
+            (
+                id: w.id, name: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName,
+                repo: app.repo(w.repoId)?.path
+            )
         }
         let loud = app.sessions.filter { !app.isMuted($0) && !putOff.contains(StripModel.key($0)) }
-        return State(items: StripModel.items(loud, workspaces: shown), mode: app.settings.string("agents.dockStrip"),
-                     comesFor: app.settings.string("agents.dockStrip.comesFor"), fullScreen: app.settings.bool("agents.dockStrip.fullScreen") ?? true)
+        return State(
+            items: StripModel.items(loud, workspaces: shown), mode: app.settings.string("agents.dockStrip"),
+            comesFor: app.settings.string("agents.dockStrip.comesFor"),
+            fullScreen: app.settings.bool("agents.dockStrip.fullScreen") ?? true)
     }
 
     var isShowing: Bool { panel?.isVisible == true }
@@ -248,7 +278,10 @@ final class AgentStrip {
         let live = Set(app.sessions.map(StripModel.key))
         putOff.formIntersection(live)
         state = Self.state(app, putOff: putOff)
-        guard wanted else { goAway(); return }
+        guard wanted else {
+            goAway()
+            return
+        }
         panel?.apply(fullScreen: state.fullScreen)
         line.apply(fullScreen: state.fullScreen)
         let wasUp = isShowing
@@ -260,14 +293,21 @@ final class AgentStrip {
             b.update(item, open: item.workspace == opened, app: app)
             b.onClick = { [weak self] in self?.clicked(item) }
             b.onMenu = { [weak self] in self?.menu() ?? NSMenu() }
-            b.onHover = { [weak self, weak b] on in if let b { self?.hover(item, on: on, over: b, open: item.workspace == opened) } }
+            b.onHover = { [weak self, weak b] on in
+                if let b { self?.hover(item, on: on, over: b, open: item.workspace == opened) }
+            }
             return b
         }
         row.setViews(shownNow, in: .leading)
         buttons = buttons.filter { key, _ in state.items.contains { $0.workspace == key } }
-        if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) { closeCard() }
+        if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) {
+            closeCard()
+        }
         // Another question while one was up: the card shows what Allow answers, so the new one comes in a card of its own.
-        else if let card, card.question != app.session(card.session)?.summary { closeCard(); goesOn = true }
+        else if let card, card.question != app.session(card.session)?.summary {
+            closeCard()
+            goesOn = true
+        }
         showEdge(hidden: hidden)
         put(appearing: !wasUp)
         follow(opened)
@@ -285,19 +325,24 @@ final class AgentStrip {
         glint.isHidden = edge == nil
         glint.cell = state.items.map(\.cell).min()
         let side: CGFloat = 4, room = StripModel.handle + side
-        row.edgeInsets = NSEdgeInsets(top: side, left: edge == .right ? room : side, bottom: side, right: edge == .left ? room : side)
+        row.edgeInsets = NSEdgeInsets(
+            top: side, left: edge == .right ? room : side, bottom: side, right: edge == .left ? room : side)
         NSLayoutConstraint.deactivate(glintSide)
         guard let edge else { return }
         let inset = (StripModel.sliver - StripGlint.size.width) / 2
-        glintSide = [edge == .right ? glint.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: inset)
-                                    : glint.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -inset)]
+        glintSide = [
+            edge == .right
+                ? glint.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: inset)
+                : glint.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -inset)
+        ]
         NSLayoutConstraint.activate(glintSide)
     }
 
     /// A question or a failure that came while it hides comes out of the edge as a line; each once.
     private func tell(hidden: Bool) {
         defer { told = Set(state.items.filter { $0.cell <= .failed }.map(StripModel.newsKey)) }
-        guard hidden, let edge = place?.edge, let panel, isShowing, let news = StripModel.news(state.items, told: told) else { return }
+        guard hidden, let edge = place?.edge, let panel, isShowing, let news = StripModel.news(state.items, told: told)
+        else { return }
         line.onClick = { [weak self] in self?.peekFromLine() }
         let stays = news.cell == .asks ? StripModel.questionStays : StripModel.failureStays
         line.show(news, app: app, by: panel.frame, edge: edge, stays: stays)
@@ -308,14 +353,17 @@ final class AgentStrip {
         row.pointerOn = on
         peekTimer?.invalidate()
         guard place?.edge != nil, on != peeking, on || card == nil else { return }
-        peekTimer = Timer.scheduledTimer(withTimeInterval: on ? Motion.hoverOpenWarm : Motion.hoverOpen, repeats: false) { [weak self] _ in
+        peekTimer = Timer.scheduledTimer(withTimeInterval: on ? Motion.hoverOpenWarm : Motion.hoverOpen, repeats: false)
+        { [weak self] _ in
             MainActor.assumeIsolated { self?.settle(on) }   // the main run loop's timer
         }
     }
 
     /// Off the strip into the gap it left at the edge isn't off: it waits again instead of going under the pointer.
     private func settle(_ on: Bool) {
-        if !on, let edge = place?.edge, let panel, StripModel.inGap(NSEvent.mouseLocation, beside: panel.frame, edge: edge) {
+        if !on, let edge = place?.edge, let panel,
+            StripModel.inGap(NSEvent.mouseLocation, beside: panel.frame, edge: edge)
+        {
             return hoverStrip(false)
         }
         peek(on)
@@ -343,7 +391,8 @@ final class AgentStrip {
         let ends = app.sessions.filter { DockIcon.cell($0) == nil && StripModel.cell($0, now: Date()) == .done }
             .compactMap { $0.statusAt?.addingTimeInterval(StripModel.recent) }
         guard let next = ends.min() else { return }
-        expiry = Timer.scheduledTimer(withTimeInterval: max(1, next.timeIntervalSinceNow), repeats: false) { [weak self] _ in
+        expiry = Timer.scheduledTimer(withTimeInterval: max(1, next.timeIntervalSinceNow), repeats: false) {
+            [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }   // the main run loop's timer
         }
     }
@@ -392,7 +441,10 @@ final class AgentStrip {
             return
         case .asks, .failed: break
         }
-        if card?.session == item.session { closeCard(); return }
+        if card?.session == item.session {
+            closeCard()
+            return
+        }
         open(item)
     }
 
@@ -420,7 +472,9 @@ final class AgentStrip {
 
     private func menu() -> NSMenu {
         let m = NSMenu(), hide = NSMenu()
-        for c in Mutes.choices() where c.until != Mutes.forever { hide.add(c.title) { [weak self] in self?.hide(until: c.until) } }
+        for c in Mutes.choices() where c.until != Mutes.forever {
+            hide.add(c.title) { [weak self] in self?.hide(until: c.until) }
+        }
         m.setSubmenu(hide, for: m.addItem(withTitle: String(localized: "Hide"), action: nil, keyEquivalent: ""))
         m.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
         m.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
@@ -448,7 +502,8 @@ final class AgentStrip {
     }
 
     private var wanted: Bool {
-        hiddenUntil == nil && StripModel.shows(state.items, mode: state.mode, comesFor: state.comesFor, front: NSApp.isActive)
+        hiddenUntil == nil
+            && StripModel.shows(state.items, mode: state.mode, comesFor: state.comesFor, front: NSApp.isActive)
     }
 
     /// Let go after a drag: it goes to the nearest corner of the screen it's on; a card it left behind goes.
@@ -460,7 +515,9 @@ final class AgentStrip {
             return
         }
         let corner = StripModel.corner(nearest: panel.frame, in: area)
-        moved(to: corner == .bottom && screen == NSScreen.main ? nil : StripPlace(corner: corner, display: Self.number(of: screen)))
+        moved(
+            to: corner == .bottom && screen == NSScreen.main
+                ? nil : StripPlace(corner: corner, display: Self.number(of: screen)))
     }
 
     /// From the menu: behind the side of its screen it's nearer, where it stands.
@@ -468,18 +525,23 @@ final class AgentStrip {
         guard let panel, let screen = Self.screen(under: panel.frame) else { return }
         let area = screen.visibleFrame
         let nearer: StripEdge = panel.frame.midX > area.midX ? .right : .left
-        guard let edge = [nearer, nearer == .right ? .left : .right].first(where: { Self.outer($0, of: screen) }) else { return }
+        guard let edge = [nearer, nearer == .right ? .left : .right].first(where: { Self.outer($0, of: screen) }) else {
+            return
+        }
         moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
     }
 
     /// At the height it stands; the corner is the one it would take by that side.
     private static func place(behind edge: StripEdge, of screen: NSScreen, at frame: NSRect) -> StripPlace {
-        StripPlace(corner: edge == .right ? .bottomRight : .bottomLeft, display: number(of: screen), edge: edge, y: frame.minY - screen.visibleFrame.minY)
+        StripPlace(
+            corner: edge == .right ? .bottomRight : .bottomLeft, display: number(of: screen), edge: edge,
+            y: frame.minY - screen.visibleFrame.minY)
     }
 
     /// The screen most of it is on: one pushed past an edge has no `screen` of its own.
     private static func screen(under frame: NSRect) -> NSScreen? {
-        NSScreen.screens.max { $0.frame.intersection(frame).width < $1.frame.intersection(frame).width } ?? NSScreen.main
+        NSScreen.screens.max { $0.frame.intersection(frame).width < $1.frame.intersection(frame).width }
+            ?? NSScreen.main
     }
 
     private static func outer(_ edge: StripEdge, of screen: NSScreen) -> Bool {
@@ -502,9 +564,12 @@ final class AgentStrip {
 
     /// Where it was put, or else the screen the pointer is on when it comes up: the one being looked at, as the Dock's can't be told.
     private func screen(appearing: Bool, of p: NSPanel) -> NSScreen? {
-        if let display = place?.display, let put = NSScreen.screens.first(where: { Self.number(of: $0) == display }) { return put }
+        if let display = place?.display, let put = NSScreen.screens.first(where: { Self.number(of: $0) == display }) {
+            return put
+        }
         let mouse = NSEvent.mouseLocation
-        return (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : p.screen) ?? NSScreen.main
+        return (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : p.screen)
+            ?? NSScreen.main
     }
 
     private func put(appearing: Bool) {

@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Foundation
 import Testing
+
 @testable import KelpKit
 
 private func run(_ id: String, asks: Bool = false) -> Subagent {
@@ -24,7 +25,10 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
 @MainActor @Test func aDotStandsForEachSubagentOfTheTurn() {
     #expect(marks().pips.isEmpty)
     #expect(marks(running: [run("a"), run("b")]).pips == [.works, .works])
-    #expect(marks(running: [run("a"), run("b")], finished: [run("c"), run("d")]).pips == [.works, .works, .finished, .finished])
+    #expect(
+        marks(running: [run("a"), run("b")], finished: [run("c"), run("d")]).pips == [
+            .works, .works, .finished, .finished
+        ])
     #expect(marks(running: [run("a"), run("b", asks: true)]).pips == [.asks, .works])
 }
 
@@ -48,9 +52,12 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
 
 /// Three or four dots stand two to a line, so they take the width of two and leave it to the name.
 @MainActor @Test func dotsStandTwoToALine() {
-    #expect(PipsView.grid(0) == (0, 0) && PipsView.grid(2) == (2, 1) && PipsView.grid(3) == (2, 2) && PipsView.grid(4) == (2, 2))
+    #expect(
+        PipsView.grid(0) == (0, 0) && PipsView.grid(2) == (2, 1) && PipsView.grid(3) == (2, 2)
+            && PipsView.grid(4) == (2, 2))
     #expect((0..<2).map { PipsView.cell($0, of: 2) }.map { [$0.column, $0.line] } == [[0, 0], [1, 0]])
-    #expect((0..<4).map { PipsView.cell($0, of: 4) }.map { [$0.column, $0.line] } == [[0, 0], [1, 0], [0, 1], [1, 1]])
+    #expect(
+        (0..<4).map { PipsView.cell($0, of: 4) }.map { [$0.column, $0.line] } == [[0, 0], [1, 0], [0, 1], [1, 1]])
     let view = PipsView()
     view.pips = [.works, .works, .finished, .finished]
     #expect(view.intrinsicContentSize == NSSize(width: 12, height: 12))
@@ -65,8 +72,10 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
 
 /// A click on the dots doesn't wait out the half second a resting pointer does.
 @MainActor @Test func aRowsCardOpensAtOnceWhenAsked() async throws {
-    let rig = try await AppRig(); defer { rig.done() }
-    let vc = NSViewController(); vc.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+    let rig = try await AppRig()
+    defer { rig.done() }
+    let vc = NSViewController()
+    vc.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
     rig.show(vc, 200, 200)
     let card = HoverCard(app: rig.app)
     card.open("p:" + rig.project.id, rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)

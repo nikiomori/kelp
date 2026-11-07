@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// What an agent's program may reach, beside `Daemon.allow`, which asks these.
 enum AgentRules {
@@ -65,7 +65,9 @@ extension Sessions {
             guard !(v is JSONValue), !(v is Data) else { return [] }
             let parts = Mirror(reflecting: v).children
             // Deeper than any method's params go: refused, not taken for naming nobody.
-            guard depth < 6 || parts.isEmpty else { throw RPCError.refused("Kelp can't tell which sessions this call names.") }
+            guard depth < 6 || parts.isEmpty else {
+                throw RPCError.refused("Kelp can't tell which sessions this call names.")
+            }
             return try parts.flatMap { try strings($0.value, depth: depth + 1) }
         }
         return try strings(m, depth: 0).filter { UUID(uuidString: $0) != nil }
@@ -79,19 +81,26 @@ extension Sessions {
         let line = try store.lineage(own)
         if line.contains(where: { $0.worktreeId == w }) { return true }
         let maker = try store.worktree(w)?.madeBy
-        if typed { if Caller.started(maker, byAgentTypedInto: own) { return true } }
-        else if let m = Caller.session(of: maker), line.contains(where: { $0.id == m }) { return true }
+        if typed {
+            if Caller.started(maker, byAgentTypedInto: own) { return true }
+        } else if let m = Caller.session(of: maker), line.contains(where: { $0.id == m }) {
+            return true
+        }
         return try store.sessions().contains { s in
-            try s.worktreeId == w && store.lineage(s.id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
+            try s.worktreeId == w
+                && store.lineage(s.id).contains {
+                    typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
+                }
         }
     }
 
     /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.
     func ending(_ e: Ending) throws -> [String] {
-        let ids: Set<String> = switch e {
-        case .workspace(let w): [w]
-        case .project(let r): Set(try store.worktrees(repo: r).map(\.id))
-        }
+        let ids: Set<String> =
+            switch e {
+            case .workspace(let w): [w]
+            case .project(let r): Set(try store.worktrees(repo: r).map(\.id))
+            }
         return try store.sessions().filter { ids.contains($0.worktreeId ?? "") }.map(\.id)
     }
 }

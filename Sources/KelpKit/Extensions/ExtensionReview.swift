@@ -11,10 +11,14 @@ enum ExtensionReview {
         let lines = commands + pages.map { String(localized: "\($0) — a web page, which can run any command") }
         let name = manifest["name"]?.string ?? folder.lastPathComponent
         let a = NSAlert()
-        a.messageText = allowing ? String(localized: "Allow “\(name)” to run commands?") : String(localized: "Install “\(name)”?")
-        a.informativeText = lines.isEmpty ? String(localized: "It runs no commands.")
-            : allowing ? String(localized: "It's new or changed since it was allowed. It can run these commands on this Mac:")
-            : String(localized: "It can run these commands on this Mac:")
+        a.messageText =
+            allowing ? String(localized: "Allow “\(name)” to run commands?") : String(localized: "Install “\(name)”?")
+        a.informativeText =
+            lines.isEmpty
+            ? String(localized: "It runs no commands.")
+            : allowing
+                ? String(localized: "It's new or changed since it was allowed. It can run these commands on this Mac:")
+                : String(localized: "It can run these commands on this Mac:")
         a.addButton(withTitle: allowing ? String(localized: "Allow") : String(localized: "Install"))
         a.addButton(withTitle: allowing ? String(localized: "Not Now") : String(localized: "Cancel"))
         if !lines.isEmpty { a.accessoryView = list(lines) }
@@ -41,7 +45,8 @@ enum ExtensionReview {
 @MainActor
 enum ExtensionTrust {
     static func manifest(_ folder: URL) -> JSONValue {
-        (try? JSONDecoder().decode(JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))) ?? .null
+        (try? JSONDecoder().decode(
+            JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))) ?? .null
     }
 
     /// Whether `folder`'s extension waits to be allowed: it runs something, and what was allowed isn't what's there, or
@@ -66,7 +71,10 @@ enum ExtensionTrust {
     static func review(_ folder: URL, _ app: AppModel) async -> Bool {
         let files = IDE.extensionFiles(folder), manifest: JSONValue
         do { manifest = try JSONDecoder().decode(JSONValue.self, from: files["/extension.json"] ?? Data()) } catch {
-            Banner.show(String(localized: "“\(folder.lastPathComponent)” has no manifest Kelp can read: \(AppModel.message(error))"), style: .error)
+            Banner.show(
+                String(
+                    localized: "“\(folder.lastPathComponent)” has no manifest Kelp can read: \(AppModel.message(error))"
+                ), style: .error)
             return false
         }
         guard await ExtensionReview.approve(folder, manifest: manifest, allowing: true) else { return false }

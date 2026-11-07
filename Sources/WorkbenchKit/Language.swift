@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// A language from `contributes.languages`: the files it covers and the language server for them. `id` is the LSP languageId.
 public struct LanguageSpec: Codable, Equatable, Sendable {
@@ -10,7 +10,9 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
         public var install: String?
 
         public init(command: String, args: [String]? = nil, install: String? = nil) {
-            self.command = command; self.args = args; self.install = install
+            self.command = command
+            self.args = args
+            self.install = install
         }
     }
     public var id: String
@@ -21,8 +23,16 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
     /// Shell commands for Run File, Test at Cursor and Format Document (`format` reads the text on stdin, prints it formatted).
     public var run: String?, test: String?, format: String?
 
-    public init(id: String, extensions: [String], server: Server? = nil, run: String? = nil, test: String? = nil, format: String? = nil) {
-        self.id = id; self.extensions = extensions; self.server = server; self.run = run; self.test = test; self.format = format
+    public init(
+        id: String, extensions: [String], server: Server? = nil, run: String? = nil, test: String? = nil,
+        format: String? = nil
+    ) {
+        self.id = id
+        self.extensions = extensions
+        self.server = server
+        self.run = run
+        self.test = test
+        self.format = format
     }
 
     /// `run`, `test` or `format` by name.

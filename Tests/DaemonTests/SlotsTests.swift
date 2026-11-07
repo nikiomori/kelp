@@ -1,8 +1,9 @@
-import Foundation
-import os
-import Testing
-@testable import Daemon
 import Core
+import Foundation
+import Testing
+import os
+
+@testable import Daemon
 
 /// Quick work has a cap of its own: past it, more waits for a turn instead of each starting a thread.
 @Test func quickWorkWaitsPastItsOwnCap() async throws {
@@ -12,7 +13,10 @@ import Core
         for _ in 0..<6 {
             g.addTask {
                 try await slots.run(quick: true) {
-                    running.withLock { $0.now += 1; $0.most = max($0.most, $0.now) }
+                    running.withLock {
+                        $0.now += 1
+                        $0.most = max($0.most, $0.now)
+                    }
                     usleep(100_000)
                     running.withLock { $0.now -= 1 }
                 }
@@ -35,7 +39,8 @@ import Core
 
 /// A client that sends without ever ending its line is hung up on past the line limit, not kept in memory for good.
 @Test func aLineThatNeverEndsIsHungUpOn() async throws {
-    let (d, _, root) = try daemon(); defer { d.stop() }
+    let (d, _, root) = try daemon()
+    defer { d.stop() }
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
     Unix.noSigPipe(fd)
@@ -62,7 +67,8 @@ import Core
 
 /// Once the daemon stopped its watches, a watch.start still on its way (a reader applying it in order) starts none.
 @Test func noWatchStartsAfterStopAll() throws {
-    let (d, _, _) = try daemon(); defer { d.stop() }
+    let (d, _, _) = try daemon()
+    defer { d.stop() }
     d.watches.stopAll()
     d.watches.start(.init(topic: .activity, key: ""), conn: 1)
     #expect(d.watches.count == 0)
@@ -76,7 +82,10 @@ import Core
         for _ in 0..<5 {
             g.addTask {
                 try await slots.runNow {
-                    running.withLock { $0.now += 1; $0.most = max($0.most, $0.now) }
+                    running.withLock {
+                        $0.now += 1
+                        $0.most = max($0.most, $0.now)
+                    }
                     usleep(100_000)
                     running.withLock { $0.now -= 1 }
                 }
@@ -90,7 +99,12 @@ import Core
 /// Closed for an update: what has a slot finishes, what waits for one and what comes later is refused, not started.
 @Test func closedSlotsFinishWhatRunsAndStartNothing() async throws {
     let slots = Slots(1), held = DispatchSemaphore(value: 0)
-    let running = Task { try await slots.run { held.wait(); return 1 } }
+    let running = Task {
+        try await slots.run {
+            held.wait()
+            return 1
+        }
+    }
     try await Task.sleep(for: .milliseconds(50))   // the one slot is taken
     let waiting = Task { try await slots.run { 2 } }
     try await Task.sleep(for: .milliseconds(50))   // queued behind the one running (refused either way)

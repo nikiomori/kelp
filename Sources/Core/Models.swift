@@ -19,8 +19,15 @@ public struct Repo: Codable, Sendable, Equatable, Revised {
     public var baseBranch: String
     /// Glob-ish file names copied from the repo into each new worktree (e.g. ".env").
     public var copyFiles: [String]
-    public init(id: String = UUID().uuidString, name: String, path: String, baseBranch: String = "main", copyFiles: [String] = [".env", ".env.local"]) {
-        self.id = id; self.name = name; self.path = path; self.baseBranch = baseBranch; self.copyFiles = copyFiles
+    public init(
+        id: String = UUID().uuidString, name: String, path: String, baseBranch: String = "main",
+        copyFiles: [String] = [".env", ".env.local"]
+    ) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.baseBranch = baseBranch
+        self.copyFiles = copyFiles
     }
 }
 
@@ -44,13 +51,25 @@ public struct Worktree: Codable, Sendable, Equatable, Revised {
     /// The session whose program made it (`Session.origin`'s kind): an agent works in a workspace it made, across a
     /// restart of the daemon too. nil: the user's.
     public var madeBy: String?
-    public init(id: String = UUID().uuidString, repoId: String, branch: String, path: String, note: String = "", archived: Bool = false,
-                createdAt: Date = Date(), issue: String = "", issueURL: String = "", linearIssueId: String = "",
-                prNumber: Int? = nil, prURL: String = "", base: String = "") {
+    public init(
+        id: String = UUID().uuidString, repoId: String, branch: String, path: String, note: String = "",
+        archived: Bool = false,
+        createdAt: Date = Date(), issue: String = "", issueURL: String = "", linearIssueId: String = "",
+        prNumber: Int? = nil, prURL: String = "", base: String = ""
+    ) {
         self.base = base
-        self.id = id; self.repoId = repoId; self.branch = branch; self.path = path
-        self.note = note; self.archived = archived; self.createdAt = createdAt
-        self.issue = issue; self.issueURL = issueURL; self.linearIssueId = linearIssueId; self.prNumber = prNumber; self.prURL = prURL
+        self.id = id
+        self.repoId = repoId
+        self.branch = branch
+        self.path = path
+        self.note = note
+        self.archived = archived
+        self.createdAt = createdAt
+        self.issue = issue
+        self.issueURL = issueURL
+        self.linearIssueId = linearIssueId
+        self.prNumber = prNumber
+        self.prURL = prURL
     }
 }
 
@@ -81,7 +100,11 @@ public struct LimitHit: Codable, Sendable, Equatable {
     public var resets: String?
     /// When it stopped: `resets` is read from here, so "3pm" stays today's once that has passed.
     public var at: Date
-    public init(kind: String, resets: String?, at: Date = Date()) { self.kind = kind; self.resets = resets; self.at = at }
+    public init(kind: String, resets: String?, at: Date = Date()) {
+        self.kind = kind
+        self.resets = resets
+        self.at = at
+    }
 }
 
 /// A subagent of an agent's turn, at work or finished. `kind` is empty when only a terminal report told of it.
@@ -92,7 +115,10 @@ public struct Subagent: Codable, Sendable, Equatable, Identifiable {
     /// Its permission dialog is open.
     public var asks: Bool?
     public init(id: String, kind: String, task: String?, started: Date = Date()) {
-        self.id = id; self.kind = kind; self.task = task; self.started = started
+        self.id = id
+        self.kind = kind
+        self.task = task
+        self.started = started
     }
 }
 
@@ -108,7 +134,11 @@ public struct Session: Codable, Sendable, Equatable, Revised {
             guard status != oldValue else { return }
             statusAt = Date()
             // A Stop that waits for one stays working; cut short, none says it ended.
-            if status != .working && status != .waiting { subagents = nil; subagentTasks = nil; subagentRuns = nil }
+            if status != .working && status != .waiting {
+                subagents = nil
+                subagentTasks = nil
+                subagentRuns = nil
+            }
         }
     }
     /// When `status` last changed ("working for 4m", "done 2h ago"); nil for sessions from before it was kept.
@@ -172,12 +202,25 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var subagentTasks: [String: String]? { didSet { followSubagents() } }
     /// Its subagents of this turn in the order they started, the finished ones too; follows the two above, ends with the turn.
     public var subagentRuns: [Subagent]?
-    public init(id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
-                status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
-                title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []) {
-        self.id = id; self.worktreeId = worktreeId; self.cwd = cwd; self.command = command; self.agent = agent
-        self.status = status; self.statusAt = createdAt; self.unread = unread; self.pid = pid; self.createdAt = createdAt
-        self.title = title; self.titleManual = titleManual; self.summary = summary; self.argv = argv
+    public init(
+        id: String = UUID().uuidString, worktreeId: String? = nil, cwd: String, command: String, agent: String? = nil,
+        status: AgentStatus = .idle, unread: Bool = false, pid: Int32 = 0, createdAt: Date = Date(),
+        title: String = "", titleManual: Bool = false, summary: String = "", argv: [String] = []
+    ) {
+        self.id = id
+        self.worktreeId = worktreeId
+        self.cwd = cwd
+        self.command = command
+        self.agent = agent
+        self.status = status
+        self.statusAt = createdAt
+        self.unread = unread
+        self.pid = pid
+        self.createdAt = createdAt
+        self.title = title
+        self.titleManual = titleManual
+        self.summary = summary
+        self.argv = argv
     }
     public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
     /// Where the app keeps the commands moved off their agent's line to a tab (a list in UI state).
@@ -198,7 +241,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     }
     /// The tooltip of its tab and of the mark for what runs beside it: the commands by name, which no row or tab has room for.
     public var backgroundTip: String? {
-        let awaited = waitsForCommand ? awaiting.map { [String(localized: "Waits for its command:"), AgentCommand.short($0)] } : nil
+        let awaited =
+            waitsForCommand
+            ? awaiting.map { [String(localized: "Waits for its command:"), AgentCommand.short($0)] } : nil
         let lines = (awaited ?? []) + (aside.isEmpty ? [] : [String(localized: "Running in the background:")] + aside)
         return lines.isEmpty ? nil : lines.joined(separator: "\n")
     }
@@ -253,12 +298,16 @@ public struct Session: Codable, Sendable, Equatable, Revised {
 extension [Session] {
     /// The agent whose line shows the command `s`: nil for any other session, and once that agent ended or went elsewhere.
     public func owner(of s: Session) -> Session? {
-        guard let id = s.startedBy, let a = first(where: { $0.id == id }), a.status != .exited, a.worktreeId == s.worktreeId else { return nil }
+        guard let id = s.startedBy, let a = first(where: { $0.id == id }), a.status != .exited,
+            a.worktreeId == s.worktreeId
+        else { return nil }
         return a
     }
 
     /// The agents `id` started that haven't ended, and those they started.
-    public func children(of id: String) -> [Session] { filter { $0.parent == id && $0.status != .exited }.flatMap { [$0] + children(of: $0.id) } }
+    public func children(of id: String) -> [Session] {
+        filter { $0.parent == id && $0.status != .exited }.flatMap { [$0] + children(of: $0.id) }
+    }
 
     /// For a question about ending `ids`: the agents they started end with them. Empty when there are none.
     public func childrenWords(of ids: [String]) -> String {
@@ -285,11 +334,23 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public var author: String?
     /// The past commit whose diff it's on (full hash); nil: on the folder's changes.
     public var onCommit: String?
-    public init(id: String = UUID().uuidString, worktreeId: String, file: String, startLine: Int, endLine: Int, quote: String, text: String,
-                state: State = .open, side: String? = nil, commit: String? = nil, author: String? = nil, onCommit: String? = nil) {
-        self.id = id; self.worktreeId = worktreeId; self.file = file; self.startLine = startLine
-        self.endLine = endLine; self.quote = quote; self.text = text; self.state = state; self.side = side; self.commit = commit
-        self.author = author; self.onCommit = onCommit
+    public init(
+        id: String = UUID().uuidString, worktreeId: String, file: String, startLine: Int, endLine: Int, quote: String,
+        text: String,
+        state: State = .open, side: String? = nil, commit: String? = nil, author: String? = nil, onCommit: String? = nil
+    ) {
+        self.id = id
+        self.worktreeId = worktreeId
+        self.file = file
+        self.startLine = startLine
+        self.endLine = endLine
+        self.quote = quote
+        self.text = text
+        self.state = state
+        self.side = side
+        self.commit = commit
+        self.author = author
+        self.onCommit = onCommit
     }
 
     /// Whether it belongs on the diff of `commit` (nil: the folder's changes); a hash matches either way it's cut short.

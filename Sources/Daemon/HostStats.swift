@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// What a remote project's host is doing (`host.stats`): one `sh` over its shared connection reads /proc, df, ss, tmux
 /// and ps, about 0.4 s with the connection open (0.3 of it is the CPU's two looks). Linux in full; on macOS and BSD what
@@ -27,25 +27,34 @@ enum HostStatsReader {
     /// `errors`: host → why its last connection failed, in ssh's words, until one works.
     static func read(_ remote: RemoteHost, connect: Bool, sessions: [Session], errors: HostErrors) -> HostStats {
         let host = remote.host
-        if !connect, remote.connection == nil { return HostStats(host: host, connected: false, error: errors.withLock { $0[host] }) }
+        if !connect, remote.connection == nil {
+            return HostStats(host: host, connected: false, error: errors.withLock { $0[host] })
+        }
         let argv = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)]
         let out = Log.session.attempt("reading \(host)'s stats") {
-            try Subprocess.run(argv, cwd: NSHomeDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 25, limit: 4 << 20)
+            try Subprocess.run(
+                argv, cwd: NSHomeDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 25, limit: 4 << 20)
         }
         guard let out, out.status == 0, !out.timedOut else {
             let said = out.map { String(decoding: $0.stderr, as: UTF8.self) } ?? ""
-            let why = said.split(whereSeparator: \.isNewline).last.map(String.init) ?? (out?.timedOut == true ? "ssh timed out" : "ssh failed")
+            let why =
+                said.split(whereSeparator: \.isNewline).last.map(String.init)
+                ?? (out?.timedOut == true ? "ssh timed out" : "ssh failed")
             errors.withLock { $0[host] = why }
             return HostStats(host: host, connected: false, error: why)
         }
         errors.withLock { $0[host] = nil }
-        let owner = Dictionary(sessions.compactMap { s in Sessions.tmuxName(s).map { ($0, s) } }) { a, b in a.status == .exited ? b : a }.mapValues(\.id)
+        let owner = Dictionary(sessions.compactMap { s in Sessions.tmuxName(s).map { ($0, s) } }) { a, b in
+            a.status == .exited ? b : a
+        }.mapValues(\.id)
         return parse(String(decoding: out.stdout, as: UTF8.self), host: host, owner: owner)
     }
 
     /// Closes the shared connection; what runs in tmux there goes on.
     static func disconnect(_ remote: RemoteHost, errors: HostErrors) {
-        _ = Sessions.run([remote.ssh, "-o", "ControlPath=\(remote.controlDir)/%C", "-O", "exit", "--", remote.host], path: "/usr/bin:/bin", timeout: 5)
+        _ = Sessions.run(
+            [remote.ssh, "-o", "ControlPath=\(remote.controlDir)/%C", "-O", "exit", "--", remote.host],
+            path: "/usr/bin:/bin", timeout: 5)
         errors.withLock { $0[remote.host] = nil }
     }
 
@@ -70,8 +79,10 @@ enum HostStatsReader {
         memory(sections["mem"] ?? [], into: &s)
         // "/dev/sda2 61806672 27830152 31338988 48% /"
         if let d = first("disk")?.split(separator: " ", omittingEmptySubsequences: true), d.count >= 4,
-           let total = Int(d[1]), let used = Int(d[2]) {
-            s.diskTotal = total * 1024; s.disk = used * 1024
+            let total = Int(d[1]), let used = Int(d[2])
+        {
+            s.diskTotal = total * 1024
+            s.disk = used * 1024
         }
         s.ports = ports(sections["ports"] ?? [])
         let panes = (sections["tmux"] ?? []).compactMap { line -> (String, Int)? in
@@ -80,7 +91,9 @@ enum HostStatsReader {
             return (String(f[0]), pid)
         }
         var seen = Set<String>()
-        s.tmux = panes.map(\.0).filter { Tmux.isOwn($0) && seen.insert($0).inserted }.map { HostStats.TmuxSession(name: $0, session: owner[$0]) }
+        s.tmux = panes.map(\.0).filter { Tmux.isOwn($0) && seen.insert($0).inserted }.map {
+            HostStats.TmuxSession(name: $0, session: owner[$0])
+        }
         let all = (sections["ps"] ?? []).compactMap(process)
         s.processCount = all.count
         s.processes = busiest(all, panes: panes, owner: owner)
@@ -102,8 +115,14 @@ enum HostStatsReader {
             let f = l.split(separator: " ", omittingEmptySubsequences: true)
             if f.count >= 2, let v = Int(f[1]) { kb[String(f[0].dropLast())] = v * 1024 }
         }
-        if let total = kb["MemTotal"], let free = kb["MemAvailable"] { s.memoryTotal = total; s.memory = total - free }
-        if let total = kb["SwapTotal"], let free = kb["SwapFree"] { s.swapTotal = total; s.swap = total - free }
+        if let total = kb["MemTotal"], let free = kb["MemAvailable"] {
+            s.memoryTotal = total
+            s.memory = total - free
+        }
+        if let total = kb["SwapTotal"], let free = kb["SwapFree"] {
+            s.swapTotal = total
+            s.swap = total - free
+        }
     }
 
     /// "0.0.0.0:22", "[::1]:5432", "127.0.0.53%lo:53", "*:80" (ss); "127.0.0.1.5432", "*.22" (netstat). A port open on any
@@ -112,7 +131,8 @@ enum HostStatsReader {
         var local: [Int: Bool] = [:]
         for l in lines {
             let a = l.trimmingCharacters(in: .whitespaces)
-            guard let cut = a.lastIndex(where: { $0 == ":" || $0 == "." }), let port = Int(a[a.index(after: cut)...]) else { continue }
+            guard let cut = a.lastIndex(where: { $0 == ":" || $0 == "." }), let port = Int(a[a.index(after: cut)...])
+            else { continue }
             let addr = a[..<cut]
             let here = addr.hasPrefix("127.") || addr == "[::1]" || addr == "::1" || addr == "localhost"
             local[port] = (local[port] ?? true) && here
@@ -123,12 +143,17 @@ enum HostStatsReader {
     /// "  761  1 root  5.6  7388  3-10:57:50 /usr/sbin/charon --foo"
     static func process(_ line: String) -> (HostStats.Process, ppid: Int)? {
         let f = line.split(separator: " ", maxSplits: 6, omittingEmptySubsequences: true)
-        guard f.count == 7, let pid = Int(f[0]), let ppid = Int(f[1]), let cpu = Double(f[3]), let rss = Int(f[4]) else { return nil }
+        guard f.count == 7, let pid = Int(f[0]), let ppid = Int(f[1]), let cpu = Double(f[3]), let rss = Int(f[4])
+        else { return nil }
         let args = String(f[6]).trimmingCharacters(in: .whitespaces)
-        let command = args.hasPrefix("[") ? String(args.dropFirst().prefix { $0 != "]" })
-            : ((args.split(separator: " ").first.map(String.init) ?? args) as NSString).lastPathComponent.trimmingCharacters(in: [":"])   // "sshd:"
-        let p = HostStats.Process(pid: pid, user: String(f[2]), cpu: cpu, memory: rss * 1024, seconds: seconds(String(f[5])),
-                                  command: command, args: String(args.prefix(300)))
+        let command =
+            args.hasPrefix("[")
+            ? String(args.dropFirst().prefix { $0 != "]" })
+            : ((args.split(separator: " ").first.map(String.init) ?? args) as NSString).lastPathComponent
+                .trimmingCharacters(in: [":"])   // "sshd:"
+        let p = HostStats.Process(
+            pid: pid, user: String(f[2]), cpu: cpu, memory: rss * 1024, seconds: seconds(String(f[5])),
+            command: command, args: String(args.prefix(300)))
         return (p, ppid)
     }
 
@@ -141,7 +166,9 @@ enum HostStatsReader {
     }
 
     /// Every process of a Kelp session (under its tmux pane) and the 30 busiest others, busiest first.
-    static func busiest(_ all: [(HostStats.Process, ppid: Int)], panes: [(String, Int)], owner: [String: String]) -> [HostStats.Process] {
+    static func busiest(_ all: [(HostStats.Process, ppid: Int)], panes: [(String, Int)], owner: [String: String])
+        -> [HostStats.Process]
+    {
         var kids: [Int: [Int]] = [:]
         for (p, ppid) in all { kids[ppid, default: []].append(p.pid) }
         var whose: [Int: String] = [:]
@@ -168,15 +195,21 @@ enum HostStatsReader {
 extension HostStatsRead: Handled {
     func handle(_ sessions: Sessions) throws -> HostStats {
         let host = host.trimmingCharacters(in: .whitespaces)
-        guard RemoteHost.isHost(host) else { throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.") }
+        guard RemoteHost.isHost(host) else {
+            throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.")
+        }
         let all = Log.store.attempt("reading the sessions") { try sessions.store.sessions() } ?? []
-        return HostStatsReader.read(sessions.remotes.host(host, path: "~"), connect: connect == true, sessions: all, errors: sessions.hostErrors)
+        return HostStatsReader.read(
+            sessions.remotes.host(host, path: "~"), connect: connect == true, sessions: all, errors: sessions.hostErrors
+        )
     }
 }
 
 extension HostDisconnect: Handled {
     func handle(_ sessions: Sessions) throws -> Done {
-        guard RemoteHost.isHost(host) else { throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.") }
+        guard RemoteHost.isHost(host) else {
+            throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.")
+        }
         HostStatsReader.disconnect(sessions.remotes.host(host, path: "~"), errors: sessions.hostErrors)
         return Done()
     }

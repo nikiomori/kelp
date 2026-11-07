@@ -19,7 +19,10 @@ extension GhosttyTerminalView {
     }
 
     /// Ghostty copies what it's handed before it returns; the bytes go with their length (a NUL in text or a PNG).
-    private func complete(_ surface: ghostty_surface_t, _ contents: [(mime: String, data: Data)], available: [String], state: UnsafeMutableRawPointer?) {
+    private func complete(
+        _ surface: ghostty_surface_t, _ contents: [(mime: String, data: Data)], available: [String],
+        state: UnsafeMutableRawPointer?
+    ) {
         var owned: [UnsafeMutableRawPointer] = []
         defer { owned.forEach { free($0) } }
         func keep(_ d: Data) -> UnsafePointer<CChar>? {
@@ -29,15 +32,20 @@ extension GhosttyTerminalView {
             p.storeBytes(of: 0, toByteOffset: d.count, as: UInt8.self)   // ends a MIME type as a C string
             return UnsafePointer(p.assumingMemoryBound(to: CChar.self))
         }
-        let reps = contents.map { ghostty_clipboard_content_s(mime: keep(Data($0.mime.utf8)), data: keep($0.data), len: $0.data.count) }
+        let reps = contents.map {
+            ghostty_clipboard_content_s(mime: keep(Data($0.mime.utf8)), data: keep($0.data), len: $0.data.count)
+        }
         let names = available.map { keep(Data($0.utf8)) }
         reps.withUnsafeBufferPointer { r in
             names.withUnsafeBufferPointer { n in
                 var done = ghostty_clipboard_complete_s()
                 // Not confirmed: Ghostty applies its policy (`clipboard-read = ask` for OSC 52 / Kitty reads, paste
                 // protection) and asks `confirmClipboard`.
-                done.contents = r.baseAddress; done.contents_len = r.count
-                done.available = n.baseAddress; done.available_len = n.count; done.confirmed = false
+                done.contents = r.baseAddress
+                done.contents_len = r.count
+                done.available = n.baseAddress
+                done.available_len = n.count
+                done.confirmed = false
                 ghostty_surface_complete_clipboard_request(surface, &done, state)
             }
         }
@@ -46,14 +54,24 @@ extension GhosttyTerminalView {
     /// Ghostty asks before a paste that would run as typed (a line break, no bracketed paste) and before a program reads
     /// the clipboard or writes it the Kitty way. The paste goes through, unless a program put that text there: lines you
     /// never saw mustn't run on ⌘V. The rest is refused.
-    func confirmClipboard(_ c: UnsafePointer<ghostty_clipboard_confirm_s>?, state: UnsafeMutableRawPointer?, request: ghostty_clipboard_request_e) {
+    func confirmClipboard(
+        _ c: UnsafePointer<ghostty_clipboard_confirm_s>?, state: UnsafeMutableRawPointer?,
+        request: ghostty_clipboard_request_e
+    ) {
         guard let surface else { return }
-        guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE, let c else { ghostty_surface_deny_clipboard_request(surface, state); return }
+        guard request == GHOSTTY_CLIPBOARD_REQUEST_PASTE, let c else {
+            ghostty_surface_deny_clipboard_request(surface, state)
+            return
+        }
         if GhosttyRuntime.programCopy == GhosttyRuntime.pasteboard.changeCount {
-            ghostty_surface_deny_clipboard_request(surface, state); onPasteRefused?(); return
+            ghostty_surface_deny_clipboard_request(surface, state)
+            onPasteRefused?()
+            return
         }
         var done = ghostty_clipboard_complete_s()
-        done.contents = c.pointee.contents; done.contents_len = c.pointee.contents_len; done.confirmed = true
+        done.contents = c.pointee.contents
+        done.contents_len = c.pointee.contents_len
+        done.confirmed = true
         ghostty_surface_complete_clipboard_request(surface, &done, state)
     }
 }

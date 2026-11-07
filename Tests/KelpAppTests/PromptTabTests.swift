@@ -1,11 +1,12 @@
 import AppKit
 import Core
 import Foundation
-import Testing
 import TestSupport
+import Testing
 import WorkbenchKit
-@testable import KelpKit
+
 @testable import BuiltinFiles
+@testable import KelpKit
 
 /// A prompt handed over by an agent: closing puts the text back and says so beside the file; Cancel only says so.
 extension AppOfItsOwn {
@@ -22,7 +23,8 @@ extension AppOfItsOwn {
     }
 
     @Test func closingAPromptWritesItsTextAndSaysItsDone() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
         #expect(try await waitFor(5) { !(tab.typed == nil) })
         tab.type("long prompt\n")
@@ -37,7 +39,9 @@ extension AppOfItsOwn {
         UserDefaults.standard.set("Always", forKey: "AppleShowScrollBars")   // with a mouse: the scroller takes its width
         defer { UserDefaults.standard.removeObject(forKey: "AppleShowScrollBars") }
         let field = StartPrompt(placeholder: "", accessibilityLabel: "")
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = field
         var kept = ""
         field.onChange = { kept = $0 }
@@ -57,7 +61,8 @@ extension AppOfItsOwn {
 extension AppOfItsOwn {
     /// A server's change: the tab's own file in its buffer, for its undo; another file written; one with unsaved edits holds it all.
     @Test func aServersChangeReachesTheBufferAndOtherFiles() async throws {
-        let rig = try await AppRig(files: ["a.txt": "old\n", "b.txt": "old\n"]); defer { rig.done() }
+        let rig = try await AppRig(files: ["a.txt": "old\n", "b.txt": "old\n"])
+        defer { rig.done() }
         rig.app.worktrees = [rig.workspace]
         let a = rig.workspace.path + "/a.txt", b = rig.workspace.path + "/b.txt"
         let tab = FileTab(uri: TabURI.file(a), app: rig.app)

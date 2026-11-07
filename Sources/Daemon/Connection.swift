@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// A client of the socket. Writes leave in order from the connection's own queue, so no caller waits on a client that
 /// reads slowly (or not at all), and its fd closes only after them: a reply can't land in a later connection or a
@@ -62,7 +62,12 @@ final class Connection: Sendable {
     func close() {
         state.withLock { s in
             s.closing = true
-            q.async { [self] in state.withLock { $0.closed = true; _ = Darwin.close(fd) } }
+            q.async { [self] in
+                state.withLock {
+                    $0.closed = true
+                    _ = Darwin.close(fd)
+                }
+            }
         }
     }
 }

@@ -1,10 +1,12 @@
 import Foundation
 import Testing
+
 @testable import Core
 
 private func tempRoot() throws -> URL {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("ka-\(UUID().uuidString.prefix(8))")
-    try FileManager.default.createDirectory(at: root.appendingPathComponent(".git/info"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: root.appendingPathComponent(".git/info"), withIntermediateDirectories: true)
     return root
 }
 
@@ -18,15 +20,21 @@ private func tempRoot() throws -> URL {
 /// A page gets a folder of its own, a record naming the chat, and the folder stays out of git once.
 @Test func artifactCreateAndList() throws {
     let root = try tempRoot()
-    let first = try Artifacts.create(.review, title: "GRDB 7: four decisions", root: root.path, session: "s1", now: Date(timeIntervalSince1970: 1))
+    let first = try Artifacts.create(
+        .review, title: "GRDB 7: four decisions", root: root.path, session: "s1", now: Date(timeIntervalSince1970: 1))
     #expect(first.path.hasSuffix(".kelp/artifacts/grdb-7-four-decisions/review.md"))
     #expect(try String(contentsOf: first, encoding: .utf8) == "# GRDB 7: four decisions\n\n")
-    let second = try Artifacts.create(.doc, title: "GRDB 7: four decisions", root: root.path, session: nil, now: Date(timeIntervalSince1970: 2))
+    let second = try Artifacts.create(
+        .doc, title: "GRDB 7: four decisions", root: root.path, session: nil, now: Date(timeIntervalSince1970: 2))
     #expect(second.deletingLastPathComponent().lastPathComponent == "grdb-7-four-decisions-2")
 
     let all = Artifacts.list(root: root.path)
     #expect(all.map(\.slug) == ["grdb-7-four-decisions-2", "grdb-7-four-decisions"])   // newest first
-    #expect(all[1].record == ArtifactRecord(type: "review", title: "GRDB 7: four decisions", created: Date(timeIntervalSince1970: 1), session: "s1", file: "review.md"))
+    #expect(
+        all[1].record
+            == ArtifactRecord(
+                type: "review", title: "GRDB 7: four decisions", created: Date(timeIntervalSince1970: 1), session: "s1",
+                file: "review.md"))
     #expect(Artifacts.target(all[1].slug, all[1].record, root: root.path) == first.path)
 
     let exclude = try String(contentsOf: root.appendingPathComponent(".git/info/exclude"), encoding: .utf8)
@@ -40,8 +48,11 @@ private func tempRoot() throws -> URL {
     #expect(design.lastPathComponent == "design.html")
     let html = try String(contentsOf: design, encoding: .utf8)
     #expect(html.contains("<title>Header &lt;A &amp; B&gt;</title>") && html.contains("color-scheme: light dark"))
-    #expect(try Artifacts.create(.dashboard, title: "CI", root: root.path, session: nil).lastPathComponent == "dashboard.html")
-    #expect(try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
+    #expect(
+        try Artifacts.create(.dashboard, title: "CI", root: root.path, session: nil).lastPathComponent
+            == "dashboard.html")
+    #expect(
+        try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
     #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.html"))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))
@@ -50,24 +61,33 @@ private func tempRoot() throws -> URL {
 /// A worktree's `.git` is a file; its exclude is the main repository's.
 @Test func artifactExcludeInWorktree() throws {
     let repo = try tempRoot(), wt = repo.appendingPathComponent("wt")
-    try FileManager.default.createDirectory(at: repo.appendingPathComponent(".git/worktrees/wt"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: repo.appendingPathComponent(".git/worktrees/wt"), withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: wt, withIntermediateDirectories: true)
-    try "gitdir: \(repo.path)/.git/worktrees/wt\n".write(to: wt.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+    try "gitdir: \(repo.path)/.git/worktrees/wt\n".write(
+        to: wt.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
     try "*.log".write(to: repo.appendingPathComponent(".git/info/exclude"), atomically: true, encoding: .utf8)
     try Artifacts.excludeFromGit(root: wt.path)
     try Artifacts.excludeFromGit(root: wt.path)
-    #expect(try String(contentsOf: repo.appendingPathComponent(".git/info/exclude"), encoding: .utf8) == "*.log\n/.kelp/artifacts/\n")
+    #expect(
+        try String(contentsOf: repo.appendingPathComponent(".git/info/exclude"), encoding: .utf8)
+            == "*.log\n/.kelp/artifacts/\n")
 }
 
 /// What claude-artifacts answers a publish with: the link is kept once, a later version of it isn't a new page.
 @Test func artifactFromHook() throws {
-    let answer = #"{"slug":"28647d38","title":"Kelp 0.9 for the team","url":"https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL","version":"1"}"#
+    let answer =
+        #"{"slug":"28647d38","title":"Kelp 0.9 for the team","url":"https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL","version":"1"}"#
     func hook(_ event: String, _ tool: String) -> JSONValue {
-        .obj(["hook_event_name": .string(event), "tool_name": .string(tool), "tool_input": .obj(["files": .array([])]),
-              "tool_response": .array([.obj(["type": "text", "text": .string(answer)])])])
+        .obj([
+            "hook_event_name": .string(event), "tool_name": .string(tool), "tool_input": .obj(["files": .array([])]),
+            "tool_response": .array([.obj(["type": "text", "text": .string(answer)])])
+        ])
     }
     let p = try #require(Artifacts.published(hook: hook("PostToolUse", "mcp__claude-artifacts__publish_files")))
-    #expect(p.url == "https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL" && p.title == "Kelp 0.9 for the team" && p.type == "page")
+    #expect(
+        p.url == "https://claude.ai/artifact/5zJ6vqH1KMUVNFw1ztTGRL" && p.title == "Kelp 0.9 for the team"
+            && p.type == "page")
     #expect(Artifacts.published(hook: hook("PreToolUse", "mcp__claude-artifacts__publish_files")) == nil)
     #expect(Artifacts.published(hook: hook("PostToolUse", "Bash")) == nil)
     // Reading or listing names pages too (a type's own, someone else's): not published here.
@@ -100,10 +120,13 @@ private func tempRoot() throws -> URL {
 /// The panel's list: a review's answers counted from its file, its last save; a page on a service only its link.
 @Test func artifactItems() throws {
     let root = try tempRoot()
-    let page = try Artifacts.create(.review, title: "Two points", root: root.path, session: "s1", now: Date(timeIntervalSince1970: 1))
-    try "# Two points\n\n## 1. One\n- [x] A. Yes\n- [ ] B. No\n\n## 2. Two\n- [ ] A. Yes\n".write(to: page, atomically: true, encoding: .utf8)
-    _ = try Artifacts.addNative(url: "https://claude.ai/artifact/abc", title: "Deck", type: "page", root: root.path, session: nil,
-                                now: Date(timeIntervalSince1970: 2))
+    let page = try Artifacts.create(
+        .review, title: "Two points", root: root.path, session: "s1", now: Date(timeIntervalSince1970: 1))
+    try "# Two points\n\n## 1. One\n- [x] A. Yes\n- [ ] B. No\n\n## 2. Two\n- [ ] A. Yes\n".write(
+        to: page, atomically: true, encoding: .utf8)
+    _ = try Artifacts.addNative(
+        url: "https://claude.ai/artifact/abc", title: "Deck", type: "page", root: root.path, session: nil,
+        now: Date(timeIntervalSince1970: 2))
     let items = Artifacts.items(root: root.path)
     #expect(items.map(\.title) == ["Deck", "Two points"])
     #expect(items[0].target == "https://claude.ai/artifact/abc" && items[0].modified == nil && items[0].points == nil)
@@ -157,7 +180,8 @@ private func tempRoot() throws -> URL {
     try add("up", "{\(made),\"file\":\"../../../etc/passwd\"}")
     try add("web", "{\(made),\"url\":\"https://claude.ai/artifact/abc\"}")
     try add("zero", "{\(made),\"file\":\"doc.md\"}")
-    try FileManager.default.createSymbolicLink(atPath: base.appendingPathComponent("zero/doc.md").path, withDestinationPath: "/dev/zero")
+    try FileManager.default.createSymbolicLink(
+        atPath: base.appendingPathComponent("zero/doc.md").path, withDestinationPath: "/dev/zero")
     #expect(Artifacts.list(root: root.path).map(\.slug).sorted() == ["web", "zero"])
     #expect(Artifacts.items(root: root.path).contains { $0.slug == "zero" })   // listed, its endless file not read
 }

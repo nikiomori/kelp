@@ -13,7 +13,10 @@ extension AppModel {
     package func unwatch(_ topic: WatchTopic, _ key: String = "") {
         let w = WatchStart(topic, key)
         guard let n = watching[w] else { return }
-        if n > 1 { watching[w] = n - 1; return }
+        if n > 1 {
+            watching[w] = n - 1
+            return
+        }
         watching[w] = nil
         client?.notify(WatchStop(topic, key))
         forget(topic, key)   // not shown anywhere now: no stale value when it's watched again
@@ -59,21 +62,32 @@ extension AppModel {
     /// A project or workspace as it is now: the lists follow the daemon's records without reading them again.
     func record(_ r: Repo) {
         recordEvents[r.id, default: 0] += 1
-        if let i = repos.firstIndex(where: { $0.id == r.id }) { if repos[i] != r, !r.isOlder(than: repos[i]) { repos[i] = r } } else { repos.append(r) }
+        if let i = repos.firstIndex(where: { $0.id == r.id }) {
+            if repos[i] != r, !r.isOlder(than: repos[i]) { repos[i] = r }
+        } else {
+            repos.append(r)
+        }
     }
     func record(_ w: Worktree) {
         recordEvents[w.id, default: 0] += 1
-        if let i = worktrees.firstIndex(where: { $0.id == w.id }) { if worktrees[i] != w, !w.isOlder(than: worktrees[i]) { worktrees[i] = w } }
-        else { worktrees.append(w) }
+        if let i = worktrees.firstIndex(where: { $0.id == w.id }) {
+            if worktrees[i] != w, !w.isOlder(than: worktrees[i]) { worktrees[i] = w }
+        } else {
+            worktrees.append(w)
+        }
     }
 
     /// A project, workspace or session that's gone.
     func removed(_ e: RemovedEvent) {
         if let id = e.repo {
             for x in [id] + worktrees.filter({ $0.repoId == id }).map(\.id) { recordEvents[x, default: 0] += 1 }
-            repos.removeAll { $0.id == id }; worktrees.removeAll { $0.repoId == id }
+            repos.removeAll { $0.id == id }
+            worktrees.removeAll { $0.repoId == id }
         }
-        if let id = e.worktree { recordEvents[id, default: 0] += 1; worktrees.removeAll { $0.id == id } }
+        if let id = e.worktree {
+            recordEvents[id, default: 0] += 1
+            worktrees.removeAll { $0.id == id }
+        }
         if let id = e.session { removed(session: id) }
     }
 
@@ -105,6 +119,9 @@ package final class Watched {
             if let k = key { app.watch(topic, k) }
         }
     }
-    package init(_ topic: WatchTopic, in app: AppModel) { self.topic = topic; self.app = app }
+    package init(_ topic: WatchTopic, in app: AppModel) {
+        self.topic = topic
+        self.app = app
+    }
     isolated deinit { if let k = key { app.unwatch(topic, k) } }
 }

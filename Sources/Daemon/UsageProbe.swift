@@ -1,19 +1,19 @@
+import AgentData
+import Agents
+import Core
 import Foundation
 import os
-import Core
-import Agents
-import AgentData
 
 /// Plan limits as the agents themselves show them in `/usage` (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor). A hidden copy of
 /// the agent opens that screen now and then and quits: no tokens are spent and Kelp never touches their credentials.
 extension AgentUsage {
     struct PlanProbe: Sendable {
         let agent: String, command: String, every: TimeInterval
-        var ready: @Sendable (String) -> Bool = { _ in true }    // its prompt is drawn
-        var shown: @Sendable (String) -> Bool = { _ in true }    // the usage screen has loaded
+        var ready: @Sendable (String) -> Bool = { _ in true }   // its prompt is drawn
+        var shown: @Sendable (String) -> Bool = { _ in true }   // the usage screen has loaded
         let parse: @Sendable (String) -> [ClaudeLimits.Reading]
-        var env: [String: String] = [:]          // extra launch env (e.g. Kimi's trust-this-run)
-        var answersTrust = false                 // its "trust this folder?" has a default that trusts for this run only (Copilot)
+        var env: [String: String] = [:]   // extra launch env (e.g. Kimi's trust-this-run)
+        var answersTrust = false   // its "trust this folder?" has a default that trusts for this run only (Copilot)
         /// With these it prints the usage and exits, no terminal: nothing opens, so no session or prompt history is left (Claude's `-p`).
         var printArgs: [String] = []
     }
@@ -32,7 +32,9 @@ extension AgentUsage {
             hits.removeAll { h in fresh.contains { $0.kind == h.kind && $0.resets != h.resets } }
             readings = fresh
             for i in readings.indices {
-                if let hit = hits.first(where: { $0.kind == readings[i].kind }) { readings[i].percent = max(readings[i].percent, hit.percent) }
+                if let hit = hits.first(where: { $0.kind == readings[i].kind }) {
+                    readings[i].percent = max(readings[i].percent, hit.percent)
+                }
             }
             readAt = Date()
         }
@@ -44,7 +46,9 @@ extension AgentUsage {
             var s = plans[agent] ?? PlanState()
             // No date in what it printed: the cycle /usage last showed.
             var r = r
-            for i in r.indices where r[i].resets == nil { r[i].resets = s.readings.first { $0.kind == r[i].kind }?.resets }
+            for i in r.indices where r[i].resets == nil {
+                r[i].resets = s.readings.first { $0.kind == r[i].kind }?.resets
+            }
             s.hits = r + s.hits.filter { h in !r.contains { $0.kind == h.kind } }
             s.read(s.readings.isEmpty ? r : s.readings)
             plans[agent] = s
@@ -53,26 +57,33 @@ extension AgentUsage {
 
     static let planProbes = [
         // Opened in a terminal, every reading was a session of its own in Claude's /resume and a "/usage" in its prompt history.
-        PlanProbe(agent: "claude", command: "claude", every: 600, parse: ClaudeLimits.parseUsage,
-                  printArgs: ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config"]),   // no MCP server starts for it
+        PlanProbe(
+            agent: "claude", command: "claude", every: 600, parse: ClaudeLimits.parseUsage,
+            printArgs: ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config"]),   // no MCP server starts for it
         // With any hook of the user's own, Grok asks "Do you trust the contents of this directory?" in every folder; this
         // run alone does without the question, and nothing is written to its trusted_folders.toml.
-        PlanProbe(agent: "grok", command: "grok", every: 1800, ready: { $0.contains("Ctrl+x:shortcuts") },
-                  shown: { $0.contains("Weekly limit") && $0.contains("Resets") }, parse: ClaudeLimits.parseGrokUsage,
-                  env: ["GROK_FOLDER_TRUST": "0"]),
+        PlanProbe(
+            agent: "grok", command: "grok", every: 1800, ready: { $0.contains("Ctrl+x:shortcuts") },
+            shown: { $0.contains("Weekly limit") && $0.contains("Resets") }, parse: ClaudeLimits.parseGrokUsage,
+            env: ["GROK_FOLDER_TRUST": "0"]),
         // Its /usage typed in a terminal went into its prompt history every time.
-        PlanProbe(agent: "antigravity", command: "agy", every: 1800, parse: { ClaudeLimits.parseAntigravityUsage($0) },
-                  printArgs: ["-p", "/usage"]),
+        PlanProbe(
+            agent: "antigravity", command: "agy", every: 1800, parse: { ClaudeLimits.parseAntigravityUsage($0) },
+            printArgs: ["-p", "/usage"]),
         // Trust for this process only: the probe has no one to answer "Trust this folder?".
-        PlanProbe(agent: "kimi", command: "kimi", every: 1800,
-                  ready: { $0.contains("│ >") || $0.contains("context:") },
-                  shown: { $0.contains("Plan usage") }, parse: ClaudeLimits.parseKimiUsage,
-                  env: ["KIMI_CODE_TRUST_WORKSPACE": "1"]),
+        PlanProbe(
+            agent: "kimi", command: "kimi", every: 1800,
+            ready: { $0.contains("│ >") || $0.contains("context:") },
+            shown: { $0.contains("Plan usage") }, parse: ClaudeLimits.parseKimiUsage,
+            env: ["KIMI_CODE_TRUST_WORKSPACE": "1"]),
         // "Plan ■■■■ 2% used 5 / 200 AIC". Its folder question is answered with Enter: "1. Yes", for this session only.
-        PlanProbe(agent: "copilot", command: "copilot", every: 1800, ready: { $0.contains("/ commands") },
-                  shown: { $0.contains("Plan") && $0.contains("% used") }, parse: ClaudeLimits.parseCopilotUsage, answersTrust: true),
-        PlanProbe(agent: "cursor", command: "cursor-agent", every: 1800, ready: { $0.contains("build anything") },
-                  shown: { $0.contains("Included") && $0.contains("% used") }, parse: ClaudeLimits.parseCursorUsage)
+        PlanProbe(
+            agent: "copilot", command: "copilot", every: 1800, ready: { $0.contains("/ commands") },
+            shown: { $0.contains("Plan") && $0.contains("% used") }, parse: ClaudeLimits.parseCopilotUsage,
+            answersTrust: true),
+        PlanProbe(
+            agent: "cursor", command: "cursor-agent", every: 1800, ready: { $0.contains("build anything") },
+            shown: { $0.contains("Included") && $0.contains("% used") }, parse: ClaudeLimits.parseCursorUsage)
     ]
 
     /// Settings › Show plan limits.
@@ -88,15 +99,18 @@ extension AgentUsage {
         guard let dir = probeDir.map(URL.init(fileURLWithPath:)) else { return [] }
         do {
             let inStore = Set(try store.sessions().compactMap(\.agent)), fm = FileManager.default
-            return Set(try Self.planProbes.map(\.agent).filter { agent in
-                let mark = dir.appendingPathComponent("\(agent).used")
-                var at = fm.fileExists(atPath: mark.path) ? try fm.attributesOfItem(atPath: mark.path)[.modificationDate] as? Date : nil
-                if inStore.contains(agent), at.map({ $0 < now - 86400 }) ?? true {
-                    fm.createFile(atPath: mark.path, contents: nil, attributes: [.modificationDate: now])
-                    at = now
-                }
-                return at.map { $0 > now - Self.probeLately } ?? false
-            })
+            return Set(
+                try Self.planProbes.map(\.agent).filter { agent in
+                    let mark = dir.appendingPathComponent("\(agent).used")
+                    var at =
+                        fm.fileExists(atPath: mark.path)
+                        ? try fm.attributesOfItem(atPath: mark.path)[.modificationDate] as? Date : nil
+                    if inStore.contains(agent), at.map({ $0 < now - 86400 }) ?? true {
+                        fm.createFile(atPath: mark.path, contents: nil, attributes: [.modificationDate: now])
+                        at = now
+                    }
+                    return at.map { $0 > now - Self.probeLately } ?? false
+                })
         } catch {
             Log.session.error("couldn't tell which agents ran lately: \(error)")
             return []
@@ -110,7 +124,8 @@ extension AgentUsage {
             let start: Bool = plans.withLock { plans in
                 let s = plans[probe.agent] ?? PlanState()
                 guard !s.running, Date().timeIntervalSince(s.at ?? .distantPast) > probe.every else { return false }
-                plans[probe.agent, default: PlanState()].running = true; return true
+                plans[probe.agent, default: PlanState()].running = true
+                return true
             }
             guard start else { continue }
             DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -129,7 +144,9 @@ extension AgentUsage {
                     }
                     // What a failed probe saw, for whoever fixes the parser when an agent changes its screen.
                     if readings.isEmpty, (try? Paths.ensure(root.appendingPathComponent("probe"))) != nil {
-                        try? screen.write(to: root.appendingPathComponent("probe/\(probe.agent).txt"), atomically: true, encoding: .utf8)
+                        try? screen.write(
+                            to: root.appendingPathComponent("probe/\(probe.agent).txt"), atomically: true,
+                            encoding: .utf8)
                     }
                 }
                 plans.withLock { [readings] plans in
@@ -152,7 +169,9 @@ extension AgentUsage {
     /// A turn just ended, so the agent's usage moved: read its plan half a minute from now instead of at the next round
     /// (up to 10 minutes late for Claude), and not within `planGap` of the last reading. The UI's next `usage.get` starts the read.
     func planUsed(_ agent: String) {
-        if agent == "codex" { codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) } }
+        if agent == "codex" {
+            codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) }
+        }
         guard let p = Self.planProbes.first(where: { $0.agent == agent }) else { return }
         plans.withLock { plans in
             guard let s = plans[agent], let at = s.at, s.fails == 0 else { return }   // a failing probe keeps to its own wait
@@ -171,14 +190,16 @@ extension AgentUsage {
         guard readsPlans else { return }
         let start: Bool = codexLive.withLock { s in
             guard !s.running, Date().timeIntervalSince(s.at) > Self.codexEvery else { return false }
-            s.running = true; return true
+            s.running = true
+            return true
         }
         guard start else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let l = (try? LoginPath.resolve("codex")).flatMap { Self.codexLimits(path: $0, open: self?.openProbes) }
             self?.codexLive.withLock { s in
                 if let l { s.limits = l }
-                s.at = Date(); s.running = false
+                s.at = Date()
+                s.running = false
             }
         }
     }
@@ -188,23 +209,37 @@ extension AgentUsage {
     static func codexLimits(path: String, open: OpenProbes? = nil) -> CodexLimits? {
         let out = ScreenBuffer()
         let pty: PTY
-        do { pty = try PTY(argv: [path, "app-server"], cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value]) }
-        catch { Log.session.error("codex app-server didn't start: \(error)"); return nil }
+        do {
+            pty = try PTY(argv: [path, "app-server"], cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value])
+        } catch {
+            Log.session.error("codex app-server didn't start: \(error)")
+            return nil
+        }
         pty.onOutput = { out.append($0) }
         pty.start()
         open?.add(pty)
-        defer { open?.remove(pty); pty.terminate() }
-        let ask = [#"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"kelp","version":"1"}}}"#, #"{"method":"initialized"}"#,
-                   #"{"id":2,"method":"account/rateLimits/read"}"#]
+        defer {
+            open?.remove(pty)
+            pty.terminate()
+        }
+        let ask = [
+            #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"kelp","version":"1"}}}"#,
+            #"{"method":"initialized"}"#,
+            #"{"id":2,"method":"account/rateLimits/read"}"#
+        ]
         pty.write(Data((ask.joined(separator: "\n") + "\n").utf8))
         var answer: [String: Any]?
         _ = out.wait(20) { text in   // the terminal echoes the questions back: only an answer has a result or an error
-            answer = text.split(whereSeparator: \.isNewline).lazy.compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
-                .first { $0["id"] as? Int == 2 && ($0["result"] != nil || $0["error"] != nil) }
+            answer = text.split(whereSeparator: \.isNewline).lazy.compactMap {
+                try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]
+            }
+            .first { $0["id"] as? Int == 2 && ($0["result"] != nil || $0["error"] != nil) }
             return answer != nil
         }
         let l = CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
-        if l == nil { Log.session.error("codex app-server gave no limits: \(answer.map { "\($0)" } ?? "no answer in 20 s")") }
+        if l == nil {
+            Log.session.error("codex app-server gave no limits: \(answer.map { "\($0)" } ?? "no answer in 20 s")")
+        }
         return l
     }
 
@@ -220,38 +255,55 @@ extension AgentUsage {
     private func probeArgv(_ agent: String, _ path: String) -> [[String]] {
         guard ["grok", "copilot", "cursor"].contains(agent) else { return [[path]] }
         let file = root.appendingPathComponent("probe/\(agent)-session")
-        let id = (try? String(contentsOf: file, encoding: .utf8)).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let id =
+            (try? String(contentsOf: file, encoding: .utf8)).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             ?? UUID().uuidString.lowercased()
-        Log.session.attempt("keeping the usage probe's session id") { try id.write(to: file, atomically: true, encoding: .utf8) }
+        Log.session.attempt("keeping the usage probe's session id") {
+            try id.write(to: file, atomically: true, encoding: .utf8)
+        }
         return switch agent {
         // Resume, then same id, then a fresh one if another probe still holds the lock ("already in use").
-        case "grok": [[path, "--resume", id], [path, "--session-id", id], [path, "--session-id", UUID().uuidString.lowercased()]]
-        case "copilot": [[path, "--session-id", id], [path]]           // resumes that session, or starts it under that id
-        default: [[path, "--trust", "--resume", id], [path, "--trust"]]  // Cursor: an id it doesn't know becomes the new chat's
+        case "grok":
+            [
+                [path, "--resume", id], [path, "--session-id", id],
+                [path, "--session-id", UUID().uuidString.lowercased()]
+            ]
+        case "copilot": [[path, "--session-id", id], [path]]   // resumes that session, or starts it under that id
+        default: [[path, "--trust", "--resume", id], [path, "--trust"]]   // Cursor: an id it doesn't know becomes the new chat's
         }
     }
 
-    static func probe(_ p: PlanProbe, argv: [String], cwd: String, open: OpenProbes? = nil) -> ([ClaudeLimits.Reading], String) {
+    static func probe(_ p: PlanProbe, argv: [String], cwd: String, open: OpenProbes? = nil) -> (
+        [ClaudeLimits.Reading], String
+    ) {
         let screen = ScreenBuffer()
         let pty: PTY
         let env = ["PATH": LoginPath.value].merging(p.env) { _, n in n }
-        do { pty = try PTY(argv: argv, cwd: cwd, env: env, cols: 120, rows: 80) }
-        catch { Log.session.error("the usage probe for \(argv.first ?? "", privacy: .public) didn't start: \(error)"); return ([], "") }
+        do { pty = try PTY(argv: argv, cwd: cwd, env: env, cols: 120, rows: 80) } catch {
+            Log.session.error("the usage probe for \(argv.first ?? "", privacy: .public) didn't start: \(error)")
+            return ([], "")
+        }
         pty.onOutput = { screen.append($0) }
         pty.start()
         open?.add(pty)
-        defer { open?.remove(pty); pty.terminate() }
+        defer {
+            open?.remove(pty)
+            pty.terminate()
+        }
         var trusted = false
         if p.answersTrust {
             _ = screen.wait(15) { p.ready($0) || StartupQuestion.trustAsked($0) }
-            if !p.ready(StatusDetector.stripANSI(screen.text)), StartupQuestion.trustAsked(StatusDetector.stripANSI(String(screen.text.suffix(3000)))) {
+            if !p.ready(StatusDetector.stripANSI(screen.text)),
+                StartupQuestion.trustAsked(StatusDetector.stripANSI(String(screen.text.suffix(3000))))
+            {
                 pty.write(Data("\r".utf8))
                 trusted = true
             }
         }
         // Ready: the prompt is drawn and output went quiet (or it failed and said so).
         guard screen.wait(20, until: { (p.ready($0) && screen.quietFor > 1) || $0.contains("Error:") }),
-              p.ready(StatusDetector.stripANSI(screen.text)) else { return ([], StatusDetector.stripANSI(screen.text)) }
+            p.ready(StatusDetector.stripANSI(screen.text))
+        else { return ([], StatusDetector.stripANSI(screen.text)) }
         // Nobody watches this copy: a question on screen (trust this folder? use the project's new MCP servers?) is left
         // unanswered and the probe gives up. Typing /usage and Enter there would pick its default, usually "Yes".
         let drawn = StatusDetector.stripANSI(String(screen.text.suffix(3000)))
@@ -259,7 +311,10 @@ extension AgentUsage {
         // Tips that say "esc to dismiss" steal the first keystrokes; clear them before typing /usage.
         if drawn.localizedCaseInsensitiveContains("esc to dismiss") {
             pty.write(Data("\u{1B}".utf8))
-            _ = screen.wait(5) { !StatusDetector.stripANSI($0).localizedCaseInsensitiveContains("esc to dismiss") && screen.quietFor > 0.5 }
+            _ = screen.wait(5) {
+                !StatusDetector.stripANSI($0).localizedCaseInsensitiveContains("esc to dismiss")
+                    && screen.quietFor > 0.5
+            }
         }
         pty.write(Data("/usage".utf8))
         Thread.sleep(forTimeInterval: 0.6)
@@ -282,13 +337,23 @@ final class OpenProbes: Sendable {
     func add(_ p: PTY) { ptys.withLock { $0[ObjectIdentifier(p)] = p } }
     func remove(_ p: PTY) { _ = ptys.withLock { $0.removeValue(forKey: ObjectIdentifier(p)) } }
     /// Ends them all (SIGKILL after 2 s): the pids, for `Sessions.waitGone`.
-    func endAll() -> [pid_t] { ptys.withLock { d in defer { d = [:] }; return Array(d.values) }.flatMap { $0.terminate() } }
+    func endAll() -> [pid_t] {
+        ptys.withLock { d in
+            defer { d = [:] }
+            return Array(d.values)
+        }.flatMap { $0.terminate() }
+    }
 }
 
 /// Output collected from a probe's PTY.
 private final class ScreenBuffer: Sendable {
     private let state = OSAllocatedUnfairLock<(data: Data, last: Date)>(initialState: (Data(), Date()))
-    func append(_ d: Data) { state.withLock { $0.data.append(d); $0.last = Date() } }
+    func append(_ d: Data) {
+        state.withLock {
+            $0.data.append(d)
+            $0.last = Date()
+        }
+    }
     // swiftlint:disable:next optional_data_string_conversion
     var text: String { String(decoding: state.withLock { $0 }.data, as: UTF8.self) }   // lossy on purpose: TUI output
     var quietFor: TimeInterval { Date().timeIntervalSince(state.withLock { $0 }.last) }

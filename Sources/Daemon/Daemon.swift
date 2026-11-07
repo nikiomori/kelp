@@ -1,9 +1,9 @@
-import Foundation
-import os
-import Core
-import GitKit
-import Agents
 import AgentData
+import Agents
+import Core
+import Foundation
+import GitKit
+import os
 
 /// The long-running process: owns PTYs, state and the JSON-RPC socket.
 /// Running sessions and who is connected each keep their own lock; the order they're taken in is in `Clients`.
@@ -36,7 +36,9 @@ public final class Daemon: Sendable {
         VMService(home: root, helper: VMService.helper(beside: Daemon.executable))
     }
 
-    public convenience init(root: URL, store: Store? = nil) throws { try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60)) }
+    public convenience init(root: URL, store: Store? = nil) throws {
+        try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60))
+    }
 
     /// kelpd's own: a caller is the user's only when Kelp can tell (`Callers.session(running:)`); anything else, its own
     /// programs' leftovers included, is held to an agent's rules. Not in a test's daemon, whose process is the test's.
@@ -54,16 +56,26 @@ public final class Daemon: Sendable {
         self.remotes = Remotes(home: root)
         self.agentUsage = AgentUsage(root: root, settings: settings, store: self.store, remotes: remotes)
         self.forges = Forges(offloads: offloads, store: self.store, clients: clients, remotes: remotes)
-        self.lsp = LSPHost(store: self.store, remotes: remotes, offloads: offloads, retryDelay: lspDelays.retry, idleDelay: lspDelays.idle)
+        self.lsp = LSPHost(
+            store: self.store, remotes: remotes, offloads: offloads, retryDelay: lspDelays.retry,
+            idleDelay: lspDelays.idle)
         self.watches = Watches(store: self.store, clients: clients, remotes: remotes)
-        lsp.whenProblemsChange { [watches] path in watches.touched(.init(topic: .file, key: path), tag: UUID().uuidString) }
-        self.sessions = Sessions(root: root, socketPath: root.appendingPathComponent("kelp.sock").path, store: self.store, remotes: remotes,
-                                 settings: settings, agentUsage: agentUsage, clients: clients, watches: watches, offloads: offloads)
-        self.workspaces = Workspaces(root: root, store: self.store, remotes: remotes, sessions: sessions, clients: clients)
+        lsp.whenProblemsChange { [watches] path in
+            watches.touched(.init(topic: .file, key: path), tag: UUID().uuidString)
+        }
+        self.sessions = Sessions(
+            root: root, socketPath: root.appendingPathComponent("kelp.sock").path, store: self.store, remotes: remotes,
+            settings: settings, agentUsage: agentUsage, clients: clients, watches: watches, offloads: offloads)
+        self.workspaces = Workspaces(
+            root: root, store: self.store, remotes: remotes, sessions: sessions, clients: clients)
         self.settingsEvents = SettingsEvents(store: settings, clients: clients, sessions: sessions)
         // Remote projects' shared SSH connections; without it, they fail.
-        do { try Paths.ensure(URL(fileURLWithPath: remotes.controlDir)) } catch { Log.start.error("no folder for ssh connections: \(error)") }
-        watches.reading.withLock { $0.read = { [weak self] k, fast in await self?.sample(k, fast: fast) ?? (nil, nil) } }
+        do { try Paths.ensure(URL(fileURLWithPath: remotes.controlDir)) } catch {
+            Log.start.error("no folder for ssh connections: \(error)")
+        }
+        watches.reading.withLock {
+            $0.read = { [weak self] k, fast in await self?.sample(k, fast: fast) ?? (nil, nil) }
+        }
         self.store.changed.withLock {
             $0.tell = { [weak self] c in
                 self?.recordChanged(c)   // records go to the clients as they change
@@ -96,7 +108,8 @@ public final class Daemon: Sendable {
     public func start(adopting handover: Handover? = nil, takingBack: Bool = false) throws {
         // One daemon per KELP_HOME: a second one (launchd's KeepAlive, a CLI that couldn't connect) would take the socket
         // over and mark the first one's running agents paused. A handover's lock is held already.
-        let lockFD = handover?.lock ?? open(root.appendingPathComponent("kelpd.lock").path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
+        let lockFD =
+            handover?.lock ?? open(root.appendingPathComponent("kelpd.lock").path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
         guard lockFD >= 0, handover != nil || flock(lockFD, LOCK_EX | LOCK_NB) == 0 else {
             if lockFD >= 0 { close(lockFD) }
             throw RPCError.internalError("another kelpd is already running for \(root.path)")
@@ -117,17 +130,29 @@ public final class Daemon: Sendable {
         handover?.sessions.forEach(sessions.adopt)   // before the first connection: it finds them running
         // Machines a kelpd before this one was making (it quit or was upgraded midway): only once this one holds the home,
         // a second kelpd (launchd's, a CLI's) going away right after must not touch them, and on a thread of its own.
-        if !takingBack { let vms = self.vms; Thread.detachNewThread { vms.resumeMaking() } }
+        if !takingBack {
+            let vms = self.vms
+            Thread.detachNewThread { vms.resumeMaking() }
+        }
         _ = Self.binaryMTime   // read now: after an update the file on disk is already the new one
         DispatchQueue.global().async { _ = LoginPath.value }   // warm up so the first agent doesn't wait for the shell
         // The usage index reads gigabytes the first time: do it in the background now, not when Usage is opened.
         DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 30) { [self] in
-            let since = Calendar.current.date(byAdding: .day, value: -89, to: Calendar.current.startOfDay(for: Date())) ?? Date()
-            _ = agentUsage.usageIndex.rows(roots: agentUsage.agentRoots().claude.filter { FileManager.default.fileExists(atPath: $0.path) }, since: since)
+            let since =
+                Calendar.current.date(byAdding: .day, value: -89, to: Calendar.current.startOfDay(for: Date()))
+                ?? Date()
+            _ = agentUsage.usageIndex.rows(
+                roots: agentUsage.agentRoots().claude.filter { FileManager.default.fileExists(atPath: $0.path) },
+                since: since)
         }
         let listenFD: Int32
         do { listenFD = try handover?.socket ?? Unix.listen(socketPath) } catch {
-            running.withLock { if $0.instanceLock >= 0 { close($0.instanceLock); $0.instanceLock = -1 } }   // not ours to keep
+            running.withLock {
+                if $0.instanceLock >= 0 {
+                    close($0.instanceLock)
+                    $0.instanceLock = -1
+                }
+            }   // not ours to keep
             throw error
         }
         // Accept and the ticker have queues of their own (serial queues get a thread even when every pooled one is held
@@ -138,10 +163,18 @@ public final class Daemon: Sendable {
             let fd = accept(listenFD, nil, nil)
             guard fd >= 0 else {
                 // Out of fds, the socket stays readable and this would run again at once, spinning: wait for some to free.
-                if errno == EMFILE || errno == ENFILE, let src { src.suspend(); DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { src.resume() } }
+                if errno == EMFILE || errno == ENFILE, let src {
+                    src.suspend()
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { src.resume() }
+                }
                 return
             }
-            if Unix.peerIsUs(fd) { Unix.noSigPipe(fd); serve(fd) } else { close(fd) }
+            if Unix.peerIsUs(fd) {
+                Unix.noSigPipe(fd)
+                serve(fd)
+            } else {
+                close(fd)
+            }
         }
         settingsEvents.watch()
         let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
@@ -174,7 +207,10 @@ public final class Daemon: Sendable {
     }
 
     public func stop() {
-        let r = running.withLock { r in defer { r = Running() }; return r }
+        let r = running.withLock { r in
+            defer { r = Running() }
+            return r
+        }
         r.successor?.stop()
         // The accept source's cancel closes the socket
         r.accept?.cancel()
@@ -199,7 +235,10 @@ public final class Daemon: Sendable {
     /// As `stop()`, except every running session goes on, handed over with copies of the socket and the lock to the kelpd
     /// this process runs next (`upgrade`). Connections made meanwhile wait in the socket's queue for it. Nil when not running.
     func handOver() -> Handover? {
-        let r = running.withLock { r in defer { r = Running() }; return r }
+        let r = running.withLock { r in
+            defer { r = Running() }
+            return r
+        }
         guard let accept = r.accept else { return nil }
         let socket = dup(r.listenFD)
         // The accept source's cancel closes its own fd, not the copy
@@ -232,13 +271,16 @@ public final class Daemon: Sendable {
     /// here after the exec failed. `exec`: the exec itself (tests make it fail).
     @discardableResult
     /// `checked`: daemon.upgrade's handler asked the new kelpd and waited for running git before it answered.
-    func upgrade(to executable: String = Daemon.executable, checked: Bool = false,
-                 exec: (Handover, _ executable: String, _ file: String) throws -> Void = { try $0.exec($1, file: $2) }) -> Daemon? {
+    func upgrade(
+        to executable: String = Daemon.executable, checked: Bool = false,
+        exec: (Handover, _ executable: String, _ file: String) throws -> Void = { try $0.exec($1, file: $2) }
+    ) -> Daemon? {
         // Nothing is given up to a kelpd that couldn't take it: every agent would end with this process. The reason is
         // kept, so the app's next daemon.upgrade is refused and it asks the user instead of trying again.
         guard checked || Handover.adoptable(executable, home: root) else {
             Log.start.error("not updating in place: \(executable, privacy: .public) doesn't adopt this hand-over")
-            Upgrade.refuse(root: root, executable: executable, "The new background service can't take the running sessions over.")
+            Upgrade.refuse(
+                root: root, executable: executable, "The new background service can't take the running sessions over.")
             return nil
         }
         // A clone or a worktree being made finishes, not cut off mid-way; none starts from here (a client is told why). A
@@ -309,7 +351,10 @@ public final class Daemon: Sendable {
             var ended = false   // the client said all it had (`printf … | nc -U`): what it asked is still answered
             reading: while true {
                 let n = read(fd, &buf, buf.count)
-                if n <= 0 { ended = n == 0; break }
+                if n <= 0 {
+                    ended = n == 0
+                    break
+                }
                 let lines = received.append(Data(buf[0..<n]))
                 // A line past any request's size (a 50 MB file saved, escaped) isn't one: hang up rather than keep it all.
                 guard received.pending <= Self.lineLimit else {
@@ -317,15 +362,26 @@ public final class Daemon: Sendable {
                     break reading
                 }
                 for (i, line) in lines.enumerated() {
-                    guard let req = try? JSONDecoder().decode(Request.self, from: line) else { refuse(line, client); continue }
+                    guard let req = try? JSONDecoder().decode(Request.self, from: line) else {
+                        refuse(line, client)
+                        continue
+                    }
                     // A JSON-RPC client after all (it came in raw, Clients.add): events from now on.
-                    if !spoke { spoke = true; if req.method != "session.stream" { clients.setRaw(client.id, false) } }
-                    if let handler = Self.methods[req.method] as? any Handled.Type, handler.inOrder { answerInOrder(handler, req, client); continue }
+                    if !spoke {
+                        spoke = true
+                        if req.method != "session.stream" { clients.setRaw(client.id, false) }
+                    }
+                    if let handler = Self.methods[req.method] as? any Handled.Type, handler.inOrder {
+                        answerInOrder(handler, req, client)
+                        continue
+                    }
                     // The one method by name: it ends JSON-RPC on this connection, which becomes a raw byte pipe (kelp attach).
                     if req.method == "session.stream" {
                         // What came after its line in the same read is the stream's already: its whole lines, then the rest.
                         let after = lines[(i + 1)...].reduce(Data()) { $0 + $1 + Data("\n".utf8) }
-                        stream(client, session: req.params?["id"]?.string ?? "", size: req.params, leftover: after + received.takeRemainder())
+                        stream(
+                            client, session: req.params?["id"]?.string ?? "", size: req.params,
+                            leftover: after + received.takeRemainder())
                         break reading
                     }
                     let admitted = pending.withLock { n -> Bool in
@@ -334,7 +390,8 @@ public final class Daemon: Sendable {
                         return true
                     }
                     guard admitted else {
-                        let refusal = Self.errorLine(id: req.id ?? .null, RPCError.internalError("Too many requests at once."))
+                        let refusal = Self.errorLine(
+                            id: req.id ?? .null, RPCError.internalError("Too many requests at once."))
                         if !req.isNotification, let refusal { client.send(refusal) }
                         continue
                     }
@@ -358,7 +415,9 @@ public final class Daemon: Sendable {
     /// Not a request: say so to whoever sent an id, rather than leave it waiting.
     private func refuse(_ line: Data, _ client: Connection) {
         guard let id = (try? JSONDecoder().decode(JSONValue.self, from: line))?["id"], id != .null,
-              let refusal = try? Wire.line(Reply(id: id, result: nil, error: RPCError(code: -32600, message: "invalid request"))) else { return }
+            let refusal = try? Wire.line(
+                Reply(id: id, result: nil, error: RPCError(code: -32600, message: "invalid request")))
+        else { return }
         client.send(refusal)
     }
 
@@ -380,7 +439,9 @@ public final class Daemon: Sendable {
             // Asked again from the lane as the caller it was sent by: its connection may be gone by then, and a gone one
             // can't be told apart (`Callers.caller`), so the user's queued input would be refused.
             let conn = client.id, own = sessions.callers.caller(conn)
-            input.answerInOrder(req.params ?? .null, sessions, allowed: { [self] in try allow($0, conn: conn, caller: own) }, done: reply)
+            input.answerInOrder(
+                req.params ?? .null, sessions, allowed: { [self] in try allow($0, conn: conn, caller: own) },
+                done: reply)
             return
         }
         let answered = Swift.Result { try answerNow(handler, req.params ?? .null, conn: client.id) }
@@ -424,19 +485,27 @@ public final class Daemon: Sendable {
             default: held = true
             }
         } catch {
-            client.send(Data("kelp: \((error as? RPCError)?.message ?? "\(error)")\r\n".utf8)); return
+            client.send(Data("kelp: \((error as? RPCError)?.message ?? "\(error)")\r\n".utf8))
+            return
         }
         if sessions.existing(session) == nil, (try? store.session(session))?.status == .exited {
-            client.send(TerminalReplies.withoutQueries((try? sessions.liveSessionOrLog(session, bytes: LiveSession.ringLimit)) ?? Data())); return
+            client.send(
+                TerminalReplies.withoutQueries(
+                    (try? sessions.liveSessionOrLog(session, bytes: LiveSession.ringLimit)) ?? Data()))
+            return
         }
         let (cols, rows) = Sessions.Launch.size(cols: size?["cols"]?.int, rows: size?["rows"]?.int)
         let ls: LiveSession
         do { ls = try sessions.liveSession(session, cols: cols, rows: rows) } catch {
             // One Kelp has that didn't wake says why (its agent's CLI gone, its folder deleted), here and in the log.
-            guard (try? store.session(session)) != nil else { client.send(Data("kelp: no such session\r\n".utf8)); return }
+            guard (try? store.session(session)) != nil else {
+                client.send(Data("kelp: no such session\r\n".utf8))
+                return
+            }
             let why = (error as? RPCError)?.message ?? "\(error)"
             Log.session.error("\(session, privacy: .public) didn't wake for a terminal: \(why)")
-            client.send(Data("kelp: \(why)\r\n".utf8)); return
+            client.send(Data("kelp: \(why)\r\n".utf8))
+            return
         }
         // Queued under the session's lock: no live output gets ahead of it. One paused at this moment ends the attach,
         // as the pause does for those already attached (`letGo`).
@@ -444,7 +513,10 @@ public final class Daemon: Sendable {
         let type = { (d: Data) -> Bool in
             // While the session asks, an agent's attach ends there, the chunk unsent (a terminal reply's payload can carry a
             // Return): dropped and going on, what it types around the question would join into one line.
-            guard held, ls.asksSomething else { ls.userInput(d); return true }
+            guard held, ls.asksSomething else {
+                ls.userInput(d)
+                return true
+            }
             client.send(Data("\r\nkelp: That session asks a question, the user's to answer.\r\n".utf8))
             return false
         }
@@ -464,8 +536,10 @@ public final class Daemon: Sendable {
         // connection ahead of it (the screen would show the newest bytes before the history they follow).
         // The one method that answers itself (SessionAttach's own handler serves an ended session): its reply has to be
         // queued inside the session's lock, which `Handled` can't express.
-        if req.method == SessionAttach.name, !req.isNotification, let sid = (try? SessionAttach.checked(req.params ?? .null, self, conn: client.id))?.id,
-           sessions.existing(sid) != nil || (try? store.session(sid)).flatMap({ $0 }).map(sessions.isPaused) == true {
+        if req.method == SessionAttach.name, !req.isNotification,
+            let sid = (try? SessionAttach.checked(req.params ?? .null, self, conn: client.id))?.id,
+            sessions.existing(sid) != nil || (try? store.session(sid)).flatMap({ $0 }).map(sessions.isPaused) == true
+        {
             // A wake that fails says why, once: falling through would wake it a second time, in the slow lane.
             let ls: LiveSession
             do { ls = try await offloads.runNow({ [self] in try sessions.liveSession(sid) }) } catch {
@@ -477,12 +551,18 @@ public final class Daemon: Sendable {
             // watching for good, and the session would never pause). Its end removes it from `clients` before it detaches
             // from every session, so one of the two always detaches it. The history (up to 1 MiB) is built under the
             // session's lock only, not the one every event goes through.
-            let attached = ls.attach(client.id) { history in
-                if let reply = try? JSONEncoder().encode(SessionAttach.Result(history: history.base64EncodedString())) {
-                    client.send(Self.replyLine(id: id, result: reply))
-                }
-            } != nil
-            if attached, !clients.isConnected(client.id) { ls.detach(client.id); return }
+            let attached =
+                ls.attach(client.id) { history in
+                    if let reply = try? JSONEncoder().encode(
+                        SessionAttach.Result(history: history.base64EncodedString()))
+                    {
+                        client.send(Self.replyLine(id: id, result: reply))
+                    }
+                } != nil
+            if attached, !clients.isConnected(client.id) {
+                ls.detach(client.id)
+                return
+            }
             if !attached, let line = Self.errorLine(id: id, Sessions.pausedAsAttached) { client.send(line) }
             return
         }
@@ -498,8 +578,11 @@ public final class Daemon: Sendable {
     /// A call's refusal went back to its caller; a notification's failure (a layout or UI state not saved) and anything
     /// unexpected has only the log.
     static func log(_ method: String, failed error: Error, notification: Bool) {
-        if let e = error as? RPCError, !notification { Log.rpc.debug("\(method, privacy: .public) failed: \(e.message)") }
-        else { Log.rpc.error("\(method, privacy: .public) failed: \((error as? RPCError)?.message ?? "\(error)")") }
+        if let e = error as? RPCError, !notification {
+            Log.rpc.debug("\(method, privacy: .public) failed: \(e.message)")
+        } else {
+            Log.rpc.error("\(method, privacy: .public) failed: \((error as? RPCError)?.message ?? "\(error)")")
+        }
     }
 
     /// A reply line around a result already encoded: the result isn't decoded and encoded again on its way out.

@@ -47,16 +47,24 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching
 /// what this connection watches already reads it again now (after a push: the CI run it started shows within seconds).
 public struct WatchStart: InternalMethod, Hashable {
-    public static let name = "watch.start"; public typealias Result = Done
+    public static let name = "watch.start"
+    public typealias Result = Done
     public var topic: WatchTopic, key: String
-    public init(_ topic: WatchTopic, _ key: String = "") { self.topic = topic; self.key = key }
+    public init(_ topic: WatchTopic, _ key: String = "") {
+        self.topic = topic
+        self.key = key
+    }
 }
 
 /// Stops it; a connection that goes away stops all of its own.
 public struct WatchStop: InternalMethod {
-    public static let name = "watch.stop"; public typealias Result = Done
+    public static let name = "watch.stop"
+    public typealias Result = Done
     public var topic: WatchTopic, key: String
-    public init(_ topic: WatchTopic, _ key: String = "") { self.topic = topic; self.key = key }
+    public init(_ topic: WatchTopic, _ key: String = "") {
+        self.topic = topic
+        self.key = key
+    }
 }
 
 /// A watched workspace's git, read again after its files changed. `error`: git couldn't say (not a repository…).
@@ -64,52 +72,81 @@ public struct GitEvent: RPCEvent, Equatable {
     public static let name = "event.git"
     public var worktree: String
     public var changes: [FileChange]?, branches: BranchInfo?, stats: LineStats?, error: String?
-    public init(worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil, error: String? = nil) {
-        self.worktree = worktree; self.changes = changes; self.branches = branches; self.stats = stats; self.error = error
+    public init(
+        worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil,
+        error: String? = nil
+    ) {
+        self.worktree = worktree
+        self.changes = changes
+        self.branches = branches
+        self.stats = stats
+        self.error = error
     }
 }
 
 public struct PortsEvent: RPCEvent, Equatable {
     public static let name = "event.ports"
     public var worktree: String, ports: [PortsList.Port]
-    public init(worktree: String, ports: [PortsList.Port]) { self.worktree = worktree; self.ports = ports }
+    public init(worktree: String, ports: [PortsList.Port]) {
+        self.worktree = worktree
+        self.ports = ports
+    }
 }
 
 public struct ActivityEvent: RPCEvent, Equatable {
     public static let name = "event.activity"
     public var usage: [SessionUsage.Usage]?, error: String?
-    public init(usage: [SessionUsage.Usage]? = nil, error: String? = nil) { self.usage = usage; self.error = error }
+    public init(usage: [SessionUsage.Usage]? = nil, error: String? = nil) {
+        self.usage = usage
+        self.error = error
+    }
 }
 
 public struct CIEvent: RPCEvent, Equatable {
     public static let name = "event.ci"
     public var worktree: String, result: CIRunsList.Result?, error: String?
-    public init(worktree: String, result: CIRunsList.Result? = nil, error: String? = nil) { self.worktree = worktree; self.result = result; self.error = error }
+    public init(worktree: String, result: CIRunsList.Result? = nil, error: String? = nil) {
+        self.worktree = worktree
+        self.result = result
+        self.error = error
+    }
 }
 
 public struct PREvent: RPCEvent, Equatable {
     public static let name = "event.pr"
     public var worktree: String, pr: GitHub.PullRequest?
-    public init(worktree: String, pr: GitHub.PullRequest?) { self.worktree = worktree; self.pr = pr }
+    public init(worktree: String, pr: GitHub.PullRequest?) {
+        self.worktree = worktree
+        self.pr = pr
+    }
 }
 
 /// Nil usage: not known (not Claude Code, ended, just compacted).
 public struct ContextEvent: RPCEvent, Equatable {
     public static let name = "event.context"
     public var session: String, usage: SessionContextWindow.Usage?
-    public init(session: String, usage: SessionContextWindow.Usage?) { self.session = session; self.usage = usage }
+    public init(session: String, usage: SessionContextWindow.Usage?) {
+        self.session = session
+        self.usage = usage
+    }
 }
 
 public struct CommandsEvent: RPCEvent, Equatable {
     public static let name = "event.commands"
     public var session: String, commands: [AgentCommand]
-    public init(session: String, commands: [AgentCommand]) { self.session = session; self.commands = commands }
+    public init(session: String, commands: [AgentCommand]) {
+        self.session = session
+        self.commands = commands
+    }
 }
 
 public struct SubagentsEvent: RPCEvent, Equatable {
     public static let name = "event.subagents"
     public var session: String, steps: SessionSubagentSteps.Result
-    public init(session: String, steps: SessionSubagentSteps.Result) { self.session = session; self.steps = steps }
+    public init(session: String, steps: SessionSubagentSteps.Result) {
+        self.session = session
+        self.steps = steps
+    }
 }
 
 public struct HostEvent: RPCEvent, Equatable {
@@ -128,7 +165,10 @@ public struct MachinesEvent: RPCEvent, Equatable {
 public struct MachineEvent: RPCEvent, Equatable {
     public static let name = "event.machine"
     public var name: String, detail: VMDetail?
-    public init(name: String, detail: VMDetail?) { self.name = name; self.detail = detail }
+    public init(name: String, detail: VMDetail?) {
+        self.name = name
+        self.detail = detail
+    }
 }
 
 public struct LimitsEvent: RPCEvent, Equatable {
@@ -143,7 +183,11 @@ public struct LimitsEvent: RPCEvent, Equatable {
 public struct FileEvent: RPCEvent, Equatable {
     public static let name = "event.file"
     public var path: String, stamp: FileStamp?, problems: [CodeProblem]?
-    public init(path: String, stamp: FileStamp?, problems: [CodeProblem]? = nil) { self.path = path; self.stamp = stamp; self.problems = problems }
+    public init(path: String, stamp: FileStamp?, problems: [CodeProblem]? = nil) {
+        self.path = path
+        self.stamp = stamp
+        self.problems = problems
+    }
 }
 
 /// A watched workspace's files as `files.list` gives them, and what git ignores (`files.ignored`), pushed when that
@@ -152,7 +196,10 @@ public struct FilesEvent: RPCEvent, Equatable {
     public static let name = "event.files"
     public var worktree: String, paths: [String]?, ignored: [String]?, error: String?
     public init(worktree: String, paths: [String]? = nil, ignored: [String]? = nil, error: String? = nil) {
-        self.worktree = worktree; self.paths = paths; self.ignored = ignored; self.error = error
+        self.worktree = worktree
+        self.paths = paths
+        self.ignored = ignored
+        self.error = error
     }
 }
 
@@ -160,7 +207,10 @@ public struct FilesEvent: RPCEvent, Equatable {
 public struct ArtifactsEvent: RPCEvent, Equatable {
     public static let name = "event.artifacts"
     public var worktree: String, items: [ArtifactItem]
-    public init(worktree: String, items: [ArtifactItem]) { self.worktree = worktree; self.items = items }
+    public init(worktree: String, items: [ArtifactItem]) {
+        self.worktree = worktree
+        self.items = items
+    }
 }
 
 /// A project or workspace record as it is now, after any change (as `event.session` is for sessions).
@@ -171,5 +221,9 @@ extension Worktree: RPCEvent { public static let name = "event.worktree" }
 public struct RemovedEvent: RPCEvent, Equatable {
     public static let name = "event.removed"
     public var repo: String?, worktree: String?, session: String?
-    public init(repo: String? = nil, worktree: String? = nil, session: String? = nil) { self.repo = repo; self.worktree = worktree; self.session = session }
+    public init(repo: String? = nil, worktree: String? = nil, session: String? = nil) {
+        self.repo = repo
+        self.worktree = worktree
+        self.session = session
+    }
 }

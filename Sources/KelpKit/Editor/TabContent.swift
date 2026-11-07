@@ -48,12 +48,14 @@ struct TabLook: Equatable {
 
 /// What a session's tab shows besides its title, and the ring around its pane.
 package struct TabBadge: Equatable {
-    init(status: AgentStatus? = nil,
-                 unread: Bool = false,
-                 meter: SessionContextWindow.Usage? = nil,
-                 progress: Double? = nil,
-                 attention: NSColor? = nil,
-                 backgroundOf session: Session? = nil) {
+    init(
+        status: AgentStatus? = nil,
+        unread: Bool = false,
+        meter: SessionContextWindow.Usage? = nil,
+        progress: Double? = nil,
+        attention: NSColor? = nil,
+        backgroundOf session: Session? = nil
+    ) {
         self.status = status
         self.unread = unread
         self.meter = meter
@@ -66,9 +68,13 @@ package struct TabBadge: Equatable {
     /// A session's tab, built or not (a hidden terminal lets go of its surface, its tab keeps saying all this).
     package static func of(_ s: Session?, meter: SessionContextWindow.Usage?) -> TabBadge {
         // A terminal shows a state only while a program in it says how far it got (a build).
-        TabBadge(status: s.flatMap { $0.agent == "shell" ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus },
-                 unread: s?.unread ?? false, meter: meter, progress: s?.progress.map { Double($0) / 100 }, attention: s.flatMap(attention),
-                 backgroundOf: s)
+        TabBadge(
+            status: s.flatMap {
+                $0.agent == "shell" ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus
+            },
+            unread: s?.unread ?? false, meter: meter, progress: s?.progress.map { Double($0) / 100 },
+            attention: s.flatMap(attention),
+            backgroundOf: s)
     }
     /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
     /// unread dot and the bold name say it's new.
@@ -131,7 +137,11 @@ extension NSImage {
     package static func symbol(_ name: String, _ label: String? = nil) -> NSImage {
         let key = "\(name)\u{0}\(label ?? "")" as NSString
         if let known = symbolCache.object(forKey: key) { return known }
-        let made = Glyph.image(name).map { g in g.accessibilityDescription = label; return g }
+        let made =
+            Glyph.image(name).map { g in
+                g.accessibilityDescription = label
+                return g
+            }
             ?? NSImage(systemSymbolName: name, accessibilityDescription: label) ?? NSImage()
         symbolCache.setObject(made, forKey: key)
         return made

@@ -52,8 +52,16 @@ extension CodeEditor {
         hoverCard?.close()
         hoverShownAt = nil
         let before = textView.string as NSString, i = textView.selectedRange().location
-        if s == ":" || s == ">", i >= 2, before.substring(with: NSRange(location: i - 2, length: 2)) == (s == ":" ? "::" : "->") { showCompletions() }
-        if s == ")" { signatureCard?.close() } else if s == "(" || s == "," || signatureCard?.isShown == true { askSignature() }
+        if s == ":" || s == ">", i >= 2,
+            before.substring(with: NSRange(location: i - 2, length: 2)) == (s == ":" ? "::" : "->")
+        {
+            showCompletions()
+        }
+        if s == ")" {
+            signatureCard?.close()
+        } else if s == "(" || s == "," || signatureCard?.isShown == true {
+            askSignature()
+        }
     }
 
     /// Once keys pause: each ask first sends the language server the whole file, and every key asked twice (the key, the
@@ -63,18 +71,25 @@ extension CodeEditor {
         signatureAsk?.cancel()
         signatureAsk = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
-            guard let at = self?.textView.selectedRange().location, let (line, column) = self?.position(of: at) else { return }
+            guard let at = self?.textView.selectedRange().location, let (line, column) = self?.position(of: at) else {
+                return
+            }
             let found = await signatureProvider(line, column)
             guard let self, textView.selectedRange().location == at else { return }
-            guard let found else { signatureCard?.close(); return }
+            guard let found else {
+                signatureCard?.close()
+                return
+            }
             showSignature(found.label, active: found.active, at: at)
         }
     }
 
     private func showSignature(_ label: String, active: NSRange?, at i: Int) {
-        let text = NSMutableAttributedString(string: label, attributes: [.font: NSFont.uiMono(12), .foregroundColor: NSColor.labelColor])
+        let text = NSMutableAttributedString(
+            string: label, attributes: [.font: NSFont.uiMono(12), .foregroundColor: NSColor.labelColor])
         if let active, NSMaxRange(active) <= text.length {
-            text.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: TextSize.of(12), weight: .bold), range: active)
+            text.addAttribute(
+                .font, value: NSFont.monospacedSystemFont(ofSize: TextSize.of(12), weight: .bold), range: active)
         }
         let card = HoverCard(text, width: Self.cardWidth, most: Self.cardHeight)
         if let open = signatureCard, open.isShown {
@@ -111,7 +126,9 @@ enum HoverText {
 
     private static func inline(_ line: String, font: NSFont) -> NSAttributedString {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        guard let parsed = try? AttributedString(markdown: line, options: options) else { return NSAttributedString(string: line, attributes: [.font: font]) }
+        guard let parsed = try? AttributedString(markdown: line, options: options) else {
+            return NSAttributedString(string: line, attributes: [.font: font])
+        }
         let out = NSMutableAttributedString(attributedString: NSAttributedString(parsed))
         out.addAttribute(.font, value: font, range: NSRange(location: 0, length: out.length))
         return out

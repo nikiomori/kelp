@@ -8,7 +8,8 @@ package final class Debounce {
     package func after(_ delay: Double, _ f: @escaping @MainActor () -> Void) {
         work?.cancel()
         let w = DispatchWorkItem { MainActor.assumeIsolated(f) }   // run on the main queue below
-        work = w; DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: w)
+        work = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: w)
     }
     package func cancel() { work?.cancel() }
 }

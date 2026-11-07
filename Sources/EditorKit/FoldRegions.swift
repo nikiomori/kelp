@@ -16,20 +16,26 @@ extension CodeEditor {
         var at = line.location
         while at < NSMaxRange(line), [32, 9].contains(s.character(at: at)) { at += 1 }
         guard at < NSMaxRange(line), s.character(at: at) != 10,
-              var node = highlighter?.tree?.rootNode?.descendant(in: UInt32(at * 2)..<UInt32(at * 2 + 2)) else { return nil }
+            var node = highlighter?.tree?.rootNode?.descendant(in: UInt32(at * 2)..<UInt32(at * 2 + 2))
+        else { return nil }
         var best: NSRange?
         while let up = node.parent {
             let r = node.range
             if r.location < line.location { break }
             // A run of statements starts here too, but the next one is under this line, not opened by it.
             let next = node.child(at: 1)?.range.location ?? r.location
-            let list = next >= NSMaxRange(line) && Folds.indent(s.lineRange(for: NSRange(location: next, length: 0)), in: s) == Folds.indent(line, in: s)
+            let list =
+                next >= NSMaxRange(line)
+                && Folds.indent(s.lineRange(for: NSRange(location: next, length: 0)), in: s)
+                    == Folds.indent(line, in: s)
             if NSMaxRange(r) > NSMaxRange(line), !list { best = r }
             node = up
         }
         guard let best else { return nil }
         var last = s.lineRange(for: NSRange(location: NSMaxRange(best) - 1, length: 0))
-        let closing = s.substring(with: last).trimmingCharacters(in: .whitespacesAndNewlines).allSatisfy { ")]}".contains($0) }
+        let closing = s.substring(with: last).trimmingCharacters(in: .whitespacesAndNewlines).allSatisfy {
+            ")]}".contains($0)
+        }
         if closing, last.location > NSMaxRange(line) {
             last = s.lineRange(for: NSRange(location: last.location - 1, length: 0))
         }
@@ -88,7 +94,9 @@ extension Folds {
             i = NSMaxRange(l)
         }
         // Blank lines before what comes next stay out of it.
-        while let l = last, l.location > NSMaxRange(line), s.substring(with: l).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        while let l = last, l.location > NSMaxRange(line),
+            s.substring(with: l).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
             last = s.lineRange(for: NSRange(location: l.location - 1, length: 0))
         }
         guard let last else { return nil }

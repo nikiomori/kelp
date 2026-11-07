@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// What the app restores that names the daemon's records — each workspace's layout (`layout/<id>`), the sidebar's
 /// order, pins and folds, the last workspace — lives in the daemon's database (`state.*`), like Zed's workspace DB:

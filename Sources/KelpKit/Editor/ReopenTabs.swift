@@ -7,18 +7,25 @@ import WorkbenchKit
 extension EditorArea {
     /// Before the tab leaves the layout, while it still has a place.
     func rememberClosing(_ id: String) {
-        guard let t = layout.allTabs.first(where: { $0.id == id }), !["untitled", "prompt"].contains(TabURI.scheme(t.uri)) else { return }
+        guard let t = layout.allTabs.first(where: { $0.id == id }),
+            !["untitled", "prompt"].contains(TabURI.scheme(t.uri))
+        else { return }
         let uri = (contents[id] as? SavableTab).map(\.reopenURI) ?? t.uri
         guard let uri else { return }   // nothing left of it
         let session = TabURI.scheme(t.uri) == "session" ? app.session(TabURI.body(t.uri)) : nil
         let group = layout.group(of: id)
-        app.workbench.closedTabs.remember(ClosedTab(
-            uri: uri, title: contents[id]?.title ?? session?.displayTitle ?? URL(string: uri)?.lastPathComponent ?? uri, workspace: workspaceId,
-            group: group, index: group.flatMap { layout.groups[$0]?.tabs.firstIndex { $0.id == id } }))
+        app.workbench.closedTabs.remember(
+            ClosedTab(
+                uri: uri,
+                title: contents[id]?.title ?? session?.displayTitle ?? URL(string: uri)?.lastPathComponent ?? uri,
+                workspace: workspaceId,
+                group: group, index: group.flatMap { layout.groups[$0]?.tabs.firstIndex { $0.id == id } }))
     }
 
     /// Already on screen: the same file or page, opened again since.
-    func shows(_ c: ClosedTab) -> Bool { layout.tab(uri: c.uri) != nil || (TabURI.scheme(c.uri) == "file" && layout.fileTab(sameFileAs: c.uri) != nil) }
+    func shows(_ c: ClosedTab) -> Bool {
+        layout.tab(uri: c.uri) != nil || (TabURI.scheme(c.uri) == "file" && layout.fileTab(sameFileAs: c.uri) != nil)
+    }
 
     func reopen(_ c: ClosedTab) {
         guard TabURI.scheme(c.uri) == "session" else {
@@ -37,7 +44,8 @@ extension EditorArea {
     private func place(_ c: ClosedTab) {
         let group = c.group.flatMap { layout.groups[$0] == nil ? nil : $0 }
         let t = layout.add(c.uri, to: group, at: group == nil ? nil : c.index)
-        arrange(); render()
+        arrange()
+        render()
         select(t.id)
     }
 }
@@ -55,7 +63,10 @@ extension Workbench {
     var nextClosedTab: ClosedTab? { reopenableTabs.first { $0.workspace == workspaceId && editor?.shows($0) != true } }
 
     func reopenClosedTab() {
-        guard let c = nextClosedTab else { NSSound.beep(); return }
+        guard let c = nextClosedTab else {
+            NSSound.beep()
+            return
+        }
         reopen(c)
     }
 
@@ -89,9 +100,13 @@ final class RecentlyClosedMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let list = app.workbench.reopenableTabs.prefix(Self.shown)
-        guard !list.isEmpty else { menu.addItem(withTitle: String(localized: "None"), action: nil, keyEquivalent: "").isEnabled = false; return }
+        guard !list.isEmpty else {
+            menu.addItem(withTitle: String(localized: "None"), action: nil, keyEquivalent: "").isEnabled = false
+            return
+        }
         for c in list {
-            let place = [app.worktree(c.workspace)?.displayName, shortAgo(c.at)].compactMap { $0 }.joined(separator: " · ")
+            let place = [app.worktree(c.workspace)?.displayName, shortAgo(c.at)].compactMap { $0 }.joined(
+                separator: " · ")
             menu.add("\(c.title) — \(place)") { [app] in app.workbench.reopen(c) }.show(.symbol(Self.symbol(c.uri)))
         }
     }

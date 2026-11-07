@@ -1,8 +1,9 @@
 import Foundation
-import Testing
-@testable import GitKit
-@testable import Core
 import TestSupport
+import Testing
+
+@testable import Core
+@testable import GitKit
 
 /// What Source Control shows about branches, read from one for-each-ref: checked against what git itself says.
 @Test func branchInfoMatchesGitInEveryState() throws {
@@ -11,17 +12,23 @@ import TestSupport
     try Git.run(["clone", "-q", origin, repo], cwd: TestIsolation.root)
     func commit(_ dir: String, _ name: String) throws {
         try name.write(toFile: dir + "/" + name, atomically: true, encoding: .utf8)
-        try Git.run(["add", name], cwd: dir); try Git.run(["commit", "-qm", name], cwd: dir)
+        try Git.run(["add", name], cwd: dir)
+        try Git.run(["commit", "-qm", name], cwd: dir)
     }
-    func short(_ ref: String) throws -> String { try Git.run(["rev-parse", "--short", ref], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines) }
+    func short(_ ref: String) throws -> String {
+        try Git.run(["rev-parse", "--short", ref], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     // Even with origin, then 2 ahead and 1 behind.
     var b = try Git.branches(repo), head = try short("HEAD")
     #expect(b.current == "main" && b.upstream == "origin/main" && b.ahead == 0 && b.behind == 0 && b.head == head)
     #expect(b.remote == ["origin/main"] && b.local == ["main"] && !b.merging)   // origin/HEAD isn't a branch
-    try commit(repo, "x"); try commit(repo, "y"); try commit(origin, "z")
+    try commit(repo, "x")
+    try commit(repo, "y")
+    try commit(origin, "z")
     try Git.run(["fetch", "-q"], cwd: repo)
-    b = try Git.branches(repo); head = try short("HEAD")
+    b = try Git.branches(repo)
+    head = try short("HEAD")
     #expect(b.ahead == 2 && b.behind == 1 && b.head == head)
 
     // A branch without an upstream, and one whose upstream was deleted.
@@ -31,14 +38,16 @@ import TestSupport
     #expect(b.ahead == 2)   // x and y are on no remote: what the graph marks unpushed
     try Git.run(["push", "-q", "-u", "origin", "feat/a"], cwd: repo)
     #expect(try Git.branches(repo).upstream == "origin/feat/a")
-    try Git.run(["branch", "-q", "-D", "feat/a"], cwd: origin); try Git.run(["fetch", "-q", "--prune"], cwd: repo)
+    try Git.run(["branch", "-q", "-D", "feat/a"], cwd: origin)
+    try Git.run(["fetch", "-q", "--prune"], cwd: repo)
     b = try Git.branches(repo)
     #expect(b.current == "feat/a" && b.upstream == nil && b.remote == ["origin/main"])
     #expect(b.ahead == 2)   // origin/feat/a, which had them, is gone
 
     // Detached: no current branch, HEAD still named.
     try Git.run(["switch", "-q", "--detach", "HEAD~1"], cwd: repo)
-    b = try Git.branches(repo); head = try short("HEAD")
+    b = try Git.branches(repo)
+    head = try short("HEAD")
     #expect(b.current == nil && b.head == head && b.upstream == nil)
 
     // Before the first commit: the branch HEAD will be on, no hash.
@@ -64,7 +73,8 @@ import TestSupport
     try FileManager.default.createDirectory(atPath: repo + "/d", withIntermediateDirectories: true)
     try "x\n".write(toFile: repo + "/d/kept.txt", atomically: true, encoding: .utf8)
     try "y\n".write(toFile: repo + "/gone.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "."], cwd: repo); try Git.run(["commit", "-qm", "files"], cwd: repo)
+    try Git.run(["add", "."], cwd: repo)
+    try Git.run(["commit", "-qm", "files"], cwd: repo)
     try FileManager.default.removeItem(atPath: repo + "/gone.txt")
     try "n\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
     #expect(try Set(ProjectFiles.list(repo)) == ["f.txt", ".env", "d/kept.txt", "new.txt"])
@@ -74,7 +84,9 @@ import TestSupport
     let repo = try tempRepo()
     defer { try? FileManager.default.removeItem(atPath: repo) }
     try FileManager.default.createDirectory(atPath: repo + "/build/sub", withIntermediateDirectories: true)
-    for f in ["build/out.o", "build/sub/x.o", "notes.log", ".gitignore"] { try "x\n".write(toFile: repo + "/" + f, atomically: true, encoding: .utf8) }
+    for f in ["build/out.o", "build/sub/x.o", "notes.log", ".gitignore"] {
+        try "x\n".write(toFile: repo + "/" + f, atomically: true, encoding: .utf8)
+    }
     try "build/\n*.log\n".write(toFile: repo + "/.gitignore", atomically: true, encoding: .utf8)
     #expect(try Set(ProjectFiles.ignored(repo)) == ["build/", "notes.log"])
     #expect(try Set(ProjectFiles.ignored(repo, folder: "build/")) == ["build/out.o", "build/sub/"])
@@ -95,7 +107,8 @@ import TestSupport
         try FileManager.default.createDirectory(atPath: repo + "/" + d, withIntermediateDirectories: true)
         try "\(d)\n".write(toFile: repo + "/\(d)/file.txt", atomically: true, encoding: .utf8)
     }
-    try Git.run(["add", "."], cwd: repo); try Git.run(["commit", "-qm", "dirs"], cwd: repo)
+    try Git.run(["add", "."], cwd: repo)
+    try Git.run(["commit", "-qm", "dirs"], cwd: repo)
     try Git.run(["sparse-checkout", "set", "--cone", "a"], cwd: repo)
     let files = try ProjectFiles.list(repo)
     #expect(files.contains("a/file.txt") && !files.contains("b/file.txt"))

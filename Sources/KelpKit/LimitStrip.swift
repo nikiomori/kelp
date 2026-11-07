@@ -13,7 +13,9 @@ enum LimitStop {
 
     /// The installed agents but this one and those out of plan: the freest first, those without a plan's numbers last.
     static func takers(_ agents: [(id: String, name: String)], except: String?, used: [String: Double]) -> [Taker] {
-        let open = agents.filter { $0.id != except && (used[$0.id] ?? 0) < 100 }.map { Taker(id: $0.id, name: $0.name, used: used[$0.id]) }
+        let open = agents.filter { $0.id != except && (used[$0.id] ?? 0) < 100 }.map {
+            Taker(id: $0.id, name: $0.name, used: used[$0.id])
+        }
         return open.enumerated().sorted { a, b in
             (a.element.used ?? 101, a.offset) < (b.element.used ?? 101, b.offset)
         }.map(\.element)
@@ -32,14 +34,18 @@ enum LimitStop {
     /// Its row's second line.
     static func rowLine(_ s: Session, now: Date = Date()) -> (word: String, text: String)? {
         guard let hit = s.limitHit else { return nil }
-        if let at = s.continueAt { return (String(localized: "Continues"), String(localized: "at \(clock(at, now: now))")) }
+        if let at = s.continueAt {
+            return (String(localized: "Continues"), String(localized: "at \(clock(at, now: now))"))
+        }
         if let at = hit.resetAt, at <= now { return (String(localized: "Limit:"), String(localized: "has reset")) }
         let resets = hit.resetAt.map { clock($0, now: now) } ?? hit.resets
         return (String(localized: "Limit:"), resets.map { String(localized: "resets \($0)") } ?? hit.kind)
     }
 
     /// The banner's text: "5-hour · resets 3:40pm".
-    static func banner(_ hit: LimitHit) -> String { hit.resets.map { String(localized: "\(hit.kind) · resets \($0)") } ?? hit.kind }
+    static func banner(_ hit: LimitHit) -> String {
+        hit.resets.map { String(localized: "\(hit.kind) · resets \($0)") } ?? hit.kind
+    }
 
     static func title(_ name: String, _ s: Session, now: Date = Date()) -> String {
         if let at = s.continueAt { return String(localized: "\(name) will continue at \(clock(at, now: now))") }
@@ -48,9 +54,17 @@ enum LimitStop {
     }
 
     static func detail(_ s: Session, now: Date = Date()) -> String {
-        if s.continueAt != nil { return String(localized: "Kelp types “continue” here a minute after the reset, even with its window closed.") }
-        guard let at = s.limitHit?.resetAt, at > now else { return String(localized: "The work so far stays in this tab.") }
-        return String(localized: "Resets at \(clock(at, now: now)), in \(LimitForecast.duration(at.timeIntervalSince(now))). The work so far stays in this tab.")
+        if s.continueAt != nil {
+            return String(
+                localized: "Kelp types “continue” here a minute after the reset, even with its window closed.")
+        }
+        guard let at = s.limitHit?.resetAt, at > now else {
+            return String(localized: "The work so far stays in this tab.")
+        }
+        return String(
+            localized:
+                "Resets at \(clock(at, now: now)), in \(LimitForecast.duration(at.timeIntervalSince(now))). The work so far stays in this tab."
+        )
     }
 }
 
@@ -63,17 +77,26 @@ final class LimitStrip: NSView {
     private let handOff = NSComboButton(title: "", menu: NSMenu(), target: nil, action: nil)
     private let later = NSButton(), cancel = NSButton()
     private var taker: String?
-    private var dismissed: Date?       // the stop ✕ put away: the next one shows again
+    private var dismissed: Date?   // the stop ✕ put away: the next one shows again
     private var watchingPlans = false
     private var clock: Task<Void, Never>?
 
     init(app: AppModel, session id: String) {
-        self.app = app; self.id = id
+        self.app = app
+        self.id = id
         super.init(frame: .zero)
         isHidden = true
         build()
-        track(owner: self) { [app, id] in app.session(id) } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [app] in app.latest(LimitsEvent.self)?.usage } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app, id] in
+            app.session(id)
+        } changed: { [weak self] _ in
+            self?.update()
+        }
+        track(owner: self) { [app] in
+            app.latest(LimitsEvent.self)?.usage
+        } changed: { [weak self] _ in
+            self?.update()
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -113,9 +136,13 @@ final class LimitStrip: NSView {
         row.setVisibilityPriority(.init(rawValue: 300), for: later)
         row.setVisibilityPriority(.init(rawValue: 400), for: handOff)
         let card = FloatingCard(row)
-        card.translatesAutoresizingMaskIntoConstraints = false; addSubview(card)
-        NSLayoutConstraint.activate([card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
-                                     card.leadingAnchor.constraint(equalTo: leadingAnchor), card.trailingAnchor.constraint(equalTo: trailingAnchor)])
+        card.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(card)
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
+            card.leadingAnchor.constraint(equalTo: leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
     }
 
     override func viewDidMoveToWindow() {
@@ -135,15 +162,22 @@ final class LimitStrip: NSView {
         title.stringValue = LimitStop.title(app.catalog.displayName(s), s, now: now)
         detail.stringValue = LimitStop.detail(s, now: now)
         let reset = hit.resetAt, waiting = s.continueAt != nil, passed = reset.map { $0 <= now } ?? false
-        let takers = waiting || RemoteHost.of(s.cwd) != nil ? [] : LimitStop.takers(app.catalog.installed(app.catalog.all).map { ($0.id, $0.name) },
-                                                                                    except: s.agent, used: planUse())
+        let takers =
+            waiting || RemoteHost.of(s.cwd) != nil
+            ? []
+            : LimitStop.takers(
+                app.catalog.installed(app.catalog.all).map { ($0.id, $0.name) },
+                except: s.agent, used: planUse())
         let first = LimitStop.pick(takers)
         taker = first?.id
         handOff.isHidden = first == nil
         handOff.title = first.map { String(localized: "Continue in \($0.name)") } ?? ""
         handOff.menu = menu(takers)
         later.isHidden = waiting || reset == nil
-        later.title = passed ? String(localized: "Continue") : reset.map { String(localized: "Continue at \(LimitStop.clock($0, now: now))") } ?? ""
+        later.title =
+            passed
+            ? String(localized: "Continue")
+            : reset.map { String(localized: "Continue at \(LimitStop.clock($0, now: now))") } ?? ""
         cancel.isHidden = !waiting
     }
 
@@ -169,7 +203,8 @@ final class LimitStrip: NSView {
             watchingPlans = on
             if on { app.watch(.limits) } else { app.unwatch(.limits) }
         }
-        clock?.cancel(); clock = nil
+        clock?.cancel()
+        clock = nil
         guard on else { return }
         clock = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(30)) } catch { return }

@@ -1,8 +1,8 @@
-import Foundation
-import AppKit
-import Observation
-import Core
 import Agents
+import AppKit
+import Core
+import Foundation
+import Observation
 
 /// The agents the UI offers: the ones that actually run on this Mac (see AgentAvailability). The app's (`app.catalog`).
 @MainActor
@@ -41,8 +41,10 @@ package struct AgentCatalog {
     /// Sidebar, tabs, notifications and menus all use this, so they agree.
     package func displayName(_ s: Session) -> String {
         if !s.title.isEmpty { return s.title }
-        let same = app.sessions.filter { $0.worktreeId == s.worktreeId && $0.status != .exited && $0.title.isEmpty && $0.agent == s.agent }
-            .sorted { $0.createdAt < $1.createdAt }
+        let same = app.sessions.filter {
+            $0.worktreeId == s.worktreeId && $0.status != .exited && $0.title.isEmpty && $0.agent == s.agent
+        }
+        .sorted { $0.createdAt < $1.createdAt }
         let base = name(s.agent)
         guard same.count > 1, let i = same.firstIndex(where: { $0.id == s.id }), i > 0 else { return base }
         return "\(base) \(i + 1)"
@@ -78,20 +80,30 @@ package struct AgentCatalog {
     }
     /// What the empty workspace offers to install when no agent is on this Mac; the rest are in Settings › Agent Catalog.
     var suggested: [AgentManifest] {
-        ["claude", "codex", "antigravity", "opencode", "cursor"].compactMap { id in all.first { $0.id == id && $0.install != nil } }
+        ["claude", "codex", "antigravity", "opencode", "cursor"].compactMap { id in
+            all.first { $0.id == id && $0.install != nil }
+        }
     }
     /// The agent's own install command in a terminal tab of `e`, in plain sight; once it ends, the agent is looked for again.
     /// An installer that needs npm or Homebrew, on a Mac without it, says so here instead of failing in its tab.
     package func install(_ m: AgentManifest, in e: EditorArea) {
         guard let cmd = m.install else { return }
         Task { [app] in
-            if let tool = m.installNeeds, let found = await app.quiet(ProcessWhich(commands: [tool])), found[tool] == nil {
-                let first = tool == "npm" ? String(localized: "Install Node.js first (nodejs.org, or brew install node).")
-                                          : String(localized: "Install Homebrew first (brew.sh).")
-                Banner.show(String(localized: "\(m.name) installs with \(tool), which isn’t on this Mac. ") + first, style: .error)
+            if let tool = m.installNeeds, let found = await app.quiet(ProcessWhich(commands: [tool])),
+                found[tool] == nil
+            {
+                let first =
+                    tool == "npm"
+                    ? String(localized: "Install Node.js first (nodejs.org, or brew install node).")
+                    : String(localized: "Install Homebrew first (brew.sh).")
+                Banner.show(
+                    String(localized: "\(m.name) installs with \(tool), which isn’t on this Mac. ") + first,
+                    style: .error)
                 return
             }
-            e.run(command: cmd, title: String(localized: "Install \(m.name)")) { s in app.availability.watchInstall(s.id, agent: m.id) }
+            e.run(command: cmd, title: String(localized: "Install \(m.name)")) { s in
+                app.availability.watchInstall(s.id, agent: m.id)
+            }
         }
     }
 
@@ -119,10 +131,12 @@ package struct AgentCatalog {
         return image
     }
     /// Colours for the initials of agents whose icon isn't found (yet): the vendor's, near enough.
-    private static let brand: [String: NSColor] = ["claude": NSColor(srgbRed: 0.85, green: 0.47, blue: 0.34, alpha: 1),
-                                                   "codex": NSColor(white: 0.15, alpha: 1), "grok": NSColor(white: 0.15, alpha: 1),
-                                                   "cursor": NSColor(white: 0.15, alpha: 1), "gemini": .systemBlue,
-                                                   "hermes": NSColor(srgbRed: 0.25, green: 0.55, blue: 0.85, alpha: 1)]
+    private static let brand: [String: NSColor] = [
+        "claude": NSColor(srgbRed: 0.85, green: 0.47, blue: 0.34, alpha: 1),
+        "codex": NSColor(white: 0.15, alpha: 1), "grok": NSColor(white: 0.15, alpha: 1),
+        "cursor": NSColor(white: 0.15, alpha: 1), "gemini": .systemBlue,
+        "hermes": NSColor(srgbRed: 0.25, green: 0.55, blue: 0.85, alpha: 1)
+    ]
 }
 
 extension AppModel {
@@ -151,7 +165,9 @@ package final class AgentAvailability {
     /// `agent`'s installer runs in session `tab`: when it ends, the agents are looked for again (no wait for the next check).
     func watchInstall(_ tab: String, agent: String) { phases[agent] = .running(tab: tab) }
     func sessionChanged(_ s: Session) {
-        guard s.status == .exited, let agent = phases.first(where: { $0.value == .running(tab: s.id) })?.key else { return }
+        guard s.status == .exited, let agent = phases.first(where: { $0.value == .running(tab: s.id) })?.key else {
+            return
+        }
         refresh(force: true, rereadPath: true, expecting: [agent])
     }
 
@@ -170,14 +186,22 @@ package final class AgentAvailability {
         Task.detached(priority: .utility) {
             // The daemon runs the `--version`s: without it every agent would look missing. Asked again next time.
             await app.waitForConnection()
-            guard await MainActor.run(body: { app.connected }) else { await self.finish(nil, expecting: expecting); return }
+            guard await MainActor.run(body: { app.connected }) else {
+                await self.finish(nil, expecting: expecting)
+                return
+            }
             if rereadPath { _ = await app.quiet(ProcessRefreshPath(), timeout: 20) }   // the shell is asked: up to 8 s
             // Where the daemon finds them on its login-shell PATH ("tmux" too); not knowing, nothing changes.
             guard let paths = await app.quiet(ProcessWhich(commands: commands.map(\.1) + ["tmux"])) else {
-                await self.finish(nil, expecting: expecting); return
+                await self.finish(nil, expecting: expecting)
+                return
             }
             let found = await withTaskGroup(of: (id: String, binary: String)?.self) { g in
-                for (id, command) in commands { if let path = paths[command] { g.addTask { await Self.runs(path, ran: ran, app: app).map { (id, $0) } } } }
+                for (id, command) in commands {
+                    if let path = paths[command] {
+                        g.addTask { await Self.runs(path, ran: ran, app: app).map { (id, $0) } }
+                    }
+                }
                 var all: [(id: String, binary: String)] = []
                 for await r in g { if let r { all.append(r) } }
                 return all
@@ -195,12 +219,18 @@ package final class AgentAvailability {
         checking = false
         if let ok {
             checkedAt = Date()
-            if ok != ids { ids = ok; UserDefaults.standard.set(Array(ok).sorted(), forKey: "agents.available") }
+            if ok != ids {
+                ids = ok
+                UserDefaults.standard.set(Array(ok).sorted(), forKey: "agents.available")
+            }
             UserDefaults.standard.set(ran, forKey: "agents.ran")
             for (id, p) in phases where ok.contains(id) && p != .done { phases[id] = .done }
         }
         for id in expecting { if case .running(let tab)? = phases[id] { phases[id] = .notFound(tab: tab) } }
-        if let q = queued { queued = nil; refresh(force: true, rereadPath: q.rereadPath, expecting: q.expecting) }
+        if let q = queued {
+            queued = nil
+            refresh(force: true, rereadPath: q.rereadPath, expecting: q.expecting)
+        }
     }
 
     /// `<path> --version` exits 0 within a few seconds: then the binary (real path and modification time), else nil.
@@ -208,7 +238,9 @@ package final class AgentAvailability {
     /// every launch cost seconds of CPU (one took 2 s). Waits without holding a thread (they're asked at once).
     nonisolated static func runs(_ path: String, ran: [String: Double] = [:], app: AppModel) async -> String? {
         guard let real = Paths.real(path),
-              let mtime = (try? FileManager.default.attributesOfItem(atPath: real)[.modificationDate] as? Date)?.timeIntervalSince1970 else { return nil }
+            let mtime = (try? FileManager.default.attributesOfItem(atPath: real)[.modificationDate] as? Date)?
+                .timeIntervalSince1970
+        else { return nil }
         let binary = "\(real)|\(mtime)"
         if let at = ran[binary], Date().timeIntervalSince1970 - at < 86400 { return binary }
         return await Shell.exec(app, [path, "--version"], timeout: 8).code == 0 ? binary : nil   // hung: killed, counts as missing

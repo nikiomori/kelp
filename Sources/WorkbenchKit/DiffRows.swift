@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Flat rows for a diff table: one place builds them so inline and side-by-side stay consistent.
 public enum DiffRow: Equatable, Sendable {
@@ -8,10 +8,10 @@ public enum DiffRow: Equatable, Sendable {
     /// Unchanged lines between hunks, collapsed: the new file's `from..<from+lines`; `context` is the function git names
     /// in the next hunk's header.
     case gap(file: Int, from: Int, lines: Int, context: String)
-    case line(file: Int, DiffLine)             // inline
+    case line(file: Int, DiffLine)   // inline
     case pair(file: Int, left: DiffLine?, right: DiffLine?)   // side-by-side
     case binary(path: String)
-    case tooLarge(path: String)                // past what one diff reply carries (`FileDiff.tooLarge`)
+    case tooLarge(path: String)   // past what one diff reply carries (`FileDiff.tooLarge`)
 }
 
 public enum DiffRows {
@@ -20,11 +20,23 @@ public enum DiffRows {
         var out: [(DiffLine?, DiffLine?)] = []
         var i = 0
         while i < lines.count {
-            if lines[i].kind == .context { out.append((lines[i], lines[i])); i += 1; continue }
+            if lines[i].kind == .context {
+                out.append((lines[i], lines[i]))
+                i += 1
+                continue
+            }
             var dels: [DiffLine] = [], adds: [DiffLine] = []
-            while i < lines.count, lines[i].kind == .del { dels.append(lines[i]); i += 1 }
-            while i < lines.count, lines[i].kind == .add { adds.append(lines[i]); i += 1 }
-            for k in 0..<max(dels.count, adds.count) { out.append((k < dels.count ? dels[k] : nil, k < adds.count ? adds[k] : nil)) }
+            while i < lines.count, lines[i].kind == .del {
+                dels.append(lines[i])
+                i += 1
+            }
+            while i < lines.count, lines[i].kind == .add {
+                adds.append(lines[i])
+                i += 1
+            }
+            for k in 0..<max(dels.count, adds.count) {
+                out.append((k < dels.count ? dels[k] : nil, k < adds.count ? adds[k] : nil))
+            }
         }
         return out
     }
@@ -43,8 +55,14 @@ public enum DiffRows {
         var rows: [DiffRow] = []
         for (fi, f) in files.enumerated() {
             rows.append(.file(path: f.path, additions: f.additions, deletions: f.deletions))
-            if f.tooLarge == true { rows.append(.tooLarge(path: f.path)); continue }
-            if f.binary { rows.append(.binary(path: f.path)); continue }
+            if f.tooLarge == true {
+                rows.append(.tooLarge(path: f.path))
+                continue
+            }
+            if f.binary {
+                rows.append(.binary(path: f.path))
+                continue
+            }
             var prevEnd: Int?
             for (hi, h) in f.hunks.enumerated() {
                 if let p = prevEnd, h.newStart > p {
@@ -55,8 +73,11 @@ public enum DiffRows {
                     }
                 }
                 rows.append(.hunk(file: fi, index: hi, header: h.header))
-                if sideBySide { for (l, r) in pairs(h.lines) { rows.append(.pair(file: fi, left: l, right: r)) } }
-                else { for l in h.lines { rows.append(.line(file: fi, l)) } }
+                if sideBySide {
+                    for (l, r) in pairs(h.lines) { rows.append(.pair(file: fi, left: l, right: r)) }
+                } else {
+                    for l in h.lines { rows.append(.line(file: fi, l)) }
+                }
                 prevEnd = h.newStart + h.lines.filter { $0.newLine != nil }.count
             }
         }
@@ -90,9 +111,12 @@ extension DiffRows {
         for (fi, f) in diffs.enumerated() {
             for h in f.hunks {
                 for (l, r) in pairs(h.lines) {
-                    guard let l, let r, l.kind == .del, r.kind == .add, let o = l.oldLine, let n = r.newLine else { continue }
+                    guard let l, let r, l.kind == .del, r.kind == .add, let o = l.oldLine, let n = r.newLine else {
+                        continue
+                    }
                     let (a, b) = changedRanges(l.text, r.text)
-                    out["\(fi):d:\(o)"] = a; out["\(fi):a:\(n)"] = b
+                    out["\(fi):d:\(o)"] = a
+                    out["\(fi):a:\(n)"] = b
                 }
             }
         }
@@ -103,16 +127,22 @@ extension DiffRows {
     /// under that removed line, the others under the new file's. One from before sides keeps a number only: a line of the
     /// new file wins, and a deleted line takes it only when the new file has no such line.
     /// `hideFileRows`: one-file mode, where the bar already names the file.
-    public static func reviewRows(_ diffs: [FileDiff], comments: [DiffComment], sideBySide: Bool, hideFileRows: Bool,
-                                  opened: [String: [DiffLine]] = [:]) -> [ReviewRow] {
+    public static func reviewRows(
+        _ diffs: [FileDiff], comments: [DiffComment], sideBySide: Bool, hideFileRows: Bool,
+        opened: [String: [DiffLine]] = [:]
+    ) -> [ReviewRow] {
         var newLines = Set<String>()
-        for (fi, f) in diffs.enumerated() { for h in f.hunks { for l in h.lines { if let n = l.newLine { newLines.insert("\(fi):\(n)") } } } }
+        for (fi, f) in diffs.enumerated() {
+            for h in f.hunks { for l in h.lines { if let n = l.newLine { newLines.insert("\(fi):\(n)") } } }
+        }
         func under(_ fi: Int, _ l: DiffLine) -> [ReviewRow] {
             let here = comments.filter { $0.file == diffs[fi].path && $0.state != .resolved }
             if let n = l.newLine { return here.filter { $0.side != "old" && $0.endLine == n }.map { .comment($0) } }
             guard let o = l.oldLine else { return [] }
             let unsided = !newLines.contains("\(fi):\(o)")
-            return here.filter { $0.endLine == o && ($0.side == "old" || ($0.side == nil && unsided)) }.map { .comment($0) }
+            return here.filter { $0.endLine == o && ($0.side == "old" || ($0.side == nil && unsided)) }.map {
+                .comment($0)
+            }
         }
         var out: [ReviewRow] = []
         for r in build(diffs, sideBySide: sideBySide, opened: opened) {

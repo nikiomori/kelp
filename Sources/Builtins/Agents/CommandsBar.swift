@@ -57,8 +57,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         self.app = app
         watched = Watched(.commands, in: app)
         super.init(frame: .zero)
-        let line = NSBox(); line.boxType = .separator
-        let col = NSTableColumn(identifier: .init("c")); col.resizingMask = .autoresizingMask
+        let line = NSBox()
+        line.boxType = .separator
+        let col = NSTableColumn(identifier: .init("c"))
+        col.resizingMask = .autoresizingMask
         table.addTableColumn(col)
         table.headerView = nil
         table.style = .plain
@@ -66,8 +68,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         table.rowHeight = Self.rowHeight
         table.dataSource = self
         table.delegate = self
-        table.target = self; table.action = #selector(clickedRow)
-        table.menu = NSMenu(); table.menu?.delegate = self
+        table.target = self
+        table.action = #selector(clickedRow)
+        table.menu = NSMenu()
+        table.menu?.delegate = self
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
@@ -79,33 +83,54 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         header.toTab.onClick = { [weak self] in if let s = self?.current { self?.moveToTab(s) } }
         grip.isHidden = true
         grip.dragged = { [weak self] in self?.drag(by: $0) }
-        for v in [line, header, scroll, consoleBox, grip] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [line, header, scroll, consoleBox, grip] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
         let h = heightAnchor.constraint(equalToConstant: 0), lh = scroll.heightAnchor.constraint(equalToConstant: 0)
         let ch = consoleBox.heightAnchor.constraint(equalToConstant: 0)
         (height, listHeight, consoleHeight) = (h, lh, ch)
         NSLayoutConstraint.activate([
             h, lh, ch,
             line.topAnchor.constraint(equalTo: topAnchor),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor), line.trailingAnchor.constraint(equalTo: trailingAnchor),
-            header.topAnchor.constraint(equalTo: topAnchor), header.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.statusBar)),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor), header.trailingAnchor.constraint(equalTo: trailingAnchor),
+            line.leadingAnchor.constraint(equalTo: leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor),
+            header.topAnchor.constraint(equalTo: topAnchor),
+            header.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.statusBar)),
+            header.leadingAnchor.constraint(equalTo: leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor), scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             consoleBox.topAnchor.constraint(equalTo: scroll.bottomAnchor),
-            consoleBox.leadingAnchor.constraint(equalTo: leadingAnchor), consoleBox.trailingAnchor.constraint(equalTo: trailingAnchor),
+            consoleBox.leadingAnchor.constraint(equalTo: leadingAnchor),
+            consoleBox.trailingAnchor.constraint(equalTo: trailingAnchor),
             grip.topAnchor.constraint(equalTo: topAnchor), grip.heightAnchor.constraint(equalToConstant: Metrics.gap),
-            grip.leadingAnchor.constraint(equalTo: leadingAnchor), grip.trailingAnchor.constraint(equalTo: trailingAnchor)
+            grip.leadingAnchor.constraint(equalTo: leadingAnchor),
+            grip.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
         isHidden = true
         guard watch else { return }
         // Off by default (Settings › Agents): off, it neither shows nor watches the hooks' commands.
         let on = { [app] in app.settings.bool("agents.commandsBar") == true }
-        track(owner: self) { on() } changed: { [weak self] in self?.watched.key = $0 ? session : nil }
-        track(owner: self) { [app] in on() ? app.latest(CommandsEvent.self, session)?.commands ?? [] : nil } changed: { [weak self] in self?.show($0) }
+        track(owner: self) {
+            on()
+        } changed: { [weak self] in
+            self?.watched.key = $0 ? session : nil
+        }
+        track(owner: self) { [app] in
+            on() ? app.latest(CommandsEvent.self, session)?.commands ?? [] : nil
+        } changed: { [weak self] in
+            self?.show($0)
+        }
         track(owner: self) { [app] in
             let inTabs = app.uiState.strings(Session.inTabKey)
-            return app.sessions.filter { $0.startedBy == session && !inTabs.contains($0.id) && app.sessions.owner(of: $0) != nil }
-        } changed: { [weak self] in self?.show(runs: $0) }
+            return app.sessions.filter {
+                $0.startedBy == session && !inTabs.contains($0.id) && app.sessions.owner(of: $0) != nil
+            }
+        } changed: { [weak self] in
+            self?.show(runs: $0)
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -125,7 +150,11 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private func show(runs list: [Session]) {
         runs = list.sorted { $0.createdAt < $1.createdAt }
         if let c = console {
-            if let s = app.session(c.sessionId), list.contains(where: { $0.id == s.id }) { c.update(s) } else { closeConsole() }
+            if let s = app.session(c.sessionId), list.contains(where: { $0.id == s.id }) {
+                c.update(s)
+            } else {
+                closeConsole()
+            }
         }
         reload(keeping: true)
     }
@@ -150,7 +179,12 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     /// the agent at every step.
     private func fold(_ fold: Bool) {
         unfolded = !fold
-        if fold { popover.close(); closeConsole() } else if let s = current { open(s) }
+        if fold {
+            popover.close()
+            closeConsole()
+        } else if let s = current {
+            open(s)
+        }
         layOut(animated: true)
         header.chevron.turn(from: .pi)
         if unfolded, !items.isEmpty { table.scrollRowToVisible(items.count - 1) }
@@ -166,7 +200,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         grip.isHidden = false
         guard escape == nil else { return }
         escape = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
-            guard e.keyCode == 53, let self, let r = window?.firstResponder as? NSView, r.isDescendant(of: consoleBox) else { return e }
+            guard e.keyCode == 53, let self, let r = window?.firstResponder as? NSView, r.isDescendant(of: consoleBox)
+            else { return e }
             fold(true)
             onClosed?()
             return nil
@@ -174,7 +209,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     }
 
     private func closeConsole() {
-        console?.removeFromSuperview(); console = nil
+        console?.removeFromSuperview()
+        console = nil
         grip.isHidden = true
         if let escape { NSEvent.removeMonitor(escape) }
         escape = nil
@@ -200,7 +236,9 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private func layOut(animated: Bool = false) {
         var list: CGFloat = 0, shown: CGFloat = 0
         if unfolded {
-            let rows = console == nil ? min(items.count, Self.shownRows) : items.count > 1 ? min(items.count, Self.rowsOverConsole) : 0
+            let rows =
+                console == nil
+                ? min(items.count, Self.shownRows) : items.count > 1 ? min(items.count, Self.rowsOverConsole) : 0
             list = rows == 0 ? 0 : CGFloat(rows) * Self.rowHeight + 4
             if console != nil, let pane = superview?.bounds.height { shown = (pane * share).rounded() }
         }
@@ -228,12 +266,19 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private func showHeader(_ now: Date) {
         let count = String(localized: "\(items.count) commands")
         let run = current
-        if let run { header.row.show(run: run, tail: tails[run.id], page: port(of: run), now: now) }
-        else if unfolded || items.isEmpty { header.row.show(nil, title: count, now: now) }
-        else if case .command(let last)? = items.last { header.row.show(last, now: now) }
+        if let run {
+            header.row.show(run: run, tail: tails[run.id], page: port(of: run), now: now)
+        } else if unfolded || items.isEmpty {
+            header.row.show(nil, title: count, now: now)
+        } else if case .command(let last)? = items.last {
+            header.row.show(last, now: now)
+        }
         header.showActions(for: run, always: unfolded)
-        header.chevron.image = .symbol(unfolded ? "chevron.down" : "chevron.up", unfolded ? String(localized: "Hide the commands") : count)
-        header.toolTip = unfolded ? String(localized: "Hide the commands") : String(localized: "Show the commands it ran (\(items.count))")
+        header.chevron.image = .symbol(
+            unfolded ? "chevron.down" : "chevron.up", unfolded ? String(localized: "Hide the commands") : count)
+        header.toolTip =
+            unfolded
+            ? String(localized: "Hide the commands") : String(localized: "Show the commands it ran (\(items.count))")
         header.setAccessibilityLabel(header.toolTip)
     }
 
@@ -244,7 +289,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
             clock = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in   // main run loop
                 MainActor.assumeIsolated { self?.tick() }
             }
-        } else if !running { clock?.invalidate(); clock = nil }
+        } else if !running {
+            clock?.invalidate()
+            clock = nil
+        }
         // Out of sight (another window over it, Kelp hidden): no tails asked, nothing redrawn; the clock goes on for when it's back.
         guard window?.occlusionState.contains(.visible) == true else { return }
         readTails()
@@ -263,7 +311,9 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     /// The page a run serves: the port on this Mac.
     private func port(of s: Session) -> Int? {
-        s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?.first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
+        s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?.first {
+            $0.session == s.id && ServedPages.listed($0)
+        }.map { $0.here ?? $0.port }
     }
 
     /// The last line of what's running, on screen only; of what ended, once more for the last word.
@@ -290,7 +340,12 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window == nil { clock?.invalidate(); clock = nil } else { tick() }   // no clock for a tab out of sight
+        if window == nil {
+            clock?.invalidate()
+            clock = nil
+        } else {
+            tick()
+        }   // no clock for a tab out of sight
     }
 
     @objc private func clickedRow() { showItem(table.clickedRow) }
@@ -324,7 +379,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         addCopy(to: m, s.argv.last ?? s.command)
     }
     private func addCopy(to m: NSMenu, _ command: String) {
-        m.add(String(localized: "Copy Command")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(command, forType: .string) }
+        m.add(String(localized: "Copy Command")) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+        }
     }
     /// The bar's own line: its last command, and the way to turn the shell tool's commands off.
     private func headerMenu() -> NSMenu {
@@ -386,7 +444,8 @@ private final class Header: PointerControl {
     override func clicked() { press() }
 
     func showActions(for run: Session?, always: Bool) {
-        self.run = run; self.always = always
+        self.run = run
+        self.always = always
         refreshPointer()
     }
     override func showPointer(hovering: Bool, pressed: Bool) {
@@ -403,8 +462,14 @@ private final class Grip: NSView {
     var dragged: (CGFloat) -> Void = { _ in }
     private var last: CGFloat = 0
     override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeUpDown) }
-    override func mouseDown(with e: NSEvent) { GhosttyTerminalView.holdSize(true); last = e.locationInWindow.y }
-    override func mouseDragged(with e: NSEvent) { dragged(e.locationInWindow.y - last); last = e.locationInWindow.y }
+    override func mouseDown(with e: NSEvent) {
+        GhosttyTerminalView.holdSize(true)
+        last = e.locationInWindow.y
+    }
+    override func mouseDragged(with e: NSEvent) {
+        dragged(e.locationInWindow.y - last)
+        last = e.locationInWindow.y
+    }
     override func mouseUp(with e: NSEvent) { GhosttyTerminalView.holdSize(false) }
 }
 
@@ -415,15 +480,18 @@ final class CommandRow: NSTableCellView {
     private let mark = StatusMark(size: 12)
     private let server = NSImageView(image: .symbol("play.fill", String(localized: "Serving a page")))
     /// The agent's words for it (else the command, else a title); then the command.
-    private let lead = NSTextField(labelWithString: ""), command = NSTextField(labelWithString: ""), time = NSTextField(labelWithString: "")
+    private let lead = NSTextField(labelWithString: ""), command = NSTextField(labelWithString: ""),
+        time = NSTextField(labelWithString: "")
     /// The mark's room, so the commands line up; a count goes without it.
     private let slot = NSView()
 
     init() {
         super.init(frame: .zero)
         identifier = Self.id
-        command.font = .uiMono(11); command.textColor = .secondaryLabelColor
-        time.font = .uiDigits(11); time.textColor = .secondaryLabelColor
+        command.font = .uiMono(11)
+        command.textColor = .secondaryLabelColor
+        time.font = .uiDigits(11)
+        time.textColor = .secondaryLabelColor
         for l in [lead, command] { l.lineBreakMode = .byTruncatingTail }
         lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // short of room, the command goes first
         command.setContentCompressionResistancePriority(.init(250), for: .horizontal)
@@ -435,10 +503,13 @@ final class CommandRow: NSTableCellView {
         slot.translatesAutoresizingMaskIntoConstraints = false
         slot.addSubview(mark)
         slot.addSubview(server)
-        NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
-                                     mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor), mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
-                                     server.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-                                     server.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+        NSLayoutConstraint.activate([
+            slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
+            mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+            mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
+            server.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+            server.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+        ])
         let s = NSStackView(views: [slot, lead, command, time])
         s.spacing = Metrics.gapWide
         s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
@@ -457,7 +528,8 @@ final class CommandRow: NSTableCellView {
         lead.stringValue = s.displayTitle
         command.textColor = status == .error ? .textRed : .secondaryLabelColor
         command.stringValue = serving ? "localhost:\(page ?? 0)" : live ? tail ?? "" : Self.ending(s, tail: tail)
-        time.stringValue = shortSpan((live ? now : s.statusAt ?? now).timeIntervalSince(s.createdAt), units: 2, smallest: .second)
+        time.stringValue = shortSpan(
+            (live ? now : s.statusAt ?? now).timeIntervalSince(s.createdAt), units: 2, smallest: .second)
         toolTip = s.argv.last ?? s.command
     }
 

@@ -12,13 +12,19 @@ struct CIActions {
     func rerunFailed(_ run: Int) {
         act(CIRerun(worktreeId: worktree, run: run), said: String(localized: "Re-running the failed jobs"))
     }
-    func rerunAll(_ run: Int) { act(CIRerunAll(worktreeId: worktree, run: run), said: String(localized: "Re-running the run")) }
-    func rerunJob(_ job: Int) { act(CIRerunJob(worktreeId: worktree, job: job), said: String(localized: "Re-running the job")) }
+    func rerunAll(_ run: Int) {
+        act(CIRerunAll(worktreeId: worktree, run: run), said: String(localized: "Re-running the run"))
+    }
+    func rerunJob(_ job: Int) {
+        act(CIRerunJob(worktreeId: worktree, job: job), said: String(localized: "Re-running the job"))
+    }
 
     /// A cancelled run can't be taken back, only started again.
     func cancel(_ r: CIRuns.Run) {
-        let a = NSAlert(question: String(localized: "Cancel “\(r.title)”?"),
-                        detail: String(localized: "What's running stops now. You can start the run again."), action: String(localized: "Cancel Run"))
+        let a = NSAlert(
+            question: String(localized: "Cancel “\(r.title)”?"),
+            detail: String(localized: "What's running stops now. You can start the run again."),
+            action: String(localized: "Cancel Run"))
         Task {
             guard await runSheet(a) == .alertFirstButtonReturn else { return }
             act(CIRunCancel(worktreeId: worktree, run: r.id), said: String(localized: "Cancelling the run"))
@@ -31,7 +37,9 @@ struct CIActions {
         Task {
             if await app.tryCall(GitCommitDetails(id: worktree, commit: sha)).value != nil {
                 app.workbench.open(TabURI.diff(worktree, commit: sha))
-            } else if let page = r.commitURL { Forge.open(page) }
+            } else if let page = r.commitURL {
+                Forge.open(page)
+            }
         }
     }
 

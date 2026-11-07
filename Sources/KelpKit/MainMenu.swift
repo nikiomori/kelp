@@ -12,18 +12,25 @@ final class MenuBuilder {
     /// Commands given a place; the rest go in the menu they name (Tools by default).
     var placed: Set<String> = []
     private let item: (CommandSpec) -> NSMenuItem
-    init(reg: ExtensionRegistry, item: @escaping (CommandSpec) -> NSMenuItem) { self.reg = reg; self.item = item }
+    init(reg: ExtensionRegistry, item: @escaping (CommandSpec) -> NSMenuItem) {
+        self.reg = reg
+        self.item = item
+    }
 
     func sub(_ title: String) -> NSMenu {
         let mi = bar.addItem(withTitle: title, action: nil, keyEquivalent: "")
-        let m = NSMenu(title: title); bar.setSubmenu(m, for: mi)
+        let m = NSMenu(title: title)
+        bar.setSubmenu(m, for: mi)
         return m
     }
 
     /// These commands, in order ("-" is a separator); one whose extension is off is left out.
     @discardableResult func add(_ m: NSMenu, _ ids: String...) -> [NSMenuItem] {
         ids.compactMap { id in
-            if id == "-" { m.addItem(.separator()); return nil }
+            if id == "-" {
+                m.addItem(.separator())
+                return nil
+            }
             guard let c = reg.command(id) else { return nil }
             placed.insert(id)
             let i = item(c)
@@ -33,7 +40,10 @@ final class MenuBuilder {
     }
 
     /// Only its key: in the menu so the shortcut works, not shown.
-    func hide(_ i: NSMenuItem) { i.isHidden = true; i.allowsKeyEquivalentWhenHidden = true }
+    func hide(_ i: NSMenuItem) {
+        i.isHidden = true
+        i.allowsKeyEquivalentWhenHidden = true
+    }
 
     /// Every command nothing placed, in the menu it names (after a separator) or in `tools`; Tools goes if it's empty.
     func placeTheRest(in tools: NSMenu) {
@@ -63,29 +73,40 @@ extension AppDelegate {
         helpMenu(b)
         b.placeTheRest(in: tools)
         KeyBindings.apply(to: b.bar, app.settings)   // Settings › Keyboard's changes over the defaults (on the English titles)
-        Localize.menu(b.bar)           // shown in the user's language
+        Localize.menu(b.bar)   // shown in the user's language
         NSApp.mainMenu = b.bar
     }
 
     /// Kelp: About, updates, settings, and the standard Services / Hide / Quit.
     private func appMenu(_ b: MenuBuilder) {
         let app = b.sub("Kelp")
-        app.addItem(withTitle: "About Kelp", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(
+            withTitle: "About Kelp", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: "")
         if let ready = self.app.updates.ready {
             let model = self.app
-            app.add(String(localized: "Update Kelp to \(ready.version)")) { Task { await model.updates.install(model) } }
+            app.add(String(localized: "Update Kelp to \(ready.version)")) {
+                Task { await model.updates.install(model) }
+            }
         } else if let u = updater {
-            app.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "").target = u
+            app.addItem(
+                withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                keyEquivalent: ""
+            ).target = u
         }
         b.add(app, "-", "workbench.openSettings", "workbench.openExtensions", "workbench.restartService", "-")
         // The standard application menu: Services, Hide / Hide Others / Show All, Quit.
-        let services = NSMenu(title: "Services"); NSApp.servicesMenu = services
+        let services = NSMenu(title: "Services")
+        NSApp.servicesMenu = services
         app.setSubmenu(services, for: app.addItem(withTitle: "Services", action: nil, keyEquivalent: ""))
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Kelp", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        app.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
-            .keyEquivalentModifierMask = [.command, .option]
-        app.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        app.addItem(
+            withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h"
+        )
+        .keyEquivalentModifierMask = [.command, .option]
+        app.addItem(
+            withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Quit Kelp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
@@ -94,20 +115,29 @@ extension AppDelegate {
     private func fileMenu(_ b: MenuBuilder) {
         let app = self.app
         let file = b.sub("File")
-        b.add(file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "workspace.newBranchAsking", "agents.new", "terminal.new", "terminal.tmux")
+        b.add(
+            file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "workspace.newBranchAsking",
+            "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
-        for a in app.catalog.installed(app.catalog.all) { with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) } }
+        for a in app.catalog.installed(app.catalog.all) {
+            with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) }
+        }
         with.addItem(.separator())
         for e in b.reg.all.editors {
             with.add(e.title, symbol: e.icon) { e.open(IDEContext.of(app), in: app) }
         }
         file.setSubmenu(with, for: file.addItem(withTitle: "New Tab", action: nil, keyEquivalent: ""))
-        b.add(file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "-", "workspace.revealInFinder")
+        b.add(
+            file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "-",
+            "workspace.revealInFinder")
         let openIn = NSMenu()
         WorkspaceActions.addOpenIn(to: openIn, path: { app.worktree(app.workbench.workspaceId)?.path }, prefix: "")
-        if !openIn.items.isEmpty { file.setSubmenu(openIn, for: file.addItem(withTitle: "Open Folder In", action: nil, keyEquivalent: "")) }
+        if !openIn.items.isEmpty {
+            file.setSubmenu(openIn, for: file.addItem(withTitle: "Open Folder In", action: nil, keyEquivalent: ""))
+        }
         b.add(file, "-", "editor.reopenTab")
-        let recent = NSMenu(title: "Recently Closed"); recent.delegate = recentlyClosedMenu
+        let recent = NSMenu(title: "Recently Closed")
+        recent.delegate = recentlyClosedMenu
         file.setSubmenu(recent, for: file.addItem(withTitle: "Recently Closed", action: nil, keyEquivalent: ""))
         b.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
     }
@@ -125,31 +155,45 @@ extension AppDelegate {
         edit.addItem(.separator())
         // Find, as in every Mac editor: the panel, next / previous, use selection.
         let find = NSMenu(title: "Find")
-        for (title, key, mods, action) in [("Find…", "f", NSEvent.ModifierFlags.command, NSFindPanelAction.showFindPanel),
-                                           ("Find Next", "g", [.command], .next), ("Find Previous", "G", [.command, .shift], .previous),
-                                           ("Use Selection for Find", "e", [.command], .setFindString)] {
-            let i = find.addItem(withTitle: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
-            i.keyEquivalentModifierMask = mods; i.tag = Int(action.rawValue)
+        for (title, key, mods, action) in [
+            ("Find…", "f", NSEvent.ModifierFlags.command, NSFindPanelAction.showFindPanel),
+            ("Find Next", "g", [.command], .next), ("Find Previous", "G", [.command, .shift], .previous),
+            ("Use Selection for Find", "e", [.command], .setFindString)
+        ] {
+            let i = find.addItem(
+                withTitle: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
+            i.keyEquivalentModifierMask = mods
+            i.tag = Int(action.rawValue)
         }
         b.add(find, "files.findInWorkspace", "files.findByName")
         b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
         edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
-        b.add(edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions", "editor.showHover",
-              "editor.jumpToDefinition", "editor.findReferences", "editor.rename", "editor.quickFix", "editor.sendToAgent",
-              "editor.copyReference", "editor.copyWebLink",
-              "-", "editor.fold", "editor.unfold", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3", "editor.unfoldAll")
+        b.add(
+            edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions",
+            "editor.showHover",
+            "editor.jumpToDefinition", "editor.findReferences", "editor.rename", "editor.quickFix",
+            "editor.sendToAgent",
+            "editor.copyReference", "editor.copyWebLink",
+            "-", "editor.fold", "editor.unfold", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3",
+            "editor.unfoldAll")
         let markdown = NSMenu(title: "Markdown")
-        b.add(markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets", "markdown.numbered",
-              "markdown.tasks", "-", "markdown.cycleView")
+        b.add(
+            markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets",
+            "markdown.numbered",
+            "markdown.tasks", "-", "markdown.cycleView")
         edit.setSubmenu(markdown, for: edit.addItem(withTitle: "Markdown", action: nil, keyEquivalent: ""))
     }
 
     /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,
     /// and ⌘D, ⌘[ ⌘] are Split Right and the panes outside the editor (inside, the editor takes them first: EditorBox).
     private func selectionMenu(_ b: MenuBuilder) {
-        b.add(b.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.expandSelection", "editor.shrinkSelection",
-              "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds", "-", "editor.moveLinesUp", "editor.moveLinesDown",
-              "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "-", "editor.toggleComment", "editor.indent", "editor.outdent")
+        b.add(
+            b.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.expandSelection",
+            "editor.shrinkSelection",
+            "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds", "-", "editor.moveLinesUp",
+            "editor.moveLinesDown",
+            "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "-", "editor.toggleComment",
+            "editor.indent", "editor.outdent")
     }
 
     /// View: the sidebar and inspector, panels, text size, panes and tabs.
@@ -158,32 +202,46 @@ extension AppDelegate {
         let view = b.sub("View")
         b.add(view, "workbench.toggleSidebar", "workbench.toggleInspector", "workbench.toggleFocusMode")
         for (i, p) in b.reg.all.panels.prefix(9).enumerated() {
-            let m = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") { app.extensions.run("workbench.showPanel", ["panel": .string(p.id)]) }
+            let m = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") {
+                app.extensions.run("workbench.showPanel", ["panel": .string(p.id)])
+            }
             m.keyEquivalentModifierMask = [.command, .option]
         }
         b.placed.insert("workbench.showPanel")
         b.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")
         // ⌘= enlarges too, as in Ghostty, VS Code and Safari (+ is the shifted =).
         b.hide(view.add("Bigger Text", key: "=") { app.extensions.run("view.biggerText") })
-        b.add(view, "view.smallerText", "view.defaultTextSize", "-", "terminal.splitRight", "terminal.splitDown", "agents.sideBySide",
-              "view.maximizePane", "view.equalizePanes")
+        b.add(
+            view, "view.smallerText", "view.defaultTextSize", "-", "terminal.splitRight", "terminal.splitDown",
+            "agents.sideBySide",
+            "view.maximizePane", "view.equalizePanes")
         let panes = NSMenu(title: "Select Pane")
-        b.add(panes, "view.nextPane", "view.previousPane", "-", "view.paneLeft", "view.paneRight", "view.paneAbove", "view.paneBelow")
+        b.add(
+            panes, "view.nextPane", "view.previousPane", "-", "view.paneLeft", "view.paneRight", "view.paneAbove",
+            "view.paneBelow")
         view.setSubmenu(panes, for: view.addItem(withTitle: "Select Pane", action: nil, keyEquivalent: ""))
         b.add(view, "-", "editor.nextTab", "editor.previousTab")
-        for n in 1...9 { b.add(view, "editor.tab.\(n)").forEach { $0.isHidden = n > 3; $0.allowsKeyEquivalentWhenHidden = true } }
+        for n in 1...9 {
+            b.add(view, "editor.tab.\(n)").forEach {
+                $0.isHidden = n > 3
+                $0.allowsKeyEquivalentWhenHidden = true
+            }
+        }
         // ⌃Tab / ⌃⇧Tab: the workspace switcher (Window menu); tabs keep ⇧⌘] / ⇧⌘[.
         b.add(view, "-", "workbench.commandPalette", "files.quickOpen", "agents.history", "-")
-        view.addItem(withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
-            .keyEquivalentModifierMask = [.command, .control]
+        view.addItem(
+            withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f"
+        )
+        .keyEquivalentModifierMask = [.command, .control]
     }
 
     /// Run: the project's commands (ScriptsMenu fills in the rest) and the editor's run / test / format.
     private func runMenu(_ b: MenuBuilder) {
         let runs = b.sub("Run")
         runs.delegate = app.scripts   // the project's other commands go between the separators
-        b.add(runs, "scripts.run", "scripts.choose", "scripts.test", "scripts.stop", "scripts.openPage", "-", "-",
-              "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")
+        b.add(
+            runs, "scripts.run", "scripts.choose", "scripts.test", "scripts.stop", "scripts.openPage", "-", "-",
+            "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")
     }
 
     /// Window: workspaces, the agent needing you, archived workspaces.
@@ -195,14 +253,22 @@ extension AppDelegate {
         win.addItem(.separator())
         b.add(win, "agents.nextNeedingYou", "agents.usage", "workbench.scratch", "workspace.switch")
         let back = win.add("", key: "\t") { app.extensions.run("workspace.switch", ["by": -1]) }
-        back.keyEquivalentModifierMask = [.control, .shift]; b.hide(back)
+        back.keyEquivalentModifierMask = [.control, .shift]
+        b.hide(back)
         b.add(win, "workspace.next", "workspace.previous", "workspace.back", "workspace.forward")
-        for n in 1...9 { b.add(win, "workspace.select.\(n)").forEach { $0.isHidden = n > 1; $0.allowsKeyEquivalentWhenHidden = true } }
+        for n in 1...9 {
+            b.add(win, "workspace.select.\(n)").forEach {
+                $0.isHidden = n > 1
+                $0.allowsKeyEquivalentWhenHidden = true
+            }
+        }
         win.addItem(.separator())
-        let archived = NSMenu(title: "Archived Groups"); archived.delegate = archivedMenu
+        let archived = NSMenu(title: "Archived Groups")
+        archived.delegate = archivedMenu
         win.setSubmenu(archived, for: win.addItem(withTitle: "Archived Groups", action: nil, keyEquivalent: ""))
         win.addItem(.separator())
-        win.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        win.addItem(
+            withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         NSApp.windowsMenu = win
     }
 

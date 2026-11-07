@@ -1,6 +1,6 @@
-import Foundation
-import Core
 import AgentData
+import Core
+import Foundation
 
 extension Sessions {
     /// What a Claude Code session's requests start with, as its /context counts it (system prompt, tools, MCP, memory
@@ -13,11 +13,14 @@ extension Sessions {
     func claudeSetup(_ s: Session) -> SessionContextParts.Setup? {
         guard s.agent == "claude", remotes.of(s.cwd) == nil else { return nil }
         let carried = ["--plugin-dir", "--append-system-prompt", "--model", "--mcp-config"]
-        let flags = s.argv.indices.dropLast().filter { carried.contains(s.argv[$0]) }.flatMap { [s.argv[$0], s.argv[$0 + 1]] }
+        let flags = s.argv.indices.dropLast().filter { carried.contains(s.argv[$0]) }.flatMap {
+            [s.argv[$0], s.argv[$0 + 1]]
+        }
         let key = ([s.cwd, s.profile ?? ""] + flags).joined(separator: "\n")
         if let hit = contextSetups.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 1800 { return hit.setup }
         var env = ProcessInfo.processInfo.environment
-        env["PATH"] = Self.childPath; env["NO_COLOR"] = "1"
+        env["PATH"] = Self.childPath
+        env["NO_COLOR"] = "1"
         if let name = s.profile, let p = profile(name, agent: "claude") { env[p.key] = p.dir }
         var setup: SessionContextParts.Setup?
         do {
@@ -33,12 +36,15 @@ extension Sessions {
         return setup
     }
 
-    static let setupArgs = ["-p", "/context", "--no-session-persistence", "--strict-mcp-config", "--settings", #"{"disableAllHooks":true}"#]
+    static let setupArgs = [
+        "-p", "/context", "--no-session-persistence", "--strict-mcp-config", "--settings", #"{"disableAllHooks":true}"#
+    ]
 
     /// The session's folder is a project's, with the agent config of its base branch.
     private func configSettled(_ s: Session) -> Bool {
         let project = Log.session.attempt("the project of \(s.id)") {
-            try s.worktreeId.flatMap { try store.worktree($0) }.flatMap { w in try store.repo(w.repoId).map { (w, $0) } }
+            try s.worktreeId.flatMap { try store.worktree($0) }.flatMap { w in try store.repo(w.repoId).map { (w, $0) }
+            }
         }
         guard let (w, r) = project ?? nil else { return false }
         return !AgentConfig.changed(w.path, base: r.baseBranch, remotes: remotes)

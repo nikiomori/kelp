@@ -1,13 +1,15 @@
-import SwiftUI
-import DesignKit
 import Core
+import DesignKit
+import SwiftUI
 
 /// Choices about how something looks, shown as what they look like: a small drawing per option, picked like a theme,
 /// instead of its name in a menu. The value written is the option, as from the menu.
 enum SettingPictures {
-    static let keys: Set<String> = ["workbench.textSize", "workbench.sidebar.rowHeight", "workbench.sidebar.agentDetail",
-                                    "workbench.sidebar.projectColor", "workbench.sidebar.serverLook", "agents.dockIcon", "agents.dockStrip",
-                                    "terminal.cursorStyle"]
+    static let keys: Set<String> = [
+        "workbench.textSize", "workbench.sidebar.rowHeight", "workbench.sidebar.agentDetail",
+        "workbench.sidebar.projectColor", "workbench.sidebar.serverLook", "agents.dockIcon", "agents.dockStrip",
+        "terminal.cursorStyle"
+    ]
 }
 
 /// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
@@ -25,7 +27,8 @@ struct PictureGrid: View {
         TileGrid {
             ForEach(options, id: \.self) { o in
                 PictureTile(name: label(o), on: o == selection, pick: { selection = o }) {
-                    PictureArt(key: key, option: o).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .fillHover))
+                    PictureArt(key: key, option: o).frame(maxWidth: .infinity, maxHeight: .infinity).background(
+                        Color(nsColor: .fillHover))
                 }
             }
         }
@@ -36,8 +39,10 @@ struct PictureGrid: View {
 struct TileGrid<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.inset), count: PictureGrid.columns),
-                  spacing: Metrics.inset) { content }
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.inset), count: PictureGrid.columns),
+            spacing: Metrics.inset
+        ) { content }
     }
 }
 
@@ -56,7 +61,9 @@ struct PictureTile<Art: View>: View {
                 art.frame(height: Self.height)
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
                     .cardEdge(selected: on)
-                Text(name).font(.ui(11)).fontWeight(on ? .semibold : .regular).foregroundStyle(on ? .primary : .secondary).lineLimit(1)
+                Text(name).font(.ui(11)).fontWeight(on ? .semibold : .regular).foregroundStyle(
+                    on ? .primary : .secondary
+                ).lineLimit(1)
             }
         }
         .buttonStyle(PointerCardStyle())
@@ -71,7 +78,9 @@ struct TileHeading<Title: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.lineGap) {
             title
-            if let about { Text(about).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+            if let about {
+                Text(about).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -103,7 +112,9 @@ private struct PictureArt: View {
         .system(size: size, weight: weight, design: design)
     }
 
-    private func row<Content: View>(height: CGFloat, fill: Color = Color.primary.opacity(0.08), @ViewBuilder _ content: () -> Content) -> some View {
+    private func row<Content: View>(
+        height: CGFloat, fill: Color = Color.primary.opacity(0.08), @ViewBuilder _ content: () -> Content
+    ) -> some View {
         HStack(spacing: 5) { content() }
             .padding(.horizontal, 6).frame(maxWidth: .infinity, alignment: .leading).frame(height: height)
             .background(fill, in: RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous))
@@ -117,7 +128,9 @@ private struct PictureArt: View {
     private var textSize: some View {
         let s: CGFloat = ["large": 1.15, "larger": 1.3][option] ?? 1
         return VStack(spacing: 3) {
-            row(height: 15 * s) { Text(verbatim: "Kelp").font(Self.drawn(10, weight: .semibold)).scaleEffect(s, anchor: .leading) }
+            row(height: 15 * s) {
+                Text(verbatim: "Kelp").font(Self.drawn(10, weight: .semibold)).scaleEffect(s, anchor: .leading)
+            }
             row(height: 15 * s) {
                 Circle().fill(Color.textGreen).frame(width: 5, height: 5)
                 Text(verbatim: "Claude").font(Self.drawn(10)).scaleEffect(s, anchor: .leading)
@@ -145,7 +158,11 @@ private struct PictureArt: View {
             Circle().fill(Color.textOrange).frame(width: 5, height: 5)
             VStack(alignment: .leading, spacing: 4) {
                 line(36)
-                if option != "never" { line(option == "needsYou" ? 48 : 40, option == "needsYou" ? .textOrange : Color.primary.opacity(0.25)) }
+                if option != "never" {
+                    line(
+                        option == "needsYou" ? 48 : 40, option == "needsYou" ? .textOrange : Color.primary.opacity(0.25)
+                    )
+                }
             }
         }
         .padding(.horizontal, 12)
@@ -159,7 +176,8 @@ private struct PictureArt: View {
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous))
             } else {
                 row(height: 20) {
-                    RoundedRectangle(cornerRadius: Metrics.radiusXS / 2, style: .continuous).fill(Self.pink).frame(width: 10, height: 10)
+                    RoundedRectangle(cornerRadius: Metrics.radiusXS / 2, style: .continuous).fill(Self.pink).frame(
+                        width: 10, height: 10)
                     line(40)
                 }
             }
@@ -172,8 +190,14 @@ private struct PictureArt: View {
         let stripes = Stripes(side: option == "sparse" ? 7 : 5)
         let shape = RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous)
         return row(height: 20, fill: option == "stripes" || option == "sparse" ? .clear : Color.primary.opacity(0.05)) {
-            Image(systemName: "server.rack").font(Self.drawn(8, weight: .medium)).foregroundStyle(.secondary).frame(width: 12, height: 12)
-                .background { if option == "icon" { stripes.frame(width: 15, height: 15).overlay(shape.stroke(Color.primary.opacity(0.15))) } }
+            Image(systemName: "server.rack").font(Self.drawn(8, weight: .medium)).foregroundStyle(.secondary).frame(
+                width: 12, height: 12
+            )
+            .background {
+                if option == "icon" {
+                    stripes.frame(width: 15, height: 15).overlay(shape.stroke(Color.primary.opacity(0.15)))
+                }
+            }
             line(30)
             Spacer(minLength: 0)
             line(14, Color.primary.opacity(0.25))
@@ -181,9 +205,12 @@ private struct PictureArt: View {
         .background {
             switch option {
             case "stripes", "sparse": stripes.clipShape(shape)
-            case "fade": stripes.clipShape(shape)
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0.12), .init(color: .clear, location: 0.5)],
-                                     startPoint: .leading, endPoint: .trailing))
+            case "fade":
+                stripes.clipShape(shape)
+                    .mask(
+                        LinearGradient(
+                            stops: [.init(color: .black, location: 0.12), .init(color: .clear, location: 0.5)],
+                            startPoint: .leading, endPoint: .trailing))
             default: EmptyView()
             }
         }
@@ -196,16 +223,22 @@ private struct PictureArt: View {
         Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 38, height: 38)
             .overlay(alignment: .bottom) {
                 if option == "agents" {
-                    HStack(spacing: 2) { ForEach([Color.textGreen, .textOrange, .textGreen], id: \.self) { Capsule().fill($0).frame(width: 7, height: 4) } }
-                        .offset(y: 4)
+                    HStack(spacing: 2) {
+                        ForEach([Color.textGreen, .textOrange, .textGreen], id: \.self) {
+                            Capsule().fill($0).frame(width: 7, height: 4)
+                        }
+                    }
+                    .offset(y: 4)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
                 if option == "usage" {
-                    Circle().trim(from: 0, to: 0.62).stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                        .rotationEffect(.degrees(-90)).frame(width: 13, height: 13)
-                        .background(Circle().fill(Color(nsColor: .windowBackgroundColor)).frame(width: 17, height: 17))
-                        .offset(x: 3, y: 3)
+                    Circle().trim(from: 0, to: 0.62).stroke(
+                        Color.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90)).frame(width: 13, height: 13)
+                    .background(Circle().fill(Color(nsColor: .windowBackgroundColor)).frame(width: 17, height: 17))
+                    .offset(x: 3, y: 3)
                 }
             }
     }
@@ -216,17 +249,28 @@ private struct PictureArt: View {
             Spacer()
             if option != "off" {
                 HStack(spacing: 3) {
-                    if option == "needed" { Circle().fill(Color.textOrange).frame(width: 5, height: 5); line(30, .white.opacity(0.8)) }
-                    else { ForEach([Color.textGreen, .textGreen, .textOrange], id: \.self) { Circle().fill($0).frame(width: 5, height: 5) } }
+                    if option == "needed" {
+                        Circle().fill(Color.textOrange).frame(width: 5, height: 5)
+                        line(30, .white.opacity(0.8))
+                    } else {
+                        ForEach([Color.textGreen, .textGreen, .textOrange], id: \.self) {
+                            Circle().fill($0).frame(width: 5, height: 5)
+                        }
+                    }
                 }
                 .padding(.horizontal, 6).frame(height: 13)
-                .background(Color.black.opacity(0.75), in: RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous))
+                .background(
+                    Color.black.opacity(0.75), in: RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous))
             }
-            RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous).fill(Color.primary.opacity(0.18)).frame(height: 9).padding(.horizontal, 18)
+            RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous).fill(Color.primary.opacity(0.18))
+                .frame(height: 9).padding(.horizontal, 18)
         }
         .padding(.bottom, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(LinearGradient(colors: [Color.accentColor.opacity(0.35), Color.accentColor.opacity(0.12)], startPoint: .top, endPoint: .bottom))
+        .background(
+            LinearGradient(
+                colors: [Color.accentColor.opacity(0.35), Color.accentColor.opacity(0.12)], startPoint: .top,
+                endPoint: .bottom))
     }
 
     /// In the terminal's own colors, as the sample above it.
@@ -249,7 +293,9 @@ private struct PictureArt: View {
 
     private var agent: some View {
         Group {
-            if let img = app.catalog.icon(option, size: 30) { Image(nsImage: img).resizable().frame(width: 30, height: 30) }
+            if let img = app.catalog.icon(option, size: 30) {
+                Image(nsImage: img).resizable().frame(width: 30, height: 30)
+            }
         }
     }
 }
@@ -267,19 +313,27 @@ struct InspectorPanelsRow: View {
         let hidden = Set(s.value(Self.hiddenKey)?.array?.compactMap(\.string) ?? [])
         let order = s.value(Self.orderKey)?.array?.compactMap(\.string) ?? []
         let panels = app.extensions.all.panels.enumerated()
-            .sorted { (order.firstIndex(of: $0.element.id) ?? .max, $0.offset) < (order.firstIndex(of: $1.element.id) ?? .max, $1.offset) }
+            .sorted {
+                (order.firstIndex(of: $0.element.id) ?? .max, $0.offset) < (
+                    order.firstIndex(of: $1.element.id) ?? .max, $1.offset
+                )
+            }
             .map(\.element)
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
             TileHeading(title: { title }, about: about)
             ForEach(panels, id: \.id) { p in
-                Toggle(isOn: Binding(get: { !hidden.contains(p.id) }, set: { on in
-                    var next = hidden
-                    if on { next.remove(p.id) } else { next.insert(p.id) }
-                    // At least one stays: an inspector without icons has no way back but here.
-                    guard next.count < panels.count else { return }
-                    let kept = panels.map(\.id).filter(next.contains)
-                    s.set(Self.hiddenKey, kept.isEmpty ? nil : .array(kept.map(JSONValue.string)))
-                })) {
+                Toggle(
+                    isOn: Binding(
+                        get: { !hidden.contains(p.id) },
+                        set: { on in
+                            var next = hidden
+                            if on { next.remove(p.id) } else { next.insert(p.id) }
+                            // At least one stays: an inspector without icons has no way back but here.
+                            guard next.count < panels.count else { return }
+                            let kept = panels.map(\.id).filter(next.contains)
+                            s.set(Self.hiddenKey, kept.isEmpty ? nil : .array(kept.map(JSONValue.string)))
+                        })
+                ) {
                     Label(loc(p.title), systemImage: p.icon)
                 }
             }

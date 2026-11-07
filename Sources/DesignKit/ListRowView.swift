@@ -15,7 +15,10 @@ public final class ListRowView: NSTableRowView {
     private var hovering = false { didSet { showHover() } }
     override public var isSelected: Bool { didSet { showHover() } }
 
-    override public func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInKeyWindow) }
+    override public func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeInKeyWindow)
+    }
     override public func mouseEntered(with e: NSEvent) { setHovering(true) }
     override public func mouseExited(with e: NSEvent) { setHovering(false) }
     private func setHovering(_ on: Bool) {
@@ -31,8 +34,13 @@ public final class ListRowView: NSTableRowView {
         super.viewDidMoveToWindow()
         if let scrollWatch { NotificationCenter.default.removeObserver(scrollWatch) }
         scrollWatch = nil
-        guard window != nil, let clip = enclosingScrollView?.contentView else { setHovering(false); return }
-        scrollWatch = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
+        guard window != nil, let clip = enclosingScrollView?.contentView else {
+            setHovering(false)
+            return
+        }
+        scrollWatch = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification, object: clip, queue: .main
+        ) { [weak self] _ in
             MainActor.assumeIsolated { self?.recheckPointer() }   // queue: .main
         }
     }
@@ -55,7 +63,9 @@ public final class ListRowView: NSTableRowView {
         }
         hoverFill.frame = bounds.insetBy(dx: 6, dy: 1)
         var color: CGColor?
-        effectiveAppearance.performAsCurrentDrawingAppearance { color = hovering && !isSelected ? NSColor.fillHover.cgColor : nil }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            color = hovering && !isSelected ? NSColor.fillHover.cgColor : nil
+        }
         let old = hoverFill.presentation()?.backgroundColor ?? hoverFill.backgroundColor
         hoverFill.backgroundColor = color
         guard !Motion.reduced, old != color else { return }
@@ -74,8 +84,10 @@ public final class ListRowView: NSTableRowView {
         CATransaction.commit()
     }
     override public func drawSelection(in r: NSRect) {
-        (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor).setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM).fill()
+        (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor)
+            .setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM)
+            .fill()
     }
 }
 

@@ -1,9 +1,9 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
-import WorkbenchKit
 import KelpKit
+import SwiftUI
+import WorkbenchKit
 
 /// Paths agents print, made useful: ⌘-click opens them (on their line), resting the pointer on one shows the file —
 /// the changed lines when it has changes, the lines around the one named, or the picture.
@@ -39,9 +39,14 @@ enum TerminalPaths {
     /// ⌘-click: in Kelp, on its line (the tab it's already in, if any); ⌥⌘-click: shown in the Finder. Not opened with its
     /// app: a program printed the path, and a .command file (or any script) would run there — from a cloned repo,
     /// without Gatekeeper's check.
-    static func open(_ token: String, cwd: String, elsewhere: [String] = [], flags: NSEvent.ModifierFlags, in app: AppModel) -> Bool {
+    static func open(
+        _ token: String, cwd: String, elsewhere: [String] = [], flags: NSEvent.ModifierFlags, in app: AppModel
+    ) -> Bool {
         guard let f = resolve(token, cwd: cwd, elsewhere: elsewhere) else { return false }
-        if flags.contains(.option) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: f.path)]); return true }
+        if flags.contains(.option) {
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: f.path)])
+            return true
+        }
         app.workbench.open(TabURI.file(f.path) + (f.line.map { "#L\($0)" } ?? ""))
         return true
     }
@@ -61,7 +66,10 @@ final class PathPreview {
     /// The first of `tokens` (what the word under the pointer may be) that is a file; none closes it.
     func show(_ tokens: [String], rect: NSRect, in view: NSView, cwd: String, worktree: String?) {
         let projects = app.repos.map(\.path)
-        guard let f = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first else { popover.close(); return }
+        guard let f = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first else {
+            popover.close()
+            return
+        }
         let model = PreviewModel(path: f.path, line: f.line, cwd: cwd, app: app)
         let host = NSHostingController(rootView: PathPreviewView(model: model))
         host.sizingOptions = .preferredContentSize   // placed and resized around the anchor (see HoverCard)
@@ -74,7 +82,7 @@ final class PathPreview {
 @MainActor
 @Observable
 final class PreviewModel {
-    struct Line: Identifiable { // mark: + - or space
+    struct Line: Identifiable {   // mark: + - or space
         let id: Int
         let number: Int?
         let text: String
@@ -92,11 +100,16 @@ final class PreviewModel {
         self.app = app
         name = (path as NSString).lastPathComponent
         let dir = (path as NSString).deletingLastPathComponent, root = (cwd as NSString).standardizingPath   // both without /private
-        folder = dir.hasPrefix(root + "/") ? String(dir.dropFirst(root.count + 1)) : dir == root ? "" : (dir as NSString).abbreviatingWithTildeInPath
+        folder =
+            dir.hasPrefix(root + "/")
+            ? String(dir.dropFirst(root.count + 1)) : dir == root ? "" : (dir as NSString).abbreviatingWithTildeInPath
     }
 
     func load(worktree: String?) {
-        if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) { image = NSImage(contentsOfFile: path); return }
+        if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
+            image = NSImage(contentsOfFile: path)
+            return
+        }
         lines = excerpt()
         guard let worktree else { return }
         Task {
@@ -106,7 +119,9 @@ final class PreviewModel {
             let h = hunks.first { h in line.map { l in h.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
             changed = true
             lines = h.lines.prefix(16).enumerated().map { i, l in
-                Line(id: i, number: l.newLine ?? l.oldLine, text: l.text, mark: l.kind == .add ? "+" : l.kind == .del ? "-" : " ")
+                Line(
+                    id: i, number: l.newLine ?? l.oldLine, text: l.text,
+                    mark: l.kind == .add ? "+" : l.kind == .del ? "-" : " ")
             }
         }
     }
@@ -116,7 +131,9 @@ final class PreviewModel {
         guard let h = FileHandle(forReadingAtPath: path) else { return [] }
         defer { try? h.close() }
         let data = (try? h.read(upToCount: 262_144)) ?? Data()
-        guard !data.contains(0) else { return [Line(id: 0, number: nil, text: String(localized: "Binary file"), mark: " ")] }
+        guard !data.contains(0) else {
+            return [Line(id: 0, number: nil, text: String(localized: "Binary file"), mark: " ")]
+        }
         let all = String(decoding: data, as: UTF8.self).components(separatedBy: "\n")
         let start = max(0, (line ?? 1) - 5)
         return all.indices.dropFirst(start).prefix(14).map { Line(id: $0, number: $0 + 1, text: all[$0], mark: " ") }
@@ -129,7 +146,9 @@ struct PathPreviewView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Text(model.name).font(.ui(13, weight: .semibold))
-                if !model.folder.isEmpty { Text(model.folder).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                if !model.folder.isEmpty {
+                    Text(model.folder).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
                 Spacer(minLength: 8)
                 if model.changed { Text("Changed").font(.ui(11, weight: .medium)).foregroundStyle(Color.textOrange) }
             }
@@ -139,9 +158,11 @@ struct PathPreviewView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(model.lines) { l in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(l.number.map(String.init) ?? "").foregroundStyle(.tertiary).frame(width: 34, alignment: .trailing)
+                            Text(l.number.map(String.init) ?? "").foregroundStyle(.tertiary).frame(
+                                width: 34, alignment: .trailing)
                             Text(l.mark == " " ? l.text : "\(l.mark) \(l.text)").lineLimit(1).truncationMode(.tail)
-                                .foregroundStyle(l.mark == "+" ? Color.textGreen : l.mark == "-" ? Color.textRed : .primary)
+                                .foregroundStyle(
+                                    l.mark == "+" ? Color.textGreen : l.mark == "-" ? Color.textRed : .primary)
                         }
                         .padding(.vertical, 1)
                         .background(l.number == model.line && l.mark == " " ? Color.accentColor.opacity(0.18) : .clear)

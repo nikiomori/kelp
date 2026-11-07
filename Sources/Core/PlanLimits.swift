@@ -15,9 +15,11 @@ public enum ResetTime {
 
     public static func shown(_ d: Date, now: Date = Date()) -> String {
         let left = d.timeIntervalSince(now)
-        return left < 12 * 3600 ? d.formatted(date: .omitted, time: .shortened)
-            : left < 6 * 86400 ? d.formatted(.dateTime.weekday(.abbreviated).hour().minute())
-            : d.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        return left < 12 * 3600
+            ? d.formatted(date: .omitted, time: .shortened)
+            : left < 6 * 86400
+                ? d.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+                : d.formatted(.dateTime.month(.abbreviated).day().hour().minute())
     }
 
     /// `timed`: it said a time of day as well as a date.
@@ -30,7 +32,8 @@ public enum ResetTime {
             }
             return secs > 0 ? (now.addingTimeInterval(secs), true) : nil
         }
-        let clock = #/
+        let clock =
+            #/
             (?: (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) [a-z]* \s+ (\d{1,2}) (?: ,\s+\d{4}\s+ | ,\s+ | \s+at\s+ | $ ) )?
             (?: (\d{1,2}) (?: :(\d{2}) )? \s* (am|pm)? )?
             /#
@@ -50,7 +53,9 @@ public enum ResetTime {
         c.minute = m.4.flatMap { Int($0) } ?? 0
         c.second = 0
         if let mon = m.1, let day = m.2.flatMap({ Int($0) }),
-           let i = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].firstIndex(of: String(mon)) {
+            let i = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].firstIndex(
+                of: String(mon))
+        {
             c.month = i + 1
             c.day = day
             guard let d = calendar.date(from: c) else { return nil }
@@ -84,19 +89,27 @@ extension UsageGet.Result {
         func add(_ agent: String, _ ls: [UsageGet.Limit]) {
             // "in 4h" counts from when the screen said it, not from now.
             let at = readAt(agent)
-            out += ls.map { Reading(agent: agent, limit: $0, resetAt: $0.resets.flatMap { ResetTime.parse($0, now: at ?? now) },
-                                    window: UsageGet.window($0.kind), readAt: at) }
+            out += ls.map {
+                Reading(
+                    agent: agent, limit: $0, resetAt: $0.resets.flatMap { ResetTime.parse($0, now: at ?? now) },
+                    window: UsageGet.window($0.kind), readAt: at)
+            }
         }
         for (agent, ls) in plans ?? [:] where agent != "claude" { add(agent, ls) }
         add("claude", plans?["claude"] ?? claudeLimits ?? [])
         if let x = codex.first {
-            let at = { (t: Double?) in t.map { Date(timeIntervalSince1970: $0) } }, read = Date(timeIntervalSince1970: x.observedAt)
-            for (p, reset, minutes, primary) in [(x.primaryUsedPercent, x.primaryResetsAt, x.primaryWindowMinutes, true),
-                                                 (x.secondaryUsedPercent, x.secondaryResetsAt, x.secondaryWindowMinutes, false)] {
+            let at = { (t: Double?) in t.map { Date(timeIntervalSince1970: $0) } },
+                read = Date(timeIntervalSince1970: x.observedAt)
+            for (p, reset, minutes, primary) in [
+                (x.primaryUsedPercent, x.primaryResetsAt, x.primaryWindowMinutes, true),
+                (x.secondaryUsedPercent, x.secondaryResetsAt, x.secondaryWindowMinutes, false)
+            ] {
                 guard let p else { continue }
                 let kind = UsageGet.Codex.kind(minutes: minutes, primary: primary)
-                out.append(Reading(agent: "codex", limit: .init(kind: kind, percent: p, resets: nil), resetAt: at(reset),
-                                   window: minutes.map { $0 * 60 } ?? UsageGet.window(kind), readAt: read))
+                out.append(
+                    Reading(
+                        agent: "codex", limit: .init(kind: kind, percent: p, resets: nil), resetAt: at(reset),
+                        window: minutes.map { $0 * 60 } ?? UsageGet.window(kind), readAt: read))
             }
         }
         return out

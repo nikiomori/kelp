@@ -8,7 +8,9 @@ enum Presence {
     static let recent: TimeInterval = 180
 
     static func here() -> Bool {
-        let idle = CGEventType(rawValue: ~0).map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }
+        let idle = CGEventType(rawValue: ~0).map {
+            CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0)
+        }
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
         return decide(idle: idle, locked: session.map { $0["CGSSessionScreenIsLocked"] as? Bool ?? false })
     }

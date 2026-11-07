@@ -1,7 +1,8 @@
 import AppKit
 import Foundation
-import Testing
 import TestSupport
+import Testing
+
 @testable import EditorKit
 @testable import KelpKit
 
@@ -10,21 +11,29 @@ import TestSupport
 
 /// The code editor's editing: VS Code's commands, more than one cursor, typing that indents and pairs.
 extension OneAtATime {
-    private func editor(_ text: String, _ name: String = "edits.swift", selecting ranges: [NSRange]) -> (CodeEditor, EditorTextView) {
+    private func editor(_ text: String, _ name: String = "edits.swift", selecting ranges: [NSRange]) -> (
+        CodeEditor, EditorTextView
+    ) {
         _ = NSApplication.shared
         let e = CodeEditor(text: text, url: URL(fileURLWithPath: "/tmp/" + name))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = e.view
         Kept.windows.append(window)
         e.textView.setCursors(ranges)
         return (e, e.textView)
     }
 
-    private func type(_ tv: EditorTextView, _ s: String) { tv.insertText(s, replacementRange: NSRange(location: NSNotFound, length: 0)) }
+    private func type(_ tv: EditorTextView, _ s: String) {
+        tv.insertText(s, replacementRange: NSRange(location: NSNotFound, length: 0))
+    }
 
     private func marks(_ tv: EditorTextView) -> [Int] {
         let lm = tv.layoutManager!
-        return (0..<tv.length).filter { lm.temporaryAttribute(.backgroundColor, atCharacterIndex: $0, effectiveRange: nil) != nil }
+        return (0..<tv.length).filter {
+            lm.temporaryAttribute(.backgroundColor, atCharacterIndex: $0, effectiveRange: nil) != nil
+        }
     }
 
     @Test func bracketMarksGoWithTheTextAndNoneStaysBehind() throws {
@@ -87,14 +96,18 @@ extension OneAtATime {
         e.addNextOccurrence()
         #expect(tv.cursors == [NSRange(location: 8, length: 3), NSRange(location: 12, length: 3)])
         e.addNextOccurrence()
-        #expect(tv.cursors == [NSRange(location: 0, length: 3), NSRange(location: 8, length: 3), NSRange(location: 12, length: 3)])
+        #expect(
+            tv.cursors == [
+                NSRange(location: 0, length: 3), NSRange(location: 8, length: 3), NSRange(location: 12, length: 3)
+            ])
         e.selectAllOccurrences()
         #expect(tv.cursors.count == 3)
     }
 
     /// The bug that took Kelp off CodeEditTextView: typing over several selections put the later cursors in the wrong place.
     @Test func typingOverSeveralSelectionsLeavesEachCursorAfterItsText() throws {
-        let (e, tv) = editor("foo bar foo\nfoo\n", selecting: [NSRange(location: 0, length: 3), NSRange(location: 8, length: 3)])
+        let (e, tv) = editor(
+            "foo bar foo\nfoo\n", selecting: [NSRange(location: 0, length: 3), NSRange(location: 8, length: 3)])
         type(tv, "X")
         #expect(e.text == "X bar X\nfoo\n")
         #expect(tv.cursors == [NSRange(location: 1, length: 0), NSRange(location: 7, length: 0)])
@@ -119,7 +132,8 @@ extension OneAtATime {
     }
 
     @Test func deleteLinesTakesTheTouchedLinesAndTheLastLinesNewline() {
-        let (e, _) = editor("a\nb\nc\nd", selecting: [NSRange(location: 2, length: 0), NSRange(location: 6, length: 0)])
+        let (e, _) = editor(
+            "a\nb\nc\nd", selecting: [NSRange(location: 2, length: 0), NSRange(location: 6, length: 0)])
         e.deleteLines()
         #expect(e.text == "a\nc")
     }
@@ -135,7 +149,8 @@ extension OneAtATime {
     }
 
     @Test func moveLinesTakesALineOnceWhateverTheCursorsOnIt() {
-        let (e, tv) = editor("a b\nc\nd", selecting: [NSRange(location: 0, length: 0), NSRange(location: 2, length: 0)])
+        let (e, tv) = editor(
+            "a b\nc\nd", selecting: [NSRange(location: 0, length: 0), NSRange(location: 2, length: 0)])
         e.moveLines(down: true)
         #expect(e.text == "c\na b\nd")
         #expect(tv.cursors == [NSRange(location: 2, length: 0), NSRange(location: 4, length: 0)])
@@ -208,7 +223,9 @@ extension OneAtATime {
         #expect(string == CodeEditor.look.string)
         type(tv, "var ")   // colored again after an edit, the tree following it
         e.colorVisible()
-        #expect(lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 4, effectiveRange: nil) as? NSColor == CodeEditor.look.keyword)
+        #expect(
+            lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 4, effectiveRange: nil) as? NSColor
+                == CodeEditor.look.keyword)
     }
 
     @Test func aLongLineScrollsSidewaysUnlessItWraps() throws {
@@ -249,7 +266,9 @@ extension OneAtATime {
     /// Right after the dot the list has everything; a letter narrows it; ⇥ puts the item in, past what was typed.
     @Test func completionNarrowsAsYouTypeAndTakesTheWordTyped() async throws {
         let (e, tv) = editor("obj.", selecting: [NSRange(location: 4, length: 0)])
-        e.completionProvider = { _, _ in [.init(label: "name", insert: "name()"), .init(label: "other", insert: "other")] }
+        e.completionProvider = { _, _ in
+            [.init(label: "name", insert: "name()"), .init(label: "other", insert: "other")]
+        }
         e.showCompletions()
         #expect(try await waitFor(5) { !(e.completionList?.isOpen != true) })
         #expect(e.completionList?.items.count == 2)
@@ -278,8 +297,10 @@ extension OneAtATime {
     @Test func aCompletionsOtherEditsComeWithIt() {
         let (e, tv) = editor("\nfo", selecting: [NSRange(location: 3, length: 0)])
         e.textView.setSelectedRange(NSRange(location: 3, length: 0))
-        e.accept(.init(label: "foo", insert: "foo", edit: .init(line: 1, column: 0, endLine: 1, endColumn: 2, text: "foo"),
-                       more: [.init(line: 0, column: 0, endLine: 0, endColumn: 0, text: "import x\n")]))
+        e.accept(
+            .init(
+                label: "foo", insert: "foo", edit: .init(line: 1, column: 0, endLine: 1, endColumn: 2, text: "foo"),
+                more: [.init(line: 0, column: 0, endLine: 0, endColumn: 0, text: "import x\n")]))
         #expect(e.text == "import x\n\nfoo")
         #expect(tv.selectedRange().location == 13)
         e.undoManager(for: tv)?.undo()
@@ -300,8 +321,8 @@ extension OneAtATime {
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
         #expect(e.text == "func go(a) -> go {\n    \n}")
         #expect(tv.selectedRange().location == 23)
-        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))     // past the last stop
-        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))     // over: a Tab is a tab again
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))   // past the last stop
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))   // over: a Tab is a tab again
         #expect(e.text != "func go(a) -> go {\n    \n}")
     }
 
@@ -339,7 +360,8 @@ extension OneAtATime {
     }
 
     @Test func pasteWordMovesAndShiftWorkAtEveryCursor() {
-        let (e, tv) = editor("ab cd\nef gh\n", selecting: [NSRange(location: 0, length: 0), NSRange(location: 6, length: 0)])
+        let (e, tv) = editor(
+            "ab cd\nef gh\n", selecting: [NSRange(location: 0, length: 0), NSRange(location: 6, length: 0)])
         tv.doCommand(by: #selector(NSResponder.moveWordRight(_:)))
         #expect(tv.cursors == [NSRange(location: 2, length: 0), NSRange(location: 8, length: 0)])
         tv.doCommand(by: #selector(NSResponder.moveRightAndModifySelection(_:)))
@@ -412,7 +434,9 @@ extension OneAtATime {
     @Test func theBracketBesideTheCursorAndItsPartnerAreMarked() throws {
         let (e, tv) = editor("f(a, (b)) + \"(\"\n", selecting: [NSRange(location: 9, length: 0)])
         let lm = try #require(tv.layoutManager)
-        func marked(_ i: Int) -> Bool { lm.temporaryAttribute(.backgroundColor, atCharacterIndex: i, effectiveRange: nil) != nil }
+        func marked(_ i: Int) -> Bool {
+            lm.temporaryAttribute(.backgroundColor, atCharacterIndex: i, effectiveRange: nil) != nil
+        }
         e.markBrackets()
         #expect(marked(1) && marked(8) && !marked(5))
         tv.setCursors([NSRange(location: 6, length: 0)])   // after the inner (
@@ -426,7 +450,8 @@ extension OneAtATime {
         e.colorVisible()
         let lm = try #require(tv.layoutManager), s = md as NSString
         func color(_ needle: String) -> NSColor? {
-            lm.temporaryAttribute(.foregroundColor, atCharacterIndex: s.range(of: needle).location, effectiveRange: nil) as? NSColor
+            lm.temporaryAttribute(.foregroundColor, atCharacterIndex: s.range(of: needle).location, effectiveRange: nil)
+                as? NSColor
         }
         #expect(color("Title") == CodeEditor.look.keyword)
         #expect(color("code") == CodeEditor.look.string)   // Markdown's inline grammar, inside a paragraph
@@ -452,14 +477,18 @@ extension OneAtATime {
         tv.setCursors([NSRange(location: at, length: 0)])
         type(tv, "let ")
         e.colorVisible()
-        #expect(lm.temporaryAttribute(.foregroundColor, atCharacterIndex: at, effectiveRange: nil) as? NSColor == CodeEditor.look.keyword)
+        #expect(
+            lm.temporaryAttribute(.foregroundColor, atCharacterIndex: at, effectiveRange: nil) as? NSColor
+                == CodeEditor.look.keyword)
     }
 
     @Test func theContextMenuIsACodeEditorsOwn() throws {
         let (e, tv) = editor("let x = 1", selecting: [NSRange(location: 0, length: 3)])
         e.contextMenu = { m in m.addItem(withTitle: "Send to Agent", action: nil, keyEquivalent: "") }
-        let click = try #require(NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
-                                                     context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        let click = try #require(
+            NSEvent.mouseEvent(
+                with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
         let menu = try #require(tv.menu(for: click))
         #expect(menu.items.map(\.title) == ["Cut", "Copy", "Paste", "", "Send to Agent"])
         #expect(!menu.allowsContextMenuPlugIns)   // no Services, no Siri

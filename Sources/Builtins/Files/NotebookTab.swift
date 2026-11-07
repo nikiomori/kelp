@@ -1,10 +1,10 @@
 import AppKit
-import WebKit
-import Markdown
 import Core
 import DesignKit
 import EditorKit
 import KelpKit
+import Markdown
+import WebKit
 
 /// A rendered Jupyter notebook. Run All re-executes it in place; Open Kernel starts Jupyter Lab in this worktree
 /// and shows it in the built-in browser, so the kernel stays alive next to your agents.
@@ -35,10 +35,14 @@ final class NotebookTab: NSViewController {
             x.controlSize = .small
             return x
         }
-        status.textColor = .secondaryLabelColor; status.font = .ui(11)
-        let bar = Bar.content([b(String(localized: "Run All"), "play.fill", #selector(runAll)),
-                               b(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
-                               b(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent))], [status])
+        status.textColor = .secondaryLabelColor
+        status.font = .ui(11)
+        let bar = Bar.content(
+            [
+                b(String(localized: "Run All"), "play.fill", #selector(runAll)),
+                b(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
+                b(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent))
+            ], [status])
         web.navigationDelegate = links
         view = stacked(bar, web)
         reload()
@@ -50,15 +54,22 @@ final class NotebookTab: NSViewController {
             let d = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
             guard let d, let body = NotebookHTML.render(d) else {
                 let why = String(localized: "This notebook can't be read (is it valid nbformat 4 JSON?).")
-                links.load(EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil, in: web)
+                links.load(
+                    EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil, in: web
+                )
                 return
             }
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
-            view.effectiveAppearance.performAsCurrentDrawingAppearance { page = (CodeEditor.page.background.hexString, CodeEditor.page.text.hexString) }
-            links.load(MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
-                       baseURL: url.deletingLastPathComponent(), in: web)
-            if let s = NotebookHTML.summary(d) { status.stringValue = String(localized: "\(s.cells) cells · \(s.language)") }
+            view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                page = (CodeEditor.page.background.hexString, CodeEditor.page.text.hexString)
+            }
+            links.load(
+                MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
+                baseURL: url.deletingLastPathComponent(), in: web)
+            if let s = NotebookHTML.summary(d) {
+                status.stringValue = String(localized: "\(s.cells) cells · \(s.language)")
+            }
         }
     }
 
@@ -68,13 +79,17 @@ final class NotebookTab: NSViewController {
     }
 
     @objc private func runAll() {
-        guard let j = Self.jupyter() else { status.stringValue = String(localized: "Jupyter not found — pip install jupyter"); return }
+        guard let j = Self.jupyter() else {
+            status.stringValue = String(localized: "Jupyter not found — pip install jupyter")
+            return
+        }
         status.stringValue = String(localized: "Running…")
         let file = url
         Task {
             // A notebook may compute for hours: the timeout is only for one that never ends.
-            let r = await Shell.exec(app, [j, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
-                                     cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
+            let r = await Shell.exec(
+                app, [j, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
+                cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
             let msg = r.stderr.split(separator: "\n").last.map(String.init) ?? ""
             status.stringValue = r.code == 0 ? String(localized: "Ran all cells") : String(localized: "Failed: \(msg)")
             reload()
@@ -83,10 +98,17 @@ final class NotebookTab: NSViewController {
 
     @objc private func openKernel() {
         guard let wid = worktreeId else { return }
-        guard Self.jupyter() != nil else { status.stringValue = String(localized: "Jupyter not found — pip install jupyter"); return }
+        guard Self.jupyter() != nil else {
+            status.stringValue = String(localized: "Jupyter not found — pip install jupyter")
+            return
+        }
         Task {
-            guard let s = await app.call(SessionCreate(worktreeId: wid, command: "jupyter lab --no-browser " + IDE.shellWord(path),
-                                                                   title: "Jupyter", openURLs: true)) else { return }
+            guard
+                let s = await app.call(
+                    SessionCreate(
+                        worktreeId: wid, command: "jupyter lab --no-browser " + IDE.shellWord(path),
+                        title: "Jupyter", openURLs: true))
+            else { return }
             app.sessions.append(s)
             // Jupyter's URL arrives as a dev-server URL and opens in a browser tab
             status.stringValue = String(localized: "Starting Jupyter Lab… it opens in the Browser tab")
@@ -94,7 +116,13 @@ final class NotebookTab: NSViewController {
     }
 
     @objc private func askAgent() {
-        guard let sid = app.workbench.focusedSession else { NSSound.beep(); return }
-        Task { await app.call(SessionSend(id: sid, text: "Look at the notebook \(path) (cells and outputs). ", enter: false)) }
+        guard let sid = app.workbench.focusedSession else {
+            NSSound.beep()
+            return
+        }
+        Task {
+            await app.call(
+                SessionSend(id: sid, text: "Look at the notebook \(path) (cells and outputs). ", enter: false))
+        }
     }
 }

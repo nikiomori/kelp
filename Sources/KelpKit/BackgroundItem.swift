@@ -20,21 +20,28 @@ enum BackgroundItem {
             let waiting = await Task.detached(priority: .utility) { () -> Bool in
                 let s = service
                 if [.notRegistered, .notFound].contains(s.status) {
-                    do { try s.register() } catch { NSLog("Kelp: the background service couldn't be added to Login Items: \(error)") }
+                    do { try s.register() } catch {
+                        NSLog("Kelp: the background service couldn't be added to Login Items: \(error)")
+                    }
                 }
                 return s.status == .requiresApproval
             }.value
             guard waiting, !told else { return }
             told = true
-            Banner.show(String(localized: "Kelp isn't allowed to run in the background: quitting or updating it ends running agents."),
-                        action: (String(localized: "Open Login Items"), { SMAppService.openSystemSettingsLoginItems() }))
+            Banner.show(
+                String(
+                    localized:
+                        "Kelp isn't allowed to run in the background: quitting or updating it ends running agents."),
+                action: (String(localized: "Open Login Items"), { SMAppService.openSystemSettingsLoginItems() }))
         }
     }
     @MainActor private static var told = false
 
     /// macOS would end what Kelp started when it quits.
     static var blocked: Bool {
-        get async { bundled ? await Task.detached(priority: .utility) { service.status == .requiresApproval }.value : false }
+        get async {
+            bundled ? await Task.detached(priority: .utility) { service.status == .requiresApproval }.value : false
+        }
     }
     static func openSettings() { SMAppService.openSystemSettingsLoginItems() }
 }

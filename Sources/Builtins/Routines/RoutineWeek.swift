@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// The week on the Routines tab: a column a day, a mark a run. What ran comes from the runs; what will, from the schedule
 /// (`Routine.next`, the function the daemon plans with).
@@ -29,8 +29,11 @@ struct RoutineWeek {
             .map { Mark(id: $0.id, at: $0.due, kind: .run($0.outcome), run: $0) }
         guard r.enabled, end > now else { return out }
         let next = r.next(after: now, calendar: calendar)
-        for t in r.times(after: max(day.addingTimeInterval(-1), now), through: end.addingTimeInterval(-1), calendar: calendar) {
-            out.append(Mark(id: "\(r.id)@\(t.timeIntervalSince1970)", at: t, kind: t == next ? .next : .planned, run: nil))
+        for t in r.times(
+            after: max(day.addingTimeInterval(-1), now), through: end.addingTimeInterval(-1), calendar: calendar)
+        {
+            out.append(
+                Mark(id: "\(r.id)@\(t.timeIntervalSince1970)", at: t, kind: t == next ? .next : .planned, run: nil))
         }
         return out
     }
@@ -50,7 +53,8 @@ struct RoutineWeek {
 
     /// 540 → "9:00" in the person's clock (13:30 or 1:30 PM).
     static func time(_ minutes: Int) -> String {
-        let d = Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
+        let d =
+            Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
         return d.formatted(date: .omitted, time: .shortened)
     }
 }

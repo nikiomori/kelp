@@ -7,7 +7,9 @@ extension EditorTextView {
         case none, selection, trailing, all
     }
 
-    private var spaceWidth: CGFloat { (" " as NSString).size(withAttributes: [.font: font ?? NSFont.systemFont(ofSize: 13)]).width }
+    private var spaceWidth: CGFloat {
+        (" " as NSString).size(withAttributes: [.font: font ?? NSFont.systemFont(ofSize: 13)]).width
+    }
 
     func drawRulers(in rect: NSRect) {
         guard !rulerColumns.isEmpty else { return }
@@ -20,11 +22,13 @@ extension EditorTextView {
     /// spaces, so it costs the same in any file.
     func drawIndentGuides(in rect: NSRect) {
         guard indentGuides, let lm = layoutManager, let tc = textContainer else { return }
-        let s = string as NSString, origin = textContainerOrigin, step = CGFloat(guideColumns) * spaceWidth, left = origin.x + tc.lineFragmentPadding
+        let s = string as NSString, origin = textContainerOrigin, step = CGFloat(guideColumns) * spaceWidth,
+            left = origin.x + tc.lineFragmentPadding
         let glyphs = lm.glyphRange(forBoundingRect: rect.offsetBy(dx: -origin.x, dy: -origin.y), in: tc)
         let active = activeGuide(in: s)
         lm.enumerateLineFragments(forGlyphRange: glyphs) { frag, _, _, g, _ in
-            let at = lm.characterIndexForGlyph(at: g.location), line = s.lineRange(for: NSRange(location: at, length: 0))
+            let at = lm.characterIndexForGlyph(at: g.location),
+                line = s.lineRange(for: NSRange(location: at, length: 0))
             for k in 0..<self.guideLevels(line, in: s) {
                 let bright = active.map { k == $0.level - 1 && NSLocationInRange(at, $0.block) } ?? false
                 (bright ? NSColor.tertiaryLabelColor : NSColor.separatorColor).setFill()
@@ -69,7 +73,8 @@ extension EditorTextView {
         let here = s.lineRange(for: NSRange(location: selectedRange().location, length: 0))
         let level = guideLevels(here, in: s)
         guard level > 0 else { return nil }
-        let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: visibleRect, in: tc), actualGlyphRange: nil)
+        let shown = lm.characterRange(
+            forGlyphRange: lm.glyphRange(forBoundingRect: visibleRect, in: tc), actualGlyphRange: nil)
         var from = here, to = here
         while from.location > shown.location {
             let l = s.lineRange(for: NSRange(location: from.location - 1, length: 0))
@@ -88,15 +93,19 @@ extension EditorTextView {
     func drawWhitespace(in rect: NSRect) {
         guard let lm = layoutManager, let tc = textContainer else { return }
         let s = string as NSString, origin = textContainerOrigin
-        let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
+        let shown = lm.characterRange(
+            forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
         guard shown.length > 0 else { return }
         var chars = [unichar](repeating: 0, count: shown.length)
         s.getCharacters(&chars, range: shown)
         let selected = selectedRanges.map(\.rangeValue), mode = whitespaceMarks
         let dot = spaceWidth * 0.2
-        let tab = NSAttributedString(string: "→", attributes: [.font: font ?? .systemFont(ofSize: 13), .foregroundColor: NSColor.tertiaryLabelColor])
+        let tab = NSAttributedString(
+            string: "→",
+            attributes: [.font: font ?? .systemFont(ofSize: 13), .foregroundColor: NSColor.tertiaryLabelColor])
         func place(_ i: Int) -> NSPoint {
-            let g = lm.glyphIndexForCharacter(at: i), line = lm.lineFragmentRect(forGlyphAt: g, effectiveRange: nil), at = lm.location(forGlyphAt: g)
+            let g = lm.glyphIndexForCharacter(at: i), line = lm.lineFragmentRect(forGlyphAt: g, effectiveRange: nil),
+                at = lm.location(forGlyphAt: g)
             return NSPoint(x: line.minX + at.x + origin.x, y: line.minY + origin.y + line.height / 2)
         }
         /// Spaces and tabs up to a line's end, from `k` on.
@@ -110,19 +119,24 @@ extension EditorTextView {
             if folds.fold(at: i) != nil { continue }   // in no line: its mark would land on the fold's
             if Self.isUnusualSpace(c) {
                 NSColor.textOrange.setStroke()
-                let p = place(i), box = NSBezierPath(rect: NSRect(x: p.x, y: p.y - 5, width: max(spaceWidth, 3), height: 10))
+                let p = place(i),
+                    box = NSBezierPath(rect: NSRect(x: p.x, y: p.y - 5, width: max(spaceWidth, 3), height: 10))
                 box.stroke()
                 continue
             }
             guard c == 32 || c == 9, mode != .none else { continue }
-            let wanted = mode == .all || (mode == .trailing && trailing(k)) || (mode == .selection && selected.contains { NSLocationInRange(i, $0) })
+            let wanted =
+                mode == .all || (mode == .trailing && trailing(k))
+                || (mode == .selection && selected.contains { NSLocationInRange(i, $0) })
             guard wanted else { continue }
             let p = place(i)
             if c == 9 {
                 tab.draw(at: NSPoint(x: p.x, y: p.y - tab.size().height / 2))
             } else {
                 NSColor.tertiaryLabelColor.setFill()
-                NSBezierPath(ovalIn: NSRect(x: p.x + spaceWidth / 2 - dot / 2, y: p.y - dot / 2, width: dot, height: dot)).fill()
+                NSBezierPath(
+                    ovalIn: NSRect(x: p.x + spaceWidth / 2 - dot / 2, y: p.y - dot / 2, width: dot, height: dot)
+                ).fill()
             }
         }
     }

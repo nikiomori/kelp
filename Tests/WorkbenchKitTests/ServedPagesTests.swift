@@ -32,10 +32,15 @@ private func port(_ n: Int, _ command: String = "node", pid: Int32 = 7) -> Ports
     // A run's printed page was forwarded to 5174: that address, knowing it's the host's 5173, and one entry for both.
     let run = PortsList.Port(port: 5173, pid: 7, command: "node", session: "s", host: "devbox", here: 5174)
     let pages = ServedPages.list(printed: ["http://localhost:5174/app"], ports: [run])
-    #expect(pages.count == 1 && pages[0].url == "http://localhost:5174/app" && pages[0].remotePort == 5173 && pages[0].forwarded)
+    #expect(
+        pages.count == 1 && pages[0].url == "http://localhost:5174/app" && pages[0].remotePort == 5173
+            && pages[0].forwarded)
     // By hand: no process to stop. The connection gone: dimmed, and still there.
-    let manual = PortsList.Port(port: 5432, pid: 0, command: "db.internal:5432", session: "", host: "devbox", here: 5433, offline: true)
-    #expect(ServedPage(manual).pid == nil && ServedPage(manual).offline && ServedPage(manual).place == "devbox:5432 → :5433")
+    let manual = PortsList.Port(
+        port: 5432, pid: 0, command: "db.internal:5432", session: "", host: "devbox", here: 5433, offline: true)
+    #expect(
+        ServedPage(manual).pid == nil && ServedPage(manual).offline && ServedPage(manual).place == "devbox:5432 → :5433"
+    )
 }
 
 @Test func aDatabaseGoesAfterThePagesAndIsNoPage() {
@@ -52,8 +57,8 @@ private func port(_ n: Int, _ command: String = "node", pid: Int32 = 7) -> Ports
     #expect(l.pageTab(for: "http://localhost:5173/")?.id == cart.id)
     #expect(l.pageTab(for: "http://localhost:5173/other") == nil)   // a link to another page is that page
     #expect(l.pageTab(for: "http://localhost:3000") == nil)
-    #expect(l.pageTab(for: "file:///a") == nil)                     // a file keeps its own rules
+    #expect(l.pageTab(for: "file:///a") == nil)   // a file keeps its own rules
     let site = l.add("https://example.com/a")
     #expect(l.pageTab(for: "https://example.com/a")?.id == site.id)
-    #expect(l.pageTab(for: "https://example.com") == nil)           // only a local server is one site
+    #expect(l.pageTab(for: "https://example.com") == nil)   // only a local server is one site
 }

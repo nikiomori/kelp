@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import GRDB
-import Core
 
 // The daemon's records as SQLite rows (Store). Core's models know nothing of the database: the app and the CLI don't
 // link GRDB.

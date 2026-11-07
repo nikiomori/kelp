@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Daemon
 
 @Test func onlyAnHttpAddressIsAChannel() {
@@ -27,7 +28,9 @@ import Core
 
 @Test func aMuteCountsUntilItsDate() {
     let now = Date()
-    let mutes = JSONValue.object(["w": .double(now.timeIntervalSince1970 + 60), "old": .double(now.timeIntervalSince1970 - 60)])
+    let mutes = JSONValue.object([
+        "w": .double(now.timeIntervalSince1970 + 60), "old": .double(now.timeIntervalSince1970 - 60)
+    ])
     #expect(PhonePush.muted(mutes, ["s", "w"], now: now))
     #expect(!PhonePush.muted(mutes, ["old", nil], now: now))
     #expect(!PhonePush.muted(nil, ["w"], now: now))

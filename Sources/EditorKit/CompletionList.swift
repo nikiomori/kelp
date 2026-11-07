@@ -6,7 +6,8 @@ import DesignKit
 @MainActor
 final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private static let width: CGFloat = 380, docWidth: CGFloat = 280, mostRows = 9
-    private let panel = NSPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: true)
+    private let panel = NSPanel(
+        contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: true)
     private let table = NSTableView()
     private let doc = NSTextField(wrappingLabelWithString: "")
     private lazy var docCard = FloatingCard(doc, radius: Metrics.radiusMD)
@@ -98,7 +99,8 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
 
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         let item = items[row]
-        let icon = NSImageView(image: NSImage(systemSymbolName: Self.symbol(item.kind), accessibilityDescription: item.kind) ?? NSImage())
+        let icon = NSImageView(
+            image: NSImage(systemSymbolName: Self.symbol(item.kind), accessibilityDescription: item.kind) ?? NSImage())
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
         let label = NSTextField(labelWithString: item.label)

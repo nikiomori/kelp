@@ -18,7 +18,8 @@ final class PageChip: NSStackView {
     private let open = PointerButton(frame: .zero), more = PointerButton(frame: .zero)
 
     init(app: AppModel) {
-        self.app = app; ports = Watched(.ports, in: app)
+        self.app = app
+        ports = Watched(.ports, in: app)
         super.init(frame: .zero)
         for b in [open, more] {
             b.radius = nil   // a capsule, as the capsule it sits in
@@ -44,8 +45,16 @@ final class PageChip: NSStackView {
         wantsLayer = true
         isHidden = true
         heightAnchor.constraint(equalToConstant: 22).isActive = true
-        track(owner: self) { [weak self] in self?.look } changed: { [weak self] in self?.show($0) }
-        track(owner: self) { app.workbench.workspaceId } changed: { [weak self] in self?.ports.key = $0 }
+        track(owner: self) { [weak self] in
+            self?.look
+        } changed: { [weak self] in
+            self?.show($0)
+        }
+        track(owner: self) {
+            app.workbench.workspaceId
+        } changed: { [weak self] in
+            self?.ports.key = $0
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -55,12 +64,18 @@ final class PageChip: NSStackView {
         return pages.first.map { Look(workspace: wid, page: $0, more: pages.count - 1) }
     }
 
-    override func layout() { super.layout(); layer?.cornerRadius = bounds.height / 2 }
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height / 2
+    }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         fadeBackground(to: .fillRest)
     }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); fadeBackground(to: .fillRest) }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        fadeBackground(to: .fillRest)
+    }
 
     private func show(_ l: Look?) {
         if isHidden != (l == nil) { crossfade() }
@@ -75,7 +90,9 @@ final class PageChip: NSStackView {
     }
 
     private func tip(_ p: ServedPage) -> String {
-        if p.offline, let host = p.host { return String(localized: "No connection to \(host). The server keeps running there. Click to connect.") }
+        if p.offline, let host = p.host {
+            return String(localized: "No connection to \(host). The server keeps running there. Click to connect.")
+        }
         return p.isWeb ? String(localized: "Open \(p.place) (⇧⌘O)") : String(localized: "Copy \(p.place) (⇧⌘O)")
     }
 
@@ -85,7 +102,9 @@ final class PageChip: NSStackView {
         if l.page.isWeb {
             m.add(String(localized: "Open in Browser")) {
                 Task {
-                    if let u = await app.scripts.reach(l.page, in: l.workspace).flatMap({ URL(string: $0.url) }) { PreviewLinks.openOutside(u) }
+                    if let u = await app.scripts.reach(l.page, in: l.workspace).flatMap({ URL(string: $0.url) }) {
+                        PreviewLinks.openOutside(u)
+                    }
                 }
             }
         }
@@ -94,12 +113,20 @@ final class PageChip: NSStackView {
         }
         if l.page.host != nil, l.page.forwarded {
             m.add(String(localized: "Stop Forwarding")) {
-                Task { if await app.call(PortsUnforward(worktreeId: l.workspace, port: l.page.remotePort)) != nil { app.watchAgain(.ports, l.workspace) } }
+                Task {
+                    if await app.call(PortsUnforward(worktreeId: l.workspace, port: l.page.remotePort)) != nil {
+                        app.watchAgain(.ports, l.workspace)
+                    }
+                }
             }
         }
         if let pid = l.page.pid {
             m.add(String(localized: "Stop")) {
-                Task { if await app.call(PortsStop(worktreeId: l.workspace, pid: Int(pid))) != nil { app.watchAgain(.ports, l.workspace) } }
+                Task {
+                    if await app.call(PortsStop(worktreeId: l.workspace, pid: Int(pid))) != nil {
+                        app.watchAgain(.ports, l.workspace)
+                    }
+                }
             }
         }
         return m

@@ -13,7 +13,8 @@ final class TabButton: NSControl, NSDraggingSource {
     var stripDimmed = false { didSet { if stripDimmed != oldValue { updateLook() } } }
     /// The row of what it shows, which fades in a dimmed strip; the fill and the glow stay as they are.
     private weak var content: NSView?
-    private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = PointerButton(frame: .zero), editedDot = NSImageView()
+    private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = PointerButton(frame: .zero),
+        editedDot = NSImageView()
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
     /// Next to the ring once it's red: how full. Before that the ring and its tooltip say it, the strip stays quiet.
@@ -34,9 +35,11 @@ final class TabButton: NSControl, NSDraggingSource {
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
     init() {
         super.init(frame: .zero)
-        wantsLayer = true; layer?.cornerRadius = Metrics.radiusSM
+        wantsLayer = true
+        layer?.cornerRadius = Metrics.radiusSM
         icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-        title.font = .ui(12); title.lineBreakMode = .byTruncatingTail
+        title.font = .ui(12)
+        title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))
         close.toolTip = String(localized: "Close Tab (⌘W)")
         close.isBordered = false
@@ -48,14 +51,21 @@ final class TabButton: NSControl, NSDraggingSource {
         close.target = self
         close.action = #selector(closeTapped)
         // Unsaved changes: a dot where the close button goes (as in TextEdit's tabs); hovering shows the close button.
-        editedDot.image = .symbol("circle.fill", String(localized: "Edited")); editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
+        editedDot.image = .symbol("circle.fill", String(localized: "Edited"))
+        editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
         editedDot.contentTintColor = .labelColor
         // One slot at the start: the agent's state while there's something to see, else the tab's icon; the close button on hover.
         for v in [icon, mark, close, editedDot] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(v)
-            NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+            v.translatesAutoresizingMaskIntoConstraints = false
+            slot.addSubview(v)
+            NSLayoutConstraint.activate([
+                v.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+                v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+            ])
         }
-        NSLayoutConstraint.activate([close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)])
+        NSLayoutConstraint.activate([
+            close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
+        ])
         full.font = .uiDigits(10, weight: .semibold)
         let row = NSStackView(views: [slot, title, chip, meter, full])
         row.spacing = 6
@@ -65,7 +75,8 @@ final class TabButton: NSControl, NSDraggingSource {
         pin(edgeGlow)   // over the row, as the pane's ring is over its content; clicks go through it
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 28),
-            widthAnchor.constraint(lessThanOrEqualToConstant: 300), widthAnchor.constraint(greaterThanOrEqualToConstant: 76),
+            widthAnchor.constraint(lessThanOrEqualToConstant: 300),
+            widthAnchor.constraint(greaterThanOrEqualToConstant: 76),
             slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16)
         ])
         // Below the strip's `fit` (245): a squeezed tab truncates its title with "…" (the row never clips it). Under that
@@ -76,15 +87,21 @@ final class TabButton: NSControl, NSDraggingSource {
         comfortable.isActive = true
         titleMin.priority = .init(999)   // over the strip's `fit`: a tab at it widens the strip, which scrolls
         titleMin.isActive = true
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         // VoiceOver: a tab like NSTabView's (radio button, tab subrole); the close button only exists on hover, so it's an action.
         setAccessibilityElement(true)
         setAccessibilityRole(.radioButton)
         setAccessibilitySubrole(.init(rawValue: "AXTabButton"))   // kAXTabButtonSubrole
-        title.setAccessibilityElement(false); icon.setAccessibilityElement(false)
-        setAccessibilityCustomActions([NSAccessibilityCustomAction(name: String(localized: "Close Tab")) { [weak self] in
-            MainActor.assumeIsolated { self?.closeTapped() }; return true   // accessibility actions come on main
-        }])
+        title.setAccessibilityElement(false)
+        icon.setAccessibilityElement(false)
+        setAccessibilityCustomActions([
+            NSAccessibilityCustomAction(name: String(localized: "Close Tab")) { [weak self] in
+                MainActor.assumeIsolated { self?.closeTapped() }
+                return true   // accessibility actions come on main
+            }
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -110,7 +127,8 @@ final class TabButton: NSControl, NSDraggingSource {
         chip.setAccessibilityLabel(it.backgroundTip)
         toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
-        setAccessibilityLabel(it.status.map { "\(it.title), \($0.words)" } ?? it.title); setAccessibilityValue(selected)
+        setAccessibilityLabel(it.status.map { "\(it.title), \($0.words)" } ?? it.title)
+        setAccessibilityValue(selected)
         updateLook()
     }
 
@@ -137,7 +155,8 @@ final class TabButton: NSControl, NSDraggingSource {
 
     private func updateLook() {
         let edited = item?.edited == true
-        close.isHidden = !hover; editedDot.isHidden = hover || !edited
+        close.isHidden = !hover
+        editedDot.isHidden = hover || !edited
         icon.isHidden = hover || edited || showsState
         mark.alphaValue = hover || edited || !showsState ? 0 : 1   // StatusMark hides itself when there's no state
         let active = selected && groupFocused, call = callText
@@ -184,10 +203,14 @@ final class TabButton: NSControl, NSDraggingSource {
 
     /// Up to twelve letters of `text` (all of a shorter one), so many tabs don't leave four letters of each.
     static func minTitle(_ text: String, font: NSFont) -> CGFloat {
-        let twelve = NSAttributedString(string: String(repeating: "n", count: 12), attributes: [.font: font]).size().width
+        let twelve = NSAttributedString(string: String(repeating: "n", count: 12), attributes: [.font: font]).size()
+            .width
         return ceil(min(twelve, NSAttributedString(string: text, attributes: [.font: font]).size().width))
     }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateLook() }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateLook()
+    }
     /// The whole tab takes the click, label and icon included: in the title bar they would move the window instead.
     override func hitTest(_ p: NSPoint) -> NSView? {
         guard let v = super.hitTest(p) else { return nil }
@@ -218,16 +241,26 @@ final class TabButton: NSControl, NSDraggingSource {
         if let id = item?.id { strip?.onSelect?(id) }
     }
     override func mouseUp(with e: NSEvent) { pressBounce() }   // a click springs as every control's does; a drag never comes here
-    override func accessibilityPerformPress() -> Bool { if let id = item?.id { strip?.onSelect?(id) }; return true }
+    override func accessibilityPerformPress() -> Bool {
+        if let id = item?.id { strip?.onSelect?(id) }
+        return true
+    }
     override func otherMouseUp(with e: NSEvent) { closeTapped() }
-    override func menu(for event: NSEvent) -> NSMenu? { strip?.hoverCard?.close(); return item.flatMap { strip?.onMenu?($0.id) } }
+    override func menu(for event: NSEvent) -> NSMenu? {
+        strip?.hoverCard?.close()
+        return item.flatMap { strip?.onMenu?($0.id) }
+    }
     @objc private func closeTapped() { if let id = item?.id { strip?.onClose?(id) } }
 
     override func mouseDragged(with e: NSEvent) {
         guard let id = item?.id else { return }
-        let p = NSPasteboardItem(); p.setString(id, forType: .kelpTab)
-        let d = NSDraggingItem(pasteboardWriter: p); d.setDraggingFrame(bounds, contents: snapshot())
+        let p = NSPasteboardItem()
+        p.setString(id, forType: .kelpTab)
+        let d = NSDraggingItem(pasteboardWriter: p)
+        d.setDraggingFrame(bounds, contents: snapshot())
         beginDraggingSession(with: [d], event: e, source: self)
     }
-    nonisolated func draggingSession(_ s: NSDraggingSession, sourceOperationMaskFor c: NSDraggingContext) -> NSDragOperation { .move }
+    nonisolated func draggingSession(_ s: NSDraggingSession, sourceOperationMaskFor c: NSDraggingContext)
+        -> NSDragOperation
+    { .move }
 }

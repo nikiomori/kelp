@@ -8,7 +8,10 @@ import KelpKit
 @MainActor
 final class ActivityController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
+    init(app: AppModel) {
+        self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
     private struct Row {
         var session: Session
@@ -22,7 +25,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     private var rows: [Row] = []
 
     override func loadView() {
-        let col = NSTableColumn(identifier: .init("a")); col.resizingMask = .autoresizingMask
+        let col = NSTableColumn(identifier: .init("a"))
+        col.resizingMask = .autoresizingMask
         table.addTableColumn(col)
         table.headerView = nil
         table.style = .plain
@@ -30,23 +34,32 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
-        table.target = self; table.doubleAction = #selector(open)
-        table.menu = NSMenu(); table.menu?.delegate = self
+        table.target = self
+        table.doubleAction = #selector(open)
+        table.menu = NSMenu()
+        table.menu?.delegate = self
         let scroll = NSScrollView()
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
-        total.font = .uiDigits(12); total.textColor = .secondaryLabelColor
+        total.font = .uiDigits(12)
+        total.textColor = .secondaryLabelColor
         total.lineBreakMode = .byTruncatingTail
         total.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let header = Bar.panel([total])
         let v = NSView()
-        for x in [header, scroll] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [header, scroll] as [NSView] {
+            x.translatesAutoresizingMaskIntoConstraints = false
+            v.addSubview(x)
+        }
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: v.topAnchor),
-            header.leadingAnchor.constraint(equalTo: v.leadingAnchor), header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: header.bottomAnchor), scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor)
+            header.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
+            scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor)
         ])
         empty.place(in: v, under: header)
         view = v
@@ -58,12 +71,19 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         watched.key = ""
         show(app.latest(ActivityEvent.self))
     }
-    override func viewDidDisappear() { super.viewDidDisappear(); watched.key = nil }
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        watched.key = nil
+    }
     private lazy var watched = Watched(.activity, in: app)
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        track(owner: self) { [app] in app.latest(ActivityEvent.self) } changed: { [weak self] in self?.show($0) }
+        track(owner: self) { [app] in
+            app.latest(ActivityEvent.self)
+        } changed: { [weak self] in
+            self?.show($0)
+        }
     }
 
     private func show(_ e: ActivityEvent?) {
@@ -75,11 +95,15 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
             return Row(session: s, cpu: u.cpu, memory: u.memory, processes: u.processes)
         }
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
-        total.stringValue = rows.isEmpty ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(Self.bytes(mem))")
+        total.stringValue =
+            rows.isEmpty
+            ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(Self.bytes(mem))")
         if let error = e.error {
             empty.showError(String(localized: "Couldn't measure the sessions"), text: error)
         } else {
-            empty.show(rows.isEmpty ? String(localized: "No sessions running") : nil, symbol: "gauge.with.dots.needle.33percent")
+            empty.show(
+                rows.isEmpty ? String(localized: "No sessions running") : nil,
+                symbol: "gauge.with.dots.needle.33percent")
         }
         table.reloadData()
     }
@@ -93,11 +117,16 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
         let r = rows[row], s = r.session, m = app
-        let icon = NSImageView(image: (s.agent == "shell" ? NSImage.symbol("terminal") : app.catalog.icon(s.agent)) ?? NSImage())
-        let name = NSTextField(labelWithString: s.agent == "shell" ? (s.title.isEmpty ? String(localized: "Terminal") : s.title) : app.catalog.displayName(s))
-        name.font = .ui(12, weight: .medium); name.lineBreakMode = .byTruncatingTail
-        let place = NSTextField(labelWithString: [m.worktree(s.worktreeId)?.displayName, String(localized: "\(r.processes) processes")]
-            .compactMap { $0 }.joined(separator: " · "))
+        let icon = NSImageView(
+            image: (s.agent == "shell" ? NSImage.symbol("terminal") : app.catalog.icon(s.agent)) ?? NSImage())
+        let name = NSTextField(
+            labelWithString: s.agent == "shell"
+                ? (s.title.isEmpty ? String(localized: "Terminal") : s.title) : app.catalog.displayName(s))
+        name.font = .ui(12, weight: .medium)
+        name.lineBreakMode = .byTruncatingTail
+        let place = NSTextField(
+            labelWithString: [m.worktree(s.worktreeId)?.displayName, String(localized: "\(r.processes) processes")]
+                .compactMap { $0 }.joined(separator: " · "))
         place.font = .ui(11)
         place.textColor = .secondaryLabelColor
         place.lineBreakMode = .byTruncatingTail
@@ -112,7 +141,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
         let stop = IconButton(.symbol("stop.circle"), tip: tip) { AgentActions(app).stop([s.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
-        let rowView = NSStackView(views: [icon, text, NSView(), cost, stop]); rowView.spacing = 8
+        let rowView = NSStackView(views: [icon, text, NSView(), cost, stop])
+        rowView.spacing = 8
         rowView.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 10)
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         return rowView

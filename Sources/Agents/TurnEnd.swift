@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// What Claude Code's Stop means: the turn ended, unless the agent goes on by itself. It waits for subagents or a
 /// workflow, checks a /goal after each turn, or is woken when a command it started in the background ends (a
@@ -18,7 +18,9 @@ public struct TurnEnd: Codable, Sendable {
     public init() {}
 
     /// A command sent to the background, as its tool call ended.
-    public mutating func started(_ id: String, command: String) { shells = (shells ?? [:]).merging([id: command]) { $1 } }
+    public mutating func started(_ id: String, command: String) {
+        shells = (shells ?? [:]).merging([id: command]) { $1 }
+    }
 
     /// The commands of the shells a `<task-notification>` says ended (`SessionHook.endedTasks`).
     public mutating func ended(_ ids: [String]) -> [String] {
@@ -44,21 +46,30 @@ public struct TurnEnd: Codable, Sendable {
     /// A command that runs until stopped (a dev server, a watcher, a log tail): the agent doesn't wait for it.
     /// Limit: a guess from the words; a server it misses holds the row "working" until the wait runs out.
     public static func looksLikeServer(_ command: String) -> Bool {
-        command.range(of: #"(?i)\b(dev|serve|server|start|watch|preview)\b|compose up|tail -f|--follow|\blogs -f"#, options: .regularExpression) != nil
+        command.range(
+            of: #"(?i)\b(dev|serve|server|start|watch|preview)\b|compose up|tail -f|--follow|\blogs -f"#,
+            options: .regularExpression) != nil
     }
 }
 
 /// A /goal's state as Claude Code writes it into its transcript (a `goal_status` attachment, after each check).
 public struct GoalStatus: Equatable, Sendable {
     public var met: Bool, condition: String, id: String
-    public init(met: Bool, condition: String, id: String) { self.met = met; self.condition = condition; self.id = id }
+    public init(met: Bool, condition: String, id: String) {
+        self.met = met
+        self.condition = condition
+        self.id = id
+    }
 
     /// The last goal_status in a transcript's tail (JSON lines; the first may be cut).
     public static func last(in tail: String) -> GoalStatus? {
         for line in tail.split(separator: "\n").reversed() where line.contains("\"goal_status\"") {
             guard let v = try? JSONDecoder().decode(JSONValue.self, from: Data(line.utf8)), let a = v["attachment"],
-                  a["type"]?.string == "goal_status" else { continue }
-            return GoalStatus(met: a["met"]?.bool ?? false, condition: a["condition"]?.string ?? "", id: v["uuid"]?.string ?? String(line.hashValue))
+                a["type"]?.string == "goal_status"
+            else { continue }
+            return GoalStatus(
+                met: a["met"]?.bool ?? false, condition: a["condition"]?.string ?? "",
+                id: v["uuid"]?.string ?? String(line.hashValue))
         }
         return nil
     }

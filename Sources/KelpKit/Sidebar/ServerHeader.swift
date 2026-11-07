@@ -8,7 +8,9 @@ import DesignKit
 enum ServerLook: String {
     case stripes, sparse, fade, icon
     static let key = "workbench.sidebar.serverLook"
-    @MainActor static func of(_ app: AppModel) -> ServerLook { app.settings.string(key).flatMap(ServerLook.init) ?? .stripes }
+    @MainActor static func of(_ app: AppModel) -> ServerLook {
+        app.settings.string(key).flatMap(ServerLook.init) ?? .stripes
+    }
 }
 
 /// The first row of a server's card, one line as tall as a project's: the machine, a word only when something's wrong,
@@ -60,7 +62,10 @@ final class ServerHeader: NSTableCellView {
         for v in [plate, glyph, fold] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             slot.addSubview(v)
-            NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+            NSLayoutConstraint.activate([
+                v.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+                v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+            ])
         }
         let row = NSStackView(views: [slot, title, word, meters])
         row.spacing = Metrics.gap
@@ -72,10 +77,13 @@ final class ServerHeader: NSTableCellView {
             plate.widthAnchor.constraint(equalToConstant: 20), plate.heightAnchor.constraint(equalToConstant: 20),
             fold.widthAnchor.constraint(equalToConstant: 16), fold.heightAnchor.constraint(equalToConstant: 16),
             // The same columns as a project's row (SidebarCell): the icon under theirs, the name under their names.
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2), row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor),
             row.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
     }
@@ -134,26 +142,33 @@ final class ServerHeader: NSTableCellView {
             plate.layer?.borderColor = NSColor.separatorColor.cgColor
         }
         let folded = owner?.hostFolded(host) == true
-        fold.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
+        fold.image = .symbol(
+            folded ? "chevron.right" : "chevron.down",
+            folded ? String(localized: "Expand") : String(localized: "Collapse"))
         fold.toolTip = fold.image?.accessibilityDescription
         toolTip = Self.details(s)
-        setAccessibilityLabel([String(localized: "Server \(host)"), said?.text, toolTip].compactMap { $0 }.joined(separator: ", "))
+        setAccessibilityLabel(
+            [String(localized: "Server \(host)"), said?.text, toolTip].compactMap { $0 }.joined(separator: ", "))
     }
 
     /// Everything read, a line each: the tooltip.
     static func details(_ s: HostStats?) -> String? {
         guard let s else { return nil }
-        guard s.connected else { return s.error ?? String(localized: "Not connected. Click to open the server, which connects.") }
+        guard s.connected else {
+            return s.error ?? String(localized: "Not connected. Click to open the server, which connects.")
+        }
         func of(_ used: Int?, _ total: Int?) -> String? {
             guard let used, let total, let p = HostStats.percent(used, total) else { return nil }
             return "\(serverBytes(used)) / \(serverBytes(total)) · \(p)%"
         }
         let load = s.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: " ") }
-        return [serverLine(s),
-                s.cpu.map { String(localized: "CPU \(Int($0.rounded()))%") + (load.map { " · load " + $0 } ?? "") },
-                of(s.memory, s.memoryTotal).map { String(localized: "Memory \($0)") },
-                of(s.swap, s.swapTotal).map { String(localized: "Swap \($0)") },
-                of(s.disk, s.diskTotal).map { String(localized: "Disk / \($0)") }].compactMap { $0 }.joined(separator: "\n")
+        return [
+            serverLine(s),
+            s.cpu.map { String(localized: "CPU \(Int($0.rounded()))%") + (load.map { " · load " + $0 } ?? "") },
+            of(s.memory, s.memoryTotal).map { String(localized: "Memory \($0)") },
+            of(s.swap, s.swapTotal).map { String(localized: "Swap \($0)") },
+            of(s.disk, s.diskTotal).map { String(localized: "Disk / \($0)") }
+        ].compactMap { $0 }.joined(separator: "\n")
     }
 }
 
@@ -201,7 +216,9 @@ extension SidebarController {
 
     /// The headers follow every reading; the rows only what they show.
     func updateHeaders() {
-        for row in 0..<outline.numberOfRows { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? ServerHeader)?.update() }
+        for row in 0..<outline.numberOfRows {
+            (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? ServerHeader)?.update()
+        }
     }
 
     func serverMenu(_ menu: NSMenu, _ host: String) {
@@ -212,7 +229,9 @@ extension SidebarController {
         menu.add(String(localized: "Open htop")) { app.openHtop(host) }
         menu.addItem(.separator())
         menu.add(String(localized: "Add Project on \(host)…")) { app.addProject(onServer: host) }
-        if app.latest(HostEvent.self, host)?.stats.connected == true { menu.add(String(localized: "Disconnect")) { app.disconnectServer(host) } }
+        if app.latest(HostEvent.self, host)?.stats.connected == true {
+            menu.add(String(localized: "Disconnect")) { app.disconnectServer(host) }
+        }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Host")) {
             NSPasteboard.general.clearContents()

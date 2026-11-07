@@ -28,7 +28,10 @@ final class PromptTab: TabContent {
         Task { [weak self] in
             let read = await app.tryCall(FilesRead(path: path))
             guard let self else { return }
-            guard let text = read.value?.text else { app.workbench.closeTab(uri: uri, remember: false); return }
+            guard let text = read.value?.text else {
+                app.workbench.closeTab(uri: uri, remember: false)
+                return
+            }
             show(text)
         }
     }
@@ -48,7 +51,8 @@ final class PromptTab: TabContent {
         done.padding = Metrics.gap
         done.restFill = .fillRest
         done.onClick = { [weak self] in self?.finish() }
-        let label = NSTextField(labelWithString: String(localized: "Closing this tab puts the text in the agent's prompt"))
+        let label = NSTextField(
+            labelWithString: String(localized: "Closing this tab puts the text in the agent's prompt"))
         label.font = .ui(12)
         label.textColor = .secondaryLabelColor
         let bar = Bar.content([label], [cancel, done])
@@ -69,7 +73,9 @@ final class PromptTab: TabContent {
 
     /// Written before the tab goes: the agent reads the file once `kelp edit` ends.
     func close() async -> Bool {
-        if !cancelled, let text = editor?.text, await app.call(FilesWrite(path: path, text: text, base: nil)) == nil { return false }
+        if !cancelled, let text = editor?.text, await app.call(FilesWrite(path: path, text: text, base: nil)) == nil {
+            return false
+        }
         await app.call(FilesWrite(path: path + TabURI.promptDone, text: "", base: nil))
         return true
     }

@@ -20,8 +20,12 @@ public struct CodeGrammar: Sendable {
         let parser = Parser(), s = text as NSString
         guard (try? parser.setLanguage(language)) != nil, let tree = parser.parse(text) else { return [] }
         // Predicates read pieces by UTF-16 range, as the editor's do: NSString's are O(1) to cut.
-        let piece: SwiftTreeSitter.Predicate.TextProvider = { r, _ in NSMaxRange(r) <= s.length ? s.substring(with: r) : nil }
-        return query.execute(in: tree).resolve(with: .init(textProvider: piece)).highlights().map { ($0.range, $0.name) }
+        let piece: SwiftTreeSitter.Predicate.TextProvider = { r, _ in
+            NSMaxRange(r) <= s.length ? s.substring(with: r) : nil
+        }
+        return query.execute(in: tree).resolve(with: .init(textProvider: piece)).highlights().map {
+            ($0.range, $0.name)
+        }
     }
 }
 

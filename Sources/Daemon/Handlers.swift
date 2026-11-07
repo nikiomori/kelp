@@ -1,11 +1,11 @@
+import AgentData
+import Agents
+import Core
 import Foundation
+import GitKit
+import Integrations
 import ServiceManagement
 import os
-import Core
-import GitKit
-import Agents
-import AgentData
-import Integrations
 
 extension JSONValue {
     func req(_ k: String) throws -> String {
@@ -96,13 +96,19 @@ extension VMService: DaemonService { static func of(_ d: Daemon) -> VMService { 
 extension Clients: DaemonService { static func of(_ d: Daemon) -> Clients { d.clients } }
 extension LSPHost: DaemonService { static func of(_ d: Daemon) -> LSPHost { d.lsp } }
 extension SettingsEvents: DaemonService { static func of(_ d: Daemon) -> SettingsEvents { d.settingsEvents } }
-extension UIStore: DaemonService { static func of(_ d: Daemon) -> UIStore { UIStore(store: d.store, clients: d.clients) } }
-extension ForgeWork: DaemonService { static func of(_ d: Daemon) -> ForgeWork { ForgeWork(forges: d.forges, workspaces: d.workspaces) } }
+extension UIStore: DaemonService {
+    static func of(_ d: Daemon) -> UIStore { UIStore(store: d.store, clients: d.clients) }
+}
+extension ForgeWork: DaemonService {
+    static func of(_ d: Daemon) -> ForgeWork { ForgeWork(forges: d.forges, workspaces: d.workspaces) }
+}
 extension Upgrade: DaemonService {
     static func of(_ d: Daemon) -> Upgrade {
         let root = d.root, offloads = d.offloads
-        return Upgrade(executable: Daemon.executable, root: root, adoptable: { Handover.adoptable(Daemon.executable, home: root) },
-                       waitIdle: { offloads.waitIdle(seconds: 5) }) { [weak d] in d?.upgrade(checked: true) }
+        return Upgrade(
+            executable: Daemon.executable, root: root, adoptable: { Handover.adoptable(Daemon.executable, home: root) },
+            waitIdle: { offloads.waitIdle(seconds: 5) }
+        ) { [weak d] in d?.upgrade(checked: true) }
     }
 }
 
@@ -129,7 +135,9 @@ extension Handled {
             try JSONEncoder().encode(checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
         }
     }
-    static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data { try await d.offload(quick: quick) { try answerNow(p, d, conn: conn) } }
+    static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data {
+        try await d.offload(quick: quick) { try answerNow(p, d, conn: conn) }
+    }
 }
 
 /// A method that waits on a web API (Linear, Jira, Bitbucket): async, with its gh / git calls through `offload`.
@@ -154,9 +162,9 @@ extension AsyncHandled {
 extension RPCMethod {
     /// The method's params as its type; a bad or missing field is the caller's error.
     static func decoded(_ p: JSONValue) throws -> Self {
-        do { return try (p == .null ? .object([:]) : p).decode(Self.self) }
-        catch DecodingError.keyNotFound(let k, _) { throw RPCError.invalidParams("missing \(k.stringValue)") }
-        catch { throw RPCError.invalidParams("\(name): \(error)") }
+        do { return try (p == .null ? .object([:]) : p).decode(Self.self) } catch DecodingError.keyNotFound(let k, _) {
+            throw RPCError.invalidParams("missing \(k.stringValue)")
+        } catch { throw RPCError.invalidParams("\(name): \(error)") }
     }
 }
 
@@ -189,14 +197,21 @@ extension Daemon {
         case .unknown:
             // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
             // connection on, which is how a program would speak for a session not its own.
-            try allowAgent(m, own: Sessions.unknown, or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
+            try allowAgent(
+                m, own: Sessions.unknown,
+                or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
         case .kelpd:
-            try allowAgent(m, own: Sessions.ownProgram,
-                           or: "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for.")
+            try allowAgent(
+                m, own: Sessions.ownProgram,
+                or:
+                    "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for."
+            )
         case .detached:
-            try allowAgent(m, own: Sessions.detached,
-                           or: "Kelp can't tell this program is yours (it runs outside every terminal and app: in the background, "
-                               + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours.")
+            try allowAgent(
+                m, own: Sessions.detached,
+                or: "Kelp can't tell this program is yours (it runs outside every terminal and app: in the background, "
+                    + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours."
+            )
         }
     }
 
@@ -214,18 +229,25 @@ extension Daemon {
     /// (`typed:` on its line), not everything the user started from that terminal.
     private func allowAgent(_ m: any Answered, own: String, typed: Bool = false) throws {
         if m.signs, m.reportsFor == nil {
-            throw RPCError.refused("What an agent writes for others says it's an agent's: run it from the agent's terminal, which names its session.")
+            throw RPCError.refused(
+                "What an agent writes for others says it's an agent's: run it from the agent's terminal, which names its session."
+            )
         }
         func reaches(_ id: String) throws -> Bool {
-            try sessions.store.lineage(id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
+            try sessions.store.lineage(id).contains {
+                typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
+            }
         }
         if let refusal = m.notForAgents { throw RPCError.refused(refusal) }
         if m.answersQuestion {
-            throw RPCError.refused("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
+            throw RPCError.refused(
+                "An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs."
+            )
         }
         let name = type(of: m).name
         guard AgentRules.methods.contains(name) else {
-            throw RPCError.refused("“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
+            throw RPCError.refused(
+                "“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
         }
         if let id = m.typesInto, sessions.existing(id)?.asksSomething == true {
             throw RPCError.refused("That session asks a question, the user's to answer; send again once it's answered.")
@@ -240,11 +262,15 @@ extension Daemon {
         }
         // Every workspace a call that acts names, whatever the field: not each method remembering to say. `inWorkspace` is
         // for what the walk can't see (the workspace on screen, `""`) and for a read held to the agent's own (a fetch).
-        let workspaces = Set([m.inWorkspace].compactMap { $0 } + (AgentRules.reads.contains(name) ? [] : try sessions.workspaces(namedBy: m)))
+        let workspaces = Set(
+            [m.inWorkspace].compactMap { $0 }
+                + (AgentRules.reads.contains(name) ? [] : try sessions.workspaces(namedBy: m)))
         for w in workspaces where try !sessions.works(own, in: w, typed: typed) {
             throw RPCError.refused("An agent works only in its own workspace.")
         }
-        if let r = m.makesInProject, try !sessions.store.worktrees(repo: r).contains(where: { try sessions.works(own, in: $0.id, typed: typed) }) {
+        if let r = m.makesInProject,
+            try !sessions.store.worktrees(repo: r).contains(where: { try sessions.works(own, in: $0.id, typed: typed) })
+        {
             throw RPCError.refused("An agent makes workspaces only in the project it works in.")
         }
         if let e = m.ends, try sessions.ending(e).contains(where: { s in try (typed || s != own) && !reaches(s) }) {
@@ -254,9 +280,11 @@ extension Daemon {
 
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
-        let sync: [any Handled.Type] = Methods.miscMethods + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods
+        let sync: [any Handled.Type] =
+            Methods.miscMethods + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods
             + Methods.integrationMethods + Methods.projectMethods
-            + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods + Methods.vmMethods
+            + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
+            + Methods.vmMethods
         let async = Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods
         let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
@@ -279,7 +307,9 @@ extension Daemon {
             let ms = (DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
             if ms >= 100 { Log.rpc.error("in-order \(t.name, privacy: .public) held its connection for \(ms) ms") }
         }
-        do { return try Subprocess.quickOnly { try t.answerNow(p, self, conn: conn) } } catch let e as GitError { throw RPCError.internalError(e.message) }
+        do { return try Subprocess.quickOnly { try t.answerNow(p, self, conn: conn) } } catch let e as GitError {
+            throw RPCError.internalError(e.message)
+        }
     }
 
     /// The same as a value, for callers that read it by hand (tests).
@@ -293,16 +323,17 @@ extension Daemon {
 
     /// The integrations' own errors, as the app shows them.
     private func integrationErrors<T>(_ body: () async throws -> T) async throws -> T {
-        do { return try await body() }
-        catch let e as GitHubError { throw RPCError.internalError(e.description) }
-        catch let e as IntegrationError { throw RPCError.internalError(e.description) }
+        do { return try await body() } catch let e as GitHubError {
+            throw RPCError.internalError(e.description)
+        } catch let e as IntegrationError { throw RPCError.internalError(e.description) }
     }
 
     /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to
     /// whatever repository holds it (a dotfiles home). Until they run on the host, they don't run at all: a `LocalForge`
     /// method is refused for one, or answers null when the sidebar asked by itself.
     private func refuseRemoteForge(_ t: any Answered.Type, _ p: JSONValue) throws -> Data? {
-        guard let forge = t as? any LocalForge.Type, (try? store.repoPath(p)).map({ remotes.of($0.1) != nil }) == true else { return nil }
+        guard let forge = t as? any LocalForge.Type, (try? store.repoPath(p)).map({ remotes.of($0.1) != nil }) == true
+        else { return nil }
         if forge.quietOnRemote { return Data("null".utf8) }
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")
     }
@@ -343,7 +374,9 @@ extension DaemonBackgroundAllowed: Handled {
 extension DaemonInfo: Handled {
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> Result {
-        Result(path: URL(fileURLWithPath: Daemon.executable).resolvingSymlinksInPath().path, binaryMTime: Daemon.binaryMTime, pid: Int(getpid()),
-               liveSessions: sessions.live.all.filter { $0.snapshot.status != .exited }.count)
+        Result(
+            path: URL(fileURLWithPath: Daemon.executable).resolvingSymlinksInPath().path,
+            binaryMTime: Daemon.binaryMTime, pid: Int(getpid()),
+            liveSessions: sessions.live.all.filter { $0.snapshot.status != .exited }.count)
     }
 }

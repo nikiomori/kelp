@@ -25,8 +25,10 @@ public final class FloatingCard: NSView {
             inner.translatesAutoresizingMaskIntoConstraints = false
             outer.addSubview(inner)
             NSLayoutConstraint.activate([
-                inner.topAnchor.constraint(equalTo: outer.topAnchor), inner.bottomAnchor.constraint(equalTo: outer.bottomAnchor),
-                inner.leadingAnchor.constraint(equalTo: outer.leadingAnchor), inner.trailingAnchor.constraint(equalTo: outer.trailingAnchor)
+                inner.topAnchor.constraint(equalTo: outer.topAnchor),
+                inner.bottomAnchor.constraint(equalTo: outer.bottomAnchor),
+                inner.leadingAnchor.constraint(equalTo: outer.leadingAnchor),
+                inner.trailingAnchor.constraint(equalTo: outer.trailingAnchor)
             ])
         }
     }

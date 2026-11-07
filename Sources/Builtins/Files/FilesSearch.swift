@@ -1,10 +1,10 @@
 import AppKit
 import Core
 import DesignKit
-import Quartz
-import Markdown
-import WorkbenchKit
 import KelpKit
+import Markdown
+import Quartz
+import WorkbenchKit
 
 @MainActor
 extension FilesPanel {
@@ -16,14 +16,20 @@ extension FilesPanel {
         if !on { noResults.show(nil) }
     }
     func showLoadError(_ message: String?) {
-        if let message { loadError.showError(String(localized: "Couldn't list the files"), text: message) } else { loadError.show(nil) }
+        if let message {
+            loadError.showError(String(localized: "Couldn't list the files"), text: message)
+        } else {
+            loadError.show(nil)
+        }
         leftScroll.isHidden = message != nil || !resultsScroll.isHidden
     }
     /// Results follow the typing (a pause of a quarter second), like Xcode's Find navigator.
     func controlTextDidChange(_ n: Notification) {
         guard n.object as? NSSearchField === search else { return }
         showSearchOptions()
-        typing.after(byName ? 0.1 : 0.25) { [weak self] in if self?.byName == true { self?.narrowTree() } else { self?.runSearch() } }
+        typing.after(byName ? 0.1 : 0.25) { [weak self] in
+            if self?.byName == true { self?.narrowTree() } else { self?.runSearch() }
+        }
     }
     /// ↓ from the field goes into the results; ↩ there opens the line.
     func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
@@ -37,8 +43,11 @@ extension FilesPanel {
             outline.selectRowIndexes([firstFileRow ?? 0], byExtendingSelection: false)
             return true
         }
-        guard c === search, sel == #selector(NSResponder.moveDown(_:)), !matches.isEmpty, !resultsScroll.isHidden else { return false }
-        view.window?.makeFirstResponder(results); results.selectRowIndexes([0], byExtendingSelection: false)
+        guard c === search, sel == #selector(NSResponder.moveDown(_:)), !matches.isEmpty, !resultsScroll.isHidden else {
+            return false
+        }
+        view.window?.makeFirstResponder(results)
+        results.selectRowIndexes([0], byExtendingSelection: false)
         return true
     }
     @objc func runSearch() {
@@ -55,9 +64,11 @@ extension FilesPanel {
         guard !q.isEmpty else { return }
         let o = searchOptions
         Task {
-            let found = await app.tryCall(FilesSearch(id: w.id, query: q, regex: o.regex, case: o.matchCase, word: o.wholeWord))
+            let found = await app.tryCall(
+                FilesSearch(id: w.id, query: q, regex: o.regex, case: o.matchCase, word: o.wholeWord))
             // A newer search, options or workspace.
-            guard worktree?.id == w.id, searchOptions == o, search.stringValue.trimmingCharacters(in: .whitespaces) == q else { return }
+            guard worktree?.id == w.id, searchOptions == o, search.stringValue.trimmingCharacters(in: .whitespaces) == q
+            else { return }
             // Half typed, a pattern often isn't one yet: what it found last stays.
             if o.regex, let e = found.error, !matches.isEmpty {
                 showPatternError(e)
@@ -69,7 +80,9 @@ extension FilesPanel {
             if let e = found.error {
                 noResults.showError(String(localized: "Couldn't search"), text: e, buttons: [clearButton()])
             } else {
-                noResults.show(matches.isEmpty ? String(localized: "No matches for “\(q)”") : nil, symbol: "magnifyingglass", buttons: [clearButton()])
+                noResults.show(
+                    matches.isEmpty ? String(localized: "No matches for “\(q)”") : nil, symbol: "magnifyingglass",
+                    buttons: [clearButton()])
             }
         }
     }
@@ -84,13 +97,21 @@ extension FilesPanel {
     func showProblems() {
         let found = Self.problems(in: app.latest(FileEvent.self).byKey.mapValues { $0.problems ?? [] }, root: root)
         show(references: found)
-        noResults.show(found.isEmpty ? String(localized: "No problems in open files") : nil, symbol: "checkmark.circle", buttons: [clearButton()])
+        noResults.show(
+            found.isEmpty ? String(localized: "No problems in open files") : nil, symbol: "checkmark.circle",
+            buttons: [clearButton()])
     }
 
     static func problems(in files: [String: [CodeProblem]], root: String) -> [SearchMatch] {
         let all = files.filter { $0.key.hasPrefix(root + "/") }.sorted { $0.key < $1.key }.flatMap { path, found in
-            found.sorted { $0.line < $1.line }.map { (isError: $0.isError, match: SearchMatch(
-                path: String(path.dropFirst(root.count + 1)), line: $0.line + 1, text: ($0.isError ? "✕ " : "⚠ ") + $0.message)) }
+            found.sorted { $0.line < $1.line }.map {
+                (
+                    isError: $0.isError,
+                    match: SearchMatch(
+                        path: String(path.dropFirst(root.count + 1)), line: $0.line + 1,
+                        text: ($0.isError ? "✕ " : "⚠ ") + $0.message)
+                )
+            }
         }
         return all.filter(\.isError).map(\.match) + all.filter { !$0.isError }.map(\.match)
     }
@@ -130,7 +151,10 @@ extension FilesPanel {
     }
     @objc func openResult() {
         let r = results.clickedRow >= 0 ? results.clickedRow : results.selectedRow
-        if matches.indices.contains(r) { let m = matches[r]; openFile(m.path, line: m.line) }
+        if matches.indices.contains(r) {
+            let m = matches[r]
+            openFile(m.path, line: m.line)
+        }
     }
 
     /// A line the search found: what the editor offers for a line.
@@ -139,9 +163,13 @@ extension FilesPanel {
         guard matches.indices.contains(row) else { return }
         let app = app, hit = matches[row], path = root + "/" + hit.path
         m.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
-        m.add(String(localized: "Open to the Side")) { app.workbench.open(TabURI.file(path, line: hit.line), split: .right) }
+        m.add(String(localized: "Open to the Side")) {
+            app.workbench.open(TabURI.file(path, line: hit.line), split: .right)
+        }
         m.addItem(.separator())
         m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
-        m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: hit.line...hit.line) }
+        m.add(String(localized: "Copy Path and Line")) {
+            FileActions(app).copyReference(path, lines: hit.line...hit.line)
+        }
     }
 }

@@ -32,7 +32,10 @@ public final class RPCClient: Sendable {
     public var onClose: (@Sendable () -> Void)? {
         get { state.withLock { $0.closeHandler } }
         set {
-            let runNow = state.withLock { s -> Bool in s.closeHandler = newValue; return s.readerDone }
+            let runNow = state.withLock { s -> Bool in
+                s.closeHandler = newValue
+                return s.readerDone
+            }
             if runNow { newValue?() }
         }
     }
@@ -57,7 +60,10 @@ public final class RPCClient: Sendable {
     /// that read land on a number already reused by a newer connection, and take its replies.
     public func close() {
         // Under the lock the reader sets `readerDone` with, before it queues the close: the number is still ours here.
-        state.withLock { s in s.closed = true; if !s.readerDone { shutdown(fd, SHUT_RDWR) } }
+        state.withLock { s in
+            s.closed = true
+            if !s.readerDone { shutdown(fd, SHUT_RDWR) }
+        }
     }
 
     /// Waits (up to `timeout`) until what's queued is written: a quitting app's last change must reach the daemon.
@@ -78,7 +84,8 @@ public final class RPCClient: Sendable {
                 // The result isn't read here: the caller reads it straight from the line, as its own type. An event is read
                 // here, once, as its type (as JSON too only for `onNotification`).
                 if let id = Self.resultID(line) {   // most lines: the caller's decode is the only pass over a big result
-                    state.withLock { $0.pending.removeValue(forKey: id) }?.resume(returning: line); continue
+                    state.withLock { $0.pending.removeValue(forKey: id) }?.resume(returning: line)
+                    continue
                 }
                 guard let m = try? JSONDecoder().decode(Envelope.self, from: line) else { continue }
                 if let method = m.method {
@@ -92,7 +99,11 @@ public final class RPCClient: Sendable {
             }
         }
         let (all, done) = state.withLock { s in
-            defer { s.pending = [:]; s.closed = true; s.readerDone = true }
+            defer {
+                s.pending = [:]
+                s.closed = true
+                s.readerDone = true
+            }
             return (s.pending, s.closeHandler)
         }
         writer.async { [fd] in _ = Darwin.close(fd) }   // the only close, after the last write (none is written once the reader is done)
@@ -107,40 +118,57 @@ public final class RPCClient: Sendable {
         let head = Array(#"{"jsonrpc":"2.0","id":"#.utf8), tail = Array(#","result":"#.utf8)
         guard line.starts(with: head) else { return nil }
         var i = line.startIndex + head.count, id = 0, digits = 0
-        while i < line.endIndex, digits < 18, case let b = line[i], b >= 0x30, b <= 0x39 { id = id * 10 + Int(b - 0x30); digits += 1; i += 1 }
+        while i < line.endIndex, digits < 18, case let b = line[i], b >= 0x30, b <= 0x39 {
+            id = id * 10 + Int(b - 0x30)
+            digits += 1
+            i += 1
+        }
         guard digits > 0, line[i...].starts(with: tail) else { return nil }
         return id
     }
 
     /// Fire-and-forget, written in call order (keystrokes must not overtake each other).
     public func notify(_ method: String, _ params: JSONValue? = nil) {
-        guard !state.withLock({ $0.closed }), let d = try? Wire.line(RPCRequest(id: nil, method: method, params: params)) else { return }
+        guard !state.withLock({ $0.closed }),
+            let d = try? Wire.line(RPCRequest(id: nil, method: method, params: params))
+        else { return }
         write(d)
     }
 
     /// Queued for the writer (callers check `closed` first). Nothing is written once the reader is done: the fd is closed
     /// after it, and the number may be someone else's by then.
     /// A write that gives up part way closes the connection: the next line would be glued to half of this one.
-    private func write(_ d: Data) { writer.async { [self] in if !state.withLock({ $0.readerDone }), !Unix.writeAll(fd, d) { close() } } }
+    private func write(_ d: Data) {
+        writer.async { [self] in if !state.withLock({ $0.readerDone }), !Unix.writeAll(fd, d) { close() } }
+    }
 
     /// `timeout`: throw if no reply came by then — for polls, where one reply that never arrives would stop the loop for good.
-    public func call(_ method: String, _ params: JSONValue? = nil, timeout: TimeInterval? = nil) async throws -> JSONValue {
+    public func call(_ method: String, _ params: JSONValue? = nil, timeout: TimeInterval? = nil) async throws
+        -> JSONValue
+    {
         try await call(method, params, timeout: timeout, as: JSONValue.self)
     }
 
     /// The reply's line: a message with `id` and `result` (or `error`, thrown before it gets here). A cancelled caller stops
     /// waiting at once, with `CancellationError`; the daemon's answer, if one comes, is dropped.
     private func reply(_ method: String, _ params: JSONValue?, timeout: TimeInterval?) async throws -> Data {
-        let id = state.withLock { s in defer { s.nextID += 1 }; return s.nextID }
+        let id = state.withLock { s in
+            defer { s.nextID += 1 }
+            return s.nextID
+        }
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { c in
                 // Under the lock the cancel handler takes it out with: cancelled before it's in, it never goes in.
                 let refused = state.withLock { s -> Error? in
                     if s.closed { return RPCError.connectionClosed }
                     if Task.isCancelled { return CancellationError() }
-                    s.pending[id] = c; return nil
+                    s.pending[id] = c
+                    return nil
                 }
-                if let refused { c.resume(throwing: refused); return }
+                if let refused {
+                    c.resume(throwing: refused)
+                    return
+                }
                 if let timeout {
                     // Weak: every typed call has one now, and a dropped connection's client mustn't wait them out.
                     DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
@@ -148,15 +176,18 @@ public final class RPCClient: Sendable {
                             .resume(throwing: RPCError.noReply(method, in: timeout))
                     }
                 }
-                do { write(try Wire.line(RPCRequest(id: id, method: method, params: params))) }
-                catch { state.withLock { $0.pending.removeValue(forKey: id) }?.resume(throwing: error) }
+                do { write(try Wire.line(RPCRequest(id: id, method: method, params: params))) } catch {
+                    state.withLock { $0.pending.removeValue(forKey: id) }?.resume(throwing: error)
+                }
             }
         } onCancel: {
             state.withLock { $0.pending.removeValue(forKey: id) }?.resume(throwing: CancellationError())
         }
     }
 
-    public func call<T: Decodable>(_ method: String, _ params: JSONValue? = nil, timeout: TimeInterval? = nil, as: T.Type) async throws -> T {
+    public func call<T: Decodable>(
+        _ method: String, _ params: JSONValue? = nil, timeout: TimeInterval? = nil, as: T.Type
+    ) async throws -> T {
         try JSONDecoder().decode(ResultOf<T>.self, from: await reply(method, params, timeout: timeout)).result
     }
 
@@ -182,7 +213,9 @@ private struct Envelope: Decodable {
         // One that doesn't decode (from a newer daemon) is dropped: nothing this client could show.
         if let method, let t = Self.events[method] { event = try? Self.params(t, c) }
     }
-    private static func params<E: RPCEvent>(_: E.Type, _ c: KeyedDecodingContainer<Key>) throws -> E { try c.decode(E.self, forKey: .params) }
+    private static func params<E: RPCEvent>(_: E.Type, _ c: KeyedDecodingContainer<Key>) throws -> E {
+        try c.decode(E.self, forKey: .params)
+    }
 }
 /// A notification's params as JSON, for `onNotification`.
 private struct Params: Decodable { var params: JSONValue? }
@@ -191,7 +224,9 @@ private struct ResultOf<R: Decodable>: Decodable { let result: R }
 
 extension JSONValue {
     public static func obj(_ kv: KeyValuePairs<String, JSONValue>) -> JSONValue {
-        var d: [String: JSONValue] = [:]; for (k, v) in kv { d[k] = v }; return .object(d)
+        var d: [String: JSONValue] = [:]
+        for (k, v) in kv { d[k] = v }
+        return .object(d)
     }
 }
 extension JSONValue: ExpressibleByStringLiteral {

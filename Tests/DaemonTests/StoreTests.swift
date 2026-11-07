@@ -1,7 +1,8 @@
-import Foundation
-import os
-import Testing
 import Core
+import Foundation
+import Testing
+import os
+
 @testable import Daemon
 
 @Test func storeRoundTrip() throws {
@@ -12,7 +13,7 @@ import Core
     #expect(try s.repos() == [r])
     #expect(try s.worktree(w.id)?.note == "hi")
     try s.delete(r)
-    #expect(try s.worktrees().isEmpty) // cascade
+    #expect(try s.worktrees().isEmpty)   // cascade
 }
 
 /// Each write gives a record the next revision, however it's written: of two copies, the newer is the one with the higher.
@@ -21,7 +22,8 @@ import Core
     let r = try s.save(Repo(name: "demo", path: "/tmp/demo"))
     #expect(r.revision == 1)
     #expect(try s.update(Repo.self, r.id) { $0.name = "d" }?.revision == 2)
-    var old = r; old.name = "x"
+    var old = r
+    old.name = "x"
     #expect(try s.update(old).revision == 3)   // a copy read earlier comes out newer than what was there
     #expect(try s.repo(r.id)?.revision == 3)
 }
@@ -29,12 +31,17 @@ import Core
 /// Two changes to one workspace at once (a rename and a PR link) both stay: neither saves back a copy read before the other.
 @Test func workspaceChangesAtTheSameTimeAllStay() async throws {
     let s = try Store()
-    let r = Repo(name: "demo", path: "/tmp/demo"); try s.save(r)
+    let r = Repo(name: "demo", path: "/tmp/demo")
+    try s.save(r)
     let w = Worktree(repoId: r.id, branch: "b", path: "/p")
     try s.save(w)
     await withTaskGroup(of: Void.self) { g in
         for i in 0..<200 {
-            g.addTask { _ = try? s.update(Worktree.self, w.id) { if i.isMultiple(of: 2) { $0.note += "n" } else { $0.prURL += "u" } } }
+            g.addTask {
+                _ = try? s.update(Worktree.self, w.id) {
+                    if i.isMultiple(of: 2) { $0.note += "n" } else { $0.prURL += "u" }
+                }
+            }
         }
     }
     let after = try #require(try s.worktree(w.id))
@@ -44,8 +51,10 @@ import Core
 /// A workspace's review comments go with it, also when its whole project is removed.
 @Test func commentsGoWithTheirWorkspace() throws {
     let s = try Store()
-    let r = Repo(name: "demo", path: "/tmp/demo"); try s.save(r)
-    let w = Worktree(repoId: r.id, branch: "b", path: "/p"); try s.save(w)
+    let r = Repo(name: "demo", path: "/tmp/demo")
+    try s.save(r)
+    let w = Worktree(repoId: r.id, branch: "b", path: "/p")
+    try s.save(w)
     try s.save(DiffComment(worktreeId: w.id, file: "a", startLine: 1, endLine: 1, quote: "", text: "fix"))
     #expect(try s.comments(worktree: w.id).count == 1)
     try s.delete(r)   // cascades to the workspace
@@ -56,16 +65,31 @@ import Core
 /// write, unordered, two writers could pass each other in between and leave the app with the older record.
 @Test func changesAreToldInTheOrderTheyWereCommitted() throws {
     let s = try Store()
-    let r = Repo(name: "demo", path: "/tmp/demo"); try s.save(r)
-    let w = Worktree(repoId: r.id, branch: "b", path: "/p"); try s.save(w)
-    let committed = OSAllocatedUnfairLock<[String]>(initialState: []), told = OSAllocatedUnfairLock<[String]>(initialState: [])
+    let r = Repo(name: "demo", path: "/tmp/demo")
+    try s.save(r)
+    let w = Worktree(repoId: r.id, branch: "b", path: "/p")
+    try s.save(w)
+    let committed = OSAllocatedUnfairLock<[String]>(initialState: []),
+        told = OSAllocatedUnfairLock<[String]>(initialState: [])
     // A teller takes a while (the daemon's encodes and queues an event per client): a later one can't overtake.
-    s.changed.withLock { $0.tell = { c in if case .worktree(let x) = c { usleep(.random(in: 0...1000)); told.withLock { $0.append(x.note) } } } }
+    s.changed.withLock {
+        $0.tell = { c in
+            if case .worktree(let x) = c {
+                usleep(.random(in: 0...1000))
+                told.withLock { $0.append(x.note) }
+            }
+        }
+    }
     let all = DispatchGroup()
     for t in 0..<8 {
         all.enter()
         Thread.detachNewThread {
-            for i in 0..<50 { _ = try? s.update(Worktree.self, w.id) { $0.note = "\(t).\(i)"; committed.withLock { $0.append("\(t).\(i)") } } }
+            for i in 0..<50 {
+                _ = try? s.update(Worktree.self, w.id) {
+                    $0.note = "\(t).\(i)"
+                    committed.withLock { $0.append("\(t).\(i)") }
+                }
+            }
             all.leave()
         }
     }
@@ -79,8 +103,10 @@ import Core
 /// the lock as a bare function, each read wrapped it once more (in a debug build), and 3200 overflowed the stack.
 @Test func aListenerToldThousandsOfChangesStaysOneCall() throws {
     let s = try Store()
-    let r = Repo(name: "demo", path: "/tmp/demo"); try s.save(r)
-    let w = Worktree(repoId: r.id, branch: "b", path: "/p"); try s.save(w)
+    let r = Repo(name: "demo", path: "/tmp/demo")
+    try s.save(r)
+    let w = Worktree(repoId: r.id, branch: "b", path: "/p")
+    try s.save(w)
     s.changed.withLock { $0.tell = { _ in } }
     for i in 0..<4000 { _ = try s.update(Worktree.self, w.id) { $0.note = "\(i)" } }
 }
@@ -93,7 +119,12 @@ import Core
     let s = try Store(path: dir.appendingPathComponent("kelp.sqlite").path)
     _ = try s.save(Repo(name: "demo", path: "/tmp/demo"))
     let inWrite = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
-    Thread.detachNewThread { try? s.db.write { _ in inWrite.signal(); release.wait() } }
+    Thread.detachNewThread {
+        try? s.db.write { _ in
+            inWrite.signal()
+            release.wait()
+        }
+    }
     inWrite.wait()
     let read = DispatchSemaphore(value: 0)
     Thread.detachNewThread { if (try? s.repos().count) == 1 { read.signal() } }
@@ -104,7 +135,9 @@ import Core
 /// A routine's old run whose tab is open stays, though a hidden tab lets go of its terminal: the saved layouts say.
 @Test func aTabInALayoutIsFoundByItsSession() throws {
     let s = try Store()
-    let tabs: JSONValue = .object(["groups": .object(["g": .object(["tabs": .array([.object(["uri": .string("session:abc")])])])])])
+    let tabs: JSONValue = .object([
+        "groups": .object(["g": .object(["tabs": .array([.object(["uri": .string("session:abc")])])])])
+    ])
     try s.setUIState("layout/w1", tabs)
     #expect(try s.inALayout("session:abc"))
     #expect(try !s.inALayout("session:ab"))   // a whole id, not its start

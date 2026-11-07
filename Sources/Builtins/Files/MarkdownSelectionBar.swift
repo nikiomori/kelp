@@ -14,7 +14,8 @@ final class MarkdownSelectionBar: NSView {
         row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 5)
         let card = FloatingCard(row, radius: Metrics.radiusMD)   // the popover's material, as the other floating controls
         setFrameSize(card.fittingSize)
-        card.frame = bounds; card.autoresizingMask = [.width, .height]
+        card.frame = bounds
+        card.autoresizingMask = [.width, .height]
         addSubview(card)
         isHidden = true
         setAccessibilityRole(.toolbar)

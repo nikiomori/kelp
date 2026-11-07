@@ -1,26 +1,36 @@
-import Foundation
 import Core
+import Foundation
 
 /// A machine's files: one of the user's it's made from, its exchange folder; and its size, changed while it's shut down.
 extension VMService {
     /// The file a machine is made from, before anything is made: what it is, as far as its first bytes tell.
     static func check(_ file: URL, for image: VMImage) throws {
-        guard FileManager.default.fileExists(atPath: file.path) else { throw RPCError.invalidParams("No file \(file.path).") }
+        guard FileManager.default.fileExists(atPath: file.path) else {
+            throw RPCError.invalidParams("No file \(file.path).")
+        }
         switch image.os {
         case "macos":
-            guard file.pathExtension.lowercased() == "ipsw" else { throw RPCError.invalidParams("A macOS machine is made from a restore image (.ipsw).") }
+            guard file.pathExtension.lowercased() == "ipsw" else {
+                throw RPCError.invalidParams("A macOS machine is made from a restore image (.ipsw).")
+            }
         case "linux":
             let h = try FileHandle(forReadingFrom: file)
             defer { h.closeFile() }
             let head = try h.read(upToCount: 0x8006) ?? Data()
             if head.prefix(4) == Data([0x51, 0x46, 0x49, 0xFB]) {
-                throw RPCError.invalidParams("That's a qcow2 image: Kelp runs raw disks. qemu-img convert -O raw \(file.lastPathComponent) disk.raw makes one.")
+                throw RPCError.invalidParams(
+                    "That's a qcow2 image: Kelp runs raw disks. qemu-img convert -O raw \(file.lastPathComponent) disk.raw makes one."
+                )
             }
             if head.count >= 0x8006, head[0x8001..<0x8006] == Data("CD001".utf8) {
-                throw RPCError.invalidParams("That's an installer ISO, which needs a screen: a Linux machine starts from a cloud image's raw disk.")
+                throw RPCError.invalidParams(
+                    "That's an installer ISO, which needs a screen: a Linux machine starts from a cloud image's raw disk."
+                )
             }
         default:
-            throw RPCError.invalidParams("\(image.title) machines come from your SDK or Xcode: --file is for macOS (.ipsw) and Linux (a raw disk).")
+            throw RPCError.invalidParams(
+                "\(image.title) machines come from your SDK or Xcode: --file is for macOS (.ipsw) and Linux (a raw disk)."
+            )
         }
     }
 
@@ -30,7 +40,9 @@ extension VMService {
         guard ["linux", "macos"].contains(m.os) else { return nil }
         let files = file(m.name, "files")
         if !FileManager.default.fileExists(atPath: files.path) {
-            do { try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true) } catch { Log.vm.error("\(m.name)'s files: \(error)") }
+            do { try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true) } catch {
+                Log.vm.error("\(m.name)'s files: \(error)")
+            }
         }
         return files.path
     }
@@ -39,19 +51,26 @@ extension VMService {
     /// it boots: cloud-init's growpart). A sleeping one's saved state wouldn't fit them: shut it down first.
     func configure(_ r: VMConfigure) throws -> VMInfo {
         var m = try machine(r.name)
-        guard ["linux", "macos"].contains(m.os) else { throw RPCError.invalidParams("An \(m.os) machine's size is set when it's made.") }
+        guard ["linux", "macos"].contains(m.os) else {
+            throw RPCError.invalidParams("An \(m.os) machine's size is set when it's made.")
+        }
         let state = info(m).state
         guard state == .off else {
-            let why = state == .creating || state == .error ? "\(m.name) isn't made yet." : "Shut \(m.name) down first: a new size takes a fresh start."
+            let why =
+                state == .creating || state == .error
+                ? "\(m.name) isn't made yet." : "Shut \(m.name) down first: a new size takes a fresh start."
             throw RPCError.invalidParams(why)
         }
-        let cores = ProcessInfo.processInfo.activeProcessorCount, gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2)
+        let cores = ProcessInfo.processInfo.activeProcessorCount,
+            gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2)
         let cpus = r.cpus ?? m.cpus, memory = r.memory ?? m.memoryMiB >> 10
         let disk = r.disk ?? m.diskGiB
         let least = m.os == "macos" ? 4 : 1
-        guard (1...cores).contains(cpus), (least...max(least, gib)).contains(memory), (m.diskGiB...2048).contains(disk) else {
+        guard (1...cores).contains(cpus), (least...max(least, gib)).contains(memory), (m.diskGiB...2048).contains(disk)
+        else {
             let most = max(least, gib)
-            throw RPCError.invalidParams("Processors 1–\(cores), memory \(least)–\(most) GB, disk \(m.diskGiB)–2048 GB (a disk only grows).")
+            throw RPCError.invalidParams(
+                "Processors 1–\(cores), memory \(least)–\(most) GB, disk \(m.diskGiB)–2048 GB (a disk only grows).")
         }
         // First: a kelp-vm left running with it off read the old size. Only if it's still down: a command could have woken
         // it since, and a quit then would cut its power.
@@ -67,12 +86,17 @@ extension VMService {
         defer { if lock >= 0 { close(lock) } }
         // Tried for half a second: kelpd's own look at it (`alive`, shared) holds it a moment.
         var held = lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0
-        for _ in 0..<10 where lock >= 0 && !held { usleep(50_000); held = flock(lock, LOCK_EX | LOCK_NB) == 0 }
+        for _ in 0..<10 where lock >= 0 && !held {
+            usleep(50_000)
+            held = flock(lock, LOCK_EX | LOCK_NB) == 0
+        }
         guard held else {
             throw RPCError.invalidParams("\(m.name) is in use again: shut it down, then change its size.")
         }
         if disk > m.diskGiB {
-            guard m.os == "linux" else { throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.") }
+            guard m.os == "linux" else {
+                throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.")
+            }
             guard truncate(file(m.name, "disk.img").path, off_t(disk) << 30) == 0 else {
                 throw RPCError.internalError("Growing the disk: \(String(cString: strerror(errno)))")
             }

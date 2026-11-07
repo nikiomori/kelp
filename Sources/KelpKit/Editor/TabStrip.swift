@@ -35,14 +35,19 @@ final class TabStrip: NSView {
     var onSelect: ((String) -> Void)?
     var onClose: ((String) -> Void)?
     var onMenu: ((String) -> NSMenu?)?
-    var onDropTab: ((String, Int) -> Void)?        // tab id, index in this strip
+    var onDropTab: ((String, Int) -> Void)?   // tab id, index in this strip
     var addMenu: (() -> NSMenu)?
     var onNewAgent: (() -> Void)?
     var onUnzoom: (() -> Void)?
     /// Shows `Item.card` under a tab the pointer rests on.
     var hoverCard: HoverCard?
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
-    var zoomed = false { didSet { unzoom.isHidden = !zoomed; measured = nil } }
+    var zoomed = false {
+        didSet {
+            unzoom.isHidden = !zoomed
+            measured = nil
+        }
+    }
     private let unzoom = PointerButton(frame: .zero)
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     /// A pane without focus among several: its tabs fade with its content, all but those with news (`TabButton.news`).
@@ -60,7 +65,8 @@ final class TabStrip: NSView {
     private let scroll = NSScrollView()
     private lazy var edgeMask: CAGradientLayer = {
         let g = CAGradientLayer()
-        g.startPoint = CGPoint(x: 0, y: 0.5); g.endPoint = CGPoint(x: 1, y: 0.5)
+        g.startPoint = CGPoint(x: 0, y: 0.5)
+        g.endPoint = CGPoint(x: 1, y: 0.5)
         return g
     }()
     private let overflow = PointerButton(frame: .zero)
@@ -96,20 +102,26 @@ final class TabStrip: NSView {
         overflow.image = .symbol("chevron.down", String(localized: "All Tabs"))
         overflow.isBordered = false
         overflow.contentTintColor = .secondaryLabelColor
-        overflow.symbolConfiguration = .chrome(Metrics.iconTiny); overflow.toolTip = String(localized: "All tabs in this group")
+        overflow.symbolConfiguration = .chrome(Metrics.iconTiny)
+        overflow.toolTip = String(localized: "All tabs in this group")
         overflow.target = self
         overflow.action = #selector(overflowTapped)
         overflow.isHidden = true
-        unzoom.image = .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes")); unzoom.isBordered = false
-        unzoom.contentTintColor = .themeAccent; unzoom.symbolConfiguration = .chrome(Metrics.iconSmall)
+        unzoom.image = .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes"))
+        unzoom.isBordered = false
+        unzoom.contentTintColor = .themeAccent
+        unzoom.symbolConfiguration = .chrome(Metrics.iconSmall)
         unzoom.toolTip = String(localized: "Show all panes (⇧⌘↩)")
         unzoom.target = self
         unzoom.action = #selector(unzoomTapped)
         unzoom.isHidden = true
         // The one way to add a tab, in each pane (like Safari's "+"); the empty workspace offers the same choices.
-        add.image = .symbol("plus", String(localized: "New Tab")); add.contentTintColor = .secondaryLabelColor
-        add.symbolConfiguration = .chrome(); add.toolTip = String(localized: "New tab: an agent (⌥⌘T), a terminal (⌘T), a browser…")
-        add.target = self; add.action = #selector(addTapped)
+        add.image = .symbol("plus", String(localized: "New Tab"))
+        add.contentTintColor = .secondaryLabelColor
+        add.symbolConfiguration = .chrome()
+        add.toolTip = String(localized: "New tab: an agent (⌥⌘T), a terminal (⌘T), a browser…")
+        add.target = self
+        add.action = #selector(addTapped)
         newAgent.imageScaling = .scaleNone
         newAgent.target = self
         newAgent.action = #selector(newAgentTapped)
@@ -124,15 +136,22 @@ final class TabStrip: NSView {
         scroll.documentView = stack
         scroll.wantsLayer = true
         scroll.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(self, selector: #selector(stripScrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(stripScrolled), name: NSView.boundsDidChangeNotification,
+            object: scroll.contentView)
         scroll.drawsBackground = false
         scroll.hasHorizontalScroller = false
         scroll.hasVerticalScroller = false
-        scroll.horizontalScrollElasticity = .allowed; scroll.verticalScrollElasticity = .none
+        scroll.horizontalScrollElasticity = .allowed
+        scroll.verticalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
         stack.translatesAutoresizingMaskIntoConstraints = false
-        let sep = NSBox(); sep.boxType = .separator
-        for v in [scroll, adds, trailing, sep] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        let sep = NSBox()
+        sep.boxType = .separator
+        for v in [scroll, adds, trailing, sep] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
         addSubview(insertion)
         // Below the split view's holding (250), like `fit`: measured before the overflow button shows, it asked for 18 pt
         // more than the strip had, and the window widened to give them; now "+" gives way instead.
@@ -141,17 +160,22 @@ final class TabStrip: NSView {
         addLead = lead
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Self.height),
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor), trailing.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            scroll.topAnchor.constraint(equalTo: topAnchor), scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
+            trailing.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            scroll.topAnchor.constraint(equalTo: topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
             scroll.trailingAnchor.constraint(equalTo: adds.leadingAnchor), lead,
             adds.trailingAnchor.constraint(lessThanOrEqualTo: trailing.leadingAnchor, constant: -2),
-            stack.topAnchor.constraint(equalTo: scroll.contentView.topAnchor), stack.bottomAnchor.constraint(equalTo: scroll.contentView.bottomAnchor),
+            stack.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentView.bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-            trailing.centerYAnchor.constraint(equalTo: centerYAnchor), adds.centerYAnchor.constraint(equalTo: centerYAnchor),
+            trailing.centerYAnchor.constraint(equalTo: centerYAnchor),
+            adds.centerYAnchor.constraint(equalTo: centerYAnchor),
             overflow.widthAnchor.constraint(equalToConstant: 18), add.widthAnchor.constraint(equalToConstant: 24),
             add.heightAnchor.constraint(equalToConstant: 24),
             newAgent.widthAnchor.constraint(equalToConstant: 24), newAgent.heightAnchor.constraint(equalToConstant: 24),
-            sep.leadingAnchor.constraint(equalTo: leadingAnchor), sep.trailingAnchor.constraint(equalTo: trailingAnchor),
+            sep.leadingAnchor.constraint(equalTo: leadingAnchor),
+            sep.trailingAnchor.constraint(equalTo: trailingAnchor),
             sep.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         // Like Safari: tabs narrow (titles truncate, down to their minimum) before the strip has to scroll.
@@ -161,7 +185,8 @@ final class TabStrip: NSView {
         fit.isActive = true
         // The stack's own hugging would beat `fit` and keep every title whole. Its clipping resistance stays above `fit`:
         // tabs at their minimum widen the stack (the strip scrolls) instead of running past its end, clipped.
-        stack.setHuggingPriority(.init(200), for: .horizontal); stack.setClippingResistancePriority(.init(246), for: .horizontal)
+        stack.setHuggingPriority(.init(200), for: .horizontal)
+        stack.setClippingResistancePriority(.init(246), for: .horizontal)
         registerForDraggedTypes([.kelpTab])
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -179,13 +204,15 @@ final class TabStrip: NSView {
         let next = items.map { kept[$0.id] ?? newButton() }
         let moved = next != buttons
         // Nothing in common: another workspace's tabs, which simply show.
-        let places = moved && window != nil && items.contains { kept[$0.id] != nil }
+        let places =
+            moved && window != nil && items.contains { kept[$0.id] != nil }
             ? Dictionary(uniqueKeysWithValues: buttons.map { (ObjectIdentifier($0), $0.placeInWindow) }) : [:]
         for b in buttons where !next.contains(b) {
             if !places.isEmpty { b.leaveGhost(in: self) }
             b.removeFromSuperview()
         }
-        for (i, b) in next.enumerated() where stack.arrangedSubviews.indices.contains(i) ? stack.arrangedSubviews[i] !== b : true {
+        for (i, b) in next.enumerated()
+        where stack.arrangedSubviews.indices.contains(i) ? stack.arrangedSubviews[i] !== b : true {
             stack.insertArrangedSubview(b, at: i)
         }
         buttons = next
@@ -193,7 +220,8 @@ final class TabStrip: NSView {
             b.stripDimmed = dimmed
             b.set(it, selected: it.id == selected, groupFocused: focused)
         }
-        self.items = items; selectedId = selected
+        self.items = items
+        selectedId = selected
         needsLayout = true
         if !places.isEmpty { settle(from: places) }
         revealSoon()
@@ -231,7 +259,10 @@ final class TabStrip: NSView {
                 b.slide(from: place, duration: Motion.base)
             } else if !Motion.reduced {
                 b.alphaValue = 0
-                NSAnimationContext.runAnimationGroup { $0.duration = Motion.base; b.animator().alphaValue = 1 }
+                NSAnimationContext.runAnimationGroup {
+                    $0.duration = Motion.base
+                    b.animator().alphaValue = 1
+                }
             }
             b.followPointer()
         }
@@ -241,13 +272,17 @@ final class TabStrip: NSView {
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
         // Before super.layout(): set after it, the constant only took effect on the next pass, so a tab whose title
         // grew (a page finishing loading) stayed clipped until something else laid the strip out.
-        let sizes = measured ?? (stack.fittingSize.width, (overflow.superview?.fittingSize.width ?? 0) + adds.fittingSize.width)
+        let sizes =
+            measured ?? (stack.fittingSize.width, (overflow.superview?.fittingSize.width ?? 0) + adds.fittingSize.width)
         measured = sizes
         let natural = sizes.tabs, room = bounds.width - 6 - sizes.others - 2
         let x = max(0, min(natural, room))
         if abs((addLead?.constant ?? 0) - x) > 0.5 { addLead?.constant = x }
         let fits = natural <= room + 1
-        if overflow.isHidden != fits { overflow.isHidden = fits; measured = nil }
+        if overflow.isHidden != fits {
+            overflow.isHidden = fits
+            measured = nil
+        }
         super.layout()
         fadeEdges()
         // Squeezed (a narrower window, the inspector opening): the chosen tab is scrolled back into view.
@@ -261,12 +296,18 @@ final class TabStrip: NSView {
     private func fadeEdges() {
         let clip = scroll.contentView.bounds
         let cutLeft = clip.minX > 0.5, cutRight = clip.maxX < stack.frame.maxX - 0.5
-        guard cutLeft || cutRight else { scroll.layer?.mask = nil; return }
+        guard cutLeft || cutRight else {
+            scroll.layer?.mask = nil
+            return
+        }
         let fade = 20 / max(scroll.bounds.width, 40)
-        CATransaction.begin(); CATransaction.setDisableActions(true)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         edgeMask.frame = scroll.bounds
-        edgeMask.colors = [cutLeft ? NSColor.clear.cgColor : NSColor.black.cgColor, NSColor.black.cgColor, NSColor.black.cgColor,
-                           cutRight ? NSColor.clear.cgColor : NSColor.black.cgColor]
+        edgeMask.colors = [
+            cutLeft ? NSColor.clear.cgColor : NSColor.black.cgColor, NSColor.black.cgColor, NSColor.black.cgColor,
+            cutRight ? NSColor.clear.cgColor : NSColor.black.cgColor
+        ]
         edgeMask.locations = [0, NSNumber(value: fade), NSNumber(value: 1 - fade), 1]
         scroll.layer?.mask = edgeMask
         CATransaction.commit()
@@ -288,7 +329,8 @@ final class TabStrip: NSView {
         newAgent.isHidden = icon == nil
         if let grey, faint?.of !== grey { faint = (grey, Self.faint(grey)) }
         newAgent.show(icon, atRest: grey == nil ? nil : faint?.image)
-        newAgent.toolTip = String(localized: "New \(name) (⌥⌘T)"); newAgent.setAccessibilityLabel(String(localized: "New \(name)"))
+        newAgent.toolTip = String(localized: "New \(name) (⌥⌘T)")
+        newAgent.setAccessibilityLabel(String(localized: "New \(name)"))
     }
     private var faint: (of: NSImage, image: NSImage)?
     /// `image` at the opacity of a secondary label.
@@ -301,13 +343,16 @@ final class TabStrip: NSView {
         return img
     }
     @objc private func newAgentTapped() { onNewAgent?() }
-    @objc private func addTapped() { addMenu?().popUp(positioning: nil, at: NSPoint(x: 0, y: add.bounds.height + 4), in: add) }
+    @objc private func addTapped() {
+        addMenu?().popUp(positioning: nil, at: NSPoint(x: 0, y: add.bounds.height + 4), in: add)
+    }
 
     @objc private func overflowTapped() {
         let m = NSMenu()
         for it in items {
             let i = m.add(it.title) { [weak self] in self?.onSelect?(it.id) }
-            i.image = it.icon; i.state = it.id == selectedId ? .on : .off
+            i.image = it.icon
+            i.state = it.id == selectedId ? .on : .off
         }
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: overflow.bounds.height + 4), in: overflow)
     }
@@ -317,7 +362,10 @@ final class TabStrip: NSView {
 
     /// Double-click on the empty strip: new tab, like Safari's tab bar.
     override func mouseDown(with e: NSEvent) {
-        guard e.clickCount == 2, let m = addMenu?() else { super.mouseDown(with: e); return }
+        guard e.clickCount == 2, let m = addMenu?() else {
+            super.mouseDown(with: e)
+            return
+        }
         m.popUp(positioning: nil, at: convert(e.locationInWindow, from: nil), in: self)
     }
 
@@ -343,13 +391,15 @@ final class TabStrip: NSView {
     override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { draggingUpdated(s) }
     override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
         guard s.draggingPasteboard.string(forType: .kelpTab) != nil else { return [] }
-        showInsertion(index(at: s.draggingLocation)); return .move
+        showInsertion(index(at: s.draggingLocation))
+        return .move
     }
     override func draggingExited(_ s: NSDraggingInfo?) { insertion.isHidden = true }
     override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
         insertion.isHidden = true
         guard let id = s.draggingPasteboard.string(forType: .kelpTab) else { return false }
-        onDropTab?(id, index(at: s.draggingLocation)); return true
+        onDropTab?(id, index(at: s.draggingLocation))
+        return true
     }
 }
 
@@ -375,16 +425,28 @@ private final class CapsuleSegment: PointerButton {
         pointed = on
         if let images { image = on ? images.pointed : images.atRest }
     }
-    override func mouseEntered(with event: NSEvent) { super.mouseEntered(with: event); follow(true) }
-    override func mouseExited(with event: NSEvent) { super.mouseExited(with: event); follow(false) }
-    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); follow(false) }
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        follow(true)
+    }
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        follow(false)
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        follow(false)
+    }
 }
 
 extension NSView {
     /// What it shows now, as an image (a dragged tab or pane).
     func snapshot() -> NSImage {
         let img = NSImage(size: bounds.size)
-        if let rep = bitmapImageRepForCachingDisplay(in: bounds) { cacheDisplay(in: bounds, to: rep); img.addRepresentation(rep) }
+        if let rep = bitmapImageRepForCachingDisplay(in: bounds) {
+            cacheDisplay(in: bounds, to: rep)
+            img.addRepresentation(rep)
+        }
         return img
     }
 }

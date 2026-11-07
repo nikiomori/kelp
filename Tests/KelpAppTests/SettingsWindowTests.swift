@@ -1,8 +1,9 @@
 import AppKit
 import Testing
+
+@testable import BuiltinAgents
 @testable import KelpApp
 @testable import KelpKit
-@testable import BuiltinAgents
 
 @MainActor @Test func aPickerListsAValueFromOutsideItsChoices() {
     #expect(SettingRow.shown(["block", "bar"], "bar") == ["block", "bar"])
@@ -18,10 +19,16 @@ import Testing
 }
 
 @MainActor @Test func searchFindsGroupsSectionsAndWhatAPageDeclares() {
-    func row(_ key: String, _ title: String, group: String? = nil) -> SettingSpec { SettingSpec(key: key, title: title, type: "boolean", group: group) }
+    func row(_ key: String, _ title: String, group: String? = nil) -> SettingSpec {
+        SettingSpec(key: key, title: title, type: "boolean", group: group)
+    }
     let sections = [
-        SettingsSection(id: "agents", title: "Agents", icon: "", specs: [row("a.one", "Keep Mac awake"), row("a.two", "When it fails", group: "Notifications"),
-                                                                         row("a.three", "When it waits", group: "Notifications")], keywords: ["Accounts"]),
+        SettingsSection(
+            id: "agents", title: "Agents", icon: "",
+            specs: [
+                row("a.one", "Keep Mac awake"), row("a.two", "When it fails", group: "Notifications"),
+                row("a.three", "When it waits", group: "Notifications")
+            ], keywords: ["Accounts"]),
         SettingsSection(id: "links", title: "Integrations", icon: "", specs: [], keywords: ["GitHub", "Linear"])
     ]
     let group = SettingsSearch.find("notifications", in: sections)
@@ -38,7 +45,11 @@ import Testing
     let m = AppModel(builtins: Builtins.all)
     m.extensions.reload()
     let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
-    #expect(sections.prefix(10).map(\.id) == ["general", "appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations", "keyboard"])
+    #expect(
+        sections.prefix(10).map(\.id) == [
+            "general", "appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations",
+            "keyboard"
+        ])
     let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
     #expect(window?.groups.flatMap(\.1).contains { $0.key == "workbench.inspectorIcons" } == true)   // and in Settings too
@@ -54,7 +65,8 @@ import Testing
 /// The welcome's agents: the chosen one first, the best-known after, one row at most.
 @MainActor @Test func theWelcomeOffersFourAgents() {
     let installed = ["antigravity", "claude", "codex", "crush", "cursor", "pi"]
-    #expect(WelcomeSetup.firstAgents(installed, current: "claude") == ["claude", "codex", "cursor", "antigravity", "crush"])
+    #expect(
+        WelcomeSetup.firstAgents(installed, current: "claude") == ["claude", "codex", "cursor", "antigravity", "crush"])
     #expect(WelcomeSetup.firstAgents(installed, current: "pi") == ["pi", "claude", "codex", "cursor", "antigravity"])
     #expect(WelcomeSetup.firstAgents(["crush"], current: "claude") == ["crush"])
 }
@@ -67,13 +79,15 @@ import Testing
     m.extensions.reload()
     let s = m.settings
     #expect(s.meets(nil))
-    #expect(s.meets("usage.readPlans"))                 // true by default
-    #expect(!s.meets("phone.url"))                      // empty
-    #expect(s.meets("agents.dockStrip"))                // "always"
+    #expect(s.meets("usage.readPlans"))   // true by default
+    #expect(!s.meets("phone.url"))   // empty
+    #expect(s.meets("agents.dockStrip"))   // "always"
     #expect(!s.meets("agents.dockStrip=needed"))
     #expect(s.meets("agents.dockStrip!=off"))
     let keys = Set(m.extensions.all.settings.flatMap(\.specs).map(\.key))
-    let parents = m.extensions.all.settings.flatMap(\.specs).compactMap(\.requires).map { String($0.split(whereSeparator: { "=!".contains($0) })[0]) }
+    let parents = m.extensions.all.settings.flatMap(\.specs).compactMap(\.requires).map {
+        String($0.split(whereSeparator: { "=!".contains($0) })[0])
+    }
     #expect(Set(parents).subtracting(keys).isEmpty)   // each names a real setting
 }
 

@@ -21,10 +21,19 @@ public struct ExtensionLibrary: InternalMethod {
         public var reviewed: Bool?
         /// Its repository's stars, and how many it gained in the last week (what the unreviewed list is sorted by).
         public var stars: Int?, weekly: Int?
-        public init(id: String, name: String, version: String, description: String? = nil, icon: String? = nil, requires: [String]? = nil,
-                    category: String? = nil, source: String) {
-            self.id = id; self.name = name; self.version = version; self.description = description; self.icon = icon
-            self.requires = requires; self.category = category; self.source = source
+        public init(
+            id: String, name: String, version: String, description: String? = nil, icon: String? = nil,
+            requires: [String]? = nil,
+            category: String? = nil, source: String
+        ) {
+            self.id = id
+            self.name = name
+            self.version = version
+            self.description = description
+            self.icon = icon
+            self.requires = requires
+            self.category = category
+            self.source = source
         }
 
         /// Every word of `query` is in its id, name, description or category, any case; an empty query matches all.
@@ -48,5 +57,8 @@ public struct ExtensionFetch: InternalMethod {
     public var source: String
     /// The library's SHA-256 of each file (`Entry.files`): other bytes are refused, nothing installed.
     public var files: [String: String]?
-    public init(source: String, files: [String: String]? = nil) { self.source = source; self.files = files }
+    public init(source: String, files: [String: String]? = nil) {
+        self.source = source
+        self.files = files
+    }
 }

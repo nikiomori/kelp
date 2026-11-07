@@ -17,8 +17,10 @@ final class Chip: NSView {
         s.spacing = 2
         s.translatesAutoresizingMaskIntoConstraints = false
         addSubview(s)
-        NSLayoutConstraint.activate([s.leadingAnchor.constraint(equalTo: leadingAnchor), s.trailingAnchor.constraint(equalTo: trailingAnchor),
-                                     s.topAnchor.constraint(equalTo: topAnchor), s.bottomAnchor.constraint(equalTo: bottomAnchor)])
+        NSLayoutConstraint.activate([
+            s.leadingAnchor.constraint(equalTo: leadingAnchor), s.trailingAnchor.constraint(equalTo: trailingAnchor),
+            s.topAnchor.constraint(equalTo: topAnchor), s.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
         s.setHuggingPriority(.required, for: .horizontal)   // an NSStackView keeps to its views only so; a view around one has no size of its own
         s.setClippingResistancePriority(.required, for: .horizontal)
         setAccessibilityElement(true)

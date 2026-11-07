@@ -1,8 +1,9 @@
-import Foundation
-import os
-import Core
 import Agents
+import Core
+import Foundation
 import Testing
+import os
+
 @testable import Daemon
 
 @Test func ptyKillReportsExit() async throws {
@@ -16,11 +17,29 @@ import Testing
     #expect(try await waitFor(10) { box.code != nil })
 }
 final class Box: @unchecked Sendable {
-    let l = NSLock(); var t = ""; var c: Int32?
-    func add(_ s: String) { l.lock(); t += s; l.unlock() }
-    func exit(_ x: Int32) { l.lock(); c = x; l.unlock() }
-    var text: String { l.lock(); defer { l.unlock() }; return t }
-    var code: Int32? { l.lock(); defer { l.unlock() }; return c }
+    let l = NSLock()
+    var t = ""
+    var c: Int32?
+    func add(_ s: String) {
+        l.lock()
+        t += s
+        l.unlock()
+    }
+    func exit(_ x: Int32) {
+        l.lock()
+        c = x
+        l.unlock()
+    }
+    var text: String {
+        l.lock()
+        defer { l.unlock() }
+        return t
+    }
+    var code: Int32? {
+        l.lock()
+        defer { l.unlock() }
+        return c
+    }
 }
 
 /// Text in a session is UTF-8 even when the daemon has no locale (launchd starts it without one): pbcopy reads it that way.
@@ -39,12 +58,17 @@ final class Box: @unchecked Sendable {
 
 /// Agents must own the PTY as controlling terminal, or resizes (SIGWINCH) never reach them.
 @Test func resizeReachesChild() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
     let kelp = root.appendingPathComponent(".build/debug/kelp").path
     try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
     let box = Box()
-    let p = try PTY(argv: ["/bin/sh", "-c", "trap 'stty size; exit' WINCH; echo ready tty=$(ps -o tty= -p $$) size=$(stty size); while :; do sleep 0.1; done"],
-                    cwd: "/tmp", env: [:], cols: 100, rows: 30, trampoline: kelp)
+    let p = try PTY(
+        argv: [
+            "/bin/sh", "-c",
+            "trap 'stty size; exit' WINCH; echo ready tty=$(ps -o tty= -p $$) size=$(stty size); while :; do sleep 0.1; done"
+        ],
+        cwd: "/tmp", env: [:], cols: 100, rows: 30, trampoline: kelp)
     p.onOutput = { box.add(String(bytes: $0, encoding: .utf8) ?? "") }
     p.start()
     // Wait for the child rather than a fixed time: a busy machine (parallel builds) starts it late.
@@ -62,24 +86,35 @@ final class Box: @unchecked Sendable {
 /// sent while it woke, went nowhere (aResizeNeverWakesAPausedAgent). It still reaches the agent once it runs, or the
 /// agent draws for a smaller screen than the one it's shown on, and its redraws leave the rest of the old screen behind.
 @Test func theSizeATerminalGotWhileItsAgentWokeReachesTheAgent() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
     let kelp = root.appendingPathComponent(".build/debug/kelp").path
     try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
-    let sizer = AgentManifest(id: "sizer", name: "Sizer", command: "/bin/sh",
-                              args: ["-c", "trap 'echo SIZE=$(stty size)' WINCH; echo SIZE=$(stty size); while :; do sleep 0.1; done", "x"],
-                              resumeArgs: ["--resume"])
-    let w = try await world(agents: [sizer]); defer { w.d.stop() }
+    let sizer = AgentManifest(
+        id: "sizer", name: "Sizer", command: "/bin/sh",
+        args: ["-c", "trap 'echo SIZE=$(stty size)' WINCH; echo SIZE=$(stty size); while :; do sleep 0.1; done", "x"],
+        resumeArgs: ["--resume"])
+    let w = try await world(agents: [sizer])
+    defer { w.d.stop() }
     let wt = try await workspace(w, "sizes")
-    let s: Session = try await w.c.call("session.create", .obj(["worktreeId": .string(wt.id), "agent": "sizer"]), as: Session.self)
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "agent": "sizer"]), as: Session.self)
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     _ = try await w.c.call("worktree.unarchive", .obj(["id": .string(wt.id)]))
     #expect(w.d.sessions.existing(s.id) == nil)
     // Its wake waits here while the terminal gets its real size.
     let held = Box(), release = DispatchSemaphore(value: 0)
-    Thread.detachNewThread { w.d.sessions.wakeLocks.withLock(s.id) { held.add("held"); release.wait() } }
+    Thread.detachNewThread {
+        w.d.sessions.wakeLocks.withLock(s.id) {
+            held.add("held")
+            release.wait()
+        }
+    }
     #expect(try await waitFor(5) { held.text == "held" })
-    let term = try PTY(argv: [kelp, "attach", s.id], cwd: "/tmp", env: ["KELP_SOCKET": w.root.appendingPathComponent("kelp.sock").path],
-                       cols: 47, rows: 16, trampoline: kelp)
+    let term = try PTY(
+        argv: [kelp, "attach", s.id], cwd: "/tmp",
+        env: ["KELP_SOCKET": w.root.appendingPathComponent("kelp.sock").path],
+        cols: 47, rows: 16, trampoline: kelp)
     let box = Box()
     term.onOutput = { box.add(String(decoding: $0, as: UTF8.self)) }
     term.start()
@@ -103,14 +138,16 @@ final class Box: @unchecked Sendable {
 /// controlling process it then waits in exit for that output to be read, and nobody read it any more: it hung there
 /// for good, each one holding a PTY until the daemon ran out of file descriptors.
 @Test func droppedPTYLetsItsProgramExit() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
     let kelp = root.appendingPathComponent(".build/debug/kelp").path
     try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
     let pid: pid_t
     do {
         let box = Box()
-        let p = try PTY(argv: ["/bin/sh", "-c", "trap 'echo bye; exit 0' TERM HUP; echo ready; while :; do sleep 0.1; done"],
-                        cwd: "/tmp", env: [:], trampoline: kelp)
+        let p = try PTY(
+            argv: ["/bin/sh", "-c", "trap 'echo bye; exit 0' TERM HUP; echo ready; while :; do sleep 0.1; done"],
+            cwd: "/tmp", env: [:], trampoline: kelp)
         p.onOutput = { box.add(String(bytes: $0, encoding: .utf8) ?? "") }
         p.start()
         #expect(try await waitFor(5) { box.text.contains("ready") })
@@ -131,9 +168,15 @@ final class Box: @unchecked Sendable {
     #expect(box.code != nil)
     // The freed fd number goes to whatever opens next: socket pairs, so anything written to one end shows at the other.
     var pairs: [[Int32]] = []
-    for _ in 0..<16 { var sv: [Int32] = [0, 0]; _ = socketpair(AF_UNIX, SOCK_STREAM, 0, &sv); pairs.append(sv) }
+    for _ in 0..<16 {
+        var sv: [Int32] = [0, 0]
+        _ = socketpair(AF_UNIX, SOCK_STREAM, 0, &sv)
+        pairs.append(sv)
+    }
     defer { pairs.joined().forEach { close($0) } }
-    p.write(Data("typed-after-exit".utf8)); p.resize(cols: 10, rows: 10); p.kill()
+    p.write(Data("typed-after-exit".utf8))
+    p.resize(cols: 10, rows: 10)
+    p.kill()
     #expect(p.foregroundProgram == nil)
     var got = 0
     for fd in pairs.joined() {
@@ -146,7 +189,8 @@ final class Box: @unchecked Sendable {
 
 /// A shell running `sleep` is busy with it; at its prompt it is not (closing it would stop that program).
 @Test func aShellRunningAProgramReportsItAsForeground() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
     let kelp = root.appendingPathComponent(".build/debug/kelp").path
     try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
     let box = Box()
@@ -159,7 +203,10 @@ final class Box: @unchecked Sendable {
     p.write(Data("sleep 30\n".utf8))
     var seen: String?
     // Until it is sleep: just after the fork the foreground is briefly a copy of the shell, not yet the program.
-    for _ in 0..<200 where seen != "sleep" { try await Task.sleep(for: .milliseconds(100)); seen = p.foregroundProgram }   // up to 20 s on a loaded machine
+    for _ in 0..<200 where seen != "sleep" {
+        try await Task.sleep(for: .milliseconds(100))
+        seen = p.foregroundProgram
+    }   // up to 20 s on a loaded machine
     #expect(seen == "sleep")
 }
 
@@ -172,14 +219,28 @@ final class Box: @unchecked Sendable {
     }
     #expect(ok == "started" && calls == 3)   // two refusals, then it worked
     calls = 0
-    #expect(throws: PTYError.self) { try PTY.retrying { () throws -> Int in calls += 1; throw PTYError(step: "spawn", code: ENOENT) } }
-    #expect(calls == 1)                      // a missing program won't appear by trying again
+    #expect(throws: PTYError.self) {
+        try PTY.retrying { () throws -> Int in
+            calls += 1
+            throw PTYError(step: "spawn", code: ENOENT)
+        }
+    }
+    #expect(calls == 1)   // a missing program won't appear by trying again
     calls = 0
-    _ = try PTY.retrying { () throws -> Int in calls += 1; if calls < 2 { throw PTYError(step: "openpty", code: ENXIO) }; return 1 }
-    #expect(calls == 2)                      // openpty's own transient refusal is retried too
+    _ = try PTY.retrying { () throws -> Int in
+        calls += 1
+        if calls < 2 { throw PTYError(step: "openpty", code: ENXIO) }
+        return 1
+    }
+    #expect(calls == 2)   // openpty's own transient refusal is retried too
     calls = 0
-    #expect(throws: PTYError.self) { try PTY.retrying(attempts: 3) { () throws -> Int in calls += 1; throw PTYError(step: "spawn", code: EIO) } }
-    #expect(calls == 3)                      // and it gives up in the end, with the real error
+    #expect(throws: PTYError.self) {
+        try PTY.retrying(attempts: 3) { () throws -> Int in
+            calls += 1
+            throw PTYError(step: "spawn", code: EIO)
+        }
+    }
+    #expect(calls == 3)   // and it gives up in the end, with the real error
 }
 
 @Test func theErrorSaysWhichStepFailed() {
@@ -189,7 +250,9 @@ final class Box: @unchecked Sendable {
 }
 
 @Test func theProgramBeingStartedThatDoesntExistFailsWithAClearError() {
-    #expect(throws: PTYError.self) { _ = try PTY(argv: ["/definitely/not/a/program"], cwd: "/tmp", env: [:], trampoline: nil) }
+    #expect(throws: PTYError.self) {
+        _ = try PTY(argv: ["/definitely/not/a/program"], cwd: "/tmp", env: [:], trampoline: nil)
+    }
 }
 
 /// `daemon.shutdown` ends the process, so it is tried on a real `kelpd` of its own.
@@ -198,9 +261,13 @@ final class Box: @unchecked Sendable {
     let kelpd = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd").path
     try #require(FileManager.default.isExecutableFile(atPath: kelpd), "build kelpd first: swift build")
     let home = tmp()
-    let p = Process(); p.executableURL = URL(fileURLWithPath: kelpd)
-    var env = ProcessInfo.processInfo.environment; env["KELP_HOME"] = home.path; p.environment = env
-    p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: kelpd)
+    var env = ProcessInfo.processInfo.environment
+    env["KELP_HOME"] = home.path
+    p.environment = env
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice
     try p.run()
     defer { if p.isRunning { p.terminate() } }   // only the daemon this test started
     let sock = home.appendingPathComponent("kelp.sock").path
@@ -224,9 +291,13 @@ final class Box: @unchecked Sendable {
     let big = Data(repeating: 0x61, count: 2 << 20)   // far more than the terminal buffers
     let t = Date()
     p.write(big)
-    #expect(Date().timeIntervalSince(t) < 1)         // queued, not written here (written here it would block for good)
+    #expect(Date().timeIntervalSince(t) < 1)   // queued, not written here (written here it would block for good)
     let done = DispatchSemaphore(value: 0)
-    Thread.detachNewThread { p.resize(cols: 100, rows: 30); _ = p.foregroundProgram; done.signal() }   // its own thread: a busy pool mustn't look like a stuck lock
+    Thread.detachNewThread {
+        p.resize(cols: 100, rows: 30)
+        _ = p.foregroundProgram
+        done.signal()
+    }   // its own thread: a busy pool mustn't look like a stuck lock
     #expect(done.wait(timeout: .now() + 2) == .success, "resize / foregroundProgram waited on the stuck write")
 }
 
@@ -288,14 +359,18 @@ final class Box: @unchecked Sendable {
         return (FDCloser(7, closing: { _ in n.withLock { $0 += 1 } }), { n.withLock { $0 } })
     }
     let (eofFirst, eofClosed) = closer()
-    eofFirst.watch(); eofFirst.cancelled()
+    eofFirst.watch()
+    eofFirst.cancelled()
     #expect(eofClosed() == 0)   // not asked yet: a hand-over keeps it
-    eofFirst.ask(); eofFirst.ask()
+    eofFirst.ask()
+    eofFirst.ask()
     #expect(eofClosed() == 1)
     let (hangUpFirst, hangUpClosed) = closer()
-    hangUpFirst.watch(); hangUpFirst.ask()
+    hangUpFirst.watch()
+    hangUpFirst.ask()
     #expect(hangUpClosed() == 0)   // GCD still has it
-    hangUpFirst.cancelled(); hangUpFirst.cancelled()
+    hangUpFirst.cancelled()
+    hangUpFirst.cancelled()
     #expect(hangUpClosed() == 1)
     let (never, neverClosed) = closer()
     never.ask()

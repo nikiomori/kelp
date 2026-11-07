@@ -12,8 +12,16 @@ public struct AgentSessionInfo: Codable, Sendable, Equatable, Identifiable {
     /// Exact for small files; extrapolated from the head and tail for large ones.
     public var messageCount: Int
     public var path: URL
-    public init(agent: Agent, id: String, cwd: String, title: String, started: Date, updated: Date, messageCount: Int, path: URL) {
-        self.agent = agent; self.id = id; self.cwd = cwd; self.title = title
-        self.started = started; self.updated = updated; self.messageCount = messageCount; self.path = path
+    public init(
+        agent: Agent, id: String, cwd: String, title: String, started: Date, updated: Date, messageCount: Int, path: URL
+    ) {
+        self.agent = agent
+        self.id = id
+        self.cwd = cwd
+        self.title = title
+        self.started = started
+        self.updated = updated
+        self.messageCount = messageCount
+        self.path = path
     }
 }

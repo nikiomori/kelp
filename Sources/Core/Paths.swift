@@ -6,7 +6,10 @@ public enum Paths {
         // Kelp terminal inherits it (`open` passes the shell's on), and would restart that kelpd, ending its agents.
         // getenv: ProcessInfo copies the whole environment on each read, and this is read everywhere.
         if let e = getenv("KELP_HOME").map({ URL(fileURLWithPath: String(cString: $0)) }),
-           own == nil || e.standardizedFileURL.path != stable.path { return e }
+            own == nil || e.standardizedFileURL.path != stable.path
+        {
+            return e
+        }
         return own ?? stable
     }
     /// Kelp's home, for a build running on a home of its own: what that home starts as (`HomeSeed`).
@@ -15,9 +18,9 @@ public enum Paths {
     /// Kelp Beta and Kelp Dev name a home of their own (KelpHome, scripts/bundle.sh); so does any debug build.
     private static var own: URL? {
         #if DEBUG
-        home.appendingPathComponent(".kelp-dev")
+            home.appendingPathComponent(".kelp-dev")
         #else
-        (Bundle.main.object(forInfoDictionaryKey: "KelpHome") as? String).map { home.appendingPathComponent($0) }
+            (Bundle.main.object(forInfoDictionaryKey: "KelpHome") as? String).map { home.appendingPathComponent($0) }
         #endif
     }
     private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
@@ -37,5 +40,10 @@ public enum Paths {
 
     /// `path` with its symlinks resolved, "/private" kept (/tmp → /private/tmp; resolvingSymlinksInPath strips it).
     /// Nil when it isn't there.
-    public static func real(_ path: String) -> String? { realpath(path, nil).map { p in defer { free(p) }; return String(cString: p) } }
+    public static func real(_ path: String) -> String? {
+        realpath(path, nil).map { p in
+            defer { free(p) }
+            return String(cString: p)
+        }
+    }
 }

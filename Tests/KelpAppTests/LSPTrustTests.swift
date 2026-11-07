@@ -1,16 +1,17 @@
 import AppKit
+import Core
 import Foundation
 import Testing
-import Core
 import WorkbenchKit
-@testable import KelpApp
-@testable import KelpKit
+
+@testable import BuiltinActivity
 @testable import BuiltinAgents
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinGit
-@testable import BuiltinBrowser
 @testable import BuiltinIssues
-@testable import BuiltinActivity
+@testable import KelpApp
+@testable import KelpKit
 
 /// Language servers run a project's own code (build scripts, Package.swift, its node_modules' TypeScript): none starts
 /// in a project until the user trusts it, and the tabs that wanted one start it then.
@@ -21,17 +22,17 @@ extension OneAtATime {
         let root = "/tmp/cloned-\(UUID().uuidString.prefix(6))"
         let app = AppModel(builtins: Builtins.all), lsp = app.lsp
         var started = 0
-        #expect(!lsp.whenTrusted(app, root) { started += 1 })        // asks; nothing starts
-        #expect(!lsp.whenTrusted(app, root) { started += 1 })        // a second tab of it waits too (asked once)
+        #expect(!lsp.whenTrusted(app, root) { started += 1 })   // asks; nothing starts
+        #expect(!lsp.whenTrusted(app, root) { started += 1 })   // a second tab of it waits too (asked once)
         #expect(await !lsp.open(app, root: root, path: root + "/main.rs", text: "", retry: {}))   // no server is given the file
         #expect(started == 0 && !lsp.trusted(app, root))
         let rust: LanguageSpec? = LanguageSpec(id: "rust", extensions: ["rs"], server: .init(command: "rust-analyzer"))
-        #expect(lsp.asks(app, root, rust))                            // its code tabs show the question
+        #expect(lsp.asks(app, root, rust))   // its code tabs show the question
         lsp.notNow(root)
         #expect(!lsp.asks(app, root, rust) && lsp.restricts(app, root, rust))   // put off: "Restricted" alone says it
-        #expect(!lsp.askTrust(app, root, again: true) {})             // Format asks again
+        #expect(!lsp.askTrust(app, root, again: true) {})   // Format asks again
         #expect(lsp.asks(app, root, rust))
-        await lsp.trust(app, root)                                    // the banner's "Trust and Start"
+        await lsp.trust(app, root)   // the banner's "Trust and Start"
         #expect(started == 2 && lsp.trusted(app, root))
         #expect(lsp.whenTrusted(app, root) { started += 1 } && started == 2)   // trusted from now on: no waiting
         #expect(!lsp.trusted(app, Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
@@ -41,9 +42,10 @@ extension OneAtATime {
     /// nothing starts. It used to be written without an answer and taken as given.
     @Test func trustTheDaemonRefusesIsntTakenAsGiven() async throws {
         _ = NSApplication.shared
-        let rig = try await AppRig(); defer { rig.done() }
+        let rig = try await AppRig()
+        defer { rig.done() }
         let me = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"]   // this test runner stands in for the app…
-        setenv("KELP_APP_EXECUTABLE", "/nowhere/KelpApp", 1)                   // …not now: another copy of Kelp is asking
+        setenv("KELP_APP_EXECUTABLE", "/nowhere/KelpApp", 1)   // …not now: another copy of Kelp is asking
         defer { if let me { setenv("KELP_APP_EXECUTABLE", me, 1) } }
         let root = "/tmp/refused-\(UUID().uuidString.prefix(6))", app = rig.app, lsp = app.lsp
         var started = 0

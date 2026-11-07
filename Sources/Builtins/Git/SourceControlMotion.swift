@@ -58,8 +58,13 @@ extension SourceControlController {
     func fadeRows(_ paths: Set<String>) {
         guard !Motion.reduced else { return }
         for r in 0..<outline.numberOfRows {
-            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell, paths.contains(cell.path) else { continue }
-            NSAnimationContext.runAnimationGroup { $0.duration = Motion.fast; cell.animator().alphaValue = 0 }
+            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell,
+                paths.contains(cell.path)
+            else { continue }
+            NSAnimationContext.runAnimationGroup {
+                $0.duration = Motion.fast
+                cell.animator().alphaValue = 0
+            }
         }
     }
 
@@ -69,7 +74,9 @@ extension SourceControlController {
         staging = nil
         var places: [String: NSPoint] = [:]
         for r in 0..<outline.numberOfRows {
-            if let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell { places[cell.path] = cell.placeInWindow }
+            if let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell {
+                places[cell.path] = cell.placeInWindow
+            }
         }
         return places
     }
@@ -78,7 +85,9 @@ extension SourceControlController {
         guard !places.isEmpty else { return }
         outline.layoutSubtreeIfNeeded()
         for r in 0..<outline.numberOfRows {
-            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell, let place = places[cell.path] else { continue }
+            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell,
+                let place = places[cell.path]
+            else { continue }
             cell.slide(from: place)
         }
     }
@@ -91,13 +100,16 @@ extension SourceControlController {
         guard !known.isEmpty else { return }
         let new = list.prefix { !known.contains($0.hash) }
         guard !new.isEmpty, new.count <= 12 else { return }
-        arriving = Dictionary(uniqueKeysWithValues: new.reversed().enumerated().map { ($1.hash, Double($0) * Motion.stagger) })
+        arriving = Dictionary(
+            uniqueKeysWithValues: new.reversed().enumerated().map { ($1.hash, Double($0) * Motion.stagger) })
     }
 
     func commitPlaces() -> [String: NSPoint] {
         var places: [String: NSPoint] = [:]
         for r in 0..<graphOutline.numberOfRows {
-            if let cell = graphOutline.view(atColumn: 0, row: r, makeIfNecessary: false) as? CommitCell { places[cell.commitHash] = cell.placeInWindow }
+            if let cell = graphOutline.view(atColumn: 0, row: r, makeIfNecessary: false) as? CommitCell {
+                places[cell.commitHash] = cell.placeInWindow
+            }
         }
         return places
     }

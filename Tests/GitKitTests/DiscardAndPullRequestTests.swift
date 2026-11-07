@@ -1,7 +1,8 @@
 import Foundation
 import Testing
-@testable import GitKit
+
 @testable import Core
+@testable import GitKit
 
 /// A discard that failed partway (a new file it couldn't move to the Trash) left that file as it was: its Undo puts back
 /// the rest and lets that one be, instead of failing whole on it.

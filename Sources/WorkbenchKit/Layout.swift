@@ -31,10 +31,12 @@ public indirect enum LayoutNode: Codable, Equatable {
             return .split(vertical: vertical, children: pair)
         case .split(let v, let c):
             if v == vertical, let i = c.firstIndex(of: .pane(target)) {
-                var k = c; k.insert(.pane(new), at: before ? i : i + 1)
+                var k = c
+                k.insert(.pane(new), at: before ? i : i + 1)
                 return .split(vertical: v, children: k)
             }
-            return .split(vertical: v, children: c.map { $0.inserting(new, beside: target, vertical: vertical, before: before) })
+            return .split(
+                vertical: v, children: c.map { $0.inserting(new, beside: target, vertical: vertical, before: before) })
         }
     }
 
@@ -43,5 +45,7 @@ public indirect enum LayoutNode: Codable, Equatable {
         guard case .split(_, let c) = self else { return [] }
         return c.reduce(into: [Self.splitKey(c)]) { $0.formUnion($1.splitKeys) }
     }
-    public static func splitKey(_ children: [LayoutNode]) -> String { children.compactMap(\.sessions.first).joined(separator: ",") }
+    public static func splitKey(_ children: [LayoutNode]) -> String {
+        children.compactMap(\.sessions.first).joined(separator: ",")
+    }
 }

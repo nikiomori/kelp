@@ -47,7 +47,8 @@ final class StartPrompt: NSView, NSTextViewDelegate {
         hint.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hint)
         NSLayoutConstraint.activate([
-            height, hint.leadingAnchor.constraint(equalTo: leadingAnchor), hint.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            height, hint.leadingAnchor.constraint(equalTo: leadingAnchor),
+            hint.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             hint.topAnchor.constraint(equalTo: topAnchor)
         ])
     }

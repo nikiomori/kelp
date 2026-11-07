@@ -15,8 +15,10 @@ final class IconTheme {
             func l(_ d: [String: String]?) -> [String: String]? {
                 d.map { Dictionary($0.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { a, _ in a }) }
             }
-            return Associations(file: file, folder: folder, folderExpanded: folderExpanded, fileExtensions: l(fileExtensions), fileNames: l(fileNames),
-                                languageIds: languageIds, folderNames: l(folderNames), folderNamesExpanded: l(folderNamesExpanded))
+            return Associations(
+                file: file, folder: folder, folderExpanded: folderExpanded, fileExtensions: l(fileExtensions),
+                fileNames: l(fileNames),
+                languageIds: languageIds, folderNames: l(folderNames), folderNamesExpanded: l(folderNamesExpanded))
         }
     }
     private struct Document: Decodable {
@@ -38,25 +40,32 @@ final class IconTheme {
     private var pairs: [String: NSImage] = [:]
 
     init(contentsOf url: URL) throws {
-        let decoder = JSONDecoder(); decoder.allowsJSON5 = true   // VS Code themes may have comments
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true   // VS Code themes may have comments
         let doc = try decoder.decode(Document.self, from: Data(contentsOf: url))
         let dir = url.deletingLastPathComponent()
-        paths = doc.iconDefinitions.compactMapValues { $0.iconPath.map { dir.appendingPathComponent($0).standardizedFileURL.path } }
-        base = doc.base.lowercased(); light = doc.light?.lowercased()
+        paths = doc.iconDefinitions.compactMapValues {
+            $0.iconPath.map { dir.appendingPathComponent($0).standardizedFileURL.path }
+        }
+        base = doc.base.lowercased()
+        light = doc.light?.lowercased()
     }
 
     /// nil when the theme has no picture for it.
     func image(_ name: String, folder: Bool, expanded: Bool) -> NSImage? {
         let n = name.lowercased()
         let dark = definition(n, folder, expanded, [base]).flatMap(picture)
-        guard let light, let lite = definition(n, folder, expanded, [light, base]).flatMap(picture), lite !== dark else { return dark }
+        guard let light, let lite = definition(n, folder, expanded, [light, base]).flatMap(picture), lite !== dark
+        else { return dark }
         guard let dark else { return lite }
         let key = "\(ObjectIdentifier(dark).hashValue)/\(ObjectIdentifier(lite).hashValue)"
         if let p = pairs[key] { return p }
         let p = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { r in
-            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : lite).draw(in: r); return true
+            (NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : lite).draw(in: r)
+            return true
         }
-        pairs[key] = p; return p
+        pairs[key] = p
+        return p
     }
 
     /// VS Code's order: file name, then extensions longest first ("d.ts" before "ts"), language, the default file icon.
@@ -72,34 +81,48 @@ final class IconTheme {
             rest = rest[rest.index(after: dot)...]
             if let id = first({ $0.fileExtensions?[String(rest)] }) { return id }
         }
-        if let lang = Self.languageByName[n] ?? Self.language[(n as NSString).pathExtension], let id = first({ $0.languageIds?[lang] }) { return id }
+        if let lang = Self.languageByName[n] ?? Self.language[(n as NSString).pathExtension],
+            let id = first({ $0.languageIds?[lang] })
+        {
+            return id
+        }
         return first { $0.file }
     }
 
     private func picture(_ id: String) -> NSImage? {
         guard let path = paths[id] else { return nil }
         if let p = pictures[path] { return p }
-        let img = NSImage(contentsOfFile: path); img?.size = NSSize(width: 16, height: 16)
-        pictures[path] = img; return img
+        let img = NSImage(contentsOfFile: path)
+        img?.size = NSSize(width: 16, height: 16)
+        pictures[path] = img
+        return img
     }
 
     /// VS Code language ids, which themes use for most languages (`"languageIds": {"swift": …}`).
     private static let language: [String: String] = [
         "swift": "swift", "js": "javascript", "mjs": "javascript", "cjs": "javascript", "jsx": "javascriptreact",
         "ts": "typescript", "mts": "typescript", "cts": "typescript", "tsx": "typescriptreact",
-        "py": "python", "pyi": "python", "go": "go", "rs": "rust", "rb": "ruby", "java": "java", "kt": "kotlin", "kts": "kotlin",
-        "c": "c", "h": "cpp", "cpp": "cpp", "cc": "cpp", "cxx": "cpp", "hpp": "cpp", "hh": "cpp", "m": "objective-c", "mm": "objective-cpp",
-        "cs": "csharp", "fs": "fsharp", "php": "php", "lua": "lua", "dart": "dart", "r": "r", "pl": "perl", "groovy": "groovy",
-        "html": "html", "htm": "html", "css": "css", "scss": "scss", "less": "less", "json": "json", "jsonc": "jsonc", "jsonl": "jsonl",
+        "py": "python", "pyi": "python", "go": "go", "rs": "rust", "rb": "ruby", "java": "java", "kt": "kotlin",
+        "kts": "kotlin",
+        "c": "c", "h": "cpp", "cpp": "cpp", "cc": "cpp", "cxx": "cpp", "hpp": "cpp", "hh": "cpp", "m": "objective-c",
+        "mm": "objective-cpp",
+        "cs": "csharp", "fs": "fsharp", "php": "php", "lua": "lua", "dart": "dart", "r": "r", "pl": "perl",
+        "groovy": "groovy",
+        "html": "html", "htm": "html", "css": "css", "scss": "scss", "less": "less", "json": "json", "jsonc": "jsonc",
+        "jsonl": "jsonl",
         "yaml": "yaml", "yml": "yaml", "toml": "toml", "xml": "xml", "md": "markdown", "markdown": "markdown",
-        "sh": "shellscript", "bash": "shellscript", "zsh": "shellscript", "ps1": "powershell", "bat": "bat", "cmd": "bat",
+        "sh": "shellscript", "bash": "shellscript", "zsh": "shellscript", "ps1": "powershell", "bat": "bat",
+        "cmd": "bat",
         "sql": "sql", "txt": "plaintext", "ini": "ini", "properties": "properties", "diff": "diff", "patch": "diff",
-        "graphql": "graphql", "gql": "graphql", "zig": "zig", "nix": "nix", "jl": "julia", "clj": "clojure", "coffee": "coffeescript",
+        "graphql": "graphql", "gql": "graphql", "zig": "zig", "nix": "nix", "jl": "julia", "clj": "clojure",
+        "coffee": "coffeescript",
         "tex": "latex", "vue": "vue", "svelte": "svelte", "mmd": "mermaid", "dockerfile": "dockerfile"
     ]
     private static let languageByName: [String: String] = [
         "dockerfile": "dockerfile", "containerfile": "dockerfile", "makefile": "makefile", "gnumakefile": "makefile",
-        ".gitignore": "ignore", ".npmignore": "ignore", ".dockerignore": "ignore", ".env": "dotenv", ".editorconfig": "editorconfig",
-        "compose.yml": "dockercompose", "compose.yaml": "dockercompose", "docker-compose.yml": "dockercompose", "docker-compose.yaml": "dockercompose"
+        ".gitignore": "ignore", ".npmignore": "ignore", ".dockerignore": "ignore", ".env": "dotenv",
+        ".editorconfig": "editorconfig",
+        "compose.yml": "dockercompose", "compose.yaml": "dockercompose", "docker-compose.yml": "dockercompose",
+        "docker-compose.yaml": "dockercompose"
     ]
 }

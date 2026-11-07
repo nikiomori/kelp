@@ -6,10 +6,12 @@ import os
 /// not parsed whole: only their small `usage` object and a few fields are, so gigabytes take seconds the first time.
 public final class UsageIndex: Sendable {
     public struct Tally: Codable, Sendable, Equatable {
-        public var tokens = TokenCounts(); public var cost = 0.0
+        public var tokens = TokenCounts()
+        public var cost = 0.0
     }
     struct FileState: Codable, Sendable {
-        var offset: UInt64; var born: Double
+        var offset: UInt64
+        var born: Double
         var tallies: [String: Tally] = [:]   // "day|model|cwd"
         /// The last day by UTC hour and model ("epoch|model"), for the 5-hour block. nil: indexed before it existed (read again).
         var hours: [String: Tally]? = [:]
@@ -18,7 +20,10 @@ public final class UsageIndex: Sendable {
         /// What earlier lines said that later ones need (`UsageFormat.entry`); nil before the first read.
         var context: [String: String]?
     }
-    public struct Row: Sendable { public var day: String, model: String, cwd: String; public var tally: Tally }
+    public struct Row: Sendable {
+        public var day: String, model: String, cwd: String
+        public var tally: Tally
+    }
 
     /// Calls read some other way (Copilot's database) as rows, by local day, model and folder.
     static func rows(_ entries: [UsageEntry]) -> [Row] {
@@ -30,7 +35,10 @@ public final class UsageIndex: Sendable {
         }
         return Array(tallies.values)
     }
-    public struct Hour: Sendable { public var start: Date, model: String; public var tally: Tally }
+    public struct Hour: Sendable {
+        public var start: Date, model: String
+        public var tally: Tally
+    }
 
     private let cacheURL: URL
     private let format: UsageFormat
@@ -43,7 +51,8 @@ public final class UsageIndex: Sendable {
     public init(cache: URL, format: UsageFormat = .claude) {
         cacheURL = cache
         self.format = format
-        files = OSAllocatedUnfairLock(initialState: (try? JSONDecoder().decode([String: FileState].self, from: Data(contentsOf: cache))) ?? [:])
+        files = OSAllocatedUnfairLock(
+            initialState: (try? JSONDecoder().decode([String: FileState].self, from: Data(contentsOf: cache))) ?? [:])
     }
 
     /// Reads what's new in transcripts under `roots` changed since `since`, then everything known from `since` on.
@@ -59,8 +68,10 @@ public final class UsageIndex: Sendable {
     /// `fresh`: `rows` just read them, from at least that far back: a walk of the folder is not done twice.
     public func currentBlock(roots: [URL], now: Date = Date(), fresh: Bool = false) -> ClaudeUsage.Block? {
         let since = now.addingTimeInterval(-10 * 3600).timeIntervalSince1970
-        let hours = files.withLock { fresh ? Self.under(roots, $0) : update(&$0, roots: roots, since: Date(timeIntervalSince1970: since)) }
-            .flatMap { $0.hours ?? [:] }.compactMap { key, t -> Hour? in
+        let hours = files.withLock {
+            fresh ? Self.under(roots, $0) : update(&$0, roots: roots, since: Date(timeIntervalSince1970: since))
+        }
+        .flatMap { $0.hours ?? [:] }.compactMap { key, t -> Hour? in
             let p = key.split(separator: "|", maxSplits: 1)
             guard p.count == 2, let h = Double(p[0]), h > since - 3600 else { return nil }
             return Hour(start: Date(timeIntervalSince1970: h), model: String(p[1]), tally: t)
@@ -73,12 +84,17 @@ public final class UsageIndex: Sendable {
     public static func block(_ hours: [Hour], now: Date) -> ClaudeUsage.Block? {
         var start: Date?, inBlock: [Hour] = []
         for h in hours.sorted(by: { $0.start < $1.start }) where h.start <= now {
-            if let s = start, h.start < s + ClaudeUsage.blockLength { inBlock.append(h); continue }
-            start = h.start; inBlock = [h]
+            if let s = start, h.start < s + ClaudeUsage.blockLength {
+                inBlock.append(h)
+                continue
+            }
+            start = h.start
+            inBlock = [h]
         }
         guard let s = start, now < s + ClaudeUsage.blockLength else { return nil }
-        return ClaudeUsage.Block(start: s, end: s + ClaudeUsage.blockLength, tokens: inBlock.reduce(TokenCounts()) { $0 + $1.tally.tokens },
-                                 estimatedCostUSD: inBlock.reduce(0) { $0 + $1.tally.cost }, models: Set(inBlock.map(\.model)).sorted())
+        return ClaudeUsage.Block(
+            start: s, end: s + ClaudeUsage.blockLength, tokens: inBlock.reduce(TokenCounts()) { $0 + $1.tally.tokens },
+            estimatedCostUSD: inBlock.reduce(0) { $0 + $1.tally.cost }, models: Set(inBlock.map(\.model)).sorted())
     }
 
     /// Reads what's new in transcripts under `roots` changed since `since` into `known`; the states of the files under them.
@@ -86,15 +102,19 @@ public final class UsageIndex: Sendable {
         var changed = false
         let keys: Set<URLResourceKey> = [.contentModificationDateKey, .creationDateKey, .fileSizeKey]
         for root in roots {
-            for case let f as URL in FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys)) ?? NSEnumerator()
-                where format.reads(f) {
-                guard let v = try? f.resourceValues(forKeys: keys), (v.contentModificationDate ?? .distantPast) >= since else { continue }
+            for case let f as URL in FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys))
+                ?? NSEnumerator()
+            where format.reads(f) {
+                guard let v = try? f.resourceValues(forKeys: keys), (v.contentModificationDate ?? .distantPast) >= since
+                else { continue }
                 let size = UInt64(v.fileSize ?? 0)
-                var st = known[f.path] ?? FileState(offset: 0, born: (v.creationDate ?? .distantPast).timeIntervalSince1970)
+                var st =
+                    known[f.path] ?? FileState(offset: 0, born: (v.creationDate ?? .distantPast).timeIntervalSince1970)
                 if size < st.offset || st.hours == nil { st = FileState(offset: 0, born: st.born) }   // rewritten, or indexed without hours
                 guard size > st.offset else { continue }
                 Self.read(f, into: &st, format: format)
-                known[f.path] = st; changed = true
+                known[f.path] = st
+                changed = true
             }
         }
         let save = saved.withLock { [changed] s -> Bool in
@@ -118,8 +138,9 @@ public final class UsageIndex: Sendable {
     public static func block(_ rows: [Row], from: Date, to: Date) -> ClaudeUsage.Block {
         let a = day(from), b = day(to)
         let in_ = rows.filter { $0.day >= a && $0.day <= b }
-        return ClaudeUsage.Block(start: from, end: to, tokens: in_.reduce(TokenCounts()) { $0 + $1.tally.tokens },
-                                 estimatedCostUSD: in_.reduce(0) { $0 + $1.tally.cost }, models: Set(in_.map(\.model)).sorted())
+        return ClaudeUsage.Block(
+            start: from, end: to, tokens: in_.reduce(TokenCounts()) { $0 + $1.tally.tokens },
+            estimatedCostUSD: in_.reduce(0) { $0 + $1.tally.cost }, models: Set(in_.map(\.model)).sorted())
     }
 
     /// The complete lines after `offset`, 8 MB at a time (one session can be gigabytes); a line still being written waits
@@ -131,13 +152,22 @@ public final class UsageIndex: Sendable {
         var context = st.context ?? format.start(url)
         while let chunk = autoreleasepool(invoking: { try? h.read(upToCount: 8 << 20) }), !chunk.isEmpty {
             let data = rest.isEmpty ? chunk : rest + chunk
-            guard let last = data.lastIndex(of: 0x0A) else { rest = data; continue }
+            guard let last = data.lastIndex(of: 0x0A) else {
+                rest = data
+                continue
+            }
             for line in JSONL.lines(data[..<last]) where format.markers.contains(where: { line.range(of: $0) != nil }) {
                 // Older than the file: history a resumed (or forked) session copied in.
                 guard let e = format.entry(line, &context), e.time >= st.born - 120 else { continue }
-                if let id = e.id { guard seen.insert(id).inserted else { continue }; recent.append(id) }   // one response, several lines
+                if let id = e.id {
+                    guard seen.insert(id).inserted else { continue }
+                    recent.append(id)
+                }   // one response, several lines
                 let cost = e.cost ?? Pricing.cost(model: e.model, tokens: e.tokens)
-                func add(_ t: inout Tally) { t.tokens += e.tokens; t.cost += cost }
+                func add(_ t: inout Tally) {
+                    t.tokens += e.tokens
+                    t.cost += cost
+                }
                 add(&st.tallies["\(day(e.time))|\(e.model)|\(e.cwd)", default: Tally()])
                 add(&hours["\(Int(e.time / 3600) * 3600)|\(e.model)", default: Tally()])
             }
@@ -154,22 +184,27 @@ public final class UsageIndex: Sendable {
     static func entry(_ line: Data) -> UsageEntry? {
         // `"type":"assistant"` is the line's own type; the first "type" in a line is usually the message's ("message").
         guard line.range(of: assistant) != nil, let usage = object(line, after: "\"usage\":"),
-              let u = try? JSONSerialization.jsonObject(with: usage) as? [String: Any],
-              let ts = JSONL.date(field(line, "timestamp"))?.timeIntervalSince1970 else { return nil }
+            let u = try? JSONSerialization.jsonObject(with: usage) as? [String: Any],
+            let ts = JSONL.date(field(line, "timestamp"))?.timeIntervalSince1970
+        else { return nil }
         let model = field(line, "model") ?? "unknown"
         guard model != "<synthetic>" else { return nil }
         func n(_ k: String) -> Int { (u[k] as? NSNumber)?.intValue ?? 0 }
         let id = [field(line, "id"), field(line, "requestId")].compactMap { $0 }.joined(separator: ":")
-        let tokens = TokenCounts(input: n("input_tokens"), output: n("output_tokens"), cacheWrite: n("cache_creation_input_tokens"),
-                                 cacheRead: n("cache_read_input_tokens"))
-        let hourWrites = ((u["cache_creation"] as? [String: Any])?["ephemeral_1h_input_tokens"] as? NSNumber)?.intValue ?? 0
-        return UsageEntry(time: ts, model: model, cwd: field(line, "cwd") ?? "", id: id.isEmpty ? nil : id, tokens: tokens,
-                          cost: Pricing.cost(model: model, tokens: tokens, hourWrites: hourWrites))
+        let tokens = TokenCounts(
+            input: n("input_tokens"), output: n("output_tokens"), cacheWrite: n("cache_creation_input_tokens"),
+            cacheRead: n("cache_read_input_tokens"))
+        let hourWrites =
+            ((u["cache_creation"] as? [String: Any])?["ephemeral_1h_input_tokens"] as? NSNumber)?.intValue ?? 0
+        return UsageEntry(
+            time: ts, model: model, cwd: field(line, "cwd") ?? "", id: id.isEmpty ? nil : id, tokens: tokens,
+            cost: Pricing.cost(model: model, tokens: tokens, hourWrites: hourWrites))
     }
 
     /// The first `"name":"value"` in the line (string values only).
     static func field(_ line: Data, _ name: String) -> String? {
-        guard let r = line.range(of: Data("\"\(name)\":\"".utf8)), let end = line[r.upperBound...].firstIndex(of: 0x22) else { return nil }
+        guard let r = line.range(of: Data("\"\(name)\":\"".utf8)), let end = line[r.upperBound...].firstIndex(of: 0x22)
+        else { return nil }
         return String(data: line[r.upperBound..<end], encoding: .utf8)
     }
 
@@ -178,7 +213,12 @@ public final class UsageIndex: Sendable {
         guard let r = line.range(of: Data(prefix.utf8)), line[r.upperBound...].first == 0x7B else { return nil }
         var depth = 0
         for i in r.upperBound..<line.endIndex {
-            if line[i] == 0x7B { depth += 1 } else if line[i] == 0x7D { depth -= 1; if depth == 0 { return line[r.upperBound...i] } }
+            if line[i] == 0x7B {
+                depth += 1
+            } else if line[i] == 0x7D {
+                depth -= 1
+                if depth == 0 { return line[r.upperBound...i] }
+            }
         }
         return nil
     }

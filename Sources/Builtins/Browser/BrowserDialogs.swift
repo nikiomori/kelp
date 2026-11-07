@@ -1,6 +1,6 @@
 import AppKit
-import WebKit
 import KelpKit
+import WebKit
 
 /// What a page asks: `alert`, `confirm`, `prompt`, and a file to upload. Without a UI delegate WebKit answered them all
 /// with "no" and showed nothing. The user's pages ask the user, in a sheet. An agent's page (until the user takes it
@@ -11,29 +11,42 @@ extension BrowserTab: WKUIDelegate {
     /// does: ten minutes after its last action that tab is the user's again), not taken over.
     var agentAnswers: Bool { watching && !takenOver && (agent || Date().timeIntervalSince(drivenAt) < 600) }
 
-    func webView(_ w: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async {
-        if agentAnswers { _ = agentAnswer("alert", message, fallback: true); return }
+    func webView(
+        _ w: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
+    ) async {
+        if agentAnswers {
+            _ = agentAnswer("alert", message, fallback: true)
+            return
+        }
         _ = await ask(message, from: frame, buttons: [String(localized: "OK")])
     }
 
-    func webView(_ w: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async -> Bool {
+    func webView(
+        _ w: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
+    ) async -> Bool {
         if agentAnswers { return agentAnswer("confirm", message, fallback: false).accept }
-        return await ask(message, from: frame, buttons: [String(localized: "OK"), String(localized: "Cancel")]) == .alertFirstButtonReturn
+        return await ask(message, from: frame, buttons: [String(localized: "OK"), String(localized: "Cancel")])
+            == .alertFirstButtonReturn
     }
 
-    func webView(_ w: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
-                 initiatedByFrame frame: WKFrameInfo) async -> String? {
+    func webView(
+        _ w: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
+        initiatedByFrame frame: WKFrameInfo
+    ) async -> String? {
         if agentAnswers {
             let a = agentAnswer("prompt", prompt, fallback: false)
             return a.accept ? a.text ?? defaultText ?? "" : nil
         }
         let field = NSTextField(string: defaultText ?? "")
         field.frame.size.width = 260
-        let r = await ask(prompt, from: frame, buttons: [String(localized: "OK"), String(localized: "Cancel")], field: field)
+        let r = await ask(
+            prompt, from: frame, buttons: [String(localized: "OK"), String(localized: "Cancel")], field: field)
         return r == .alertFirstButtonReturn ? field.stringValue : nil
     }
 
-    func webView(_ w: WKWebView, runOpenPanelWith p: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo) async -> [URL]? {
+    func webView(_ w: WKWebView, runOpenPanelWith p: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo) async
+        -> [URL]?
+    {
         if agentAnswers {
             noteDialog("file chooser → cancelled (upload with kelp browser upload <ref> <file>)")
             return nil
@@ -49,8 +62,12 @@ extension BrowserTab: WKUIDelegate {
         let told = dialogAnswer != nil, a = dialogAnswer ?? (fallback, nil)
         dialogAnswer = nil
         let shown = String(message.prefix(300)).replacingOccurrences(of: "\n", with: " ")
-        let how = kind == "alert" ? "OK" : a.accept ? "accepted" + (a.text.map { " with \"\($0)\"" } ?? "")
-            : "dismissed" + (told ? "" : " (kelp browser dialog accept answers the next one)")
+        let how =
+            kind == "alert"
+            ? "OK"
+            : a.accept
+                ? "accepted" + (a.text.map { " with \"\($0)\"" } ?? "")
+                : "dismissed" + (told ? "" : " (kelp browser dialog accept answers the next one)")
         noteDialog("\(kind) \"\(shown)\" → \(how)")
         return a
     }
@@ -64,7 +81,8 @@ extension BrowserTab: WKUIDelegate {
 
     /// The page's question as a sheet: who asks (the frame's host, as Safari says it), what, and the buttons.
     private func ask(_ message: String, from frame: WKFrameInfo, buttons: [String], field: NSTextField? = nil) async
-        -> NSApplication.ModalResponse {
+        -> NSApplication.ModalResponse
+    {
         let a = NSAlert()
         let host = frame.securityOrigin.host
         a.messageText = host.isEmpty ? String(localized: "This page says") : String(localized: "\(host) says")

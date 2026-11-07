@@ -1,12 +1,14 @@
-import Foundation
 import Core
+import Foundation
 
 extension Methods {
     static let extensionMethods: [any Handled.Type] = [ExtensionLibrary.self, ExtensionFetch.self]
 }
 
 extension ExtensionLibrary: Handled {
-    func handle(_ settings: SettingsStore) throws -> Result { try IDE.library(index: settings["extensions.library"]?.string ?? IDE.libraryIndex) }
+    func handle(_ settings: SettingsStore) throws -> Result {
+        try IDE.library(index: settings["extensions.library"]?.string ?? IDE.libraryIndex)
+    }
 }
 
 extension ExtensionFetch: Handled {

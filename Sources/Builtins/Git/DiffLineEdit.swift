@@ -12,7 +12,8 @@ extension DiffViewController: NSTextFieldDelegate {
 
     @objc func rowDoubleClicked() {
         let row = table.clickedRow
-        guard rows.indices.contains(row), let (path, line) = shownLine(row), let n = line.newLine, line.kind != .del else { return }
+        guard rows.indices.contains(row), let (path, line) = shownLine(row), let n = line.newLine, line.kind != .del
+        else { return }
         guard showsWorkingTree, !hasUnsavedEdits(path) else { return openLine(path, n) }
         beginEdit(row, path: path, line: n, text: line.text)
     }
@@ -69,14 +70,25 @@ extension DiffViewController: NSTextFieldDelegate {
     }
 
     func write(_ new: String, over old: String, path: String, line: Int) async {
-        guard let root = app.worktree(worktreeId)?.path, let read = await app.call(FilesRead(path: root + "/" + path)) else { return }
+        guard let root = app.worktree(worktreeId)?.path, let read = await app.call(FilesRead(path: root + "/" + path))
+        else { return }
         guard let text = TextEdits.replacing(line: line, expected: old, with: new, in: read.text) else {
-            return Banner.show(String(localized: "\((path as NSString).lastPathComponent) changed since this was shown. Nothing was written."), style: .error)
+            return Banner.show(
+                String(
+                    localized:
+                        "\((path as NSString).lastPathComponent) changed since this was shown. Nothing was written."),
+                style: .error)
         }
-        guard let written = await app.call(FilesWrite(path: root + "/" + path, text: text, base: read.stamp)) else { return }
+        guard let written = await app.call(FilesWrite(path: root + "/" + path, text: text, base: read.stamp)) else {
+            return
+        }
         // Refused: it changed between the read and the write.
         guard written.stamp != nil else {
-            return Banner.show(String(localized: "\((path as NSString).lastPathComponent) changed since this was shown. Nothing was written."), style: .error)
+            return Banner.show(
+                String(
+                    localized:
+                        "\((path as NSString).lastPathComponent) changed since this was shown. Nothing was written."),
+                style: .error)
         }
         await load()
     }

@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 
 /// The busiest processes, and which of Kelp's agents each runs under: what htop can't tell. All, or Kelp's alone; sorted
 /// by a click on a column's title. Plain rows, not a `Table`: its NSTableView took the reading every 2 s as an update in
@@ -62,7 +62,9 @@ struct ServerProcesses: View {
     }
 
     private func title(_ text: LocalizedStringKey, _ by: Sort) -> some View {
-        Button { sort = by } label: {
+        Button {
+            sort = by
+        } label: {
             HStack(spacing: 2) {
                 Text(text)
                 if sort == by { Image(systemName: "chevron.down").font(.symbol(Metrics.iconTiny)) }
@@ -92,12 +94,15 @@ struct ProcessRow: View {
             Text(p.user).foregroundStyle(.secondary).lineLimit(1).frame(width: Self.user, alignment: .leading)
             Text(String(format: "%.1f%%", p.cpu)).frame(width: Self.number, alignment: .trailing)
             Text(p.memory > 0 ? serverBytes(p.memory) : "–").frame(width: Self.number, alignment: .trailing)
-            Text(serverDuration(Double(p.seconds))).foregroundStyle(.secondary).frame(width: Self.number, alignment: .trailing)
+            Text(serverDuration(Double(p.seconds))).foregroundStyle(.secondary).frame(
+                width: Self.number, alignment: .trailing)
         }
         .font(.ui(12).monospacedDigit())
         .padding(.horizontal, 8)
         .frame(height: Metrics.row)
-        .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovering ? Color(nsColor: .fillHover) : .clear))
+        .background(
+            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovering ? Color(nsColor: .fillHover) : .clear)
+        )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .help(p.args)

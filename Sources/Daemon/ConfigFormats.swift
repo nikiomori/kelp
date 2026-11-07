@@ -59,19 +59,38 @@ struct MiniTOML {
 
     /// `a . "b c"` → `a.b c`. Limit: a quoted part holding a dot splits there.
     static func key(_ s: Substring) -> String {
-        s.split(separator: ".").map { $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'")) }
-            .joined(separator: ".")
+        s.split(separator: ".").map {
+            $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        }
+        .joined(separator: ".")
     }
 
     /// Whether an array value is whole: its "[" closed, brackets inside strings left out.
     static func closes(_ v: String) -> Bool {
         var depth = 0, quote: Character?, escaped = false, comment = false
         for ch in v {
-            if comment { comment = ch != "\n"; continue }
+            if comment {
+                comment = ch != "\n"
+                continue
+            }
             if let q = quote {
-                if escaped { escaped = false } else if ch == "\\" && q == "\"" { escaped = true } else if ch == q { quote = nil }
-            } else if ch == "\"" || ch == "'" { quote = ch } else if ch == "#" { comment = true }
-            else if ch == "[" { depth += 1 } else if ch == "]" { depth -= 1; if depth == 0 { return true } }
+                if escaped {
+                    escaped = false
+                } else if ch == "\\" && q == "\"" {
+                    escaped = true
+                } else if ch == q {
+                    quote = nil
+                }
+            } else if ch == "\"" || ch == "'" {
+                quote = ch
+            } else if ch == "#" {
+                comment = true
+            } else if ch == "[" {
+                depth += 1
+            } else if ch == "]" {
+                depth -= 1
+                if depth == 0 { return true }
+            }
         }
         return false
     }
@@ -80,7 +99,10 @@ struct MiniTOML {
     static func strings(_ s: Substring) -> [String] {
         var out: [String] = [], cur = "", quote: Character?, escaped = false, comment = false
         for ch in s {
-            if comment { comment = ch != "\n"; continue }
+            if comment {
+                comment = ch != "\n"
+                continue
+            }
             if let q = quote {
                 if escaped {
                     cur += "\\" + String(ch)   // unescaped with the rest
@@ -93,7 +115,11 @@ struct MiniTOML {
                 } else {
                     cur.append(ch)
                 }
-            } else if ch == "\"" || ch == "'" { quote = ch } else if ch == "#" { comment = true }
+            } else if ch == "\"" || ch == "'" {
+                quote = ch
+            } else if ch == "#" {
+                comment = true
+            }
         }
         return out
     }
@@ -101,12 +127,17 @@ struct MiniTOML {
     static func unescape(_ s: String) -> String {
         var out = "", it = s.makeIterator()
         while let ch = it.next() {
-            guard ch == "\\", let n = it.next() else { out.append(ch); continue }
+            guard ch == "\\", let n = it.next() else {
+                out.append(ch)
+                continue
+            }
             switch n {
             case "n": out.append("\n")
             case "t": out.append("\t")
             case "\"", "\\": out.append(n)
-            default: out.append("\\"); out.append(n)
+            default:
+                out.append("\\")
+                out.append(n)
             }
         }
         return out
@@ -118,6 +149,8 @@ enum JSONC {
     static func object(_ text: String) -> [String: Any]? { value(text) as? [String: Any] }
 
     static func value(_ text: String) -> Any? {
-        Log.session.attempt("reading another tool's project file") { try JSONSerialization.jsonObject(with: Data(text.utf8), options: .json5Allowed) }
+        Log.session.attempt("reading another tool's project file") {
+            try JSONSerialization.jsonObject(with: Data(text.utf8), options: .json5Allowed)
+        }
     }
 }

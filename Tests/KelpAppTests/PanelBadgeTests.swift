@@ -1,12 +1,13 @@
 import Testing
-@testable import KelpApp
-@testable import KelpKit
+
+@testable import BuiltinActivity
 @testable import BuiltinAgents
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinGit
-@testable import BuiltinBrowser
 @testable import BuiltinIssues
-@testable import BuiltinActivity
+@testable import KelpApp
+@testable import KelpKit
 
 /// What an extension's badge command prints, as the panel's icon shows it.
 @Test func aBadgeCommandsOutputReadsAsANumberOrADot() {

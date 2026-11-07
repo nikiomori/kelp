@@ -44,13 +44,20 @@ final class SourceControlBar {
         pull.isEnabled = !busy && up != nil
         show("\(behind)", behind > 0, on: pull)
         pull.contentTintColor = behind > 0 ? .labelColor : .secondaryLabelColor
-        pull.toolTip = up.map { behind > 0 ? String(localized: "Pull \(behind) from \($0) (⌥⌘X)") : String(localized: "Pull from \($0) (⌥⌘X)") }
+        pull.toolTip =
+            up.map {
+                behind > 0
+                    ? String(localized: "Pull \(behind) from \($0) (⌥⌘X)") : String(localized: "Pull from \($0) (⌥⌘X)")
+            }
             ?? String(localized: "Pull (no upstream)")
         push.isEnabled = !busy && (publish || (up != nil && ahead > 0))
         push.image = .symbol(publish ? "arrow.up.to.line" : "arrow.up", String(localized: "Push"))
         show("\(ahead)", ahead > 0, on: push)
         push.contentTintColor = ahead > 0 || publish ? .emphasis : .secondaryLabelColor
-        let pushTip = up.map { ahead > 0 ? String(localized: "Push \(ahead) to \($0) (⌥⌘P)") : String(localized: "Nothing to push to \($0)") }
+        let pushTip = up.map {
+            ahead > 0
+                ? String(localized: "Push \(ahead) to \($0) (⌥⌘P)") : String(localized: "Nothing to push to \($0)")
+        }
         push.toolTip = publish ? String(localized: "Publish Branch (⌥⌘P)") : pushTip ?? String(localized: "Push (⌥⌘P)")
     }
 }

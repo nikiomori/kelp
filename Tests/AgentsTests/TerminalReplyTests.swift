@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Agents
 
 /// Claude Code asks the terminal at start whether it shows images (kitty graphics): replayed, the question goes; the

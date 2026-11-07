@@ -1,7 +1,7 @@
-import AppKit
-import SwiftUI
-import Core
 import Agents
+import AppKit
+import Core
+import SwiftUI
 import WorkbenchKit
 
 /// What the IDE knows when a contribution runs: the workspace on screen and what has focus.
@@ -24,9 +24,11 @@ package enum PanelRole: Sendable { case changes, checks }
 
 /// A right-inspector panel.
 package struct PanelSpec: Identifiable {
-    package init(id: String, title: String, icon: String, extensionId: String, role: PanelRole? = nil,
-                 badge: (@MainActor () -> PanelBadge?)? = nil, poll: (@MainActor () async -> Void)? = nil,
-                 make: @escaping @MainActor () -> NSViewController) {
+    package init(
+        id: String, title: String, icon: String, extensionId: String, role: PanelRole? = nil,
+        badge: (@MainActor () -> PanelBadge?)? = nil, poll: (@MainActor () async -> Void)? = nil,
+        make: @escaping @MainActor () -> NSViewController
+    ) {
         self.id = id
         self.role = role
         self.title = title
@@ -74,10 +76,12 @@ package struct PanelBadge: Equatable {
 
 /// An entry of the editor area's "+" menu. `open` runs only when chosen (it may ask questions, start things…).
 package struct EditorSpec: Identifiable {
-    package init(id: String,
-                 title: String,
-                 icon: String,
-                 uri: @escaping @MainActor (IDEContext) -> String?) {
+    package init(
+        id: String,
+        title: String,
+        icon: String,
+        uri: @escaping @MainActor (IDEContext) -> String?
+    ) {
         self.id = id
         self.title = title
         self.icon = icon
@@ -95,11 +99,13 @@ package struct EditorSpec: Identifiable {
 /// An action with a stable id, the one thing the menu bar, key bindings (settings.json `keys`), the command palette
 /// and agents (`kelp run <id>`) call.
 package struct CommandSpec: Identifiable {
-    package init(id: String,
-                 title: String,
-                 key: String? = nil,
-                 menu: String? = nil,
-                 run: @escaping @MainActor ([String: JSONValue]) -> Void) {
+    package init(
+        id: String,
+        title: String,
+        key: String? = nil,
+        menu: String? = nil,
+        run: @escaping @MainActor ([String: JSONValue]) -> Void
+    ) {
         self.id = id
         self.title = title
         self.key = key
@@ -117,7 +123,7 @@ package struct CommandSpec: Identifiable {
 package struct SettingSpec: Codable, Identifiable {
     var key: String
     var title: String
-    var type: String            // boolean · number · string · enum · color · font
+    var type: String   // boolean · number · string · enum · color · font
     var `default`: JSONValue?
     /// One line under the title: what the name doesn't say.
     var description: String?
@@ -145,14 +151,16 @@ package struct SettingSpec: Codable, Identifiable {
 }
 
 package struct SettingsSection: Identifiable {
-    package init(id: String,
-                 title: String,
-                 icon: String,
-                 specs: [SettingSpec],
-                 custom: (@MainActor () -> AnyView)? = nil,
-                 keywords: [String] = [],
-                 fillsPane: Bool = false,
-                 order: Int = 100) {
+    package init(
+        id: String,
+        title: String,
+        icon: String,
+        specs: [SettingSpec],
+        custom: (@MainActor () -> AnyView)? = nil,
+        keywords: [String] = [],
+        fillsPane: Bool = false,
+        order: Int = 100
+    ) {
         self.id = id
         self.title = title
         self.icon = icon
@@ -187,10 +195,16 @@ struct IconThemeSpec {
 
 /// Opens tabs for URIs of a scheme ("session", "file", "https"…).
 package struct TabProvider {
-    package init(schemes: [String], make: @escaping @MainActor (String) -> TabContent?,
-                 closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)? = nil,
-                 menu: (@MainActor (_ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void) -> Void)? = nil,
-                 browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)? = nil) {
+    package init(
+        schemes: [String], make: @escaping @MainActor (String) -> TabContent?,
+        closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)? = nil,
+        menu: (
+            @MainActor (
+                _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
+            ) -> Void
+        )? = nil,
+        browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)? = nil
+    ) {
         self.schemes = schemes
         self.make = make
         self.closeUnbuilt = closeUnbuilt
@@ -203,7 +217,12 @@ package struct TabProvider {
     var closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)?
     /// Its items in the tab's context menu, added to `menu` above Close Tab: `workspace` is the editor area's, and
     /// `openBeside` opens a URI in a pane to the right.
-    var menu: (@MainActor (_ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void) -> Void)?
+    var menu:
+        (
+            @MainActor (
+                _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
+            ) -> Void
+        )?
     /// `kelp browser`'s `action` on a page tab it made (`UIBrowser`).
     var browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)?
 }
@@ -212,14 +231,20 @@ package struct TabProvider {
 /// A mark on a session's row: an SF Symbol and what it says.
 package struct SessionMark: Equatable {
     package let symbol: String, tip: String
-    package init(symbol: String, tip: String) { self.symbol = symbol; self.tip = tip }
+    package init(symbol: String, tip: String) {
+        self.symbol = symbol
+        self.tip = tip
+    }
 }
 
 /// A block of a built-in's own in the sidebar, under the projects (Machines): its view, made when the sidebar is.
 package struct SidebarSection {
     package let id: String
     package let make: @MainActor () -> NSView
-    package init(id: String, make: @escaping @MainActor () -> NSView) { self.id = id; self.make = make }
+    package init(id: String, make: @escaping @MainActor () -> NSView) {
+        self.id = id
+        self.make = make
+    }
 }
 
 package struct Contributions {
@@ -301,9 +326,13 @@ package final class ExtensionRegistry {
         disabledLoaded = off
         DeclarativeExtension.forget()
         func take(_ info: ExtensionInfo, _ c: Contributions) {
-            var info = info; info.enabled = info.essential || !off.contains(info.id)
+            var info = info
+            info.enabled = info.essential || !off.contains(info.id)
             infos.append(info)
-            guard info.enabled else { DeclarativeExtension.forget(info.id); return }
+            guard info.enabled else {
+                DeclarativeExtension.forget(info.id)
+                return
+            }
             merged.panels += c.panels
             merged.editors += c.editors
             merged.commands += c.commands
@@ -317,7 +346,9 @@ package final class ExtensionRegistry {
             merged.sessionMarks += c.sessionMarks
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
-        for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil)) ?? [] where Self.isFolder(folder) {
+        for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))
+            ?? [] where Self.isFolder(folder)
+        {
             let loaded = DeclarativeExtension.load(folder, tools: Self.tools, app: app)
             take(loaded.info, loaded.contributions)
         }
@@ -338,9 +369,14 @@ package final class ExtensionRegistry {
         let users = infos.compactMap { $0.builtin ? nil : $0.path }
         Task { [weak self] in
             guard let self else { return }
-            if await ExtensionTrust.adopt(users, app) { reload(); return }
+            if await ExtensionTrust.adopt(users, app) {
+                reload()
+                return
+            }
             guard app.uiState.loaded else { return }   // nothing's asked before what was allowed is known
-            let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter { asked.insert(IDE.extensionDigest($0)).inserted }
+            let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter {
+                asked.insert(IDE.extensionDigest($0)).inserted
+            }
             guard !waiting.isEmpty else { return }
             trustAsk.after(3) { [weak self] in self?.ask(waiting) }
         }
@@ -380,7 +416,9 @@ package final class ExtensionRegistry {
         try? FileManager.default.createDirectory(at: Self.userDir, withIntermediateDirectories: true)
         let pending = Debounce()
         // delivered on main
-        watcher = FileWatcher(root: Self.userDir.path) { [weak self] _ in MainActor.assumeIsolated { pending.after(0.3) { self?.reload() } } }
+        watcher = FileWatcher(root: Self.userDir.path) { [weak self] _ in
+            MainActor.assumeIsolated { pending.after(0.3) { self?.reload() } }
+        }
     }
 
     /// Follows symlinks: a VS Code extension can be linked in rather than copied.
@@ -422,10 +460,21 @@ package final class ExtensionRegistry {
     func install(source: String, files: [String: String]? = nil) async -> Bool {
         guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
         let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir
-        guard await ExtensionReview.approve(folder) else { try? FileManager.default.removeItem(at: folder); return false }
+        guard await ExtensionReview.approve(folder) else {
+            try? FileManager.default.removeItem(at: folder)
+            return false
+        }
         let installed: URL
-        do { installed = try await Task.detached { try IDE.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true) }.value }
-        catch { Banner.show(String(localized: "Couldn't install \(folder.lastPathComponent): \(AppModel.message(error))"), style: .error); return false }
+        do {
+            installed = try await Task.detached {
+                try IDE.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true)
+            }.value
+        } catch {
+            Banner.show(
+                String(localized: "Couldn't install \(folder.lastPathComponent): \(AppModel.message(error))"),
+                style: .error)
+            return false
+        }
         _ = await ExtensionTrust.allow([installed], app)
         reload()
         return true

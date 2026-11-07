@@ -8,14 +8,17 @@ extension UIRequests {
     func browse(_ e: UIBrowserEvent) {
         Task {
             let reply: UIBrowserReply
-            do { reply = UIBrowserReply(request: e.request, result: try await run(e)) }
-            catch { reply = UIBrowserReply(request: e.request, error: AppModel.message(error)) }
+            do { reply = UIBrowserReply(request: e.request, result: try await run(e)) } catch {
+                reply = UIBrowserReply(request: e.request, error: AppModel.message(error))
+            }
             _ = await app.quiet(reply)   // the daemon went: nobody is waiting for it
         }
     }
 
     private func run(_ e: UIBrowserEvent) async throws -> JSONValue {
-        guard let wid = e.worktreeId ?? app.workbench.workspaceId else { throw RPCError.invalidParams("No workspace to open a page in.") }
+        guard let wid = e.worktreeId ?? app.workbench.workspaceId else {
+            throw RPCError.invalidParams("No workspace to open a page in.")
+        }
         guard let area = app.workbench.window?.editors.area(wid) else {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
@@ -23,7 +26,9 @@ extension UIRequests {
         if e.action == "open", let t = try await area.pageForOpen(shared: args["shared"]?.bool == true, args: args) {
             return try await area.browse(t, "info", args)
         }
-        guard let t = area.browsedPage() else { throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.") }
+        guard let t = area.browsedPage() else {
+            throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
+        }
         return try await area.browse(t, e.action, args)
     }
 }
@@ -36,13 +41,22 @@ extension EditorArea {
         let url = args["url"]?.string ?? ""
         // A shared page is the one site the user allowed: another site is asked for again, in a tab of its own.
         if let t = ownPage(), shared == (TabURI.scheme(t.uri) != TabURI.agentScheme),
-           !shared || url.isEmpty || PageOrigin.of(URL(string: url)) == PageOrigin.of(URL(string: TabURI.pageURL(t.uri))) { return nil }
+            !shared || url.isEmpty
+                || PageOrigin.of(URL(string: url)) == PageOrigin.of(URL(string: TabURI.pageURL(t.uri)))
+        {
+            return nil
+        }
         guard !url.isEmpty else { return nil }
         if shared, await !Self.allowShared(url) {
-            throw RPCError.invalidParams("The user didn't let you use their logged-in browser: kelp browser open without --shared.")
+            throw RPCError.invalidParams(
+                "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
         }
         let uri = shared ? url : TabURI.agentPage(url)
-        if app.workbench.window?.editors.current === self { showAside(uri, split: .right) } else { open(uri, split: .right, focus: false) }
+        if app.workbench.window?.editors.current === self {
+            showAside(uri, split: .right)
+        } else {
+            open(uri, split: .right, focus: false)
+        }
         guard let t = layout.tab(uri: uri) ?? layout.pageTab(for: uri) else { return nil }
         browsing = t.id
         return t
@@ -76,6 +90,7 @@ extension EditorArea {
 
     /// The page it drove last (one it opened: `browsing` is set only by `open` and by this), else an agent's own.
     private func ownPage() -> TabRef? {
-        layout.allTabs.first { $0.id == browsing && TabURI.isPage($0.uri) } ?? layout.allTabs.first { TabURI.scheme($0.uri) == TabURI.agentScheme }
+        layout.allTabs.first { $0.id == browsing && TabURI.isPage($0.uri) }
+            ?? layout.allTabs.first { TabURI.scheme($0.uri) == TabURI.agentScheme }
     }
 }

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Kelp's skills for agents: how to write and connect an extension, how to change settings. Each is a Claude Code
 /// plugin in ~/.kelp/agent-skills that the daemon loads per session (--plugin-dir); turning one off in
@@ -9,38 +9,52 @@ enum AgentSkills {
     static func write(_ app: AppModel) {
         let s = app.settings
         for old in ["krill-extensions", "krill-settings"] { put(old, on: false, description: "", body: "") }   // the app's old name's
-        put("kelp-extensions", on: s.bool("agents.skills.extensions") != false,
-            description: "Use when the user wants something added to or changed in Kelp, the IDE this session runs in: a panel, list, tab, command, "
+        put(
+            "kelp-extensions", on: s.bool("agents.skills.extensions") != false,
+            description:
+                "Use when the user wants something added to or changed in Kelp, the IDE this session runs in: a panel, list, tab, command, "
                 + "setting, theme or language server — e.g. “add a Kelp panel with my Docker containers”, “show Android emulators in Kelp”. Kelp extensions are "
                 + "extension.json folders in $KELP_HOME/extensions; they are not Claude Code plugins, mods, hooks or MCP servers.",
             body: extensionsSteps(ExtensionRegistry.userDir.path) + IDE.extensionGuide)
-        put("kelp-settings", on: s.bool("agents.skills.settings") != false,
-            description: "Use when the user wants to see or change how Kelp, the IDE this session runs in, is set up: theme, fonts, editor, "
+        put(
+            "kelp-settings", on: s.bool("agents.skills.settings") != false,
+            description:
+                "Use when the user wants to see or change how Kelp, the IDE this session runs in, is set up: theme, fonts, editor, "
                 + "terminal, agents. Done with the kelp CLI (kelp settings set …), not Claude Code's own settings.",
             body: settingsGuide(app))
-        put("kelp-terminals", on: s.bool("agents.skills.terminals") != false,
-            description: "Use when you run tests, a build or a dev server, or work through a long multi-step task, in Kelp, the IDE this session runs "
+        put(
+            "kelp-terminals", on: s.bool("agents.skills.terminals") != false,
+            description:
+                "Use when you run tests, a build or a dev server, or work through a long multi-step task, in Kelp, the IDE this session runs "
                 + "in: run the command where the user can watch it, wait for it, read what it printed, and show your progress on your row.",
             body: terminalsGuide)
-        put("kelp-agents", on: s.bool("agents.skills.agents") != false,
-            description: "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
+        put(
+            "kelp-agents", on: s.bool("agents.skills.agents") != false,
+            description:
+                "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
                 + "another model, a long job while you go on. Start it with kelp session new --agent; its result comes back to you by itself.",
             body: agentsGuide)
-        put("kelp-artifacts", on: s.bool("agents.skills.artifacts") != false,
-            description: "Use when the user asks for a doc, report or plan, choices to pick from, slides, a design or a dashboard, in "
+        put(
+            "kelp-artifacts", on: s.bool("agents.skills.artifacts") != false,
+            description:
+                "Use when the user asks for a doc, report or plan, choices to pick from, slides, a design or a dashboard, in "
                 + "Kelp, the IDE this session runs in: run kelp artifact guide <type> first. It says where to make it (your own "
                 + "artifact tools come first) and how.",
             body: artifactsGuide)
         // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`Sessions.skillArgs`).
-        put("kelp-vm", on: s.bool("agents.skills.vm") != false,
-            description: "Use when a command should run in a Linux or macOS machine instead of on this Mac, or you need to see and tap a Mac "
+        put(
+            "kelp-vm", on: s.bool("agents.skills.vm") != false,
+            description:
+                "Use when a command should run in a Linux or macOS machine instead of on this Mac, or you need to see and tap a Mac "
                 + "Android or iOS app, in Kelp, the IDE this session runs in: Linux builds and tests, servers and scripts kept off the Mac, "
                 + "a Mac app's UI, an app on an Android emulator or an iOS simulator. "
                 + "kelp vm run <name> -- <command> runs it there, in this project's folder at the same path.",
             body: vmGuide)
         // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
-        put("kelp-browser", on: true,
-            description: "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
+        put(
+            "kelp-browser", on: true,
+            description:
+                "Use when you need to see or try a web page — the app you're building on its dev server, a form, a page's "
                 + "text — in Kelp, the IDE this session runs in: open it in a tab beside you that the user watches, read it, click, "
                 + "type, run JavaScript, take a screenshot, read its console and requests. Done with kelp browser, not a headless browser.",
             body: browserGuide)
@@ -48,7 +62,8 @@ enum AgentSkills {
     }
 
     /// The exact folder this Kelp loads extensions from (the guide below says ~/.kelp, which a custom KELP_HOME changes).
-    private static func extensionsSteps(_ folder: String) -> String { """
+    private static func extensionsSteps(_ folder: String) -> String {
+        """
         # Adding something to Kelp
 
         This session runs inside Kelp and the `kelp` CLI is on PATH. Kelp loads extensions from `\(folder)`.
@@ -248,9 +263,16 @@ enum AgentSkills {
 
     private static func put(_ name: String, on: Bool, description: String, body: String) {
         let plugin = Paths.agentSkills.appendingPathComponent(name)
-        guard on else { try? FileManager.default.removeItem(at: plugin); return }
-        let manifest: [String: Any] = ["name": name, "version": "1.0.0", "description": description, "author": ["name": "Kelp"]]
-        if let d = try? JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys]), let json = String(bytes: d, encoding: .utf8) {
+        guard on else {
+            try? FileManager.default.removeItem(at: plugin)
+            return
+        }
+        let manifest: [String: Any] = [
+            "name": name, "version": "1.0.0", "description": description, "author": ["name": "Kelp"]
+        ]
+        if let d = try? JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys]),
+            let json = String(bytes: d, encoding: .utf8)
+        {
             writeIfChanged(plugin.appendingPathComponent(".claude-plugin/plugin.json"), json)
         }
         let front = "---\nname: \(name)\ndescription: \(description)\n---\n\n"
@@ -266,42 +288,48 @@ enum AgentSkills {
     /// Every setting the installed extensions declare, with how to change it.
     static func settingsGuide(_ app: AppModel) -> String {
         var out = """
-        # Kelp settings
+            # Kelp settings
 
-        Kelp keeps its settings in `$KELP_HOME/settings.json` (one flat object with dotted keys). Change them with the
-        `kelp` CLI, which is on PATH in every Kelp session; the app applies changes immediately.
+            Kelp keeps its settings in `$KELP_HOME/settings.json` (one flat object with dotted keys). Change them with the
+            `kelp` CLI, which is on PATH in every Kelp session; the app applies changes immediately.
 
-        - `kelp settings` — all current values
-        - `kelp settings get <key>`
-        - `kelp settings set <key> <value>` — the value is JSON when it parses (`true`, `14`, `["a"]`), else text
-        - `kelp settings unset <key>` — back to the default
-        - `kelp ext list` — the extensions and which are on; turning one on or off is the user's (Settings › Extensions)
+            - `kelp settings` — all current values
+            - `kelp settings get <key>`
+            - `kelp settings set <key> <value>` — the value is JSON when it parses (`true`, `14`, `["a"]`), else text
+            - `kelp settings unset <key>` — back to the default
+            - `kelp ext list` — the extensions and which are on; turning one on or off is the user's (Settings › Extensions)
 
-        Keyboard shortcuts are the user's to set, in Settings › Keyboard (the `keys` object, command id → key): say which
-        command and key to pick. Every command id is in `kelp ui state` (`commands`), and `kelp run <id>` runs one.
+            Keyboard shortcuts are the user's to set, in Settings › Keyboard (the `keys` object, command id → key): say which
+            command and key to pick. Every command id is in `kelp ui state` (`commands`), and `kelp run <id>` runs one.
 
-        Only change what the user asked for, then say what you changed.
+            Only change what the user asked for, then say what you changed.
 
-        ## Keys
+            ## Keys
 
-        | Key | Type | Default | What it does |
-        | --- | --- | --- | --- |
+            | Key | Type | Default | What it does |
+            | --- | --- | --- | --- |
 
-        """
+            """
         for section in app.extensions.all.settings {
             for spec in section.specs {
                 var type = spec.type
                 if let o = spec.options, !o.isEmpty { type += ": " + o.joined(separator: " / ") }
-                let def = spec.default.map { v -> String in
-                    if case .string(let s) = v { return s.isEmpty ? "—" : s }
-                    return (try? JSONEncoder().encode(v)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "—"
-                } ?? "—"
-                let what = [spec.title, spec.description].compactMap { $0 }.joined(separator: ". ").replacingOccurrences(of: "|", with: "/")
+                let def =
+                    spec.default.map { v -> String in
+                        if case .string(let s) = v { return s.isEmpty ? "—" : s }
+                        return (try? JSONEncoder().encode(v)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "—"
+                    } ?? "—"
+                let what = [spec.title, spec.description].compactMap { $0 }.joined(separator: ". ")
+                    .replacingOccurrences(of: "|", with: "/")
                 out += "| `\(spec.key)` | \(type) | \(def) | \(what) |\n"
             }
         }
-        out += "\nThemes for `workbench.theme`: auto, ghostty, " + app.themes.themes.map(\.id).joined(separator: ", ") + ".\n"
-        out += "File icon themes for `workbench.iconTheme`: " + app.fileIcons.themes.map(\.id).joined(separator: ", ") + ".\n"
+        out +=
+            "\nThemes for `workbench.theme`: auto, ghostty, " + app.themes.themes.map(\.id).joined(separator: ", ")
+            + ".\n"
+        out +=
+            "File icon themes for `workbench.iconTheme`: " + app.fileIcons.themes.map(\.id).joined(separator: ", ")
+            + ".\n"
         return out
     }
 }

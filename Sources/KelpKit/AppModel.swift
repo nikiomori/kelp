@@ -1,7 +1,7 @@
+import Agents
 import AppKit
 import Core
 import WorkbenchKit
-import Agents
 
 /// UI-side mirror of daemon state (observable: views follow what they read with `track`, and redraw only on its change).
 /// The app talks to the daemon only through JSON-RPC.
@@ -44,7 +44,8 @@ package final class AppModel {
     /// The app's one `T`, made by `make` the first time.
     package func part<T: AnyObject>(_ make: () -> T) -> T {
         if let p = parts[ObjectIdentifier(T.self)] as? T { return p }
-        let p = make(); parts[ObjectIdentifier(T.self)] = p
+        let p = make()
+        parts[ObjectIdentifier(T.self)] = p
         return p
     }
 
@@ -99,7 +100,11 @@ package final class AppModel {
 
     /// A session as a reply or an event has it; an older copy than the one here (a reply that an event overtook) is dropped.
     package func upsert(_ s: Session) {
-        if let i = sessions.firstIndex(where: { $0.id == s.id }) { if !s.isOlder(than: sessions[i]) { sessions[i] = s } } else { sessions.append(s) }
+        if let i = sessions.firstIndex(where: { $0.id == s.id }) {
+            if !s.isOlder(than: sessions[i]) { sessions[i] = s }
+        } else {
+            sessions.append(s)
+        }
         availability.sessionChanged(s)
     }
 
@@ -108,7 +113,10 @@ package final class AppModel {
     func publishUIState() {
         guard !publishQueued else { return }
         publishQueued = true
-        DispatchQueue.main.async { [self] in publishQueued = false; sendUIState() }
+        DispatchQueue.main.async { [self] in
+            publishQueued = false
+            sendUIState()
+        }
     }
     @ObservationIgnored private var publishQueued = false
     @ObservationIgnored private var published: JSONValue?
@@ -119,15 +127,22 @@ package final class AppModel {
         let reg = extensions
         let state: JSONValue = .obj([
             "workspace": w.map {
-                .obj(["id": .string($0.id), "name": .string($0.displayName), "path": .string($0.path), "branch": .string($0.branch)])
+                .obj([
+                    "id": .string($0.id), "name": .string($0.displayName), "path": .string($0.path),
+                    "branch": .string($0.branch)
+                ])
             } ?? .null,
             "focusedSession": workbench.focusedSession.map { .string($0) } ?? .null,
             "focusedFile": workbench.focusedFile.map { .string($0) } ?? .null,
             "editor": workbench.editor?.stateForAgents ?? .null,
-            "extensions": .array(reg.extensions.map { e in
-                .obj(["id": .string(e.id), "name": .string(e.name), "enabled": .bool(e.enabled), "builtin": .bool(e.builtin),
-                      "path": e.path.map { .string($0.path) } ?? .null, "error": e.error.map { .string($0) } ?? .null])
-            }),
+            "extensions": .array(
+                reg.extensions.map { e in
+                    .obj([
+                        "id": .string(e.id), "name": .string(e.name), "enabled": .bool(e.enabled),
+                        "builtin": .bool(e.builtin),
+                        "path": e.path.map { .string($0.path) } ?? .null, "error": e.error.map { .string($0) } ?? .null
+                    ])
+                }),
             "commands": .array(reg.all.commands.map { .obj(["id": .string($0.id), "title": .string($0.title)]) }),
             "panels": .array(reg.all.panels.map { .obj(["id": .string($0.id), "title": .string($0.title)]) })
         ])
@@ -136,7 +151,9 @@ package final class AppModel {
         // A call (applied in order all the same): a daemon that isn't this app's own copy refuses it, and agents' `kelp open`
         // would then say Kelp isn't running. Said once per connection.
         Task {
-            guard let error = await tryCall(UIPublish(state: state)).error, !publishRefused, client === c else { return }
+            guard let error = await tryCall(UIPublish(state: state)).error, !publishRefused, client === c else {
+                return
+            }
             publishRefused = true
             Banner.show(error, style: .error)
         }
@@ -169,11 +186,17 @@ package final class AppModel {
         // its home's lock until its agents are gone (up to 3 s), so the kelpd started meanwhile finds it taken and exits.
         // One that's already running takes no harm: a second kelpd exits at once.
         for _ in 0..<3 {
-            if let c = try? RPCClient(socket: Paths.socket.path) { client = c; break }
+            if let c = try? RPCClient(socket: Paths.socket.path) {
+                client = c
+                break
+            }
             launchDaemon()
             for _ in 0..<30 {
                 try? await Task.sleep(for: .milliseconds(100))
-                if let c = try? RPCClient(socket: Paths.socket.path) { client = c; break }
+                if let c = try? RPCClient(socket: Paths.socket.path) {
+                    client = c
+                    break
+                }
             }
             if client != nil { break }
         }
@@ -181,27 +204,38 @@ package final class AppModel {
             // Keeps trying (less and less often); every action meanwhile says why it does nothing.
             if !failing {
                 failing = true
-                Banner.show(Self.whyNoService(), style: .error, action: (String(localized: "Try Again"), { Task { await self.connect() } }))
+                Banner.show(
+                    Self.whyNoService(), style: .error,
+                    action: (String(localized: "Try Again"), { Task { await self.connect() } }))
             }
-            reconnectSoon(); return
+            reconnectSoon()
+            return
         }
-        retryDelay = 1; failing = false
+        retryDelay = 1
+        failing = false
         // Before anything that waits (the version check can show a sheet): a daemon that drops meanwhile is still noticed.
         let stopListening = listen(c)
-        c.onClose = { [weak self] in stopListening(); Task { @MainActor in
-            guard let self, self.client === c else { return }   // a newer connection took over: nothing to undo
-            self.client = nil
-            self.connected = false
-            self.reconnectSoon()
-        } }
+        c.onClose = { [weak self] in
+            stopListening()
+            Task { @MainActor in
+                guard let self, self.client === c else { return }   // a newer connection took over: nothing to undo
+                self.client = nil
+                self.connected = false
+                self.reconnectSoon()
+            }
+        }
         if await checkDaemonVersion(c) { return }
         // Dropped while the update's question waited for an answer: the reconnect that noticed waited for this, so this one
         // tries again rather than load lists over a connection that's gone.
         guard client === c else { return reconnectSoon() }
         await uiState.load()
-        if uiState.strings("sidebar.order") != arrangement.order { arrangement.order = uiState.strings("sidebar.order") }
+        if uiState.strings("sidebar.order") != arrangement.order {
+            arrangement.order = uiState.strings("sidebar.order")
+        }
         if Mutes.read(uiState[Mutes.key]) != arrangement.mutes { arrangement.mutes = Mutes.read(uiState[Mutes.key]) }
-        if Mutes.read(uiState[Parking.key]) != arrangement.parked { arrangement.parked = Mutes.read(uiState[Parking.key]) }
+        if Mutes.read(uiState[Parking.key]) != arrangement.parked {
+            arrangement.parked = Mutes.read(uiState[Parking.key])
+        }
         let colors = ProjectColor.read(uiState[ProjectColor.key])
         if colors != arrangement.projectColors { arrangement.projectColors = colors }
         await settings.load()
@@ -214,7 +248,8 @@ package final class AppModel {
             // and one that waited for the state to be known (a first connection that failed) doesn't any more.
             if connections > 1 || extensions.loadedWithoutState { extensions.reload() }
         }
-        published = nil; publishRefused = false   // a new daemon knows nothing yet
+        published = nil
+        publishRefused = false   // a new daemon knows nothing yet
         publishUIState()
         for w in watching.keys { c.notify(w) }   // what the views watch, told to this daemon too
     }
@@ -223,22 +258,28 @@ package final class AppModel {
     /// What the banner says when kelpd doesn't answer: why it didn't start (`kelpd.err`, which it leaves for this), and the
     /// command that fixes it when one is known; without one, only that it isn't running.
     static func whyNoService(root: URL = Paths.root) -> String {
-        let why = (try? String(contentsOf: Paths.daemonError(in: root), encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let why =
+            (try? String(contentsOf: Paths.daemonError(in: root), encoding: .utf8))?.trimmingCharacters(
+                in: .whitespacesAndNewlines) ?? ""
         guard !why.isEmpty else { return noService }
-        return noService + " " + why + (FixRecipes.fix(for: why).map { " " + String(localized: "Fix it in Terminal: \($0.command)") } ?? "")
+        return noService + " " + why
+            + (FixRecipes.fix(for: why).map { " " + String(localized: "Fix it in Terminal: \($0.command)") } ?? "")
     }
 
     @ObservationIgnored private var restartAttempted = false
     /// Where kelpd and kelp sit next to the app binary.
-    private var binDir: URL { (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).deletingLastPathComponent() }
+    private var binDir: URL {
+        (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).deletingLastPathComponent()
+    }
     private var bundledDaemon: URL { binDir.appendingPathComponent("kelpd") }
 
     /// After an app update the running daemon may be older. It takes the update over in place when it can (`daemon.upgrade`:
     /// agents keep running); else it restarts right away when no agent is running, and otherwise asks, because restarting
     /// ends running sessions. Returns true when an upgrade or a restart is in progress.
     private func sayNotAnswering() {
-        Banner.show(String(localized: "Kelp's background service isn't answering."), style: .error,
-                    action: (String(localized: "Restart It"), { Task { await self.restartDaemon() } }))
+        Banner.show(
+            String(localized: "Kelp's background service isn't answering."), style: .error,
+            action: (String(localized: "Restart It"), { Task { await self.restartDaemon() } }))
     }
 
     /// A kelpd that's connected and hung never says so: what's quiet stays quiet, and a person's action waits for minutes.
@@ -263,7 +304,10 @@ package final class AppModel {
     }
 
     private func checkDaemonVersion(_ c: RPCClient) async -> Bool {
-        guard let mine = (try? FileManager.default.attributesOfItem(atPath: bundledDaemon.path)[.modificationDate] as? Date)?.timeIntervalSince1970
+        guard
+            let mine =
+                (try? FileManager.default.attributesOfItem(atPath: bundledDaemon.path)[.modificationDate] as? Date)?
+                .timeIntervalSince1970
         else { return false }
         let info: DaemonInfo.Result
         do { info = try await c.call(DaemonInfo()) } catch {
@@ -280,14 +324,23 @@ package final class AppModel {
         // A refusal says why (the new kelpd can't take the sessions over): the user hears it with the question.
         var upgrading = false, refusal: String?
         if samePath {
-            do { _ = try await c.call(DaemonUpgrade()); upgrading = true } catch { refusal = (error as? RPCError)?.message ?? "\(error)" }
+            do {
+                _ = try await c.call(DaemonUpgrade())
+                upgrading = true
+            } catch { refusal = (error as? RPCError)?.message ?? "\(error)" }
         }
         if !upgrading {
             if info.liveSessions > 0 {
-                let a = NSAlert(); a.messageText = String(localized: "Kelp was updated")
-                a.informativeText = (refusal.map { $0 + "\n\n" } ?? "") + String(
-                    localized: "The background service is still the previous version. Restart it to finish the update — running agent sessions will end. You can also do it later from the Kelp menu.")
-                a.addButton(withTitle: String(localized: "Restart Service")); a.addButton(withTitle: String(localized: "Later"))
+                let a = NSAlert()
+                a.messageText = String(localized: "Kelp was updated")
+                a.informativeText =
+                    (refusal.map { $0 + "\n\n" } ?? "")
+                    + String(
+                        localized:
+                            "The background service is still the previous version. Restart it to finish the update — running agent sessions will end. You can also do it later from the Kelp menu."
+                    )
+                a.addButton(withTitle: String(localized: "Restart Service"))
+                a.addButton(withTitle: String(localized: "Later"))
                 // Return keeps the agents running: ending them takes a deliberate click.
                 a.buttons[0].hasDestructiveAction = true
                 a.buttons[0].keyEquivalent = ""
@@ -296,7 +349,8 @@ package final class AppModel {
             }
             _ = try? await c.call(DaemonShutdown())
         }
-        c.close(); client = nil
+        c.close()
+        client = nil
         try? await Task.sleep(for: .milliseconds(600))
         await open()
         return true
@@ -309,14 +363,16 @@ package final class AppModel {
         let old = client
         if keepingSessions, (try? await old?.call(DaemonUpgrade())) == nil { return false }
         stopHearing(old)
-        client = nil; connected = false
+        client = nil
+        connected = false
         // One that doesn't answer (hung) is stopped: else the reconnect finds it again, still holding the socket.
         if !keepingSessions, let old {
             let pid = old.daemonPID
             if (try? await old.call(DaemonShutdown(), timeout: 5)) == nil, let pid { await Self.stop(pid) }
         }
         old?.close()
-        try? await Task.sleep(for: .milliseconds(600)); await connect()
+        try? await Task.sleep(for: .milliseconds(600))
+        await connect()
         return true
     }
 
@@ -332,13 +388,18 @@ package final class AppModel {
     private func reconnectSoon() {
         let wait = retryDelay
         retryDelay = min(retryDelay * 2, 30)
-        Task { try? await Task.sleep(for: .seconds(wait)); await connect() }
+        Task {
+            try? await Task.sleep(for: .seconds(wait))
+            await connect()
+        }
     }
 
     private func launchDaemon() {
         let dir = binDir
-        let p = Process(); p.executableURL = dir.appendingPathComponent("kelpd")
-        p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+        let p = Process()
+        p.executableURL = dir.appendingPathComponent("kelpd")
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
         try? p.run()
     }
 
@@ -350,7 +411,10 @@ package final class AppModel {
             return
         }
         let t = Task { @MainActor in
-            repeat { refreshAgain = false; await refreshOnce() } while refreshAgain
+            repeat {
+                refreshAgain = false
+                await refreshOnce()
+            } while refreshAgain
             refreshTask = nil   // with the last check: no await between, so a later caller starts a new one
         }
         refreshTask = t
@@ -362,18 +426,26 @@ package final class AppModel {
         // lists on screen, and a dropped connection says so itself (and refreshes again once it's back).
         let records = recordEvents
         func newer() -> Set<String> { Set(recordEvents.keys.filter { recordEvents[$0] != records[$0] }) }
-        if let r = await quiet(RepoList()) { let m = Self.merge(list: r, local: repos, newer: newer()); if m != repos { repos = m } }
-        if let w = await quiet(WorktreeList()) { let m = Self.merge(list: w, local: worktrees, newer: newer()); if m != worktrees { worktrees = m } }
+        if let r = await quiet(RepoList()) {
+            let m = Self.merge(list: r, local: repos, newer: newer())
+            if m != repos { repos = m }
+        }
+        if let w = await quiet(WorktreeList()) {
+            let m = Self.merge(list: w, local: worktrees, newer: newer())
+            if m != worktrees { worktrees = m }
+        }
         let before = sessionEvents
         if let s = await quiet(SessionList()) {
-            let merged = Self.merge(list: s, local: sessions, newer: Set(sessionEvents.keys.filter { sessionEvents[$0] != before[$0] }))
+            let merged = Self.merge(
+                list: s, local: sessions, newer: Set(sessionEvents.keys.filter { sessionEvents[$0] != before[$0] }))
             let missed = Self.caughtUp(merged, local: sessions)
             if merged != sessions { sessions = merged }
             for (now, was) in missed { notifier?.statusChanged(now, was) }
         }
         if let r = await quiet(RoutineList()) { land(r) }
         syncContextWatches()
-        recordEvents = [:]; sessionEvents = [:]
+        recordEvents = [:]
+        sessionEvents = [:]
     }
 
     /// The daemon's list, except records in `newer`: an event about them came while the list was on its way (on the
@@ -412,7 +484,8 @@ package final class AppModel {
     /// event twice): its close does nothing more, and its events' reader ends.
     func stopHearing(_ c: RPCClient?) {
         c?.onClose = nil
-        stopListening?(); stopListening = nil
+        stopListening?()
+        stopListening = nil
     }
 
     func handle(_ event: any RPCEvent) {
@@ -423,11 +496,16 @@ package final class AppModel {
             if s.isOlder(than: old) { return }
             if old != s { upsert(s) }   // views follow `sessions`
             notifier?.statusChanged(s, old)
-            if old?.status != s.status { syncContextWatches(); followParked(s) }
+            if old?.status != s.status {
+                syncContextWatches()
+                followParked(s)
+            }
         case let e as DevServerEvent:
             // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside
             // it; the keys stay where they are: the page comes while you may be typing.
-            if !scripts.served(e), e.worktree == workbench.workspaceId { workbench.open(e.url, split: .right, workspace: e.worktree, focus: false) }
+            if !scripts.served(e), e.worktree == workbench.workspaceId {
+                workbench.open(e.url, split: .right, workspace: e.worktree, focus: false)
+            }
         case let e as PortBusyEvent: scripts.portBusy(e)
         case let r as Repo: record(r)
         case let w as Worktree: record(w)
@@ -462,7 +540,9 @@ package final class AppModel {
     /// Like `call`, but a failure comes back as its message (for actions that offer a way out) instead of a banner. A
     /// cancelled caller isn't waiting for an answer: nil, and no message.
     package func tryCall<M: RPCMethod>(_ m: M) async -> (value: M.Result?, error: String?) {
-        do { return (try await get(m), nil) } catch is CancellationError { return (nil, nil) } catch { return (nil, Self.message(error)) }
+        do { return (try await get(m), nil) } catch is CancellationError { return (nil, nil) } catch {
+            return (nil, Self.message(error))
+        }
     }
     /// `tryCall` for a chain of calls that one `catch` turns into the panel's error state.
     package func get<M: RPCMethod>(_ m: M) async throws -> M.Result {
@@ -499,7 +579,8 @@ package final class AppModel {
     func projectName(_ id: String?) -> String? {
         guard let r = repo(id) else { return nil }
         if NoProject.holds(r) { return String(localized: "Chats") }   // what the row holds: chats outside any project
-        guard repos.contains(where: { $0.id != r.id && $0.name == r.name }), let host = RemoteHost.of(r.path)?.host else { return r.name }
+        guard repos.contains(where: { $0.id != r.id && $0.name == r.name }), let host = RemoteHost.of(r.path)?.host
+        else { return r.name }
         return "\(r.name) · \(host)"
     }
     /// Where the project is: "host:path" for a remote one (not the local folder that stands for it), else its path.

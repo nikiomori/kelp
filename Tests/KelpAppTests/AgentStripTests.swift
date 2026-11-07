@@ -1,12 +1,17 @@
 import AppKit
 import Core
-import Testing
 import TestSupport
+import Testing
+
 @testable import KelpKit
 
-private let places: [(id: String, name: String, repo: String?)] = [("a", "kelp", nil), ("b", "site", nil), ("c", "docs", nil)]
+private let places: [(id: String, name: String, repo: String?)] = [
+    ("a", "kelp", nil), ("b", "site", nil), ("c", "docs", nil)
+]
 
-private func session(_ place: String, _ status: AgentStatus, unread: Bool = false, summary: String = "", at: TimeInterval = 0) -> Session {
+private func session(
+    _ place: String, _ status: AgentStatus, unread: Bool = false, summary: String = "", at: TimeInterval = 0
+) -> Session {
     var s = Session(cwd: "/", command: "x", agent: "claude", status: status, unread: unread, summary: summary)
     s.worktreeId = place
     s.statusAt = Date(timeIntervalSince1970: at)
@@ -14,7 +19,11 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
 }
 
 @MainActor @Test func theStripHasAWorkspaceOnceWithItsLoudestState() {
-    let items = StripModel.items([session("a", .working), session("a", .waiting, summary: "Allow npm test?"), session("c", .done, unread: true)], workspaces: places)
+    let items = StripModel.items(
+        [
+            session("a", .working), session("a", .waiting, summary: "Allow npm test?"),
+            session("c", .done, unread: true)
+        ], workspaces: places)
     #expect(items.map(\.name) == ["kelp", "docs"])   // in the workspaces' order, not by state: nothing changes places
     #expect(items.first?.cell == .asks)
     #expect(items.first?.words == "Allow npm test?")
@@ -36,7 +45,8 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
 
 /// One agent finished while another (or one it started) still works: the project isn't done yet, and the tip says who is.
 @MainActor @Test func aProjectIsDoneOnlyOnceNothingInItWorks() {
-    var done = session("a", .done, unread: true, summary: "Release notes updated", at: 5), busy = session("a", .working, at: 1)
+    var done = session("a", .done, unread: true, summary: "Release notes updated", at: 5),
+        busy = session("a", .working, at: 1)
     done.title = "Notes"
     busy.title = "Dev release"
     let item = StripModel.items([done, busy], workspaces: places).first
@@ -48,10 +58,14 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
 }
 
 @MainActor @Test func onlyTheOldestQuestionOpensIntoAPill() {
-    let items = StripModel.items([session("a", .error, at: 0), session("b", .waiting, at: 5), session("c", .waiting, at: 3)], workspaces: places)
+    let items = StripModel.items(
+        [session("a", .error, at: 0), session("b", .waiting, at: 5), session("c", .waiting, at: 3)], workspaces: places)
     #expect(StripModel.opened(items) == "c")   // a question before a failure, the oldest first
-    #expect(StripModel.opened(StripModel.items([session("a", .working), session("b", .error)], workspaces: places)) == "b")
-    #expect(StripModel.opened(StripModel.items([session("a", .working), session("c", .done, unread: true)], workspaces: places)) == "c")
+    #expect(
+        StripModel.opened(StripModel.items([session("a", .working), session("b", .error)], workspaces: places)) == "b")
+    #expect(
+        StripModel.opened(
+            StripModel.items([session("a", .working), session("c", .done, unread: true)], workspaces: places)) == "c")
     #expect(StripModel.opened(StripModel.items([session("b", .working)], workspaces: places)) == "b")   // the strip always says something
 }
 
@@ -74,7 +88,9 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     let failed = StripModel.items([session("a", .error)], workspaces: places)
     let done = StripModel.items([session("a", .done, unread: true)], workspaces: places)
     let asking = StripModel.items([session("a", .waiting)], workspaces: places)
-    func shows(_ items: [StripItem], _ comes: String?) -> Bool { StripModel.shows(items, mode: "needed", comesFor: comes, front: false) }
+    func shows(_ items: [StripItem], _ comes: String?) -> Bool {
+        StripModel.shows(items, mode: "needed", comesFor: comes, front: false)
+    }
     #expect(!shows(failed, "questions"))
     #expect(shows(asking, "questions"))
     #expect(shows(failed, nil) && !shows(done, nil))   // by default a finished agent doesn't hold the strip up all day
@@ -117,7 +133,9 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
 }
 
 @MainActor @Test func thePillSaysWhatACommandIsAndTheCardKeepsItWhole() {
-    #expect(StripModel.brief("Allow SP=/private/tmp/x FOO=1 swift build --product KelpApp?") == "Allow swift build --product KelpApp?")
+    #expect(
+        StripModel.brief("Allow SP=/private/tmp/x FOO=1 swift build --product KelpApp?")
+            == "Allow swift build --product KelpApp?")
     #expect(StripModel.brief("Allow npm test?") == "Allow npm test?")
     #expect(StripModel.brief("Allow A=1?") == "Allow A=1?")   // nothing else to say
     #expect(StripModel.brief("Which layout, a=1 or b=2?") == "Which layout, a=1 or b=2?")   // a question, not a command
@@ -131,7 +149,9 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 }
 
 @MainActor @Test func aStripLetGoGoesToTheNearestCorner() {
-    func near(_ x: CGFloat, _ y: CGFloat) -> StripCorner { StripModel.corner(nearest: NSRect(x: x, y: y, width: 120, height: 40), in: screenArea) }
+    func near(_ x: CGFloat, _ y: CGFloat) -> StripCorner {
+        StripModel.corner(nearest: NSRect(x: x, y: y, width: 120, height: 40), in: screenArea)
+    }
     #expect(near(40, 900) == .topLeft)
     #expect(near(1800, 1100) == .topRight)
     #expect(near(100, 200) == .bottomLeft)
@@ -164,7 +184,9 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.items([working], workspaces: places).first?.agents == ["Working · Fix the login race"])
     #expect(StripModel.items([working, session("a", .working)], workspaces: places).first?.words == "Working: 2")
     #expect(StripModel.items([session("a", .working)], workspaces: places).first?.words == "Working")
-    #expect(StripModel.items([session("a", .done, unread: true, summary: "Release notes updated")], workspaces: places).first?.words == "Done: Release notes updated")
+    #expect(
+        StripModel.items([session("a", .done, unread: true, summary: "Release notes updated")], workspaces: places)
+            .first?.words == "Done: Release notes updated")
 }
 
 @MainActor @Test func finishedWorkStaysAWhileOnceReadInKelp() {
@@ -173,7 +195,8 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.items([read], workspaces: places, now: now).first?.cell == .done)   // read two minutes ago: still there
     let old = session("a", .done, at: now.timeIntervalSince1970 - StripModel.recent - 1)
     #expect(StripModel.items([old], workspaces: places, now: now).isEmpty)
-    #expect(StripModel.items([session("a", .idle, at: now.timeIntervalSince1970)], workspaces: places, now: now).isEmpty)
+    #expect(
+        StripModel.items([session("a", .idle, at: now.timeIntervalSince1970)], workspaces: places, now: now).isEmpty)
 }
 
 /// A summary's Markdown link shows its words, not its brackets, and stays a link.

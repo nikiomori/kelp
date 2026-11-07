@@ -8,9 +8,12 @@ extension TasksViewController {
         let pop = NSPopUpButton(frame: .zero, pullsDown: true)
         pop.addItem(withTitle: String(localized: "Merge"))
         pop.item(at: 0)?.image = .symbol("arrow.triangle.merge")
-        for (title, method) in [(String(localized: "Squash and Merge"), "squash"), (String(localized: "Create a Merge Commit"), "merge"),
-                                (String(localized: "Rebase and Merge"), "rebase")] {
-            pop.menu?.add(title) { [weak self] in self?.merge(r.number, r.headRefOid, wt, method: method, title: title) }
+        for (title, method) in [
+            (String(localized: "Squash and Merge"), "squash"), (String(localized: "Create a Merge Commit"), "merge"),
+            (String(localized: "Rebase and Merge"), "rebase")
+        ] {
+            pop.menu?.add(title) { [weak self] in self?.merge(r.number, r.headRefOid, wt, method: method, title: title)
+            }
         }
         return pop
     }
@@ -23,9 +26,13 @@ extension TasksViewController {
         Task {
             guard await runSheet(a) == .alertFirstButtonReturn else { return }
             // The merge runs in a workspace of the project (gh needs a checkout); the PR's own if it has one.
-            guard let wid = wt?.id ?? app.worktrees.first(where: { $0.repoId == repoId })?.id else { NSSound.beep(); return }
+            guard let wid = wt?.id ?? app.worktrees.first(where: { $0.repoId == repoId })?.id else {
+                NSSound.beep()
+                return
+            }
             if await app.call(GitHubPRMerge(worktreeId: wid, pr: n, method: method, head: head)) != nil {
-                status.stringValue = String(localized: "Merged #\(n)"); reload()
+                status.stringValue = String(localized: "Merged #\(n)")
+                reload()
             }
         }
     }

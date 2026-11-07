@@ -26,7 +26,9 @@ enum UnsavedBackups {
                 guard let holder = holder(of: parts[0], in: app.worktrees) else { continue }
                 workspace = holder
                 let moved = prefix + workspace + "." + parts[0]   // one typed there since is newer
-                if app.uiState[moved] == nil { app.uiState[moved] = .array([.string(parts[0]), .string(workspace), .string(parts[2])]) }
+                if app.uiState[moved] == nil {
+                    app.uiState[moved] = .array([.string(parts[0]), .string(workspace), .string(parts[2])])
+                }
             }
             host?.openInBackground(parts[0], workspace: workspace)
             found += 1

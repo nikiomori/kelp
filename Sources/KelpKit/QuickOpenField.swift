@@ -5,7 +5,10 @@ import DesignKit
 /// "Commands" capsule (`scope`), what's typed after it, so the two palettes — alike otherwise — tell apart at a glance.
 @MainActor
 final class PaletteField: NSSearchField {
-    override static var cellClass: AnyClass? { get { Cell.self } set {} }
+    override static var cellClass: AnyClass? {
+        get { Cell.self }
+        set {}
+    }
     private let token = Token()
 
     /// The token's word; nil: none.
@@ -39,7 +42,8 @@ final class PaletteField: NSSearchField {
         super.layout()
         guard let c = cell as? Cell else { return }
         let after = c.searchButtonRect(forBounds: bounds).maxX + 2, size = token.intrinsicContentSize
-        token.frame = NSRect(x: after, y: ((bounds.height - size.height) / 2).rounded(), width: size.width, height: size.height)
+        token.frame = NSRect(
+            x: after, y: ((bounds.height - size.height) / 2).rounded(), width: size.width, height: size.height)
     }
 
     /// Its text starts after the token.
@@ -55,9 +59,15 @@ final class PaletteField: NSSearchField {
 
     /// A word on a faint purple capsule: the one colour in the palette, for the palette you're in.
     private final class Token: NSView {
-        var text = "" { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+        var text = "" {
+            didSet {
+                invalidateIntrinsicContentSize()
+                needsDisplay = true
+            }
+        }
         private var words: NSAttributedString {
-            NSAttributedString(string: text, attributes: [.font: NSFont.ui(13, weight: .medium), .foregroundColor: NSColor.textPurple])
+            NSAttributedString(
+                string: text, attributes: [.font: NSFont.ui(13, weight: .medium), .foregroundColor: NSColor.textPurple])
         }
         override var intrinsicContentSize: NSSize { NSSize(width: ceil(words.size().width) + 20, height: 24) }
         override func draw(_ r: NSRect) {
@@ -86,17 +96,27 @@ final class PaletteRowView: NSTableRowView {
     private let hoverFill = CALayer()
     private var area: NSTrackingArea?
     private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
-    override var isEmphasized: Bool { get { true } set {} }
+    override var isEmphasized: Bool {
+        get { true }
+        set {}
+    }
     override var isSelected: Bool { didSet { showHover() } }
 
     override func drawSelection(in r: NSRect) {
         NSColor.themeAccent.setFill()   // the selection colour turns grey in a panel that isn't key; Spotlight's stays blue
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 1), xRadius: Metrics.radiusMD, yRadius: Metrics.radiusMD).fill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 1), xRadius: Metrics.radiusMD, yRadius: Metrics.radiusMD)
+            .fill()
     }
-    override func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeAlways) }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeAlways)
+    }
     override func mouseEntered(with e: NSEvent) { hovering = true }
     override func mouseExited(with e: NSEvent) { hovering = false }
-    override func prepareForReuse() { super.prepareForReuse(); hovering = false }
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        hovering = false
+    }
     private func showHover() {
         wantsLayer = true
         if hoverFill.superlayer == nil {
@@ -152,7 +172,9 @@ final class Keycaps: NSStackView {
             capBox.edgeInsets = NSEdgeInsets(top: 1, left: 5, bottom: 1, right: 5)
             capBox.wantsLayer = true
             capBox.layer?.cornerRadius = Metrics.radiusXS
-            effectiveAppearance.performAsCurrentDrawingAppearance { capBox.layer?.backgroundColor = NSColor.fillSelected.cgColor }
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                capBox.layer?.backgroundColor = NSColor.fillSelected.cgColor
+            }
             let word = NSTextField(labelWithString: parts.count > 1 ? parts[1] : "")
             word.font = .ui(11)
             word.textColor = .secondaryLabelColor

@@ -26,7 +26,8 @@ extension SyntaxHighlighter {
         for r in found.sorted(by: { $0.location < $1.location }) where NSLocationInRange(r.location, range) {
             let opens = Self.opens(s.character(at: r.location))
             if !opens { depth = max(depth - 1, 0) }
-            lm.addTemporaryAttribute(.foregroundColor, value: bracketColors[depth % bracketColors.count], forCharacterRange: r)
+            lm.addTemporaryAttribute(
+                .foregroundColor, value: bracketColors[depth % bracketColors.count], forCharacterRange: r)
             if opens { depth += 1 }
         }
     }
@@ -46,7 +47,9 @@ extension SyntaxHighlighter {
                     inside = c
                     break
                 }
-                if r.length == 1, [40, 91, 123, 41, 93, 125].contains(s.character(at: r.location)) { depth += opens(s.character(at: r.location)) ? 1 : -1 }
+                if r.length == 1, [40, 91, 123, 41, 93, 125].contains(s.character(at: r.location)) {
+                    depth += opens(s.character(at: r.location)) ? 1 : -1
+                }
             }
             guard let inside else { break }
             node = inside

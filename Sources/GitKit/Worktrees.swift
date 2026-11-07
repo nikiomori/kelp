@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 extension Git {
     /// Slug safe for directory names: "feat/login ui" -> "feat-login-ui".
@@ -11,11 +11,16 @@ extension Git {
     /// there already, checked out as it is (a remote one, "origin/x", gets a local "x" that follows it); `base` unused.
     /// `copying`: the project's own files a worktree gets (`copyFiles`, `.worktreeinclude`'s: `.env` and the like), which
     /// a pull request's code shouldn't have to read.
-    public static func addWorktree(repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
-                                   copying: Bool = true, remotes: Remotes = .none) throws -> String {
+    public static func addWorktree(
+        repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
+        copying: Bool = true, remotes: Remotes = .none
+    ) throws -> String {
         // "feat/a" and "feat-a" make one slug: the second gets "-2" rather than a confusing "already exists" from git.
         var path = dir.appendingPathComponent(slug(branch)).path, n = 2
-        while FileManager.default.fileExists(atPath: path) { path = dir.appendingPathComponent("\(slug(branch))-\(n)").path; n += 1 }
+        while FileManager.default.fileExists(atPath: path) {
+            path = dir.appendingPathComponent("\(slug(branch))-\(n)").path
+            n += 1
+        }
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         if !existing {
             try run(["worktree", "add", "-b", rev(branch), path, rev(base)], cwd: repo, remotes: remotes)
@@ -23,14 +28,19 @@ extension Git {
             try run(["worktree", "add", path, rev(branch)], cwd: repo, remotes: remotes)
         } else {   // "origin/x": a local "x" following it, or the local "x" there is already
             let local = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
-            if branchExists(repo, local, remotes: remotes) { try run(["worktree", "add", path, rev(local)], cwd: repo, remotes: remotes) }
-            else { try run(["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes) }
+            if branchExists(repo, local, remotes: remotes) {
+                try run(["worktree", "add", path, rev(local)], cwd: repo, remotes: remotes)
+            } else {
+                try run(
+                    ["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes)
+            }
         }
         let fm = FileManager.default
         for f in copying ? Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) : [] {
             let src = (repo as NSString).appendingPathComponent(f), dst = (path as NSString).appendingPathComponent(f)
             guard fm.fileExists(atPath: src), !fm.fileExists(atPath: dst), staysInside(dst, path) else { continue }
-            try? fm.createDirectory(atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            try? fm.createDirectory(
+                atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
             try? fm.copyItem(atPath: src, toPath: dst)
         }
         return path
@@ -40,10 +50,14 @@ extension Git {
     /// and that branch's name: `wanted` (the PR's own branch name) only when it is free and already at the head, your own PR
     /// up to date; else `pr-<N>`, moved to the head now. A local branch that only shares the PR's name is never taken for it.
     @discardableResult
-    public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes = .none) throws -> String {
+    public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes = .none)
+        throws -> String
+    {
         do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch let github {
             // GitHub's error, if GitLab's way fails too: most projects are GitHub's.
-            do { try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes) } catch { throw github }
+            do {
+                try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes)
+            } catch { throw github }
         }
         func line(_ args: [String]) throws -> String {
             try run(args, cwd: repo, ok: [0, 1], remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -52,21 +66,28 @@ extension Git {
         // Kept past its branch (`holdsPullRequest`): a workspace made later on top of it is the PR's code too.
         try run(["update-ref", "refs/kelp/pr/\(number)", head], cwd: repo, remotes: remotes)
         func at(_ b: String) throws -> String { try line(["rev-parse", "--verify", "-q", "refs/heads/" + b]) }
-        func openIn(_ b: String) throws -> String { try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + b]) }
+        func openIn(_ b: String) throws -> String {
+            try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + b])
+        }
         if let wanted, Git.isRevision(wanted), try at(wanted) == head, try openIn(wanted).isEmpty { return wanted }
         // pr-<N>, moved on from an older fetch of this PR; pr-<N>-2… when it holds commits of its own, which stay.
         var mine = "pr-\(number)", k = 2
         while true {
             let now = try at(mine), open = try openIn(mine)
-            if now.isEmpty { try run(["branch", mine, head], cwd: repo, remotes: remotes); return mine }
+            if now.isEmpty {
+                try run(["branch", mine, head], cwd: repo, remotes: remotes)
+                return mine
+            }
             if !open.isEmpty {
-                throw GitError(args: ["worktree"], status: 1, stderr: "Pull request #\(number) is open already, in \(open).")
+                throw GitError(
+                    args: ["worktree"], status: 1, stderr: "Pull request #\(number) is open already, in \(open).")
             }
             if try now == head || line(["merge-base", now, head]) == now {
                 try run(["branch", "-f", mine, head], cwd: repo, remotes: remotes)
                 return mine
             }
-            mine = "pr-\(number)-\(k)"; k += 1
+            mine = "pr-\(number)-\(k)"
+            k += 1
         }
     }
 
@@ -76,14 +97,21 @@ extension Git {
     /// fetched head found merged and pushed is dropped. Unknown (git failed): it does.
     public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes = .none) -> Bool {
         do {
-            let merges = try run(["config", "--get-regexp", #"^branch\..*\.merge$"#], cwd: repo, ok: [0, 1], remotes: remotes)
+            let merges = try run(
+                ["config", "--get-regexp", #"^branch\..*\.merge$"#], cwd: repo, ok: [0, 1], remotes: remotes)
             let following = merges.split(separator: "\n").compactMap { line -> String? in
                 let kv = line.split(separator: " ", maxSplits: 1)
-                guard kv.count == 2, kv[1].hasPrefix("refs/pull/") || kv[1].hasPrefix("refs/merge-requests/") else { return nil }
+                guard kv.count == 2, kv[1].hasPrefix("refs/pull/") || kv[1].hasPrefix("refs/merge-requests/") else {
+                    return nil
+                }
                 return "refs/heads/" + kv[0].dropFirst("branch.".count).dropLast(".merge".count)
             }
-            let heads = try run(["for-each-ref", "--merged", rev, "--format=%(refname) %(objectname)", "refs/kelp/pr/", "refs/heads/pr-*"]
-                                + following, cwd: repo, remotes: remotes)
+            let heads = try run(
+                [
+                    "for-each-ref", "--merged", rev, "--format=%(refname) %(objectname)", "refs/kelp/pr/",
+                    "refs/heads/pr-*"
+                ]
+                    + following, cwd: repo, remotes: remotes)
             for line in heads.split(separator: "\n") {
                 let ref = String(line.prefix { $0 != " " }), sha = String(line.drop { $0 != " " }.dropFirst())
                 // The project's branches: origin's, and upstream's in a fork's checkout (where origin is the user's fork).
@@ -98,24 +126,35 @@ extension Git {
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.
     public static func includedIgnoredFiles(repo: String, remotes: Remotes = .none) -> [String] {
         guard let text = try? String(contentsOfFile: repo + "/.worktreeinclude", encoding: .utf8) else { return [] }
-        let pats = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !$0.hasPrefix("#") }
-        let ignored = ((try? run(["ls-files", "--others", "--ignored", "--exclude-standard", "-z"], cwd: repo, remotes: remotes)) ?? "")
+        let pats = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter {
+            !$0.isEmpty && !$0.hasPrefix("#")
+        }
+        let ignored =
+            ((try? run(["ls-files", "--others", "--ignored", "--exclude-standard", "-z"], cwd: repo, remotes: remotes))
+            ?? "")
             .split(separator: "\0").map(String.init)
-        return ignored.filter { f in pats.contains { fnmatch($0, f, 0) == 0 || fnmatch($0, (f as NSString).lastPathComponent, 0) == 0 } }
+        return ignored.filter { f in
+            pats.contains { fnmatch($0, f, 0) == 0 || fnmatch($0, (f as NSString).lastPathComponent, 0) == 0 }
+        }
     }
 
     /// `dst` is still in `root` once symlinks are followed: a folder the branch commits as a link (`conf -> ~/x`) would
     /// take the copy (the user's ignored `.env`), or the folders made for it, out of the worktree.
     static func staysInside(_ dst: String, _ root: String) -> Bool {
         var folder = (dst as NSString).deletingLastPathComponent
-        while !FileManager.default.fileExists(atPath: folder), folder.count > 1 { folder = (folder as NSString).deletingLastPathComponent }
-        let real = URL(fileURLWithPath: folder).resolvingSymlinksInPath().path, inside = URL(fileURLWithPath: root).resolvingSymlinksInPath().path
+        while !FileManager.default.fileExists(atPath: folder), folder.count > 1 {
+            folder = (folder as NSString).deletingLastPathComponent
+        }
+        let real = URL(fileURLWithPath: folder).resolvingSymlinksInPath().path,
+            inside = URL(fileURLWithPath: root).resolvingSymlinksInPath().path
         return real == inside || real.hasPrefix(inside + "/")
     }
 
     /// Symlink shared directories (node_modules, .venv…) from the main checkout instead of reinstalling.
     public static func linkShared(_ dirs: [String], repo: String, worktree: String) {
-        place(dirs, repo: repo, worktree: worktree) { src, dst in try? FileManager.default.createSymbolicLink(atPath: dst, withDestinationPath: src) }
+        place(dirs, repo: repo, worktree: worktree) { src, dst in
+            try? FileManager.default.createSymbolicLink(atPath: dst, withDestinationPath: src)
+        }
     }
 
     /// `.kelp.yaml`'s `clone:` paths copied into a new worktree as APFS clones: seconds and next to no disk, and each
@@ -126,17 +165,25 @@ extension Git {
         var left: [String] = []
         place(dirs, repo: repo, worktree: worktree) { src, dst in
             // A link the branch commits (node_modules -> ~/.ssh) isn't followed.
-            if clonefile(src, dst, UInt32(CLONE_NOFOLLOW)) != 0 { left.append("\((src as NSString).lastPathComponent): \(String(cString: strerror(errno)))") }
+            if clonefile(src, dst, UInt32(CLONE_NOFOLLOW)) != 0 {
+                left.append("\((src as NSString).lastPathComponent): \(String(cString: strerror(errno)))")
+            }
         }
         return left
     }
 
-    private static func place(_ dirs: [String], repo: String, worktree: String, _ put: (_ src: String, _ dst: String) -> Void) {
+    private static func place(
+        _ dirs: [String], repo: String, worktree: String, _ put: (_ src: String, _ dst: String) -> Void
+    ) {
         // Only paths inside the project: "/etc", "../x" or "a/../../b" would link (or create folders) outside it.
         for d in dirs where !d.hasPrefix("/") && !d.hasPrefix("~") && !d.split(separator: "/").contains("..") {
-            let src = (repo as NSString).appendingPathComponent(d), dst = (worktree as NSString).appendingPathComponent(d)
-            guard FileManager.default.fileExists(atPath: src), !FileManager.default.fileExists(atPath: dst), staysInside(dst, worktree) else { continue }
-            try? FileManager.default.createDirectory(atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            let src = (repo as NSString).appendingPathComponent(d),
+                dst = (worktree as NSString).appendingPathComponent(d)
+            guard FileManager.default.fileExists(atPath: src), !FileManager.default.fileExists(atPath: dst),
+                staysInside(dst, worktree)
+            else { continue }
+            try? FileManager.default.createDirectory(
+                atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
             put(src, dst)
         }
     }
@@ -145,13 +192,17 @@ extension Git {
     /// `git worktree list` without its first entry, the main checkout.
     /// NUL-separated here (`-z`), so a path with a newline in it can't read as another worktree or a lock; a host's git
     /// may be older than that (2.36), so a remote project's list is read by lines.
-    public static func linkedWorktrees(_ repo: String, remotes: Remotes = .none) throws -> [(path: String, branch: String?, locked: Bool)] {
+    public static func linkedWorktrees(_ repo: String, remotes: Remotes = .none) throws -> [(
+        path: String, branch: String?, locked: Bool
+    )] {
         let nul = remotes.of(repo) == nil
         let out = try run(["worktree", "list", "--porcelain"] + (nul ? ["-z"] : []), cwd: repo, remotes: remotes)
         return out.components(separatedBy: nul ? "\0\0" : "\n\n").dropFirst().compactMap { b in
             let lines = b.split(separator: nul ? "\0" : "\n")
             guard let p = lines.first(where: { $0.hasPrefix("worktree ") }) else { return nil }
-            let branch = lines.first { $0.hasPrefix("branch refs/heads/") }.map { String($0.dropFirst(18)) }.flatMap { Git.isRevision($0) ? $0 : nil }
+            let branch = lines.first { $0.hasPrefix("branch refs/heads/") }.map { String($0.dropFirst(18)) }.flatMap {
+                Git.isRevision($0) ? $0 : nil
+            }
             return (String(p.dropFirst(9)), branch, lines.contains { $0 == "locked" || $0.hasPrefix("locked ") })
         }
     }
@@ -173,30 +224,48 @@ extension Git {
     /// other branch or remote unless `force` or `dropCommits` (they'd be gone for good). Both checks come first: on
     /// refusal nothing has been removed. A local folder goes to the Trash: what git doesn't see (ignored .env files, a
     /// local database, submodules' own work) isn't checked above, and `worktree remove --force` would delete it for good.
-    public static func removeWorktree(repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none) throws {
-        try checkRemovable(repo: repo, path: path, branch: branch, force: force, dropCommits: dropCommits, remotes: remotes)
+    public static func removeWorktree(
+        repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none
+    ) throws {
+        try checkRemovable(
+            repo: repo, path: path, branch: branch, force: force, dropCommits: dropCommits, remotes: remotes)
         let host = remotes.of(repo), local = host == nil && remotes.of(path) == nil
         if host != nil || (local && FileManager.default.fileExists(atPath: path)) {
             // Only a folder git lists as this repo's worktree goes to the Trash (or aside on a host), whatever the record says.
             let real = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
             // A host's path as git lists it, links followed there (git lists /private/tmp for /tmp).
-            let here = try host.map { h in
-                String(decoding: try h.run("cd -- \(IDE.shellWord(path)) 2>/dev/null && pwd -P || printf %s \(IDE.shellWord(path))"),
-                       as: UTF8.self).trimmingCharacters(in: .newlines)
-            } ?? real(path)
-            guard let entry = try linkedWorktrees(repo, remotes: remotes).first(where: { (local ? real($0.path) : $0.path) == here }) else {
-                throw GitError(args: ["worktree", "remove"], status: 1, stderr: "\(path) is not a worktree of this repository")
+            let here =
+                try host.map { h in
+                    String(
+                        decoding: try h.run(
+                            "cd -- \(IDE.shellWord(path)) 2>/dev/null && pwd -P || printf %s \(IDE.shellWord(path))"),
+                        as: UTF8.self
+                    ).trimmingCharacters(in: .newlines)
+                } ?? real(path)
+            guard
+                let entry = try linkedWorktrees(repo, remotes: remotes).first(where: {
+                    (local ? real($0.path) : $0.path) == here
+                })
+            else {
+                throw GitError(
+                    args: ["worktree", "remove"], status: 1, stderr: "\(path) is not a worktree of this repository")
             }
             // Locked (`git worktree lock`: kept on purpose): git wouldn't remove its record, so the folder stays too.
-            guard !entry.locked else { throw GitError(args: ["worktree", "remove"], status: 1, stderr: "\(path) is locked (git worktree unlock)") }
+            guard !entry.locked else {
+                throw GitError(
+                    args: ["worktree", "remove"], status: 1, stderr: "\(path) is locked (git worktree unlock)")
+            }
         }
         if local, FileManager.default.fileExists(atPath: path) { try Trash.move(URL(fileURLWithPath: path)) }
         // A remote project's: what git doesn't see (ignored .env files, a local database) is moved aside on the host, into
         // ~/.kelp-trash, rather than deleted for good by `worktree remove --force`. The shell's pid keeps two removals
         // of a same-named folder in one second apart.
         if let host {
-            let q = IDE.shellWord, aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
-            _ = try host.run("d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(q(path)) ]; then mv -- \(q(path)) \"$d\"/\(q(aside))-$$; fi")
+            let q = IDE.shellWord,
+                aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
+            _ = try host.run(
+                "d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(q(path)) ]; then mv -- \(q(path)) \"$d\"/\(q(aside))-$$; fi"
+            )
         }
         // Its record only: `worktree prune` would also drop worktrees whose folder is just away (an unmounted disk).
         try run(["worktree", "remove", "--force", path], cwd: repo, remotes: remotes)
@@ -204,7 +273,9 @@ extension Git {
     }
 
     /// What `removeWorktree` would refuse, without removing anything.
-    public static func checkRemovable(repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none) throws {
+    public static func checkRemovable(
+        repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none
+    ) throws {
         if !force, try isDirty(path, remotes: remotes) {
             throw GitError(args: ["worktree", "remove"], status: 1, stderr: "worktree has uncommitted changes")
         }
@@ -212,30 +283,39 @@ extension Git {
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
         // Commits made on a detached HEAD belong to no branch at all: removing the folder would leave them to `git gc`.
         if !dropCommits, remotes.of(path) != nil || FileManager.default.fileExists(atPath: path),
-           case let n = commitsOnNoBranch(path, remotes: remotes), n > 0 {
-            throw GitError(args: ["worktree", "remove"], status: 1,
-                           stderr: "This workspace has \(n) commit\(n == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first.")
+            case let n = commitsOnNoBranch(path, remotes: remotes), n > 0
+        {
+            throw GitError(
+                args: ["worktree", "remove"], status: 1,
+                stderr:
+                    "This workspace has \(n) commit\(n == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first."
+            )
         }
     }
 
     private static func checkBranchDeletable(repo: String, _ branch: String, remotes: Remotes) throws {
         if case let n = try onlyOnBranch(repo: repo, branch, remotes: remotes), n > 0 {
-            throw GitError(args: ["branch", "-D", branch], status: 1,
-                           stderr: "\(branch) has \(n) commit\(n == 1 ? "" : "s") that aren't on any other branch or remote")
+            throw GitError(
+                args: ["branch", "-D", branch], status: 1,
+                stderr: "\(branch) has \(n) commit\(n == 1 ? "" : "s") that aren't on any other branch or remote")
         }
     }
 
     /// A worktree whose folder is gone (a removal that stopped after the Trash, a folder deleted by hand): git's record of
     /// it goes, and its branch by `removeWorktree`'s rule: refused while it has commits no other branch or remote has,
     /// unless `dropCommits`.
-    public static func forgetWorktree(repo: String, path: String, branch: String?, dropCommits: Bool = false, remotes: Remotes = .none) throws {
+    public static func forgetWorktree(
+        repo: String, path: String, branch: String?, dropCommits: Bool = false, remotes: Remotes = .none
+    ) throws {
         let branch = branch.flatMap { branchExists(repo, $0, remotes: remotes) ? $0 : nil }
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
         // Only the folder it was in is there to follow links in to where git lists it (/tmp is /private/tmp).
         let local = remotes.of(repo) == nil
         let real = { (p: String) in
             let u = URL(fileURLWithPath: p)
-            return local ? u.deletingLastPathComponent().resolvingSymlinksInPath().appendingPathComponent(u.lastPathComponent).path : p
+            return local
+                ? u.deletingLastPathComponent().resolvingSymlinksInPath().appendingPathComponent(u.lastPathComponent)
+                    .path : p
         }
         if let entry = try linkedWorktrees(repo, remotes: remotes).first(where: { real($0.path) == real(path) }) {
             try run(["worktree", "remove", "--force", entry.path], cwd: repo, remotes: remotes)
@@ -245,15 +325,17 @@ extension Git {
 
     /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (no commits yet: 0).
     public static func commitsOnNoBranch(_ path: String, remotes: Remotes = .none) -> Int {
-        let out = try? run(["rev-list", "--count", "HEAD", "--not", "--branches", "--remotes"], cwd: path, remotes: remotes)
+        let out = try? run(
+            ["rev-list", "--count", "HEAD", "--not", "--branches", "--remotes"], cwd: path, remotes: remotes)
         return Int(out?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") ?? 0
     }
 
     /// Commits on `branch` that no other local branch and no remote branch has: what deleting it would lose.
     public static func onlyOnBranch(repo: String, _ branch: String, remotes: Remotes = .none) throws -> Int {
         // --exclude before --branches takes the branch's name without refs/heads/ (with it, nothing is excluded).
-        let out = try run(["rev-list", "--count", "refs/heads/" + branch, "--not", "--exclude=" + branch, "--branches", "--remotes"],
-                          cwd: repo, remotes: remotes)
+        let out = try run(
+            ["rev-list", "--count", "refs/heads/" + branch, "--not", "--exclude=" + branch, "--branches", "--remotes"],
+            cwd: repo, remotes: remotes)
         return Int(out.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
     }
 }

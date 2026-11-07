@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
-import UniformTypeIdentifiers
 import Core
 import DesignKit
+import SwiftUI
+import UniformTypeIdentifiers
 import WorkbenchKit
 
 /// Installed extensions: turn them on or off, remove, create (by hand or with an agent); or the library's, to install.
@@ -25,11 +25,15 @@ struct ExtensionsSettings: View {
             if library { LibrarySection() } else { installed }
         }
         .formStyle(.grouped)
-        .fileImporter(isPresented: $picking, allowedContentTypes: [.folder, UTType(filenameExtension: "vsix") ?? .zip]) { result in
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.folder, UTType(filenameExtension: "vsix") ?? .zip])
+        { result in
             guard case .success(let url) = result else { return }
             Task {
-                do { try await registry.install(url) }
-                catch { Banner.show(String(localized: "Couldn't install \(url.lastPathComponent): \(AppModel.message(error))"), style: .error) }
+                do { try await registry.install(url) } catch {
+                    Banner.show(
+                        String(localized: "Couldn't install \(url.lastPathComponent): \(AppModel.message(error))"),
+                        style: .error)
+                }
             }
         }
     }
@@ -50,19 +54,32 @@ struct ExtensionsSettings: View {
             Section("Installed") { ForEach(added) { row($0) } }
         }
         Section {
-            Text(String(localized: "To add one, install it from the Library, or ask Claude Code in an agent tab, e.g. “make a Kelp panel that lists my Docker containers”. ")
-                 + String(localized: "It knows how through the extensions skill (Settings › Agents)."))
-                .font(.ui(11)).foregroundStyle(.secondary)
+            Text(
+                String(
+                    localized:
+                        "To add one, install it from the Library, or ask Claude Code in an agent tab, e.g. “make a Kelp panel that lists my Docker containers”. "
+                )
+                    + String(localized: "It knows how through the extensions skill (Settings › Agents).")
+            )
+            .font(.ui(11)).foregroundStyle(.secondary)
             HStack {
-                Button("How Extensions Work") { app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md")) }
-                    .buttonStyle(.link)
+                Button("How Extensions Work") {
+                    app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md"))
+                }
+                .buttonStyle(.link)
                 Spacer()
                 Button("Install…") { picking = true }
-                    .help("A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder")
+                    .help(
+                        "A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder"
+                    )
                 Menu {
-                    Button("Show in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: ExtensionRegistry.userDir.path) }
+                    Button("Show in Finder") {
+                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: ExtensionRegistry.userDir.path)
+                    }
                     Button("Reload Extensions") { registry.reload() }
-                } label: { Image(systemName: "ellipsis.circle") }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             }
         }
@@ -73,7 +90,8 @@ struct ExtensionsSettings: View {
         LabeledContent {
             HStack(spacing: Metrics.gap) {
                 if e.waitsToBeAllowed { Button("Allow…") { Task { await registry.allow(e) } } }
-                more(e); enabled(e)
+                more(e)
+                enabled(e)
             }
         } label: {
             Label {
@@ -81,15 +99,19 @@ struct ExtensionsSettings: View {
                 if !e.description.isEmpty { Text(loc(e.description)) }
                 if let err = e.error { Text(err).foregroundStyle(Color.textOrange).textSelection(.enabled) }
                 if let u = e.unavailable { Text(u) }
-                if e.waitsToBeAllowed { Text("New or changed since it was allowed: it runs no commands until you allow it.") }
+                if e.waitsToBeAllowed {
+                    Text("New or changed since it was allowed: it runs no commands until you allow it.")
+                }
             } icon: {
-                Image(systemName: e.icon).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(width: Metrics.iconMenu)
+                Image(systemName: e.icon).foregroundStyle(e.error == nil ? Color.secondary : Color.textOrange).frame(
+                    width: Metrics.iconMenu)
             }
         }
     }
 
     private func enabled(_ e: ExtensionInfo) -> some View {
-        Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) })).toggleStyle(.switch).labelsHidden()
+        Toggle("", isOn: Binding(get: { e.enabled }, set: { registry.setEnabled(e.id, $0) })).toggleStyle(.switch)
+            .labelsHidden()
     }
 
     /// What can be done to one that was installed; Kelp's own only turn off.
@@ -97,12 +119,15 @@ struct ExtensionsSettings: View {
         if let p = e.path, !e.builtin {
             Menu {
                 Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([p]) }
-                let manifest = FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
+                let manifest =
+                    FileManager.default.fileExists(atPath: p.appendingPathComponent("extension.json").path)
                     ? "extension.json" : "package.json"
                 Button("Edit \(manifest)") { app.workbench.showFile(p.appendingPathComponent(manifest)) }
                 Divider()
                 Button("Uninstall", role: .destructive) { registry.uninstall(e.id) }
-            } label: { Image(systemName: "ellipsis.circle") }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
             .menuStyle(.borderlessButton).fixedSize()
         }
     }

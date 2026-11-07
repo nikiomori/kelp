@@ -1,16 +1,17 @@
 import AppKit
+import Core
 import Foundation
 import JavaScriptCore
-import os
-import Testing
 import TestSupport
-import Core
+import Testing
 import WorkbenchKit
-@testable import KelpKit
+import os
+
 @testable import BuiltinActivity
 @testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinIssues
+@testable import KelpKit
 
 /// The built-ins' small decisions, without a window: how they word and sort what they show.
 
@@ -84,8 +85,9 @@ import WorkbenchKit
 
 /// Why a pull request can't merge yet is said in words, the review or the checks named when GitHub only says BLOCKED.
 @Test @MainActor func aBlockedMergeSaysWhy() {
-    var pr = GitHub.PullRequest(number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN",
-                                reviewDecision: "REVIEW_REQUIRED", checks: .init(failed: 1))
+    var pr = GitHub.PullRequest(
+        number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN",
+        reviewDecision: "REVIEW_REQUIRED", checks: .init(failed: 1))
     #expect(TasksViewController.mergeBlock(pr) == nil)   // GitHub hasn't said
     pr.mergeState = "BLOCKED"
     #expect(TasksViewController.mergeBlock(pr) == "It needs an approving review.")
@@ -109,7 +111,8 @@ import WorkbenchKit
 
 /// A parked agent comes back by itself when it asks, saying why; until then its Done doesn't call.
 @Test @MainActor func aParkedAgentComesBackWhenItAsks() async throws {
-    let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    let rig = try await AppRig(files: ["a.txt": "a\n"])
+    defer { rig.done() }
     let m = rig.app
     var s = Session(worktreeId: rig.workspace.id, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
     m.upsert(s)
@@ -125,10 +128,13 @@ import WorkbenchKit
 /// A parked agent comes back on its own workspace's run that just failed, as it arrives: not when a run lands for
 /// another workspace while an old failure of its own is still the last one kept.
 @Test @MainActor func aParkedAgentComesBackOnAFailedRunOfItsOwnAsItArrives() async throws {
-    let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    let rig = try await AppRig(files: ["a.txt": "a\n"])
+    defer { rig.done() }
     let m = rig.app, mine = rig.workspace.id
     func run(_ wid: String, _ conclusion: String) -> CIEvent {
-        let r = CIRuns.Run(id: 1, title: "", workflow: "CI", status: "completed", conclusion: conclusion, event: "push", url: "", createdAt: "")
+        let r = CIRuns.Run(
+            id: 1, title: "", workflow: "CI", status: "completed", conclusion: conclusion, event: "push", url: "",
+            createdAt: "")
         return CIEvent(worktree: wid, result: CIRunsList.Result(branch: "main", runs: [r], workflows: []))
     }
     let s = Session(worktreeId: mine, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
@@ -147,13 +153,17 @@ import WorkbenchKit
     var c = NewChatSheet.Choice(mode: .new, name: "Fix login", from: "dev", branch: nil, pr: nil, agent: "codex")
     var r = NewChatSheet.request(c, repo: "r")
     #expect(r.note == "Fix login" && r.base == "dev" && r.branch == nil && r.existing == nil)
-    c.mode = .existing; c.branch = "origin/spike"
+    c.mode = .existing
+    c.branch = "origin/spike"
     r = NewChatSheet.request(c, repo: "r")
     #expect(r.branch == "origin/spike" && r.existing == true)
-    c.mode = .pullRequest; c.branch = "fix/flaky"; c.pr = 212
+    c.mode = .pullRequest
+    c.branch = "fix/flaky"
+    c.pr = 212
     r = NewChatSheet.request(c, repo: "r")
     #expect(r.pr == 212 && r.branch == "fix/flaky")
-    let sheet = NewChatSheet(local: ["main"], remote: [], base: "main", prs: [], agents: [(id: "codex", name: "Codex")], picked: "codex")
+    let sheet = NewChatSheet(
+        local: ["main"], remote: [], base: "main", prs: [], agents: [(id: "codex", name: "Codex")], picked: "codex")
     #expect(sheet.choice.mode == .new && sheet.choice.agent == "codex" && sheet.choice.from == "main")
 }
 
@@ -161,7 +171,9 @@ import WorkbenchKit
 @Test @MainActor func fillsGetStrongerWithIncreaseContrast() {
     #expect(NSColor.fillAlpha(0.05, highContrast: true) == 0.10 && NSColor.fillAlpha(0.05, highContrast: false) == 0.05)
     var rest: CGFloat = 0
-    NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance { rest = NSColor.fillRest.usingColorSpace(.sRGB)?.alphaComponent ?? 0 }
+    NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance {
+        rest = NSColor.fillRest.usingColorSpace(.sRGB)?.alphaComponent ?? 0
+    }
     #expect(abs(rest - NSColor.fillAlpha(0.05, highContrast: NSColor.increaseContrast)) < 0.001)
 }
 
@@ -175,15 +187,18 @@ import WorkbenchKit
 
 /// An extension.json broken while it's edited keeps the version that last loaded, its error beside it.
 @Test @MainActor func aBrokenManifestKeepsTheLastOneThatWorked() async throws {
-    let rig = try await AppRig(files: ["a.txt": "a\n"]); defer { rig.done() }
+    let rig = try await AppRig(files: ["a.txt": "a\n"])
+    defer { rig.done() }
     await rig.app.uiState.load()   // as connecting does: what was allowed is known (`ExtensionTrust`)
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let file = dir.appendingPathComponent("extension.json")
-    try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}]}}"#.write(to: file, atomically: true, encoding: .utf8)
+    try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}]}}"#.write(
+        to: file, atomically: true, encoding: .utf8)
     let good = DeclarativeExtension.load(dir, app: rig.app)
     #expect(good.info.error == nil && good.contributions.commands.count == 1)
-    try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}"#.write(to: file, atomically: true, encoding: .utf8)
+    try #"{"id":"keep.me","name":"Keep","contributes":{"commands":[{"title":"Hi","run":"echo hi"}"#.write(
+        to: file, atomically: true, encoding: .utf8)
     let broken = DeclarativeExtension.load(dir, app: rig.app)
     #expect(broken.info.id == "keep.me" && broken.contributions.commands.count == 1)
     #expect(broken.info.error?.contains("Still running the version from before the change.") == true)
@@ -193,10 +208,14 @@ import WorkbenchKit
 @Test @MainActor func theLibraryKeepsTheUnreviewedApart() {
     func e(_ id: String, reviewed: Bool? = nil, weekly: Int? = nil) -> ExtensionLibrary.Entry {
         var x = ExtensionLibrary.Entry(id: id, name: id, version: "1", source: "o/\(id)")
-        x.reviewed = reviewed; x.weekly = weekly; x.stars = weekly.map { $0 * 3 }
+        x.reviewed = reviewed
+        x.weekly = weekly
+        x.stars = weekly.map { $0 * 3 }
         return x
     }
-    let (reviewed, found) = LibrarySection.split([e("a"), e("slow", reviewed: false, weekly: 2), e("b", reviewed: true), e("fast", reviewed: false, weekly: 40)])
+    let (reviewed, found) = LibrarySection.split([
+        e("a"), e("slow", reviewed: false, weekly: 2), e("b", reviewed: true), e("fast", reviewed: false, weekly: 40)
+    ])
     #expect(reviewed.map(\.id) == ["a", "b"] && found.map(\.id) == ["fast", "slow"])
 }
 
@@ -214,7 +233,10 @@ import WorkbenchKit
 @MainActor @Test func theIssuesPanelShowsTheFilterLastPicked() async throws {
     let path = NSTemporaryDirectory() + "kelp-issues-\(getpid()).sock"
     let server = try Unix.listen(path)
-    defer { close(server); unlink(path) }
+    defer {
+        close(server)
+        unlink(path)
+    }
     // A daemon whose "open" list answers late, the rest at once (an error for what isn't a list).
     let lateSent = OSAllocatedUnfairLock(initialState: false)
     Thread.detachNewThread {
@@ -222,10 +244,14 @@ import WorkbenchKit
         var lines = LineBuffer(), buf = [UInt8](repeating: 0, count: 65536)
         while case let n = read(fd, &buf, buf.count), n > 0 {
             for line in lines.append(Data(buf[0..<n])) {
-                guard let m = try? JSONSerialization.jsonObject(with: line) as? [String: Any], let id = m["id"] as? Int else { continue }
+                guard let m = try? JSONSerialization.jsonObject(with: line) as? [String: Any], let id = m["id"] as? Int
+                else { continue }
                 let late = (m["params"] as? [String: Any])?["filter"] as? String == "open"
-                let pr = #"{"number":\#(late ? 1 : 2),"title":"t","url":"","author":"a","headRefName":"b","isDraft":false,"state":"OPEN","checks":{"passed":0,"failed":0,"pending":0}}"#
-                let reply = m["method"] as? String == "github.prs" ? #"{"jsonrpc":"2.0","id":\#(id),"result":[\#(pr)]}"#
+                let pr =
+                    #"{"number":\#(late ? 1 : 2),"title":"t","url":"","author":"a","headRefName":"b","isDraft":false,"state":"OPEN","checks":{"passed":0,"failed":0,"pending":0}}"#
+                let reply =
+                    m["method"] as? String == "github.prs"
+                    ? #"{"jsonrpc":"2.0","id":\#(id),"result":[\#(pr)]}"#
                     : #"{"jsonrpc":"2.0","id":\#(id),"error":{"code":-32601,"message":"no"}}"#
                 DispatchQueue.global().asyncAfter(deadline: .now() + (late ? 0.3 : 0)) {
                     _ = Unix.writeAll(fd, Data((reply + "\n").utf8))
@@ -244,10 +270,15 @@ import WorkbenchKit
     panel.reload()   // then Mine
     // Both replies in (the late one too, which the old guard let land last), however slow the machine is.
     let deadline = Date().addingTimeInterval(20)
-    while Date() < deadline, !lateSent.withLock({ $0 }) || panel.rows.isEmpty { try await Task.sleep(for: .milliseconds(50)) }
+    while Date() < deadline, !lateSent.withLock({ $0 }) || panel.rows.isEmpty {
+        try await Task.sleep(for: .milliseconds(50))
+    }
     // Replies come back in order: once one asked after the late one is in, the panel has had the late one too.
     _ = try? await m.client?.call(DaemonInfo())
-    guard case .pr(let shown)? = panel.rows.first else { Issue.record("no rows"); return }
+    guard case .pr(let shown)? = panel.rows.first else {
+        Issue.record("no rows")
+        return
+    }
     #expect(panel.rows.count == 1 && shown.number == 2)
 }
 
@@ -265,7 +296,8 @@ import WorkbenchKit
 /// A key reads the same wherever it's shown: the command's own, settings.json's `keys` over it (`""`: none), and a
 /// fallback only for what isn't a registered command.
 @Test @MainActor func aCommandsKeyIsReadWithItsRebinding() async throws {
-    let rig = try await AppRig(); defer { rig.done() }
+    let rig = try await AppRig()
+    defer { rig.done() }
     _ = NSApplication.shared   // the themes a reload applies set its appearance
     rig.app.extensions.reload()
     #expect(rig.app.extensions.key("terminal.new") == KeySpec("cmd+t"))

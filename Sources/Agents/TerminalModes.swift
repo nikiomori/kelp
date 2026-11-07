@@ -7,7 +7,9 @@ public struct TerminalModes: Sendable {
     /// Each mode's last setting, oldest first: the mouse modes replace one another, the last one set wins.
     private var last: [(mode: Int, on: Bool)] = []
     // Synchronized output (2026) stays out: restored mid-frame, the screen would freeze until the next frame ends it.
-    private static let kept: Set<Int> = [1, 9, 25, 47, 1000, 1002, 1003, 1004, 1005, 1006, 1007, 1015, 1016, 1047, 1049, 2004]
+    private static let kept: Set<Int> = [
+        1, 9, 25, 47, 1000, 1002, 1003, 1004, 1005, 1006, 1007, 1015, 1016, 1047, 1049, 2004
+    ]
     private static let set = try? NSRegularExpression(pattern: #"\x1B\[\?([0-9;]+)([hl])"#)
 
     public init() {}

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import GitKit
 
 extension CIRuns {
@@ -10,8 +10,14 @@ extension CIRuns {
     public static func report(log text: String) -> Report {
         var found = Found(), lines: [Substring] = [], testCases = 0, runTests = 0
         for line in text.split(separator: "\n") {
-            if line.hasPrefix("Test Case '"), line.hasSuffix("' started.") { testCases += 1; continue }
-            if !line.contains(" error: "), !line.contains("Test ") { lines.append(line); continue }
+            if line.hasPrefix("Test Case '"), line.hasSuffix("' started.") {
+                testCases += 1
+                continue
+            }
+            if !line.contains(" error: "), !line.contains("Test ") {
+                lines.append(line)
+                continue
+            }
             if let n = line.firstMatch(of: /^. Test run with (\d+) tests?/) { runTests += Int(n.1) ?? 0 }
             if !found.read(line) { lines.append(line) }
         }
@@ -48,10 +54,14 @@ extension CIRuns {
                 add(test: nil, suite: nil, file: String(m.1), line: Int(m.2), message: String(m.3))
             } else if let m = line.wholeMatch(of: /Test Case '-\[(\S+) (\S+)\]' failed .*/) {
                 // A test can fail with no line of its own (a crash, a timeout): its name is still worth saying.
-                add(test: String(m.2), suite: m.1.split(separator: ".").last.map(String.init), file: nil, line: nil, message: nil)
+                add(
+                    test: String(m.2), suite: m.1.split(separator: ".").last.map(String.init), file: nil, line: nil,
+                    message: nil)
             } else if let m = line.wholeMatch(of: /✘ Test (.+?) failed after .*/), !m.1.hasPrefix("run with") {
                 add(test: String(m.1), suite: nil, file: nil, line: nil, message: nil)
-            } else { return false }
+            } else {
+                return false
+            }
             return true
         }
 
@@ -60,13 +70,20 @@ extension CIRuns {
             // A compiler says one error at each column of a line, and says it again in each build pass.
             let key = test.map { "\(suite ?? "").\($0)" } ?? "\(file ?? ""):\(line ?? 0):\(message ?? "")"
             guard let i = seen[key] else {
-                guard failures.count < CIRuns.maxFailures else { more += 1; return }
+                guard failures.count < CIRuns.maxFailures else {
+                    more += 1
+                    return
+                }
                 seen[key] = failures.count
-                failures.append(Failure(test: test, suite: suite, file: file, line: line, messages: message.map { [$0] } ?? []))
+                failures.append(
+                    Failure(test: test, suite: suite, file: file, line: line, messages: message.map { [$0] } ?? []))
                 return
             }
             guard let message, failures[i].messages.count < CIRuns.maxMessages else { return }
-            if failures[i].line == nil { failures[i].file = file; failures[i].line = line }
+            if failures[i].line == nil {
+                failures[i].file = file
+                failures[i].line = line
+            }
             let said = line == failures[i].line ? message : ":\(line ?? 0) \(message)"
             if !failures[i].messages.contains(said) { failures[i].messages.append(said) }
         }
@@ -94,6 +111,9 @@ extension CIRuns {
 
     /// A probe: no git here (a folder that isn't a clone) means no such file.
     private static func trackedFiles(named name: String, cwd: String) -> [String] {
-        do { return try Git.run(["ls-files", "--", ":(glob)**/" + name], cwd: cwd).split(separator: "\n").map(String.init) } catch { return [] }
+        do {
+            return try Git.run(["ls-files", "--", ":(glob)**/" + name], cwd: cwd).split(separator: "\n").map(
+                String.init)
+        } catch { return [] }
     }
 }

@@ -1,6 +1,6 @@
 import AppKit
-import SwiftUI
 import Core
+import SwiftUI
 import WorkbenchKit
 
 extension SidebarController.Node {
@@ -20,14 +20,24 @@ extension SidebarController {
 
     /// What rows draw from the app's own state: a mute's bell, a project's colour.
     func followRowLooks() {
-        track(owner: self) { [app] in app.arrangement.mutes } changed: { [weak self] _ in self?.updateVisibleCells() }
-        track(owner: self) { [app] in app.projectLook } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in
+            app.arrangement.mutes
+        } changed: { [weak self] _ in
+            self?.updateVisibleCells()
+        }
+        track(owner: self) { [app] in
+            app.projectLook
+        } changed: { [weak self] _ in
+            self?.updateVisibleCells()
+        }
     }
 
     func newChat(_ repo: String) { app.workbench.newChat(repo: repo) }
 
     /// A remote project's branches would need its git on the host: there it works in its folder.
-    private func onThisMac(_ project: String) -> Bool { app.repo(project).map { RemoteHost.of($0.path) == nil } ?? false }
+    private func onThisMac(_ project: String) -> Bool {
+        app.repo(project).map { RemoteHost.of($0.path) == nil } ?? false
+    }
 
     /// Where a chat can go: among the screens of its folder. One on a branch has its own files and stays.
     func moveItems(_ menu: NSMenu, chat sid: String) {
@@ -36,16 +46,20 @@ extension SidebarController {
         let own = mainWorkspace(of: r, among: app.worktrees), list = NSMenu()
         list.add(String(localized: "New Group")) { Task { await WorkspaceActions(app).newGroup(from: [sid]) } }
         if let own, own.id != w.id {
-            list.add(String(localized: "Back to Project")) { Task { await WorkspaceActions(app).move([sid], to: own.id) } }
+            list.add(String(localized: "Back to Project")) {
+                Task { await WorkspaceActions(app).move([sid], to: own.id) }
+            }
         }
         for g in app.workspaces(of: r) where g.path == r.path && g.id != w.id && g.id != own?.id {
             list.add(g.displayName) { Task { await WorkspaceActions(app).move([sid], to: g.id) } }
         }
-        menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Move to"), action: nil, keyEquivalent: ""))
+        menu.setSubmenu(
+            list, for: menu.addItem(withTitle: String(localized: "Move to"), action: nil, keyEquivalent: ""))
     }
 
     private func movable(_ sid: String) -> Worktree? {
-        guard let w = app.session(sid).flatMap({ app.worktree($0.worktreeId) }), w.path == app.repo(w.repoId)?.path else { return nil }
+        guard let w = app.session(sid).flatMap({ app.worktree($0.worktreeId) }), w.path == app.repo(w.repoId)?.path
+        else { return nil }
         return w
     }
     func refreshCell(_ key: String) {
@@ -58,21 +72,30 @@ extension SidebarController {
     func startRename(_ id: String, project: Bool = false) {
         guard let n = project ? node("p:" + id) : workspaceNode(id) else { return }
         let row = outline.row(forItem: n)
-        guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarCell else { return }
+        guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarCell else {
+            return
+        }
         renaming = (id, project)
         cell.beginEditing(delegate: self, project: project)
     }
     func controlTextDidEndEditing(_ n: Notification) {
         guard let (id, project) = renaming, let field = n.object as? NSTextField else { return }
         renaming = nil
-        field.isEditable = false; field.drawsBackground = false
+        field.isEditable = false
+        field.drawsBackground = false
         let name = field.stringValue.trimmingCharacters(in: .whitespaces)
         if project {
             // An empty name gives the project its folder's back.
-            if name != app.repo(id)?.name { Task { await app.call(RepoRename(id: id, name: name)) } } else { refreshCell("p:" + id) }
+            if name != app.repo(id)?.name {
+                Task { await app.call(RepoRename(id: id, name: name)) }
+            } else {
+                refreshCell("p:" + id)
+            }
         } else if !name.isEmpty, name != app.worktree(id)?.displayName {
             Task { await app.call(WorktreeNote(id: id, note: name)) }
-        } else if let n = workspaceNode(id) { refreshCell(n.key) }
+        } else if let n = workspaceNode(id) {
+            refreshCell(n.key)
+        }
     }
 
     func menuDidClose(_ menu: NSMenu) {
@@ -88,7 +111,8 @@ extension SidebarController {
         let m = app
         let picked = outline.selectedRowIndexes
         if picked.count > 1, picked.contains(outline.menuRow) {
-            bulkMenu(menu, picked.compactMap { outline.item(atRow: $0) as? Node }); return
+            bulkMenu(menu, picked.compactMap { outline.item(atRow: $0) as? Node })
+            return
         }
         switch n.kind {
         case .project(let id):
@@ -112,12 +136,16 @@ extension SidebarController {
             menu.addItem(.separator())
             WorkspaceActions.addLocate(to: menu, path: r.path)
             menu.addItem(.separator())
-            if RemoteHost.of(r.path) == nil { menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) } }
+            if RemoteHost.of(r.path) == nil {
+                menu.add(String(localized: "Remove Clean Worktrees…")) { WorkspaceActions(app).removeCleanWorktrees(r) }
+            }
             menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(r) }
         case .workspace(let id): workspaceMenu(menu, id)
         case .agent(let sid):
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
-            menu.setSubmenu(AgentActions(app).handoffMenu(sid), for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            menu.setSubmenu(
+                AgentActions(app).handoffMenu(sid),
+                for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
             if let s = m.session(sid), NoProject.holds(m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }) {
@@ -126,9 +154,12 @@ extension SidebarController {
                 moveItems(menu, chat: sid)
             }
             if m.session(sid)?.unread == false {
-                menu.add(String(localized: "Mark as Unread")) { [app] in Task { await app.call(SessionMarkUnread(id: sid)) } }
+                menu.add(String(localized: "Mark as Unread")) { [app] in
+                    Task { await app.call(SessionMarkUnread(id: sid)) }
+                }
             } else if m.session(sid)?.status == .done {   // finished and waiting to be seen: put away by hand, as a glance would
-                menu.add(String(localized: "Mark as Read")) { [app] in Task { await app.call(SessionMarkRead(id: sid)) } }
+                menu.add(String(localized: "Mark as Read")) { [app] in Task { await app.call(SessionMarkRead(id: sid)) }
+                }
             }
             muteItem(menu, n.muteIds)
             parkItem(menu, sid)
@@ -179,13 +210,15 @@ extension SidebarController {
         list.add(String(localized: "On")) { app.uiState[key] = .string("on") }.state = own == "on" ? .on : .off
         list.add(String(localized: "Off")) { app.uiState[key] = .string("off") }.state = own == "off" ? .on : .off
         list.addItem(.separator())
-        let why = list.addItem(withTitle: String(localized: "For new chats in this project"), action: nil, keyEquivalent: "")
+        let why = list.addItem(
+            withTitle: String(localized: "For new chats in this project"), action: nil, keyEquivalent: "")
         why.isEnabled = false
         Task {
             guard let b = await app.quiet(SkillsBrowser(worktreeId: w.id)) else { return }
             why.title = String(localized: "New chats: browser \(BrowserSkillWords.line(b.line))")
         }
-        menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Browser for Agents"), action: nil, keyEquivalent: ""))
+        menu.setSubmenu(
+            list, for: menu.addItem(withTitle: String(localized: "Browser for Agents"), action: nil, keyEquivalent: ""))
     }
 
     private func colorItem(_ menu: NSMenu, _ id: String) {
@@ -194,7 +227,8 @@ extension SidebarController {
         guard NSWorkspace.shared.isVoiceOverEnabled || NSApp.isFullKeyboardAccessEnabled else {
             let row = menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: "")
             let a = app.arrangement
-            row.view = ColorSwatches(chosen: now, previewing: { a.colorPreview = (id, $0) }, left: { a.colorPreview = nil }, pick: pick)
+            row.view = ColorSwatches(
+                chosen: now, previewing: { a.colorPreview = (id, $0) }, left: { a.colorPreview = nil }, pick: pick)
             return
         }
         let shades = NSMenu()
@@ -205,7 +239,8 @@ extension SidebarController {
             i.show(c.dot)
             i.state = now == c ? .on : .off
         }
-        menu.setSubmenu(shades, for: menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
+        menu.setSubmenu(
+            shades, for: menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
     }
 
     /// Mute Notifications ▸ for how long, or Unmute once these are. A new mute goes on the first: the row itself.
@@ -217,13 +252,18 @@ extension SidebarController {
         }
         let times = NSMenu()
         for (title, until) in Mutes.choices() { times.add(title) { app.mute(Array(ids.prefix(1)), until: until) } }
-        menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: ""))
+        menu.setSubmenu(
+            times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: "")
+        )
     }
 
     /// Park ▸ for how long, or Unpark once it is.
     private func parkItem(_ menu: NSMenu, _ sid: String) {
         let app = self.app
-        if app.isParked(sid) { menu.add(String(localized: "Unpark")) { app.unpark(sid) }; return }
+        if app.isParked(sid) {
+            menu.add(String(localized: "Unpark")) { app.unpark(sid) }
+            return
+        }
         let times = NSMenu()
         for (title, until) in Parking.choices() { times.add(title) { app.park(sid, until: until) } }
         menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Park"), action: nil, keyEquivalent: ""))
@@ -266,7 +306,8 @@ extension SidebarController {
             default: nil
             }
         }
-        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.isChat && s.status != .exited }.map(\.id)
+        let inside = m.sessions.filter { s in ws.contains { $0.id == s.worktreeId } && s.isChat && s.status != .exited }
+            .map(\.id)
         let agents = Array(Set(picked + inside))
         if agents.contains(where: { m.session($0)?.unread == true }) {
             menu.add(String(localized: "Mark as Read")) {
@@ -274,12 +315,18 @@ extension SidebarController {
             }
         }
         if !ws.isEmpty { menu.add(String(localized: "Close \(ws.count) Groups…")) { WorkspaceActions(app).close(ws) } }
-        if picked.count > 1, Set(picked.compactMap { movable($0)?.repoId }).count == 1, picked.allSatisfy({ movable($0) != nil }) {
-            menu.add(String(localized: "Move \(picked.count) Chats to New Group")) { Task { await WorkspaceActions(app).newGroup(from: picked) } }
+        if picked.count > 1, Set(picked.compactMap { movable($0)?.repoId }).count == 1,
+            picked.allSatisfy({ movable($0) != nil })
+        {
+            menu.add(String(localized: "Move \(picked.count) Chats to New Group")) {
+                Task { await WorkspaceActions(app).newGroup(from: picked) }
+            }
         }
         if !picked.isEmpty {
             menu.addItem(.separator())
-            menu.add(String(localized: "Stop \(Set(picked).count) Agents…")) { AgentActions(app).stop(Array(Set(picked))) }
+            menu.add(String(localized: "Stop \(Set(picked).count) Agents…")) {
+                AgentActions(app).stop(Array(Set(picked)))
+            }
         }
     }
 }
@@ -298,6 +345,7 @@ enum BrowserSkillWords {
             "a local page is open here": String(localized: "a local page is open here"),
             "no web app found": String(localized: "no web app found")
         ]
-        return (parts[0] == "on" ? String(localized: "on") : String(localized: "off")) + " · " + (fixed[parts[1]] ?? parts[1])
+        return (parts[0] == "on" ? String(localized: "on") : String(localized: "off")) + " · "
+            + (fixed[parts[1]] ?? parts[1])
     }
 }

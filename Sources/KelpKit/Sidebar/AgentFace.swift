@@ -29,7 +29,10 @@ final class AgentFace: NSView {
 
     /// The logo gives way around the mark while it shows: a clear ring, whatever the sidebar's material shows through.
     func cut() {
-        guard !mark.isHidden else { logo.layer?.mask = nil; return }
+        guard !mark.isHidden else {
+            logo.layer?.mask = nil
+            return
+        }
         guard logo.layer?.mask == nil else { return }
         let hole = CGPath(ellipseIn: mark.frame.insetBy(dx: -1.5, dy: -1.5), transform: nil), path = CGMutablePath()
         path.addRect(logo.bounds)

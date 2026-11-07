@@ -14,11 +14,12 @@ import AppKit
         guard extend else {
             // A plain move from a selection starts from its end on that side, as in VS Code.
             let forward = [Step.right, .wordRight, .down, .lineEnd].contains(step)
-            tv.setCursors(cs.map { r in
-                let at = forward ? NSMaxRange(r) : r.location
-                let to = r.length > 0 && (step == .left || step == .right) ? at : target(step, from: at, in: s)
-                return NSRange(location: to, length: 0)
-            })
+            tv.setCursors(
+                cs.map { r in
+                    let at = forward ? NSMaxRange(r) : r.location
+                    let to = r.length > 0 && (step == .left || step == .right) ? at : target(step, from: at, in: s)
+                    return NSRange(location: to, length: 0)
+                })
             return true
         }
         // ⇧: each selection keeps its anchor; the other end moves.
@@ -39,19 +40,25 @@ import AppKit
     private static let steps: [Selector: (Step, Bool)] = [
         #selector(NSResponder.moveLeft(_:)): (.left, false), #selector(NSResponder.moveBackward(_:)): (.left, false),
         #selector(NSResponder.moveRight(_:)): (.right, false), #selector(NSResponder.moveForward(_:)): (.right, false),
-        #selector(NSResponder.moveWordLeft(_:)): (.wordLeft, false), #selector(NSResponder.moveWordBackward(_:)): (.wordLeft, false),
-        #selector(NSResponder.moveWordRight(_:)): (.wordRight, false), #selector(NSResponder.moveWordForward(_:)): (.wordRight, false),
+        #selector(NSResponder.moveWordLeft(_:)): (.wordLeft, false),
+        #selector(NSResponder.moveWordBackward(_:)): (.wordLeft, false),
+        #selector(NSResponder.moveWordRight(_:)): (.wordRight, false),
+        #selector(NSResponder.moveWordForward(_:)): (.wordRight, false),
         #selector(NSResponder.moveUp(_:)): (.up, false), #selector(NSResponder.moveDown(_:)): (.down, false),
-        #selector(NSResponder.moveToBeginningOfLine(_:)): (.lineStart, false), #selector(NSResponder.moveToLeftEndOfLine(_:)): (.lineStart, false),
+        #selector(NSResponder.moveToBeginningOfLine(_:)): (.lineStart, false),
+        #selector(NSResponder.moveToLeftEndOfLine(_:)): (.lineStart, false),
         #selector(NSResponder.moveToBeginningOfParagraph(_:)): (.lineStart, false),
-        #selector(NSResponder.moveToEndOfLine(_:)): (.lineEnd, false), #selector(NSResponder.moveToRightEndOfLine(_:)): (.lineEnd, false),
+        #selector(NSResponder.moveToEndOfLine(_:)): (.lineEnd, false),
+        #selector(NSResponder.moveToRightEndOfLine(_:)): (.lineEnd, false),
         #selector(NSResponder.moveToEndOfParagraph(_:)): (.lineEnd, false),
-        #selector(NSResponder.moveLeftAndModifySelection(_:)): (.left, true), #selector(NSResponder.moveBackwardAndModifySelection(_:)): (.left, true),
+        #selector(NSResponder.moveLeftAndModifySelection(_:)): (.left, true),
+        #selector(NSResponder.moveBackwardAndModifySelection(_:)): (.left, true),
         #selector(NSResponder.moveRightAndModifySelection(_:)): (.right, true),
         #selector(NSResponder.moveForwardAndModifySelection(_:)): (.right, true),
         #selector(NSResponder.moveWordLeftAndModifySelection(_:)): (.wordLeft, true),
         #selector(NSResponder.moveWordRightAndModifySelection(_:)): (.wordRight, true),
-        #selector(NSResponder.moveUpAndModifySelection(_:)): (.up, true), #selector(NSResponder.moveDownAndModifySelection(_:)): (.down, true),
+        #selector(NSResponder.moveUpAndModifySelection(_:)): (.up, true),
+        #selector(NSResponder.moveDownAndModifySelection(_:)): (.down, true),
         #selector(NSResponder.moveToBeginningOfLineAndModifySelection(_:)): (.lineStart, true),
         #selector(NSResponder.moveToLeftEndOfLineAndModifySelection(_:)): (.lineStart, true),
         #selector(NSResponder.moveToEndOfLineAndModifySelection(_:)): (.lineEnd, true),
@@ -72,8 +79,12 @@ import AppKit
     }
 
     /// One character back or on (a composed one whole).
-    static func before(_ i: Int, in s: NSString) -> Int { i > 0 ? s.rangeOfComposedCharacterSequence(at: i - 1).location : 0 }
-    static func after(_ i: Int, in s: NSString) -> Int { i < s.length ? NSMaxRange(s.rangeOfComposedCharacterSequence(at: i)) : s.length }
+    static func before(_ i: Int, in s: NSString) -> Int {
+        i > 0 ? s.rangeOfComposedCharacterSequence(at: i - 1).location : 0
+    }
+    static func after(_ i: Int, in s: NSString) -> Int {
+        i < s.length ? NSMaxRange(s.rangeOfComposedCharacterSequence(at: i)) : s.length
+    }
 
     /// To the start of this or the previous word (⌥←), or the end of this or the next one (⌥→).
     static func wordLeft(_ i: Int, in s: NSString) -> Int {

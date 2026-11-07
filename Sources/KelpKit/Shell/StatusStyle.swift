@@ -1,7 +1,7 @@
 import AppKit
+import Core
 import DesignKit
 import SwiftUI
-import Core
 
 /// One look for agent state everywhere (sidebar, tabs, panes): a spinning ring while it works, a slow ring of dots once
 /// it only waits for its command, an orange ◎ when it needs you, an outlined ✓ in the text's colour when it finished and
@@ -10,7 +10,7 @@ import Core
 extension AgentStatus {
     package var symbol: String {
         switch self {
-        case .working: "circle.dotted"           // drawn as a spinning ring where there's room
+        case .working: "circle.dotted"   // drawn as a spinning ring where there's room
         case .waiting: "record.circle"
         case .done: "checkmark.circle"
         case .idle: "circle"
@@ -45,7 +45,9 @@ extension AgentStatus {
     }
     /// Most urgent first: what a workspace shows when it has several agents.
     static let urgency: [AgentStatus] = [.waiting, .error, .working, .done, .idle, .paused, .exited]
-    static func mostUrgent(_ s: [AgentStatus]) -> AgentStatus? { s.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) } }
+    static func mostUrgent(_ s: [AgentStatus]) -> AgentStatus? {
+        s.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) }
+    }
 }
 
 /// "now", "4m", "2h", "3d": how long ago, as short as a row allows.
@@ -58,18 +60,21 @@ package func shortAgo(_ d: Date?, now: Date = Date()) -> String {
 /// "4m", "1d 3h": a span in Kelp's language, `units` parts at most (the last one rounded), down to `smallest`.
 /// One formatter per kind, kept: every row on every sidebar pass and every clock tick made a new one.
 package func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.Unit = .minute) -> String {
-    let language = Bundle.main.preferredLocalizations.first ?? "en", key = "\(units) \(smallest.rawValue) \(language)" as NSString
-    let f = spanFormatters.object(forKey: key) ?? {
-        let f = DateComponentsFormatter()
-        f.unitsStyle = .abbreviated
-        f.maximumUnitCount = units
-        f.allowedUnits = [.day, .hour, .minute, smallest]
-        var c = Calendar.current
-        c.locale = Locale(identifier: language)
-        f.calendar = c
-        spanFormatters.setObject(f, forKey: key)
-        return f
-    }()
+    let language = Bundle.main.preferredLocalizations.first ?? "en",
+        key = "\(units) \(smallest.rawValue) \(language)" as NSString
+    let f =
+        spanFormatters.object(forKey: key)
+        ?? {
+            let f = DateComponentsFormatter()
+            f.unitsStyle = .abbreviated
+            f.maximumUnitCount = units
+            f.allowedUnits = [.day, .hour, .minute, smallest]
+            var c = Calendar.current
+            c.locale = Locale(identifier: language)
+            f.calendar = c
+            spanFormatters.setObject(f, forKey: key)
+            return f
+        }()
     return f.string(from: max(0, seconds)) ?? ""
 }
 nonisolated(unsafe) private let spanFormatters = NSCache<NSString, DateComponentsFormatter>()   // NSCache is thread-safe, as is formatting
@@ -102,18 +107,22 @@ package final class StatusMark: NSView {
         self.size = size
         super.init(frame: .zero)
         wantsLayer = true
-        image.translatesAutoresizingMaskIntoConstraints = false; addSubview(image)
+        image.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(image)
         ring.fillColor = nil
         ring.lineWidth = 1.5
         ring.lineCap = .round
         let inset: CGFloat = 1.5
         ring.frame = CGRect(x: 0, y: 0, width: size, height: size)
-        ring.path = CGPath(ellipseIn: CGRect(x: inset, y: inset, width: size - 2 * inset, height: size - 2 * inset), transform: nil)
+        ring.path = CGPath(
+            ellipseIn: CGRect(x: inset, y: inset, width: size - 2 * inset, height: size - 2 * inset), transform: nil)
         ring.strokeEnd = 0.75
         layer?.addSublayer(ring)
         // The pie is a stroke as wide as its radius around half of it, so strokeEnd fills it from the top, clockwise.
         let pie = (size / 2 - inset) - 1.5, arc = CGMutablePath()
-        arc.addArc(center: CGPoint(x: size / 2, y: size / 2), radius: pie / 2, startAngle: .pi / 2, endAngle: .pi / 2 - 2 * .pi, clockwise: true)
+        arc.addArc(
+            center: CGPoint(x: size / 2, y: size / 2), radius: pie / 2, startAngle: .pi / 2,
+            endAngle: .pi / 2 - 2 * .pi, clockwise: true)
         track.path = ring.path
         track.lineWidth = 1
         bar.path = arc
@@ -126,7 +135,8 @@ package final class StatusMark: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: size), heightAnchor.constraint(equalToConstant: size),
-            image.centerXAnchor.constraint(equalTo: centerXAnchor), image.centerYAnchor.constraint(equalTo: centerYAnchor)
+            image.centerXAnchor.constraint(equalTo: centerXAnchor),
+            image.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         followReduceMotion(#selector(motionChanged))
         update()
@@ -134,8 +144,14 @@ package final class StatusMark: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     @objc private func motionChanged() { update() }
-    override package func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); update() }
-    override package func viewDidMoveToWindow() { super.viewDidMoveToWindow(); update() }   // animations stop when a view leaves a window
+    override package func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        update()
+    }
+    override package func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        update()
+    }   // animations stop when a view leaves a window
 
     private func update() {
         let s = !limited && (status == .idle || (status == .done && !unread)) ? nil : status
@@ -143,18 +159,24 @@ package final class StatusMark: NSView {
         isHidden = s == nil
         let dotted = s == .working && waitsForCommand && !compacting
         let dashed = s == .working && guessed && !dotted && !compacting
-        toolTip = filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" }
-            ?? (dotted ? String(localized: "Waits for its command") : dashed ? String(localized: "Working, as far as the screen shows") : s?.words)
+        toolTip =
+            filling.map { "\(s?.words ?? "") · \(Int($0 * 100)) %" }
+            ?? (dotted
+                ? String(localized: "Waits for its command")
+                : dashed ? String(localized: "Working, as far as the screen shows") : s?.words)
         // VoiceOver reads the state (the spinning ring is only a layer): the same words as the tooltip.
-        setAccessibilityElement(s != nil && announces); setAccessibilityRole(.image)
+        setAccessibilityElement(s != nil && announces)
+        setAccessibilityRole(.image)
         setAccessibilityLabel(compacting && s == .working ? String(localized: "Compacting its conversation") : toolTip)
-        track.isHidden = filling == nil; bar.isHidden = filling == nil
+        track.isHidden = filling == nil
+        bar.isHidden = filling == nil
         if let filling {
             ring.isHidden = true
             image.isHidden = true
             ring.removeAllAnimations()
             effectiveAppearance.performAsCurrentDrawingAppearance {
-                track.strokeColor = NSColor.secondaryLabelColor.cgColor; bar.strokeColor = NSColor.secondaryLabelColor.cgColor
+                track.strokeColor = NSColor.secondaryLabelColor.cgColor
+                bar.strokeColor = NSColor.secondaryLabelColor.cgColor
             }
             CATransaction.begin()
             CATransaction.setDisableActions(Motion.reduced)   // a layer of its own: it would ease over 0.25 s
@@ -166,13 +188,17 @@ package final class StatusMark: NSView {
         // still symbol says "working" instead: a ring that stopped spinning looks stuck.
         let still = Motion.reduced
         let spinning = s == .working && !compacting && !still
-        ring.isHidden = !spinning && !dotted; image.isHidden = spinning || dotted
+        ring.isHidden = !spinning && !dotted
+        image.isHidden = spinning || dotted
         ring.removeAllAnimations()
         image.layer?.removeAllAnimations()
         image.alphaValue = 1
         if spinning || dotted {
-            effectiveAppearance.performAsCurrentDrawingAppearance { ring.strokeColor = NSColor.secondaryLabelColor.cgColor }
-            ring.anchorPoint = CGPoint(x: 0.5, y: 0.5); ring.position = CGPoint(x: size / 2, y: size / 2)
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                ring.strokeColor = NSColor.secondaryLabelColor.cgColor
+            }
+            ring.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            ring.position = CGPoint(x: size / 2, y: size / 2)
             CATransaction.begin()
             CATransaction.setDisableActions(true)   // a layer of its own: it would ease over 0.25 s
             // Eight round dots: a dash of nothing, drawn by its caps, wider than the arc's line to weigh as much as it does.
@@ -193,16 +219,19 @@ package final class StatusMark: NSView {
             return
         }
         if s == .working {
-            image.image = .symbol(compacting ? "arrow.down.right.and.arrow.up.left" : "ellipsis.circle",
+            image.image = .symbol(
+                compacting ? "arrow.down.right.and.arrow.up.left" : "ellipsis.circle",
                 compacting ? String(localized: "Compacting its conversation") : s?.words ?? "")
-            image.symbolConfiguration = .chrome(size - 2); image.contentTintColor = .secondaryLabelColor
+            image.symbolConfiguration = .chrome(size - 2)
+            image.contentTintColor = .secondaryLabelColor
             if compacting, !still {
                 image.wantsLayer = true
                 let p = CABasicAnimation(keyPath: "opacity")
                 p.fromValue = 1
                 p.toValue = 0.3
                 p.duration = Motion.pulse
-                p.autoreverses = true; p.repeatCount = .infinity
+                p.autoreverses = true
+                p.repeatCount = .infinity
                 p.beginTime = Motion.beat(2 * p.duration)
                 image.layer?.add(p, forKey: "pulse")
             }
@@ -211,7 +240,8 @@ package final class StatusMark: NSView {
         guard let s else { return }
         if limited {
             image.image = .symbol("clock", String(localized: "Stopped at its limit"))
-            image.symbolConfiguration = .chrome(size - 1); image.contentTintColor = .textOrange
+            image.symbolConfiguration = .chrome(size - 1)
+            image.contentTintColor = .textOrange
             return
         }
         image.image = .symbol(s.symbol, s.words)
@@ -225,22 +255,34 @@ package final class StatusMark: NSView {
 package struct StatusIcon: NSViewRepresentable {
     let status: AgentStatus
     var waitsForCommand = false
-    package init(status: AgentStatus, waitsForCommand: Bool = false) { self.status = status; self.waitsForCommand = waitsForCommand }
+    package init(status: AgentStatus, waitsForCommand: Bool = false) {
+        self.status = status
+        self.waitsForCommand = waitsForCommand
+    }
     package func makeNSView(context: Context) -> StatusMark { StatusMark(size: 12) }
-    package func updateNSView(_ mark: StatusMark, context: Context) { mark.status = status; mark.waitsForCommand = waitsForCommand }
+    package func updateNSView(_ mark: StatusMark, context: Context) {
+        mark.status = status
+        mark.waitsForCommand = waitsForCommand
+    }
 }
 
 extension Session {
     /// Ended on its own with a non-zero exit code (the daemon says so in the summary): shown red, not grey.
     var endedWithError: Bool { status == .exited && summary.hasPrefix("Ended with an error") }
     /// What its mark shows: a terminal or a command (not an agent) works while a program in it shows how far it got.
-    package var markStatus: AgentStatus { progress != nil && (agent == "shell" || agent == "custom") ? .working : status }
+    package var markStatus: AgentStatus {
+        progress != nil && (agent == "shell" || agent == "custom") ? .working : status
+    }
     /// "Working · 40 %" when it says how far it got.
-    package var statusWords: String { let s = markStatus; return s == .working ? progress.map { "\(s.words) · \($0) %" } ?? s.words : s.words }
+    package var statusWords: String {
+        let s = markStatus
+        return s == .working ? progress.map { "\(s.words) · \($0) %" } ?? s.words : s.words
+    }
     /// "Works in .claude/worktrees/fix-login" when the agent went out of the folder it started in.
     package var workingElsewhere: String? {
         guard let d = workDir else { return nil }
-        let inside = d.hasPrefix(cwd + "/") ? String(d.dropFirst(cwd.count + 1)) : (d as NSString).abbreviatingWithTildeInPath
+        let inside =
+            d.hasPrefix(cwd + "/") ? String(d.dropFirst(cwd.count + 1)) : (d as NSString).abbreviatingWithTildeInPath
         return String(localized: "Works in \(inside)")
     }
 }
@@ -260,7 +302,9 @@ struct AttentionQueue {
     }
 
     /// Results last, then oldest first.
-    private static func order(_ s: Session) -> (Int, Date) { (SidebarCell.shownStatus(s) == .done ? 1 : 0, s.statusAt ?? s.createdAt) }
+    private static func order(_ s: Session) -> (Int, Date) {
+        (SidebarCell.shownStatus(s) == .done ? 1 : 0, s.statusAt ?? s.createdAt)
+    }
 
     /// The one after `current` (wrapping), so pressing again walks the whole queue.
     func next(after current: String?) -> Session? {

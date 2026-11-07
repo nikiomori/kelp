@@ -76,7 +76,8 @@ final class SidebarCell: NSTableCellView {
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
     /// for rows that stand for a folder (RowBadges); the dot goes first when the row is short of room, the CI mark last.
-    private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero), ci = PointerButton(frame: .zero)
+    private let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero),
+        ci = PointerButton(frame: .zero)
     private let ciMark = CIMark()
 
     init(node: SidebarController.Node, owner: SidebarController) {
@@ -85,7 +86,8 @@ final class SidebarCell: NSTableCellView {
         app = owner.app
         super.init(frame: .zero)
         title.lineBreakMode = .byTruncatingTail
-        trailing.font = .uiDigits(11, weight: .regular); trailing.textColor = .secondaryLabelColor
+        trailing.font = .uiDigits(11, weight: .regular)
+        trailing.textColor = .secondaryLabelColor
         // Not the cell's textField: the source list would restyle it, a project's as a grey group heading and a picked
         // row's in bold, which here means "something new". Type-select reads the name from the controller instead.
         textField = nil
@@ -94,11 +96,13 @@ final class SidebarCell: NSTableCellView {
             // A name, not a section label: what's under it is the project's. On the right only what needs doing.
             title.font = .ui(13, weight: .semibold)
             title.textColor = .labelColor
-            trailing.font = .ui(11, weight: .semibold); trailing.textColor = .textOrange
+            trailing.font = .ui(11, weight: .semibold)
+            trailing.textColor = .textOrange
             let b = Self.newChatButton { [weak owner] in owner?.newChat(id) }
             add = b   // on hover, like Finder's sidebar
             icon.imageScaling = .scaleProportionallyUpOrDown
-            icon.widthAnchor.constraint(equalToConstant: 16).isActive = true; icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
+            icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+            icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
             fillSlot(icon)
             detail.font = .ui(12)
             detail.textColor = .secondaryLabelColor
@@ -116,7 +120,9 @@ final class SidebarCell: NSTableCellView {
         case .agent:
             title.font = .ui(13)
             glyph.imageScaling = .scaleProportionallyUpOrDown
-            NSLayoutConstraint.activate([glyph.widthAnchor.constraint(equalToConstant: 12), glyph.heightAnchor.constraint(equalToConstant: 12)])
+            NSLayoutConstraint.activate([
+                glyph.widthAnchor.constraint(equalToConstant: 12), glyph.heightAnchor.constraint(equalToConstant: 12)
+            ])
             glyph.alphaValue = 0.75
             chip.isHidden = true
             fillSlot(lead())
@@ -137,12 +143,16 @@ final class SidebarCell: NSTableCellView {
             b.restFill = b === pr ? .fillRest : nil
             b.target = self
         }
-        changes.action = #selector(openChanges); pr.action = #selector(openPR)
+        changes.action = #selector(openChanges)
+        pr.action = #selector(openPR)
         ci.action = #selector(openCI)
         ci.image = CIMark.room(12)
         ci.imagePosition = .imageOnly
         ci.addSubview(ciMark)
-        NSLayoutConstraint.activate([ciMark.centerXAnchor.constraint(equalTo: ci.centerXAnchor), ciMark.centerYAnchor.constraint(equalTo: ci.centerYAnchor)])
+        NSLayoutConstraint.activate([
+            ciMark.centerXAnchor.constraint(equalTo: ci.centerXAnchor),
+            ciMark.centerYAnchor.constraint(equalTo: ci.centerYAnchor)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -155,7 +165,12 @@ final class SidebarCell: NSTableCellView {
         hovering = on
         showChanges()
         ciMark.spelled = on
-        if on { reveal.after(Motion.settle) { [weak self] in self?.showAction() } } else { reveal.cancel(); showAction() }
+        if on {
+            reveal.after(Motion.settle) { [weak self] in self?.showAction() }
+        } else {
+            reveal.cancel()
+            showAction()
+        }
         guard let add else { return }
         // What comes in fades in where it stands: moved with the rest, it flew in from where it last was, over the badges.
         let coming = on && add.isHidden
@@ -182,12 +197,20 @@ final class SidebarCell: NSTableCellView {
         rest = view
         slot.translatesAutoresizingMaskIntoConstraints = false
         for v in [view, action] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false; slot.addSubview(v)
-            NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: slot.centerXAnchor), v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)])
+            v.translatesAutoresizingMaskIntoConstraints = false
+            slot.addSubview(v)
+            NSLayoutConstraint.activate([
+                v.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
+                v.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
+            ])
         }
-        NSLayoutConstraint.activate([slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16),
-                                     action.widthAnchor.constraint(equalToConstant: 16), action.heightAnchor.constraint(equalToConstant: 16)])
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        NSLayoutConstraint.activate([
+            slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16),
+            action.widthAnchor.constraint(equalToConstant: 16), action.heightAnchor.constraint(equalToConstant: 16)
+        ])
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
     }
 
     private func acted() {
@@ -197,7 +220,11 @@ final class SidebarCell: NSTableCellView {
     /// The action in the slot under the pointer: a row with nothing to fold keeps what it has.
     func showAction() {
         var on = hovering && owner?.renaming == nil
-        if case .agent = node.kind {} else { on = on && !node.children.isEmpty; showFold() }
+        if case .agent = node.kind {
+        } else {
+            on = on && !node.children.isEmpty
+            showFold()
+        }
         guard action.isHidden == on else { return }
         slot.crossfade()
         action.isHidden = !on
@@ -208,7 +235,9 @@ final class SidebarCell: NSTableCellView {
     /// The chevron turns as the row folds.
     private func showFold() {
         let folded = owner?.isCollapsed(node) ?? false
-        action.image = .symbol(folded ? "chevron.right" : "chevron.down", folded ? String(localized: "Expand") : String(localized: "Collapse"))
+        action.image = .symbol(
+            folded ? "chevron.right" : "chevron.down",
+            folded ? String(localized: "Expand") : String(localized: "Collapse"))
         action.toolTip = action.image?.accessibilityDescription
         if let was = shownFolded, was != folded, !action.isHidden { action.turn(from: folded ? -.pi / 2 : .pi / 2) }
         shownFolded = folded
@@ -228,14 +257,19 @@ final class SidebarCell: NSTableCellView {
         r.spacing = 6
         r.alignment = .centerY
         r.detachesHiddenViews = true
-        for v in row where v === changes || v === pr || v === ci || v === stack { r.setVisibilityPriority(.notVisible, for: v) }
-        r.translatesAutoresizingMaskIntoConstraints = false; addSubview(r)
+        for v in row where v === changes || v === pr || v === ci || v === stack {
+            r.setVisibilityPriority(.notVisible, for: v)
+        }
+        r.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(r)
         // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
         r.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
         let y = r.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = y
-        NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-                                     r.trailingAnchor.constraint(equalTo: trailingAnchor), y])
+        NSLayoutConstraint.activate([
+            r.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            r.trailingAnchor.constraint(equalTo: trailingAnchor), y
+        ])
     }
 
     /// The folder this row stands for, if any (RowBadges.folder).
@@ -247,24 +281,33 @@ final class SidebarCell: NSTableCellView {
         }
     }
     @objc private func openChanges() { if let w = folder { app.workbench.open(TabURI.diff(w.id), workspace: w.id) } }
-    @objc private func openPR() { if let w = folder, let u = app.rowBadges.prs[w.id]?.url { app.workbench.open(u, workspace: w.id) } }
+    @objc private func openPR() {
+        if let w = folder, let u = app.rowBadges.prs[w.id]?.url { app.workbench.open(u, workspace: w.id) }
+    }
     @objc private func openCI() { if let w = folder { app.rowBadges.openCI(w.id) } }
 
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     private func updateBadges() {
-        let w = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder, stats = w.flatMap { app.rowBadges.stats[$0.id] }
+        let w = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder,
+            stats = w.flatMap { app.rowBadges.stats[$0.id] }
         let c = RowBadges.changes(stats)
         let p = w.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
         counts = c
         showChanges()
         if c != nil, let stats {
-            changes.toolTip = String(localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
+            changes.toolTip = String(
+                localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
             changes.setAccessibilityLabel(changes.toolTip)
         }
-        if let p { pr.attributedTitle = p.0; pr.toolTip = p.1 }
+        if let p {
+            pr.attributedTitle = p.0
+            pr.toolTip = p.1
+        }
         let state = folder.flatMap { app.rowBadges.sidebarCI($0.id) }
         ciMark.state = state
-        ci.toolTip = folder.flatMap { app.rowBadges.ciLine($0.id) }.map { $0 + "\n" + String(localized: "Click to open CI Runs") }
+        ci.toolTip = folder.flatMap { app.rowBadges.ciLine($0.id) }.map {
+            $0 + "\n" + String(localized: "Click to open CI Runs")
+        }
         ci.setAccessibilityLabel(ci.toolTip)
         hasBadge = (c != nil, p != nil, state != nil)
         fitBadges()
@@ -280,7 +323,9 @@ final class SidebarCell: NSTableCellView {
         changes.restFill = full == nil ? nil : .fillRest
     }
     private static var dot: NSAttributedString {
-        NSAttributedString(string: "•", attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
+        NSAttributedString(
+            string: "•",
+            attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
     }
 
     /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack
@@ -290,7 +335,8 @@ final class SidebarCell: NSTableCellView {
         let others = r.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
         var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + r.spacing }
         for (b, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
-            let need = b.intrinsicContentSize.width + (b === ci ? ciMark.overhang : 0) + r.spacing, show = has && room >= need
+            let need = b.intrinsicContentSize.width + (b === ci ? ciMark.overhang : 0) + r.spacing,
+                show = has && room >= need
             if show { room -= need }
             r.setVisibilityPriority(show ? .mustHold : .notVisible, for: b)
         }
@@ -310,21 +356,33 @@ final class SidebarCell: NSTableCellView {
         muted.isHidden = app.mutedUntil(node.muteIds) == nil
         updateBadges()
         let m = app
-        func live(_ wid: String) -> [Session] { m.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat } }
+        func live(_ wid: String) -> [Session] {
+            m.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat }
+        }
         switch node.kind {
         case .project(let id):
             let r = m.repo(id)
             let missing = r.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
-            if let r, !missing { ProjectIcon.show(r.path, in: icon, app: m) } else { icon.image = missing ? .symbol("questionmark.folder") : nil }
+            if let r, !missing {
+                ProjectIcon.show(r.path, in: icon, app: m)
+            } else {
+                icon.image = missing ? .symbol("questionmark.folder") : nil
+            }
             icon.contentTintColor = .secondaryLabelColor
             // Not under a rename (a status change re-reads the row). A remote one's server heads its card, not its name.
-            if !title.isEditable { title.stringValue = owner?.projectHosts[id] == nil ? m.projectName(id) ?? "" : r?.name ?? "" }
+            if !title.isEditable {
+                title.stringValue = owner?.projectHosts[id] == nil ? m.projectName(id) ?? "" : r?.name ?? ""
+            }
             // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
-            let busy = !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
+            let busy =
+                !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
             title.font = .ui(13, weight: busy ? .medium : .regular)
             // Over workspace headings it stays the parent: primary, never greyer than the rows under it.
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
-            toolTip = missing ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.") : r.map(m.projectPlace)
+            toolTip =
+                missing
+                ? String(localized: "\(r?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
+                : r.map(m.projectPlace)
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
             trailing.stringValue = missing ? String(localized: "Folder missing") : ""
             if !detail.isEditable {
@@ -350,8 +408,11 @@ final class SidebarCell: NSTableCellView {
             // Expanded, its agents show their own state; collapsed, the workspace sums them up.
             let collapsed = owner?.isCollapsed(node) ?? false
             let top = AgentStatus.mostUrgent(agents.map(Self.shownStatus))
-            let lead = agents.filter { Self.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
-            trailing.stringValue = collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
+            let lead = agents.filter { Self.shownStatus($0) == top }.max {
+                ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)
+            }
+            trailing.stringValue =
+                collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
             stack.show(collapsed ? AgentStack.chats(under: node, m) : [], m)
             fitBadges()
             toolTip = nil   // the hover card shows the workspace in full
@@ -371,10 +432,15 @@ final class SidebarCell: NSTableCellView {
             // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
             // A chat with no project working in a folder you picked says which (its own folders are just dates).
             let r = m.worktree(s.worktreeId).flatMap { m.repo($0.repoId) }
-            let picked = NoProject.holds(r) && (s.cwd as NSString).deletingLastPathComponent != r?.path ? (s.cwd as NSString).lastPathComponent : ""
+            let picked =
+                NoProject.holds(r) && (s.cwd as NSString).deletingLastPathComponent != r?.path
+                ? (s.cwd as NSString).lastPathComponent : ""
             // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
-            let quiet = Self.shownStatus(s) == .working ? s.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
-            trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt)
+            let quiet =
+                Self.shownStatus(s) == .working ? s.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
+            trailing.stringValue =
+                [.waiting, .error].contains(Self.shownStatus(s))
+                ? shortAgo(s.statusAt ?? s.createdAt)
                 : m.arrangement.parked[sid].flatMap { m.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
             alphaValue = m.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
@@ -390,7 +456,8 @@ final class SidebarCell: NSTableCellView {
     /// default one (Other Agents Only), none for Never. In colour while the agent is loaded; paused, the same icon without
     /// its colour (not see-through: a faded tile read wider than the others), so what's unloaded reads at a glance.
     private func showIcon(_ s: Session) {
-        let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others", image = app.catalog.icon(s.agent, size: 16)
+        let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others",
+            image = app.catalog.icon(s.agent, size: 16)
         face.isHidden = mode != "always"
         markBox.isHidden = !face.isHidden
         face.image = s.status == .paused ? image.map(app.agentIcons.grey) : image
@@ -410,12 +477,15 @@ final class SidebarCell: NSTableCellView {
             child.translatesAutoresizingMaskIntoConstraints = false
             v.addSubview(child)
             NSLayoutConstraint.activate([
-                child.widthAnchor.constraint(equalToConstant: side), child.heightAnchor.constraint(equalToConstant: side),
-                child.centerXAnchor.constraint(equalTo: v.centerXAnchor), child.centerYAnchor.constraint(equalTo: v.centerYAnchor)
+                child.widthAnchor.constraint(equalToConstant: side),
+                child.heightAnchor.constraint(equalToConstant: side),
+                child.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+                child.centerYAnchor.constraint(equalTo: v.centerYAnchor)
             ])
         }
         NSLayoutConstraint.activate([
-            mark.centerXAnchor.constraint(equalTo: markBox.centerXAnchor), mark.centerYAnchor.constraint(equalTo: markBox.centerYAnchor),
+            mark.centerXAnchor.constraint(equalTo: markBox.centerXAnchor),
+            mark.centerYAnchor.constraint(equalTo: markBox.centerYAnchor),
             v.widthAnchor.constraint(equalToConstant: 16), v.heightAnchor.constraint(equalToConstant: 16)
         ])
         return v
@@ -442,7 +512,10 @@ final class SidebarCell: NSTableCellView {
         let line = ask.isHidden ? nil : ask.stringValue, quiet = muted.isHidden ? nil : muted.toolTip
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel([title.stringValue, state, line, quiet, project, trailing.stringValue].compactMap { $0 }.filter { !$0.isEmpty }
+        setAccessibilityLabel(
+            [title.stringValue, state, line, quiet, project, trailing.stringValue].compactMap { $0 }.filter {
+                !$0.isEmpty
+            }
             .joined(separator: ", "))
         mark.announces = false
         for v in [title, ask, trailing] as [NSView] { v.setAccessibilityElement(false) }
@@ -460,7 +533,8 @@ final class SidebarCell: NSTableCellView {
     /// command in (`kelp vm run`). Words have no room here: a name and a chip shared the same points, and a command mostly
     /// ended before it could be read. The tooltip and the card say them.
     private func showChip(_ s: Session) {
-        let beside = s.aside.count, mark = beside == 0 ? app.extensions.all.sessionMarks.lazy.compactMap({ $0(s) }).first : nil
+        let beside = s.aside.count,
+            mark = beside == 0 ? app.extensions.all.sessionMarks.lazy.compactMap({ $0(s) }).first : nil
         // Beside the dots there's no room for both it and the name: the card lists what it says.
         chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0 && mark == nil)
         if let g = s.goal {
@@ -495,8 +569,10 @@ extension SidebarCell {
         b.symbolConfiguration = .chrome(Metrics.iconSmall)
         b.tints = (.tertiaryLabelColor, .secondaryLabelColor)
         // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
-        NSLayoutConstraint.activate([b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
-                                     b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)])
+        NSLayoutConstraint.activate([
+            b.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
+            b.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
+        ])
         return b
     }
 
@@ -504,7 +580,8 @@ extension SidebarCell {
     fileprivate func styleBranch() {
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
-        detail.font = .ui(11); detail.textColor = .secondaryLabelColor
+        detail.font = .ui(11)
+        detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
         detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
     }
@@ -519,16 +596,20 @@ extension SidebarCell {
         ask.usesSingleLineMode = true
         ask.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ask.isHidden = true
-        ask.translatesAutoresizingMaskIntoConstraints = false; addSubview(ask)
-        NSLayoutConstraint.activate([ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-                                     ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
-                                     ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)])
+        ask.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(ask)
+        NSLayoutConstraint.activate([
+            ask.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            ask.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+            ask.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 2)
+        ])
     }
 
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ s: Session) {
-        let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
-                             back: app.arrangement.parkedBack[s.id])
+        let line = Self.line(
+            s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+            back: app.arrangement.parkedBack[s.id])
         setAsk(line)
     }
 

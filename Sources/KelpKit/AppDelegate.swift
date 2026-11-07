@@ -1,6 +1,6 @@
+import Agents
 import AppKit
 import Core
-import Agents
 import EditorKit
 import Sparkle
 import WorkbenchKit
@@ -32,7 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
     lazy var updater: SPUStandardUpdaterController? = {
         guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return nil }
-        let u = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: app.updates, userDriverDelegate: nil)
+        let u = SPUStandardUpdaterController(
+            startingUpdater: true, updaterDelegate: app.updates, userDriverDelegate: nil)
         app.updates.controller = u   // Settings › General reads and sets its schedule
         return u
     }()
@@ -46,27 +47,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main = MainWindowController(app: app)
         main.showWindow(nil)
         app.noProject.registerHotKey()
-        app.notifier = notifier; notifier.start()
+        app.notifier = notifier
+        notifier.start()
         dockIcon.start()
-        app.agentStrip = agentStrip; agentStrip.start()
+        app.agentStrip = agentStrip
+        agentStrip.start()
         buildMenu()
         // Glances are timed only while some finished agent is still unread: no clock runs the rest of the time.
-        track(owner: self) { [app] in app.sessions.contains { Self.readOnSight($0) } } changed: { [weak self] any in self?.timeGlances(any) }
-        track(owner: self) { [app] in app.extensions.revision } changed: { [weak self] _ in self?.buildMenu() }
-        track(owner: self) { app.availability.ids } changed: { [weak self] _ in self?.buildMenu() }
-        track(owner: self) { [app] in app.settings.value("keys") } changed: { [weak self] _ in self?.buildMenu() }
-        track(owner: self) { [app] in app.updates.ready } changed: { [weak self] _ in self?.buildMenu() }
+        track(owner: self) { [app] in
+            app.sessions.contains { Self.readOnSight($0) }
+        } changed: { [weak self] any in
+            self?.timeGlances(any)
+        }
+        track(owner: self) { [app] in
+            app.extensions.revision
+        } changed: { [weak self] _ in
+            self?.buildMenu()
+        }
+        track(owner: self) {
+            app.availability.ids
+        } changed: { [weak self] _ in
+            self?.buildMenu()
+        }
+        track(owner: self) { [app] in
+            app.settings.value("keys")
+        } changed: { [weak self] _ in
+            self?.buildMenu()
+        }
+        track(owner: self) { [app] in
+            app.updates.ready
+        } changed: { [weak self] _ in
+            self?.buildMenu()
+        }
         app.extensions.watch()
         Task {
             await app.connect()
             await app.noProject.ensure()   // connecting reloaded the extensions: settings (disabled ones) and what was allowed are known
             app.availability.refresh(force: true)
             #if DEBUG
-            let pick = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WORKTREE"].flatMap { b in
-                app.worktrees.first { $0.id == b || $0.branch == b || $0.note == b }
-            }
+                let pick = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WORKTREE"].flatMap { b in
+                    app.worktrees.first { $0.id == b || $0.branch == b || $0.note == b }
+                }
             #else
-            let pick: Worktree? = nil
+                let pick: Worktree? = nil
             #endif
             let last = app.uiState["workbench.lastWorkspace"]?.string.flatMap { app.worktree($0) }
             // Next turn of the run loop: the sidebar lays out its new rows before it gets a selection.
@@ -76,19 +99,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let w = pick ?? last ?? first { app.workbench.show(workspace: w.id) }
             await UnsavedBackups.reopen(app, in: app.workbench.window?.editors)
             app.updates.sayInstalled()
-            let early = pendingOpens ?? []; pendingOpens = nil
+            let early = pendingOpens ?? []
+            pendingOpens = nil
             if !early.isEmpty { application(NSApp, open: early) }
         }
         NSApp.activate()
         // Snapshots and the input they drive (KELP_CLICK, KELP_TYPE…) are a debug build's: in a release, any program the
         // user runs could start the real app and have it click its own Trust button.
         #if DEBUG
-        if let out = ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] { snapshotLater(out) }
+            if let out = ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] { snapshotLater(out) }
         #endif
     }
 
     /// Agents installed while Kelp was in the background show up when it comes back.
-    func applicationDidBecomeActive(_ n: Notification) { app.availability.refresh(); notifier.checkAllowed() }
+    func applicationDidBecomeActive(_ n: Notification) {
+        app.availability.refresh()
+        notifier.checkAllowed()
+    }
     /// Banners held while you typed go out once you're elsewhere.
     func applicationDidResignActive(_ n: Notification) { notifier.releaseHeld() }
 
@@ -103,14 +130,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let answer = await runSheet(UnsavedChanges.alert(edited, quitting: true))
             let done = await UnsavedChanges.settle(edited, answer)
             answered = done ? await UnsavedChanges.written(edited) : false
-            if answered == true, !system { unsavedAnswered = true; NSApp.terminate(nil) }
+            if answered == true, !system {
+                unsavedAnswered = true
+                NSApp.terminate(nil)
+            }
         }
         // Logging out or shutting down: a cancel here cancels it, so the answer is waited for in place, events and
         // the main actor's tasks served meanwhile. Not `terminateLater`: until its reply AppKit runs a modal mode in
         // which the main actor's tasks don't run, so the question could never be asked.
         guard system else { return .terminateCancel }   // ⌘Q: asked in a sheet, then quit again
         while answered == nil {
-            if let e = NSApp.nextEvent(matching: .any, until: .now + 0.1, inMode: .default, dequeue: true) { NSApp.sendEvent(e) }
+            if let e = NSApp.nextEvent(matching: .any, until: .now + 0.1, inMode: .default, dequeue: true) {
+                NSApp.sendEvent(e)
+            }
         }
         return answered == true ? .terminateNow : .terminateCancel
     }
@@ -129,8 +161,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fresh.createsNewApplicationInstance = true
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: fresh) { _, error in
             Task { @MainActor in
-                if let error { Banner.show(String(localized: "Couldn't relaunch Kelp: \(error.localizedDescription)"), style: .error) }
-                else { NSApp.terminate(nil) }
+                if let error {
+                    Banner.show(
+                        String(localized: "Couldn't relaunch Kelp: \(error.localizedDescription)"), style: .error)
+                } else {
+                    NSApp.terminate(nil)
+                }
             }
         }
     }
@@ -144,7 +180,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Folders dropped on the Dock icon or opened with `open -a Kelp <path>` become projects; files open as tabs.
     /// What opens Kelp waits for the projects and the last workspace to be on screen.
     func application(_ sender: NSApplication, open urls: [URL]) {
-        if pendingOpens != nil { pendingOpens? += urls; return }
+        if pendingOpens != nil {
+            pendingOpens? += urls
+            return
+        }
         for u in urls where u.scheme == "kelp" { KelpLinks(app).handle(u) }
         app.workbench.open(files: urls.filter(\.isFileURL))
     }
@@ -154,24 +193,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Finished agents read at a glance (`Glances`): timed only while one is unread, so no clock runs the rest of the time.
     private var glances = Glances()
     private var glanceClock: Timer?
-    private static func readOnSight(_ s: Session) -> Bool { s.unread && (s.status == .done || (s.status == .exited && !s.endedWithError)) }
+    private static func readOnSight(_ s: Session) -> Bool {
+        s.unread && (s.status == .done || (s.status == .exited && !s.endedWithError))
+    }
     private func timeGlances(_ on: Bool) {
         glanceClock?.invalidate()
         glanceClock = nil
         glances = Glances()
         guard on else { return }
         // Main run loop: AppKit runs the timer on the main thread.
-        glanceClock = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.trackGlances() } }
+        glanceClock = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.trackGlances() }
+        }
     }
     private func trackGlances() {
         let w = main?.window, e = app.workbench.editor
         // And someone is there: a front window in an empty room reads nothing (`Presence`).
-        let front = NSApp.isActive && w?.isKeyWindow == true && w?.occlusionState.contains(.visible) == true && e != nil && Presence.here()
+        let front =
+            NSApp.isActive && w?.isKeyWindow == true && w?.occlusionState.contains(.visible) == true && e != nil
+            && Presence.here()
         let app = app
-        let mark = glances.tick(front: front, shown: e?.attendedSessions ?? [], readable: { app.session($0).map(Self.readOnSight) ?? false },
-                                unread: { app.session($0)?.unread == true }, now: Date())
+        let mark = glances.tick(
+            front: front, shown: e?.attendedSessions ?? [],
+            readable: { app.session($0).map(Self.readOnSight) ?? false },
+            unread: { app.session($0)?.unread == true }, now: Date())
         for sid in mark {
-            Task { [weak self] in if await self?.app.call(SessionMarkRead(id: sid)) == nil { self?.glances.failed(sid) } }   // try again later
+            Task { [weak self] in if await self?.app.call(SessionMarkRead(id: sid)) == nil { self?.glances.failed(sid) }
+            }   // try again later
         }
     }
 
@@ -188,8 +236,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The command's menu item: its identifier is the command id (Settings › Keyboard, `validateMenuItem`).
     func item(_ c: CommandSpec) -> NSMenuItem {
         let i = NSMenuItem(title: c.title, action: #selector(runCommand(_:)), keyEquivalent: "")
-        i.target = self; i.identifier = NSUserInterfaceItemIdentifier(c.id)
-        if let k = c.key.flatMap(KeySpec.init) { i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags }
+        i.target = self
+        i.identifier = NSUserInterfaceItemIdentifier(c.id)
+        if let k = c.key.flatMap(KeySpec.init) {
+            i.keyEquivalent = k.key
+            i.keyEquivalentModifierMask = k.mods.flags
+        }
         return i
     }
 }
@@ -199,29 +251,37 @@ extension AppDelegate: NSMenuItemValidation {
     /// the file commands need a file.
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.identifier?.rawValue {
-        case "workbench.toggleSidebar": item.title = main.sidebarShown ? String(localized: "Hide Sidebar") : String(localized: "Show Sidebar")
-        case "workbench.toggleInspector": item.title = main.inspectorShown ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
+        case "workbench.toggleSidebar":
+            item.title = main.sidebarShown ? String(localized: "Hide Sidebar") : String(localized: "Show Sidebar")
+        case "workbench.toggleInspector":
+            item.title = main.inspectorShown ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
         case "workbench.toggleFocusMode": item.state = main.inFocusMode ? .on : .off
         case "power.keepAwake": item.state = app.settings.string("power.keepAwake") == "always" ? .on : .off
         case "scripts.run", "scripts.test", "scripts.edit": return app.workbench.workspaceId != nil
         // Off elsewhere, so a terminal still gets ⌥Z.
         case "editor.toggleWordWrap":
-            item.state = app.settings.bool("editor.wordWrap", language: CodeEditor.focused?.languageId) == true ? .on : .off
+            item.state =
+                app.settings.bool("editor.wordWrap", language: CodeEditor.focused?.languageId) == true ? .on : .off
             return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.reopenTab": return app.workbench.nextClosedTab != nil   // off elsewhere, so a terminal still gets the key
         case "scripts.stop": return app.scripts.canStop
         case "scripts.openPage": return app.workbench.workspaceId.map { !app.scripts.pages($0).isEmpty } ?? false
         // Off elsewhere, so a terminal still gets their keys.
-        case "editor.runFile", "editor.testAtCursor", "editor.format": return app.workbench.editor?.focusedContent?.fileURL != nil
+        case "editor.runFile", "editor.testAtCursor", "editor.format":
+            return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.findReferences", "editor.rename", "editor.quickFix",
-             "editor.nextProblem", "editor.previousProblem", "editor.showCompletions", "editor.showHover", "editor.expandSelection", "editor.shrinkSelection",
-             "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds",
-             "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",
-             "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "editor.toggleComment", "editor.indent", "editor.outdent",
-             "editor.fold", "editor.unfold", "editor.unfoldAll", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3":
+            "editor.nextProblem", "editor.previousProblem", "editor.showCompletions", "editor.showHover",
+            "editor.expandSelection", "editor.shrinkSelection",
+            "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds",
+            "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.moveLinesUp", "editor.moveLinesDown",
+            "editor.copyLinesUp", "editor.copyLinesDown", "editor.deleteLines", "editor.toggleComment", "editor.indent",
+            "editor.outdent",
+            "editor.fold", "editor.unfold", "editor.unfoldAll", "editor.foldAll", "editor.foldLevel2",
+            "editor.foldLevel3":
             return CodeEditor.focused != nil
         // Off elsewhere: ⌘K still clears a terminal.
-        case "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "markdown.bullets", "markdown.numbered", "markdown.tasks":
+        case "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "markdown.bullets",
+            "markdown.numbered", "markdown.tasks":
             return CodeEditor.focused?.isMarkdown == true
         default: break
         }
@@ -238,18 +298,31 @@ final class ArchivedMenu: NSObject, NSMenuDelegate {
     init(app: AppModel) {
         self.app = app
         super.init()
-        track(owner: self) { [app] in app.worktrees } changed: { [weak self] _ in Task { await self?.reload() } }
+        track(owner: self) { [app] in
+            app.worktrees
+        } changed: { [weak self] _ in
+            Task { await self?.reload() }
+        }
     }
     private func reload() async {
         let r = await app.tryCall(WorktreeList(archived: true))
-        archived = (r.value ?? []).filter(\.archived); failed = r.error
+        archived = (r.value ?? []).filter(\.archived)
+        failed = r.error
     }
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        if let failed { menu.addItem(withTitle: failed, action: nil, keyEquivalent: "").isEnabled = false; return }
-        guard !archived.isEmpty else { menu.addItem(withTitle: String(localized: "None"), action: nil, keyEquivalent: "").isEnabled = false; return }
+        if let failed {
+            menu.addItem(withTitle: failed, action: nil, keyEquivalent: "").isEnabled = false
+            return
+        }
+        guard !archived.isEmpty else {
+            menu.addItem(withTitle: String(localized: "None"), action: nil, keyEquivalent: "").isEnabled = false
+            return
+        }
         for w in archived.sorted(by: { $0.createdAt > $1.createdAt }) {
-            menu.add("\(w.displayName) — \(app.projectName(w.repoId) ?? "")") { [app] in WorkspaceActions(app).unarchive(w.id) }
+            menu.add("\(w.displayName) — \(app.projectName(w.repoId) ?? "")") { [app] in
+                WorkspaceActions(app).unarchive(w.id)
+            }
         }
     }
 }

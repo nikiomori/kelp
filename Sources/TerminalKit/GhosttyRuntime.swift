@@ -155,17 +155,24 @@ public final class GhosttyRuntime {
         var rt = ghostty_runtime_config_s()
         rt.userdata = nil
         rt.supports_selection_clipboard = false
-        rt.wakeup_cb = { _ in DispatchQueue.main.async { MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_tick(a) } } } }
+        rt.wakeup_cb = { _ in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_tick(a) } }
+            }
+        }
         rt.action_cb = { _, target, action in
             MainActor.assumeIsolated { GhosttyRuntime.shared.handle(target, action) }
         }
         rt.read_clipboard_cb = { ud, _, state, mimes, count, list in
             MainActor.assumeIsolated {
-                GhosttyTerminalView.from(ud)?.readClipboard(state: state, mimes: mimes, count: count, list: list) ?? GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
+                GhosttyTerminalView.from(ud)?.readClipboard(state: state, mimes: mimes, count: count, list: list)
+                    ?? GHOSTTY_CLIPBOARD_READ_UNSUPPORTED
             }
         }
         rt.confirm_read_clipboard_cb = { ud, confirm, state, request in
-            MainActor.assumeIsolated { GhosttyTerminalView.from(ud)?.confirmClipboard(confirm, state: state, request: request) }
+            MainActor.assumeIsolated {
+                GhosttyTerminalView.from(ud)?.confirmClipboard(confirm, state: state, request: request)
+            }
         }
         // `fromProgram`: an OSC 52 write (Claude Code copies that way over ssh), which `clipboard-write = ask` flags.
         rt.write_clipboard_cb = { ud, _, contents, count, fromProgram in
@@ -173,35 +180,46 @@ public final class GhosttyRuntime {
             var text: String?
             for i in 0..<count {
                 let c = contents[i]
-                guard let mime = c.mime.map({ String(cString: $0) }), mime.hasPrefix("text/plain"), let data = c.data else { continue }
+                guard let mime = c.mime.map({ String(cString: $0) }), mime.hasPrefix("text/plain"), let data = c.data
+                else { continue }
                 text = String(bytes: UnsafeRawBufferPointer(start: data, count: c.len), encoding: .utf8)
             }
             if let raw = text {
                 let view = MainActor.assumeIsolated { GhosttyTerminalView.from(ud) }   // Ghostty writes on the main thread
                 // Later: the selection is read under the lock Ghostty holds while it writes.
-                DispatchQueue.main.async { [weak view] in MainActor.assumeIsolated {
-                    let text = GhosttyRuntime.cleanCopy && !fromProgram
-                        ? TerminalCopy.clean(raw, from: view?.selectionColumn ?? 0, columns: view?.gridSize?.cols) : raw
-                    let pb = GhosttyRuntime.pasteboard
-                    pb.clearContents(); pb.setString(text, forType: .string)
-                    GhosttyRuntime.programCopy = fromProgram ? pb.changeCount : nil
-                } }
+                DispatchQueue.main.async { [weak view] in
+                    MainActor.assumeIsolated {
+                        let text =
+                            GhosttyRuntime.cleanCopy && !fromProgram
+                            ? TerminalCopy.clean(raw, from: view?.selectionColumn ?? 0, columns: view?.gridSize?.cols)
+                            : raw
+                        let pb = GhosttyRuntime.pasteboard
+                        pb.clearContents()
+                        pb.setString(text, forType: .string)
+                        GhosttyRuntime.programCopy = fromProgram ? pb.changeCount : nil
+                    }
+                }
             }
         }
         rt.close_surface_cb = { ud, _ in
             MainActor.assumeIsolated { GhosttyTerminalView.from(ud)?.onExit?() }
         }
         app = ghostty_app_new(&rt, cfg)
-        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { _ in
             MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_set_focus(a, true) } }
         }
-        NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { _ in
             MainActor.assumeIsolated { if let a = GhosttyRuntime.shared.app { ghostty_app_set_focus(a, false) } }
         }
     }
 
     private func handle(_ target: ghostty_target_s, _ action: ghostty_action_s) -> Bool {
-        let view: GhosttyTerminalView? = target.tag == GHOSTTY_TARGET_SURFACE
+        let view: GhosttyTerminalView? =
+            target.tag == GHOSTTY_TARGET_SURFACE
             ? target.target.surface.flatMap { GhosttyTerminalView.from(ghostty_surface_userdata($0)) } : nil
         switch action.tag {
         case GHOSTTY_ACTION_SET_TITLE:
@@ -210,15 +228,21 @@ public final class GhosttyRuntime {
         case GHOSTTY_ACTION_OPEN_URL:
             let u = action.action.open_url
             guard let p = u.url else { return false }
-            if let s = String(bytes: UnsafeRawBufferPointer(start: p, count: Int(u.len)), encoding: .utf8), let url = URL(string: s) {
+            if let s = String(bytes: UnsafeRawBufferPointer(start: p, count: Int(u.len)), encoding: .utf8),
+                let url = URL(string: s)
+            {
                 if let h = view?.onOpenURL { h(url) } else { NSWorkspace.shared.open(url) }
             }
             return true
         case GHOSTTY_ACTION_MOUSE_SHAPE:
-            if let view { view.cursor = GhosttyTerminalView.cursor(for: action.action.mouse_shape); view.window?.invalidateCursorRects(for: view) }
+            if let view {
+                view.cursor = GhosttyTerminalView.cursor(for: action.action.mouse_shape)
+                view.window?.invalidateCursorRects(for: view)
+            }
             return true
         case GHOSTTY_ACTION_CELL_SIZE:
-            view?.cellSize = NSSize(width: Double(action.action.cell_size.width), height: Double(action.action.cell_size.height))
+            view?.cellSize = NSSize(
+                width: Double(action.action.cell_size.width), height: Double(action.action.cell_size.height))
             return true
         case GHOSTTY_ACTION_RING_BELL:
             return true   // agents ring constantly; status dots carry that signal

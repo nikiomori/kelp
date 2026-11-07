@@ -9,11 +9,13 @@ public protocol RPCEvent: Codable, Sendable {
 }
 
 /// Every event the daemon sends.
-public let rpcEvents: [any RPCEvent.Type] = [Session.self, OutputEvent.self, DevServerEvent.self, PortBusyEvent.self, ChangedEvent.self, CloneEvent.self,
-                                              SettingsEvent.self, UIEvent.self, UIBrowserEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
-                                              GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
-                                              LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self, SubagentsEvent.self, HostEvent.self,
-                                              RoutinesEvent.self, ArtifactsEvent.self, MachinesEvent.self, MachineEvent.self]
+public let rpcEvents: [any RPCEvent.Type] = [
+    Session.self, OutputEvent.self, DevServerEvent.self, PortBusyEvent.self, ChangedEvent.self, CloneEvent.self,
+    SettingsEvent.self, UIEvent.self, UIBrowserEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
+    GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
+    LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self, SubagentsEvent.self, HostEvent.self,
+    RoutinesEvent.self, ArtifactsEvent.self, MachinesEvent.self, MachineEvent.self
+]
 
 /// A session's record changed: the record is the event.
 extension Session: RPCEvent { public static let name = "event.session" }
@@ -22,21 +24,32 @@ extension Session: RPCEvent { public static let name = "event.session" }
 public struct OutputEvent: RPCEvent {
     public static let name = "event.output"
     public var session: String, data: String   // data: base64
-    public init(session: String, data: Data) { self.session = session; self.data = data.base64EncodedString() }
+    public init(session: String, data: Data) {
+        self.session = session
+        self.data = data.base64EncodedString()
+    }
 }
 
 /// A dev server in a workspace printed its local URL.
 public struct DevServerEvent: RPCEvent {
     public static let name = "event.devserver"
     public var worktree: String, url: String, session: String
-    public init(worktree: String, url: String, session: String) { self.worktree = worktree; self.url = url; self.session = session }
+    public init(worktree: String, url: String, session: String) {
+        self.worktree = worktree
+        self.url = url
+        self.session = session
+    }
 }
 
 /// A run couldn't start: what it printed says `port` is taken.
 public struct PortBusyEvent: RPCEvent {
     public static let name = "event.portBusy"
     public var worktree: String, port: Int, session: String
-    public init(worktree: String, port: Int, session: String) { self.worktree = worktree; self.port = port; self.session = session }
+    public init(worktree: String, port: Int, session: String) {
+        self.worktree = worktree
+        self.port = port
+        self.session = session
+    }
 }
 
 /// Projects or workspaces changed: read the lists again. The params are just the word. Still sent for clients that read
@@ -50,7 +63,10 @@ public enum ChangedEvent: String, RPCEvent, CaseIterable {
 public struct CloneEvent: RPCEvent {
     public static let name = "event.clone"
     public var id: String, line: String
-    public init(id: String, line: String) { self.id = id; self.line = line }
+    public init(id: String, line: String) {
+        self.id = id
+        self.line = line
+    }
 }
 
 /// settings.json changed (a set, or the file edited by hand): all of it now.
@@ -65,16 +81,31 @@ public struct UIEvent: RPCEvent {
     public static let name = "event.ui"
     public var action: String
     public var uri: String?, split: String?, focus: Bool?, worktreeId: String?   // open
-    public var id: String?, args: JSONValue?                                   // command
-    public init(_ o: UIOpen) { action = "open"; uri = o.uri; split = o.split; focus = o.focus; worktreeId = o.worktreeId }
-    public init(_ c: UICommand) { action = "command"; id = c.id; args = c.args }
+    public var id: String?, args: JSONValue?   // command
+    public init(_ o: UIOpen) {
+        action = "open"
+        uri = o.uri
+        split = o.split
+        focus = o.focus
+        worktreeId = o.worktreeId
+    }
+    public init(_ c: UICommand) {
+        action = "command"
+        id = c.id
+        args = c.args
+    }
 }
 
 /// An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.
 public struct UIBrowserEvent: RPCEvent {
     public static let name = "event.ui.browser"
     public var request: String, action: String, args: JSONValue?, worktreeId: String?
-    public init(_ b: UIBrowser, request: String) { self.request = request; action = b.action; args = b.args; worktreeId = b.worktreeId }
+    public init(_ b: UIBrowser, request: String) {
+        self.request = request
+        action = b.action
+        args = b.args
+        worktreeId = b.worktreeId
+    }
 }
 
 /// The wire form of an event: one encode, no JSONValue in between (output events are many).

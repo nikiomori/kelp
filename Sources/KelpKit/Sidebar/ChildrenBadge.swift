@@ -18,18 +18,22 @@ final class ChildrenBadge: PointerControl {
 
     init() {
         super.init(frame: .zero)
-        count.font = .uiDigits(11, weight: .medium); count.textColor = .secondaryLabelColor
+        count.font = .uiDigits(11, weight: .medium)
+        count.textColor = .secondaryLabelColor
         let row = NSStackView(views: [pips, count])
         row.spacing = 3
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
-        NSLayoutConstraint.activate([row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-                                     row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
-                                     row.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-                                     row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2)])
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2)
+        ])
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setContentHuggingPriority(.required, for: .horizontal)
-        setAccessibilityElement(true); setAccessibilityRole(.button)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
         layer?.cornerRadius = Metrics.radiusXS
         isHidden = true
     }
@@ -54,7 +58,9 @@ final class ChildrenBadge: PointerControl {
             default: .finished
             }
         }
-        let all = (started + running.map { $0.asks == true ? .asks : .works } + (running.isEmpty ? [] : finished.map { _ in .finished })).sorted()
+        let all =
+            (started + running.map { $0.asks == true ? .asks : .works }
+            + (running.isEmpty ? [] : finished.map { _ in .finished })).sorted()
         if all.count <= mostPips { return (all, nil) }
         let atWork = all.count { $0 != .finished }
         return (Array(all.prefix(1)), atWork > 0 ? atWork : all.count)
@@ -100,14 +106,19 @@ final class PipsView: NSView {
 
     override var intrinsicContentSize: NSSize {
         let g = Self.grid(pips.count), step = Self.side + Self.gap
-        return NSSize(width: max(0, CGFloat(g.columns) * step - Self.gap), height: max(0, CGFloat(g.lines) * step - Self.gap))
+        return NSSize(
+            width: max(0, CGFloat(g.columns) * step - Self.gap), height: max(0, CGFloat(g.lines) * step - Self.gap))
     }
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {   // the appearance is current here
         addDots()
         CATransaction.begin()
-        if Motion.reduced { CATransaction.setDisableActions(true) } else { CATransaction.setAnimationDuration(Motion.appear) }
+        if Motion.reduced {
+            CATransaction.setDisableActions(true)
+        } else {
+            CATransaction.setAnimationDuration(Motion.appear)
+        }
         for (i, dot) in dots.enumerated() {
             dot.isHidden = i >= pips.count
             if i < pips.count { paint(dot, pips[i]) }
@@ -120,7 +131,8 @@ final class PipsView: NSView {
         let lines = Self.grid(pips.count).lines, step = Self.side + Self.gap
         for (i, dot) in dots.enumerated() where i < pips.count {
             let c = Self.cell(i, of: pips.count)
-            dot.frame = NSRect(x: CGFloat(c.column) * step, y: CGFloat(lines - 1 - c.line) * step, width: Self.side, height: Self.side)
+            dot.frame = NSRect(
+                x: CGFloat(c.column) * step, y: CGFloat(lines - 1 - c.line) * step, width: Self.side, height: Self.side)
         }
     }
 
@@ -159,12 +171,16 @@ extension Subagent {
 extension SidebarCell {
     /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
     /// `back`: why a parked agent came back (`AppModel.parkedBack`), said when nothing more urgent is.
-    static func line(_ s: Session, mode: String, among all: [Session], back: String? = nil) -> (prefix: (String, NSColor)?, text: String)? {
+    static func line(_ s: Session, mode: String, among all: [Session], back: String? = nil) -> (
+        prefix: (String, NSColor)?, text: String
+    )? {
         let own = askLine(s, mode: mode)
         guard own?.prefix == nil else { return own }
         if let back { return ((String(localized: "Back:"), .secondaryLabelColor), back) }
         for k in all.children(of: s.id) {
-            if let line = askLine(k, mode: mode), let color = line.prefix?.1 { return ((k.displayTitle + ":", color), line.text) }
+            if let line = askLine(k, mode: mode), let color = line.prefix?.1 {
+                return ((k.displayTitle + ":", color), line.text)
+            }
         }
         return own
     }

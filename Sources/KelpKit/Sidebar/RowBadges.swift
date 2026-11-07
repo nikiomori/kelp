@@ -23,13 +23,31 @@ package final class RowBadges {
 
     init(app: AppModel) {
         self.app = app
-        track(owner: self) { [weak self] in self?.wanted() ?? [:] } changed: { [weak self] in self?.follow($0) }
-        track(owner: self) { [weak self] in self?.ciStates() ?? [:] } changed: { [weak self] in self?.landed($0) }
-        track(owner: self) { [weak self] in self?.folder(of: app.workbench.workspaceId)?.id } changed: { [weak self] in
+        track(owner: self) { [weak self] in
+            self?.wanted() ?? [:]
+        } changed: { [weak self] in
+            self?.follow($0)
+        }
+        track(owner: self) { [weak self] in
+            self?.ciStates() ?? [:]
+        } changed: { [weak self] in
+            self?.landed($0)
+        }
+        track(owner: self) { [weak self] in
+            self?.folder(of: app.workbench.workspaceId)?.id
+        } changed: { [weak self] in
             if let id = $0, self?.unseen.remove(id) != nil { self?.show(id) }
         }
-        track(owner: self) { app.latest(GitEvent.self).byKey.compactMapValues(\.branches) } changed: { [weak self] in self?.pushes($0) }
-        track(owner: self) { app.latest(PREvent.self).byKey.compactMapValues(\.pr) } changed: { [weak self] in self?.prsRead($0) }
+        track(owner: self) {
+            app.latest(GitEvent.self).byKey.compactMapValues(\.branches)
+        } changed: { [weak self] in
+            self?.pushes($0)
+        }
+        track(owner: self) {
+            app.latest(PREvent.self).byKey.compactMapValues(\.pr)
+        } changed: { [weak self] in
+            self?.prsRead($0)
+        }
     }
 
     private func prsRead(_ now: [String: GitHub.PullRequest]) {
@@ -41,11 +59,16 @@ package final class RowBadges {
     /// beside folders off: only the folder on screen's CI, for the branch chip and its popover.
     private func wanted() -> [WatchTopic: Set<String>] {
         let s = app.settings
-        let all = Set(app.repos.compactMap { folder(project: $0.id)?.id } + app.worktrees.compactMap { folder(workspace: $0.id)?.id })
+        let all = Set(
+            app.repos.compactMap { folder(project: $0.id)?.id }
+                + app.worktrees.compactMap { folder(workspace: $0.id)?.id })
         let badges = s.bool("workbench.sidebar.gitBadges") != false ? all : []
         var ci = s.bool("workbench.ci.sidebar") != false ? all : []
         if s.string("workbench.ci.branchChip") != "off" || s.bool("workbench.ci.popover") != false,
-           let here = folder(of: app.workbench.workspaceId) { ci.insert(here.id) }
+            let here = folder(of: app.workbench.workspaceId)
+        {
+            ci.insert(here.id)
+        }
         return [.git: badges, .pr: badges, .ci: ci]
     }
 
@@ -88,8 +111,12 @@ package final class RowBadges {
             let k = (Double(v) / 100).rounded() / 10
             return (k == k.rounded() ? String(Int(k)) : String(k)) + "k"
         }
-        for (text, v, color) in [("+" + n(added), added, NSColor.textGreen), ("−" + n(removed), removed, NSColor.textRed)] where v > 0 {
-            t.append(NSAttributedString(string: (t.length > 0 ? " " : "") + text, attributes: [.font: font, .foregroundColor: color]))
+        for (text, v, color) in [
+            ("+" + n(added), added, NSColor.textGreen), ("−" + n(removed), removed, NSColor.textRed)
+        ] where v > 0 {
+            t.append(
+                NSAttributedString(
+                    string: (t.length > 0 ? " " : "") + text, attributes: [.font: font, .foregroundColor: color]))
         }
         return t
     }
@@ -98,17 +125,25 @@ package final class RowBadges {
     static func pr(_ p: GitHub.PullRequest?) -> (NSAttributedString, String)? {
         guard let p else { return nil }
         let n = p.number, state = p.isDraft ? "DRAFT" : p.state
-        let color: NSColor = state == "DRAFT" ? .secondaryLabelColor : state == "MERGED" ? .textPurple : state == "CLOSED" ? .textRed : .textGreen
+        let color: NSColor =
+            state == "DRAFT"
+            ? .secondaryLabelColor : state == "MERGED" ? .textPurple : state == "CLOSED" ? .textRed : .textGreen
         let failed = p.checks.failed, pending = p.checks.pending, passed = p.checks.passed
-        let t = NSAttributedString(string: "#\(n)", attributes: [.font: NSFont.uiDigits(11, weight: .medium), .foregroundColor: color])
-        let checks = failed > 0 ? String(localized: "\(failed) checks failing") : pending > 0 ? String(localized: "\(pending) checks running")
-            : passed > 0 ? String(localized: "checks passed") : String(localized: "no checks")
-        let said = switch state {
-        case "DRAFT": String(localized: "draft")
-        case "MERGED": String(localized: "merged")
-        case "CLOSED": String(localized: "closed")
-        default: String(localized: "open")
-        }
+        let t = NSAttributedString(
+            string: "#\(n)", attributes: [.font: NSFont.uiDigits(11, weight: .medium), .foregroundColor: color])
+        let checks =
+            failed > 0
+            ? String(localized: "\(failed) checks failing")
+            : pending > 0
+                ? String(localized: "\(pending) checks running")
+                : passed > 0 ? String(localized: "checks passed") : String(localized: "no checks")
+        let said =
+            switch state {
+            case "DRAFT": String(localized: "draft")
+            case "MERGED": String(localized: "merged")
+            case "CLOSED": String(localized: "closed")
+            default: String(localized: "open")
+            }
         return (t, String(localized: "Pull request #\(n) · \(said) · \(checks)") + "\n" + p.title)
     }
 }
@@ -127,7 +162,9 @@ extension RowBadges {
         return s != .passed || unseen.contains(id) ? s : nil
     }
     /// Every folder's sidebar mark: the rows follow this, not each CI read.
-    var sidebarMarks: [String: CIRuns.State] { Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = sidebarCI($1) } }
+    var sidebarMarks: [String: CIRuns.State] {
+        Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = sidebarCI($1) }
+    }
     /// On the branch chip: a pass for its first minute on screen.
     func chipCI(_ id: String) -> CIRuns.State? {
         guard let s = state(id) else { return nil }
@@ -145,15 +182,21 @@ extension RowBadges {
             case .passed: false
             }
         }
-        let what = ([CIRunLook.words(s)] + (runs.isEmpty ? [] : [runs.map(\.workflow).joined(separator: ", ")])).joined(separator: " · ")
+        let what = ([CIRunLook.words(s)] + (runs.isEmpty ? [] : [runs.map(\.workflow).joined(separator: ", ")])).joined(
+            separator: " · ")
         return String(localized: "CI: \(what)")
     }
 
     /// CI Runs for the folder (it opens a failed job's log by itself), in its workspace; without the panel, the run's page.
     func openCI(_ id: String) {
-        if folder(of: app.workbench.workspaceId)?.id != id || app.workbench.page != nil { app.workbench.show(workspace: id) }
-        if app.extensions.all.panels.contains(where: { $0.role == .checks }) { app.workbench.showPanel(.checks) }
-        else if let runs = app.latest(CIEvent.self, id)?.result?.runs, let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first {
+        if folder(of: app.workbench.workspaceId)?.id != id || app.workbench.page != nil {
+            app.workbench.show(workspace: id)
+        }
+        if app.extensions.all.panels.contains(where: { $0.role == .checks }) {
+            app.workbench.showPanel(.checks)
+        } else if let runs = app.latest(CIEvent.self, id)?.result?.runs,
+            let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first
+        {
             app.workbench.open(run.url)
         }
     }
@@ -187,7 +230,9 @@ extension RowBadges {
 
     /// A push from anywhere (a terminal, an agent) starts CI: look for its run now, not on the next 2-minute read.
     private func pushes(_ now: [String: BranchInfo]) {
-        for id in following[.ci] ?? [] { if let new = now[id], let old = branches[id], new.pushed(since: old) { app.watchAgain(.ci, id) } }
+        for id in following[.ci] ?? [] {
+            if let new = now[id], let old = branches[id], new.pushed(since: old) { app.watchAgain(.ci, id) }
+        }
         branches = now
     }
 }

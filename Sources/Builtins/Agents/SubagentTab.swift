@@ -1,9 +1,9 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
-import WorkbenchKit
 import KelpKit
+import SwiftUI
+import WorkbenchKit
 
 /// "subagent:<session>/<id>": what a subagent did, step by step, and what it reported. It has no terminal, and Claude Code
 /// keeps all of this beside its parent's conversation, so the tab only reads, again when a step comes (`WatchTopic.subagents`).
@@ -15,7 +15,10 @@ final class SubagentJournal {
     var loaded = false
     var failed: String?
 
-    init(session: String, id: String) { self.session = session; self.id = id }
+    init(session: String, id: String) {
+        self.session = session
+        self.id = id
+    }
 }
 
 @MainActor
@@ -30,8 +33,9 @@ final class SubagentTab: KelpKit.TabContent {   // not SwiftUI's
         self.uri = uri
         let parts = TabURI.body(uri).split(separator: "/", maxSplits: 1).map(String.init)
         model = SubagentJournal(session: parts.first ?? "", id: parts.last ?? "")
-        let host = NSHostingView(rootView: SubagentJournalView(model: model, app: app, watched: Watched(.subagents, in: app))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        let host = NSHostingView(
+            rootView: SubagentJournalView(model: model, app: app, watched: Watched(.subagents, in: app))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
         host.sizingOptions = []   // a tab fills the space it's given
         view = host
     }
@@ -57,12 +61,17 @@ struct SubagentJournalView: View {
             } else if let failed = model.failed {
                 message(String(localized: "Can’t read this subagent"), failed)
             } else if model.loaded {
-                message(String(localized: "Nothing to show"), String(localized: "Claude Code kept no record of this subagent."))
+                message(
+                    String(localized: "Nothing to show"),
+                    String(localized: "Claude Code kept no record of this subagent."))
             }
         }
         .onAppear { watched.key = model.session }
         .onDisappear { watched.key = nil }
-        .task(id: Change(touched: app.latest(SubagentsEvent.self, model.session)?.steps[model.id]?.touched, working: working)) { await load() }
+        .task(
+            id: Change(
+                touched: app.latest(SubagentsEvent.self, model.session)?.steps[model.id]?.touched, working: working)
+        ) { await load() }
     }
 
     private func load() async {
@@ -74,11 +83,15 @@ struct SubagentJournalView: View {
 
     private func header(_ j: SessionSubagentJournal.Journal) -> some View {
         HStack(spacing: Metrics.gap) {
-            Text(j.task ?? (j.kind.isEmpty ? String(localized: "Subagent") : j.kind)).font(.ui(12, weight: .medium)).lineLimit(1)
+            Text(j.task ?? (j.kind.isEmpty ? String(localized: "Subagent") : j.kind)).font(.ui(12, weight: .medium))
+                .lineLimit(1)
             Text(facts(j)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
-            if working, let run { Text(run.started, style: .timer).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }
-            Button("Go to Agent") { app.workbench.focus(session: model.session) }.buttonStyle(PointerButtonStyle()).font(.ui(11))
+            if working, let run {
+                Text(run.started, style: .timer).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            Button("Go to Agent") { app.workbench.focus(session: model.session) }.buttonStyle(PointerButtonStyle())
+                .font(.ui(11))
                 .lineLimit(1).fixedSize()
         }
         .padding(.horizontal, Metrics.inset)
@@ -97,9 +110,12 @@ struct SubagentJournalView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(j.steps.enumerated()), id: \.offset) { _, s in
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
-                        Text(Self.clock(s.at.timeIntervalSince(start))).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
-                            .frame(width: 48, alignment: .trailing)
-                        Text(s.tool).font(.ui(12)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading).lineLimit(1)
+                        Text(Self.clock(s.at.timeIntervalSince(start))).font(.ui(11).monospacedDigit()).foregroundStyle(
+                            .secondary
+                        )
+                        .frame(width: 48, alignment: .trailing)
+                        Text(s.tool).font(.ui(12)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
+                            .lineLimit(1)
                         Text(s.detail).font(.uiMono(11)).lineLimit(1).truncationMode(.middle)
                     }
                     .frame(minHeight: Metrics.row, alignment: .leading)
@@ -141,7 +157,8 @@ struct SubagentJournalView: View {
             }
             .padding(Metrics.inset)
             .frame(maxWidth: 760, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).fill(Color(nsColor: .fillRest)))
+            .background(
+                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).fill(Color(nsColor: .fillRest)))
         }
     }
 }

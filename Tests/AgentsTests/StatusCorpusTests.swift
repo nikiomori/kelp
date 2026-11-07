@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Agents
 
 /// What hookless agents print, as they print it (chunks a read hands over, at the times they come), and the status the
@@ -25,7 +26,9 @@ private func replay(_ agent: String, _ steps: [(at: Double, Step)]) -> AgentStat
 
 @Test func codexWorkingThenDone() {
     var steps: [(Double, Step)] = [(0, .sent("fix the login bug\r"))]
-    for i in 0..<4 { steps.append((2.5 + Double(i), .out("\u{1B}]0;\(["⠋", "⠙", "⠹", "⠸"][i]) Fix the login bug | shop\u{07}"))) }
+    for i in 0..<4 {
+        steps.append((2.5 + Double(i), .out("\u{1B}]0;\(["⠋", "⠙", "⠹", "⠸"][i]) Fix the login bug | shop\u{07}")))
+    }
     #expect(replay("codex", steps + [(4, .tick)]) == .working)   // only a spinning title: still its work
     steps += [(6, .out("• Updated src/login.ts (+12 -3)\r\n")), (6.2, .out("\u{1B}]0;shop\u{07}"))]
     #expect(replay("codex", steps + [(10, .tick)]) == .done)

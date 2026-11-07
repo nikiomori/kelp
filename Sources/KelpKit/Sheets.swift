@@ -5,7 +5,9 @@ import WorkbenchKit
 /// The window a sheet goes on: key / main are nil while Kelp isn't the active app, the sheet still belongs on its window.
 /// One that already shows a sheet queues the next.
 @MainActor
-private var sheetWindow: NSWindow? { NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain } }
+private var sheetWindow: NSWindow? {
+    NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain }
+}
 
 /// An alert as a sheet on the front window, awaited (native, no nested modal loop). Every question in the app goes here.
 @MainActor
@@ -38,8 +40,12 @@ package struct AgentActions {
     package func rename(_ sid: String) {
         let cur = app.session(sid)?.title ?? ""
         Task {
-            guard let t = await prompt(String(localized: "Rename"), String(localized: "Leave empty to name it from the task automatically."),
-                                       initial: cur) else { return }
+            guard
+                let t = await prompt(
+                    String(localized: "Rename"),
+                    String(localized: "Leave empty to name it from the task automatically."),
+                    initial: cur)
+            else { return }
             await app.call(SessionRename(id: sid, title: t))
         }
     }
@@ -47,7 +53,8 @@ package struct AgentActions {
     /// Same command in the same tab; resumes the conversation when the agent supports it.
     package func restart(_ sid: String) {
         Task {
-            app.restarting.insert(sid); defer { app.restarting.remove(sid) }   // its tab is kept for the new one
+            app.restarting.insert(sid)
+            defer { app.restarting.remove(sid) }   // its tab is kept for the new one
             guard let s = await app.call(SessionRestart(id: sid)) else { return }
             app.sessions.removeAll { $0.id == sid }
             app.upsert(s)
@@ -57,11 +64,15 @@ package struct AgentActions {
 
     package func stop(_ ids: [String]) {
         let one = ids.count == 1
-        let a = NSAlert(); a.messageText = one ? String(localized: "Stop this agent?") : String(localized: "Stop \(ids.count) agents?")
-        a.informativeText = (one ? String(localized: "Its session ends") : String(localized: "Their sessions end"))
-            + ". " + String(localized: "Conversations can be resumed from Session History.") + app.sessions.childrenWords(of: ids)
+        let a = NSAlert()
+        a.messageText = one ? String(localized: "Stop this agent?") : String(localized: "Stop \(ids.count) agents?")
+        a.informativeText =
+            (one ? String(localized: "Its session ends") : String(localized: "Their sessions end"))
+            + ". " + String(localized: "Conversations can be resumed from Session History.")
+            + app.sessions.childrenWords(of: ids)
         // The button says what it stops (destructive: red).
-        a.addButton(withTitle: one ? String(localized: "Stop Agent") : String(localized: "Stop \(ids.count) Agents")).hasDestructiveAction = true
+        a.addButton(withTitle: one ? String(localized: "Stop Agent") : String(localized: "Stop \(ids.count) Agents"))
+            .hasDestructiveAction = true
         a.addButton(withTitle: String(localized: "Cancel"))
         Task {
             guard await runSheet(a) == .alertFirstButtonReturn else { return }
@@ -75,7 +86,9 @@ package struct AgentActions {
     package func addSessionItems(to m: NSMenu, _ sid: String) {
         m.add(String(localized: "Rename…")) { rename(sid) }
         if app.session(sid)?.agent != "shell" {
-            m.setSubmenu(handoffMenu(sid), for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            m.setSubmenu(
+                handoffMenu(sid),
+                for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             m.add(String(localized: "Copy Context")) { copyContext(sid) }
         }
         m.addItem(.separator())
@@ -98,9 +111,10 @@ package struct AgentActions {
     /// `send`: the brief goes straight in, nobody needs to read it first (an agent out of plan handing its work over).
     func handoff(_ sid: String, to agent: String, full: Bool, send: Bool = false) {
         Task {
-            let p = SessionHandoff(id: sid, agent: agent, full: full,
-                                   prompt: "Continue the task where the previous agent left off: check what's done, then finish it.",
-                                   draft: !send)
+            let p = SessionHandoff(
+                id: sid, agent: agent, full: full,
+                prompt: "Continue the task where the previous agent left off: check what's done, then finish it.",
+                draft: !send)
             guard let s = await app.call(p) else { return }
             app.upsert(s)
             app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId)
@@ -113,7 +127,8 @@ package struct AgentActions {
     package func copyContext(_ sid: String) {
         Task {
             guard let t = await app.call(SessionContext(id: sid)) else { return }
-            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t, forType: .string)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(t, forType: .string)
             Banner.show(String(localized: "Context copied"))
         }
     }
@@ -125,7 +140,8 @@ package func prompt(_ title: String, _ info: String, initial: String = "") async
     let a = NSAlert()
     a.messageText = title
     a.informativeText = info
-    let f = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24)); f.stringValue = initial
+    let f = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+    f.stringValue = initial
     a.accessoryView = f
     a.addButton(withTitle: String(localized: "OK"))
     a.addButton(withTitle: String(localized: "Cancel"))

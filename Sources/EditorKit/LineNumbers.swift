@@ -64,7 +64,10 @@ struct LineIndex {
     /// The first index whose start is past `i`.
     private func upperBound(_ i: Int) -> Int {
         var lo = 0, hi = starts.count
-        while lo < hi { let mid = (lo + hi) / 2; if starts[mid] <= i { lo = mid + 1 } else { hi = mid } }
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if starts[mid] <= i { lo = mid + 1 } else { hi = mid }
+        }
         return lo
     }
 }
@@ -85,20 +88,27 @@ final class LineNumbers: NSRulerView {
         super.init(scrollView: scroll, orientation: .verticalRuler)
         clientView = editor.textView
         clipsToBounds = true   // its background covered the text otherwise (views don't clip by default since macOS 14)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self))
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect],
+                owner: self))
     }
 
     required init(coder: NSCoder) { fatalError("not from a nib") }
 
     override var isFlipped: Bool { true }
     override func mouseEntered(with event: NSEvent) { hovering = true }
-    override func mouseExited(with event: NSEvent) { hovering = false; hoverLine = nil }
+    override func mouseExited(with event: NSEvent) {
+        hovering = false
+        hoverLine = nil
+    }
     override func mouseMoved(with event: NSEvent) { hoverLine = lineStart(at: event)?.location }
 
     /// Wide enough for the last line's number, three digits at least, and the chevrons.
     func fit(lines: Int) {
         let digits = max(3, String(lines).count)
-        let width = ceil(CGFloat(digits) * ("8" as NSString).size(withAttributes: [.font: font]).width) + 12 + Self.chevron
+        let width =
+            ceil(CGFloat(digits) * ("8" as NSString).size(withAttributes: [.font: font]).width) + 12 + Self.chevron
         if abs(ruleThickness - width) > 0.5 { ruleThickness = width }
     }
 
@@ -110,28 +120,45 @@ final class LineNumbers: NSRulerView {
         rect.fill()
         guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return }
         let tv = editor.textView, s = tv.string as NSString
-        let visible = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: tv.visibleRect, in: tc), actualGlyphRange: nil)
+        let visible = lm.characterRange(
+            forGlyphRange: lm.glyphRange(forBoundingRect: tv.visibleRect, in: tc), actualGlyphRange: nil)
         let caretLine = editor.lineIndex.line(at: tv.selectedRange().location, in: s)
         var n = editor.lineIndex.line(at: visible.location, in: s)
         let y0 = convert(NSPoint.zero, from: tv).y + tv.textContainerOrigin.y
         let font = self.font
         func draw(_ n: Int, at frag: NSRect, start: Int) {
-            if let m = editor.changeMark(onLine: n) { drawChange(m, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag)) }
-            let text = NSAttributedString(string: "\(n + 1)", attributes: [.font: font, .foregroundColor: numberColor(n, caret: caretLine)])
+            if let m = editor.changeMark(onLine: n) {
+                drawChange(m, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag))
+            }
+            let text = NSAttributedString(
+                string: "\(n + 1)", attributes: [.font: font, .foregroundColor: numberColor(n, caret: caretLine)])
             let size = text.size()
-            text.draw(at: NSPoint(x: ruleThickness - Self.chevron - size.width - 4, y: y0 + frag.minY + (frag.height - size.height) / 2))
+            text.draw(
+                at: NSPoint(
+                    x: ruleThickness - Self.chevron - size.width - 4,
+                    y: y0 + frag.minY + (frag.height - size.height) / 2))
             let line = s.lineRange(for: NSRange(location: start, length: 0))
             let folded = tv.folds.fold(at: MultiCursor.lineEnd(s, start)) != nil
             guard folded || (hovering && editor.foldRegion(line, in: s) != nil) else { return }
-            let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: Metrics.iconWeight).applying(.init(paletteColors: [color]))
-            guard let img = NSImage(systemSymbolName: folded ? "chevron.right" : "chevron.down", accessibilityDescription: nil)?
-                .withSymbolConfiguration(config) else { return }
-            let at = NSPoint(x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2, y: y0 + frag.minY + (frag.height - img.size.height) / 2)
+            let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: Metrics.iconWeight)
+                .applying(.init(paletteColors: [color]))
+            guard
+                let img = NSImage(
+                    systemSymbolName: folded ? "chevron.right" : "chevron.down", accessibilityDescription: nil)?
+                    .withSymbolConfiguration(config)
+            else { return }
+            let at = NSPoint(
+                x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2,
+                y: y0 + frag.minY + (frag.height - img.size.height) / 2)
             if line.location == hoverLine {
                 let side = max(img.size.width, img.size.height) + 6
                 NSColor.fillHover.setFill()
-                NSBezierPath(roundedRect: NSRect(x: at.x + img.size.width / 2 - side / 2, y: at.y + img.size.height / 2 - side / 2, width: side, height: side),
-                             xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
+                NSBezierPath(
+                    roundedRect: NSRect(
+                        x: at.x + img.size.width / 2 - side / 2, y: at.y + img.size.height / 2 - side / 2, width: side,
+                        height: side),
+                    xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS
+                ).fill()
             }
             img.draw(at: at, from: .zero, operation: .sourceOver, fraction: 1)
         }
@@ -140,7 +167,9 @@ final class LineNumbers: NSRulerView {
                 n = editor.lineIndex.line(at: NSMaxRange(f), in: s) + 1
                 continue
             }
-            draw(n, at: lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil), start: start)
+            draw(
+                n, at: lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil),
+                start: start)
             n += 1
         }
         if !lm.extraLineFragmentRect.isEmpty, editor.lineIndex.start(ofLine: n, in: s) == s.length {
@@ -155,13 +184,16 @@ final class LineNumbers: NSRulerView {
 
     /// A wrapped line's bar runs along all its rows.
     private func rowsHeight(of start: Int, first frag: NSRect) -> CGFloat {
-        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return frag.height }
+        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else {
+            return frag.height
+        }
         let s = editor.textView.string as NSString
         guard start < s.length else { return frag.height }
         var line = s.lineRange(for: NSRange(location: start, length: 0))
         if s.character(at: NSMaxRange(line) - 1) == 10 { line.length -= 1 }   // the break would count the row under it, on the last line
         guard line.length > 0 else { return frag.height }
-        return lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: line, actualCharacterRange: nil), in: tc).height
+        return lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: line, actualCharacterRange: nil), in: tc)
+            .height
     }
 
     private func drawChange(_ m: CodeEditor.ChangeMark, y: CGFloat, height: CGFloat) {
@@ -170,10 +202,16 @@ final class LineNumbers: NSRulerView {
         case .changed: NSColor.textOrange.setFill()
         case .removed: NSColor.textRed.setFill()
         }
-        guard m.kind == .removed else { NSRect(x: Self.barInset, y: y, width: Self.barWidth, height: height).fill(); return }
+        guard m.kind == .removed else {
+            NSRect(x: Self.barInset, y: y, width: Self.barWidth, height: height).fill()
+            return
+        }
         // No line is left of it: a wedge pointing into the gap above this line.
         let wedge = NSBezierPath()
-        wedge.move(to: NSPoint(x: 0, y: y - 3)); wedge.line(to: NSPoint(x: 5, y: y)); wedge.line(to: NSPoint(x: 0, y: y + 3)); wedge.close()
+        wedge.move(to: NSPoint(x: 0, y: y - 3))
+        wedge.line(to: NSPoint(x: 5, y: y))
+        wedge.line(to: NSPoint(x: 0, y: y + 3))
+        wedge.close()
         wedge.fill()
     }
 
@@ -193,10 +231,14 @@ final class LineNumbers: NSRulerView {
 
     /// The line beside the pointer.
     private func lineStart(at event: NSEvent) -> NSRange? {
-        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return nil }
+        guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else {
+            return nil
+        }
         let tv = editor.textView, s = tv.string as NSString
         let p = tv.convert(event.locationInWindow, from: nil)
-        let i = lm.characterIndex(for: NSPoint(x: 0, y: p.y - tv.textContainerOrigin.y), in: tc, fractionOfDistanceBetweenInsertionPoints: nil)
+        let i = lm.characterIndex(
+            for: NSPoint(x: 0, y: p.y - tv.textContainerOrigin.y), in: tc, fractionOfDistanceBetweenInsertionPoints: nil
+        )
         return i < s.length ? s.lineRange(for: NSRange(location: i, length: 0)) : nil
     }
 }

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// `kelp attach <session>`: this terminal becomes the session's terminal (like `tmux attach`).
 /// The libghostty view runs it, so Ghostty renders and the daemon keeps owning the process.
@@ -8,19 +8,36 @@ enum Attach {
     /// agent that asked for the kitty keyboard.
     static func run(_ sessionId: String, detachKey: Bool = false) -> Never {
         let socket = ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path
-        guard let fd = try? Unix.connect(socket, patience: 2) else { fail("kelp attach: daemon not reachable at \(socket)") }
+        guard let fd = try? Unix.connect(socket, patience: 2) else {
+            fail("kelp attach: daemon not reachable at \(socket)")
+        }
         var ws = winsize()   // a paused agent wakes at this size, so its first screen isn't drawn for another width
-        let size: [String: JSONValue] = ioctl(1, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0 ? ["cols": .int(Int(ws.ws_col)), "rows": .int(Int(ws.ws_row))] : [:]
-        guard let req = try? Wire.line(RPCRequest(id: nil, method: "session.stream",
-                                                  params: .object(["id": .string(sessionId)].merging(size) { a, _ in a })))
+        let size: [String: JSONValue] =
+            ioctl(1, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0
+            ? ["cols": .int(Int(ws.ws_col)), "rows": .int(Int(ws.ws_row))] : [:]
+        guard
+            let req = try? Wire.line(
+                RPCRequest(
+                    id: nil, method: "session.stream",
+                    params: .object(["id": .string(sessionId)].merging(size) { a, _ in a })))
         else { exit(1) }
         Unix.writeAll(fd, req)
 
         // Raw mode: every key goes to the agent as typed; the agent's terminal handles echo and line editing.
         var saved = termios()
         let isTTY = isatty(0) == 1
-        if isTTY { tcgetattr(0, &saved); var raw = saved; cfmakeraw(&raw); tcsetattr(0, TCSANOW, &raw) }
-        func restore() { if isTTY { var s = saved; tcsetattr(0, TCSANOW, &s) } }
+        if isTTY {
+            tcgetattr(0, &saved)
+            var raw = saved
+            cfmakeraw(&raw)
+            tcsetattr(0, TCSANOW, &raw)
+        }
+        func restore() {
+            if isTTY {
+                var s = saved
+                tcsetattr(0, TCSANOW, &s)
+            }
+        }
 
         // Size changes go over a separate control connection.
         let control = try? RPCClient(socket: socket, patience: 2)
@@ -68,7 +85,10 @@ enum Attach {
             _ = buf.withUnsafeBytes { p in p.baseAddress.map { Darwin.write(1, $0, n) } }
             // The first bytes come once the session runs. A size sent while a paused one was still waking went nowhere
             // (a size never wakes one), and it woke at the size read above, before this terminal was laid out.
-            if !sized { sized = true; sendSize() }
+            if !sized {
+                sized = true
+                sendSize()
+            }
         }
         winch.cancel()
         restore()

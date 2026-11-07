@@ -1,8 +1,8 @@
+import Agents
 import AppKit
+import Core
 import SwiftUI
 import WebKit
-import Core
-import Agents
 import WorkbenchKit
 
 // MARK: web views
@@ -32,28 +32,49 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         let cfg = WKWebViewConfiguration(), pages = ExtPages(folder: folder)
         cfg.setURLSchemeHandler(pages, forURLScheme: ExtPages.scheme)
         cfg.userContentController.add(WeakHandler(self), name: "kelp")
-        cfg.userContentController.addUserScript(WKUserScript(source: ExtBridge.script(props: props), injectionTime: .atDocumentStart,
-                                                             forMainFrameOnly: true))
-        web = WKWebView(frame: .zero, configuration: cfg); web.isInspectable = true
+        cfg.userContentController.addUserScript(
+            WKUserScript(
+                source: ExtBridge.script(props: props), injectionTime: .atDocumentStart,
+                forMainFrameOnly: true))
+        web = WKWebView(frame: .zero, configuration: cfg)
+        web.isInspectable = true
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         view = web
         if let u = pages.url(of: page) { web.load(URLRequest(url: u)) }
-        track(owner: self) { app.workbench.workspaceId } changed: { [weak self] _ in self?.push() }
-        track(owner: self) { app.settings.values } changed: { [weak self] _ in self?.push() }
+        track(owner: self) {
+            app.workbench.workspaceId
+        } changed: { [weak self] _ in
+            self?.push()
+        }
+        track(owner: self) {
+            app.settings.values
+        } changed: { [weak self] _ in
+            self?.push()
+        }
         // Only what the page is told: output and meters change sessions all the time.
         track(owner: self) {
-            app.sessions.filter(\.isChat).map { "\($0.id) \($0.title) \($0.agent ?? "") \($0.status.rawValue) \($0.worktreeId ?? "") \($0.unread)" }
-        } changed: { [weak self] _ in self?.pushSessions() }
+            app.sessions.filter(\.isChat).map {
+                "\($0.id) \($0.title) \($0.agent ?? "") \($0.status.rawValue) \($0.worktreeId ?? "") \($0.unread)"
+            }
+        } changed: { [weak self] _ in
+            self?.pushSessions()
+        }
     }
 
     /// The agents, as `kelp.sessions` and to `kelp.on("sessions")`: id, title, agent, status, workspace, unread.
     private func pushSessions(again: Bool = false) {
         guard let u = web.url, Self.isOwn(u, folder) else { return }
-        let list = ExtBridge.json(JSONValue.array(app.sessions.filter(\.isChat).map { s in
-            .obj(["id": .string(s.id), "title": .string(app.catalog.displayName(s)), "agent": .string(s.agent ?? "shell"),
-                  "status": .string(s.status.rawValue), "workspace": .string(s.worktreeId ?? ""), "unread": .bool(s.unread)])
-        }))
+        let list = ExtBridge.json(
+            JSONValue.array(
+                app.sessions.filter(\.isChat).map { s in
+                    .obj([
+                        "id": .string(s.id), "title": .string(app.catalog.displayName(s)),
+                        "agent": .string(s.agent ?? "shell"),
+                        "status": .string(s.status.rawValue), "workspace": .string(s.worktreeId ?? ""),
+                        "unread": .bool(s.unread)
+                    ])
+                }))
         // A session's other fields change all the time (output, meters); the page hears only of these.
         guard again || list != sentSessions else { return }
         sentSessions = list
@@ -64,9 +85,18 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
 
     /// The window stays on the extension's own pages: the bridge is in every page it shows, and `push` hands it the
     /// settings and the workspace's path. A link elsewhere opens as a preview's do (`PreviewLinks`); its frames load anything.
-    func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
-        if let f = a.targetFrame, !f.isMainFrame { decisionHandler(.allow); return }
-        guard let u = a.request.url, !Self.isOwn(u, folder) else { decisionHandler(.allow); return }
+    func webView(
+        _ w: WKWebView, decidePolicyFor a: WKNavigationAction,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+    ) {
+        if let f = a.targetFrame, !f.isMainFrame {
+            decisionHandler(.allow)
+            return
+        }
+        guard let u = a.request.url, !Self.isOwn(u, folder) else {
+            decisionHandler(.allow)
+            return
+        }
         decisionHandler(.cancel)
         if a.navigationType == .linkActivated { PreviewLinks.open(u, in: app) }
     }
@@ -81,11 +111,14 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     private func push() {
         guard let u = web.url, Self.isOwn(u, folder) else { return }
         let ctx = IDEContext.of(app)
-        let ws: JSONValue = .obj(["name": .string(ctx.workspace?.displayName ?? ""), "path": .string(ctx.workspace?.path ?? ""),
-                                  "branch": .string(ctx.workspace?.branch ?? ""), "project": .string(ctx.project?.name ?? "")])
+        let ws: JSONValue = .obj([
+            "name": .string(ctx.workspace?.displayName ?? ""), "path": .string(ctx.workspace?.path ?? ""),
+            "branch": .string(ctx.workspace?.branch ?? ""), "project": .string(ctx.project?.name ?? "")
+        ])
         let settings = JSONValue.object(app.settings.values)
         guard let w = try? String(data: JSONEncoder().encode(ws), encoding: .utf8),
-              let s = try? String(data: JSONEncoder().encode(settings), encoding: .utf8) else { return }
+            let s = try? String(data: JSONEncoder().encode(settings), encoding: .utf8)
+        else { return }
         web.evaluateJavaScript("window.kelp && window.kelp.__update(\(w), \(s))")
     }
 
@@ -101,33 +134,51 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             let argv = ExtBridge.decode(d["argv"], as: [String].self)
             let line = argv.map { $0.map(IDE.shellWord).joined(separator: " ") } ?? arg
             Task {
-                let r = await Shell.run(app, line, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)
+                let r = await Shell.run(
+                    app, line, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)
                 reply(id, .obj(["code": .int(Int(r.code)), "stdout": .string(r.stdout), "stderr": .string(r.stderr)]))
             }
-        case "terminal": app.workbench.editorForNewTab?.run(command: arg, title: d["title"] as? String); reply(id, .null)
+        case "terminal":
+            app.workbench.editorForNewTab?.run(command: arg, title: d["title"] as? String)
+            reply(id, .null)
         // What a page opens or hands an agent is often data it shows (an issue's link, its body): `open` doesn't run
         // commands or agents (kelp.terminal / kelp.agent do, by name), and an agent's prompt is typed for the user to send.
         case "open":
             if let u = ExtActions.openableURI(TabURI.normalize(arg, cwd: ctx.workspace?.path)) { app.workbench.open(u) }
             reply(id, .null)
-        case "agent": app.workbench.editorForNewTab?.newAgent(nil, prompt: arg, draft: true); reply(id, .null)
-        case "badge": badge?.value = PanelBadge(arg); reply(id, .null)
+        case "agent":
+            app.workbench.editorForNewTab?.newAgent(nil, prompt: arg, draft: true)
+            reply(id, .null)
+        case "badge":
+            badge?.value = PanelBadge(arg)
+            reply(id, .null)
         // A Kelp command by its id (the menus', the palette's, an extension's), as `kelp run` does.
         case "run":
             let args = ExtBridge.decode(d["args"], as: [String: JSONValue].self)
-            app.extensions.run(arg, args ?? [:]); reply(id, .null)
-        case "notify": Banner.show(arg); reply(id, .null)
+            app.extensions.run(arg, args ?? [:])
+            reply(id, .null)
+        case "notify":
+            Banner.show(arg)
+            reply(id, .null)
         case "settings.get": reply(id, app.settings.value(arg) ?? .null)
         case "settings.set":
-            let v = (d["value"] as? String).flatMap { $0.data(using: .utf8) }.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
-            app.settings.set(arg, v); reply(id, .null)
+            let v = (d["value"] as? String).flatMap { $0.data(using: .utf8) }.flatMap {
+                try? JSONDecoder().decode(JSONValue.self, from: $0)
+            }
+            app.settings.set(arg, v)
+            reply(id, .null)
         default: reply(id, .null)
         }
-        if op == "ready" { push(); pushSessions(again: true) }
+        if op == "ready" {
+            push()
+            pushSessions(again: true)
+        }
     }
 
     private func reply(_ id: Int, _ v: JSONValue) {
-        guard let u = web.url, Self.isOwn(u, folder), let s = try? String(data: JSONEncoder().encode(v), encoding: .utf8) else { return }
+        guard let u = web.url, Self.isOwn(u, folder),
+            let s = try? String(data: JSONEncoder().encode(v), encoding: .utf8)
+        else { return }
         web.evaluateJavaScript("window.kelp.__resolve(\(id), \(s))")
     }
 
@@ -137,5 +188,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
 package final class WeakHandler: NSObject, WKScriptMessageHandler {
     weak var target: WKScriptMessageHandler?
     package init(_ t: WKScriptMessageHandler) { target = t }
-    package func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) { target?.userContentController(c, didReceive: m) }
+    package func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+        target?.userContentController(c, didReceive: m)
+    }
 }

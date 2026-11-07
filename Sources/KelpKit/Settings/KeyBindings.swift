@@ -1,12 +1,14 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 import WorkbenchKit
 
 /// The one place a `KeySpec`'s modifiers meet AppKit's flags (menu items, key events).
 extension KeySpec.Modifiers {
-    private static let appKit: [(Self, NSEvent.ModifierFlags)] = [(.control, .control), (.option, .option), (.shift, .shift), (.command, .command)]
+    private static let appKit: [(Self, NSEvent.ModifierFlags)] = [
+        (.control, .control), (.option, .option), (.shift, .shift), (.command, .command)
+    ]
     /// The shortcut modifiers among `flags`; caps lock, fn and the like are dropped.
     init(_ flags: NSEvent.ModifierFlags) { self.init(Self.appKit.filter { flags.contains($0.1) }.map(\.0)) }
     var flags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(Self.appKit.filter { contains($0.0) }.map(\.1)) }
@@ -39,35 +41,52 @@ enum KeyBindings {
         let over = overrides(settings)
         func walk(_ m: NSMenu, _ path: [String]) {
             for i in m.items where !i.isSeparatorItem {
-                if let s = i.submenu { if s !== NSApp.servicesMenu { walk(s, path + [i.title]) }; continue }
+                if let s = i.submenu {
+                    if s !== NSApp.servicesMenu { walk(s, path + [i.title]) }
+                    continue
+                }
                 guard let action = i.action else { continue }
                 // A command's item goes by the command id, the others by their English path ("Edit › Copy").
                 let command = action == #selector(AppDelegate.runCommand(_:)), name = i.identifier?.rawValue ?? i.title
                 let id = command ? name : (path + [i.title]).joined(separator: " › ")   // English: the same in every language
                 i.identifier = NSUserInterfaceItemIdentifier(id)
-                defaults[id] = i.keyEquivalent.isEmpty ? KeySpec?.none : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))
+                defaults[id] =
+                    i.keyEquivalent.isEmpty
+                    ? KeySpec?.none : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))
                 guard let spec = over[id] else { continue }
                 let k = spec.isEmpty ? nil : KeySpec(spec)
-                i.keyEquivalent = k?.key ?? ""; i.keyEquivalentModifierMask = k?.mods.flags ?? []
+                i.keyEquivalent = k?.key ?? ""
+                i.keyEquivalentModifierMask = k?.mods.flags ?? []
             }
         }
         walk(menu, [])
     }
 
     /// macOS's own app-menu commands (About, Hide, Hide Others, Show All, Quit): System Settings › Keyboard rebinds those.
-    private static let systemActions: Set<Selector> = [#selector(NSApplication.orderFrontStandardAboutPanel(_:)), #selector(NSApplication.hide(_:)),
-                                                       #selector(NSApplication.hideOtherApplications(_:)), #selector(NSApplication.unhideAllApplications(_:)),
-                                                       #selector(NSApplication.terminate(_:))]
+    private static let systemActions: Set<Selector> = [
+        #selector(NSApplication.orderFrontStandardAboutPanel(_:)), #selector(NSApplication.hide(_:)),
+        #selector(NSApplication.hideOtherApplications(_:)), #selector(NSApplication.unhideAllApplications(_:)),
+        #selector(NSApplication.terminate(_:))
+    ]
 
     static func entries() -> [Entry] {
         var out: [Entry] = []
         func walk(_ m: NSMenu, _ path: [String]) {
             for i in m.items where !i.isSeparatorItem {
-                if let s = i.submenu { if s !== NSApp.servicesMenu { walk(s, path + [i.identifier?.rawValue ?? i.title]) }; continue }
-                guard let id = i.identifier?.rawValue, defaults.keys.contains(id), !(i.action.map(systemActions.contains) ?? false) else { continue }
-                let key = i.keyEquivalent.isEmpty ? nil : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))
-                out.append(Entry(id: id, menu: path.map(loc).joined(separator: " › "), title: i.title,
-                                 key: key, defaultKey: defaults[id] ?? nil))
+                if let s = i.submenu {
+                    if s !== NSApp.servicesMenu { walk(s, path + [i.identifier?.rawValue ?? i.title]) }
+                    continue
+                }
+                guard let id = i.identifier?.rawValue, defaults.keys.contains(id),
+                    !(i.action.map(systemActions.contains) ?? false)
+                else { continue }
+                let key =
+                    i.keyEquivalent.isEmpty
+                    ? nil : KeySpec(key: i.keyEquivalent, mods: .init(i.keyEquivalentModifierMask))
+                out.append(
+                    Entry(
+                        id: id, menu: path.map(loc).joined(separator: " › "), title: i.title,
+                        key: key, defaultKey: defaults[id] ?? nil))
             }
         }
         NSApp.mainMenu.map { walk($0, []) }
@@ -94,47 +113,64 @@ enum KeyBindings {
         if k.mods.contains(.option) { s += "⌥" }
         if k.mods.contains(.shift) { s += "⇧" }
         if k.mods.contains(.command) { s += "⌘" }
-        let named: [String: String] = ["\u{F700}": "↑", "\u{F701}": "↓", "\u{F702}": "←", "\u{F703}": "→", "\r": "↩", "\t": "⇥",
-                                       " ": String(localized: "Space"),
-                                       "\u{1b}": "⎋", "\u{8}": "⌫", "\u{7f}": "⌫"]
+        let named: [String: String] = [
+            "\u{F700}": "↑", "\u{F701}": "↓", "\u{F702}": "←", "\u{F703}": "→", "\r": "↩", "\t": "⇥",
+            " ": String(localized: "Space"),
+            "\u{1b}": "⎋", "\u{8}": "⌫", "\u{7f}": "⌫"
+        ]
         return s + (named[k.key] ?? k.key.uppercased())
     }
 
     /// What else answers to this combination: another of Kelp's commands, or macOS (which gets it first).
     static func conflict(_ k: KeySpec, keyCode: UInt16?, except id: String) -> String? {
         let norm = KeySpec(key: k.key.lowercased(), mods: k.mods)
-        if let other = entries().first(where: { $0.id != id && $0.key.map { KeySpec(key: $0.key.lowercased(), mods: $0.mods) } == norm }) {
+        if let other = entries().first(where: {
+            $0.id != id && $0.key.map { KeySpec(key: $0.key.lowercased(), mods: $0.mods) } == norm
+        }) {
             let name = "\(other.menu) › \(other.title)"
             return String(localized: "Also the shortcut for \(name).")
         }
         if let code = keyCode, let name = system[SystemKey(code: code, mods: k.mods.flags.rawValue)] {
-            return String(localized: "macOS uses this for \(name), so Kelp won't see it (System Settings › Keyboard › Keyboard Shortcuts).")
+            return String(
+                localized:
+                    "macOS uses this for \(name), so Kelp won't see it (System Settings › Keyboard › Keyboard Shortcuts)."
+            )
         }
         return nil
     }
 
-    struct SystemKey: Hashable { var code: UInt16; var mods: UInt }
+    struct SystemKey: Hashable {
+        var code: UInt16
+        var mods: UInt
+    }
     /// The enabled shortcuts in System Settings › Keyboard Shortcuts (Spotlight, Mission Control, input sources…).
     static let system: [SystemKey: String] = {
-        let names: [Int: String] = [7: String(localized: "moving focus to the menu bar"), 8: String(localized: "moving focus to the Dock"),
-                                    9: String(localized: "moving focus to the active window"),
-                                    27: String(localized: "moving focus to the next window"), 28: String(localized: "a screenshot"),
-                                    29: String(localized: "a screenshot to the clipboard"),
-                                    30: String(localized: "a screenshot of an area"), 31: String(localized: "an area screenshot to the clipboard"),
-                                    32: "Mission Control",
-                                    33: String(localized: "application windows"), 36: String(localized: "Show Desktop"), 52: String(localized: "Dock hiding"),
-                                    60: String(localized: "the previous input source"),
-                                    61: String(localized: "the next input source"), 64: "Spotlight",
-                                    65: String(localized: "Finder search"), 79: String(localized: "moving a space left"),
-                                    81: String(localized: "moving a space right"), 98: String(localized: "the Help menu"),
-                                    160: "Launchpad", 175: String(localized: "Do Not Disturb"),
-                                    184: String(localized: "screenshot options"), 190: String(localized: "Quick Note")]
-        guard let all = UserDefaults(suiteName: "com.apple.symbolichotkeys")?.dictionary(forKey: "AppleSymbolicHotKeys") else { return [:] }
+        let names: [Int: String] = [
+            7: String(localized: "moving focus to the menu bar"), 8: String(localized: "moving focus to the Dock"),
+            9: String(localized: "moving focus to the active window"),
+            27: String(localized: "moving focus to the next window"), 28: String(localized: "a screenshot"),
+            29: String(localized: "a screenshot to the clipboard"),
+            30: String(localized: "a screenshot of an area"),
+            31: String(localized: "an area screenshot to the clipboard"),
+            32: "Mission Control",
+            33: String(localized: "application windows"), 36: String(localized: "Show Desktop"),
+            52: String(localized: "Dock hiding"),
+            60: String(localized: "the previous input source"),
+            61: String(localized: "the next input source"), 64: "Spotlight",
+            65: String(localized: "Finder search"), 79: String(localized: "moving a space left"),
+            81: String(localized: "moving a space right"), 98: String(localized: "the Help menu"),
+            160: "Launchpad", 175: String(localized: "Do Not Disturb"),
+            184: String(localized: "screenshot options"), 190: String(localized: "Quick Note")
+        ]
+        guard let all = UserDefaults(suiteName: "com.apple.symbolichotkeys")?.dictionary(forKey: "AppleSymbolicHotKeys")
+        else { return [:] }
         var out: [SystemKey: String] = [:]
         for (k, v) in all {
             guard let d = v as? [String: Any], (d["enabled"] as? Bool) == true || (d["enabled"] as? Int) == 1,
-                  let p = (d["value"] as? [String: Any])?["parameters"] as? [Int], p.count == 3, p[1] != 65535 else { continue }
-            out[SystemKey(code: UInt16(p[1]), mods: UInt(p[2]) & mask.rawValue)] = names[Int(k) ?? -1] ?? String(localized: "a system shortcut")
+                let p = (d["value"] as? [String: Any])?["parameters"] as? [Int], p.count == 3, p[1] != 65535
+            else { continue }
+            out[SystemKey(code: UInt16(p[1]), mods: UInt(p[2]) & mask.rawValue)] =
+                names[Int(k) ?? -1] ?? String(localized: "a system shortcut")
         }
         return out
     }()
@@ -153,7 +189,9 @@ struct KeyboardSettings: View {
 
     var body: some View {
         Group {
-            if query.isEmpty { page } else {
+            if query.isEmpty {
+                page
+            } else {
                 ForEach(groups, id: \.0) { menu, items in
                     Section("\(String(localized: "Keyboard")) › \(menu)") { ForEach(items) { e in row(e) } }
                 }
@@ -191,10 +229,13 @@ struct KeyboardSettings: View {
     private func fold(_ menu: String, count: Int) -> some View {
         let shown = open.contains(menu)
         return Button {
-            withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { if shown { open.remove(menu) } else { open.insert(menu) } }
+            withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) {
+                if shown { open.remove(menu) } else { open.insert(menu) }
+            }
         } label: {
             HStack(spacing: Metrics.gap) {
-                Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary).rotationEffect(.degrees(shown ? 90 : 0))
+                Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(shown ? 90 : 0))
                 Text(menu)
                 Spacer()
                 Text("\(count)").monospacedDigit().foregroundStyle(.secondary)
@@ -207,9 +248,10 @@ struct KeyboardSettings: View {
 
     private func restore() {
         Task {
-            let question = NSAlert(question: String(localized: "Restore every shortcut to Kelp's default?"),
-                                   detail: String(localized: "The shortcuts you set are lost."),
-                                   action: String(localized: "Restore Defaults"))
+            let question = NSAlert(
+                question: String(localized: "Restore every shortcut to Kelp's default?"),
+                detail: String(localized: "The shortcuts you set are lost."),
+                action: String(localized: "Restore Defaults"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
             KeyBindings.resetAll(app.settings)
             later()
@@ -219,7 +261,10 @@ struct KeyboardSettings: View {
     private var groups: [(String, [KeyBindings.Entry])] {
         let shown = entries.filter { KeyBindings.matches($0, query) }
         var order: [String] = [], by: [String: [KeyBindings.Entry]] = [:]
-        for e in shown { if by[e.menu] == nil { order.append(e.menu) }; by[e.menu, default: []].append(e) }
+        for e in shown {
+            if by[e.menu] == nil { order.append(e.menu) }
+            by[e.menu, default: []].append(e)
+        }
         return order.map { ($0, by[$0] ?? []) }
     }
 
@@ -234,20 +279,29 @@ struct KeyboardSettings: View {
                         warning[e.id] = nil
                         later()
                     }.buttonStyle(.link).font(.ui(11))
-                        .help(e.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") } ?? String(localized: "Kelp's default: none"))
+                        .help(
+                            e.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") }
+                                ?? String(localized: "Kelp's default: none"))
                 }
                 // The keys as text at the row's end, greying in under the pointer; outlined while it takes new ones. A grey
                 // plate on every row, "—" ones too, was a column of empty boxes.
-                Button { record(e.id) } label: {
-                    Text(recording == e.id ? String(localized: "Type shortcut…") : e.key.map(KeyBindings.display) ?? "—").monospacedDigit()
+                Button {
+                    record(e.id)
+                } label: {
+                    Text(
+                        recording == e.id ? String(localized: "Type shortcut…") : e.key.map(KeyBindings.display) ?? "—"
+                    ).monospacedDigit()
                 }
                 .buttonStyle(PointerButtonStyle())
                 .overlay {
                     if recording == e.id {
-                        RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous).strokeBorder(Color.accentColor)
+                        RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous).strokeBorder(
+                            Color.accentColor)
                     }
                 }
-                .foregroundStyle(recording == e.id ? Color.accentColor : e.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
+                .foregroundStyle(
+                    recording == e.id
+                        ? Color.accentColor : e.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
             if let w = warning[e.id] { Text(w).font(.ui(11)).foregroundStyle(Color.textOrange) }
         }
@@ -268,8 +322,12 @@ struct KeyboardSettings: View {
                 later()
             default:
                 let fKey = (0xF704...0xF70F).contains(chars.unicodeScalars.first?.value ?? 0)
-                guard !mods.subtracting(.shift).isEmpty || fKey else { NSSound.beep(); return nil }   // a plain letter would type
-                let key = KeySpec(key: mods.contains(.shift) && chars.count == 1 ? chars.uppercased() : chars, mods: .init(mods))
+                guard !mods.subtracting(.shift).isEmpty || fKey else {
+                    NSSound.beep()
+                    return nil
+                }   // a plain letter would type
+                let key = KeySpec(
+                    key: mods.contains(.shift) && chars.count == 1 ? chars.uppercased() : chars, mods: .init(mods))
                 warning[id] = KeyBindings.conflict(key, keyCode: ev.keyCode, except: id)
                 KeyBindings.set(id, key, in: app.settings)
                 stop()
@@ -281,7 +339,8 @@ struct KeyboardSettings: View {
 
     private func stop() {
         if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil; recording = nil
+        monitor = nil
+        recording = nil
     }
 
     /// The menu is rebuilt from the setting a moment later; read it back then.

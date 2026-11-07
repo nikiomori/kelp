@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Agents
 
 private func task(_ id: String, _ type: String = "shell", _ command: String = "npm test") -> JSONValue {
@@ -19,7 +20,7 @@ private func task(_ id: String, _ type: String = "shell", _ command: String = "n
     var t = TurnEnd()
     let (v, running) = t.stop([task("t1", "shell", "npm test")], goal: nil)
     #expect(v == .command("npm test") && running == ["npm test"])
-    #expect(t.stop([task("d1", "shell", "npm run dev")], goal: nil).0 == .done)        // a dev server never ends
+    #expect(t.stop([task("d1", "shell", "npm run dev")], goal: nil).0 == .done)   // a dev server never ends
     #expect(t.stop([task("m1", "monitor", "tail log")], goal: nil).0 == .done)
 }
 
@@ -27,7 +28,7 @@ private func task(_ id: String, _ type: String = "shell", _ command: String = "n
     var t = TurnEnd()
     #expect(t.stop([task("x", "shell", "python -m http.server")], goal: nil).0 == .done)   // server-like words
     #expect(t.stop([task("y", "shell", "./run-forever.sh")], goal: nil).0 == .command("./run-forever.sh"))
-    let (v, running) = t.stop([task("y", "shell", "./run-forever.sh")], goal: nil)        // the next turn: still there
+    let (v, running) = t.stop([task("y", "shell", "./run-forever.sh")], goal: nil)   // the next turn: still there
     #expect(v == .done && running == ["./run-forever.sh"])
 }
 

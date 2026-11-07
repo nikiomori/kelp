@@ -45,7 +45,9 @@ extension AppModel {
     func serverWord(_ host: String) -> (text: String, color: NSColor)? {
         guard let s = latest(HostEvent.self, host)?.stats else { return nil }
         if !s.connected {
-            return s.error == nil ? (String(localized: "Not connected"), .secondaryLabelColor) : (String(localized: "Can't reach"), .textRed)
+            return s.error == nil
+                ? (String(localized: "Not connected"), .secondaryLabelColor)
+                : (String(localized: "Can't reach"), .textRed)
         }
         guard let (what, p) = s.alert else { return nil }
         switch what {

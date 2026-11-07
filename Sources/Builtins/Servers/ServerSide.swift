@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 /// Kelp's side of a server: its agents there (and what each costs), what still runs in Kelp's tmux sessions though no tab
@@ -17,7 +17,9 @@ struct ServerSide: View {
         let ids = Set(projects.map(\.id))
         return Set(app.worktrees.filter { ids.contains($0.repoId) }.map(\.id))
     }
-    private var agents: [Session] { app.sessions.filter { screens.contains($0.worktreeId ?? "") && $0.status != .exited && $0.isChat } }
+    private var agents: [Session] {
+        app.sessions.filter { screens.contains($0.worktreeId ?? "") && $0.status != .exited && $0.isChat }
+    }
     /// Kelp's tmux sessions no live tab shows: closed here, or dropped with the connection, still running there.
     private var leftRunning: [HostStats.TmuxSession] {
         (stats.tmux ?? []).filter { t in t.session.flatMap(app.session).map { $0.status == .exited } ?? true }
@@ -55,7 +57,9 @@ struct ServerSide: View {
     }
 
     private func agentRow(_ s: Session) -> some View {
-        Button { app.workbench.focus(session: s.id) } label: {
+        Button {
+            app.workbench.focus(session: s.id)
+        } label: {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     StatusIcon(status: s.markStatus, waitsForCommand: s.waitsForCommand)
@@ -64,7 +68,8 @@ struct ServerSide: View {
                     if let c = cost(s.id) { Text(c).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }
                 }
                 if s.status == .waiting, !s.summary.isEmpty {
-                    (Text("Asks: ").foregroundColor(Color(nsColor: .textOrange)) + Text(s.summary).foregroundColor(.secondary))
+                    (Text("Asks: ").foregroundColor(Color(nsColor: .textOrange))
+                        + Text(s.summary).foregroundColor(.secondary))
                         .font(.ui(11)).lineLimit(1).padding(.leading, 18)
                 }
             }
@@ -80,8 +85,12 @@ struct ServerSide: View {
             Image(systemName: "moon").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(width: 14)
             VStack(alignment: .leading, spacing: 2) {
                 Text(s.map(app.catalog.displayName) ?? t.name).font(.ui(12)).lineLimit(1)
-                Text(s == nil ? String(localized: "Not started by this Kelp · \(t.name)") : String(localized: "Closed in Kelp, still running"))
-                    .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                Text(
+                    s == nil
+                        ? String(localized: "Not started by this Kelp · \(t.name)")
+                        : String(localized: "Closed in Kelp, still running")
+                )
+                .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 6)
             if let s { Button(String(localized: "Open")) { app.workbench.focus(session: s.id) }.controlSize(.small) }
@@ -92,12 +101,17 @@ struct ServerSide: View {
     private func portRow(_ p: HostStats.Port) -> some View {
         HStack(spacing: 8) {
             Text(verbatim: "\(p.port)").font(.ui(12).monospacedDigit()).frame(width: 48, alignment: .leading)
-            Text(p.local ? String(localized: "this server only") : String(localized: "all addresses")).font(.ui(11)).foregroundStyle(.secondary)
+            Text(p.local ? String(localized: "this server only") : String(localized: "all addresses")).font(.ui(11))
+                .foregroundStyle(.secondary)
             Spacer(minLength: 6)
             if let here = forwarded[p.port] {
-                Button("localhost:\(here)") { if let wid = app.serverWorkspace(host) { app.workbench.open("http://localhost:\(here)", workspace: wid) } }
-                    .buttonStyle(PointerButtonStyle()).font(.ui(11).monospacedDigit()).foregroundStyle(Color.accentColor)
-                    .help(String(localized: "Open in the browser beside you"))
+                Button("localhost:\(here)") {
+                    if let wid = app.serverWorkspace(host) {
+                        app.workbench.open("http://localhost:\(here)", workspace: wid)
+                    }
+                }
+                .buttonStyle(PointerButtonStyle()).font(.ui(11).monospacedDigit()).foregroundStyle(Color.accentColor)
+                .help(String(localized: "Open in the browser beside you"))
             } else {
                 Button(String(localized: "Forward")) { forward(p.port) }.controlSize(.small)
                     .help(String(localized: "Reach it from this Mac as localhost"))
@@ -111,10 +125,12 @@ struct ServerSide: View {
             if let w = mainWorkspace(of: r, among: app.worktrees) { app.workbench.show(workspace: w.id) }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "folder").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(width: 14)
+                Image(systemName: "folder").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
+                    width: 14)
                 Text(r.name).font(.ui(12))
                 Spacer(minLength: 6)
-                Text(RemoteHost.of(r.path)?.path ?? "").font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                Text(RemoteHost.of(r.path)?.path ?? "").font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                    .truncationMode(.head)
             }
             .padding(.horizontal, 6).frame(height: Metrics.row).contentShape(Rectangle())
         }

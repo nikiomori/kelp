@@ -47,11 +47,15 @@ extension NSView {
         func scaled(_ s: CGFloat) -> CATransform3D { aboutCentre(CATransform3DMakeScale(s, s, 1)) }
         let dip = Motion.pressDip(bounds.size)
         let a = CAKeyframeAnimation(keyPath: "transform")
-        a.values = [CATransform3DIdentity, scaled(dip), scaled(1 + (1 - dip) * 0.3), CATransform3DIdentity].map { NSValue(caTransform3D: $0) }
+        a.values = [CATransform3DIdentity, scaled(dip), scaled(1 + (1 - dip) * 0.3), CATransform3DIdentity].map {
+            NSValue(caTransform3D: $0)
+        }
         a.keyTimes = [0, 0.3, 0.7, 1]
         a.duration = Motion.press
-        a.timingFunctions = [CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut),
-                             CAMediaTimingFunction(name: .easeIn)]
+        a.timingFunctions = [
+            CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeInEaseOut),
+            CAMediaTimingFunction(name: .easeIn)
+        ]
         layer.add(a, forKey: "press")
     }
 
@@ -101,7 +105,8 @@ extension NSView {
     /// fades. Call it before the view is removed.
     public func leaveGhost(in parent: NSView) {
         guard !Motion.reduced, window != nil, bounds.width > 0, bounds.height > 0,
-              let picture = bitmapImageRepForCachingDisplay(in: bounds) else { return }
+            let picture = bitmapImageRepForCachingDisplay(in: bounds)
+        else { return }
         cacheDisplay(in: bounds, to: picture)
         let image = NSImage(size: bounds.size)
         image.addRepresentation(picture)
@@ -132,7 +137,10 @@ extension NSView {
     public func flow(up: Bool?) {
         wantsLayer = true
         guard let layer else { return }
-        guard let up, !Motion.reduced else { layer.mask = nil; return }
+        guard let up, !Motion.reduced else {
+            layer.mask = nil
+            return
+        }
         let band = CAGradientLayer()
         band.frame = bounds.insetBy(dx: -40, dy: 0)   // the count beside the arrow may grow or go while it runs
         band.colors = [NSColor.black, .black.withAlphaComponent(0.3), .black].map(\.cgColor)
@@ -151,8 +159,9 @@ extension NSView {
 
     /// `t` about the view's middle: a layer-backed view's anchor is its corner.
     private func aboutCentre(_ t: CATransform3D) -> CATransform3D {
-        CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),
-                            CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))
+        CATransform3DConcat(
+            CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), t),
+            CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))
     }
 }
 

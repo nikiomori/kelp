@@ -35,7 +35,10 @@ extension FilesPanel {
 
     /// They come with a search: an empty field keeps its room for the name of what you're after, unless one is on.
     func showSearchOptions() {
-        let keys: [(TextToggle, Bool)] = [(caseToggle, searchOptions.matchCase), (wordToggle, searchOptions.wholeWord), (regexToggle, searchOptions.regex)]
+        let keys: [(TextToggle, Bool)] = [
+            (caseToggle, searchOptions.matchCase), (wordToggle, searchOptions.wholeWord),
+            (regexToggle, searchOptions.regex)
+        ]
         let shown = !byName && (!search.stringValue.isEmpty || searchOptions != SearchOptions())
         for (button, on) in keys {
             button.isOn = on
@@ -46,7 +49,9 @@ extension FilesPanel {
 
 /// A toggle as a command (the palette, Settings › Keyboard): it brings the panel up first, as ⇧⌘F does.
 @MainActor
-func searchOption(_ app: AppModel, _ id: String, _ title: String, _ key: String, _ option: WritableKeyPath<SearchOptions, Bool>) -> CommandSpec {
+func searchOption(
+    _ app: AppModel, _ id: String, _ title: String, _ key: String, _ option: WritableKeyPath<SearchOptions, Bool>
+) -> CommandSpec {
     Builtins.cmd(id, title, key) {
         app.workbench.showPanel("files")
         DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.toggle(option) }   // after the panel is built

@@ -28,7 +28,9 @@ extension SessionHook {
 
     /// What a prompt sets as a /goal. `/goal` alone shows the one set and `/goal clear` ends it.
     public static func goal(of v: JSONValue) -> String? {
-        guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string, prompt.hasPrefix("/goal ") else { return nil }
+        guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string,
+            prompt.hasPrefix("/goal ")
+        else { return nil }
         let condition = prompt.dropFirst(5).trimmingCharacters(in: .whitespacesAndNewlines)
         return condition.isEmpty || condition == "clear" ? nil : condition
     }
@@ -37,7 +39,8 @@ extension SessionHook {
     /// it sits at its prompt or works on. The only sign of a background shell's end: no hook says so.
     public static func endedTasks(of v: JSONValue) -> [String]? {
         guard v["hook_event_name"]?.string == "UserPromptSubmit", let prompt = v["prompt"]?.string,
-              prompt.hasPrefix("<task-notification>") else { return nil }
+            prompt.hasPrefix("<task-notification>")
+        else { return nil }
         return prompt.matches(of: /<(?:task|tool-use)-id>([^<]+)</).map { String($0.1) }
     }
 
@@ -45,8 +48,10 @@ extension SessionHook {
     public static func notification(of v: JSONValue) -> JSONValue? {
         switch v["hook_event_name"]?.string {
         case "PermissionRequest":   // the dialog: what it would run says more than any notice
-            .obj(["notification_type": "permission_request", "tool_name": v["tool_name"] ?? .null,
-                  "tool_input": v["tool_input"] ?? .null, "cwd": v["cwd"] ?? .null])
+            .obj([
+                "notification_type": "permission_request", "tool_name": v["tool_name"] ?? .null,
+                "tool_input": v["tool_input"] ?? .null, "cwd": v["cwd"] ?? .null
+            ])
         case "StopFailure":   // the turn died on an API error: its text says which
             .obj(["notification_type": "stop_failure", "message": v["last_assistant_message"] ?? .null])
         default:

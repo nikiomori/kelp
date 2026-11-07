@@ -9,7 +9,12 @@ open class PointerButton: NSButton {
     private var hovering = false { didSet { if hovering != oldValue { showFill() } } }
     private var pressed = false { didSet { if pressed != oldValue { showFill() } } }
     /// What a click does, in place of a target and action.
-    public var onClick: (() -> Void)? { didSet { target = self; action = #selector(runClick) } }
+    public var onClick: (() -> Void)? {
+        didSet {
+            target = self
+            action = #selector(runClick)
+        }
+    }
     /// The fill's corner; nil: a capsule (half the height).
     public var radius: CGFloat? = Metrics.radiusSM { didSet { needsLayout = true } }
     /// Room left and right of the title or image, inside the fill.
@@ -57,10 +62,17 @@ open class PointerButton: NSButton {
         layer?.cornerRadius = radius ?? bounds.height / 2
     }
 
-    override open func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
+    override open func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeInActiveApp)
+    }
     override open func mouseEntered(with event: NSEvent) { hovering = true }
     override open func mouseExited(with event: NSEvent) { hovering = false }
-    override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false; pressed = false }
+    override open func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hovering = false
+        pressed = false
+    }
     override open var isEnabled: Bool { didSet { showFill() } }
 
     /// AppKit says when the button is held down (and let go, or dragged off).
@@ -76,9 +88,12 @@ open class PointerButton: NSButton {
 
     private func showFill() {
         guard !underlinesOnHover else {
-            let words = NSMutableAttributedString(string: title, attributes: [.font: font ?? .ui(13), .foregroundColor: contentTintColor ?? .linkColor])
+            let words = NSMutableAttributedString(
+                string: title, attributes: [.font: font ?? .ui(13), .foregroundColor: contentTintColor ?? .linkColor])
             if hovering && isEnabled {
-                words.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: words.length))
+                words.addAttribute(
+                    .underlineStyle, value: NSUnderlineStyle.single.rawValue,
+                    range: NSRange(location: 0, length: words.length))
             }
             attributedTitle = words
             return
@@ -88,7 +103,10 @@ open class PointerButton: NSButton {
         let hover: NSColor = restFill == nil || restFill === NSColor.fillRest ? .fillHover : .fillSelected
         fadeBackground(to: !isEnabled ? restFill : pressed ? .fillSelected : hovering ? hover : restFill, held: pressed)
     }
-    override open func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); showFill() }
+    override open func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        showFill()
+    }
 }
 
 /// A borderless pop-up (a panel's title words that pick what it lists): the hover grey fades in under the pointer, as a
@@ -96,7 +114,9 @@ open class PointerButton: NSButton {
 @MainActor
 open class PointerPopUpButton: NSPopUpButton {
     private var area: NSTrackingArea?
-    private var hovering = false { didSet { if hovering != oldValue { fadeBackground(to: hovering && isEnabled ? .fillHover : nil) } } }
+    private var hovering = false {
+        didSet { if hovering != oldValue { fadeBackground(to: hovering && isEnabled ? .fillHover : nil) } }
+    }
 
     override public init(frame: NSRect, pullsDown: Bool) {
         super.init(frame: frame, pullsDown: pullsDown)
@@ -108,10 +128,16 @@ open class PointerPopUpButton: NSPopUpButton {
     public convenience init() { self.init(frame: .zero, pullsDown: false) }
     required public init?(coder: NSCoder) { fatalError() }
 
-    override open func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
+    override open func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeInActiveApp)
+    }
     override open func mouseEntered(with event: NSEvent) { hovering = true }
     override open func mouseExited(with event: NSEvent) { hovering = false }
-    override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false }
+    override open func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hovering = false
+    }
 }
 
 /// A custom clickable view (a pill, a capsule, a row drawn by hand) that answers the pointer like `PointerButton`:
@@ -141,11 +167,21 @@ open class PointerControl: NSControl {
     }
     public func refreshPointer() { showPointer(hovering: hovering, pressed: pressed) }
 
-    override open func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
+    override open func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeInActiveApp)
+    }
     override open func mouseEntered(with event: NSEvent) { hovering = true }
     override open func mouseExited(with event: NSEvent) { hovering = false }
-    override open func viewDidMoveToWindow() { super.viewDidMoveToWindow(); hovering = false; pressed = false }
-    override open func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); refreshPointer() }
+    override open func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hovering = false
+        pressed = false
+    }
+    override open func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshPointer()
+    }
     override open var mouseDownCanMoveWindow: Bool { false }
 
     /// Held, it darkens; let go inside, it springs and acts; dragged off and let go, nothing happens.
@@ -154,7 +190,10 @@ open class PointerControl: NSControl {
         pressed = true
         while let e = window?.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
             let inside = bounds.contains(convert(e.locationInWindow, from: nil))
-            if e.type == .leftMouseDragged { pressed = inside; continue }
+            if e.type == .leftMouseDragged {
+                pressed = inside
+                continue
+            }
             pressed = false
             if inside {
                 pressBounce()
@@ -165,5 +204,8 @@ open class PointerControl: NSControl {
         pressed = false
     }
 
-    override open func accessibilityPerformPress() -> Bool { clicked(); return true }
+    override open func accessibilityPerformPress() -> Bool {
+        clicked()
+        return true
+    }
 }

@@ -13,13 +13,17 @@ public enum TestIsolation {
     /// The process's own folder, removed when it exits.
     public static let root: String = {
         let r = String(cString: kelp_test_root())
-        precondition(!r.isEmpty && ProcessInfo.processInfo.environment["KELP_TEST_ISOLATED"] == "1", "test isolation didn't run")
+        precondition(
+            !r.isEmpty && ProcessInfo.processInfo.environment["KELP_TEST_ISOLATED"] == "1", "test isolation didn't run")
         atexit { try? FileManager.default.removeItem(atPath: TestIsolation.root) }
         return r
     }()
 
     /// The keychain service the tests' keys go to.
-    public static var keychainService: String { _ = root; return ProcessInfo.processInfo.environment["KELP_KEYCHAIN_SERVICE"] ?? "" }
+    public static var keychainService: String {
+        _ = root
+        return ProcessInfo.processInfo.environment["KELP_KEYCHAIN_SERVICE"] ?? ""
+    }
 }
 
 /// A new empty folder under the process's own (short enough for a socket inside it), gone when the tests end.

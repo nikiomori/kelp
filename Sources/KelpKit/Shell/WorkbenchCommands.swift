@@ -6,9 +6,11 @@ import WorkbenchKit
 extension Builtins {
     /// The shell's own actions (sidebar and inspector, panes, tabs, workspaces, text size, the Run menu, help) as commands,
     /// so the menu bar, Settings › Keyboard, the palette and agents (`kelp run <id>`) reach them the same way.
-    package static let workbench = Builtin("kelp.workbench", "Window & Workbench",
-                                   "Panes, tabs, groups, the sidebar and inspector: the commands of the window.",
-                                   icon: "macwindow", essential: true) { app in
+    package static let workbench = Builtin(
+        "kelp.workbench", "Window & Workbench",
+        "Panes, tabs, groups, the sidebar and inspector: the commands of the window.",
+        icon: "macwindow", essential: true
+    ) { app in
         var c = Contributions()
         c.commands = [
             CommandSpec(id: "workbench.openSettings", title: "Settings…", key: "cmd+,") { a in
@@ -17,17 +19,24 @@ extension Builtins {
             cmd("workbench.openExtensions", "Extensions…") { SettingsWindow.show(app, section: "extensions") },
             cmd("workbench.restartService", "Restart Background Service…") { restartService(app) },
             cmd("workbench.toggleSidebar", "Show Sidebar", "cmd+0") { app.workbench.window?.toggleSidebarPanel() },
-            cmd("workbench.toggleInspector", "Show Inspector", "opt+cmd+0") { app.workbench.window?.toggleInspectorPanel() },
+            cmd("workbench.toggleInspector", "Show Inspector", "opt+cmd+0") {
+                app.workbench.window?.toggleInspectorPanel()
+            },
             cmd("workbench.toggleFocusMode", "Focus Mode", "ctrl+cmd+z") { app.workbench.window?.toggleFocusMode() },
             CommandSpec(id: "workbench.showPanel", title: "Show Panel") { a in
                 if let p = a["panel"]?.string { app.workbench.window?.showInspector(panel: p) }
             },
-            cmd("workbench.commandPalette", "Command Palette…", "shift+cmd+p") { app.quickOpen.show(commandsOnly: true) },
+            cmd("workbench.commandPalette", "Command Palette…", "shift+cmd+p") {
+                app.quickOpen.show(commandsOnly: true)
+            },
             cmd("workbench.scratch", "New Chat Without Project", "ctrl+opt+cmd+k") { app.noProject.newChat() },
             // Settings › Notifications' button: macOS shows the banner, or Kelp says where they're turned off.
             cmd("notifications.test", "Send Test Notification") {
                 app.notifier?.sendTest { ok in
-                    if !ok { Banner.show(String(localized: "Turned off for Kelp in System Settings › Notifications."), style: .error) }
+                    if !ok {
+                        Banner.show(
+                            String(localized: "Turned off for Kelp in System Settings › Notifications."), style: .error)
+                    }
                 }
             },
             cmd("view.biggerText", "Bigger Text", "cmd+plus") { zoomText(app, 1) },
@@ -47,20 +56,30 @@ extension Builtins {
             // ⌘W: the focused tab; in a workspace with nothing open, the workspace itself.
             cmd("editor.closeTab", "Close Tab", "cmd+w") {
                 guard let e = editor(app) else { return }
-                if e.focusedContent == nil, let w = e.worktree { WorkspaceActions(app).close(w) } else { e.closeFocusedTab() }
+                if e.focusedContent == nil, let w = e.worktree {
+                    WorkspaceActions(app).close(w)
+                } else {
+                    e.closeFocusedTab()
+                }
             },
             cmd("editor.reopenTab", "Reopen Closed Tab", "shift+cmd+t") { app.workbench.reopenClosedTab() },
             cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newChat() },
             cmd("workspace.newGroup", "New Group", "shift+cmd+n") { app.workbench.newGroup() },
             cmd("workspace.newBranch", "New Chat on Branch", "ctrl+cmd+n") { app.workbench.newBranch() },
-            cmd("workspace.newBranchAsking", "New Chat on Branch…", "opt+ctrl+cmd+n") { app.workbench.newBranchAsking() },
+            cmd("workspace.newBranchAsking", "New Chat on Branch…", "opt+ctrl+cmd+n") {
+                app.workbench.newBranchAsking()
+            },
             cmd("workspace.addProject", "Add Project…", "cmd+o") { app.workbench.addProject() },
             cmd("workspace.cloneRepository", "Clone Repository…") { CloneSheet.show(app) },
             cmd("workspace.addRemote", "Open over SSH…") { RemoteSheet.show(app) },
             cmd("workspace.revealInFinder", "Reveal in Finder", "opt+cmd+r") { WorkspaceActions(app).revealCurrent() },
-            cmd("workspace.close", "Close Group", "shift+cmd+w") { if let w = editor(app)?.worktree { WorkspaceActions(app).close(w) } },
+            cmd("workspace.close", "Close Group", "shift+cmd+w") {
+                if let w = editor(app)?.worktree { WorkspaceActions(app).close(w) }
+            },
             // ⌃Tab walks the workspaces used last (⌃⇧Tab: `{"by": -1}`).
-            CommandSpec(id: "workspace.switch", title: "Switch Group", key: "ctrl+tab") { a in app.switcher.step(a["by"]?.int ?? 1) },
+            CommandSpec(id: "workspace.switch", title: "Switch Group", key: "ctrl+tab") { a in
+                app.switcher.step(a["by"]?.int ?? 1)
+            },
             cmd("workspace.next", "Next Group", "ctrl+cmd+down") { app.workbench.showWorkspace(offset: 1) },
             cmd("workspace.previous", "Previous Group", "ctrl+cmd+up") { app.workbench.showWorkspace(offset: -1) },
             // Back and forward through the workspaces you visited.
@@ -68,7 +87,9 @@ extension Builtins {
             cmd("workspace.forward", "Forward", "ctrl+cmd+right") { app.workbench.goBack(1) },
             // The Run menu: what ran last in the project, else the list of what its files offer (`{"name": "lint"}` runs
             // a .kelp.yaml command by name).
-            CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r") { a in app.scripts.run(a["name"]?.string ?? "run") },
+            CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r") { a in
+                app.scripts.run(a["name"]?.string ?? "run")
+            },
             cmd("scripts.choose", "Run…", "ctrl+cmd+r") { app.scripts.choose() },
             cmd("scripts.test", "Test", "cmd+u") { app.scripts.run("test") },
             cmd("scripts.stop", "Stop", "cmd+.") { app.scripts.stop() },
@@ -80,8 +101,12 @@ extension Builtins {
             }
         ]
         // Like VS Code's openEditorAtIndex1…9: one id per number, so each can be rebound.
-        c.commands += (1...9).map { n in cmd("editor.tab.\(n)", "Tab \(n)", "cmd+\(n)") { editor(app)?.selectTab(index: n - 1) } }
-        c.commands += (1...9).map { n in cmd("workspace.select.\(n)", "Group \(n)", "ctrl+\(n)") { app.workbench.showWorkspace(number: n) } }
+        c.commands += (1...9).map { n in
+            cmd("editor.tab.\(n)", "Tab \(n)", "cmd+\(n)") { editor(app)?.selectTab(index: n - 1) }
+        }
+        c.commands += (1...9).map { n in
+            cmd("workspace.select.\(n)", "Group \(n)", "ctrl+\(n)") { app.workbench.showWorkspace(number: n) }
+        }
         return c
     }
 
@@ -97,9 +122,12 @@ extension Builtins {
     private static func restartService(_ app: AppModel) {
         Task {
             if await app.restartDaemon(keepingSessions: true) { return }
-            let a = NSAlert(); a.messageText = String(localized: "Restart the background service?")
-            a.informativeText = String(localized: "Running agent sessions end. Projects, history and settings are kept.")
-            a.addButton(withTitle: String(localized: "Restart")); a.addButton(withTitle: String(localized: "Cancel"))
+            let a = NSAlert()
+            a.messageText = String(localized: "Restart the background service?")
+            a.informativeText = String(
+                localized: "Running agent sessions end. Projects, history and settings are kept.")
+            a.addButton(withTitle: String(localized: "Restart"))
+            a.addButton(withTitle: String(localized: "Cancel"))
             if await runSheet(a) == .alertFirstButtonReturn { await app.restartDaemon() }
         }
     }

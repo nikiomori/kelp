@@ -9,11 +9,21 @@ enum Make {
     }
 
     static let kinds = [
-        Kind(id: "doc", title: String(localized: "Doc"), symbol: "doc.text", help: String(localized: "A page to read and keep")),
-        Kind(id: "review", title: String(localized: "Review"), symbol: "checklist", help: String(localized: "Choices you answer on the page")),
-        Kind(id: "slides", title: String(localized: "Slides"), symbol: "play.rectangle", help: String(localized: "A deck to present")),
-        Kind(id: "design", title: String(localized: "Design"), symbol: "square.grid.2x2", help: String(localized: "Screens side by side")),
-        Kind(id: "dashboard", title: String(localized: "Dashboard"), symbol: "chart.bar", help: String(localized: "Numbers at a glance"))
+        Kind(
+            id: "doc", title: String(localized: "Doc"), symbol: "doc.text",
+            help: String(localized: "A page to read and keep")),
+        Kind(
+            id: "review", title: String(localized: "Review"), symbol: "checklist",
+            help: String(localized: "Choices you answer on the page")),
+        Kind(
+            id: "slides", title: String(localized: "Slides"), symbol: "play.rectangle",
+            help: String(localized: "A deck to present")),
+        Kind(
+            id: "design", title: String(localized: "Design"), symbol: "square.grid.2x2",
+            help: String(localized: "Screens side by side")),
+        Kind(
+            id: "dashboard", title: String(localized: "Dashboard"), symbol: "chart.bar",
+            help: String(localized: "Numbers at a glance"))
     ]
 
     /// What the agent gets; the user writes what it's about after it. In English: it's the agent's instruction.
@@ -35,7 +45,10 @@ enum Make {
 @MainActor package func makeMenu(_ app: AppModel) -> NSMenu {
     let m = NSMenu()
     Make.addItems(to: m) { line in
-        guard let editor = app.workbench.editor else { NSSound.beep(); return }
+        guard let editor = app.workbench.editor else {
+            NSSound.beep()
+            return
+        }
         editor.newAgent(prompt: line, draft: true)
     }
     return m
@@ -50,9 +63,12 @@ final class MakeChips: NSStackView {
         spacing = Metrics.gap
         let chips = Make.kinds.map { k in
             let b = PointerButton(title: k.title) { pick(k) }
-            b.font = .ui(12); b.padding = Metrics.gap
-            b.restFill = .fillRest; b.toolTip = k.help
-            b.setAccessibilityLabel(String(localized: "Make a \(k.title)")); b.setAccessibilityHelp(k.help)
+            b.font = .ui(12)
+            b.padding = Metrics.gap
+            b.restFill = .fillRest
+            b.toolTip = k.help
+            b.setAccessibilityLabel(String(localized: "Make a \(k.title)"))
+            b.setAccessibilityHelp(k.help)
             return b
         }
         setViews(chips, in: .leading)

@@ -1,6 +1,6 @@
-import SwiftUI
 import Core
 import EditorKit
+import SwiftUI
 
 /// Settings › Editor for one language's files: settings.json's `"[markdown]": { … }` blocks, as in VS Code.
 /// Which files the Editor's rows are for: all, or one language's, those with settings of their own first.
@@ -16,7 +16,9 @@ struct LanguagePicker: View {
                 Divider()
                 ForEach(own, id: \.self) { Text(SettingRow.languageName($0)).tag($0) }
                 if !own.isEmpty { Divider() }
-                ForEach(CodeEditor.languageIds.filter { !own.contains($0) }.sorted(), id: \.self) { Text(SettingRow.languageName($0)).tag($0) }
+                ForEach(CodeEditor.languageIds.filter { !own.contains($0) }.sorted(), id: \.self) {
+                    Text(SettingRow.languageName($0)).tag($0)
+                }
             } label: {
                 Text("For")
                 Text("A language's own value wins over the one for all files.")
@@ -29,8 +31,10 @@ extension SettingRow {
     /// What an editor reads for its own language: the rest (the font, autosave, servers) is one value for every file, so the
     /// picker leaves it out. Limit: kept by hand; a setting that starts reading its language goes in here.
     static let perLanguage: Set<String> = [
-        "editor.wordWrap", "editor.wordWrapColumn", "editor.rulers", "editor.renderWhitespace", "editor.tabSize", "editor.insertSpaces",
-        "editor.detectIndentation", "editor.formatOnSave", "editor.stickyScroll", "editor.bracketColors", "editor.indentGuides",
+        "editor.wordWrap", "editor.wordWrapColumn", "editor.rulers", "editor.renderWhitespace", "editor.tabSize",
+        "editor.insertSpaces",
+        "editor.detectIndentation", "editor.formatOnSave", "editor.stickyScroll", "editor.bracketColors",
+        "editor.indentGuides",
         "editor.breadcrumbs"
     ]
 
@@ -51,8 +55,12 @@ extension SettingRow {
 
     /// A language id as people say it.
     static func languageName(_ id: String) -> String {
-        ["plaintext": "Plain Text", "javascript": "JavaScript", "typescript": "TypeScript", "tsx": "TSX", "json": "JSON", "yaml": "YAML",
-         "html": "HTML", "css": "CSS", "toml": "TOML", "sql": "SQL", "php": "PHP", "cpp": "C++", "c_sharp": "C#", "objc": "Objective-C"][id]
+        [
+            "plaintext": "Plain Text", "javascript": "JavaScript", "typescript": "TypeScript", "tsx": "TSX",
+            "json": "JSON", "yaml": "YAML",
+            "html": "HTML", "css": "CSS", "toml": "TOML", "sql": "SQL", "php": "PHP", "cpp": "C++", "c_sharp": "C#",
+            "objc": "Objective-C"
+        ][id]
             ?? id.prefix(1).uppercased() + id.dropFirst()
     }
 }

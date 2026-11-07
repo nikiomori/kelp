@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 
 /// The sidebar's Machines block, over the plan limits: its heading with + (a new machine: Linux, macOS, Android, iOS, or
 /// from a file), there while the Machines extension is on; under it each machine with its state in a word and colour,
@@ -35,7 +35,10 @@ struct MachinesView: View {
         }
         .fontDesign(app.themes.chromeDesign)
         // Watched while shown: the daemon reads them every 5 s, every second while one starts.
-        .onAppear { app.watch(.machines); choices = app.machineChoices }
+        .onAppear {
+            app.watch(.machines)
+            choices = app.machineChoices
+        }
         .onDisappear { app.unwatch(.machines) }
     }
 
@@ -62,14 +65,19 @@ struct MachinesView: View {
         let asleep = [.sleeping, .off, .error].contains(v.state)
         return HStack(spacing: Metrics.gapWide) {
             Group {
-                if v.machine.os == "macos" { Image(systemName: "apple.logo").font(.ui(12, weight: .semibold)) }
-                else if v.machine.os == "android" { Image(systemName: "smartphone").font(.ui(12, weight: .semibold)) }
-                else if v.machine.os == "ios" { Image(systemName: "iphone").font(.ui(12, weight: .semibold)) }
-                else { Text(mark.letter).font(.ui(11, weight: .bold)) }
+                if v.machine.os == "macos" {
+                    Image(systemName: "apple.logo").font(.ui(12, weight: .semibold))
+                } else if v.machine.os == "android" {
+                    Image(systemName: "smartphone").font(.ui(12, weight: .semibold))
+                } else if v.machine.os == "ios" {
+                    Image(systemName: "iphone").font(.ui(12, weight: .semibold))
+                } else {
+                    Text(mark.letter).font(.ui(11, weight: .bold))
+                }
             }
-                .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)
-                .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(Color(nsColor: mark.color)))
-                .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
+            .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)
+            .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(Color(nsColor: mark.color)))
+            .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack(spacing: Metrics.gap) {
                     Text(v.machine.name).font(.ui(12, weight: .semibold)).lineLimit(1)
@@ -78,11 +86,14 @@ struct MachinesView: View {
                     Spacer(minLength: Metrics.gap)
                     faces(v)
                 }
-                Text(app.machineLine(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                Text(app.machineLine(v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
         .padding(.horizontal, Metrics.gap).frame(height: Metrics.rowTwoLine)
-        .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovered == v.id ? Color(nsColor: .fillHover) : .clear))
+        .background(
+            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovered == v.id ? Color(nsColor: .fillHover) : .clear)
+        )
         .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
         .contentShape(Rectangle())
         .onHover { hovered = $0 ? v.id : (hovered == v.id ? nil : hovered) }
@@ -99,7 +110,9 @@ struct MachinesView: View {
         let agents = (v.sessions ?? []).compactMap { app.session($0)?.agent }
         HStack(spacing: -Metrics.appIcon / 3) {   // overlapping, as a stack of faces
             ForEach(Array(Set(agents)).sorted().prefix(3), id: \.self) { a in
-                if let icon = app.catalog.icon(a, size: Metrics.iconLarge) { Image(nsImage: icon).frame(width: Metrics.iconLarge, height: Metrics.iconLarge) }
+                if let icon = app.catalog.icon(a, size: Metrics.iconLarge) {
+                    Image(nsImage: icon).frame(width: Metrics.iconLarge, height: Metrics.iconLarge)
+                }
             }
         }
     }
@@ -107,7 +120,8 @@ struct MachinesView: View {
     @ViewBuilder private func menu(_ v: VMInfo) -> some View {
         let name = v.machine.name
         Button(String(localized: "Open")) { app.openMachine(name) }
-        Button(String(localized: "Open Terminal")) { app.runInMachine(name) }.disabled(v.state == .creating || v.state == .error)
+        Button(String(localized: "Open Terminal")) { app.runInMachine(name) }.disabled(
+            v.state == .creating || v.state == .error)
         Divider()
         switch v.state {
         case .running, .paused, .starting:

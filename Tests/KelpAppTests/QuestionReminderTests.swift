@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import KelpKit
 
 @Test func theReminderFollowsItsSetting() {
@@ -18,6 +19,7 @@ import Core
     #expect(!QuestionReminder.stillStands(asked, now: nil))
     now.status = .working
     #expect(!QuestionReminder.stillStands(asked, now: now))   // answered
-    now.status = .waiting; now.statusAt = at.addingTimeInterval(60)
+    now.status = .waiting
+    now.statusAt = at.addingTimeInterval(60)
     #expect(!QuestionReminder.stillStands(asked, now: now))   // the next question counts for itself
 }

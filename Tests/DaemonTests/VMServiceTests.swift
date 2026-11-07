@@ -1,12 +1,14 @@
 import Core
 import Foundation
-import os
 import Testing
+import os
+
 @testable import Daemon
 
 /// What Kelp's machines read as from their folders alone: no kelp-vm runs in these.
 @Suite struct VMServiceTests {
-    let home = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kvms-\(UUID().uuidString.prefix(6))")
+    let home = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+        "kvms-\(UUID().uuidString.prefix(6))")
     var vms: VMService { VMService(home: home, helper: "/nonexistent/kelp-vm") }
     let m = VMMachine(name: "deb", image: "debian-13", cpus: 2, memoryMiB: 2048, diskGiB: 32, user: "niko")
 
@@ -17,7 +19,9 @@ import Testing
         for (name, text) in files {
             let u = f.appendingPathComponent(name)
             try Data(text.utf8).write(to: u)
-            if let modified { try FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: u.path) }
+            if let modified {
+                try FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: u.path)
+            }
         }
     }
 
@@ -33,8 +37,12 @@ import Testing
     /// What made `dev` before a restart is found by its folder, not what runs in `dev2` beside it.
     @Test func leftoversAreFoundByTheWholeFolder() throws {
         let r = try NSRegularExpression(pattern: VMService.inFolder("/k/vms/dev"))
-        func hits(_ line: String) -> Bool { r.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil }
-        #expect(hits("curl -o /k/vms/dev/disk.img.part https://x") && hits("installer /k/vms/dev") && hits("x /k/vms/dev y"))
+        func hits(_ line: String) -> Bool {
+            r.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil
+        }
+        #expect(
+            hits("curl -o /k/vms/dev/disk.img.part https://x") && hits("installer /k/vms/dev") && hits("x /k/vms/dev y")
+        )
         #expect(!hits("kelp-vm /k/vms/dev2") && !hits("ssh -F /k/vms/dev2/ssh_config dev2"))
     }
 
@@ -44,7 +52,9 @@ import Testing
         #expect(try vms.asleep(VMHelper.Reply(state: .off, connections: 0)))
         #expect(try !vms.asleep(VMHelper.Reply(state: .starting, connections: 0)))
         #expect(try !vms.asleep(VMHelper.Reply(state: .running, connections: 0)))
-        #expect(throws: (any Error).self) { try vms.asleep(VMHelper.Reply(state: .paused, connections: 0, error: "save failed")) }
+        #expect(throws: (any Error).self) {
+            try vms.asleep(VMHelper.Reply(state: .paused, connections: 0, error: "save failed"))
+        }
     }
 
     @Test func aMachineBeingMadeSaysHowFarAndAStaleOneReadsAsFailed() throws {
@@ -79,7 +89,8 @@ import Testing
         defer { try? FileManager.default.removeItem(at: home) }
         let f = home.appendingPathComponent("vms/mac")
         try FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
-        let mac = VMMachine(name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
+        let mac = VMMachine(
+            name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
         try JSONEncoder().encode(mac).write(to: f.appendingPathComponent("machine.json"))
         let server = try Unix.listen(f.appendingPathComponent("ctl.sock").path)
         defer { close(server) }
@@ -99,11 +110,13 @@ import Testing
     /// beside kelpd.
     @Test func kelpVMIsItsOwnAppInKelpAndBesideKelpdInABuild() throws {
         defer { try? FileManager.default.removeItem(at: home) }
-        let macOS = home.appendingPathComponent("Kelp.app/Contents/MacOS"), kelpd = macOS.appendingPathComponent("kelpd").path
+        let macOS = home.appendingPathComponent("Kelp.app/Contents/MacOS"),
+            kelpd = macOS.appendingPathComponent("kelpd").path
         try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
         #expect(VMService.helper(beside: kelpd) == macOS.appendingPathComponent("kelp-vm").path)
         let inApp = home.appendingPathComponent("Kelp.app/Contents/Helpers/Kelp Machine.app/Contents/MacOS/kelp-vm")
-        try FileManager.default.createDirectory(at: inApp.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: inApp.deletingLastPathComponent(), withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: inApp.path, contents: Data(), attributes: [.posixPermissions: 0o755])
         #expect(VMService.helper(beside: kelpd) == inApp.path)
     }
@@ -123,12 +136,16 @@ import Testing
         defer { try? FileManager.default.removeItem(at: home) }
         let f = home.appendingPathComponent("vms/mac")
         try FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
-        let mac = VMMachine(name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
+        let mac = VMMachine(
+            name: "mac", os: "macos", image: "macos", cpus: 4, memoryMiB: 6144, diskGiB: 64, user: "niko")
         try JSONEncoder().encode(mac).write(to: f.appendingPathComponent("machine.json"))
         let server = try Unix.listen(f.appendingPathComponent("ctl.sock").path)
         let lock = open(f.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)   // as a kelp-vm holds it while it runs (`VMService.alive`)
-        defer { close(server); close(lock) }
+        defer {
+            close(server)
+            close(lock)
+        }
         let heard = OSAllocatedUnfairLock(initialState: [String]())
         Thread.detachNewThread {   // kelp-vm: running, and what it was asked
             while case let fd = accept(server, nil, nil), fd >= 0 {
@@ -141,7 +158,9 @@ import Testing
             }
         }
         let vms = self.vms
-        try Sessions.$asker.withValue("AGENT") { _ = try VMScreen(name: "mac", args: ["click", "1", "1"], session: nil).handle(vms) }
+        try Sessions.$asker.withValue("AGENT") {
+            _ = try VMScreen(name: "mac", args: ["click", "1", "1"], session: nil).handle(vms)
+        }
         try Sessions.$asker.withValue("AGENT") { _ = try VMType(name: "mac", text: "x").handle(vms) }
         let screens = heard.withLock { $0 }.filter { $0.contains(#""op":"screen""#) }
         #expect(screens.count == 2 && screens.allSatisfy { $0.contains(#""session":"AGENT""#) })
@@ -207,10 +226,14 @@ import Testing
     let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kvmf-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
-    let linux = try #require(VMImage.named("linux")), mac = try #require(VMImage.named("macos")), android = try #require(VMImage.named("android"))
-    let qcow = dir.appendingPathComponent("a.qcow2"), iso = dir.appendingPathComponent("a.iso"), raw = dir.appendingPathComponent("a.raw")
+    let linux = try #require(VMImage.named("linux")), mac = try #require(VMImage.named("macos")),
+        android = try #require(VMImage.named("android"))
+    let qcow = dir.appendingPathComponent("a.qcow2"), iso = dir.appendingPathComponent("a.iso"),
+        raw = dir.appendingPathComponent("a.raw")
     try Data([0x51, 0x46, 0x49, 0xFB, 0, 0, 0, 3]).write(to: qcow)
-    var isoBytes = Data(count: 0x8006); isoBytes.replaceSubrange(0x8001..<0x8006, with: Data("CD001".utf8)); try isoBytes.write(to: iso)
+    var isoBytes = Data(count: 0x8006)
+    isoBytes.replaceSubrange(0x8001..<0x8006, with: Data("CD001".utf8))
+    try isoBytes.write(to: iso)
     try Data(count: 4096).write(to: raw)
     #expect(throws: RPCError.self) { try VMService.check(qcow, for: linux) }
     #expect(throws: RPCError.self) { try VMService.check(iso, for: linux) }
@@ -222,7 +245,8 @@ import Testing
 
 /// curl -I's header lines end in CRLF, one Character to Swift: the length is still found, the last one after redirects.
 @Test func aDownloadsLengthIsReadFromCRLFHeaders() {
-    let headers = "HTTP/1.1 302 Found\r\nContent-Length: 0\r\nLocation: x\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 25595669503\r\n\r\n"
+    let headers =
+        "HTTP/1.1 302 Found\r\nContent-Length: 0\r\nLocation: x\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 25595669503\r\n\r\n"
     #expect(VMService.contentLength(headers) == 25_595_669_503)
     #expect(VMService.contentLength("HTTP/1.1 200 OK\r\n\r\n") == 0)
 }

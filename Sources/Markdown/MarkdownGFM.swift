@@ -7,16 +7,21 @@ extension Renderer {
     // MARK: HTML
 
     private static let tags: Set<String> = [
-        "a", "abbr", "b", "blockquote", "br", "center", "cite", "code", "dd", "del", "details", "div", "dl", "dt", "em", "h1", "h2", "h3",
-        "h4", "h5", "h6", "hr", "i", "img", "ins", "kbd", "li", "mark", "ol", "p", "picture", "pre", "q", "s", "samp", "small", "source", "span",
-        "strike", "strong", "sub", "summary", "sup", "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u", "ul", "var"
+        "a", "abbr", "b", "blockquote", "br", "center", "cite", "code", "dd", "del", "details", "div", "dl", "dt", "em",
+        "h1", "h2", "h3",
+        "h4", "h5", "h6", "hr", "i", "img", "ins", "kbd", "li", "mark", "ol", "p", "picture", "pre", "q", "s", "samp",
+        "small", "source", "span",
+        "strike", "strong", "sub", "summary", "sup", "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u", "ul",
+        "var"
     ]
     /// Tags that start an HTML block (and end a paragraph).
     private static let blockTags: Set<String> = [
-        "blockquote", "center", "details", "div", "dl", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "ol", "p", "picture", "pre", "summary", "table", "ul"
+        "blockquote", "center", "details", "div", "dl", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "ol", "p", "picture",
+        "pre", "summary", "table", "ul"
     ]
     private static let attributes: [String: Set<String>] = [
-        "a": ["href", "name"], "img": ["src", "alt", "width", "height"], "source": ["srcset", "media", "type"], "details": ["open"],
+        "a": ["href", "name"], "img": ["src", "alt", "width", "height"], "source": ["srcset", "media", "type"],
+        "details": ["open"],
         "td": ["colspan", "rowspan"], "th": ["colspan", "rowspan"], "ol": ["start", "type"], "li": ["value"]
     ]
     private static let everywhere: Set<String> = ["align", "title", "dir", "lang"]
@@ -26,8 +31,12 @@ extension Renderer {
     func htmlTag(_ c: [Character], _ i: Int) -> (String, Int)? {
         guard let gt = c[i...].prefix(1000).firstIndex(of: ">") else { return nil }
         let raw = String(c[i...gt])
-        guard let m = raw.wholeMatch(of: /<(\/?)([A-Za-z][A-Za-z0-9]*)((?:\s+[^\s=>\/"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*\/?>/),
-              Self.tags.contains(m.2.lowercased()) else { return nil }
+        guard
+            let m = raw.wholeMatch(
+                of: /<(\/?)([A-Za-z][A-Za-z0-9]*)((?:\s+[^\s=>\/"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*\/?>/
+            ),
+            Self.tags.contains(m.2.lowercased())
+        else { return nil }
         let name = m.2.lowercased()
         if !m.1.isEmpty { return ("</\(name)>", gt + 1) }
         var out = "<\(name)"
@@ -55,22 +64,44 @@ extension Renderer {
     /// An HTML block: lines up to a blank one, as HTML (no Markdown inside), its tags through the list.
     func htmlBlock(_ ls: [Line], _ i: Int) -> (String, Int) {
         var j = i, text: [String] = []
-        while j < ls.count, !ls[j].blank { text.append(ls[j].s); j += 1 }
+        while j < ls.count, !ls[j].blank {
+            text.append(ls[j].s)
+            j += 1
+        }
         let c = Array(text.joined(separator: "\n"))
         var out = "", k = 0
         while k < c.count {
             switch c[k] {
             case "<":
-                if let (html, end) = htmlTag(c, k) { out += html; k = end } else if String(c[k...].prefix(4)) == "<!--",
-                    let r = String(c[k...]).range(of: "-->") { k += String(c[k...])[..<r.upperBound].count } else { out += "&lt;"; k += 1 }
-            case ">": out += "&gt;"; k += 1
+                if let (html, end) = htmlTag(c, k) {
+                    out += html
+                    k = end
+                } else if String(c[k...].prefix(4)) == "<!--",
+                    let r = String(c[k...]).range(of: "-->")
+                {
+                    k += String(c[k...])[..<r.upperBound].count
+                } else {
+                    out += "&lt;"
+                    k += 1
+                }
+            case ">":
+                out += "&gt;"
+                k += 1
             case "&":
                 let e = c[k...].prefix(34).firstIndex(of: ";")
                 let entity = e.map { String(c[k...$0]) }
-                if let entity, entity.wholeMatch(of: /&(#[0-9]{1,7}|#x[0-9A-Fa-f]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});/) != nil {
-                    out += entity; k += entity.count
-                } else { out += "&amp;"; k += 1 }
-            default: out.append(c[k]); k += 1
+                if let entity,
+                    entity.wholeMatch(of: /&(#[0-9]{1,7}|#x[0-9A-Fa-f]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});/) != nil
+                {
+                    out += entity
+                    k += entity.count
+                } else {
+                    out += "&amp;"
+                    k += 1
+                }
+            default:
+                out.append(c[k])
+                k += 1
             }
         }
         return (out, j)
@@ -80,10 +111,13 @@ extension Renderer {
 
     /// `> [!NOTE]` (TIP, IMPORTANT, WARNING, CAUTION) on a quote's first line: GitHub's colored box with its title.
     func alert(_ inner: [Line]) -> String? {
-        guard let first = inner.first, let m = first.s.trimmingCharacters(in: .whitespaces)
-                .wholeMatch(of: /\[!(?i)(note|tip|important|warning|caution)\]/) else { return nil }
+        guard let first = inner.first,
+            let m = first.s.trimmingCharacters(in: .whitespaces)
+                .wholeMatch(of: /\[!(?i)(note|tip|important|warning|caution)\]/)
+        else { return nil }
         let kind = m.1.lowercased()
-        return "<div class=\"markdown-alert markdown-alert-\(kind)\">\n<p class=\"markdown-alert-title\">\(kind.capitalized)</p>\n"
+        return
+            "<div class=\"markdown-alert markdown-alert-\(kind)\">\n<p class=\"markdown-alert-title\">\(kind.capitalized)</p>\n"
             + blocks(Array(inner.dropFirst())) + "\n</div>"
     }
 
@@ -109,7 +143,9 @@ extension Renderer {
 
     /// `[^label]` with a definition: its number, linked to the note.
     func footnoteRef(_ c: [Character], _ i: Int) -> (String, Int)? {
-        guard i + 2 < c.count, c[i + 1] == "^", let close = c[(i + 2)...].prefix(100).firstIndex(of: "]") else { return nil }
+        guard i + 2 < c.count, c[i + 1] == "^", let close = c[(i + 2)...].prefix(100).firstIndex(of: "]") else {
+            return nil
+        }
         let label = norm(String(c[(i + 2)..<close]))
         guard notes[label] != nil else { return nil }
         if !noteOrder.contains(label) { noteOrder.append(label) }
@@ -126,7 +162,11 @@ extension Renderer {
             let n = k + 1
             var body = blocks(notes[noteOrder[k]] ?? [], tight: true)
             let back = " <a href=\"#fnref-\(n)\" class=\"footnote-backref\">↩</a>"
-            if body.hasSuffix("</p>") { body.insert(contentsOf: back, at: body.index(body.endIndex, offsetBy: -4)) } else { body += back }
+            if body.hasSuffix("</p>") {
+                body.insert(contentsOf: back, at: body.index(body.endIndex, offsetBy: -4))
+            } else {
+                body += back
+            }
             html += "<li id=\"fn-\(n)\">\(body)</li>\n"
             k += 1
         }

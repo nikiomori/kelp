@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// An Android machine: the SDK's emulator (Hypervisor.framework, an arm64 image at full speed) on an AVD of its own in the
 /// machine's folder (`avd/`, ANDROID_AVD_HOME), so the user's AVDs stay theirs. Without a window unless someone asks to see
@@ -40,7 +40,8 @@ final class AndroidRuntime {
 
     func listen() {
         // Its lock is held already (main.swift).
-        sources.append(Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
+        sources.append(
+            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
         sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })   // SIGTERM
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
@@ -56,8 +57,9 @@ final class AndroidRuntime {
         let up = [.running, .paused, .starting].contains(state)
         // In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
         let using = state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) : 0
-        let r = VMHelper.Reply(state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
-                               serial: state == .running ? serial : nil)
+        let r = VMHelper.Reply(
+            state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
+            serial: state == .running ? serial : nil)
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
         close(fd)
     }
@@ -69,10 +71,17 @@ final class AndroidRuntime {
         case .start where r.begins:
             lastUse = Date()
             if r.beginsShown, emulator == nil || saving { nextBootShown = true }   // for a boot to come, not one up already
-            wake { _ in }; done(nil)
-        case .start: lastUse = Date(); wake(done)
+            wake { _ in }
+            done(nil)
+        case .start:
+            lastUse = Date()
+            wake(done)
         case .sleep: sleep(done)
-        case .stop: stop { done(nil); exit(0) }   // off, nothing kept: the next start is the kelp-vm installed then
+        case .stop:
+            stop {
+                done(nil)
+                exit(0)
+            }   // off, nothing kept: the next start is the kelp-vm installed then
         case .share: done("An Android machine shares no folders: adb push and pull copy files.")
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
@@ -109,7 +118,9 @@ final class AndroidRuntime {
         case .starting: ready.append(done)
         case .paused:
             Task {
-                do { _ = try await adb(["emu", "avd", "start"]) } catch { return done("It didn't go on after its pause: \(error.localizedDescription)") }
+                do { _ = try await adb(["emu", "avd", "start"]) } catch {
+                    return done("It didn't go on after its pause: \(error.localizedDescription)")
+                }
                 // Slept meanwhile (kelpd's budget, `kelp vm sleep`): woken from where that left it, not taken for running.
                 guard state == .paused, !saving else { return wake(done) }
                 state = .running
@@ -131,22 +142,34 @@ final class AndroidRuntime {
         port = Self.freePort()
         let p = Process()
         p.executableURL = URL(fileURLWithPath: exe)
-        p.arguments = ["-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
-                       "-memory", "\(machine.memoryMiB)"] + (nextBootShown ? [] : ["-no-window"])
+        p.arguments =
+            [
+                "-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
+                "-memory", "\(machine.memoryMiB)"
+            ] + (nextBootShown ? [] : ["-no-window"])
         var env = ProcessInfo.processInfo.environment
         env["ANDROID_AVD_HOME"] = avd.path
         if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
         p.environment = env
         let out = folder.appendingPathComponent("emulator.log")
         FileManager.default.createFile(atPath: out.path, contents: nil)
-        if let h = try? FileHandle(forWritingTo: out) { p.standardOutput = h; p.standardError = h }
+        if let h = try? FileHandle(forWritingTo: out) {
+            p.standardOutput = h
+            p.standardError = h
+        }
         p.terminationHandler = { [weak self] ended in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
                     self.emulator = nil   // its window went with it (closed, slept, quit): the next boot has one only if Show asks
-                    if self.bootWhenGone { self.bootWhenGone = false; self.state = .off; return self.boot() }
-                    if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
+                    if self.bootWhenGone {
+                        self.bootWhenGone = false
+                        self.state = .off
+                        return self.boot()
+                    }
+                    if self.state == .starting {
+                        self.started(VMError("The emulator quit: see emulator.log in its folder."))
+                    }
                     if self.state != .sleeping { self.state = .off }
                 }
             }
@@ -165,11 +188,15 @@ final class AndroidRuntime {
     private func awaitBoot(since: Date) async {
         let first = !FileManager.default.fileExists(atPath: folder.appendingPathComponent("booted").path)
         while state == .starting, emulator != nil {
-            if (try? await adb(["shell", "getprop", "sys.boot_completed"]))?.trimmingCharacters(in: .whitespacesAndNewlines) == "1" {
+            if (try? await adb(["shell", "getprop", "sys.boot_completed"]))?.trimmingCharacters(
+                in: .whitespacesAndNewlines) == "1"
+            {
                 FileManager.default.createFile(atPath: folder.appendingPathComponent("booted").path, contents: nil)
                 return started(nil)
             }
-            if Date().timeIntervalSince(since) > (first ? 600 : 180) { return started(VMError("Android didn't finish booting.")) }
+            if Date().timeIntervalSince(since) > (first ? 600 : 180) {
+                return started(VMError("Android didn't finish booting."))
+            }
             try? await Task.sleep(nanoseconds: 500_000_000)
         }
     }
@@ -183,7 +210,8 @@ final class AndroidRuntime {
         }
         state = error == nil ? .running : .error
         lastUse = Date()
-        let waiting = ready; ready = []
+        let waiting = ready
+        ready = []
         waiting.forEach { $0(error?.localizedDescription) }
     }
 
@@ -200,9 +228,11 @@ final class AndroidRuntime {
             state = .sleeping
             saving = false
             log("asleep")
-            let wanted = afterSave; afterSave = []
+            let wanted = afterSave
+            afterSave = []
             if !wanted.isEmpty { wake { e in wanted.forEach { $0(e) } } }   // told it's stopping, when it's leaving
-            let saved = whenSaved; whenSaved = []
+            let saved = whenSaved
+            whenSaved = []
             saved.forEach { $0() }
             done(nil)
         }
@@ -233,7 +263,10 @@ final class AndroidRuntime {
                 defer { pausing = false }
                 guard (try? await adb(["emu", "avd", "stop"])) != nil else { return }
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
-                if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter { state = .paused; log("paused") } else {
+                if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter {
+                    state = .paused
+                    log("paused")
+                } else {
                     do { _ = try await adb(["emu", "avd", "start"]) } catch {
                         log("couldn't go on after a start: \(error)")
                         if state == .running { state = .paused }   // stopped it is: the next wake tries again (not a later state)
@@ -247,7 +280,8 @@ final class AndroidRuntime {
 
     private func adb(_ args: [String]) async throws -> String {
         guard let adb = AndroidSDK.adb else { throw VMError("No adb: the Android SDK's platform-tools.") }
-        let out = try await Subprocess.run([adb, "-s", serial] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 30)
+        let out = try await Subprocess.run(
+            [adb, "-s", serial] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 30)
         guard out.status == 0 else { throw VMError(String(decoding: out.stderr, as: UTF8.self)) }
         return String(decoding: out.stdout, as: UTF8.self)
     }
@@ -258,9 +292,13 @@ final class AndroidRuntime {
             let fd = socket(AF_INET, SOCK_STREAM, 0)
             defer { close(fd) }
             var a = sockaddr_in()
-            a.sin_family = sa_family_t(AF_INET); a.sin_port = UInt16(port).bigEndian; a.sin_addr.s_addr = inet_addr("127.0.0.1")
+            a.sin_family = sa_family_t(AF_INET)
+            a.sin_port = UInt16(port).bigEndian
+            a.sin_addr.s_addr = inet_addr("127.0.0.1")
             let r = withUnsafePointer(to: &a) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
             }
             return r == 0
         }

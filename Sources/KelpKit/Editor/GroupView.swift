@@ -32,39 +32,58 @@ final class GroupView: NSView {
         didSet {
             guard dimmed != oldValue else { return }
             veil.layer?.backgroundColor = themes.terminalBackground.withAlphaComponent(Metrics.paneDim).cgColor
-            if dimmed { veil.alphaValue = 0; veil.isHidden = false }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = Motion.duration(Motion.fast)
-                veil.animator().alphaValue = dimmed ? 1 : 0
-            }, completionHandler: { [weak self] in
-                MainActor.assumeIsolated {  // AppKit runs the completion on the main thread
-                    if let self, !self.dimmed { self.veil.isHidden = true }
-                }
-            })
+            if dimmed {
+                veil.alphaValue = 0
+                veil.isHidden = false
+            }
+            NSAnimationContext.runAnimationGroup(
+                { ctx in
+                    ctx.duration = Motion.duration(Motion.fast)
+                    veil.animator().alphaValue = dimmed ? 1 : 0
+                },
+                completionHandler: { [weak self] in
+                    MainActor.assumeIsolated {   // AppKit runs the completion on the main thread
+                        if let self, !self.dimmed { self.veil.isHidden = true }
+                    }
+                })
         }
     }
 
     private let themes: ThemeManager
 
     init(groupId: String, themes: ThemeManager) {
-        self.groupId = groupId; self.themes = themes
+        self.groupId = groupId
+        self.themes = themes
         super.init(frame: .zero)
-        veil.wantsLayer = true; veil.isHidden = true
-        for v in [strip, container, veil, ring] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        veil.wantsLayer = true
+        veil.isHidden = true
+        for v in [strip, container, veil, ring] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
         addSubview(hint)
         NSLayoutConstraint.activate([
             strip.topAnchor.constraint(equalTo: topAnchor), strip.leadingAnchor.constraint(equalTo: leadingAnchor),
             strip.trailingAnchor.constraint(equalTo: trailingAnchor),
-            container.topAnchor.constraint(equalTo: strip.bottomAnchor), container.leadingAnchor.constraint(equalTo: leadingAnchor),
-            container.trailingAnchor.constraint(equalTo: trailingAnchor), container.bottomAnchor.constraint(equalTo: bottomAnchor),
-            veil.topAnchor.constraint(equalTo: container.topAnchor), veil.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            veil.leadingAnchor.constraint(equalTo: container.leadingAnchor), veil.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            ring.topAnchor.constraint(equalTo: container.topAnchor, constant: 1), ring.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -1),
+            container.topAnchor.constraint(equalTo: strip.bottomAnchor),
+            container.leadingAnchor.constraint(equalTo: leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: bottomAnchor),
+            veil.topAnchor.constraint(equalTo: container.topAnchor),
+            veil.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            veil.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            veil.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            ring.topAnchor.constraint(equalTo: container.topAnchor, constant: 1),
+            ring.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -1),
             ring.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 1),
             ring.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -1)
         ])
         registerForDraggedTypes([.kelpTab, .fileURL])
-        track(owner: self) { themes.look.card } changed: { [strip] in strip.fill = $0 }
+        track(owner: self) {
+            themes.look.card
+        } changed: { [strip] in
+            strip.fill = $0
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -119,18 +138,24 @@ final class GroupView: NSView {
         var r = container.frame.insetBy(dx: 6, dy: 6)
         switch e {
         case .minX?: r.size.width /= 2
-        case .maxX?: r.origin.x += r.width / 2; r.size.width /= 2
+        case .maxX?:
+            r.origin.x += r.width / 2
+            r.size.width /= 2
         case .minY?: r.size.height /= 2
-        case .maxY?: r.origin.y += r.height / 2; r.size.height /= 2
+        case .maxY?:
+            r.origin.y += r.height / 2
+            r.size.height /= 2
         default: break
         }
-        hint.frame = r; hint.isHidden = false
+        hint.frame = r
+        hint.isHidden = false
     }
     override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { draggingUpdated(s) }
     override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
         guard s.draggingPasteboard.string(forType: .kelpTab) != nil else {
             guard !Workbench.files(s).isEmpty else { return [] }
-            showHint(nil); return .copy
+            showHint(nil)
+            return .copy
         }
         if let o = outerEdge(s) {
             hint.isHidden = true
@@ -141,15 +166,24 @@ final class GroupView: NSView {
         showHint(edge(s))
         return .move
     }
-    override func draggingExited(_ s: NSDraggingInfo?) { hint.isHidden = true; showOuterHint?(nil) }
+    override func draggingExited(_ s: NSDraggingInfo?) {
+        hint.isHidden = true
+        showOuterHint?(nil)
+    }
     override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
-        hint.isHidden = true; showOuterHint?(nil)
+        hint.isHidden = true
+        showOuterHint?(nil)
         guard let id = s.draggingPasteboard.string(forType: .kelpTab) else {
             let files = Workbench.files(s)
-            onDropFiles?(files); return !files.isEmpty
+            onDropFiles?(files)
+            return !files.isEmpty
         }
-        if let o = outerEdge(s) { onDropOuter?(id, o); return true }
-        onDropTab?(id, edge(s)); return true
+        if let o = outerEdge(s) {
+            onDropOuter?(id, o)
+            return true
+        }
+        onDropTab?(id, edge(s))
+        return true
     }
 }
 

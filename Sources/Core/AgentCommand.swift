@@ -28,10 +28,18 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
     /// The last `outputLimit` bytes it printed (stdout, then stderr).
     public var output: String?
 
-    public init(id: String, command: String, description: String? = nil, started: Date = Date(), ended: Date? = nil,
-                outcome: Outcome? = nil, exitCode: Int? = nil, output: String? = nil) {
-        self.id = id; self.command = command; self.description = description; self.started = started; self.ended = ended
-        self.outcome = outcome; self.exitCode = exitCode; self.output = output
+    public init(
+        id: String, command: String, description: String? = nil, started: Date = Date(), ended: Date? = nil,
+        outcome: Outcome? = nil, exitCode: Int? = nil, output: String? = nil
+    ) {
+        self.id = id
+        self.command = command
+        self.description = description
+        self.started = started
+        self.ended = ended
+        self.outcome = outcome
+        self.exitCode = exitCode
+        self.output = output
     }
 
     public static let outputLimit = 4096
@@ -46,11 +54,15 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
         case "PreToolUse": return
         case "PostToolUse":
             let r = v["tool_response"]
-            if r?["backgroundTaskId"]?.string != nil { outcome = .background } else {
+            if r?["backgroundTaskId"]?.string != nil {
+                outcome = .background
+            } else {
                 outcome = r?["interrupted"]?.bool == true ? .stopped : .ok
                 exitCode = outcome == .ok ? 0 : nil
             }
-            output = Self.tail([r?["stdout"]?.string, r?["stderr"]?.string].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n"))
+            output = Self.tail(
+                [r?["stdout"]?.string, r?["stderr"]?.string].compactMap { $0 }.filter { !$0.isEmpty }.joined(
+                    separator: "\n"))
         case "PostToolUseFailure":
             // "Exit code 1\n<what it printed>"; anything else (a refusal, a timeout) is the reason itself.
             let error = v["error"]?.string ?? ""
@@ -58,7 +70,9 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
             if let m = error.prefixMatch(of: /Exit code (\d+)\n?/) {
                 exitCode = Int(m.1)
                 output = Self.tail(String(error[m.range.upperBound...]))
-            } else { output = Self.tail(error) }
+            } else {
+                output = Self.tail(error)
+            }
         default: return nil
         }
         ended = now
@@ -93,14 +107,36 @@ public struct AgentCommand: Codable, Sendable, Equatable, Identifiable {
         var chars = command.makeIterator(), next = chars.next()
         while let c = next {
             next = chars.next()
-            if escaped { step.append(c); escaped = false; continue }
-            if c == "\\" && quote != "'" { step.append(c); escaped = true; continue }
-            if let q = quote { step.append(c); if c == q { quote = nil }; continue }
-            if c == "'" || c == "\"" { quote = c } else if c == "(" { depth += 1 } else if c == ")" { depth = max(0, depth - 1) }
+            if escaped {
+                step.append(c)
+                escaped = false
+                continue
+            }
+            if c == "\\" && quote != "'" {
+                step.append(c)
+                escaped = true
+                continue
+            }
+            if let q = quote {
+                step.append(c)
+                if c == q { quote = nil }
+                continue
+            }
+            if c == "'" || c == "\"" {
+                quote = c
+            } else if c == "(" {
+                depth += 1
+            } else if c == ")" {
+                depth = max(0, depth - 1)
+            }
             let ends = depth == 0 && (c == ";" || c == "\n" || (c == "&" || c == "|") && next == c)
-            guard ends else { step.append(c); continue }
+            guard ends else {
+                step.append(c)
+                continue
+            }
             if c != ";" && c != "\n" { next = chars.next() }   // the second & or |
-            steps.append(step); step = ""
+            steps.append(step)
+            step = ""
         }
         return (steps + [step]).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }

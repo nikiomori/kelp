@@ -1,6 +1,6 @@
 import AppKit
-import CoreImage
 import Core
+import CoreImage
 import DesignKit
 
 /// The small rounded tiles agents and projects show as (sidebar, tabs, menus), so every row's icon has the same size
@@ -38,16 +38,20 @@ enum IconTile {
     /// ("AS" for AgroStorage) in a quiet hue on a tint of it, `hue` or one picked from the name (the same name, the same
     /// hue). The hues leave out orange, red and green: next to a row's status marks those mean asking, failed and done.
     static func letter(_ name: String, color: NSColor? = nil, hue chosen: Hue? = nil, size: CGFloat = side) -> NSImage {
-        let text = color == nil ? initials(name) : name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "?"
+        let text =
+            color == nil
+            ? initials(name) : name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "?"
         let hue = chosen ?? hues[name.unicodeScalars.reduce(0) { $0 + Int($1.value) } % hues.count]
         let img = NSImage(size: NSSize(width: size, height: size), flipped: false) { r in
             let dark = NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             (color ?? hue.tint(dark)).setFill()
             NSBezierPath(roundedRect: r, xRadius: r.width * 7 / 32, yRadius: r.height * 7 / 32).fill()
-            let s = NSAttributedString(string: text, attributes: [
-                .font: NSFont.systemFont(ofSize: r.height * (text.count > 1 ? 0.5 : 0.62), weight: .bold),
-                .foregroundColor: color == nil ? hue.ink(dark) : NSColor.white
-            ])
+            let s = NSAttributedString(
+                string: text,
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: r.height * (text.count > 1 ? 0.5 : 0.62), weight: .bold),
+                    .foregroundColor: color == nil ? hue.ink(dark) : NSColor.white
+                ])
             let b = s.size()
             s.draw(at: NSPoint(x: r.midX - b.width / 2, y: r.midY - b.height / 2))
             return true
@@ -62,12 +66,16 @@ enum IconTile {
         var words: [String] = [], word = ""
         for c in name {
             let starts = c.isUppercase && word.last?.isLowercase == true   // camelCase
-            if !(c.isLetter || c.isNumber) || starts { if !word.isEmpty { words.append(word) }; word = "" }
+            if !(c.isLetter || c.isNumber) || starts {
+                if !word.isEmpty { words.append(word) }
+                word = ""
+            }
             if c.isLetter || c.isNumber { word.append(c) }
         }
         if !word.isEmpty { words.append(word) }
         let lettered = words.filter { $0.first?.isLetter == true }
-        let out = (lettered.isEmpty ? words : lettered).prefix(2).compactMap(\.first).map { String($0).uppercased() }.joined()
+        let out = (lettered.isEmpty ? words : lettered).prefix(2).compactMap(\.first).map { String($0).uppercased() }
+            .joined()
         return out.isEmpty ? "?" : out
     }
 
@@ -78,12 +86,15 @@ enum IconTile {
             NSColor(hex: dark ? self.dark : light)
         }
         func tint(_ dark: Bool) -> NSColor {
-            gray ? (dark ? NSColor.white.withAlphaComponent(0.1) : NSColor.black.withAlphaComponent(0.08))
+            gray
+                ? (dark ? NSColor.white.withAlphaComponent(0.1) : NSColor.black.withAlphaComponent(0.08))
                 : ink(dark).withAlphaComponent(dark ? 0.18 : 0.14)
         }
     }
-    private static let hues = [ProjectColor.blue.hue, ProjectColor.indigo.hue, ProjectColor.purple.hue, ProjectColor.teal.hue,
-                               ProjectColor.brown.hue, Hue(dark: 0xC7C7CC, light: 0x48484A, gray: true)]
+    private static let hues = [
+        ProjectColor.blue.hue, ProjectColor.indigo.hue, ProjectColor.purple.hue, ProjectColor.teal.hue,
+        ProjectColor.brown.hue, Hue(dark: 0xC7C7CC, light: 0x48484A, gray: true)
+    ]
 }
 
 extension NSImage {
@@ -91,8 +102,10 @@ extension NSImage {
     /// makes a new CIContext (Metal libraries loaded and hashed) each time it's drawn.
     @MainActor var grayscale: NSImage {
         guard let cg = cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let gray = IconTile.ci.createCGImage(CIImage(cgImage: cg).applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0]),
-                                                   from: CGRect(x: 0, y: 0, width: cg.width, height: cg.height)) else { return self }
+            let gray = IconTile.ci.createCGImage(
+                CIImage(cgImage: cg).applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0]),
+                from: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+        else { return self }
         return NSImage(cgImage: gray, size: size)
     }
 }
@@ -109,7 +122,10 @@ extension NSImage {
 extension FileChange {
     /// VS Code's status letter and colour, as Files and the diff's file list show it (text shades: they colour names too).
     package var badge: (String, NSColor) {
-        let l = conflicted ? "!" : untracked ? "U" : (index == "D" || worktree == "D") ? "D" : index == "A" ? "A" : index == "R" ? "R" : "M"
+        let l =
+            conflicted
+            ? "!"
+            : untracked ? "U" : (index == "D" || worktree == "D") ? "D" : index == "A" ? "A" : index == "R" ? "R" : "M"
         return (l, .gitLetter(l))
     }
 }

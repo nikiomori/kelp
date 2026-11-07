@@ -1,6 +1,6 @@
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 import WorkbenchKit
 
 /// What runs under an agent, in a hover card: who asks, who works, its commands, then who finished. Agents it started,
@@ -18,11 +18,16 @@ struct AgentWork: View {
             let rows = rows(s), finished = s.finishedSubagents
             if !rows.isEmpty || !finished.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    if !rows.isEmpty { heading(finished: finished.count, of: finished.count + s.runningSubagents.count) }
+                    if !rows.isEmpty {
+                        heading(finished: finished.count, of: finished.count + s.runningSubagents.count)
+                    }
                     ForEach(everyone ? rows : Array(rows.prefix(Self.atOnce))) { AgentWorkRow(row: $0) }
                     if !everyone, rows.count > Self.atOnce {
-                        Button { everyone = true } label: {
-                            Text("\(rows.count - Self.atOnce) more").font(.ui(11)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                        Button {
+                            everyone = true
+                        } label: {
+                            Text("\(rows.count - Self.atOnce) more").font(.ui(11)).foregroundStyle(.secondary).frame(
+                                maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
                     }
@@ -42,16 +47,22 @@ struct AgentWork: View {
 
     @ViewBuilder private func finishedRows(_ finished: [Subagent], in s: Session) -> some View {
         let from = finished.map(\.started).min() ?? Date(), to = finished.compactMap(\.ended).max() ?? Date()
-        Button { finishedShown.toggle() } label: {
-            AgentWorkRow(row: .init(id: "finished", mark: .status(.done), title: String(localized: "Finished \(finished.count)"),
-                                    time: shortSpan(to.timeIntervalSince(from), smallest: .second), chevron: finishedShown ? 90 : 0))
+        Button {
+            finishedShown.toggle()
+        } label: {
+            AgentWorkRow(
+                row: .init(
+                    id: "finished", mark: .status(.done), title: String(localized: "Finished \(finished.count)"),
+                    time: shortSpan(to.timeIntervalSince(from), smallest: .second), chevron: finishedShown ? 90 : 0))
         }
         .buttonStyle(.plain)
         if finishedShown {
             ForEach(finished) { run in
                 let took = (run.ended ?? run.started).timeIntervalSince(run.started)
-                AgentWorkRow(row: .init(id: run.id, mark: .none, title: run.title, kind: run.shownKind,
-                                        time: shortSpan(took, smallest: .second), open: opener(run, in: s)))
+                AgentWorkRow(
+                    row: .init(
+                        id: run.id, mark: .none, title: run.title, kind: run.shownKind,
+                        time: shortSpan(took, smallest: .second), open: opener(run, in: s)))
             }
         }
     }
@@ -65,15 +76,19 @@ struct AgentWork: View {
     private func kid(_ k: Session) -> AgentWorkRow.Row {
         let app = model.app, id = k.id, status = ChildrenBadge.status(k), name = app.catalog.displayName(k)
         let asks = status == .waiting ? (k.status == .done ? LimitStop.title(name, k) : k.statusWords) : nil
-        return .init(id: id, mark: .status(status), title: name, kind: app.catalog.name(k.agent),
-                     time: shortAgo(k.statusAt ?? k.createdAt), detail: asks, warns: asks != nil,
-                     open: { app.workbench.focus(session: id) })
+        return .init(
+            id: id, mark: .status(status), title: name, kind: app.catalog.name(k.agent),
+            time: shortAgo(k.statusAt ?? k.createdAt), detail: asks, warns: asks != nil,
+            open: { app.workbench.focus(session: id) })
     }
 
     private func subagent(_ run: Subagent, in s: Session) -> AgentWorkRow.Row {
-        .init(id: run.id, mark: .status(run.asks == true ? .waiting : .working), title: run.title, kind: run.shownKind, since: run.started,
-              detail: run.asks == true ? String(localized: "Asks for permission") : step(of: run), warns: run.asks == true, code: run.asks != true,
-              open: opener(run, in: s))
+        .init(
+            id: run.id, mark: .status(run.asks == true ? .waiting : .working), title: run.title, kind: run.shownKind,
+            since: run.started,
+            detail: run.asks == true ? String(localized: "Asks for permission") : step(of: run),
+            warns: run.asks == true, code: run.asks != true,
+            open: opener(run, in: s))
     }
 
     private func step(of run: Subagent) -> String? {
@@ -127,17 +142,23 @@ struct AgentWorkRow: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 6) {
                 mark.frame(width: 12, height: 12)
-                Text(row.title).font(row.code && row.mark == .command ? .uiMono(11) : .ui(12)).lineLimit(1).truncationMode(.tail)
-                if let k = row.kind { Text(k).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1) }
+                Text(row.title).font(row.code && row.mark == .command ? .uiMono(11) : .ui(12)).lineLimit(1)
+                    .truncationMode(.tail)
+                if let k = row.kind {
+                    Text(k).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
+                }
                 Spacer(minLength: 8)
                 if let c = row.chevron {
-                    Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary).rotationEffect(.degrees(c))
+                    Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(c))
                 }
                 time.font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
             }
             if let d = row.detail {
-                Text(d).font(row.code ? .uiMono(11) : .ui(11)).foregroundStyle(row.warns ? Color.textOrange : .secondary)
-                    .lineLimit(1).truncationMode(.middle).padding(.leading, 18)
+                Text(d).font(row.code ? .uiMono(11) : .ui(11)).foregroundStyle(
+                    row.warns ? Color.textOrange : .secondary
+                )
+                .lineLimit(1).truncationMode(.middle).padding(.leading, 18)
             }
         }
         .padding(.vertical, 2)

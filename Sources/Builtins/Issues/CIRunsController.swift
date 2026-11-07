@@ -9,7 +9,10 @@ import KelpKit
 @MainActor
 final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
+    init(app: AppModel) {
+        self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
     private final class Item: NSObject {
         enum Kind { case run(CIRuns.Run), job(CIRuns.Job, run: Int), step(CIRuns.Step), fold(CIRuns.StepRow, job: Int) }
@@ -70,10 +73,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let history = CIHistoryStrip()
 
     override func loadView() {
-        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in self?.showMore() }
+        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
+            self?.showMore()
+        }
         workflowsButton.isHidden = true
-        for (b, symbol, tip) in [(workflowsButton, "play.circle", String(localized: "Run Workflow…")),
-                                 (webButton, "arrow.up.forward.square", String(localized: "Open in Browser"))] {
+        for (b, symbol, tip) in [
+            (workflowsButton, "play.circle", String(localized: "Run Workflow…")),
+            (webButton, "arrow.up.forward.square", String(localized: "Open in Browser"))
+        ] {
             b.image = .symbol(symbol, tip)
             b.toolTip = tip
             b.setAccessibilityLabel(tip)
@@ -86,7 +93,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         history.onPick = { [weak self] in self?.reveal($0) }
         let header = Bar.panel([branch], [workflowsButton, webButton, more])
 
-        let col = NSTableColumn(identifier: .init("ci")); col.resizingMask = .autoresizingMask
+        let col = NSTableColumn(identifier: .init("ci"))
+        col.resizingMask = .autoresizingMask
         outline.addTableColumn(col)
         outline.outlineTableColumn = col
         outline.headerView = nil
@@ -96,7 +104,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         outline.rowSizeStyle = .custom
         outline.dataSource = self
         outline.delegate = self
-        outline.menu = NSMenu(); outline.menu?.delegate = self
+        outline.menu = NSMenu()
+        outline.menu?.delegate = self
         outline.target = self
         outline.action = #selector(rowClicked)
         let scroll = NSScrollView()
@@ -113,7 +122,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         let split = NSSplitView()
         split.isVertical = false
         split.dividerStyle = .thin
-        split.addArrangedSubview(scroll); split.addArrangedSubview(bottom)
+        split.addArrangedSubview(scroll)
+        split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
         let v = stacked(header, history, split)
         empty.place(in: v, under: header)
@@ -122,24 +132,32 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         bottom.isHidden = true
         logPane = (bottom, bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), split)
         view = v
-        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self, app] in
+        track(owner: self) { [app] in
+            app.workbench.workspaceId
+        } changed: { [weak self, app] in
             self?.worktree = $0
             self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
             self?.follow()
             self?.loadPages()
             if app.latest(CIEvent.self, $0 ?? "") == nil { self?.loading.show(String(localized: "Loading…")) }
         }
-        track(owner: self) { [weak self, app] in app.latest(CIEvent.self, self?.worktree ?? "") } changed: { [weak self] in self?.apply($0) }
+        track(owner: self) { [weak self, app] in
+            app.latest(CIEvent.self, self?.worktree ?? "")
+        } changed: { [weak self] in
+            self?.apply($0)
+        }
     }
 
     /// From origin, not gh: there even when gh or glab isn't set up.
     private func loadPages() {
         guard let w = worktree else { return }
-        pages = nil; webButton.isHidden = true
+        pages = nil
+        webButton.isHidden = true
         Task {
             let p = await app.quiet(GitWebPages(worktreeId: w)) ?? nil   // a decoration: without it there's no globe
             guard w == worktree else { return }
-            pages = p; webButton.isHidden = p == nil
+            pages = p
+            webButton.isHidden = p == nil
         }
     }
 
@@ -151,7 +169,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func showMore() {
         guard let b = moreButton else { return }
         let m = NSMenu()
-        m.addItem(withTitle: String(localized: "Refresh"), action: #selector(refreshPressed), keyEquivalent: "").target = self
+        m.addItem(withTitle: String(localized: "Refresh"), action: #selector(refreshPressed), keyEquivalent: "")
+            .target = self
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
     }
 
@@ -194,12 +213,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             if let error = e.error {
                 branch.title = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
                 workflowsButton.isHidden = true
-                show(note: error, setup: Forge.setup(for: error), failed: true); return
+                show(note: error, setup: Forge.setup(for: error), failed: true)
+                return
             }
             branchName = e.result?.branch ?? ""
             branch.title = branchName
             // What was open stays open across a refresh, its jobs read again.
-            let open = Set(runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
+            let open = Set(
+                runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
             runs = (e.result?.runs ?? []).map { Item(.run($0)) }
             workflows = e.result?.workflows ?? []
@@ -212,7 +233,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 await expand(run, openFailed: false)
                 guard !Task.isCancelled else { return }
                 for item in openBelow(run) where open.contains(item.key ?? "") { outline.expandItem(item) }
-                if let job = run.children?.first(where: { $0.id == selected }), case let row = outline.row(forItem: job), row >= 0 {
+                if let job = run.children?.first(where: { $0.id == selected }),
+                    case let row = outline.row(forItem: job), row >= 0
+                {
                     outline.selectRowIndexes([row], byExtendingSelection: false)
                 }
             }
@@ -220,7 +243,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             // A workflow's latest run failed (what Source Control's CI line shows): open it at the first failed job,
             // with its log (once, so closing it sticks).
             let failing = Set(CIRuns.latest(allRuns).filter(\.failed).map(\.id))
-            if let item = runs.first(where: { failing.contains($0.id ?? -1) }), let id = item.id, autoOpened.insert(id).inserted {
+            if let item = runs.first(where: { failing.contains($0.id ?? -1) }), let id = item.id,
+                autoOpened.insert(id).inserted
+            {
                 await expand(item, openFailed: true)
             }
         }
@@ -242,9 +267,11 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func show(note text: String?, setup: Forge.Setup? = nil, failed: Bool = false) {
         self.setup = setup
         if let setup {
-            setupButton.title = setup.title; setupButton.toolTip = setup.command
-            empty.show(setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
-                       buttons: [setupButton, checkAgain])
+            setupButton.title = setup.title
+            setupButton.toolTip = setup.command
+            empty.show(
+                setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
+                buttons: [setupButton, checkAgain])
         } else if let quiet = Forge.noRemote(text) {
             empty.show(quiet.title, symbol: "network", text: quiet.text, buttons: [checkAgain])
         } else if failed {
@@ -278,7 +305,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             outline.reloadItem(item, reloadChildren: true)
         }
         outline.expandItem(item)
-        if openFailed, let failed = item.children?.first(where: { if case .job(let j, _) = $0.kind { j.failed } else { false } }) {
+        if openFailed,
+            let failed = item.children?.first(where: { if case .job(let j, _) = $0.kind { j.failed } else { false } })
+        {
             outline.expandItem(failed)
             let row = outline.row(forItem: failed)
             if row >= 0 { outline.selectRowIndexes([row], byExtendingSelection: false) }
@@ -296,7 +325,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var allRuns: [CIRuns.Run] { runs.compactMap { if case .run(let r) = $0.kind { r } else { nil } } }
     private func run(_ id: Int) -> CIRuns.Run? { allRuns.first { $0.id == id } }
 
-    private func actions(_ w: String) -> CIActions { CIActions(app: app, worktree: w) { [weak self] in self?.reload() } }
+    private func actions(_ w: String) -> CIActions {
+        CIActions(app: app, worktree: w) { [weak self] in self?.reload() }
+    }
 
     @objc private func runWorkflow() {
         let m = NSMenu()
@@ -307,7 +338,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// The workflow's inputs as a form, then `gh workflow run` on this branch.
     private func dispatch(_ wf: CIRuns.Workflow) {
         guard let w = worktree else { return }
-        let a = NSAlert(); a.messageText = String(localized: "Run “\(wf.name)” on \(branchName)?")
+        let a = NSAlert()
+        a.messageText = String(localized: "Run “\(wf.name)” on \(branchName)?")
         var fields: [(String, NSView)] = []
         let form = NSGridView()
         form.rowAlignment = .firstBaseline
@@ -319,21 +351,29 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 p.selectItem(withTitle: input.defaultValue)
                 control = p
             } else {
-                let f = NSTextField(string: input.defaultValue); f.placeholderString = input.description
-                f.widthAnchor.constraint(equalToConstant: 220).isActive = true; control = f
+                let f = NSTextField(string: input.defaultValue)
+                f.placeholderString = input.description
+                f.widthAnchor.constraint(equalToConstant: 220).isActive = true
+                control = f
             }
             fields.append((input.name, control))
             form.addRow(with: [NSTextField(labelWithString: input.name + (input.required ? " *" : "")), control])
         }
         if !wf.inputs.isEmpty { a.accessoryView = form }
-        a.informativeText = wf.inputs.isEmpty ? String(localized: "It runs on GitHub Actions.") : String(localized: "Inputs from \(wf.file):")
-        a.addButton(withTitle: String(localized: "Run")); a.addButton(withTitle: String(localized: "Cancel"))
+        a.informativeText =
+            wf.inputs.isEmpty
+            ? String(localized: "It runs on GitHub Actions.") : String(localized: "Inputs from \(wf.file):")
+        a.addButton(withTitle: String(localized: "Run"))
+        a.addButton(withTitle: String(localized: "Cancel"))
         Task {
             guard await runSheet(a) == .alertFirstButtonReturn else { return }
             var inputs: [String: String] = [:]
-            for (k, v) in fields { inputs[k] = (v as? NSPopUpButton)?.titleOfSelectedItem ?? (v as? NSTextField)?.stringValue ?? "" }
+            for (k, v) in fields {
+                inputs[k] = (v as? NSPopUpButton)?.titleOfSelectedItem ?? (v as? NSTextField)?.stringValue ?? ""
+            }
             if await app.call(CIDispatch(worktreeId: w, workflow: wf.file, branch: branchName, inputs: inputs)) != nil {
-                Banner.show(String(localized: "Started \(wf.name)")); reload()
+                Banner.show(String(localized: "Started \(wf.name)"))
+                reload()
             }
         }
     }
@@ -347,7 +387,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
     func outlineView(_ o: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
         guard let i = item as? Item else { return runs[index] }
-        return i.children?[index] ?? Item(.step(.init(name: String(localized: "Loading…"), status: "queued", conclusion: nil)))
+        return i.children?[index]
+            ?? Item(.step(.init(name: String(localized: "Loading…"), status: "queued", conclusion: nil)))
     }
     func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool {
         guard let i = item as? Item else { return false }
@@ -363,8 +404,13 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         Task { await expand(i, openFailed: false) }
     }
     func outlineViewSelectionDidChange(_ n: Notification) {
-        guard let i = outline.item(atRow: outline.selectedRow) as? Item, case .job(let j, let run) = i.kind else { return }
-        if let s = jobPane.shown, s.job.id == j.id, s.job.status == j.status { jobPane.keep(j, run: run); return }   // a refresh, nothing new to read
+        guard let i = outline.item(atRow: outline.selectedRow) as? Item, case .job(let j, let run) = i.kind else {
+            return
+        }
+        if let s = jobPane.shown, s.job.id == j.id, s.job.status == j.status {
+            jobPane.keep(j, run: run)
+            return
+        }   // a refresh, nothing new to read
         showLog(j, run: run)
     }
 
@@ -400,12 +446,19 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         case .run(let r): return runRow(r)
         case .job(let j, _):
             let done = j.steps.filter { $0.status == "completed" }.count
-            let right = j.status == "completed" || j.steps.isEmpty ? j.seconds().map(ciSpan) : "\(done)/\(j.steps.count)"
-            return CIRow.line(CIRunLook.mark(j.status, j.conclusion), j.name, font: .ui(12), color: .labelColor, right: right).cell
+            let right =
+                j.status == "completed" || j.steps.isEmpty ? j.seconds().map(ciSpan) : "\(done)/\(j.steps.count)"
+            return CIRow.line(
+                CIRunLook.mark(j.status, j.conclusion), j.name, font: .ui(12), color: .labelColor, right: right
+            ).cell
         case .step(let s):
             // The step running now reads like a title; done ones grey, the ones still to come quieter still.
-            let color: NSColor = s.status == "in_progress" ? .labelColor : s.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
-            let r = CIRow.line(CIRunLook.mark(s.status, s.conclusion), s.shortName, font: .ui(11), color: color, right: s.seconds().map(ciSpan))
+            let color: NSColor =
+                s.status == "in_progress"
+                ? .labelColor : s.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
+            let r = CIRow.line(
+                CIRunLook.mark(s.status, s.conclusion), s.shortName, font: .ui(11), color: color,
+                right: s.seconds().map(ciSpan))
             if s.status == "in_progress", let time = r.time { clock.follow(time) { s.seconds().map(ciSpan) } }
             r.cell.toolTip = s.name
             return r.cell
@@ -422,7 +475,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         // What tells runs apart: the workflow only when there are several, the event only when it isn't a push.
         let several = Set(allRuns.map(\.workflow)).count > 1
         let usual = r.finished ? nil : CIRuns.typicalSeconds(allRuns, workflow: r.workflow)
-        let meta = CIRunMeta(r, extras: [several ? r.workflow : nil, r.event == "push" ? nil : r.event].compactMap { $0 }, usual: usual, clock: clock)
+        let meta = CIRunMeta(
+            r, extras: [several ? r.workflow : nil, r.event == "push" ? nil : r.event].compactMap { $0 }, usual: usual,
+            clock: clock)
         let text = NSStackView(views: [t, meta])
         text.orientation = .vertical
         text.alignment = .leading
@@ -430,7 +485,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         for x in [t, meta, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         meta.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
         let cell = CIRow.row([CIRunLook.mark(r.status, r.conclusion), text])
-        cell.toolTip = [r.title, [r.workflow, r.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(separator: "\n")
+        cell.toolTip = [r.title, [r.workflow, r.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(
+            separator: "\n")
         return cell
     }
 }
@@ -450,7 +506,9 @@ extension CIRunsController {
             if let u = j.url { addLink(menu, u) }
         case .step(let s):
             if let j = job(of: item), j.status == "completed" {
-                menu.add(String(localized: "Show in Log")) { [app] in CILogTab.open(app, worktree: act.worktree, job: j, step: s.name) }
+                menu.add(String(localized: "Show in Log")) { [app] in
+                    CILogTab.open(app, worktree: act.worktree, job: j, step: s.name)
+                }
             }
             if let u = job(of: item)?.url, let n = s.number {
                 menu.add(String(localized: "Open in Browser")) { Forge.open("\(u)#step:\(n):1") }
@@ -482,7 +540,10 @@ extension CIRunsController {
     private func addLink(_ menu: NSMenu, _ url: String) {
         menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
         menu.addItem(.separator())
-        menu.add(String(localized: "Copy Link")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url, forType: .string) }
+        menu.add(String(localized: "Copy Link")) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(url, forType: .string)
+        }
     }
     /// The run's failure typed into the workspace's agent, for the user to send.
     private func fix(_ r: CIRuns.Run, in w: String) {

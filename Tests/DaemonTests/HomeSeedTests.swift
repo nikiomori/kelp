@@ -1,10 +1,11 @@
-import Foundation
-import Testing
-import Core
-import Agents
 import AgentData
+import Agents
+import Core
+import Foundation
 import GRDB
 import TestSupport
+import Testing
+
 @testable import Daemon
 
 private func write(_ text: String, _ url: URL) throws {
@@ -20,15 +21,19 @@ private func write(_ text: String, _ url: URL) throws {
         try write(f, stable.appendingPathComponent(f))
     }
     let kept = try Store(path: kelp("kelp.sqlite"))
-    let project = Repo(name: "app", path: "/work/app"), standIn = Repo(name: "there", path: kelp("remote/host/app")), scratch = Repo(name: "Scratch", path: kelp("scratch"))
+    let project = Repo(name: "app", path: "/work/app"), standIn = Repo(name: "there", path: kelp("remote/host/app")),
+        scratch = Repo(name: "Scratch", path: kelp("scratch"))
     for r in [project, standIn, scratch] { try kept.save(r) }
     let worktree = Worktree(repoId: project.id, branch: "f", path: kelp("worktrees/app/f"))   // git knows it by this path
     try kept.save(worktree)
     try kept.save(Routine(id: "r", name: "Morning", repoId: project.id, agent: "claude", prompt: "x"))
     let claude = ["claude", "--settings", kelp("hooks-claude.json"), "--plugin-dir", kelp("agent-skills")]
-    func session(_ cwd: String, _ agent: String, _ argv: [String], _ status: AgentStatus = .working, tmux: String? = nil) throws -> Session {
+    func session(
+        _ cwd: String, _ agent: String, _ argv: [String], _ status: AgentStatus = .working, tmux: String? = nil
+    ) throws -> Session {
         var s = Session(cwd: cwd, command: agent, agent: agent, argv: argv)
-        s.status = status; s.tmux = tmux
+        s.status = status
+        s.tmux = tmux
         return try kept.save(s)
     }
     let live = try session("/work/app", "claude", claude + ["--session-id", "abc"])
@@ -50,7 +55,11 @@ private func write(_ text: String, _ url: URL) throws {
     #expect(try copy.db.read { try Routine.fetchOne($0, key: "r") }?.enabled == false)
     let forked = try #require(try copy.session(live.id))
     #expect(forked.status == .working)   // start() pauses it
-    #expect(forked.argv == ["claude", "--settings", home.path + "/hooks-claude.json", "--plugin-dir", home.path + "/agent-skills", "--resume", "abc", "--fork-session"])
+    #expect(
+        forked.argv == [
+            "claude", "--settings", home.path + "/hooks-claude.json", "--plugin-dir", home.path + "/agent-skills",
+            "--resume", "abc", "--fork-session"
+        ])
     #expect(try copy.session(paused.id)?.argv == ["claude", "--resume", "def", "--fork-session"])
     // Claude finds a conversation by its folder: a scratch agent stays in Kelp's, a fork like the others.
     #expect(try copy.session(inScratch.id)?.argv == ["claude", "--resume", "ghi", "--fork-session"])
@@ -102,14 +111,19 @@ private func write(_ text: String, _ url: URL) throws {
 
 /// A tab open with nothing typed has no conversation on disk, and --resume of one fails: it starts a new one instead.
 @Test func aForkOfNoConversationStartsANewOne() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let claude = try #require(AgentManifest.presets.first { $0.id == "claude" })
     let cwd = tmp().path, sessions = w.d.sessions
-    let fork = Session(cwd: cwd, command: "claude", agent: "claude", argv: ["claude", "--resume", "abc", "--fork-session"])
+    let fork = Session(
+        cwd: cwd, command: "claude", agent: "claude", argv: ["claude", "--resume", "abc", "--fork-session"])
     let new = sessions.resumeArgv(fork, claude)
     #expect(new.count == 3 && new[1] == "--session-id" && new[2] != "abc")
 
-    let transcript = ClaudeHistory.folder(cwd: cwd, root: sessions.claudeProjects(fork)).appendingPathComponent("abc.jsonl")
-    try write(#"{"type":"user","message":{"role":"user","content":"hi"},"cwd":"\#(cwd)","sessionId":"abc","timestamp":"2026-10-30T10:00:00Z"}"# + "\n", transcript)
+    let transcript = ClaudeHistory.folder(cwd: cwd, root: sessions.claudeProjects(fork)).appendingPathComponent(
+        "abc.jsonl")
+    try write(
+        #"{"type":"user","message":{"role":"user","content":"hi"},"cwd":"\#(cwd)","sessionId":"abc","timestamp":"2026-10-30T10:00:00Z"}"#
+            + "\n", transcript)
     #expect(sessions.resumeArgv(fork, claude) == fork.argv)
 }

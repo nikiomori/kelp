@@ -7,7 +7,9 @@ import DesignKit
 extension SidebarController {
     func updateCard() {
         // Only rows that changed: told of all of them, the table lays every one out, on every session's change.
-        let heights = (0..<outline.numberOfRows).map { outline.item(atRow: $0).map { outlineView(outline, heightOfRowByItem: $0) } ?? 0 }
+        let heights = (0..<outline.numberOfRows).map {
+            outline.item(atRow: $0).map { outlineView(outline, heightOfRowByItem: $0) } ?? 0
+        }
         let changed = heights.indices.filter { !rowHeights.indices.contains($0) || rowHeights[$0] != heights[$0] }
         rowHeights = heights
         if !changed.isEmpty { outline.noteHeightOfRows(withIndexesChanged: IndexSet(changed)) }
@@ -60,17 +62,18 @@ extension SidebarController {
     /// One movement: the rows under `n` fade to `alpha`, every row takes its height (none under a fold) and each card
     /// its size. `n`'s own row changes in place: its chevron turns, what its agents do fades in or out (SidebarCell).
     private func move(_ n: Node, rows alpha: CGFloat, then done: (@MainActor () -> Void)? = nil) {
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = Motion.duration(Motion.base)
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)   // it answers the click at once
-            // Leaving, the rows fade before they're cut short; coming in, they show once there's room for them.
-            NSAnimationContext.runAnimationGroup { fade in
-                fade.duration = Motion.duration(alpha == 0 ? Motion.fast : Motion.base)
-                fade.timingFunction = CAMediaTimingFunction(name: alpha == 0 ? .easeOut : .easeIn)
-                forRows(under: n) { $0.animator().alphaValue = alpha }
-            }
-            updateCard()
-        }, completionHandler: { MainActor.assumeIsolated { done?() } })   // AppKit ends the group on the main thread
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = Motion.duration(Motion.base)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)   // it answers the click at once
+                // Leaving, the rows fade before they're cut short; coming in, they show once there's room for them.
+                NSAnimationContext.runAnimationGroup { fade in
+                    fade.duration = Motion.duration(alpha == 0 ? Motion.fast : Motion.base)
+                    fade.timingFunction = CAMediaTimingFunction(name: alpha == 0 ? .easeOut : .easeIn)
+                    forRows(under: n) { $0.animator().alphaValue = alpha }
+                }
+                updateCard()
+            }, completionHandler: { MainActor.assumeIsolated { done?() } })   // AppKit ends the group on the main thread
         refreshCell(n.key)
     }
 
@@ -122,12 +125,15 @@ extension SidebarController {
             guard let s = server else { return }
             // 2 pt around the rows' pills, from under the header's gap.
             var r = SidebarRowView.band(s.rows, 4).insetBy(dx: 0, dy: -1)
-            r.origin.y += Self.serverGap; r.size.height -= Self.serverGap
+            r.origin.y += Self.serverGap
+            r.size.height -= Self.serverGap
             put("s:" + s.host, r, ProjectCard.Look(color: nil, plain: true, remote: ServerLook.of(app)))
             server = nil
         }
         for p in roots {
-            guard case let first = outline.row(forItem: p), first >= 0, case let last = outline.row(forItem: lastRow(p)), last >= 0 else { continue }
+            guard case let first = outline.row(forItem: p), first >= 0,
+                case let last = outline.row(forItem: lastRow(p)), last >= 0
+            else { continue }
             let rows = outline.rect(ofRow: first).union(outline.rect(ofRow: last))
             if case .host(let h) = p.kind {   // a server's card starts at its header
                 endServer()
@@ -135,12 +141,21 @@ extension SidebarController {
                 continue
             }
             guard case .project(let id) = p.kind else { continue }
-            if let host = projectHosts[id], let s = server, host == s.host { server = (host, s.rows.union(rows)) } else { endServer() }
+            if let host = projectHosts[id], let s = server, host == s.host {
+                server = (host, s.rows.union(rows))
+            } else {
+                endServer()
+            }
             let color = look.style == .card ? look.colors[id] : nil
             guard !p.children.isEmpty || color != nil else { continue }
             var r = SidebarRowView.band(rows, 6)
             // Flipped: 4 in from the first row's top and the last row's bottom.
-            if p.children.isEmpty { r = r.insetBy(dx: 0, dy: 1) } else { r.origin.y += 4; r.size.height -= 8 }
+            if p.children.isEmpty {
+                r = r.insetBy(dx: 0, dy: 1)
+            } else {
+                r.origin.y += 4
+                r.size.height -= 8
+            }
             put(p.key, r, ProjectCard.Look(color: color, plain: p.children.isEmpty))
         }
         endServer()
@@ -149,7 +164,11 @@ extension SidebarController {
             cards[key] = nil
         }
         // A project's card made after its server's went under it: the servers' go back to the bottom.
-        if made { for (key, card) in cards where key.hasPrefix("s:") { outline.addSubview(card, positioned: .below, relativeTo: nil) } }
+        if made {
+            for (key, card) in cards where key.hasPrefix("s:") {
+                outline.addSubview(card, positioned: .below, relativeTo: nil)
+            }
+        }
     }
 
     /// The rows on show.
@@ -174,7 +193,8 @@ extension SidebarController {
         }
         for key in came {
             // From a value of its own: set first and animated after, it would start from what the view shows now.
-            guard let n = node(key), let v = outline.rowView(atRow: outline.row(forItem: n), makeIfNecessary: false) else { continue }
+            guard let n = node(key), let v = outline.rowView(atRow: outline.row(forItem: n), makeIfNecessary: false)
+            else { continue }
             let a = CABasicAnimation(keyPath: "opacity")
             a.fromValue = 0
             a.toValue = 1

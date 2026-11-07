@@ -1,10 +1,11 @@
-import Testing
-import Foundation
 import AppKit
 import Core
+import Foundation
+import Testing
 import WorkbenchKit
-@testable import KelpKit
+
 @testable import BuiltinAgents
+@testable import KelpKit
 
 /// A session of the workspace, known to the app.
 @MainActor private func session(_ rig: AppRig, _ p: SessionCreate) async throws -> Session {
@@ -16,7 +17,8 @@ import WorkbenchKit
 extension OneAtATime {
     /// What someone else starts gets a tab behind the one you're looking at: it neither covers it nor takes the pane.
     @Test func aSessionStartedElsewhereTakesNothing() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
         let mine = try await session(rig, SessionCreate(worktreeId: rig.workspace.id, command: "sleep 30"))
         area.open(TabURI.session(mine.id))
@@ -28,7 +30,8 @@ extension OneAtATime {
 
     /// `kelp open` beside you: the pane appears, and the one you're in stays the focused one.
     @Test func openingBesideYouLeavesYourPaneFocused() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
         area.arrangedByHand()
         let mine = try await session(rig, SessionCreate(worktreeId: rig.workspace.id, command: "sleep 30"))
@@ -44,7 +47,8 @@ extension OneAtATime {
     /// An agent's command lives on the agent's line: no tab, no sidebar row, not an agent among agents. The agent gone, a
     /// command still running gets a tab; moved to a tab, it stays there.
     @Test func aCommandBelongsToItsAgentWhileItLives() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let wid = rig.workspace.id, app = rig.app
         var agent = Session(worktreeId: wid, cwd: "/", command: "claude", agent: "claude")
         var run = Session(worktreeId: wid, cwd: "/", command: "swift build", agent: "custom", title: "swift build")
@@ -89,10 +93,13 @@ extension OneAtATime {
     var a = Session(id: "a", cwd: "/", command: "x"), b = Session(id: "b", cwd: "/", command: "y")
     m.sessions = [a, b]
     #expect(m.session("b")?.command == "y" && m.session("zz") == nil)
-    a.title = "renamed"; m.sessions[0] = a
+    a.title = "renamed"
+    m.sessions[0] = a
     #expect(m.session("a")?.title == "renamed")
     m.sessions.remove(at: 0)
     #expect(m.session("a") == nil && m.session("b")?.command == "y")
-    b.command = "z"; m.sessions.append(Session(id: "c", cwd: "/", command: "c")); m.upsert(b)
+    b.command = "z"
+    m.sessions.append(Session(id: "c", cwd: "/", command: "c"))
+    m.upsert(b)
     #expect(m.session("b")?.command == "z" && m.session("c")?.command == "c")
 }

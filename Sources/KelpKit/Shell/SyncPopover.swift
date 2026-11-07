@@ -22,7 +22,8 @@ final class SyncPopover: NSViewController {
     private let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView()
     /// The folder whose CI the section shows (a workspace shares its project's): the one the branch chip's mark reads.
     private var folder: String { app.rowBadges.folder(of: wid)?.id ?? wid }
-    private let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""), message = NSTextField()
+    private let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
+        message = NSTextField()
     private let nothing = NSTextField(labelWithString: String(localized: "Nothing to commit"))
     private let hint = NSTextField(labelWithString: String(localized: "⏎ commit · ⌘⏎ commit and push"))
     private let field = NSStackView()
@@ -59,8 +60,9 @@ final class SyncPopover: NSViewController {
         fetch.image = .symbol("arrow.down.to.line", String(localized: "Fetch"))   // as Source Control's
         fetch.symbolConfiguration = .chrome()
         fetch.imagePosition = .imageLeading
-        fetch.attributedTitle = NSAttributedString(string: fetch.title,
-                                                   attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
+        fetch.attributedTitle = NSAttributedString(
+            string: fetch.title,
+            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
         fetch.contentTintColor = .secondaryLabelColor
         fetch.toolTip = String(localized: "Fetch from the remote")
         let head = NSStackView()
@@ -71,7 +73,11 @@ final class SyncPopover: NSViewController {
         // The popover's one action, in words alone and the accent (macOS 26's primary tint; the bezel colour before it).
         primary.bezelStyle = .push
         primary.controlSize = .large
-        if #available(macOS 26, *) { primary.tintProminence = .primary } else { primary.bezelColor = .controlAccentColor }
+        if #available(macOS 26, *) {
+            primary.tintProminence = .primary
+        } else {
+            primary.bezelColor = .controlAccentColor
+        }
 
         busy.style = .spinning
         busy.controlSize = .small
@@ -113,13 +119,21 @@ final class SyncPopover: NSViewController {
         root.alignment = .leading
         root.spacing = 8
         root.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 8, right: 14)
-        root.setViews([head, status, primary, ci, outgoing, incoming, rules.0, changeHead, field, nothing, hint, rules.1, footer], in: .top)
-        let gaps: [(NSView, CGFloat)] = [(head, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16), (rules.0, 12), (field, 6), (hint, 12),
-                                         (rules.1, 4)]
+        root.setViews(
+            [
+                head, status, primary, ci, outgoing, incoming, rules.0, changeHead, field, nothing, hint, rules.1,
+                footer
+            ], in: .top)
+        let gaps: [(NSView, CGFloat)] = [
+            (head, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16), (rules.0, 12), (field, 6), (hint, 12),
+            (rules.1, 4)
+        ]
         for (v, gap) in gaps {
             root.setCustomSpacing(gap, after: v)
         }
-        for v in [head, status, primary, changeHead, field, footer] as [NSView] { v.widthAnchor.constraint(equalToConstant: Self.width).isActive = true }
+        for v in [head, status, primary, changeHead, field, footer] as [NSView] {
+            v.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        }
 
         view = Self.ground(root)
     }
@@ -137,10 +151,26 @@ final class SyncPopover: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        track(owner: self) { [app, wid] in app.latest(GitEvent.self, wid) } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [app, wid] in app.syncing[wid] } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [weak self] in self.flatMap { $0.app.latest(CIEvent.self, $0.folder) } } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [app] in app.settings.bool("workbench.ci.popover") } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app, wid] in
+            app.latest(GitEvent.self, wid)
+        } changed: { [weak self] _ in
+            self?.update()
+        }
+        track(owner: self) { [app, wid] in
+            app.syncing[wid]
+        } changed: { [weak self] _ in
+            self?.update()
+        }
+        track(owner: self) { [weak self] in
+            self.flatMap { $0.app.latest(CIEvent.self, $0.folder) }
+        } changed: { [weak self] _ in
+            self?.update()
+        }
+        track(owner: self) { [app] in
+            app.settings.bool("workbench.ci.popover")
+        } changed: { [weak self] _ in
+            self?.update()
+        }
     }
 
     /// Opened for a pull or a push, not to type: the commit field waits for a click.
@@ -178,15 +208,18 @@ final class SyncPopover: NSViewController {
         let info = app.latest(GitEvent.self, wid)?.branches, running = app.syncing[wid]
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
-        name.attributedTitle = NSAttributedString(string: info?.current ?? info?.head ?? "HEAD",
-                                                  attributes: [.font: NSFont.ui(15, weight: .semibold), .foregroundColor: NSColor.labelColor])
+        name.attributedTitle = NSAttributedString(
+            string: info?.current ?? info?.head ?? "HEAD",
+            attributes: [.font: NSFont.ui(15, weight: .semibold), .foregroundColor: NSColor.labelColor])
         name.image = .symbol("chevron.down", String(localized: "Switch Branch"))
         name.isEnabled = info != nil && running == nil
         state.stringValue = Self.standing(upstream: info?.upstream, ahead: ahead, behind: behind, hasRemote: hasRemote)
 
         fetch.isHidden = !hasRemote
         fetch.isEnabled = running == nil
-        showPrimary(ahead: ahead, behind: behind, published: published, possible: hasRemote && info?.current != nil, running: running)
+        showPrimary(
+            ahead: ahead, behind: behind, published: published, possible: hasRemote && info?.current != nil,
+            running: running)
         showStatus(running)
         loadLists(info)
         showLists(ahead: ahead, behind: behind, published: published)
@@ -197,18 +230,28 @@ final class SyncPopover: NSViewController {
 
     /// Where the branch stands, in one line.
     private static func standing(upstream: String?, ahead: Int, behind: Int, hasRemote: Bool) -> String {
-        guard let upstream else { return hasRemote ? String(localized: "Not on a remote yet") : String(localized: "No remote — add one in Source Control") }
+        guard let upstream else {
+            return hasRemote
+                ? String(localized: "Not on a remote yet") : String(localized: "No remote — add one in Source Control")
+        }
         switch (ahead, behind) {
         case (0, 0): return String(localized: "Up to date with \(upstream)")
-        case (_, 0): return ahead == 1 ? String(localized: "1 commit ahead of \(upstream)") : String(localized: "\(ahead) commits ahead of \(upstream)")
-        case (0, _): return behind == 1 ? String(localized: "1 commit behind \(upstream)") : String(localized: "\(behind) commits behind \(upstream)")
+        case (_, 0):
+            return ahead == 1
+                ? String(localized: "1 commit ahead of \(upstream)")
+                : String(localized: "\(ahead) commits ahead of \(upstream)")
+        case (0, _):
+            return behind == 1
+                ? String(localized: "1 commit behind \(upstream)")
+                : String(localized: "\(behind) commits behind \(upstream)")
         default: return String(localized: "\(ahead) ahead, \(behind) behind \(upstream)")
         }
     }
 
     /// The one sync that matters now, full width; none when there's nothing to move. A rejected push turns it into the fix.
     private func showPrimary(ahead: Int, behind: Int, published: Bool, possible: Bool, running: String?) {
-        let (title, ops) = Self.action(ahead: ahead, behind: behind, published: published, rejected: result?.rejected == true)
+        let (title, ops) = Self.action(
+            ahead: ahead, behind: behind, published: published, rejected: result?.rejected == true)
         primaryOps = ops
         primary.isHidden = !possible || ops.isEmpty
         let text = running ?? title
@@ -220,11 +263,21 @@ final class SyncPopover: NSViewController {
     private static func action(ahead: Int, behind: Int, published: Bool, rejected: Bool) -> (String, [String]) {
         if !published { return (String(localized: "Publish Branch"), ["push"]) }
         if rejected || (ahead > 0 && behind > 0) {
-            let title = behind > 0 ? String(localized: "Pull \(behind), then push \(ahead)") : String(localized: "Pull, then push")
+            let title =
+                behind > 0
+                ? String(localized: "Pull \(behind), then push \(ahead)") : String(localized: "Pull, then push")
             return (title, ["pull", "push"])
         }
-        if behind > 0 { return (behind == 1 ? String(localized: "Pull 1 commit") : String(localized: "Pull \(behind) commits"), ["pull"]) }
-        if ahead > 0 { return (ahead == 1 ? String(localized: "Push 1 commit") : String(localized: "Push \(ahead) commits"), ["push"]) }
+        if behind > 0 {
+            return (
+                behind == 1 ? String(localized: "Pull 1 commit") : String(localized: "Pull \(behind) commits"), ["pull"]
+            )
+        }
+        if ahead > 0 {
+            return (
+                ahead == 1 ? String(localized: "Push 1 commit") : String(localized: "Push \(ahead) commits"), ["push"]
+            )
+        }
         return ("", [])
     }
 
@@ -264,7 +317,8 @@ final class SyncPopover: NSViewController {
         incoming.isHidden = behind == 0
 
         let title = published ? String(localized: "To push") : String(localized: "To publish")
-        outgoing.setViews([caption(title, ahead)] + out.map { row($0, trailing: when($0)) } + more(ahead - out.count), in: .top)
+        outgoing.setViews(
+            [caption(title, ahead)] + out.map { row($0, trailing: when($0)) } + more(ahead - out.count), in: .top)
 
         let toggle = PointerButton(title: "") { [weak self] in
             guard let self else { return }
@@ -273,7 +327,8 @@ final class SyncPopover: NSViewController {
         }
         toggle.radius = Metrics.radiusXS
         toggle.padding = 2
-        toggle.attributedTitle = NSAttributedString(string: String(localized: "To pull") + " · \(behind)", attributes: Self.captionAttributes)
+        toggle.attributedTitle = NSAttributedString(
+            string: String(localized: "To pull") + " · \(behind)", attributes: Self.captionAttributes)
         toggle.image = .symbol(showIncoming ? "chevron.down" : "chevron.right", String(localized: "To pull"))
         toggle.imagePosition = .imageLeading
         toggle.contentTintColor = .secondaryLabelColor
@@ -284,11 +339,14 @@ final class SyncPopover: NSViewController {
     /// "CI · origin/main" and the newest run of each workflow (CI and deploys apart), as CI Runs marks them; a row opens
     /// CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
     private func showCI(on branch: String?) {
-        let runs = app.settings.bool("workbench.ci.popover") == false ? [] : CIRuns.latest(app.latest(CIEvent.self, folder)?.result?.runs ?? [])
+        let runs =
+            app.settings.bool("workbench.ci.popover") == false
+            ? [] : CIRuns.latest(app.latest(CIEvent.self, folder)?.result?.runs ?? [])
         ci.isHidden = runs.isEmpty
         guard !runs.isEmpty else { return }
         let head = NSTextField(labelWithString: "")
-        head.attributedStringValue = NSAttributedString(string: ["CI", branch].compactMap { $0 }.joined(separator: " · "), attributes: Self.captionAttributes)
+        head.attributedStringValue = NSAttributedString(
+            string: ["CI", branch].compactMap { $0 }.joined(separator: " · "), attributes: Self.captionAttributes)
         let shown = runs.prefix(3).map { run in
             let words = label(CIRunLook.words(run.status, run.conclusion))
             words.lineBreakMode = .byTruncatingTail
@@ -296,8 +354,13 @@ final class SyncPopover: NSViewController {
             let name = label(run.workflow, secondary: false)
             name.lineBreakMode = .byTruncatingTail
             name.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-            let r = LinkRow([CIRunLook.mark(run.status, run.conclusion), name, words, NSView(), label(CIRunLook.ago(run.began), size: 11)],
-                            said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))") { [weak self] in
+            let r = LinkRow(
+                [
+                    CIRunLook.mark(run.status, run.conclusion), name, words, NSView(),
+                    label(CIRunLook.ago(run.began), size: 11)
+                ],
+                said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))"
+            ) { [weak self] in
                 guard let self else { return }
                 app.rowBadges.openCI(folder)
                 popover?.performClose(nil)
@@ -337,13 +400,18 @@ final class SyncPopover: NSViewController {
     private func showChanges() {
         let git = app.latest(GitEvent.self, wid), list = git?.changes ?? [], n = list.count
         let hasRemote = git?.branches.map { $0.upstream != nil || !$0.remote.isEmpty } ?? false
-        changes.attributedStringValue = NSAttributedString(string: String(localized: "Changes") + (n > 0 ? " · \(n)" : ""),
-                                                           attributes: Self.captionAttributes)
+        changes.attributedStringValue = NSAttributedString(
+            string: String(localized: "Changes") + (n > 0 ? " · \(n)" : ""),
+            attributes: Self.captionAttributes)
         let text = NSMutableAttributedString()
         if n > 0, let s = git?.stats {
             let mono = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
-            for (count, sign, color) in [(s.totalAdded, "+", NSColor.textGreen), (s.totalRemoved, "−", .textRed)] where count > 0 {
-                text.append(NSAttributedString(string: (text.length > 0 ? "  " : "") + "\(sign)\(count)", attributes: [.font: mono, .foregroundColor: color]))
+            for (count, sign, color) in [(s.totalAdded, "+", NSColor.textGreen), (s.totalRemoved, "−", .textRed)]
+            where count > 0 {
+                text.append(
+                    NSAttributedString(
+                        string: (text.length > 0 ? "  " : "") + "\(sign)\(count)",
+                        attributes: [.font: mono, .foregroundColor: color]))
             }
         }
         stats.attributedStringValue = text
@@ -366,11 +434,18 @@ final class SyncPopover: NSViewController {
             if let error = await GitSync.run(app, wid, ops) {
                 failed(error, ops: ops)
             } else if ops.contains("push") {
-                let text = !published ? String(localized: "Published \(branch).")
-                    : ahead == 1 ? String(localized: "Pushed 1 commit.") : String(localized: "Pushed \(max(ahead, 1)) commits.")
+                let text =
+                    !published
+                    ? String(localized: "Published \(branch).")
+                    : ahead == 1
+                        ? String(localized: "Pushed 1 commit.") : String(localized: "Pushed \(max(ahead, 1)) commits.")
                 result = (text, false, false)
             } else if ops.contains("pull") {
-                result = (behind == 1 ? String(localized: "Pulled 1 commit.") : String(localized: "Pulled \(behind) commits."), false, false)
+                result = (
+                    behind == 1
+                        ? String(localized: "Pulled 1 commit.") : String(localized: "Pulled \(behind) commits."), false,
+                    false
+                )
             }
             update()
         }
@@ -383,15 +458,20 @@ final class SyncPopover: NSViewController {
             return
         }
         popover?.performClose(nil)
-        GitFix(app).offer(error, recipe: "resolveConflicts", worktree: wid,
-                          vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
+        GitFix(app).offer(
+            error, recipe: "resolveConflicts", worktree: wid,
+            vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
         app.workbench.showPanel(.changes)
     }
 
     /// Git's message in a few lines: the pieces of a long push or pull report that say why.
     private static func summary(_ error: String) -> String {
-        if GitSync.isRejected(error) { return String(localized: "Push rejected: the remote has commits this branch doesn't. Pull first.") }
-        let lines = error.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if GitSync.isRejected(error) {
+            return String(localized: "Push rejected: the remote has commits this branch doesn't. Pull first.")
+        }
+        let lines = error.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter {
+            !$0.isEmpty
+        }
         let useful = lines.filter { $0.hasPrefix("fatal:") || $0.hasPrefix("error:") }
         return (useful.isEmpty ? lines : useful).prefix(3).joined(separator: "\n")
             .replacingOccurrences(of: "fatal: ", with: "").replacingOccurrences(of: "error: ", with: "")
@@ -415,7 +495,10 @@ final class SyncPopover: NSViewController {
             guard let status = await app.call(GitStatus(id: wid)) else { return }
             let all = !status.contains { $0.staged && !$0.conflicted }
             let r = await app.tryCall(GitCommit(id: wid, message: text, all: all))
-            if let e = r.error { GitFix(app).offer(e, recipe: "fixCommit", worktree: wid); return }
+            if let e = r.error {
+                GitFix(app).offer(e, recipe: "fixCommit", worktree: wid)
+                return
+            }
             message.stringValue = ""
             if thenPush {
                 committing = false
@@ -429,7 +512,8 @@ final class SyncPopover: NSViewController {
         guard let info = app.latest(GitEvent.self, wid)?.branches else { return }
         let m = NSMenu(), wid = wid
         for b in info.local {
-            m.add(b) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: b)) }.state = b == info.current ? .on : .off
+            m.add(b) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: b)) }.state =
+                b == info.current ? .on : .off
         }
         m.addItem(.separator())
         m.add(String(localized: "Create Branch…")) { [weak self] in
@@ -455,7 +539,8 @@ extension SyncPopover: NSTextFieldDelegate {
 
     func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         guard sel == #selector(NSResponder.insertNewline(_:)) || sel == Selector(("noop:")),
-              let e = NSApp.currentEvent, e.keyCode == 36 || e.keyCode == 76, e.modifierFlags.contains(.command) else { return false }
+            let e = NSApp.currentEvent, e.keyCode == 36 || e.keyCode == 76, e.modifierFlags.contains(.command)
+        else { return false }
         if commit.isEnabled { commitAll(thenPush: true) }
         return true
     }

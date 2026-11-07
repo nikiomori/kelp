@@ -25,8 +25,12 @@ struct PlanNote: Equatable {
     /// Said under the first-task field when the agent it starts is nearly out.
     func warning(for name: String) -> String? {
         guard used >= 0.9 else { return nil }
-        if isFull { return resets.map { String(localized: "\(name) is full until \($0).") } ?? String(localized: "\(name) is full.") }
-        return resets.map { String(localized: "\(name) is at \(percent) until \($0).") } ?? String(localized: "\(name) is at \(percent).")
+        if isFull {
+            return resets.map { String(localized: "\(name) is full until \($0).") }
+                ?? String(localized: "\(name) is full.")
+        }
+        return resets.map { String(localized: "\(name) is at \(percent) until \($0).") }
+            ?? String(localized: "\(name) is at \(percent).")
     }
 
     /// The agent with the most left of `agents`, when that's a lot: one with no reading can't be said to have any.

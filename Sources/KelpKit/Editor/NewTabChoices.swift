@@ -1,5 +1,5 @@
-import AppKit
 import Agents
+import AppKit
 import Core
 import WorkbenchKit
 
@@ -19,7 +19,9 @@ enum NewTabChoices {
 
     /// The key command `id` has in the menus: settings.json's `keys` over it (`""`: none), else its default, so a key
     /// rebound in Settings › Keyboard reads the same here.
-    static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? { app.extensions.key(id, fallback: def) }
+    static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
+        app.extensions.key(id, fallback: def)
+    }
     /// The default agent's key: New Agent's.
     static func defaultKey(_ app: AppModel) -> KeySpec? { key("agents.new", app, default: "opt+cmd+t") }
 
@@ -35,7 +37,10 @@ enum NewTabChoices {
         let new = key("terminal.new", app, default: "cmd+t")
         var all = [Action(title: String(localized: "Terminal"), symbol: "terminal", key: new, run: terminal)]
         if app.catalog.hasTmux(w) {
-            all.append(Action(title: String(localized: "tmux Session…"), symbol: "rectangle.split.3x1", key: nil) { app.quickOpen.showTmux() })
+            all.append(
+                Action(title: String(localized: "tmux Session…"), symbol: "rectangle.split.3x1", key: nil) {
+                    app.quickOpen.showTmux()
+                })
         }
         let ctx = IDEContext.of(app)
         for e in app.extensions.all.editors {
@@ -47,11 +52,16 @@ enum NewTabChoices {
     /// What the run chip runs and its list; none while the project offers nothing to run.
     static func run(_ app: AppModel, workspace wid: String) -> [Action] {
         guard let o = app.scripts.offer(wid) else { return [] }
-        let choose = key("scripts.choose", app, default: "ctrl+cmd+r"), run = o.guess ? nil : key("scripts.run", app, default: "cmd+r")
-        return [Action(title: String(localized: "Run \(o.label)"), symbol: "play", key: run, help: o.command) {
-                    Task { await app.scripts.start(choice: o.choice, in: wid) }
-                },
-                Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: choose) { app.scripts.choose() }]
+        let choose = key("scripts.choose", app, default: "ctrl+cmd+r"),
+            run = o.guess ? nil : key("scripts.run", app, default: "cmd+r")
+        return [
+            Action(title: String(localized: "Run \(o.label)"), symbol: "play", key: run, help: o.command) {
+                Task { await app.scripts.start(choice: o.choice, in: wid) }
+            },
+            Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: choose) {
+                app.scripts.choose()
+            }
+        ]
     }
 }
 
@@ -60,9 +70,15 @@ extension NSMenu {
     /// An action as an item: its symbol shown (macOS 27 hides the rest) and its key beside it.
     @discardableResult
     func add(_ a: NewTabChoices.Action, before: (@MainActor () -> Void)? = nil) -> NSMenuItem {
-        let i = add(a.title) { before?(); a.run() }
+        let i = add(a.title) {
+            before?()
+            a.run()
+        }
         i.show(.symbol(a.symbol))
-        if let k = a.key { i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags }
+        if let k = a.key {
+            i.keyEquivalent = k.key
+            i.keyEquivalentModifierMask = k.mods.flags
+        }
         i.toolTip = a.help
         return i
     }

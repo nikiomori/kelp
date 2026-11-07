@@ -43,7 +43,8 @@ enum TerminalShader {
     /// The shader as a file, for Ghostty's config: nil for a name there's no shader of.
     static func file(_ name: String) -> String? {
         let f = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-shader-\(name)-\(getpid()).glsl")
-        guard let source = sources[name], FileManager.default.createFile(atPath: f.path, contents: Data(source.utf8)) else { return nil }
+        guard let source = sources[name], FileManager.default.createFile(atPath: f.path, contents: Data(source.utf8))
+        else { return nil }
         return f.path
     }
 }

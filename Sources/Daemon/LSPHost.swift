@@ -1,7 +1,7 @@
-import Foundation
-import os
 import Core
+import Foundation
 import LSPKit
+import os
 
 /// Language servers, one per (project, server command), shared by every client: started for the first file a trusted
 /// project opens; one that died starts again on the next open (its open files with it), at most once per `retryDelay`;
@@ -10,20 +10,26 @@ import LSPKit
 /// file's text as last sent (unsaved edits included), not what's on disk.
 final class LSPHost: Sendable {
     struct Key: Hashable, Sendable { let root: String, argv: [String] }
-    private enum DocOp: Sendable { case open(path: String, text: String, languageId: String), change(path: String, text: String), close(path: String) }
+    private enum DocOp: Sendable {
+        case open(path: String, text: String, languageId: String), change(path: String, text: String), close(
+            path: String)
+    }
     private enum Server: Sendable {
         case starting(pending: [DocOp], ready: Task<LSPClient?, Never>?)
         case running(LSPClient)
         case failed
     }
     /// A file open in some tab: its server, its language, how many opens it has and its text as last sent.
-    private struct Doc: Sendable { let key: Key, path: String, languageId: String; var count: Int, text: String }
+    private struct Doc: Sendable {
+        let key: Key, path: String, languageId: String
+        var count: Int, text: String
+    }
     private struct State {
         var servers: [Key: Server] = [:]
-        var docs: [String: Doc] = [:]           // "root|path"
-        var owners: [Int: [String: Int]] = [:]  // connection → the docs it opened, and how many times
-        var started: [Key: Date] = [:]          // a broken server isn't started again on every open
-        var closed = false                      // the daemon stopped them all: an open arriving after starts none
+        var docs: [String: Doc] = [:]   // "root|path"
+        var owners: [Int: [String: Int]] = [:]   // connection → the docs it opened, and how many times
+        var started: [Key: Date] = [:]   // a broken server isn't started again on every open
+        var closed = false   // the daemon stopped them all: an open arriving after starts none
         var problems: [String: [CodeProblem]] = [:]   // by the path a tab has it open under
         var problemsChanged: (@Sendable (String) -> Void)?
     }
@@ -52,20 +58,26 @@ final class LSPHost: Sendable {
         let key = Key(root: o.root, argv: [o.command] + (o.args ?? [])), id = o.root + "|" + o.path
         let launch = state.withLock { s -> Bool in
             guard !s.closed else { return false }
-            s.docs[id, default: Doc(key: key, path: o.path, languageId: o.languageId, count: 0, text: o.text)].count += 1
+            s.docs[id, default: Doc(key: key, path: o.path, languageId: o.languageId, count: 0, text: o.text)].count +=
+                1
             s.docs[id]?.text = o.text
             s.owners[conn, default: [:]][id, default: 0] += 1
             let op = DocOp.open(path: o.path, text: o.text, languageId: o.languageId)
             switch s.servers[key] {
-            case .running(let c)? where c.isRunning: Self.apply(op, to: c); return false
-            case .starting(let pending, let ready)?: s.servers[key] = .starting(pending: pending + [op], ready: ready); return false
+            case .running(let c)? where c.isRunning:
+                Self.apply(op, to: c)
+                return false
+            case .starting(let pending, let ready)?:
+                s.servers[key] = .starting(pending: pending + [op], ready: ready)
+                return false
             default:   // none yet, or it died: a new one gets every file open for it, as last sent
                 if let at = s.started[key], Date().timeIntervalSince(at) < retryDelay { return false }
                 s.started[key] = Date()
                 let others = s.docs.filter { $0.key != id && $0.value.key == key }.values.flatMap { d in
                     Array(repeating: DocOp.open(path: d.path, text: d.text, languageId: d.languageId), count: d.count)
                 }
-                s.servers[key] = .starting(pending: others + Array(repeating: op, count: s.docs[id]?.count ?? 1), ready: nil)
+                s.servers[key] = .starting(
+                    pending: others + Array(repeating: op, count: s.docs[id]?.count ?? 1), ready: nil)
                 return true
             }
         }
@@ -82,7 +94,9 @@ final class LSPHost: Sendable {
     }
 
     /// `changed`: a file's problems are new. Set once.
-    func whenProblemsChange(_ changed: @escaping @Sendable (String) -> Void) { state.withLock { $0.problemsChanged = changed } }
+    func whenProblemsChange(_ changed: @escaping @Sendable (String) -> Void) {
+        state.withLock { $0.problemsChanged = changed }
+    }
 
     func problems(_ path: String) -> [CodeProblem] { state.withLock { $0.problems[path] ?? [] } }
 
@@ -108,7 +122,8 @@ final class LSPHost: Sendable {
             guard let n = s.owners[conn]?[id], n > 0, var d = s.docs[id] else { return nil }   // not opened by this connection
             s.owners[conn]?[id] = n > 1 ? n - 1 : nil
             if s.owners[conn]?.isEmpty == true { s.owners[conn] = nil }
-            d.count -= 1; s.docs[id] = d.count > 0 ? d : nil
+            d.count -= 1
+            s.docs[id] = d.count > 0 ? d : nil
             if d.count == 0 { s.problems[path] = nil }   // the last tab on it, of any connection
             Self.send(.close(path: path), to: d.key, in: &s)
             return s.docs.values.contains { $0.key == d.key } ? nil : d.key
@@ -118,7 +133,9 @@ final class LSPHost: Sendable {
 
     /// A connection that went: what it opened is closed.
     func closeAll(conn: Int) {
-        let opened = state.withLock { s in (s.owners[conn] ?? [:]).compactMap { id, n in s.docs[id].map { ($0.key.root, $0.path, n) } } }
+        let opened = state.withLock { s in
+            (s.owners[conn] ?? [:]).compactMap { id, n in s.docs[id].map { ($0.key.root, $0.path, n) } }
+        }
         for (root, path, n) in opened { for _ in 0..<n { close(conn: conn, root, path) } }
     }
 
@@ -155,7 +172,9 @@ final class LSPHost: Sendable {
             let made = OSAllocatedUnfairLock<LSPClient?>(initialState: nil)
             await withCheckedContinuation { c in
                 Thread.detachNewThread {
-                    let client = LSPClient(argv: key.argv, root: key.root) { [weak self] path, found in self?.heard(path, found) }
+                    let client = LSPClient(argv: key.argv, root: key.root) { [weak self] path, found in
+                        self?.heard(path, found)
+                    }
                     made.withLock { $0 = client }
                     c.resume()
                 }
@@ -163,14 +182,19 @@ final class LSPHost: Sendable {
             var up = made.withLock { $0 }
             if let started = up {
                 do { try await started.initialize() } catch {
-                    Log.session.error("language server \(key.argv.joined(separator: " "), privacy: .public) didn't start: \(error)")
-                    started.terminate(); up = nil
+                    Log.session.error(
+                        "language server \(key.argv.joined(separator: " "), privacy: .public) didn't start: \(error)")
+                    started.terminate()
+                    up = nil
                 }
             }
             let c = up
             let live = state.withLock { s -> LSPClient? in
                 guard case .starting(let pending, _)? = s.servers[key] else { return nil }   // stopped meanwhile
-                guard let c else { s.servers[key] = .failed; return nil }
+                guard let c else {
+                    s.servers[key] = .failed
+                    return nil
+                }
                 pending.forEach { Self.apply($0, to: c) }
                 s.servers[key] = .running(c)
                 return c
@@ -179,7 +203,11 @@ final class LSPHost: Sendable {
             stopLater(key)   // started only to close a file, say
             return live
         }
-        state.withLock { s in if case .starting(let pending, nil)? = s.servers[key] { s.servers[key] = .starting(pending: pending, ready: ready) } }
+        state.withLock { s in
+            if case .starting(let pending, nil)? = s.servers[key] {
+                s.servers[key] = .starting(pending: pending, ready: ready)
+            }
+        }
     }
 
     private static func send(_ op: DocOp, to key: Key, in s: inout State) {
@@ -203,8 +231,11 @@ final class LSPHost: Sendable {
     private func stopLater(_ key: Key) {
         DispatchQueue.global().asyncAfter(deadline: .now() + idleDelay) { [self] in
             let idle = state.withLock { s -> LSPClient? in
-                guard !s.docs.values.contains(where: { $0.key == key }), case .running(let c)? = s.servers[key] else { return nil }
-                s.servers[key] = nil; s.started[key] = nil
+                guard !s.docs.values.contains(where: { $0.key == key }), case .running(let c)? = s.servers[key] else {
+                    return nil
+                }
+                s.servers[key] = nil
+                s.started[key] = nil
                 return c
             }
             idle?.shutdown()
@@ -235,7 +266,9 @@ extension LSPOpen: Handled {
     static var inOrder: Bool { true }
     func handle(_ lsp: LSPHost) throws -> Done { try handle(lsp, conn: -1) }
     func handle(_ lsp: LSPHost, conn: Int) throws -> Done {
-        guard lsp.remotes.of(root) == nil else { throw RPCError.invalidParams("No language servers for a project on another machine.") }
+        guard lsp.remotes.of(root) == nil else {
+            throw RPCError.invalidParams("No language servers for a project on another machine.")
+        }
         // A project's language servers run its own code: the daemon checks, whoever asks.
         guard lsp.trusted(root) else { throw LSPRefusal.untrusted.error }
         // Not waiting for the login shell's PATH on this thread (seconds, right after the daemon starts): until it's read,
@@ -248,13 +281,19 @@ extension LSPOpen: Handled {
 
 extension LSPChange: Handled {
     static var inOrder: Bool { true }   // keystrokes' text, in the order typed
-    func handle(_ lsp: LSPHost) throws -> Done { lsp.change(root, path, text: text); return Done() }
+    func handle(_ lsp: LSPHost) throws -> Done {
+        lsp.change(root, path, text: text)
+        return Done()
+    }
 }
 
 extension LSPClose: Handled {
     static var inOrder: Bool { true }
     func handle(_ lsp: LSPHost) throws -> Done { try handle(lsp, conn: -1) }
-    func handle(_ lsp: LSPHost, conn: Int) throws -> Done { lsp.close(conn: conn, root, path); return Done() }
+    func handle(_ lsp: LSPHost, conn: Int) throws -> Done {
+        lsp.close(conn: conn, root, path)
+        return Done()
+    }
 }
 
 extension LSPProblems: Handled {
@@ -295,7 +334,9 @@ extension LSPWorkspaceSymbols: AsyncHandled {
         guard let c = await lsp.client(root, path) else { return [] }
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
         return try await c.workspaceSymbols(query).compactMap { s in
-            guard let p = s.path, case let real = URL(fileURLWithPath: p).resolvingSymlinksInPath().path, real.hasPrefix(base) else { return nil }
+            guard let p = s.path, case let real = URL(fileURLWithPath: p).resolvingSymlinksInPath().path,
+                real.hasPrefix(base)
+            else { return nil }
             return CodeSymbol(name: s.name, kind: s.kind, line: s.line, path: root + "/" + real.dropFirst(base.count))
         }
     }
@@ -334,7 +375,8 @@ extension LSPReferences: AsyncHandled {
                 texts[real] = text?.split(separator: "\n", omittingEmptySubsequences: false) ?? []
             }
             let text = texts[real].flatMap { $0.indices.contains(l.line - 1) ? String($0[l.line - 1]) : nil } ?? ""
-            return SearchMatch(path: String(real.dropFirst(base.count)), line: l.line, text: text.trimmingCharacters(in: .whitespaces))
+            return SearchMatch(
+                path: String(real.dropFirst(base.count)), line: l.line, text: text.trimmingCharacters(in: .whitespaces))
         }
     }
 }

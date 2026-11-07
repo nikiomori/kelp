@@ -1,17 +1,19 @@
 import AppKit
 import Core
 import Foundation
-import Testing
 import TestSupport
-@testable import EditorKit
+import Testing
 import WorkbenchKit
-@testable import KelpKit
+
 @testable import BuiltinFiles
+@testable import EditorKit
+@testable import KelpKit
 
 extension OneAtATime {
     /// A file an agent changed shows what differs from HEAD; a commit clears it. Nothing else is asked of the tab.
     @Test func aChangedFileShowsItsBarsUntilItsCommitted() async throws {
-        let rig = try await AppRig(files: ["a.txt": "1\n2\n3\n4\n5\n"]); defer { rig.done() }
+        let rig = try await AppRig(files: ["a.txt": "1\n2\n3\n4\n5\n"])
+        defer { rig.done() }
         _ = NSApplication.shared
         rig.app.worktrees = [rig.workspace]
         let path = rig.workspace.path + "/a.txt"
@@ -27,7 +29,9 @@ extension OneAtATime {
 
 @MainActor @Test func theHunkToStageIsTheOneOverTheSameLines() {
     func hunk(_ start: Int, _ line: Int) -> Hunk {
-        Hunk(header: "@@ \(start)", oldStart: start, newStart: start, lines: [DiffLine(kind: .add, text: "x", newLine: line)])
+        Hunk(
+            header: "@@ \(start)", oldStart: start, newStart: start,
+            lines: [DiffLine(kind: .add, text: "x", newLine: line)])
     }
     #expect(ChangeBars.counterpart(of: hunk(1, 5), in: [hunk(90, 90), hunk(3, 5)])?.newStart == 3)
     #expect(ChangeBars.counterpart(of: hunk(1, 5), in: [hunk(90, 90)]) == nil)
@@ -54,9 +58,12 @@ extension OneAtATime {
 
 @MainActor @Test func problemsLandOnTheirTextAndF8GoesRoundThem() {
     let e = CodeEditor(text: "one\ntwo three\nfour\n", url: URL(fileURLWithPath: "/t.txt"))
-    e.problems = [.init(line: 1, column: 4, endLine: 1, endColumn: 9, isError: true, message: "bad"),
-                  .init(line: 2, column: 0, endLine: 2, endColumn: 0, isError: false, message: "a point")]
-    #expect(e.textView.problemMarks.map(\.range) == [NSRange(location: 8, length: 5), NSRange(location: 14, length: 1)])
+    e.problems = [
+        .init(line: 1, column: 4, endLine: 1, endColumn: 9, isError: true, message: "bad"),
+        .init(line: 2, column: 0, endLine: 2, endColumn: 0, isError: false, message: "a point")
+    ]
+    #expect(
+        e.textView.problemMarks.map(\.range) == [NSRange(location: 8, length: 5), NSRange(location: 14, length: 1)])
     e.goToProblem(forward: true)
     #expect(e.textView.selectedRange().location == 8)
     #expect(e.problemAtCursor?.message == "bad")
@@ -77,7 +84,13 @@ extension OneAtATime {
     let outer = Worktree(id: "a", repoId: "r", branch: "main", path: real)
     let inner = Worktree(id: "b", repoId: "r", branch: "x", path: real + "/sub")
     #expect(link != real)
-    #expect(ChangeBars.project(of: link + "/sub/src/a.swift", in: [outer, inner]).map { [$0.worktree.id, $0.file] } == ["b", "src/a.swift"])
-    #expect(ChangeBars.project(of: link + "/top.swift", in: [inner, outer]).map { [$0.worktree.id, $0.file] } == ["a", "top.swift"])
+    #expect(
+        ChangeBars.project(of: link + "/sub/src/a.swift", in: [outer, inner]).map { [$0.worktree.id, $0.file] } == [
+            "b", "src/a.swift"
+        ])
+    #expect(
+        ChangeBars.project(of: link + "/top.swift", in: [inner, outer]).map { [$0.worktree.id, $0.file] } == [
+            "a", "top.swift"
+        ])
     #expect(ChangeBars.project(of: "/elsewhere/a.swift", in: [outer, inner]) == nil)
 }

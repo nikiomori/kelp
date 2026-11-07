@@ -3,22 +3,22 @@ import Testing
 import WorkbenchKit
 
 private let config = """
-root = true
+    root = true
 
-[*]
-indent_style = space
-indent_size = 4
-trim_trailing_whitespace = true
+    [*]
+    indent_style = space
+    indent_size = 4
+    trim_trailing_whitespace = true
 
-[*.{js,ts}]
-indent_size = 2
+    [*.{js,ts}]
+    indent_size = 2
 
-[Makefile]
-indent_style = tab
+    [Makefile]
+    indent_style = tab
 
-[lib/**.py]
-indent_size = 8
-"""
+    [lib/**.py]
+    indent_size = 8
+    """
 
 @Test func sectionsApplyInOrderAndAGlobMatchesNames() {
     #expect(EditorConfig.read(config, file: "a.swift").root)
@@ -52,8 +52,11 @@ indent_size = 8
 }
 
 @Test func aServersEditsApplyAsOfTheTextTheyWereMadeFor() {
-    let edits = [CodeEdit(line: 0, column: 4, endLine: 0, endColumn: 7, text: "total"), CodeEdit(line: 1, column: 6, endLine: 1, endColumn: 9, text: "total"),
-                 CodeEdit(line: 2, column: 0, endLine: 2, endColumn: 0, text: "// end\n")]
+    let edits = [
+        CodeEdit(line: 0, column: 4, endLine: 0, endColumn: 7, text: "total"),
+        CodeEdit(line: 1, column: 6, endLine: 1, endColumn: 9, text: "total"),
+        CodeEdit(line: 2, column: 0, endLine: 2, endColumn: 0, text: "// end\n")
+    ]
     #expect(TextEdits.applied(edits, to: "let sum = 1\nprint(sum)\n") == "let total = 1\nprint(total)\n// end\n")
 }
 

@@ -23,20 +23,30 @@ public struct Review: Equatable, Sendable {
     public var points: [Point]
 
     public init(_ text: String) {
-        title = ""; intro = ""; points = []
+        title = ""
+        intro = ""
+        points = []
         var introLines: [String] = []
         for line in text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
-            if title.isEmpty, points.isEmpty, let m = line.wholeMatch(of: /#\s+(.+)/) { title = String(m.1); continue }
-            if let m = line.wholeMatch(of: Self.pointLine) {
-                points.append(Point(number: String(m.1), question: String(m.2), options: [], note: "")); continue
+            if title.isEmpty, points.isEmpty, let m = line.wholeMatch(of: /#\s+(.+)/) {
+                title = String(m.1)
+                continue
             }
-            guard !points.isEmpty else { introLines.append(line); continue }
+            if let m = line.wholeMatch(of: Self.pointLine) {
+                points.append(Point(number: String(m.1), question: String(m.2), options: [], note: ""))
+                continue
+            }
+            guard !points.isEmpty else {
+                introLines.append(line)
+                continue
+            }
             let i = points.count - 1
             if let m = line.wholeMatch(of: Self.optionLine) {
                 var text = String(m.3)
                 let recommended = text.contains("*recommended*")
                 text = text.replacingOccurrences(of: "*recommended*", with: "").trimmingCharacters(in: .whitespaces)
-                points[i].options.append(Option(key: String(m.2), text: text, detail: "", recommended: recommended, picked: m.1 != " "))
+                points[i].options.append(
+                    Option(key: String(m.2), text: text, detail: "", recommended: recommended, picked: m.1 != " "))
             } else if let m = line.wholeMatch(of: Self.noteLine) {
                 points[i].note = String(m.1)
             } else if line.hasPrefix("  "), !points[i].options.isEmpty {
@@ -51,7 +61,11 @@ public struct Review: Equatable, Sendable {
     /// `text` with `key` picked in point `number` (and its other options not).
     public static func pick(_ text: String, point number: String, option key: String) -> String {
         edit(text, point: number) { lines, range in
-            for i in range { if let m = lines[i].wholeMatch(of: optionLine) { lines[i] = "- [\(m.2 == key ? "x" : " ")] \(m.2). \(m.3)" } }
+            for i in range {
+                if let m = lines[i].wholeMatch(of: optionLine) {
+                    lines[i] = "- [\(m.2 == key ? "x" : " ")] \(m.2). \(m.3)"
+                }
+            }
         }
     }
 
@@ -67,7 +81,10 @@ public struct Review: Equatable, Sendable {
             guard !one.isEmpty else { return }
             // After the point's last option (and its detail), before any blank line that ends the point.
             var at = range.lowerBound + 1
-            for i in range where lines[i].wholeMatch(of: optionLine) != nil || (lines[i].hasPrefix("  ") && i > range.lowerBound) { at = i + 1 }
+            for i in range
+            where lines[i].wholeMatch(of: optionLine) != nil || (lines[i].hasPrefix("  ") && i > range.lowerBound) {
+                at = i + 1
+            }
             lines.insert("> Note: \(one)", at: at)
         }
     }
@@ -76,7 +93,9 @@ public struct Review: Equatable, Sendable {
     public func answer(file: String) -> String {
         let picks = points.compactMap { p in p.pick.map { p.number + $0 } }
         let notes = points.filter { !$0.note.isEmpty }.map { "Note on \($0.number): \($0.note)" }
-        return (["My answers in \(file): " + (picks.isEmpty ? "none picked" : picks.joined(separator: " ")) + "."] + notes.map { $0 + "." })
+        return
+            (["My answers in \(file): " + (picks.isEmpty ? "none picked" : picks.joined(separator: " ")) + "."]
+            + notes.map { $0 + "." })
             .joined(separator: " ")
     }
 
@@ -92,9 +111,13 @@ public struct Review: Equatable, Sendable {
     static var noteLine: Regex<(Substring, Substring)> { /\s*>\s*Note:\s*(.*)/ }
 
     /// Applies `change` to the lines of point `number` (its heading to the line before the next heading).
-    private static func edit(_ text: String, point number: String, _ change: (inout [String], Range<Int>) -> Void) -> String {
+    private static func edit(_ text: String, point number: String, _ change: (inout [String], Range<Int>) -> Void)
+        -> String
+    {
         var lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        guard let start = lines.firstIndex(where: { $0.wholeMatch(of: pointLine)?.1 == Substring(number) }) else { return text }
+        guard let start = lines.firstIndex(where: { $0.wholeMatch(of: pointLine)?.1 == Substring(number) }) else {
+            return text
+        }
         let end = lines[(start + 1)...].firstIndex { $0.hasPrefix("#") } ?? lines.count
         change(&lines, start..<end)
         return lines.joined(separator: "\n")

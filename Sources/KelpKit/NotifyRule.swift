@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// How loud an agent's new state is (Settings › Agents › Notifications). A question or a failure comes however long the
 /// turn took; a turn shorter than `quietUnder` finishes on its row alone.
@@ -30,5 +30,7 @@ enum QuestionReminder {
     static func minutes(_ setting: String?) -> Int? { Int(setting ?? "10") }
 
     /// The question it was asked for still stands: not answered, not followed by another.
-    static func stillStands(_ asked: Session, now: Session?) -> Bool { now?.status == .waiting && now?.statusAt == asked.statusAt }
+    static func stillStands(_ asked: Session, now: Session?) -> Bool {
+        now?.status == .waiting && now?.statusAt == asked.statusAt
+    }
 }

@@ -31,12 +31,17 @@ final class ExtPages: NSObject, WKURLSchemeHandler {
     }
 
     func webView(_ w: WKWebView, start task: any WKURLSchemeTask) {
-        guard let u = task.request.url, let f = file(u) else { return task.didFailWithError(URLError(.fileDoesNotExist)) }
+        guard let u = task.request.url, let f = file(u) else {
+            return task.didFailWithError(URLError(.fileDoesNotExist))
+        }
         let data: Data
         do { data = try Data(contentsOf: f) } catch { return task.didFailWithError(error) }
         let type = UTType(filenameExtension: f.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-        guard let r = HTTPURLResponse(url: u, statusCode: 200, httpVersion: "HTTP/1.1",
-                                      headerFields: ["Content-Type": type, "Content-Security-Policy": Self.policy]) else {
+        guard
+            let r = HTTPURLResponse(
+                url: u, statusCode: 200, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": type, "Content-Security-Policy": Self.policy])
+        else {
             return task.didFailWithError(URLError(.cannotParseResponse))
         }
         task.didReceive(r)

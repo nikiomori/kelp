@@ -32,9 +32,11 @@ final class CIHistoryStrip: NSView {
         height?.constant = h == nil ? 0 : TextSize.of(Metrics.row)
         guard let h else { return }
         marks.setViews(h.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
-        words.stringValue = h.lastGreen.map { green in
-            green.number.map { String(localized: "green on #\($0)") } ?? String(localized: "green \(CIRunLook.ago(green.began)) ago")
-        } ?? (h.greenInARow > 1 ? String(localized: "\(h.greenInARow) green in a row") : "")
+        words.stringValue =
+            h.lastGreen.map { green in
+                green.number.map { String(localized: "green on #\($0)") }
+                    ?? String(localized: "green \(CIRunLook.ago(green.began)) ago")
+            } ?? (h.greenInARow > 1 ? String(localized: "\(h.greenInARow) green in a row") : "")
     }
 }
 
@@ -44,12 +46,14 @@ private final class HistoryMark: PointerControl {
     private let color: NSColor, pick: @MainActor () -> Void
 
     init(_ r: CIRuns.Run, pick: @escaping @MainActor () -> Void) {
-        color = switch (r.status, r.conclusion) {
-        case ("completed", "success"?): .systemGreen
-        case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?): .quaternaryLabelColor
-        case ("completed", _): .systemRed
-        default: .tertiaryLabelColor
-        }
+        color =
+            switch (r.status, r.conclusion) {
+            case ("completed", "success"?): .systemGreen
+            case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
+                .quaternaryLabelColor
+            case ("completed", _): .systemRed
+            default: .tertiaryLabelColor
+            }
         self.pick = pick
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.lineGap
@@ -59,13 +63,17 @@ private final class HistoryMark: PointerControl {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(said)
-        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: Metrics.gapWide), heightAnchor.constraint(equalToConstant: 12)])
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: Metrics.gapWide), heightAnchor.constraint(equalToConstant: 12)
+        ])
         refreshPointer()
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func clicked() { pick() }
     override func showPointer(hovering: Bool, pressed: Bool) {
-        fadeBackground(to: pressed ? color.withAlphaComponent(0.5) : hovering ? color.withAlphaComponent(0.75) : color, held: pressed)
+        fadeBackground(
+            to: pressed ? color.withAlphaComponent(0.5) : hovering ? color.withAlphaComponent(0.75) : color,
+            held: pressed)
     }
 }

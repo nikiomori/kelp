@@ -20,18 +20,22 @@ public enum AgentBoard {
         return running.sorted { (rank($0), $0.createdAt, $0.id) < (rank($1), $1.createdAt, $1.id) }.map { s in
             let title = (s.parent.flatMap { byId[$0] }.map { $0.displayTitle + " › " } ?? "") + s.displayTitle
             let asks = [.waiting, .error].contains(s.status) && !s.summary.isEmpty   // once it goes on, the question is over
-            let detail = [s.status.label, project(s), asks ? s.summary : nil].compactMap(\.self).joined(separator: " · ")
+            let detail = [s.status.label, project(s), asks ? s.summary : nil].compactMap(\.self).joined(
+                separator: " · ")
             return Row(id: s.id, status: s.status, title: plain(title), detail: plain(detail))
         }
     }
 
     /// Agents stopped to save memory: nothing happens in them, so they're counted, not listed.
-    public static func paused(_ sessions: [Session]) -> Int { sessions.filter { isAgent($0) && $0.status == .paused }.count }
+    public static func paused(_ sessions: [Session]) -> Int {
+        sessions.filter { isAgent($0) && $0.status == .paused }.count
+    }
 
     private static func isAgent(_ s: Session) -> Bool { s.agent != nil && s.agent != "shell" && s.agent != "custom" }
 
     /// Titles and summaries come from what agents print: on a real terminal an escape in them would be obeyed.
     static func plain(_ s: String) -> String {
-        String(String.UnicodeScalarView(s.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? " " : $0 }))
+        String(
+            String.UnicodeScalarView(s.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? " " : $0 }))
     }
 }

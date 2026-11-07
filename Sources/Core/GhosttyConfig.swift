@@ -19,7 +19,8 @@ public struct GhosttyConfig: Equatable, Sendable {
             case "font-family": if c.fontFamily == nil { c.fontFamily = v }
             case "font-size": c.fontSize = Double(v)
             case "palette":   // palette = 1=#ff0000
-                let p = v.split(separator: "=", maxSplits: 1); if p.count == 2, let i = Int(p[0]) { c.palette[i] = String(p[1]) }
+                let p = v.split(separator: "=", maxSplits: 1)
+                if p.count == 2, let i = Int(p[0]) { c.palette[i] = String(p[1]) }
             default: break
             }
         }

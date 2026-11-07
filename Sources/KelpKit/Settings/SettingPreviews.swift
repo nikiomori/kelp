@@ -1,7 +1,7 @@
 import AppKit
-import SwiftUI
 import DesignKit
 import EditorKit
+import SwiftUI
 
 /// Over a group of rows, what they change, drawn with the settings as they are: the terminal, the editor, the sidebar's
 /// plan limits. It follows each change at once, so a row is tried by looking up.
@@ -13,8 +13,12 @@ struct SettingPreview: View {
         switch (section, group) {
         case ("terminal", nil): TerminalSample()
         case ("editor", nil):
-            EditorSample().frame(height: 132).clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+            EditorSample().frame(height: 132).clipShape(
+                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(
+                    Color.primary.opacity(0.12)))
         case ("agents", "Plan limits"): LimitsSample()
         default: EmptyView()
         }
@@ -29,23 +33,33 @@ private struct TerminalSample: View {
     var body: some View {
         let s = app.settings, colors = app.themes.shown?.terminal
         let size = CGFloat(s.number("terminal.fontSize") ?? 13)
-        let font = s.string("terminal.fontFamily").flatMap { NSFont(name: $0, size: size) } ?? .monospacedSystemFont(ofSize: size, weight: .regular)
+        let font =
+            s.string("terminal.fontFamily").flatMap { NSFont(name: $0, size: size) }
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
         let fg = colors.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .primary
         let palette = colors?.palette ?? []
         let tint = { (i: Int) in palette.count > i ? NSColor(hex: palette[i]).map(Color.init) ?? fg : fg }
         VStack(alignment: .leading, spacing: 2) {
-            (Text(verbatim: "~/projects/kelp ").foregroundStyle(tint(4)) + Text(verbatim: "main").foregroundStyle(tint(2)))
+            (Text(verbatim: "~/projects/kelp ").foregroundStyle(tint(4))
+                + Text(verbatim: "main").foregroundStyle(tint(2)))
             HStack(spacing: 0) {
                 Text(verbatim: "❯ swift build ").foregroundStyle(fg)
-                cursor(size).foregroundStyle(Color(nsColor: colors?.cursor.flatMap { NSColor(hex: $0) } ?? .controlAccentColor))
+                cursor(size).foregroundStyle(
+                    Color(nsColor: colors?.cursor.flatMap { NSColor(hex: $0) } ?? .controlAccentColor))
             }
         }
         .font(Font(font))
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Metrics.inset)
-        .background(Color(nsColor: app.themes.terminalBackground), in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+        .background(
+            Color(nsColor: app.themes.terminalBackground),
+            in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
+        )
         // Its edge: a light theme's terminal is as white as the card it sits on.
-        .overlay(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+        .overlay(
+            RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(
+                Color.primary.opacity(0.12))
+        )
         .accessibilityHidden(true)
     }
 
@@ -64,22 +78,25 @@ private struct EditorSample: NSViewRepresentable {
     @Environment(AppModel.self) private var app
 
     private static let sample = """
-    struct Agent {
-        let name: String
-        func greet(_ people: [String]) -> String {
-            let line = people.map { "Hello, \\($0)! \\(name) has three agents waiting, and one asks to run npm test" }
-            return line.joined(separator: "\\n")  \u{20}
+        struct Agent {
+            let name: String
+            func greet(_ people: [String]) -> String {
+                let line = people.map { "Hello, \\($0)! \\(name) has three agents waiting, and one asks to run npm test" }
+                return line.joined(separator: "\\n")  \u{20}
+            }
         }
-    }
-    """
+        """
 
-    func makeCoordinator() -> CodeEditor { CodeEditor(text: Self.sample, url: URL(fileURLWithPath: "/sample.swift"), editable: false) }
+    func makeCoordinator() -> CodeEditor {
+        CodeEditor(text: Self.sample, url: URL(fileURLWithPath: "/sample.swift"), editable: false)
+    }
     func makeNSView(context: Context) -> NSView { context.coordinator.view }
 
     func updateNSView(_ view: NSView, context: Context) {
         let e = context.coordinator, s = app.settings
         _ = app.themes.editorRevision   // font, colors and wrapping are the editor's own (ThemeManager sets them)
-        e.rulers = s.string("editor.rulers").map { $0.split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 } } ?? []
+        e.rulers =
+            s.string("editor.rulers").map { $0.split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 } } ?? []
         e.whitespace = EditorTextView.WhitespaceMarks(rawValue: s.string("editor.renderWhitespace") ?? "") ?? .selection
         e.bracketColors = s.bool("editor.bracketColors") == true
         e.indentGuides = s.bool("editor.indentGuides") == true

@@ -1,6 +1,6 @@
+import Agents
 import AppKit
 import Core
-import Agents
 import DesignKit
 import WorkbenchKit
 
@@ -17,8 +17,9 @@ final class StartView: NSView {
     var onInstall: ((AgentManifest) -> Void)?
     private lazy var prompt: StartPrompt = {
         let name = app.catalog.all.first { $0.id == def }?.name ?? def
-        return StartPrompt(placeholder: String(localized: "What should \(name) do? Return starts it"),
-                           accessibilityLabel: String(localized: "First task for \(name)"))
+        return StartPrompt(
+            placeholder: String(localized: "What should \(name) do? Return starts it"),
+            accessibilityLabel: String(localized: "First task for \(name)"))
     }()
     private let def: String
     /// What's typed, kept by the area: this view is made again whenever the workspace's agents change.
@@ -40,12 +41,14 @@ final class StartView: NSView {
 
     private let app: AppModel
     init(app: AppModel, worktree w: Worktree) {
-        self.app = app; def = app.catalog.defaultAgent
+        self.app = app
+        def = app.catalog.defaultAgent
         super.init(frame: .zero)
         let repo = app.repo(w.repoId)
         let icon = NSImageView(image: .symbol("folder"))
         if let repo { ProjectIcon.show(repo.path, in: icon, app: app, initial: false) }
-        icon.imageScaling = .scaleProportionallyUpOrDown; icon.symbolConfiguration = .chrome(Metrics.iconHero)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.symbolConfiguration = .chrome(Metrics.iconHero)
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName)
         title.font = .ui(20, weight: .semibold)
@@ -61,7 +64,8 @@ final class StartView: NSView {
         let agents = NewTabChoices.agents(app)
         let open = NewTabChoices.open(app, w) { [weak self] in self?.onOpen?("terminal:") }
         let hint = NSTextField(labelWithString: String(localized: "A file, an agent or a command: ⌘P"))
-        hint.font = .ui(12); hint.textColor = .secondaryLabelColor
+        hint.font = .ui(12)
+        hint.textColor = .secondaryLabelColor
 
         var views: [NSView] = [icon, title, folder]
         let field = agents.contains { $0.id == def } ? promptField() : nil
@@ -76,30 +80,41 @@ final class StartView: NSView {
         stack.alignment = .centerX
         stack.spacing = 4
         stack.detachesHiddenViews = true
-        stack.setCustomSpacing(14, after: icon); stack.setCustomSpacing(24, after: folder.isHidden ? title : folder)
+        stack.setCustomSpacing(14, after: icon)
+        stack.setCustomSpacing(24, after: folder.isHidden ? title : folder)
         if let field { stack.setCustomSpacing(22, after: field) }
-        for (v, after) in [(agentsHead, 6), (openHead, 6)] as [(NSView, CGFloat)] { stack.setCustomSpacing(after, after: v) }
-        stack.setCustomSpacing(18, after: agentList); stack.setCustomSpacing(14, after: run)
+        for (v, after) in [(agentsHead, 6), (openHead, 6)] as [(NSView, CGFloat)] {
+            stack.setCustomSpacing(after, after: v)
+        }
+        stack.setCustomSpacing(18, after: agentList)
+        stack.setCustomSpacing(14, after: run)
         // In a scroll view: a low window scrolls the list rather than growing to hold it.
-        let page = FlippedView(); page.translatesAutoresizingMaskIntoConstraints = false
+        let page = FlippedView()
+        page.translatesAutoresizingMaskIntoConstraints = false
         let scroll = NSScrollView()
         scroll.documentView = page
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         pin(scroll)
-        stack.translatesAutoresizingMaskIntoConstraints = false; page.addSubview(stack)
-        let width = stack.widthAnchor.constraint(equalToConstant: 460); width.priority = .defaultHigh
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        page.addSubview(stack)
+        let width = stack.widthAnchor.constraint(equalToConstant: 460)
+        width.priority = .defaultHigh
         // A little above the middle; in a low window it starts at the top instead of going under it.
-        let middle = stack.centerYAnchor.constraint(equalTo: page.centerYAnchor, constant: -30); middle.priority = .defaultHigh
+        let middle = stack.centerYAnchor.constraint(equalTo: page.centerYAnchor, constant: -30)
+        middle.priority = .defaultHigh
         NSLayoutConstraint.activate([
             page.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
             page.heightAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.heightAnchor),
-            page.heightAnchor.constraint(equalTo: scroll.contentView.heightAnchor).withPriority(NSLayoutConstraint.Priority.defaultLow.rawValue),
-            stack.centerXAnchor.constraint(equalTo: page.centerXAnchor), middle, stack.topAnchor.constraint(greaterThanOrEqualTo: page.topAnchor, constant: 24),
+            page.heightAnchor.constraint(equalTo: scroll.contentView.heightAnchor).withPriority(
+                NSLayoutConstraint.Priority.defaultLow.rawValue),
+            stack.centerXAnchor.constraint(equalTo: page.centerXAnchor), middle,
+            stack.topAnchor.constraint(greaterThanOrEqualTo: page.topAnchor, constant: 24),
             page.bottomAnchor.constraint(greaterThanOrEqualTo: stack.bottomAnchor, constant: 24),
             width, stack.leadingAnchor.constraint(greaterThanOrEqualTo: page.leadingAnchor, constant: 24),
             icon.widthAnchor.constraint(equalToConstant: 56), icon.heightAnchor.constraint(equalToConstant: 56),
-            title.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor), folder.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor)
+            title.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor),
+            folder.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor)
         ])
         // The groups' headings over their rows' icons; the field, the tiles and the cards as wide as the page.
         for v in [agentsHead, openHead, run.head] {
@@ -117,7 +132,8 @@ final class StartView: NSView {
 
     static func heading(_ text: String) -> NSTextField {
         let t = NSTextField(labelWithString: text)
-        t.font = .ui(11, weight: .semibold); t.textColor = .secondaryLabelColor
+        t.font = .ui(11, weight: .semibold)
+        t.textColor = .secondaryLabelColor
         return t
     }
 
@@ -127,7 +143,9 @@ final class StartView: NSView {
         let app = self.app
         var all: [AgentTile] = agents.prefix(NewTabChoices.shown).map { a in
             let key = a.id == def ? NewTabChoices.defaultKey(app).map(KeyBindings.display) : nil
-            let t = AgentTile(image: app.catalog.icon(a.id, size: Metrics.iconEmpty), title: a.name, key: key, isDefault: a.id == def) { [weak self] in
+            let t = AgentTile(
+                image: app.catalog.icon(a.id, size: Metrics.iconEmpty), title: a.name, key: key, isDefault: a.id == def
+            ) { [weak self] in
                 self?.start(a.id)
             }
             tilesById[a.id] = t
@@ -136,7 +154,10 @@ final class StartView: NSView {
         let rest = Array(agents.dropFirst(NewTabChoices.shown))
         let catalog: @MainActor () -> Void = { SettingsWindow.show(app, section: "catalog") }
         if rest.isEmpty {
-            all.append(AgentTile(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), key: nil, isDefault: false, action: catalog))
+            all.append(
+                AgentTile(
+                    image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), key: nil,
+                    isDefault: false, action: catalog))
         } else {
             weak var tile: AgentTile?
             let icons = rest.prefix(3).map { app.catalog.icon($0.id, size: Metrics.iconMenu) }
@@ -171,18 +192,25 @@ final class StartView: NSView {
     /// No agent on this Mac: what to install, then the catalog.
     private func installRows() -> [NSView] {
         let app = self.app
-        let none = NSTextField(wrappingLabelWithString: String(localized: "No agent found on this Mac. Install one: its installer runs in a terminal here, and the agent is offered when it’s done."))
+        let none = NSTextField(
+            wrappingLabelWithString: String(
+                localized:
+                    "No agent found on this Mac. Install one: its installer runs in a terminal here, and the agent is offered when it’s done."
+            ))
         none.textColor = .secondaryLabelColor
         var rows: [NSView] = [StartView.padded(none)]
         rows += app.catalog.suggested.map { m in
-            StartRow(image: app.catalog.icon(m.id, size: 20), title: m.name, detail: app.catalog.about(m.id), shortcut: nil) { [weak self] in
+            StartRow(
+                image: app.catalog.icon(m.id, size: 20), title: m.name, detail: app.catalog.about(m.id), shortcut: nil
+            ) { [weak self] in
                 self?.onInstall?(m)
             }
         }
         // Installing, updating and setting up agents is the catalog's (Settings), not something the "+" menu starts.
-        rows.append(StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
-            SettingsWindow.show(app, section: "catalog")
-        })
+        rows.append(
+            StartRow(image: .symbol("square.grid.2x2"), title: String(localized: "Agent Catalog…"), shortcut: nil) {
+                SettingsWindow.show(app, section: "catalog")
+            })
         return rows
     }
 
@@ -199,7 +227,9 @@ final class StartView: NSView {
         planSwitch.restFill = .fillRest
         planSwitch.setContentCompressionResistancePriority(.required, for: .horizontal)
         showPlans(in: stack, after: under)
-        track(owner: self) { [app] in app.latest(LimitsEvent.self)?.usage } changed: { [weak self, weak stack] _ in
+        track(owner: self) { [app] in
+            app.latest(LimitsEvent.self)?.usage
+        } changed: { [weak self, weak stack] _ in
             if let stack { self?.showPlans(in: stack, after: under) }
         }
     }
@@ -241,7 +271,8 @@ final class StartView: NSView {
         let row = NSStackView(views: [icon, prompt])
         row.spacing = 10
         row.alignment = .top
-        let line = NSBox(); line.boxType = .separator
+        let line = NSBox()
+        line.boxType = .separator
         let make = MakeChips { [weak self] k in self?.draftMake(k) }
         let column = NSStackView(views: [row, line, make])
         column.orientation = .vertical
@@ -267,7 +298,8 @@ final class StartView: NSView {
     }
 
     static func padded(_ v: NSView) -> NSView {
-        let p = NSStackView(views: [v]); p.edgeInsets = NSEdgeInsets(top: 10, left: headInset, bottom: 10, right: headInset)
+        let p = NSStackView(views: [v])
+        p.edgeInsets = NSEdgeInsets(top: 10, left: headInset, bottom: 10, right: headInset)
         return p
     }
 }
@@ -284,7 +316,8 @@ private final class StartBox: NSView {
     required init?(coder: NSCoder) { fatalError() }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
-        layer?.cornerRadius = radius; layer?.cornerCurve = .continuous
+        layer?.cornerRadius = radius
+        layer?.cornerCurve = .continuous
         layer?.borderWidth = 1
         layer?.borderColor = NSColor.separatorColor.cgColor
         layer?.backgroundColor = NSColor.fillRest.cgColor
@@ -300,16 +333,20 @@ private final class StartCard: NSView {
     init(rows: [NSView], columns: Int = 1) {
         super.init(frame: .zero)
         let box = StartBox(radius: Metrics.radiusXL)   // the card
-        let lines: [NSView] = columns == 1 ? rows : stride(from: 0, to: rows.count, by: columns).map { i in
-            let pair = NSStackView(views: (i..<i + columns).map { $0 < rows.count ? rows[$0] : NSView() })
-            pair.distribution = .fillEqually
-            pair.spacing = Self.inset
-            return pair
-        }
+        let lines: [NSView] =
+            columns == 1
+            ? rows
+            : stride(from: 0, to: rows.count, by: columns).map { i in
+                let pair = NSStackView(views: (i..<i + columns).map { $0 < rows.count ? rows[$0] : NSView() })
+                pair.distribution = .fillEqually
+                pair.spacing = Self.inset
+                return pair
+            }
         var views: [NSView] = []
         for (i, r) in lines.enumerated() {
             if i > 0 {
-                let sep = NSBox(); sep.boxType = .separator
+                let sep = NSBox()
+                sep.boxType = .separator
                 views.append(sep)
             }
             views.append(r)
@@ -318,10 +355,15 @@ private final class StartCard: NSView {
         list.orientation = .vertical
         list.spacing = 0
         list.edgeInsets = NSEdgeInsets(top: Self.inset, left: Self.inset, bottom: Self.inset, right: Self.inset)
-        pin(box); pin(list)
+        pin(box)
+        pin(list)
         for v in views {
-            if v is NSBox { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -40).isActive = true }   // inset like grouped lists
-            else { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Self.inset).isActive = true }
+            if v is NSBox {
+                v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -40).isActive = true
+            }   // inset like grouped lists
+            else {
+                v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Self.inset).isActive = true
+            }
         }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -339,7 +381,9 @@ private final class RunGroup: NSStackView {
         alignment = .leading
         spacing = 6
         edgeInsets = NSEdgeInsets(top: 18, left: 0, bottom: 0, right: 0)
-        track(owner: self) { app.scripts.offer(wid) } changed: { [weak self] _ in
+        track(owner: self) {
+            app.scripts.offer(wid)
+        } changed: { [weak self] _ in
             self?.show(NewTabChoices.run(app, workspace: wid))
         }
     }
@@ -372,8 +416,10 @@ private final class StartRow: NSView {
         self.action = action
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = Metrics.radiusMD; layer?.cornerCurve = .continuous
-        let icon = NSImageView(image: image ?? NSImage()); icon.symbolConfiguration = .chrome(Metrics.iconLarge)
+        layer?.cornerRadius = Metrics.radiusMD
+        layer?.cornerCurve = .continuous
+        let icon = NSImageView(image: image ?? NSImage())
+        icon.symbolConfiguration = .chrome(Metrics.iconLarge)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
         let label = NSTextField(labelWithString: title)
         label.font = .ui(13)
@@ -382,31 +428,49 @@ private final class StartRow: NSView {
         let more = NSTextField(labelWithString: detail ?? "")
         more.textColor = .secondaryLabelColor
         more.font = .ui(12)
-        more.lineBreakMode = .byTruncatingTail; more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins
+        more.lineBreakMode = .byTruncatingTail
+        more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins
         let key = NSTextField(labelWithString: shortcut ?? "")
         key.textColor = .secondaryLabelColor
         key.font = .ui(12)
         let row = NSStackView(views: [icon, label, NSView(), more, key])
         row.spacing = 10
         row.detachesHiddenViews = true
-        more.isHidden = detail == nil; key.isHidden = shortcut == nil
+        more.isHidden = detail == nil
+        key.isHidden = shortcut == nil
         row.edgeInsets = NSEdgeInsets(top: 0, left: Self.inset, bottom: 0, right: Self.inset)
         pin(row)
-        NSLayoutConstraint.activate([heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowCard)),
-                                     icon.widthAnchor.constraint(equalToConstant: Metrics.iconButton)])
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowCard)),
+            icon.widthAnchor.constraint(equalToConstant: Metrics.iconButton)
+        ])
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(title)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) { hover = true; fadeBackground(to: .fillHover) }
-    override func mouseExited(with e: NSEvent) { hover = false; fadeBackground(to: nil) }
+    override func mouseEntered(with e: NSEvent) {
+        hover = true
+        fadeBackground(to: .fillHover)
+    }
+    override func mouseExited(with e: NSEvent) {
+        hover = false
+        fadeBackground(to: nil)
+    }
     override func mouseDown(with e: NSEvent) { fadeBackground(to: .fillSelected, held: true) }
     override func mouseUp(with e: NSEvent) {
         fadeBackground(to: hover ? .fillHover : nil)
-        if bounds.contains(convert(e.locationInWindow, from: nil)) { pressBounce(); action() }
+        if bounds.contains(convert(e.locationInWindow, from: nil)) {
+            pressBounce()
+            action()
+        }
     }
-    override func accessibilityPerformPress() -> Bool { action(); return true }
+    override func accessibilityPerformPress() -> Bool {
+        action()
+        return true
+    }
 }

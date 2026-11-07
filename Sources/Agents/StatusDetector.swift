@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Derives agent status from output and idle time. Hook events always win over heuristics.
 public struct StatusDetector: Sendable {
@@ -49,11 +49,16 @@ public struct StatusDetector: Sendable {
         let text = Self.stripANSI(chunk)
         tail = String((tail + text).suffix(600))
         // However long the connection took (ssh, then tmux's attach), the redraw is measured from when it starts.
-        if redrawDue { redrawDue = false; settledAt = now }
+        if redrawDue {
+            redrawDue = false
+            settledAt = now
+        }
         // Redraws with no words (spinners, timers, borders) aren't the agent doing anything; a spinner in front of the
         // title is: Codex turns one there every second while it works ("⠋ Fix login | shop"), a long command printing nothing.
-        guard active, Self.hasWords(text) || Self.spinsTitle(chunk), now.timeIntervalSince(settledAt ?? .distantPast) > 4,
-              now.timeIntervalSince(typedAt ?? .distantPast) > 2 else { return }
+        guard active, Self.hasWords(text) || Self.spinsTitle(chunk),
+            now.timeIntervalSince(settledAt ?? .distantPast) > 4,
+            now.timeIntervalSince(typedAt ?? .distantPast) > 2
+        else { return }
         lastOutput = now
         status = .working
         source = "screen: it printed words"
@@ -63,12 +68,13 @@ public struct StatusDetector: Sendable {
     static func wholeSequences(_ s: String) -> (whole: String, rest: String) {
         guard let esc = s.lastIndex(of: "\u{1B}") else { return (s, "") }
         let seq = Array(s[esc...].unicodeScalars)
-        let done: Bool = switch seq.count > 1 ? seq[1] : "\u{0}" {
-        case "\u{0}": false
-        case "[": seq.dropFirst(2).contains { (0x40...0x7E).contains($0.value) }   // CSI: its final byte
-        case "]", "P", "_", "^": seq.contains("\u{07}")   // OSC and the like: BEL (an ESC \ ending is its own ESC)
-        default: true
-        }
+        let done: Bool =
+            switch seq.count > 1 ? seq[1] : "\u{0}" {
+            case "\u{0}": false
+            case "[": seq.dropFirst(2).contains { (0x40...0x7E).contains($0.value) }   // CSI: its final byte
+            case "]", "P", "_", "^": seq.contains("\u{07}")   // OSC and the like: BEL (an ESC \ ending is its own ESC)
+            default: true
+            }
         return done ? (s, "") : (String(s[..<esc]), String(s[esc...]))
     }
 
@@ -87,9 +93,12 @@ public struct StatusDetector: Sendable {
     /// Call periodically; returns the (possibly new) status.
     @discardableResult
     public mutating func tick(at now: Date = clock) -> AgentStatus {
-        guard !hooked, status == .working, let last = lastOutput, now.timeIntervalSince(last) >= manifest.quietSeconds else { return status }
+        guard !hooked, status == .working, let last = lastOutput, now.timeIntervalSince(last) >= manifest.quietSeconds
+        else { return status }
         status = asks ? .waiting : .done
-        source = "screen: quiet for \(Int(manifest.quietSeconds)) s" + (status == .waiting ? ", and its last lines ask something" : "")
+        source =
+            "screen: quiet for \(Int(manifest.quietSeconds)) s"
+            + (status == .waiting ? ", and its last lines ask something" : "")
         settledAt = now
         return status
     }
@@ -137,19 +146,25 @@ public struct StatusDetector: Sendable {
     /// Its hooks never spoke after a prompt: from here it's read off the screen like an agent without any, until a hook comes.
     public mutating func hooksSilent(at now: Date = clock) {
         guard !settled else { return }
-        hooked = false; active = true
-        status = .working; source = "no hook came after a prompt, so it's read off the screen"
+        hooked = false
+        active = true
+        status = .working
+        source = "no hook came after a prompt, so it's read off the screen"
         lastOutput = now
     }
 
     /// A question it asked was answered: it goes on, or it settles once quiet. An agent with hooks has `override`: they say the rest.
     public mutating func answered(at now: Date = clock) {
         guard !settled else { return }
-        status = .working; source = "an answer typed in the terminal"
+        status = .working
+        source = "an answer typed in the terminal"
         lastOutput = now
     }
 
-    public mutating func exited() { status = .exited; source = "the program ended" }
+    public mutating func exited() {
+        status = .exited
+        source = "the program ended"
+    }
 
     /// Attached again to a program that kept running (tmux): what it prints is its work, typed or not, once tmux's redraw
     /// of the screen in the first seconds is past (that redraw is no turn, and its end no "done").
@@ -164,8 +179,12 @@ public struct StatusDetector: Sendable {
     /// opt-in banner as "allow … to") would otherwise keep an agent idling at its prompt in Needs You until it prints again.
     /// `hooked`: whether it said its status itself there, so a question it asked stays; nil from a kelpd that doesn't say,
     /// when its OSC 7501 on the screen tells.
-    public mutating func adopted(_ status: AgentStatus, screen: String = "", hooked said: Bool? = nil, at now: Date = clock) {
-        self.status = status; active = true; source = "taken over from the kelpd an update replaced"
+    public mutating func adopted(
+        _ status: AgentStatus, screen: String = "", hooked said: Bool? = nil, at now: Date = clock
+    ) {
+        self.status = status
+        active = true
+        source = "taken over from the kelpd an update replaced"
         tail = String(Self.stripANSI(screen).suffix(600))
         if let said { hooked = said }
         if status == .working { lastOutput = now }   // it settles once quiet, as it would have
@@ -176,7 +195,12 @@ public struct StatusDetector: Sendable {
 
     /// The user typed into the agent: whatever it asked before is answered, only what it prints next can ask again.
     /// `typing`: keys without Return (the prompt is still being written); output in the next seconds is their echo.
-    public mutating func input(typing: Bool = false, at now: Date = clock) { tail = ""; active = true; settledAt = nil; typedAt = typing ? now : nil }
+    public mutating func input(typing: Bool = false, at now: Date = clock) {
+        tail = ""
+        active = true
+        settledAt = nil
+        typedAt = typing ? now : nil
+    }
 
     /// The agent printed that its turn was cut short: idle at once, and its redraws in the next seconds ("Conversation
     /// interrupted") aren't new work.
@@ -190,7 +214,8 @@ public struct StatusDetector: Sendable {
     /// A better guess from elsewhere (local model) that does not switch heuristics off like a hook does.
     public mutating func override(_ s: AgentStatus, because why: String = "set by Kelp") {
         guard (status != .exited && status != .paused) || s == .paused else { return }
-        status = s; source = why
+        status = s
+        source = why
     }
 
     // TUIs often place words with cursor moves instead of spaces; keep a space there so text stays readable. Codex puts
@@ -198,12 +223,15 @@ public struct StatusDetector: Sendable {
     private static let cursorMoves = try? NSRegularExpression(pattern: #"\x{1B}\[[\d;]*[GCHf]"#)
     // Character set selections too (ESC ( B, ESC ) 0…): Grok ends each redraw with one, and its "B"s read as words, a redraw as work.
     private static let escapes = try? NSRegularExpression(
-        pattern: #"\x{1B}\[[0-9;?<>=]*[ -/]*[@-~]|\x{1B}\][^\x{07}\x{1B}]*(\x{07}|\x{1B}\\)|\x{1B}[78=>]|\x{1B}[()*+]."#)
+        pattern: #"\x{1B}\[[0-9;?<>=]*[ -/]*[@-~]|\x{1B}\][^\x{07}\x{1B}]*(\x{07}|\x{1B}\\)|\x{1B}[78=>]|\x{1B}[()*+]."#
+    )
 
     /// Runs on every chunk of every session: compiled once, and text without an escape is returned as is.
     public static func stripANSI(_ s: String) -> String {
         guard s.utf8.contains(0x1B), let cursorMoves, let escapes else { return s }
-        let spaced = cursorMoves.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
-        return escapes.stringByReplacingMatches(in: spaced, range: NSRange(spaced.startIndex..., in: spaced), withTemplate: "")
+        let spaced = cursorMoves.stringByReplacingMatches(
+            in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
+        return escapes.stringByReplacingMatches(
+            in: spaced, range: NSRange(spaced.startIndex..., in: spaced), withTemplate: "")
     }
 }

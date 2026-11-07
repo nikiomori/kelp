@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// An iOS machine: a simulator of the user's Xcode ("Kelp <name>", in the default device set: xcodebuild sees no other), and
 /// Kelp's runner in it (`IOSRunner`, built into the machine's folder), which agents' commands reach on the Mac's loopback.
@@ -15,14 +15,19 @@ final class IOSRuntime {
     private var sources: [DispatchSourceProtocol] = []
 
     private var udid: String {
-        (try? String(contentsOf: folder.appendingPathComponent("udid"), encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        (try? String(contentsOf: folder.appendingPathComponent("udid"), encoding: .utf8))?.trimmingCharacters(
+            in: .whitespacesAndNewlines) ?? ""
     }
 
-    init(folder: URL, machine: VMMachine) { self.folder = folder; self.machine = machine }
+    init(folder: URL, machine: VMMachine) {
+        self.folder = folder
+        self.machine = machine
+    }
 
     func listen() {
         // Its lock is held already (main.swift).
-        sources.append(Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
+        sources.append(
+            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
         sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.stop { exit(0) } })
         log("ready: \(machine.name) (iOS \(udid)), off")
     }
@@ -37,8 +42,9 @@ final class IOSRuntime {
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .starting].contains(state)
         let using = state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0   // kelpd's budget sleeps an idle one only
-        var r = VMHelper.Reply(state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
-                               serial: state == .running ? udid : nil)
+        var r = VMHelper.Reply(
+            state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
+            serial: state == .running ? udid : nil)
         r.port = state == .running ? port : nil
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
         close(fd)
@@ -47,9 +53,18 @@ final class IOSRuntime {
     private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         switch r.op {
         case .status: done(nil)
-        case .start where r.begins: lastUse = Date(); wake { _ in }; done(nil)   // kelpd's wake: answered as it starts
-        case .start: lastUse = Date(); wake(done)
-        case .sleep, .stop: stop { done(nil); exit(0) }   // a simulator keeps no running state to save; the next start is a new kelp-vm
+        case .start where r.begins:
+            lastUse = Date()
+            wake { _ in }
+            done(nil)   // kelpd's wake: answered as it starts
+        case .start:
+            lastUse = Date()
+            wake(done)
+        case .sleep, .stop:
+            stop {
+                done(nil)
+                exit(0)
+            }   // a simulator keeps no running state to save; the next start is a new kelp-vm
         case .share: done("An iOS machine shares no folders: kelp vm install takes an app from here.")
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
@@ -81,25 +96,36 @@ final class IOSRuntime {
         do {
             _ = try await simctl(["boot", udid], allowFailure: true)
             _ = try await simctl(["bootstatus", udid, "-b"])
-            guard let xctestrun = try FileManager.default.contentsOfDirectory(at: folder.appendingPathComponent("dd/Build/Products"),
-                                                                              includingPropertiesForKeys: nil).first(where: { $0.pathExtension == "xctestrun" })
+            guard
+                let xctestrun = try FileManager.default.contentsOfDirectory(
+                    at: folder.appendingPathComponent("dd/Build/Products"),
+                    includingPropertiesForKeys: nil
+                ).first(where: { $0.pathExtension == "xctestrun" })
             else { throw VMError("Kelp's runner isn't built in \(machine.name)'s folder: make the machine again.") }
             port = AndroidRuntime.freePort(from: 8700)
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
-            p.arguments = ["xcodebuild", "test-without-building", "-xctestrun", xctestrun.path, "-destination", "id=\(udid)"]
+            p.arguments = [
+                "xcodebuild", "test-without-building", "-xctestrun", xctestrun.path, "-destination", "id=\(udid)"
+            ]
             var env = ProcessInfo.processInfo.environment
             env["TEST_RUNNER_KELP_PORT"] = "\(port)"
             p.environment = env
             let out = folder.appendingPathComponent("runner.log")
             FileManager.default.createFile(atPath: out.path, contents: nil)
-            if let h = try? FileHandle(forWritingTo: out) { p.standardOutput = h; p.standardError = h }
+            if let h = try? FileHandle(forWritingTo: out) {
+                p.standardOutput = h
+                p.standardError = h
+            }
             p.terminationHandler = { [weak self] ended in
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {   // the main queue
                         guard let self, self.runner === ended else { return }
                         self.runner = nil
-                        if self.state == .running { self.state = .off; log("the runner ended: see runner.log") }
+                        if self.state == .running {
+                            self.state = .off
+                            log("the runner ended: see runner.log")
+                        }
                     }
                 }
             }
@@ -108,7 +134,9 @@ final class IOSRuntime {
             let since = Date()
             while Date().timeIntervalSince(since) < 180 {
                 if await ping() { return started(nil) }
-                guard runner != nil else { throw VMError("Kelp's runner quit: see runner.log in \(machine.name)'s folder.") }
+                guard runner != nil else {
+                    throw VMError("Kelp's runner quit: see runner.log in \(machine.name)'s folder.")
+                }
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
             throw VMError("Kelp's runner didn't answer in 3 minutes.")
@@ -116,10 +144,14 @@ final class IOSRuntime {
     }
 
     private func started(_ error: Error?) {
-        if let error { log("start failed: \(error.localizedDescription)"); runner?.terminate() }
+        if let error {
+            log("start failed: \(error.localizedDescription)")
+            runner?.terminate()
+        }
         state = error == nil ? .running : .error
         lastUse = Date()
-        let waiting = ready; ready = []
+        let waiting = ready
+        ready = []
         waiting.forEach { $0(error?.localizedDescription) }
     }
 
@@ -149,8 +181,11 @@ final class IOSRuntime {
     }
 
     private func simctl(_ args: [String], allowFailure: Bool = false) async throws -> String {
-        let out = try await Subprocess.run(["/usr/bin/xcrun", "simctl"] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 300)
-        guard out.status == 0 || allowFailure else { throw VMError("simctl \(args.first ?? ""): " + String(decoding: out.stderr, as: UTF8.self)) }
+        let out = try await Subprocess.run(
+            ["/usr/bin/xcrun", "simctl"] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 300)
+        guard out.status == 0 || allowFailure else {
+            throw VMError("simctl \(args.first ?? ""): " + String(decoding: out.stderr, as: UTF8.self))
+        }
         return String(decoding: out.stdout, as: UTF8.self)
     }
 }

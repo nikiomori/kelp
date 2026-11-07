@@ -46,8 +46,10 @@ public enum Subprocess {
     /// `argv[0]` is a path. `env` is the whole environment. Past `limit` bytes a stream is still read to its end, so the
     /// program ends as it would have (its exit status, whatever it does besides printing), but the rest is dropped and
     /// the output is `truncated`: a caller that needs all of it fails then, one that can show a part says so.
-    public static func run(_ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
-                           limit: Int = outputLimit) throws -> Output {
+    public static func run(
+        _ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
+        limit: Int = outputLimit
+    ) throws -> Output {
         if Thread.current.threadDictionary[quickOnlyKey] != nil {
             let name = argv.first.map { ($0 as NSString).lastPathComponent } ?? "A program"
             throw RPCError.internalError("\(name) can't run from a quick or in-order call: it would hold up others.")
@@ -58,18 +60,24 @@ public enum Subprocess {
         p.currentDirectoryURL = URL(fileURLWithPath: cwd)
         p.environment = env
         let out = Reader(limit), err = Reader(limit), inp = stdin.map { _ in Pipe() }
-        p.standardOutput = out.pipe; p.standardError = err.pipe; p.standardInput = inp ?? FileHandle.nullDevice
+        p.standardOutput = out.pipe
+        p.standardError = err.pipe
+        p.standardInput = inp ?? FileHandle.nullDevice
         let exited = DispatchSemaphore(value: 0)
         p.terminationHandler = { _ in exited.signal() }   // set before it starts: one that exits at once isn't missed
         try p.run()
         let pid = p.processIdentifier
         running.withLock { _ = $0.insert(pid) }
         defer { running.withLock { _ = $0.remove(pid) } }
-        out.start(); err.start()
+        out.start()
+        err.start()
         if let inp, let stdin {
             let w = inp.fileHandleForWriting
             _ = fcntl(w.fileDescriptor, F_SETNOSIGPIPE, 1)
-            Thread.detachNewThread { try? w.write(contentsOf: stdin); try? w.close() }
+            Thread.detachNewThread {
+                try? w.write(contentsOf: stdin)
+                try? w.close()
+            }
         }
         var timedOut = false, ended = true
         if exited.wait(timeout: .now() + timeLimit) == .timedOut {
@@ -82,15 +90,22 @@ public enum Subprocess {
         // they're let go, or a reader thread and a pipe would stay as long as that child (an ssh master, a daemon).
         for r in [out, err] where r.done.wait(timeout: .now() + 2) == .timedOut { r.abandon() }
         // Its status only once it has exited: asking a Process still running raises, and would take the daemon down.
-        return Output(status: ended ? p.terminationStatus : -1, stdout: out.data, stderr: err.data, timedOut: timedOut,
-                      truncated: out.truncated || err.truncated)
+        return Output(
+            status: ended ? p.terminationStatus : -1, stdout: out.data, stderr: err.data, timedOut: timedOut,
+            truncated: out.truncated || err.truncated)
     }
 
     /// `run` without holding the caller's thread (for async callers: the app's main actor, the cooperative pool).
-    public static func run(_ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
-                           limit: Int = outputLimit) async throws -> Output {
+    public static func run(
+        _ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
+        limit: Int = outputLimit
+    ) async throws -> Output {
         try await withCheckedThrowingContinuation { c in
-            Thread.detachNewThread { c.resume(with: Result { try run(argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit) }) }
+            Thread.detachNewThread {
+                c.resume(
+                    with: Result { try run(argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit) }
+                )
+            }
         }
     }
 
@@ -235,16 +250,26 @@ public enum Subprocess {
                     let r = poll(&ready, 1, 500)
                     // Closed here, after the last read: the Process holds the pipe too, so it wouldn't close with this.
                     // Checked on every turn: a child that keeps writing would otherwise keep the thread for its life.
-                    if abandoned.withLock({ $0 }) { try? pipe.fileHandleForReading.close(); break }
+                    if abandoned.withLock({ $0 }) {
+                        try? pipe.fileHandleForReading.close()
+                        break
+                    }
                     if r == 0 || (r < 0 && errno == EINTR) { continue }
                     let n = read(fd, &buf, buf.count)
                     if n > 0 {
                         // Past the limit it's still read (a full pipe would stop the program) and dropped.
                         let keep = min(n, room)
                         room -= keep
-                        if keep > 0 { let chunk = Data(buf[0..<keep]); kept.withLock { $0.data.append(chunk) } }
+                        if keep > 0 {
+                            let chunk = Data(buf[0..<keep])
+                            kept.withLock { $0.data.append(chunk) }
+                        }
                         if keep < n { kept.withLock { $0.truncated = true } }
-                    } else if n < 0, errno == EINTR { continue } else { break }
+                    } else if n < 0, errno == EINTR {
+                        continue
+                    } else {
+                        break
+                    }
                 }
                 withExtendedLifetime(pipe) { _ = done.signal() }
             }

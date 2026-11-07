@@ -1,7 +1,7 @@
-import Foundation
-import os
 import Core
+import Foundation
 import GitKit
+import os
 
 /// What clients watch (`watch.start`). A topic and key is read only while someone watches it, once for all of them, and
 /// pushed to them when it changed: the first value right away, the last one to whoever joins. A git topic is read when its
@@ -10,15 +10,15 @@ import GitKit
 final class Watches: Sendable {
     struct Key: Hashable, Sendable { let topic: WatchTopic, key: String }
     private struct Entry {
-        let number: Int                // this watch's: a read begun for one stopped since says nothing to the next
+        let number: Int   // this watch's: a read begun for one stopped since says nothing to the next
         var watchers: Set<Int>
-        var last: Data?                // the event as last sent (sorted keys): the next goes out only when it differs
+        var last: Data?   // the event as last sent (sorted keys): the next goes out only when it differs
         var reading = false, again = false
-        var timer: Int?                // the scheduled read's number; a newer one (or none) makes it a no-op
+        var timer: Int?   // the scheduled read's number; a newer one (or none) makes it a no-op
         var files: FileWatcher?
         var fastUntil = Date.distantPast
-        var tag: String?               // context: the session's status at the last read
-        var quiet = 0                  // reads in a row that found nothing new
+        var tag: String?   // context: the session's status at the last read
+        var quiet = 0   // reads in a row that found nothing new
     }
     private let entries = OSAllocatedUnfairLock<[Key: Entry]>(initialState: [:])
     private let closed = OSAllocatedUnfairLock(initialState: false)
@@ -48,29 +48,51 @@ final class Watches: Sendable {
 
     func start(_ k: Key, conn: Int) {
         guard !closed.withLock({ $0 }) else { return }   // the daemon stopped them all: a late watch.start starts none
-        let n = numbers.withLock { $0 += 1; return $0 }
+        let n = numbers.withLock {
+            $0 += 1
+            return $0
+        }
         let (new, again, last) = entries.withLock { e -> (Bool, Bool, Data?) in
-            guard var x = e[k] else { e[k] = Entry(number: n, watchers: [conn]); return (true, false, nil) }
+            guard var x = e[k] else {
+                e[k] = Entry(number: n, watchers: [conn])
+                return (true, false, nil)
+            }
             let again = !x.watchers.insert(conn).inserted
-            if again { x.fastUntil = Date().addingTimeInterval(45); x.quiet = 0 }
+            if again {
+                x.fastUntil = Date().addingTimeInterval(45)
+                x.quiet = 0
+            }
             e[k] = x
             return (false, again, x.last)
         }
         // Stopped while this was taking its place: it goes too, rather than run on unseen.
         if closed.withLock({ $0 }) {
-            let late = entries.withLock { e in defer { e = [:] }; return e }
+            let late = entries.withLock { e in
+                defer { e = [:] }
+                return e
+            }
             _ = late
             return
         }
-        if new { begin(k) } else if again { read(k) } else if let last { clients.targets([conn]).forEach { $0.send(last) } }
+        if new {
+            begin(k)
+        } else if again {
+            read(k)
+        } else if let last {
+            clients.targets([conn]).forEach { $0.send(last) }
+        }
     }
 
     func stop(_ k: Key, conn: Int) {
         let gone = entries.withLock { e -> Entry? in
             guard var x = e[k] else { return nil }
             x.watchers.remove(conn)
-            if x.watchers.isEmpty { e[k] = nil; return x }
-            e[k] = x; return nil
+            if x.watchers.isEmpty {
+                e[k] = nil
+                return x
+            }
+            e[k] = x
+            return nil
         }
         _ = gone   // its scheduled read finds it gone; its FileWatcher stops as it goes
     }
@@ -81,7 +103,12 @@ final class Watches: Sendable {
             var out: [Entry] = []
             for (k, var x) in e where x.watchers.contains(conn) {
                 x.watchers.remove(conn)
-                if x.watchers.isEmpty { e[k] = nil; out.append(x) } else { e[k] = x }
+                if x.watchers.isEmpty {
+                    e[k] = nil
+                    out.append(x)
+                } else {
+                    e[k] = x
+                }
             }
             return out
         }
@@ -90,7 +117,10 @@ final class Watches: Sendable {
 
     func stopAll() {
         closed.withLock { $0 = true }
-        let all = entries.withLock { e in defer { e = [:] }; return e }
+        let all = entries.withLock { e in
+            defer { e = [:] }
+            return e
+        }
         _ = all   // released off the lock (a file watch's deinit waits on its own queue)
     }
 
@@ -125,7 +155,8 @@ final class Watches: Sendable {
         case .git, .files, .artifacts:
             guard let w = try? store.worktree(k.key), remotes.of(w.path) == nil else { return nil }
             if k.topic == .artifacts { return (w.path, { $0.contains { $0.contains("/\(Artifacts.folder)/") } }) }
-            let touches = k.topic == .git ? Git.touchesStatus : Git.touchesFileList, ignored = IgnoredFolders(root: w.path, remotes: remotes)
+            let touches = k.topic == .git ? Git.touchesStatus : Git.touchesFileList,
+                ignored = IgnoredFolders(root: w.path, remotes: remotes)
             return (w.path, { touches(ignored.drop($0)) })
         case .file:
             guard k.key.hasPrefix("/"), remotes.containing(k.key) == nil else { return nil }
@@ -144,7 +175,10 @@ final class Watches: Sendable {
     }
 
     private func schedule(_ k: Key, after t: TimeInterval) {
-        let n = numbers.withLock { $0 += 1; return $0 }
+        let n = numbers.withLock {
+            $0 += 1
+            return $0
+        }
         let ok = entries.withLock { e -> Bool in
             guard var x = e[k] else { return false }
             x.timer = n
@@ -184,7 +218,8 @@ final class Watches: Sendable {
                 let changed = line != nil && line != x.last
                 if changed { x.last = line }
                 x.quiet = changed ? 0 : x.quiet + 1
-                let again = x.again; x.again = false
+                let again = x.again
+                x.again = false
                 e[k] = x
                 return (changed ? line : nil, x.watchers, again, x.quiet)
             }
@@ -192,8 +227,9 @@ final class Watches: Sendable {
             if let send { clients.targets(to).forEach { $0.send(send) } }
             // Files changing all through a read: not back to back, or a large repository's git never stops; and not more than
             // 8 s behind either, or a slow repository's panels stay stale while an agent writes.
-            if again { schedule(k, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began)))) }
-            else if let next {
+            if again {
+                schedule(k, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began))))
+            } else if let next {
                 // A backed-off read lands a little apart from the others': every project's watches start and slow down
                 // together, so gh and ssh ran in bursts (10 in one 30 s, then 2 in three minutes).
                 let t = fastUntil > Date() ? next : Self.slowed(k.topic, next, quiet: quiet)
@@ -206,11 +242,12 @@ final class Watches: Sendable {
     /// as long each time, so projects nobody is working on stop costing processes, quota and wake-ups. A change, or a
     /// watcher asking again, starts over. A CI run going on isn't slowed: its clock is short for a reason.
     static func slowed(_ topic: WatchTopic, _ next: TimeInterval, quiet: Int) -> TimeInterval {
-        let polls = switch topic {
-        case .pr, .git, .files, .ports: next >= 10
-        case .ci: next >= 120
-        default: false
-        }
+        let polls =
+            switch topic {
+            case .pr, .git, .files, .ports: next >= 10
+            case .ci: next >= 120
+            default: false
+            }
         guard polls else { return next }
         return min(next * pow(2, Double(min(quiet, 6))), next >= 60 ? next * 8 : 60)
     }

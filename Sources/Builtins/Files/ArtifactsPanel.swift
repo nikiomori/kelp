@@ -8,8 +8,10 @@ import KelpKit
 /// own service in the user's browser, which is signed in to it (Kelp's tabs aren't).
 @MainActor
 final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    private static let symbols = ["doc": "doc.text", "review": "checklist", "slides": "play.rectangle", "design": "square.grid.2x2",
-                                  "dashboard": "chart.bar"]
+    private static let symbols = [
+        "doc": "doc.text", "review": "checklist", "slides": "play.rectangle", "design": "square.grid.2x2",
+        "dashboard": "chart.bar"
+    ]
     private let app: AppModel
     private let table = NSTableView()
     private let empty = EmptyStateView()
@@ -17,19 +19,26 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private lazy var watched = Watched(.artifacts, in: app)
     private var shown = false
 
-    init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
+    init(app: AppModel) {
+        self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let col = NSTableColumn(identifier: .init("a")); col.resizingMask = .autoresizingMask
+        let col = NSTableColumn(identifier: .init("a"))
+        col.resizingMask = .autoresizingMask
         table.addTableColumn(col)
         table.headerView = nil
         table.style = .plain
         table.backgroundColor = .clear
         table.rowHeight = TextSize.of(Metrics.rowTwoLine)
-        table.dataSource = self; table.delegate = self
-        table.target = self; table.action = #selector(open)
-        table.menu = NSMenu(); table.menu?.delegate = self
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.action = #selector(open)
+        table.menu = NSMenu()
+        table.menu?.delegate = self
         let scroll = NSScrollView()
         scroll.documentView = table
         scroll.hasVerticalScroller = true
@@ -44,25 +53,43 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     override func viewDidLoad() {
         super.viewDidLoad()
         // The workspace on screen, its pages, and its chats: who made each page, and whether it's still writing.
-        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.watchShown() }
-        track(owner: self) { [app] in app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items } changed: { [weak self] _ in self?.reload() }
-        track(owner: self) { [app] in app.sessions.map { "\($0.id)\($0.status)" } } changed: { [weak self] _ in self?.reload() }
+        track(owner: self) { [app] in
+            app.workbench.workspaceId
+        } changed: { [weak self] _ in
+            self?.watchShown()
+        }
+        track(owner: self) { [app] in
+            app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
+        } changed: { [weak self] _ in
+            self?.reload()
+        }
+        track(owner: self) { [app] in
+            app.sessions.map { "\($0.id)\($0.status)" }
+        } changed: { [weak self] _ in
+            self?.reload()
+        }
     }
     override func viewDidAppear() {
         super.viewDidAppear()
-        shown = true; watchShown()
+        shown = true
+        watchShown()
     }
     override func viewDidDisappear() {
         super.viewDidDisappear()
-        shown = false; watchShown()
+        shown = false
+        watchShown()
     }
-    private func watchShown() { watched.key = shown ? app.workbench.workspaceId : nil; reload() }
+    private func watchShown() {
+        watched.key = shown ? app.workbench.workspaceId : nil
+        reload()
+    }
 
     private func reload() {
         let list = app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
         rows = list ?? []
-        empty.show(list != nil && rows.isEmpty ? String(localized: "No artifacts yet") : nil, symbol: "doc.richtext",
-                   text: String(localized: "Pages agents make show here."), buttons: [makeButton])
+        empty.show(
+            list != nil && rows.isEmpty ? String(localized: "No artifacts yet") : nil, symbol: "doc.richtext",
+            text: String(localized: "Pages agents make show here."), buttons: [makeButton])
         table.reloadData()
     }
 
@@ -88,32 +115,40 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
         let name = NSTextField(labelWithString: r.title)
-        name.font = .ui(12, weight: .medium); name.lineBreakMode = .byTruncatingTail
+        name.font = .ui(12, weight: .medium)
+        name.lineBreakMode = .byTruncatingTail
         let progress = r.points.flatMap { n in n == 0 ? nil : String(localized: "\(r.answered ?? 0) of \(n) answered") }
-        var about = [s.map { app.catalog.name($0.agent) }, s?.status == .exited ? String(localized: "ended") : nil, progress]
+        var about = [
+            s.map { app.catalog.name($0.agent) }, s?.status == .exited ? String(localized: "ended") : nil, progress
+        ]
         if let u = r.url { about.append(URL(string: u)?.host) }
         let detail = NSTextField(labelWithString: about.compactMap { $0 }.joined(separator: " · "))
-        detail.font = .ui(11); detail.textColor = .secondaryLabelColor
+        detail.font = .ui(11)
+        detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingTail
         detail.isHidden = detail.stringValue.isEmpty   // the name alone, in the middle of the row
         let text = NSStackView(views: [name, detail])
         text.detachesHiddenViews = true
-        text.orientation = .vertical; text.alignment = .leading
+        text.orientation = .vertical
+        text.alignment = .leading
         text.spacing = Metrics.lineGap
         let end: NSView
         if writing(r) {
             let ring = NSProgressIndicator()
-            ring.style = .spinning; ring.controlSize = .small
+            ring.style = .spinning
+            ring.controlSize = .small
             ring.startAnimation(nil)
             ring.toolTip = String(localized: "The agent is writing it")
             end = ring
         } else {
             let when = NSTextField(labelWithString: shortAgo(Date(timeIntervalSince1970: r.created)))
-            when.font = .uiDigits(11); when.textColor = .secondaryLabelColor
+            when.font = .uiDigits(11)
+            when.textColor = .secondaryLabelColor
             end = when
         }
         for x in [name, detail, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
-        let rowView = NSStackView(views: [icon, text, NSView(), end]); rowView.spacing = 8
+        let rowView = NSStackView(views: [icon, text, NSView(), end])
+        rowView.spacing = 8
         rowView.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         return rowView
@@ -125,7 +160,9 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         // Only a web page: the record may be a cloned repository's (`Artifacts.record` refuses any other scheme too).
         if r.url != nil {
             if let u = URL(string: r.target), u.scheme == "https" { PreviewLinks.openOutside(u) }
-        } else { app.workbench.open(r.target) }
+        } else {
+            app.workbench.open(r.target)
+        }
     }
 
     func menuNeedsUpdate(_ m: NSMenu) {
@@ -138,9 +175,14 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
         m.addItem(.separator())
         if let u = r.url {
-            m.add(String(localized: "Copy Link")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(u, forType: .string) }
+            m.add(String(localized: "Copy Link")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(u, forType: .string)
+            }
         } else {
-            m.add(String(localized: "Show in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.target)]) }
+            m.add(String(localized: "Show in Finder")) {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.target)])
+            }
         }
     }
 }

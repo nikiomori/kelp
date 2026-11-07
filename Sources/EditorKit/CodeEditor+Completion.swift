@@ -18,7 +18,8 @@ extension CodeEditor {
 
     /// Only the snippets for this file: a way to see them.
     public func showSnippets() {
-        let at = textView.selectedRange().location, start = min(Self.word(at: at, in: textView.string as NSString).location, at)
+        let at = textView.selectedRange().location,
+            start = min(Self.word(at: at, in: textView.string as NSString).location, at)
         Task { [weak self] in
             guard let items = await self?.snippetSource?(), !items.isEmpty else { return NSSound.beep() }
             self?.open(items, from: start)
@@ -36,7 +37,8 @@ extension CodeEditor {
         guard let (start, items) = completing else { return }
         let at = textView.selectedRange(), s = textView.string as NSString
         guard at.length == 0, at.location >= start, at.location <= s.length,
-              Self.word(at: at.location, in: s).location <= start || at.location == start else { return closeCompletions() }
+            Self.word(at: at.location, in: s).location <= start || at.location == start
+        else { return closeCompletions() }
         let typed = s.substring(with: NSRange(location: start, length: at.location - start))
         let list = completionList ?? CompletionList()
         completionList = list
@@ -72,12 +74,20 @@ extension CodeEditor {
         closeCompletions()
         let line = s.lineRange(for: NSRange(location: own.location, length: 0))
         let indent = s.substring(with: line).prefix { $0 == " " || $0 == "\t" }
-        let (text, stops) = c.snippet ? Snippet.parse(Snippet.fitted(c.insert, indent: String(indent), unit: tv.indentUnit)) : (c.insert, [])
-        let edits = ([(own, text)] + c.more.map { (range($0, in: s), $0.text) }).sorted { $0.0.location < $1.0.location }
+        let (text, stops) =
+            c.snippet
+            ? Snippet.parse(Snippet.fitted(c.insert, indent: String(indent), unit: tv.indentUnit)) : (c.insert, [])
+        let edits = ([(own, text)] + c.more.map { (range($0, in: s), $0.text) }).sorted {
+            $0.0.location < $1.0.location
+        }
         tv.replace(edits.map(\.0), with: edits.map(\.1))
-        let before = edits.prefix { $0.0.location < own.location }.reduce(0) { $0 + ($1.1 as NSString).length - $1.0.length }
+        let before = edits.prefix { $0.0.location < own.location }.reduce(0) {
+            $0 + ($1.1 as NSString).length - $1.0.length
+        }
         let base = own.location + before
-        guard !stops.isEmpty else { return tv.setSelectedRange(NSRange(location: base + (text as NSString).length, length: 0)) }
+        guard !stops.isEmpty else {
+            return tv.setSelectedRange(NSRange(location: base + (text as NSString).length, length: 0))
+        }
         snippetStops = stops.map { $0.map { NSRange(location: $0.location + base, length: $0.length) } }
         tv.setCursors(snippetStops[0])
     }

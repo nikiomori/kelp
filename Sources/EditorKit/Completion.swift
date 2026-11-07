@@ -5,7 +5,11 @@ extension CodeEditor {
     public struct TextEdit: Equatable, Sendable {
         public let line: Int, column: Int, endLine: Int, endColumn: Int, text: String
         public init(line: Int, column: Int, endLine: Int, endColumn: Int, text: String) {
-            self.line = line; self.column = column; self.endLine = endLine; self.endColumn = endColumn; self.text = text
+            self.line = line
+            self.column = column
+            self.endLine = endLine
+            self.endColumn = endColumn
+            self.text = text
         }
     }
 
@@ -22,10 +26,19 @@ extension CodeEditor {
         public var edit: TextEdit?
         /// More edits with it, as an import an item needs.
         public var more: [TextEdit] = []
-        public init(label: String, detail: String? = nil, insert: String, kind: String? = nil, documentation: String? = nil, snippet: Bool = false,
-                    edit: TextEdit? = nil, more: [TextEdit] = []) {
-            self.label = label; self.detail = detail; self.insert = insert; self.kind = kind; self.documentation = documentation
-            self.snippet = snippet; self.edit = edit; self.more = more
+        public init(
+            label: String, detail: String? = nil, insert: String, kind: String? = nil, documentation: String? = nil,
+            snippet: Bool = false,
+            edit: TextEdit? = nil, more: [TextEdit] = []
+        ) {
+            self.label = label
+            self.detail = detail
+            self.insert = insert
+            self.kind = kind
+            self.documentation = documentation
+            self.snippet = snippet
+            self.edit = edit
+            self.more = more
         }
     }
 }
@@ -44,7 +57,9 @@ enum CompletionFilter {
             for c in l where c == rest.first { rest = rest.dropFirst() }
             return rest.isEmpty ? 2 : nil
         }
-        return items.enumerated().compactMap { i, c in rank(c.label).map { (c, $0, i) } }.sorted { ($0.1, $0.2) < ($1.1, $1.2) }.map(\.0)
+        return items.enumerated().compactMap { i, c in rank(c.label).map { (c, $0, i) } }.sorted {
+            ($0.1, $0.2) < ($1.1, $1.2)
+        }.map(\.0)
     }
 }
 
@@ -63,7 +78,9 @@ enum Snippet {
     private static func mirror(_ text: inout String, _ found: inout [Int: [NSRange]]) {
         let s = NSMutableString(string: text)
         for n in found.keys.sorted() {
-            while let places = found[n], let model = places.first(where: { $0.length > 0 }), let k = places.firstIndex(where: { $0.length == 0 }) {
+            while let places = found[n], let model = places.first(where: { $0.length > 0 }),
+                let k = places.firstIndex(where: { $0.length == 0 })
+            {
                 let value = s.substring(with: model), at = places[k].location, added = (value as NSString).length
                 s.insert(value, at: at)
                 found = found.mapValues { list in
@@ -99,7 +116,11 @@ enum Snippet {
                 i += 2
             } else if c[i] == "$", i + 1 < c.count, c[i + 1] != "{" {
                 i += 1
-                if let n = number() { found[n, default: []].append(NSRange(location: (out as NSString).length, length: 0)) } else { out.append("$") }
+                if let n = number() {
+                    found[n, default: []].append(NSRange(location: (out as NSString).length, length: 0))
+                } else {
+                    out.append("$")
+                }
             } else if c[i] == "$", i + 1 < c.count {
                 i += 2
                 guard let n = number() else { continue }
@@ -114,11 +135,15 @@ enum Snippet {
                         i += 1
                     }
                     if choice {   // ${1|one,two|}: the first
-                        out += String(String.UnicodeScalarView(inner)).split(separator: "|").first?.split(separator: ",").first.map(String.init) ?? ""
+                        out +=
+                            String(String.UnicodeScalarView(inner)).split(separator: "|").first?.split(separator: ",")
+                            .first.map(String.init) ?? ""
                     } else {
                         var text = "", nested: [Int: [NSRange]] = [:]
                         read(inner, into: &text, &nested)
-                        for (k, v) in nested { found[k, default: []] += v.map { NSRange(location: $0.location + start, length: $0.length) } }
+                        for (k, v) in nested {
+                            found[k, default: []] += v.map { NSRange(location: $0.location + start, length: $0.length) }
+                        }
                         out += text
                     }
                 }

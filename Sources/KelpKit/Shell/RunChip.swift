@@ -38,22 +38,37 @@ final class RunChip: NSStackView {
         detachesHiddenViews = true
         wantsLayer = true
         heightAnchor.constraint(equalToConstant: 22).isActive = true
-        track(owner: self) { [weak self] in self?.look } changed: { [weak self] in self?.show($0) }
+        track(owner: self) { [weak self] in
+            self?.look
+        } changed: { [weak self] in
+            self?.show($0)
+        }
         // A workspace shown the first time: what its files offer (the list reads them again when it opens).
-        track(owner: self) { app.workbench.workspaceId } changed: { wid in
+        track(owner: self) {
+            app.workbench.workspaceId
+        } changed: { wid in
             guard let wid, app.scripts.state.found[wid] == nil else { return }
-            Task { await app.scripts.detect(wid); await app.scripts.load(wid) }
+            Task {
+                await app.scripts.detect(wid)
+                await app.scripts.load(wid)
+            }
         }
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func layout() { super.layout(); layer?.cornerRadius = bounds.height / 2 }
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height / 2
+    }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         fadeBackground(to: .fillRest)
         if window != nil { app.scripts.anchor = name }
     }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); fadeBackground(to: .fillRest) }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        fadeBackground(to: .fillRest)
+    }
 
     /// What the workspace on screen would run, and what runs there now.
     private var look: Look? {
@@ -69,10 +84,15 @@ final class RunChip: NSStackView {
         isHidden = l == nil
         guard let l else { return }
         crossfade()
-        go.image = .symbol(l.running ? "stop.fill" : "play.fill", l.running ? String(localized: "Stop") : String(localized: "Run"))
+        go.image = .symbol(
+            l.running ? "stop.fill" : "play.fill", l.running ? String(localized: "Stop") : String(localized: "Run"))
         go.toolTip = l.running ? String(localized: "Stop (⌘.)") : String(localized: "Run (⌘R)")
-        name.attributedTitle = NSAttributedString(string: l.name, attributes: [.font: NSFont.ui(12),
-                                                                              .foregroundColor: l.guess ? NSColor.secondaryLabelColor : .labelColor])
+        name.attributedTitle = NSAttributedString(
+            string: l.name,
+            attributes: [
+                .font: NSFont.ui(12),
+                .foregroundColor: l.guess ? NSColor.secondaryLabelColor : .labelColor
+            ])
     }
 
     private func goClicked() {

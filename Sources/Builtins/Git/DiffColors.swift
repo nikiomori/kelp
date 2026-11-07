@@ -47,22 +47,31 @@ enum DiffColors {
     }
 
     /// One side's lines as one text, parsed; the captures cut at line ends. Unchanged lines are kept from the new side only.
-    private static func spans(of lines: [DiffLine], file f: Int, keep side: DiffLine.Kind, grammar: CodeGrammar) -> [String: [Span]] {
+    private static func spans(of lines: [DiffLine], file f: Int, keep side: DiffLine.Kind, grammar: CodeGrammar)
+        -> [String: [Span]]
+    {
         var starts: [Int] = [], at = 0
-        for l in lines { starts.append(at); at += l.text.utf16.count + 1 }
+        for l in lines {
+            starts.append(at)
+            at += l.text.utf16.count + 1
+        }
         guard at <= limit, !lines.isEmpty else { return [:] }
         func kept(_ l: DiffLine) -> Bool { l.kind == side || (side == .add && l.kind == .context) }
         var out: [String: [Span]] = [:]
         for (range, name) in grammar.highlights(lines.map(\.text).joined(separator: "\n")) {
             // The last line starting at or before the capture, then each line it runs into.
             var lo = 0, hi = starts.count
-            while lo < hi { let mid = (lo + hi) / 2; if starts[mid] <= range.location { lo = mid + 1 } else { hi = mid } }
+            while lo < hi {
+                let mid = (lo + hi) / 2
+                if starts[mid] <= range.location { lo = mid + 1 } else { hi = mid }
+            }
             var i = max(0, lo - 1)
             while i < lines.count, starts[i] < NSMaxRange(range) {
                 let l = lines[i], length = l.text.utf16.count
                 let cut = NSIntersectionRange(range, NSRange(location: starts[i], length: length))
                 if cut.length > 0, kept(l), length <= Highlighter.maxColored, let k = key(f, l) {
-                    out[k, default: []].append(Span(range: NSRange(location: cut.location - starts[i], length: cut.length), name: name))
+                    out[k, default: []].append(
+                        Span(range: NSRange(location: cut.location - starts[i], length: cut.length), name: name))
                 }
                 i += 1
             }

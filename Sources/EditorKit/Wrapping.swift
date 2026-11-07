@@ -18,11 +18,15 @@ final class WrappingContainer: NSTextContainer {
 
     override var isSimpleRectangularTextContainer: Bool { hanging == .none }
 
-    override func lineFragmentRect(forProposedRect proposed: NSRect, at index: Int, writingDirection: NSWritingDirection,
-                                   remaining: UnsafeMutablePointer<NSRect>?) -> NSRect {
-        var rect = super.lineFragmentRect(forProposedRect: proposed, at: index, writingDirection: writingDirection, remaining: remaining)
+    override func lineFragmentRect(
+        forProposedRect proposed: NSRect, at index: Int, writingDirection: NSWritingDirection,
+        remaining: UnsafeMutablePointer<NSRect>?
+    ) -> NSRect {
+        var rect = super.lineFragmentRect(
+            forProposedRect: proposed, at: index, writingDirection: writingDirection, remaining: remaining)
         guard hanging != .none, index > 0, let s = layoutManager?.textStorage?.string as NSString?, index <= s.length,
-              s.character(at: index - 1) != 10 else { return rect }
+            s.character(at: index - 1) != 10
+        else { return rect }
         let line = lineStart(in: s, at: index - 1)
         let moved = min(indent(of: s, line: line), rect.width / 2)   // a deep line keeps some room
         rect.origin.x += moved
@@ -40,7 +44,10 @@ final class WrappingContainer: NSTextContainer {
             if i <= k.through { return k.start }
             var j = k.through + 1
             while j <= i, s.character(at: j) != 10 { j += 1 }
-            if j > i { known = (k.start, i); return k.start }
+            if j > i {
+                known = (k.start, i)
+                return k.start
+            }
         }
         let start = s.lineRange(for: NSRange(location: i, length: 0)).location
         known = (start, i)

@@ -5,8 +5,12 @@ import DesignKit
 /// Remote projects as this app's home keeps them (KELP_HOME/remote): which folders stand for one on a host.
 extension RemoteHost {
     /// Asked for every row of the sidebar: a folder outside remote/ is answered without looking.
-    package static func of(_ dir: String) -> RemoteHost? { dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil }
-    package static func containing(_ path: String) -> (folder: String, remote: RemoteHost, remotePath: String)? { Remotes(home: Paths.root).containing(path) }
+    package static func of(_ dir: String) -> RemoteHost? {
+        dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil
+    }
+    package static func containing(_ path: String) -> (folder: String, remote: RemoteHost, remotePath: String)? {
+        Remotes(home: Paths.root).containing(path)
+    }
 }
 
 /// Open a project over SSH in two steps: connect to the host (ssh's own reason if Kelp can't), then pick the folder
@@ -35,7 +39,8 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         shown = s
         if let text {
             let hp = text.split(separator: ":", maxSplits: 1).map(String.init)
-            s.host.stringValue = hp[0]; s.list(hp[0], hp.count > 1 ? hp[1] : "~")
+            s.host.stringValue = hp[0]
+            s.list(hp[0], hp.count > 1 ? hp[1] : "~")
         }
     }
 
@@ -47,24 +52,31 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     required init?(coder: NSCoder) { fatalError() }
 
     private func build() {
-        let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH")); title.font = .ui(13, weight: .semibold)
-        host.addItems(withObjectValues: Self.sshHosts()); host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
-        host.completes = true; host.delegate = self
+        let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH"))
+        title.font = .ui(13, weight: .semibold)
+        host.addItems(withObjectValues: Self.sshHosts())
+        host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
+        host.completes = true
+        host.delegate = self
         host.stringValue = UserDefaults.standard.string(forKey: "remote.host") ?? ""
         grid.rowAlignment = .none
         grid.yPlacement = .center   // a combo box has no first baseline for the grid to line its label up with
-        let column = NSTableColumn(identifier: .init("folder")); column.resizingMask = .autoresizingMask
+        let column = NSTableColumn(identifier: .init("folder"))
+        column.resizingMask = .autoresizingMask
         table.addTableColumn(column)
         table.headerView = nil
         table.dataSource = self
         table.delegate = self
-        table.target = self; table.doubleAction = #selector(enter)
+        table.target = self
+        table.doubleAction = #selector(enter)
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
         scroll.heightAnchor.constraint(equalToConstant: 220).isActive = true
-        let note = NSTextField(wrappingLabelWithString: String(localized: "Agents and terminals run there, and git too, over one SSH connection. ")
-                               + String(localized: "The agents you use must be installed on that machine. Files open read-only."))
+        let note = NSTextField(
+            wrappingLabelWithString: String(
+                localized: "Agents and terminals run there, and git too, over one SSH connection. ")
+                + String(localized: "The agents you use must be installed on that machine. Files open read-only."))
         for t in [note, status] {
             t.textColor = .secondaryLabelColor
             t.font = .ui(11)
@@ -81,18 +93,25 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         cancel.keyEquivalent = "\u{1b}"
         cancel.target = self
         cancel.action = #selector(close)
-        let buttons = NSStackView(views: [spinner, NSView(), cancel, go]); buttons.spacing = Metrics.gapWide
-        window?.contentView = SheetForm.stack([title, grid, scroll, note, status, buttons], wide: [scroll, note, status, buttons],
-                                              width: Metrics.sheetWidth)
+        let buttons = NSStackView(views: [spinner, NSView(), cancel, go])
+        buttons.spacing = Metrics.gapWide
+        window?.contentView = SheetForm.stack(
+            [title, grid, scroll, note, status, buttons], wide: [scroll, note, status, buttons],
+            width: Metrics.sheetWidth)
         window?.initialFirstResponder = host
-        say(nil); update()
+        say(nil)
+        update()
     }
 
     /// Before connecting only the host shows, and the button connects; after, the folder and its list, and it opens.
     private func update() {
         let on = listed != nil
-        grid.row(at: 1).isHidden = !on; scroll.isHidden = !on
-        go.title = !on ? String(localized: "Connect") : target?.repo == false ? String(localized: "Initialize Git and Open") : String(localized: "Open")
+        grid.row(at: 1).isHidden = !on
+        scroll.isHidden = !on
+        go.title =
+            !on
+            ? String(localized: "Connect")
+            : target?.repo == false ? String(localized: "Initialize Git and Open") : String(localized: "Open")
     }
 
     /// What Open opens: the selected folder, else the one listed.
@@ -117,10 +136,19 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     @objc private func goPressed() {
         let h = host.stringValue.trimmingCharacters(in: .whitespaces)
-        guard !h.isEmpty else { NSSound.beep(); return }
-        guard let l = listed, l.host == h else { list(h, "~"); return }
+        guard !h.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        guard let l = listed, l.host == h else {
+            list(h, "~")
+            return
+        }
         let typed = path.stringValue.trimmingCharacters(in: .whitespaces)
-        if !typed.isEmpty, typed != l.path { list(h, typed); return }   // a path typed: go there first
+        if !typed.isEmpty, typed != l.path {
+            list(h, typed)
+            return
+        }   // a path typed: go there first
         if let t = target { open(h, t.path, init: !t.repo) }
     }
 
@@ -131,26 +159,35 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     }
 
     private func list(_ h: String, _ p: String) {
-        busy(true); say(listed == nil ? String(localized: "Connecting…") : nil)
+        busy(true)
+        say(listed == nil ? String(localized: "Connecting…") : nil)
         Task {
             let r = await app.tryCall(RemoteListFolders(host: h, path: p))
             busy(false)
-            guard let v = r.value else { say(r.error, error: true); return }
+            guard let v = r.value else {
+                say(r.error, error: true)
+                return
+            }
             listed = (h, v.path, v.repo)
             path.stringValue = v.path
             say(nil)
             rows = (v.path == "/" ? [] : [.init(name: "..", git: false)]) + v.folders
-            table.reloadData(); update()
+            table.reloadData()
+            update()
             window?.makeFirstResponder(table)
         }
     }
 
     private func open(_ h: String, _ p: String, init: Bool) {
-        busy(true); say(String(localized: "Opening…"))
+        busy(true)
+        say(String(localized: "Opening…"))
         Task {
             let r = await app.tryCall(RepoAddRemote(host: h, path: p, init: `init`))
             busy(false)
-            if let e = r.error { say(e, error: true); return }
+            if let e = r.error {
+                say(e, error: true)
+                return
+            }
             UserDefaults.standard.set(h, forKey: "remote.host")
             close()
             await app.refresh()
@@ -160,10 +197,13 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         }
     }
 
-    private static func join(_ dir: String, _ name: String) -> String { dir.hasSuffix("/") ? dir + name : dir + "/" + name }
+    private static func join(_ dir: String, _ name: String) -> String {
+        dir.hasSuffix("/") ? dir + name : dir + "/" + name
+    }
 
     private func say(_ text: String?, error: Bool = false) {
-        status.isHidden = text == nil; status.stringValue = text ?? ""
+        status.isHidden = text == nil
+        status.stringValue = text ?? ""
         status.textColor = error ? .textRed : .secondaryLabelColor
     }
 
@@ -190,9 +230,11 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         let f = rows[row], up = f.name == ".."
         let icon = NSImageView(image: .symbol(up ? "arrow.turn.left.up" : f.git ? "arrow.triangle.branch" : "folder"))
         icon.contentTintColor = f.git ? .controlAccentColor : .secondaryLabelColor
-        let name = NSTextField(labelWithString: up ? String(localized: "Enclosing Folder") : f.name); name.lineBreakMode = .byTruncatingMiddle
+        let name = NSTextField(labelWithString: up ? String(localized: "Enclosing Folder") : f.name)
+        name.lineBreakMode = .byTruncatingMiddle
         if up { name.textColor = .secondaryLabelColor }
-        let cell = NSStackView(views: [icon, name]); cell.spacing = 6
+        let cell = NSStackView(views: [icon, name])
+        cell.spacing = 6
         cell.edgeInsets = NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         return cell

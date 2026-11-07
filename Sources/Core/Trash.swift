@@ -7,8 +7,10 @@ public enum Trash {
     @discardableResult
     public static func move(_ url: URL) throws -> URL {
         if let dir = ProcessInfo.processInfo.environment["KELP_TRASH"] {
-            let to = URL(fileURLWithPath: dir).appendingPathComponent(UUID().uuidString).appendingPathComponent(url.lastPathComponent)
-            try FileManager.default.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let to = URL(fileURLWithPath: dir).appendingPathComponent(UUID().uuidString).appendingPathComponent(
+                url.lastPathComponent)
+            try FileManager.default.createDirectory(
+                at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
             try FileManager.default.moveItem(at: url, to: to)
             return to
         }

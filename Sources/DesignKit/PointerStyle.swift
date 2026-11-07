@@ -6,7 +6,9 @@ import SwiftUI
 public struct PointerButtonStyle: ButtonStyle {
     private let radius: CGFloat
     public init(radius: CGFloat = Metrics.radiusSM) { self.radius = radius }
-    public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Pointed(configuration: configuration, radius: radius) }
+    public func makeBody(configuration: ButtonStyleConfiguration) -> some View {
+        Pointed(configuration: configuration, radius: radius)
+    }
 
     private struct Pointed: View {
         let configuration: ButtonStyleConfiguration
@@ -17,15 +19,24 @@ public struct PointerButtonStyle: ButtonStyle {
             configuration.label
                 .padding(.horizontal, 4)
                 .frame(minHeight: Metrics.iconButton)
-                .background(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Color(nsColor: configuration.isPressed ? .fillSelected : hovering ? .fillHover : .clear)))
+                .background(
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .fill(Color(nsColor: configuration.isPressed ? .fillSelected : hovering ? .fillHover : .clear))
+                )
                 .contentShape(Rectangle())
-                .animation(configuration.isPressed || Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: configuration.isPressed)
+                .animation(
+                    configuration.isPressed || Motion.reduced ? nil : .easeOut(duration: Motion.fast),
+                    value: configuration.isPressed
+                )
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
                 .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
                 .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
                 .onHover { hovering = $0 }
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+                .onGeometryChange(for: CGSize.self) {
+                    $0.size
+                } action: {
+                    size = $0
+                }
         }
     }
 }
@@ -48,7 +59,11 @@ public struct PointerCardStyle: ButtonStyle {
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
                 .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
                 .onHover { hovering = $0 }
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+                .onGeometryChange(for: CGSize.self) {
+                    $0.size
+                } action: {
+                    size = $0
+                }
         }
     }
 }
@@ -69,8 +84,11 @@ private struct CardEdge: ViewModifier {
     let selected: Bool, radius: CGFloat
     @Environment(\.cardHovering) private var hovering
     func body(content: Content) -> some View {
-        content.overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .strokeBorder(selected ? Color.accentColor : Color.primary.opacity(hovering ? 0.35 : 0.15), lineWidth: selected ? 2 : 1))
+        content.overlay(
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(
+                    selected ? Color.accentColor : Color.primary.opacity(hovering ? 0.35 : 0.15),
+                    lineWidth: selected ? 2 : 1))
     }
 }
 

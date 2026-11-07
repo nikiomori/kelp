@@ -6,7 +6,11 @@ public struct ArtifactVersion: Codable, Equatable, Sendable {
     /// Seconds since 1970.
     public var at: Double
     public var label: String
-    public init(n: Int, at: Double, label: String) { self.n = n; self.at = at; self.label = label }
+    public init(n: Int, at: Double, label: String) {
+        self.n = n
+        self.at = at
+        self.label = label
+    }
 }
 
 extension Artifacts {
@@ -19,13 +23,17 @@ extension Artifacts {
     public static func keepVersions(root: String, session: String, label: String, now: Date = Date()) throws -> Int {
         var kept = 0, failed: (any Error)?
         for (slug, r) in list(root: root) where r.session == session && r.file != nil {
-            do { kept += try keepVersion(slug, r, root: root, label: label, now: now) ? 1 : 0 } catch { failed = failed ?? error }   // the others still
+            do { kept += try keepVersion(slug, r, root: root, label: label, now: now) ? 1 : 0 } catch {
+                failed = failed ?? error
+            }   // the others still
         }
         if let failed { throw failed }
         return kept
     }
 
-    private static func keepVersion(_ slug: String, _ r: ArtifactRecord, root: String, label: String, now: Date) throws -> Bool {
+    private static func keepVersion(_ slug: String, _ r: ArtifactRecord, root: String, label: String, now: Date) throws
+        -> Bool
+    {
         let target = target(slug, r, root: root)
         guard let live = small(target) else { return false }
         var versions = r.versions ?? []
@@ -57,7 +65,8 @@ extension Artifacts {
 
     /// The prompt's first line, at most 80 characters; "Turn n" for none.
     private static func oneLine(_ s: String, n: Int) -> String {
-        let line = s.split(whereSeparator: \.isNewline).first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
+        let line =
+            s.split(whereSeparator: \.isNewline).first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
         guard !line.isEmpty else { return "Turn \(n)" }
         return line.count > 80 ? String(line.prefix(79)) + "…" : line
     }

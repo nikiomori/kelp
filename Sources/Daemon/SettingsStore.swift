@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// `settings.json` in the Kelp home: one flat object with dotted keys (VS Code style).
 /// Hand edits are picked up by `reloadIfChanged`; a file that doesn't parse is ignored and the last good settings stay,
@@ -16,7 +16,10 @@ final class SettingsStore: Sendable {
 
     init(root: URL) {
         url = root.appendingPathComponent("settings.json")
-        if FileManager.default.fileExists(atPath: url.path) { _ = reloadIfChanged(); return }
+        if FileManager.default.fileExists(atPath: url.path) {
+            _ = reloadIfChanged()
+            return
+        }
         file.withLock { _ = Log.store.attempt("writing a new settings.json") { try write([:]) } }
     }
 
@@ -35,7 +38,9 @@ final class SettingsStore: Sendable {
                 var values = self.values
                 if let d = try? Data(contentsOf: url) {
                     guard case .object(let onDisk)? = try? JSONDecoder().decode(JSONValue.self, from: d) else {
-                        throw RPCError.invalidParams("settings.json has an error, so the change wasn't saved. Fix the file (or remove it) and try again.")
+                        throw RPCError.invalidParams(
+                            "settings.json has an error, so the change wasn't saved. Fix the file (or remove it) and try again."
+                        )
                     }
                     values = onDisk
                 }
@@ -60,12 +65,17 @@ final class SettingsStore: Sendable {
         // Nothing read yet, so nothing to stay: the start of a daemon with a broken file.
         let kept = o == nil && state.withLock({ $0.values.isEmpty }) ? Self.read(lastGood)?.values : nil
         if kept != nil { Log.store.fault("settings.json doesn't parse: running on the last settings that did") }
-        state.withLock { st in st.mtime = m; if let v = o ?? kept { st.values = v } }
+        state.withLock { st in
+            st.mtime = m
+            if let v = o ?? kept { st.values = v }
+        }
         return o != nil
     }
 
     private static func read(_ u: URL) -> (data: Data, values: [String: JSONValue])? {
-        guard let d = try? Data(contentsOf: u), case .object(let o)? = try? JSONDecoder().decode(JSONValue.self, from: d) else { return nil }
+        guard let d = try? Data(contentsOf: u),
+            case .object(let o)? = try? JSONDecoder().decode(JSONValue.self, from: d)
+        else { return nil }
         return (d, o)
     }
 
@@ -75,12 +85,14 @@ final class SettingsStore: Sendable {
 
     /// The date of the file a symlink points at: the link's own never changes on an edit.
     private func modified() -> Date? {
-        (try? FileManager.default.attributesOfItem(atPath: url.resolvingSymlinksInPath().path))?[.modificationDate] as? Date
+        (try? FileManager.default.attributesOfItem(atPath: url.resolvingSymlinksInPath().path))?[.modificationDate]
+            as? Date
     }
 
     /// Under `file`; the values change only once they're on disk.
     private func write(_ values: [String: JSONValue]) throws {
-        let e = JSONEncoder(); e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let e = JSONEncoder()
+        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         // To where a symlink points (settings.json kept in a dotfiles repo): an atomic write would replace the link itself.
         let data = try e.encode(JSONValue.object(values)) + Data("\n".utf8)
         try data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
@@ -129,16 +141,24 @@ final class SettingsEvents: Sendable {
             changed()
         }
         if fw == nil { Log.store.error("settings.json isn't watched: hand edits are read when the daemon restarts") }
-        let old = watcher.withLock { w in defer { w = fw }; return w }
+        let old = watcher.withLock { w in
+            defer { w = fw }
+            return w
+        }
         _ = old   // stopped here, off the lock (its deinit waits on its own queue)
     }
     func stopWatching() {
-        let old = watcher.withLock { w in defer { w = nil }; return w }
+        let old = watcher.withLock { w in
+            defer { w = nil }
+            return w
+        }
         _ = old
     }
 }
 
-extension SettingsGet: Handled { func handle(_ settings: SettingsStore) throws -> [String: JSONValue] { settings.values } }
+extension SettingsGet: Handled {
+    func handle(_ settings: SettingsStore) throws -> [String: JSONValue] { settings.values }
+}
 extension SettingsSet: Handled {
     /// A colour dragged or a stepper held sends these quickly: the last one sent is the one that stays.
     static var inOrder: Bool { true }
@@ -147,8 +167,10 @@ extension SettingsSet: Handled {
     /// turned off stays off), whether terminals are tmux sessions (whose panes are told apart only by who's attached),
     /// whether agents hear from those they start, where every workspace's folder goes; and the keyboard (`keys`: a key on
     /// a command of the user's, git.push on ⌘S, would have them run it unawares).
-    static let usersOnly = ["phone.", "accounts.", "extensions.library", "extensions.disabled", "terminal.tmux", "agents.childReports",
-                            "worktrees.folder"]
+    static let usersOnly = [
+        "phone.", "accounts.", "extensions.library", "extensions.disabled", "terminal.tmux", "agents.childReports",
+        "worktrees.folder"
+    ]
     var notForAgents: String? {
         Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"
             ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil

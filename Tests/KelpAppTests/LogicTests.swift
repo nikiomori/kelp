@@ -1,32 +1,35 @@
 import AppKit
-import Foundation
-import Testing
-import TestSupport
 import Core
+import Foundation
+import TestSupport
+import Testing
 import WorkbenchKit
-@testable import KelpApp
-@testable import KelpKit
-@testable import DesignKit
+
+@testable import BuiltinActivity
 @testable import BuiltinAgents
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinGit
-@testable import BuiltinBrowser
 @testable import BuiltinIssues
-@testable import BuiltinActivity
 @testable import BuiltinRoutines
+@testable import DesignKit
+@testable import KelpApp
+@testable import KelpKit
 
-private func session(_ status: AgentStatus, unread: Bool = false, agent: String? = "claude", summary: String = "") -> Session {
+private func session(_ status: AgentStatus, unread: Bool = false, agent: String? = "claude", summary: String = "")
+    -> Session
+{
     Session(cwd: "/", command: "x", agent: agent, status: status, unread: unread, summary: summary)
 }
 
 @MainActor @Test func quickOpenRanksPrefixThenWordThenContainsThenSeveralWords() {
     #expect(QuickOpen.wordScore("Open Settings", "open") == 100)
-    #expect(QuickOpen.wordScore("Open Settings", "sett") == 80)       // starts a word
-    #expect(QuickOpen.wordScore("Open Settings", "ttings") == 60)     // somewhere inside
+    #expect(QuickOpen.wordScore("Open Settings", "sett") == 80)   // starts a word
+    #expect(QuickOpen.wordScore("Open Settings", "ttings") == 60)   // somewhere inside
     #expect(QuickOpen.wordScore("Open Recent Project", "pro rec") == 40)   // every word starts a word, in any order
     #expect(QuickOpen.wordScore("Open Settings", "xyz") == nil)
-    #expect(QuickOpen.wordScore("Anything", "  ") == 0)               // an empty query matches everything equally
-    #expect(QuickOpen.wordScore("OPEN", "open") == 100)               // case doesn't matter
+    #expect(QuickOpen.wordScore("Anything", "  ") == 0)   // an empty query matches everything equally
+    #expect(QuickOpen.wordScore("OPEN", "open") == 100)   // case doesn't matter
 }
 
 /// A layout change still waiting out the save's pause is saved when the app quits, not lost with it.
@@ -42,10 +45,14 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 
 /// Scored off the main thread: files by fuzzy path, the rest by title words (a command a little ahead), unmatched left out.
 @Test func quickOpenScoresAQueryOffTheMainThread() async {
-    let items = [QuickOpen.Match(fuzzy: nil, title: "Color Theme", command: false),
-                 QuickOpen.Match(fuzzy: ProjectFiles.FuzzyPath("Sources/Settings/SettingsWindow.swift"), title: "SettingsWindow.swift", command: false),
-                 QuickOpen.Match(fuzzy: nil, title: "Open Settings", command: true),
-                 QuickOpen.Match(fuzzy: nil, title: "Settings: Font", command: false)]
+    let items = [
+        QuickOpen.Match(fuzzy: nil, title: "Color Theme", command: false),
+        QuickOpen.Match(
+            fuzzy: ProjectFiles.FuzzyPath("Sources/Settings/SettingsWindow.swift"), title: "SettingsWindow.swift",
+            command: false),
+        QuickOpen.Match(fuzzy: nil, title: "Open Settings", command: true),
+        QuickOpen.Match(fuzzy: nil, title: "Settings: Font", command: false)
+    ]
     let best = await Task.detached { QuickOpen.best(items, "sett") }.value
     #expect(best == [1, 3, 2])
 }
@@ -62,7 +69,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 
 /// The context ring: nothing while there's room, then yellow, orange, red — by share in a 200k window, by tokens in 1M.
 @MainActor @Test func theContextRingColoursAtTheTokensWhereAnswersSlip() {
-    func level(_ used: Int, _ window: Int) -> Int { ContextMeter.level(SessionContextWindow.Usage(used: used, window: window)) }
+    func level(_ used: Int, _ window: Int) -> Int {
+        ContextMeter.level(SessionContextWindow.Usage(used: used, window: window))
+    }
     #expect([99_000, 100_000, 130_000, 150_000].map { level($0, 200_000) } == [0, 1, 2, 3])
     #expect([199_000, 200_000, 400_000, 600_000].map { level($0, 1_000_000) } == [0, 1, 2, 3])
     #expect(ContextMeter.level(nil) == 0 && level(5, 0) == 0)
@@ -70,7 +79,8 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 
 /// ">" first in ⌘P turns it into ⇧⌘P, its "Commands ›" token in the field; ⌫ past the start goes back, as in VS Code.
 @MainActor @Test func aGreaterThanSignTurnsOpenQuicklyIntoCommandsAndBackspaceTurnsItBack() {
-    _ = testHome; _ = NSApplication.shared
+    _ = testHome
+    _ = NSApplication.shared
     let q = QuickOpen(app: AppModel(builtins: Builtins.all))
     q.build()
     q.field.stringValue = ">new"
@@ -108,10 +118,13 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func notificationsReadTheFirstSentenceAsAHeadline() {
-    #expect(Notifier.firstSentence("I added `mul(a, b)` to `calc.py`. It returns the product.") == "Added mul(a, b) to calc.py")
+    #expect(
+        Notifier.firstSentence("I added `mul(a, b)` to `calc.py`. It returns the product.")
+            == "Added mul(a, b) to calc.py")
     #expect(Notifier.firstSentence("I've fixed the login bug!\nMore detail below.") == "Fixed the login bug!")
     #expect(Notifier.firstSentence("Done") == "Done")
-    #expect(Notifier.firstSentence("В Sources **356 файлов**, считая подпапки.") == "В Sources 356 файлов, считая подпапки")
+    #expect(
+        Notifier.firstSentence("В Sources **356 файлов**, считая подпапки.") == "В Sources 356 файлов, считая подпапки")
     let long = String(repeating: "word ", count: 40)
     let cut = Notifier.firstSentence(long)
     #expect(cut.count == 90 && cut.hasSuffix("…"))   // long text is cut to fit a banner
@@ -127,7 +140,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 /// A limit that ran out: when it resets, the sessions that stopped at it, not one that went on by itself or ended before.
 @Test func aLimitResetFindsTheSessionsItStopped() throws {
     let now = Date(), until = now.addingTimeInterval(3600)
-    func reading(_ p: Double, _ at: Date?) -> (agent: String, limit: UsageGet.Limit, resetAt: Date?) { ("codex", .init(kind: "session", percent: p, resets: nil), at) }
+    func reading(_ p: Double, _ at: Date?) -> (agent: String, limit: UsageGet.Limit, resetAt: Date?) {
+        ("codex", .init(kind: "session", percent: p, resets: nil), at)
+    }
     var r = LimitResets()
     #expect(r.update([reading(80, until)], now: now).isEmpty)
     #expect(r.update([reading(100, until)], now: now) == ["codex"])
@@ -135,30 +150,41 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(r.update([reading(100, until.addingTimeInterval(60))], now: now) == ["codex"])   // a later reset
     let f = try #require(r.full["codex"])
     func s(_ status: AgentStatus, _ at: TimeInterval, agent: String = "codex") -> Session {
-        var x = session(status, agent: agent); x.statusAt = now.addingTimeInterval(at); return x
+        var x = session(status, agent: agent)
+        x.statusAt = now.addingTimeInterval(at)
+        return x
     }
-    let stoppedAtIt = s(.done, 5), wentOn = s(.working, 3700), before = s(.done, -600), other = s(.done, 5, agent: "claude")
-    var told = stoppedAtIt; told.continueAt = until   // the daemon goes on with this one by itself
-    #expect(LimitResets.stopped([stoppedAtIt, told, wentOn, before, other], agent: "codex", f).map(\.id) == [stoppedAtIt.id])
+    let stoppedAtIt = s(.done, 5), wentOn = s(.working, 3700), before = s(.done, -600),
+        other = s(.done, 5, agent: "claude")
+    var told = stoppedAtIt
+    told.continueAt = until   // the daemon goes on with this one by itself
+    #expect(
+        LimitResets.stopped([stoppedAtIt, told, wentOn, before, other], agent: "codex", f).map(\.id) == [stoppedAtIt.id]
+    )
     #expect(r.end("codex") != nil && r.full.isEmpty)
 }
 
 /// Who could take over from an agent out of plan: the freest first, those without numbers last; the button names the first with room.
 @Test func anAgentOutOfPlanHandsToTheFreest() {
-    let all = [("claude", "Claude Code"), ("gemini", "Gemini CLI"), ("cursor", "Cursor Agent"), ("codex", "Codex"), ("grok", "Grok")]
+    let all = [
+        ("claude", "Claude Code"), ("gemini", "Gemini CLI"), ("cursor", "Cursor Agent"), ("codex", "Codex"),
+        ("grok", "Grok")
+    ]
     let used = ["claude": 100.0, "cursor": 40, "codex": 12, "grok": 100]
     let takers = LimitStop.takers(all.map { (id: $0.0, name: $0.1) }, except: "claude", used: used)
     #expect(takers.map(\.id) == ["codex", "cursor", "gemini"])   // itself and the one that's full are out
     #expect(takers.first?.used == 12 && takers.last?.used == nil)
     #expect(LimitStop.pick(takers)?.id == "codex")
-    let tight = LimitStop.takers(all.map { (id: $0.0, name: $0.1) }, except: "claude", used: ["codex": 95, "cursor": 92, "grok": 91])
+    let tight = LimitStop.takers(
+        all.map { (id: $0.0, name: $0.1) }, except: "claude", used: ["codex": 95, "cursor": 92, "grok": 91])
     #expect(LimitStop.pick(tight)?.id == "gemini")   // nothing under 90: the one without numbers
     #expect(LimitStop.pick([]) == nil)
 }
 
 /// What a session a limit stopped says, from the stop to the reset, and with Kelp told to go on.
 @MainActor @Test func aLimitStopSaysWhereItIs() throws {
-    var cal = Calendar(identifier: .gregorian); cal.timeZone = .current
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = .current
     let stopped = try #require(cal.date(bySettingHour: 12, minute: 0, second: 0, of: Date()))
     var s = session(.done)
     #expect(LimitStop.rowLine(s) == nil)
@@ -224,7 +250,8 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 
     let start = Date(timeIntervalSince1970: 1000)
     var worked = Session(cwd: "/x", command: "c", status: .working, createdAt: start), stopped = worked
-    stopped.status = .done; stopped.statusAt = start.addingTimeInterval(45)
+    stopped.status = .done
+    stopped.statusAt = start.addingTimeInterval(45)
     #expect(NotifyRule.turn(stopped, after: worked) == 45)
     #expect(NotifyRule.turn(stopped, after: nil) == nil)
     worked.status = .waiting
@@ -244,7 +271,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 
     let choices = Mutes.choices(now: now, calendar: calendar).map(\.until)
     #expect(choices[0] == now.addingTimeInterval(3600))
-    #expect(calendar.dateComponents([.day, .hour, .minute], from: choices[1]) == DateComponents(day: 31, hour: 0, minute: 0))
+    #expect(
+        calendar.dateComponents([.day, .hour, .minute], from: choices[1]) == DateComponents(day: 31, hour: 0, minute: 0)
+    )
     #expect(choices[2] == Mutes.forever)
     #expect(Mutes.read(Mutes.value(muted)) == muted)
     #expect(Mutes.read(nil).isEmpty)
@@ -262,20 +291,37 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 @MainActor @Test func contextPartsReadAsALegend() {
     #expect([640, 17_640, 31_000, 30_960, 184_200].map(ContextParts.k) == ["640", "17.6k", "31k", "31k", "184k"])
     typealias Parts = SessionContextParts
-    let files = Parts.Part(kind: .files, tokens: 52_000, top: [.init(label: "payment.ts", tokens: 17_600), .init(label: "a.ts", tokens: 11_800, count: 2)], more: 7)
+    let files = Parts.Part(
+        kind: .files, tokens: 52_000,
+        top: [.init(label: "payment.ts", tokens: 17_600), .init(label: "a.ts", tokens: 11_800, count: 2)], more: 7)
     #expect(ContextParts.detail(files) == "payment.ts 17.6k · a.ts ×2 11.8k · +7 more 22.6k")
-    let talk = Parts.Part(kind: .conversation, tokens: 30_000, top: [.init(label: "replies", tokens: 25_400, count: 0), .init(label: "messages", tokens: 4_600, count: 9)], more: 0)
+    let talk = Parts.Part(
+        kind: .conversation, tokens: 30_000,
+        top: [.init(label: "replies", tokens: 25_400, count: 0), .init(label: "messages", tokens: 4_600, count: 9)],
+        more: 0)
     #expect(ContextParts.detail(talk) == "Its replies 25.4k · your 9 messages 4.6k")
-    let skills = Parts.Setup.Group(label: "Skills", tokens: 9_900, top: [.init(label: "transitions-dev", tokens: 520), .init(label: "review", tokens: 300)], more: 12)
+    let skills = Parts.Setup.Group(
+        label: "Skills", tokens: 9_900,
+        top: [.init(label: "transitions-dev", tokens: 520), .init(label: "review", tokens: 300)], more: 12)
     #expect(ContextParts.detail(skills) == "transitions-dev 520 · review 300 · +12 more 9.1k")
-    #expect(ContextParts.deferred([.init(label: "MCP tools (deferred)", tokens: 46_800), .init(label: "System tools (deferred)", tokens: 13_700)])
+    #expect(
+        ContextParts.deferred([
+            .init(label: "MCP tools (deferred)", tokens: 46_800),
+            .init(label: "System tools (deferred)", tokens: 13_700)
+        ])
             == "Not in the context until used: MCP tools 46.8k · Built-in tools 13.7k")
     #expect(ContextParts.share(146_200, of: 1_000_000) == 0.1462.formatted(.percent.precision(.fractionLength(1))))
     // Split as Claude Code counts it, the base is its parts; without, one "Base".
-    let setup = Parts.Setup(parts: [.init(label: "System prompt", tokens: 2_500), .init(label: "Skills", tokens: 9_900)], buffer: 33_000)
-    #expect(ContextParts(parts: .init(base: 12_400, parts: [files], setup: setup), window: 1_000_000, compact: nil).rows.map(\.label)
+    let setup = Parts.Setup(
+        parts: [.init(label: "System prompt", tokens: 2_500), .init(label: "Skills", tokens: 9_900)], buffer: 33_000)
+    #expect(
+        ContextParts(parts: .init(base: 12_400, parts: [files], setup: setup), window: 1_000_000, compact: nil).rows
+            .map(\.label)
             == ["System prompt", "Skills", "Files read"])
-    #expect(ContextParts(parts: .init(base: 12_400, parts: [files]), window: 1_000_000, compact: nil).rows.map(\.label) == ["Base", "Files read"])
+    #expect(
+        ContextParts(parts: .init(base: 12_400, parts: [files]), window: 1_000_000, compact: nil).rows.map(\.label) == [
+            "Base", "Files read"
+        ])
 }
 
 @MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {
@@ -293,7 +339,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!SidebarCell.wantsYou(session(.waiting, agent: "shell")))   // a plain terminal never asks
     #expect(SidebarCell.wantsYou(session(.paused, unread: true)))   // paused, but it finished and you haven't looked
     #expect(!SidebarCell.wantsYou(session(.paused)))
-    #expect(SidebarCell.isNews(session(.done, unread: true)) && !SidebarCell.isNews(session(.idle, unread: true)) && !SidebarCell.isNews(session(.done)))
+    #expect(
+        SidebarCell.isNews(session(.done, unread: true)) && !SidebarCell.isNews(session(.idle, unread: true))
+            && !SidebarCell.isNews(session(.done)))
     #expect(SidebarCell.isNews(session(.paused, unread: true)))   // bold as long as it's counted
 }
 
@@ -314,7 +362,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 @MainActor @Test func anAgentThatNeedsYouSaysWhatUnderItsName() {
     let ask = SidebarCell.askLine(session(.waiting, summary: "May I run npm test?"), mode: "needsYou")
     #expect(ask?.prefix?.0 == "Asks:" && ask?.text == "May I run npm test?")
-    #expect(SidebarCell.askLine(session(.error), mode: "needsYou")?.prefix?.0 == "Failed:")       // no summary: its state in words
+    #expect(SidebarCell.askLine(session(.error), mode: "needsYou")?.prefix?.0 == "Failed:")   // no summary: its state in words
     #expect(SidebarCell.askLine(session(.working, summary: "Editing"), mode: "needsYou") == nil)   // one line unless it needs you
     #expect(SidebarCell.askLine(session(.working, summary: "Editing"), mode: "always")?.text == "Editing")
     #expect(SidebarCell.askLine(session(.waiting, summary: "May I?"), mode: "never") == nil)
@@ -333,7 +381,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func aDotInsideAFileNameDoesNotEndTheHeadline() {
-    #expect(Notifier.firstSentence("Updated README.md and docs/arch.md. Tests pass.") == "Updated README.md and docs/arch.md")
+    #expect(
+        Notifier.firstSentence("Updated README.md and docs/arch.md. Tests pass.")
+            == "Updated README.md and docs/arch.md")
     #expect(Notifier.firstSentence("Is v1.2 ready? Yes.") == "Is v1.2 ready?")
     #expect(Notifier.firstSentence("Fixed it.") == "Fixed it")
 }
@@ -344,7 +394,8 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!FileWatcher.isBuildOutput("/work/target/r/src/a.rs", under: ["/work/target/r/"]))   // the root's own folders don't count
     #expect(!FileWatcher.isBuildOutput("/elsewhere/.build/x", under: ["/r/"]))
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-fw-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: dir.appendingPathComponent("node_modules/x"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: dir.appendingPathComponent("node_modules/x"), withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     var seen: [String] = []
     let w = FileWatcher(root: dir.path, latency: 0.05) { paths in MainActor.assumeIsolated { seen += paths } }
@@ -358,55 +409,63 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 /// One way to run a program, through the daemon: its code and output, stdin, a timeout that kills it, a launch that
 /// fails; and none at all without a daemon.
 extension OneAtATime {
-@Test func shellExecRunsAndKills() async throws {
-    let rig = try await AppRig(files: [:]); defer { rig.done() }
-    let echo = await Shell.exec(rig.app, ["/bin/cat"], input: "hi")
-    #expect(echo.code == 0 && echo.stdout == "hi")
-    #expect(await Shell.exec(rig.app, ["/bin/sh", "-c", "echo e >&2; exit 3"]).code == 3)
-    let t = Date(), slow = await Shell.exec(rig.app, ["/bin/sleep", "5"], timeout: 0.2)
-    #expect(slow.code != 0 && Date().timeIntervalSince(t) < 2)
-    #expect(await Shell.exec(rig.app, ["/nonexistent/tool"]).code == -1)
-    // Where a tool is comes from the daemon's login-shell PATH: the app doesn't start a shell to read it.
-    let paths = try await rig.app.get(ProcessWhich(commands: ["git", "kelp-no-such-agent"]))
-    #expect(paths["git"]?.hasSuffix("/git") == true && paths["kelp-no-such-agent"] == nil)
-    #expect(await AgentAvailability.runs(try #require(paths["git"]), app: rig.app) != nil)
-    #expect(await AgentAvailability.runs("/nonexistent/agent", app: rig.app) == nil)
-    rig.app.client = nil
-    #expect(await Shell.exec(rig.app, ["/bin/echo", "hi"]).code == -1)   // the app runs nothing itself
-}
-
-/// A daemon that's connected and doesn't answer is told apart from one that answers, and from a connection that ended.
-@Test func aHungDaemonIsNoticed() async throws {
-    let rig = try await AppRig(files: [:]); defer { rig.done() }
-    #expect(await AppModel.answers(rig.client, within: 5))
-    let path = rig.root.appendingPathComponent("h.sock").path, fd = socket(AF_UNIX, SOCK_STREAM, 0)
-    defer { close(fd) }
-    var a = sockaddr_un()
-    a.sun_family = sa_family_t(AF_UNIX)
-    withUnsafeMutableBytes(of: &a.sun_path) { path.utf8CString.withUnsafeBytes($0.copyMemory) }
-    _ = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
-    listen(fd, 1)   // never accepted: it connects, and nothing ever answers
-    #expect(await !AppModel.answers(try RPCClient(socket: path), within: 0.3))
-}
-
-/// An agent CLI that answered `--version` in the last day isn't started again until it changes.
-@Test func agentThatRanIsNotStartedAgain() async throws {
-    let rig = try await AppRig(files: [:]); defer { rig.done() }
-    let dir = tmp(), log = dir.appendingPathComponent("log"), cli = dir.appendingPathComponent("agent").path
-    func write(_ body: String) throws {
-        try "#!/bin/sh\necho >> '\(log.path)'\n\(body)\n".write(toFile: cli, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli)
+    @Test func shellExecRunsAndKills() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let echo = await Shell.exec(rig.app, ["/bin/cat"], input: "hi")
+        #expect(echo.code == 0 && echo.stdout == "hi")
+        #expect(await Shell.exec(rig.app, ["/bin/sh", "-c", "echo e >&2; exit 3"]).code == 3)
+        let t = Date(), slow = await Shell.exec(rig.app, ["/bin/sleep", "5"], timeout: 0.2)
+        #expect(slow.code != 0 && Date().timeIntervalSince(t) < 2)
+        #expect(await Shell.exec(rig.app, ["/nonexistent/tool"]).code == -1)
+        // Where a tool is comes from the daemon's login-shell PATH: the app doesn't start a shell to read it.
+        let paths = try await rig.app.get(ProcessWhich(commands: ["git", "kelp-no-such-agent"]))
+        #expect(paths["git"]?.hasSuffix("/git") == true && paths["kelp-no-such-agent"] == nil)
+        #expect(await AgentAvailability.runs(try #require(paths["git"]), app: rig.app) != nil)
+        #expect(await AgentAvailability.runs("/nonexistent/agent", app: rig.app) == nil)
+        rig.app.client = nil
+        #expect(await Shell.exec(rig.app, ["/bin/echo", "hi"]).code == -1)   // the app runs nothing itself
     }
-    func starts() -> Int { ((try? String(contentsOf: log, encoding: .utf8)) ?? "").count }
-    try write("exit 0")
-    let binary = try #require(await AgentAvailability.runs(cli, app: rig.app))
-    let now = Date().timeIntervalSince1970
-    #expect(await AgentAvailability.runs(cli, ran: [binary: now], app: rig.app) == binary && starts() == 1)   // remembered
-    #expect(await AgentAvailability.runs(cli, ran: [binary: now - 2 * 86400], app: rig.app) == binary && starts() == 2)   // a day on: asked again
-    try write("exit 1")   // updated, and broken now
-    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: cli)
-    #expect(await AgentAvailability.runs(cli, ran: [binary: now], app: rig.app) == nil && starts() == 3)
-}
+
+    /// A daemon that's connected and doesn't answer is told apart from one that answers, and from a connection that ended.
+    @Test func aHungDaemonIsNoticed() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        #expect(await AppModel.answers(rig.client, within: 5))
+        let path = rig.root.appendingPathComponent("h.sock").path, fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        defer { close(fd) }
+        var a = sockaddr_un()
+        a.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &a.sun_path) { path.utf8CString.withUnsafeBytes($0.copyMemory) }
+        _ = withUnsafePointer(to: &a) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        listen(fd, 1)   // never accepted: it connects, and nothing ever answers
+        #expect(await !AppModel.answers(try RPCClient(socket: path), within: 0.3))
+    }
+
+    /// An agent CLI that answered `--version` in the last day isn't started again until it changes.
+    @Test func agentThatRanIsNotStartedAgain() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let dir = tmp(), log = dir.appendingPathComponent("log"), cli = dir.appendingPathComponent("agent").path
+        func write(_ body: String) throws {
+            try "#!/bin/sh\necho >> '\(log.path)'\n\(body)\n".write(toFile: cli, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli)
+        }
+        func starts() -> Int { ((try? String(contentsOf: log, encoding: .utf8)) ?? "").count }
+        try write("exit 0")
+        let binary = try #require(await AgentAvailability.runs(cli, app: rig.app))
+        let now = Date().timeIntervalSince1970
+        #expect(await AgentAvailability.runs(cli, ran: [binary: now], app: rig.app) == binary && starts() == 1)   // remembered
+        #expect(
+            await AgentAvailability.runs(cli, ran: [binary: now - 2 * 86400], app: rig.app) == binary && starts() == 2)   // a day on: asked again
+        try write("exit 1")   // updated, and broken now
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: cli)
+        #expect(await AgentAvailability.runs(cli, ran: [binary: now], app: rig.app) == nil && starts() == 3)
+    }
 }
 
 /// A burst of calls runs once, the last one, after the pause; cancel drops it.
@@ -415,23 +474,30 @@ extension OneAtATime {
     var ran: [Int] = []
     for i in 1...3 { d.after(0.05) { ran.append(i) } }
     // A control scheduled after the burst, with a longer delay: once it ran, any other call of the burst would have too.
-    let after = Debounce(); var settled = false
+    let after = Debounce()
+    var settled = false
     after.after(0.1) { settled = true }
     #expect(try await waitFor(5) { settled })   // however busy the Mac
     #expect(ran == [3])
-    d.after(0.05) { ran.append(4) }; d.cancel()
-    let later = Debounce(); var control = false
+    d.after(0.05) { ran.append(4) }
+    d.cancel()
+    let later = Debounce()
+    var control = false
     later.after(0.1) { control = true }   // scheduled after the cancelled one, with a longer delay: once it ran, the other would have
     #expect(try await waitFor(5) { control })
     #expect(control && ran == [3])
 }
 
 @MainActor @Test func theTrustSheetShowsEverythingTrustAllows() throws {
-    let info = ScriptsList.Result(scripts: [.init(name: "test", command: "npm test")], setup: "npm i", tabs: ["claude"], shared: ["node_modules"],
-                                  recipes: ["commit": "also run x"], issueCommand: "Fix {title}", digest: "", trusted: false, file: "")
+    let info = ScriptsList.Result(
+        scripts: [.init(name: "test", command: "npm test")], setup: "npm i", tabs: ["claude"], shared: ["node_modules"],
+        recipes: ["commit": "also run x"], issueCommand: "Fix {title}", digest: "", trusted: false, file: "")
     let scroll = try #require(ScriptsMenu.trustText(info) as? NSScrollView)
     let text = try #require(scroll.documentView as? NSTextView).string
-    for line in ["setup: npm i", "test: npm test", "tabs: claude", "shared: node_modules", "issueCommand: Fix {title}", "recipe.commit: also run x"] {
+    for line in [
+        "setup: npm i", "test: npm test", "tabs: claude", "shared: node_modules", "issueCommand: Fix {title}",
+        "recipe.commit: also run x"
+    ] {
         #expect(text.contains(line), "\(line) is missing from the sheet")
     }
 }
@@ -441,9 +507,12 @@ extension OneAtATime {
 @MainActor @Test func theNoServiceBannerSaysWhyTheDaemonDidntStart() throws {
     let root = tmp()
     #expect(AppModel.whyNoService(root: root) == AppModel.noService)   // nothing left: nothing to add
-    try "xcrun: error: invalid active developer path\n".write(to: Paths.daemonError(in: root), atomically: true, encoding: .utf8)
+    try "xcrun: error: invalid active developer path\n".write(
+        to: Paths.daemonError(in: root), atomically: true, encoding: .utf8)
     let said = AppModel.whyNoService(root: root)
-    #expect(said.hasPrefix(AppModel.noService) && said.contains("invalid active developer path") && said.contains("xcode-select --install"))
+    #expect(
+        said.hasPrefix(AppModel.noService) && said.contains("invalid active developer path")
+            && said.contains("xcode-select --install"))
 }
 
 /// An extension's page stays its own: the bridge and what it's handed (settings, the workspace's path) never reach a site
@@ -465,8 +534,10 @@ extension OneAtATime {
     let d = Process(), other = Process()
     d.executableURL = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd")
     d.environment = ProcessInfo.processInfo.environment.merging(["KELP_HOME": tmp().path]) { $1 }
-    other.executableURL = URL(fileURLWithPath: "/bin/sleep"); other.arguments = ["30"]
-    try d.run(); try other.run()
+    other.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    other.arguments = ["30"]
+    try d.run()
+    try other.run()
     defer { for p in [d, other] where p.isRunning { p.terminate() } }   // only what this test started
     kill(d.processIdentifier, SIGSTOP)
     await AppModel.stop(other.processIdentifier)
@@ -480,38 +551,47 @@ extension OneAtATime {
 /// filled in would glow over the whole pane.
 @MainActor @Test func theGlowsFrameHasAHoleUnderTheShadowsRule() {
     // A pane's square-ish corners and a tab's capsule alike: the middle is never part of the light.
-    for (rect, r) in [(CGRect(x: 0, y: 0, width: 200, height: 100), 6.0), (CGRect(x: 0, y: 0, width: 160, height: 28), 14.0)] {
+    for (rect, r) in [
+        (CGRect(x: 0, y: 0, width: 200, height: 100), 6.0), (CGRect(x: 0, y: 0, width: 160, height: 28), 14.0)
+    ] {
         let p = EdgeGlow.frame(around: rect, radius: r)
-        #expect(!p.contains(CGPoint(x: rect.midX, y: rect.midY), using: .winding) && !p.contains(CGPoint(x: rect.midX, y: rect.midY), using: .evenOdd))
+        #expect(
+            !p.contains(CGPoint(x: rect.midX, y: rect.midY), using: .winding)
+                && !p.contains(CGPoint(x: rect.midX, y: rect.midY), using: .evenOdd))
         #expect(p.contains(CGPoint(x: -10, y: rect.midY), using: .winding))
     }
 }
 
 @Test func limitAlertsFireOncePerLevel() {
-    func u(_ p: Double) -> UsageGet.Result { .init(claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: p, resets: "Sat")]]) }
+    func u(_ p: Double) -> UsageGet.Result {
+        .init(claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: p, resets: "Sat")]])
+    }
     var a = LimitAlerts()
-    #expect(a.update(u(85)).isEmpty)                 // baseline: already full at launch
+    #expect(a.update(u(85)).isEmpty)   // baseline: already full at launch
     #expect(a.update(u(90)).isEmpty)
     #expect(a.update(u(96)).map(\.level) == [95])
     #expect(a.update(u(99)).isEmpty)
-    #expect(a.update(u(10)).isEmpty)                 // window reset
+    #expect(a.update(u(10)).isEmpty)   // window reset
     #expect(a.update(u(81)).map(\.level) == [80])
 }
 
 @Test func limitAlertsFollowTheChosenLevel() {
-    func u(_ p: Double) -> UsageGet.Result { .init(claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: p, resets: nil)]]) }
+    func u(_ p: Double) -> UsageGet.Result {
+        .init(claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: p, resets: nil)]])
+    }
     var a = LimitAlerts()
     #expect(a.update(u(50), first: 70).isEmpty)
     #expect(a.update(u(72), first: 70).map(\.level) == [70])
-    #expect(a.update(u(99), first: nil).isEmpty)     // off
+    #expect(a.update(u(99), first: nil).isEmpty)   // off
     #expect(LimitAlerts.levels(first: 95) == [95])
 }
 
 @Test func staleLimitReadingsDontAlert() {
     let now = Date()
     func u(_ ago: Double) -> UsageGet.Result {
-        .init(claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: 99, resets: nil)]],
-              plansReadAt: ["grok": now.timeIntervalSince1970 - ago])
+        .init(
+            claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: 99, resets: nil)]],
+            plansReadAt: ["grok": now.timeIntervalSince1970 - ago])
     }
     #expect(LimitAlerts.readings(u(60), now: now).count == 1)
     #expect(LimitAlerts.readings(u(7200), now: now).isEmpty)
@@ -519,22 +599,25 @@ extension OneAtATime {
 
 @Test func limitForecastWarnsOnlyWhenItFillsBeforeItResets() {
     let t0 = Date(timeIntervalSince1970: 1_800_000_000)
-    func u(_ p: Double) -> UsageGet.Result { .init(claude: [], codex: [], plans: ["grok": [.init(kind: "session", percent: p, resets: "in 4h")]]) }
+    func u(_ p: Double) -> UsageGet.Result {
+        .init(claude: [], codex: [], plans: ["grok": [.init(kind: "session", percent: p, resets: "in 4h")]])
+    }
     var f = LimitForecast()
     let key = LimitForecast.key("grok", "session")
     f.record(u(20), now: t0)
-    #expect(f.untilFull(key, now: t0) == nil)                                 // one reading tells no pace
-    f.record(u(30), now: t0.addingTimeInterval(600))                          // 1 point a minute
+    #expect(f.untilFull(key, now: t0) == nil)   // one reading tells no pace
+    f.record(u(30), now: t0.addingTimeInterval(600))   // 1 point a minute
     let now = t0.addingTimeInterval(600)
     #expect(abs((f.untilFull(key, now: now) ?? 0) - 70 * 60) < 1)
     #expect(f.warning(key, resetAt: now.addingTimeInterval(4 * 3600), now: now) != nil)   // full in 70 min, resets in 4 h
-    #expect(f.warning(key, resetAt: now.addingTimeInterval(3600), now: now) == nil)       // resets first
-    f.record(u(5), now: t0.addingTimeInterval(1500))                          // the window reset
+    #expect(f.warning(key, resetAt: now.addingTimeInterval(3600), now: now) == nil)   // resets first
+    f.record(u(5), now: t0.addingTimeInterval(1500))   // the window reset
     #expect(f.untilFull(key, now: t0.addingTimeInterval(1500)) == nil)
 }
 
 @Test func resetTimesParse() {
-    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = TimeZone(identifier: "UTC")!
     let now = Date(timeIntervalSince1970: 1_792_000_000)   // 2026-10-14 17:46 UTC
     #expect(ResetTime.parse("in 1h 30m", now: now, calendar: cal) == now.addingTimeInterval(5400))
     #expect(ResetTime.parse("in 3d", now: now, calendar: cal) == now.addingTimeInterval(3 * 86400))
@@ -544,13 +627,20 @@ extension OneAtATime {
     #expect(ResetTime.parse("Oct 20 at 5am", now: now, calendar: cal).map { cal.component(.day, from: $0) } == 20)
     #expect(ResetTime.parse("Nov 23", now: now, calendar: cal).map { cal.component(.month, from: $0) } == 11)
     let codex = ResetTime.parse("Oct 30, 2026 3:40 PM", now: now, calendar: cal)
-    #expect(codex.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) } == DateComponents(month: 10, day: 30, hour: 15, minute: 40))
+    #expect(
+        codex.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) }
+            == DateComponents(month: 10, day: 30, hour: 15, minute: 40))
     #expect(ResetTime.parse("soon", now: now, calendar: cal) == nil)
     #expect(ResetTime.parse("7", now: now, calendar: cal) == nil)
     let grok = ResetTime.parse("October 20, 19:36", now: now, calendar: cal)
-    #expect(grok.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) } == DateComponents(month: 10, day: 20, hour: 19, minute: 36))
+    #expect(
+        grok.map { cal.dateComponents([.month, .day, .hour, .minute], from: $0) }
+            == DateComponents(month: 10, day: 20, hour: 19, minute: 36))
     // Whichever agent said it, one way; what can't be read stays, and a date with no time gets none.
-    #expect(ResetTime.shown("Oct 20 at 5am", now: now, calendar: cal) == ResetTime.shown(cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 5)) ?? now, now: now))
+    #expect(
+        ResetTime.shown("Oct 20 at 5am", now: now, calendar: cal)
+            == ResetTime.shown(cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 5)) ?? now, now: now)
+    )
     #expect(ResetTime.shown("soon", now: now, calendar: cal) == "soon")
     #expect(!ResetTime.shown("Nov 23", now: now, calendar: cal).contains(":"))
 }
@@ -561,10 +651,14 @@ extension OneAtATime {
     _ = testHome
     let m = AppModel(builtins: Builtins.all)
     m.repos = [Repo(id: "r1", name: "Atlas", path: "/tmp/kelp-ci-atlas")]
-    m.worktrees = [Worktree(id: "w1", repoId: "r1", branch: "main", path: "/tmp/kelp-ci-atlas"),
-                   Worktree(id: "w2", repoId: "r1", branch: "fix", path: "/tmp/kelp-ci-atlas-fix")]
+    m.worktrees = [
+        Worktree(id: "w1", repoId: "r1", branch: "main", path: "/tmp/kelp-ci-atlas"),
+        Worktree(id: "w2", repoId: "r1", branch: "fix", path: "/tmp/kelp-ci-atlas-fix")
+    ]
     func ci(_ status: String, _ conclusion: String? = nil) {
-        let run = CIRuns.Run(id: 1, title: "", workflow: "CI", status: status, conclusion: conclusion, event: "push", url: "", createdAt: "")
+        let run = CIRuns.Run(
+            id: 1, title: "", workflow: "CI", status: status, conclusion: conclusion, event: "push", url: "",
+            createdAt: "")
         m.land(CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run], workflows: [])))
     }
     let b = m.rowBadges
@@ -589,18 +683,26 @@ extension OneAtATime {
     var cal = Calendar(identifier: .gregorian)
     cal.timeZone = try #require(TimeZone(identifier: "Europe/Berlin"))
     cal.firstWeekday = 2
-    let f = DateFormatter(); f.calendar = cal; f.timeZone = cal.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
+    let f = DateFormatter()
+    f.calendar = cal
+    f.timeZone = cal.timeZone
+    f.dateFormat = "yyyy-MM-dd HH:mm"
     func at(_ s: String) throws -> Date { try #require(f.date(from: s)) }
     let week = RoutineWeek(now: try at("2026-10-29 11:14"), calendar: cal)
     let monday = try at("2026-10-26 00:00")
     #expect(week.days.count == 7 && week.days.first == monday)
-    let r = Routine(id: "r", name: "Morning triage", repoId: "p", agent: "claude", prompt: "x", every: .weekdays, time: 9 * 60)
-    let wed = Routine.Run(routineId: "r", due: try at("2026-10-28 09:00"), outcome: .failed, summary: "gh is not signed in")
+    let r = Routine(
+        id: "r", name: "Morning triage", repoId: "p", agent: "claude", prompt: "x", every: .weekdays, time: 9 * 60)
+    let wed = Routine.Run(
+        routineId: "r", due: try at("2026-10-28 09:00"), outcome: .failed, summary: "gh is not signed in")
     #expect(week.marks(r, runs: [wed], day: week.days[2]).map(\.kind) == [.run(.failed)])
     #expect(week.marks(r, runs: [wed], day: week.days[3]).isEmpty)   // today's 9:00 has gone by without a run
     #expect(week.marks(r, runs: [], day: week.days[4]).map(\.kind) == [.next])
     #expect(week.marks(r, runs: [], day: week.days[5]).isEmpty)   // Saturday
-    var off = r; off.enabled = false
+    var off = r
+    off.enabled = false
     #expect(week.marks(off, runs: [], day: week.days[4]).isEmpty)
-    #expect(RoutineWeek.schedule(Routine(name: "h", repoId: "p", agent: "a", prompt: "x", every: .hourly, time: 15)) == "Every hour at :15")
+    #expect(
+        RoutineWeek.schedule(Routine(name: "h", repoId: "p", agent: "a", prompt: "x", every: .hourly, time: 15))
+            == "Every hour at :15")
 }

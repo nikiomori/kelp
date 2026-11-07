@@ -38,19 +38,26 @@ public final class EmptyStateView: NSView {
             stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8),
             stack.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: Metrics.inset)
         ])
-        for l in [title, text, fix] { l.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8).isActive = true }
+        for l in [title, text, fix] {
+            l.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * Metrics.inset - 8).isActive = true
+        }
         isHidden = true
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// Shows the block; nil `title` hides it. `symbol` is an SF Symbol's name.
-    public func show(_ title: String?, symbol: String? = nil, text: String? = nil, fix: String? = nil, buttons: [NSButton] = []) {
+    public func show(
+        _ title: String?, symbol: String? = nil, text: String? = nil, fix: String? = nil, buttons: [NSButton] = []
+    ) {
         let appearing = isHidden && title != nil
         isHidden = title == nil
         guard let title else { return }
         if appearing, !Motion.reduced {   // it fades in rather than flashing up over the list it replaces
             alphaValue = 0
-            NSAnimationContext.runAnimationGroup { $0.duration = Motion.fast; animator().alphaValue = 1 }
+            NSAnimationContext.runAnimationGroup {
+                $0.duration = Motion.fast
+                animator().alphaValue = 1
+            }
         }
         self.title.stringValue = title
         self.text.stringValue = text ?? ""
@@ -78,8 +85,11 @@ public final class EmptyStateView: NSView {
     /// The same block as a web page, for a web view that has nothing to show (a page that didn't load, a notebook that
     /// can't be read): the title and a line under it, centred and lifted as the view is. Plain text; it's escaped here.
     public static func html(_ title: String, text: String) -> String {
-        let esc = { (s: String) in s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;") }
-        return "<html><head><meta name='color-scheme' content='light dark'></head><body style='margin:0;font:13px -apple-system;"
+        let esc = { (s: String) in
+            s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+        }
+        return
+            "<html><head><meta name='color-scheme' content='light dark'></head><body style='margin:0;font:13px -apple-system;"
             + "color:-apple-system-secondary-label;display:flex;height:100vh;align-items:center;justify-content:center;text-align:center'>"
             + "<div style='margin:0 \(Int(Metrics.inset) + 4)px \(2 * Int(Metrics.emptyLift))px'>"
             + "<div style='font-weight:600;color:-apple-system-label;margin-bottom:\(Int(Metrics.gap))px'>\(esc(title))</div>\(esc(text))</div></body></html>"

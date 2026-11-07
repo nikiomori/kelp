@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Daemon
 
 /// One reply bigger than 16 MiB (a monorepo's file list) reaches a client that reads it; it used to hang that client up.
@@ -20,9 +21,11 @@ import Core
         }
         return total
     }
-    c.send(big); c.send(tail)
+    c.send(big)
+    c.send(tail)
     #expect(await reader.value == want)
-    c.close(); close(fd)
+    c.close()
+    close(fd)
 }
 
 /// What's queued for a client goes out before the daemon hangs up on it to hand over (`daemon.upgrade`): its own reply
@@ -46,7 +49,8 @@ import Core
     c.drain(within: 5)
     c.hangUp()
     #expect(await reader.value == reply.count)
-    c.close(); close(fd)
+    c.close()
+    close(fd)
 }
 
 /// A `kelp browser` request asked of Kelp's window ends when that window hangs up, not a minute later: nobody is left to

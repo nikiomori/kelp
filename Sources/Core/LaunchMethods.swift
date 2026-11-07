@@ -19,50 +19,96 @@ public protocol LaunchOptions {
 /// `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that
 /// started this agent, or this command (see `Session.parent`, `Session.startedBy`), if it is an agent.
 public struct SessionCreate: RPCMethod, LaunchOptions {
-    public static let name = "session.create"; public typealias Result = Session
+    public static let name = "session.create"
+    public typealias Result = Session
     public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?, parent: String?
-    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
-    public init(cwd: String? = nil, worktreeId: String? = nil, agent: String? = nil, command: String? = nil, tmux: String? = nil,
-                model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil, profile: String? = nil, draft: Bool? = nil,
-                openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil, parent: String? = nil) {
-        self.cwd = cwd; self.worktreeId = worktreeId; self.agent = agent; self.command = command; self.tmux = tmux; self.parent = parent
-        self.model = model; self.effort = effort; self.prompt = prompt; self.title = title; self.profile = profile; self.draft = draft
-        self.openURLs = openURLs; self.cols = cols; self.rows = rows
+    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?,
+        openURLs: Bool?, cols: Int?, rows: Int?
+    public init(
+        cwd: String? = nil, worktreeId: String? = nil, agent: String? = nil, command: String? = nil,
+        tmux: String? = nil,
+        model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil,
+        profile: String? = nil, draft: Bool? = nil,
+        openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil, parent: String? = nil
+    ) {
+        self.cwd = cwd
+        self.worktreeId = worktreeId
+        self.agent = agent
+        self.command = command
+        self.tmux = tmux
+        self.parent = parent
+        self.model = model
+        self.effort = effort
+        self.prompt = prompt
+        self.title = title
+        self.profile = profile
+        self.draft = draft
+        self.openURLs = openURLs
+        self.cols = cols
+        self.rows = rows
     }
 }
 
 /// The tmux sessions on the workspace's machine (a remote project's host), the last used first; none while tmux runs
 /// no server there.
 public struct TmuxList: InternalMethod {
-    public static let name = "tmux.list"; public typealias Result = [Tmux.Session]
+    public static let name = "tmux.list"
+    public typealias Result = [Tmux.Session]
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 
 /// The same command in the same folder, resuming its conversation unless `resume` is false.
 public struct SessionRestart: RPCMethod, LaunchOptions {
-    public static let name = "session.restart"; public typealias Result = Session
+    public static let name = "session.restart"
+    public typealias Result = Session
     public var id: String, resume: Bool?
-    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
-    public init(id: String, resume: Bool? = nil, model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil,
-                profile: String? = nil, draft: Bool? = nil, openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil) {
-        self.id = id; self.resume = resume
-        self.model = model; self.effort = effort; self.prompt = prompt; self.title = title; self.profile = profile; self.draft = draft
-        self.openURLs = openURLs; self.cols = cols; self.rows = rows
+    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?,
+        openURLs: Bool?, cols: Int?, rows: Int?
+    public init(
+        id: String, resume: Bool? = nil, model: String? = nil, effort: String? = nil, prompt: String? = nil,
+        title: String? = nil,
+        profile: String? = nil, draft: Bool? = nil, openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil
+    ) {
+        self.id = id
+        self.resume = resume
+        self.model = model
+        self.effort = effort
+        self.prompt = prompt
+        self.title = title
+        self.profile = profile
+        self.draft = draft
+        self.openURLs = openURLs
+        self.cols = cols
+        self.rows = rows
     }
 }
 
 /// A new agent (`agent`, else the same) in the same workspace, briefed with this one's transcript (`full`: all of it).
 public struct SessionHandoff: RPCMethod, LaunchOptions {
-    public static let name = "session.handoff"; public typealias Result = Session
+    public static let name = "session.handoff"
+    public typealias Result = Session
     public var id: String, agent: String?, full: Bool?
-    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
-    public init(id: String, agent: String? = nil, full: Bool? = nil,
-                model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil, profile: String? = nil, draft: Bool? = nil,
-                openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil) {
-        self.id = id; self.agent = agent; self.full = full
-        self.model = model; self.effort = effort; self.prompt = prompt; self.title = title; self.profile = profile; self.draft = draft
-        self.openURLs = openURLs; self.cols = cols; self.rows = rows
+    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?,
+        openURLs: Bool?, cols: Int?, rows: Int?
+    public init(
+        id: String, agent: String? = nil, full: Bool? = nil,
+        model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil,
+        profile: String? = nil, draft: Bool? = nil,
+        openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil
+    ) {
+        self.id = id
+        self.agent = agent
+        self.full = full
+        self.model = model
+        self.effort = effort
+        self.prompt = prompt
+        self.title = title
+        self.profile = profile
+        self.draft = draft
+        self.openURLs = openURLs
+        self.cols = cols
+        self.rows = rows
     }
 }
 
@@ -76,31 +122,48 @@ public struct TaskFromIssue: RPCMethod {
         /// The project's .kelp.yaml has a setup that didn't run: it isn't trusted yet.
         public var setupNeedsTrust: Bool
         public init(worktree: Worktree, session: Session, setupNeedsTrust: Bool) {
-            self.worktree = worktree; self.session = session; self.setupNeedsTrust = setupNeedsTrust
+            self.worktree = worktree
+            self.session = session
+            self.setupNeedsTrust = setupNeedsTrust
         }
     }
-    public var repoId: String, ref: String, title: String, body: String?, url: String?, branch: String?, branchPrefix: String?
+    public var repoId: String, ref: String, title: String, body: String?, url: String?, branch: String?,
+        branchPrefix: String?
     public var linearId: String?, agent: String?, prompt: String?
     public var model: String?, effort: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
 }
 
 /// A past conversation (`session`, as history.list gives it) as a live session, in `worktreeId` or its own folder.
 public struct HistoryResume: RPCMethod, LaunchOptions {
-    public static let name = "history.resume"; public typealias Result = Session
+    public static let name = "history.resume"
+    public typealias Result = Session
     public var session: AgentSessionInfo?, worktreeId: String?
-    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
-    public init(session: AgentSessionInfo?, worktreeId: String? = nil,
-                model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil, profile: String? = nil, draft: Bool? = nil,
-                openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil) {
-        self.session = session; self.worktreeId = worktreeId
-        self.model = model; self.effort = effort; self.prompt = prompt; self.title = title; self.profile = profile; self.draft = draft
-        self.openURLs = openURLs; self.cols = cols; self.rows = rows
+    public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?,
+        openURLs: Bool?, cols: Int?, rows: Int?
+    public init(
+        session: AgentSessionInfo?, worktreeId: String? = nil,
+        model: String? = nil, effort: String? = nil, prompt: String? = nil, title: String? = nil,
+        profile: String? = nil, draft: Bool? = nil,
+        openURLs: Bool? = nil, cols: Int? = nil, rows: Int? = nil
+    ) {
+        self.session = session
+        self.worktreeId = worktreeId
+        self.model = model
+        self.effort = effort
+        self.prompt = prompt
+        self.title = title
+        self.profile = profile
+        self.draft = draft
+        self.openURLs = openURLs
+        self.cols = cols
+        self.rows = rows
     }
 }
 
 /// From a running agent's hooks (`kelp hook`): `event`, and what Claude Code's hook payload says.
 public struct SessionHook: InternalMethod {
-    public static let name = "session.hook"; public typealias Result = Done
+    public static let name = "session.hook"
+    public typealias Result = Done
     public var id: String, event: String?, transcript: String?, cwd: String?, trigger: String?, notification: JSONValue?
     public var backgroundTasks: [JSONValue]?
     /// Stop: its timers (CronCreate, ScheduleWakeup, /loop) that will wake it later.
@@ -127,36 +190,64 @@ public struct SessionHook: InternalMethod {
         case backgroundTasks = "background_tasks", sessionCrons = "session_crons", endedTasks = "ended_tasks"
         case hookName = "hook_event_name", agentId = "agent_id", agentType = "agent_type"
     }
-    public init(id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil, notification: JSONValue? = nil,
-                backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil,
-                hookName: String? = nil, agentId: String? = nil, goal: String? = nil, at: TimeInterval? = nil) {
-        self.id = id; self.event = event; self.transcript = transcript; self.cwd = cwd; self.trigger = trigger
-        self.notification = notification; self.backgroundTasks = backgroundTasks; self.sessionCrons = sessionCrons; self.command = command
-        self.hookName = hookName; self.agentId = agentId; self.goal = goal; self.at = at
+    public init(
+        id: String, event: String?, transcript: String? = nil, cwd: String? = nil, trigger: String? = nil,
+        notification: JSONValue? = nil,
+        backgroundTasks: [JSONValue]? = nil, sessionCrons: [JSONValue]? = nil, command: AgentCommand? = nil,
+        hookName: String? = nil, agentId: String? = nil, goal: String? = nil, at: TimeInterval? = nil
+    ) {
+        self.id = id
+        self.event = event
+        self.transcript = transcript
+        self.cwd = cwd
+        self.trigger = trigger
+        self.notification = notification
+        self.backgroundTasks = backgroundTasks
+        self.sessionCrons = sessionCrons
+        self.command = command
+        self.hookName = hookName
+        self.agentId = agentId
+        self.goal = goal
+        self.at = at
     }
 }
 
 /// A summary from the UI (the agent's own last reply), and optionally a better status guess. `ifStatus`: only while the
 /// session still has this status: the summary is of a turn that ended a moment ago, and the row may have moved on to a question.
 public struct SessionAnnotate: InternalMethod {
-    public static let name = "session.annotate"; public typealias Result = Done
+    public static let name = "session.annotate"
+    public typealias Result = Done
     public var id: String, summary: String?, status: String?, ifStatus: String?
     public init(id: String, summary: String? = nil, status: String? = nil, ifStatus: String? = nil) {
-        self.id = id; self.summary = summary; self.status = status; self.ifStatus = ifStatus
+        self.id = id
+        self.summary = summary
+        self.status = status
+        self.ifStatus = ifStatus
     }
 }
 /// The prompt for action `name` in workspace `id`, the project's own wording if it has one (and is trusted).
 public struct RecipeRender: InternalMethod {
-    public static let name = "recipe.render"; public typealias Result = String; public var id: String, name: String, vars: [String: String]?
-    public init(id: String, name: String, vars: [String: String]? = nil) { self.id = id; self.name = name; self.vars = vars }
+    public static let name = "recipe.render"
+    public typealias Result = String
+    public var id: String, name: String, vars: [String: String]?
+    public init(id: String, name: String, vars: [String: String]? = nil) {
+        self.id = id
+        self.name = name
+        self.vars = vars
+    }
 }
 /// The agents on this Mac and their versions.
 public struct AgentsVersions: InternalMethod {
-    public static let name = "agents.versions"; public typealias Result = [Item]
+    public static let name = "agents.versions"
+    public typealias Result = [Item]
     public struct Item: Codable, Sendable, Equatable {
         /// nil: not found, or it printed no version (`latest`: not on npm, or npm isn't installed).
         public var id: String, version: String?, latest: String?
-        public init(id: String, version: String?, latest: String?) { self.id = id; self.version = version; self.latest = latest }
+        public init(id: String, version: String?, latest: String?) {
+            self.id = id
+            self.version = version
+            self.latest = latest
+        }
     }
     public init() {}
 }
@@ -172,32 +263,55 @@ public struct ProcessRun: InternalMethod {
     public struct Result: Codable, Sendable, Equatable {
         public var code: Int32, stdout: String, stderr: String, timedOut: Bool
         public init(code: Int32, stdout: String, stderr: String, timedOut: Bool) {
-            self.code = code; self.stdout = stdout; self.stderr = stderr; self.timedOut = timedOut
+            self.code = code
+            self.stdout = stdout
+            self.stderr = stderr
+            self.timedOut = timedOut
         }
     }
     public var argv: [String], cwd: String?, stdin: String?, timeLimit: Double?, extensionId: String?
-    public init(argv: [String], cwd: String? = nil, stdin: String? = nil, timeLimit: Double? = nil, extensionId: String? = nil) {
-        self.argv = argv; self.cwd = cwd; self.stdin = stdin; self.timeLimit = timeLimit; self.extensionId = extensionId
+    public init(
+        argv: [String], cwd: String? = nil, stdin: String? = nil, timeLimit: Double? = nil, extensionId: String? = nil
+    ) {
+        self.argv = argv
+        self.cwd = cwd
+        self.stdin = stdin
+        self.timeLimit = timeLimit
+        self.extensionId = extensionId
     }
 }
 /// Where each command is on the login-shell PATH the daemon gives programs (`process.run`, sessions): command → absolute
 /// path, the ones not found left out. The app asks instead of reading that PATH itself, which starts the user's shell.
 public struct ProcessWhich: InternalMethod {
-    public static let name = "process.which"; public typealias Result = [String: String]
+    public static let name = "process.which"
+    public typealias Result = [String: String]
     public var commands: [String]
     public init(commands: [String]) { self.commands = commands }
 }
 /// The login shell's PATH read again, after an installer changed the shell profile: `process.which` and new sessions
 /// then find what it installed. Answered once the shell has been asked (seconds, with a slow profile).
 public struct ProcessRefreshPath: InternalMethod {
-    public static let name = "process.refreshPath"; public typealias Result = Done
+    public static let name = "process.refreshPath"
+    public typealias Result = Done
     public init() {}
 }
 /// "pong".
-public struct Ping: RPCMethod { public static let name = "ping"; public typealias Result = String; public init() {} }
+public struct Ping: RPCMethod {
+    public static let name = "ping"
+    public typealias Result = String
+    public init() {}
+}
 /// Stops the daemon, and the agents with it.
-public struct DaemonShutdown: InternalMethod { public static let name = "daemon.shutdown"; public typealias Result = Done; public init() {} }
+public struct DaemonShutdown: InternalMethod {
+    public static let name = "daemon.shutdown"
+    public typealias Result = Done
+    public init() {}
+}
 /// The kelpd binary now at the running one's path (an update put it there) takes over in the same process: running
 /// sessions carry on, their programs never stop. Answered first; then every connection drops, and the socket answers
 /// again once the new one is up.
-public struct DaemonUpgrade: InternalMethod { public static let name = "daemon.upgrade"; public typealias Result = Done; public init() {} }
+public struct DaemonUpgrade: InternalMethod {
+    public static let name = "daemon.upgrade"
+    public typealias Result = Done
+    public init() {}
+}

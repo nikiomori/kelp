@@ -6,7 +6,10 @@ public enum IDE {
     /// Claude strips only one pair of quotes, so the POSIX `'…'\''…'` form leaks into the path (Ghostty does the same).
     public static func escapedPath(_ path: String) -> String {
         var out = ""
-        for c in path { if "\\ ()[]{}<>\"'`!#$&;|*?\t".contains(c) { out.append("\\") }; out.append(c) }
+        for c in path {
+            if "\\ ()[]{}<>\"'`!#$&;|*?\t".contains(c) { out.append("\\") }
+            out.append(c)
+        }
         return out
     }
 
@@ -18,22 +21,31 @@ public enum IDE {
     /// What `ui.open` gets for a CLI/agent target: http(s) and tab URIs as is, `path:12` → `file:///abs/path#L12`, other paths made absolute.
     public static func uri(for target: String, cwd: String) -> String {
         if target.hasPrefix("http://") || target.hasPrefix("https://") { return target }
-        if let m = target.wholeMatch(of: /(.+):(\d+)/) { return URL(fileURLWithPath: absolute(String(m.1), cwd: cwd)).absoluteString + "#L\(m.2)" }
+        if let m = target.wholeMatch(of: /(.+):(\d+)/) {
+            return URL(fileURLWithPath: absolute(String(m.1), cwd: cwd)).absoluteString + "#L\(m.2)"
+        }
         let path = absolute(target, cwd: cwd)
-        if target.wholeMatch(of: /[a-z][a-z0-9+.-]*:.*/) != nil, !FileManager.default.fileExists(atPath: path) { return target }   // session:, diff:, ext:…
+        if target.wholeMatch(of: /[a-z][a-z0-9+.-]*:.*/) != nil, !FileManager.default.fileExists(atPath: path) {
+            return target
+        }   // session:, diff:, ext:…
         return path
     }
 
     /// Opens `target` in the editor area of the workspace that contains `cwd` (when there is one).
     /// `focus`: bring Kelp to the front and switch to that workspace (otherwise the tab waits there quietly).
-    public static func open(_ target: String, split: String?, cwd: String, focus: Bool = false, client c: RPCClient) async throws -> Delivered {
+    public static func open(_ target: String, split: String?, cwd: String, focus: Bool = false, client c: RPCClient)
+        async throws -> Delivered
+    {
         let w = try? await workspace(cwd: cwd, client: c)
-        return try await c.call(UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: w?.id))
+        return try await c.call(
+            UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: w?.id))
     }
 
     /// The workspace a command run in `cwd` means (`workspace(cwd:among:own:)`), from the daemon's lists.
-    public static func workspace(cwd: String, session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"],
-                                 client c: RPCClient) async throws -> Worktree? {
+    public static func workspace(
+        cwd: String, session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"],
+        client c: RPCClient
+    ) async throws -> Worktree? {
         let all = try await c.call(WorktreeList())
         let own = session == nil ? nil : (try? await c.call(SessionList()))?.first { $0.id == session }?.worktreeId
         return workspace(cwd: cwd, among: all, own: own)
@@ -51,7 +63,10 @@ public enum IDE {
     }
 
     public static func inside(_ dir: String, _ root: String) -> Bool {
-        let (d, r) = (URL(fileURLWithPath: dir).resolvingSymlinksInPath().path, URL(fileURLWithPath: root).resolvingSymlinksInPath().path)
+        let (d, r) = (
+            URL(fileURLWithPath: dir).resolvingSymlinksInPath().path,
+            URL(fileURLWithPath: root).resolvingSymlinksInPath().path
+        )
         return d == r || d.hasPrefix(r + "/")
     }
 
@@ -64,12 +79,16 @@ public enum IDE {
         if let shown = try await c.call(UIStateGet())["extensions"] { return shown }
         let disabled = try await disabledExtensions(client: c)
         let folders = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        return .array(folders.sorted { $0.path < $1.path }.compactMap { f in
-            guard let d = try? Data(contentsOf: f.appendingPathComponent("extension.json")) else { return nil }
-            let id = f.lastPathComponent
-            let name = (try? JSONDecoder().decode(JSONValue.self, from: d))?["name"] ?? .string(id)
-            return .obj(["id": .string(id), "name": name, "enabled": .bool(!disabled.contains(id)), "builtin": false, "path": .string(f.path)])
-        })
+        return .array(
+            folders.sorted { $0.path < $1.path }.compactMap { f in
+                guard let d = try? Data(contentsOf: f.appendingPathComponent("extension.json")) else { return nil }
+                let id = f.lastPathComponent
+                let name = (try? JSONDecoder().decode(JSONValue.self, from: d))?["name"] ?? .string(id)
+                return .obj([
+                    "id": .string(id), "name": name, "enabled": .bool(!disabled.contains(id)), "builtin": false,
+                    "path": .string(f.path)
+                ])
+            })
     }
 
     /// Enabling/disabling is the `extensions.disabled` setting; the app applies it.
@@ -93,13 +112,16 @@ public enum IDE {
     public static func scaffoldExtension(id: String, name: String?, description: String?, in dir: URL) throws -> URL {
         guard isValidExtensionID(id) else { throw invalidID(id) }
         let folder = dir.appendingPathComponent(id)
-        guard !FileManager.default.fileExists(atPath: folder.path) else { throw RPCError.invalidParams("\(folder.path) already exists") }
+        guard !FileManager.default.fileExists(atPath: folder.path) else {
+            throw RPCError.invalidParams("\(folder.path) already exists")
+        }
         try Paths.ensure(folder)
         try writeGuide(in: dir)
         let name = name ?? id.replacingOccurrences(of: "-", with: " ").capitalized
         try starterManifest(id: id, name: name, description: description ?? "")
             .write(to: folder.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-        try starterReadme(name: name, description: description ?? "").write(to: folder.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        try starterReadme(name: name, description: description ?? "").write(
+            to: folder.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
         return folder
     }
 
@@ -110,7 +132,10 @@ public enum IDE {
     /// looks (`kelp` run through a symlink).
     public static func resource(_ name: String, _ ext: String) -> String? {
         let exe = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
-        let dirs = [Bundle.main.resourceURL, Bundle(for: BundleToken.self).resourceURL, exe?.appendingPathComponent("../Resources"), exe]
+        let dirs = [
+            Bundle.main.resourceURL, Bundle(for: BundleToken.self).resourceURL,
+            exe?.appendingPathComponent("../Resources"), exe
+        ]
         let bundles = dirs.lazy.compactMap { $0.flatMap { Bundle(url: $0.appendingPathComponent("Kelp_Core.bundle")) } }
         let found = bundles.compactMap { $0.url(forResource: name, withExtension: ext) }
         return found.first.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
@@ -121,11 +146,13 @@ public enum IDE {
     public static func writeGuide(in dir: URL) throws {
         let u = dir.appendingPathComponent("EXTENSIONS.md")
         guard !extensionGuide.isEmpty, (try? String(contentsOf: u, encoding: .utf8)) != extensionGuide else { return }
-        try Paths.ensure(dir); try extensionGuide.write(to: u, atomically: true, encoding: .utf8)
+        try Paths.ensure(dir)
+        try extensionGuide.write(to: u, atomically: true, encoding: .utf8)
     }
 
     static func jsonString(_ s: String) -> String {
-        let e = JSONEncoder(); e.outputFormatting = .withoutEscapingSlashes
+        let e = JSONEncoder()
+        e.outputFormatting = .withoutEscapingSlashes
         return (try? e.encode(s)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "\"\""
     }
 

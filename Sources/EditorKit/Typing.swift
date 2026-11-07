@@ -15,8 +15,11 @@ import AppKit
         let texts = cs.map { r -> String in
             let line = s.lineRange(for: NSRange(location: r.location, length: 0))
             let lead = leading(s, line)
-            let indent = s.substring(with: NSRange(location: lead.location, length: min(lead.length, r.location - line.location)))
-            let prev = (line.location..<r.location).reversed().lazy.map { s.character(at: $0) }.first { $0 != 32 && $0 != 9 }
+            let indent = s.substring(
+                with: NSRange(location: lead.location, length: min(lead.length, r.location - line.location)))
+            let prev = (line.location..<r.location).reversed().lazy.map { s.character(at: $0) }.first {
+                $0 != 32 && $0 != 9
+            }
             let opens = prev.map { [40, 91, 123].contains($0) || ($0 == 58 && tv.colonOpensBlock) } ?? false   // ( [ { and :
             let next = NSMaxRange(r) < s.length ? s.character(at: NSMaxRange(r)) : nil
             let first = br + indent + (opens ? tv.indentUnit : "")
@@ -45,7 +48,8 @@ import AppKit
                 let n = s.substring(with: lead).hasPrefix("\t") ? 1 : min(lead.length, unit)
                 return n > 0 ? (NSRange(location: line.location, length: n), "") : nil
             }
-            return lead.length == line.length - lineBreak(s, line) ? nil : (NSRange(location: line.location, length: 0), tv.indentUnit)   // not blank lines
+            return lead.length == line.length - lineBreak(s, line)
+                ? nil : (NSRange(location: line.location, length: 0), tv.indentUnit)   // not blank lines
         }
         tv.replace(edits.map(\.0), with: edits.map(\.1), keep: true)
     }
@@ -72,7 +76,8 @@ import AppKit
         let prev = r.location > 0 ? UnicodeScalar(s.character(at: r.location - 1)) : nil
         // Before a space, a closer, punctuation or the end; a quote not right after a letter (the ' in don't).
         guard next.map({ [9, 10, 13, 32, 41, 93, 125, 44, 59, 58].contains($0) }) ?? true,
-              close != c || !(prev.map(word.contains) ?? false) else { return false }
+            close != c || !(prev.map(word.contains) ?? false)
+        else { return false }
         tv.replace([r], with: [open + shut], caret: [1])
         return true
     }
@@ -81,7 +86,8 @@ import AppKit
     static func unpair(_ tv: EditorTextView) -> Bool {
         let s = tv.string as NSString, r = tv.selectedRange()
         guard tv.cursors.count == 1, r.length == 0, r.location > 0, r.location < s.length,
-              closers[s.character(at: r.location - 1)] == s.character(at: r.location) else { return false }
+            closers[s.character(at: r.location - 1)] == s.character(at: r.location)
+        else { return false }
         tv.replace([NSRange(location: r.location - 1, length: 2)], with: [""])
         return true
     }

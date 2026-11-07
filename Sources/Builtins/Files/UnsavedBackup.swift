@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import KelpKit
 
 /// Text typed and not saved, kept in the daemon's store so a crash or a force quit of the window doesn't take it. A save

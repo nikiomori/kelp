@@ -1,7 +1,7 @@
-import Foundation
-import Core
-import Agents
 import AgentData
+import Agents
+import Core
+import Foundation
 import GitKit
 
 // Sessions: listing, attaching, typing into, stopping, reading.
@@ -18,7 +18,9 @@ extension SessionAttach: Handled {
     func handle(_ sessions: Sessions) throws -> Result { try handle(sessions, conn: -1) }
     func handle(_ sessions: Sessions, conn: Int) throws -> Result {
         if sessions.existing(id) == nil, try sessions.store.session(id)?.status == .exited {   // ended: what it last printed, from its log
-            return Result(history: TerminalReplies.withoutQueries(try sessions.liveSessionOrLog(id, bytes: LiveSession.ringLimit)).base64EncodedString())
+            return Result(
+                history: TerminalReplies.withoutQueries(try sessions.liveSessionOrLog(id, bytes: LiveSession.ringLimit))
+                    .base64EncodedString())
         }
         // Showing a tab isn't reading it: the app marks it read once it was looked at (or typed into).
         guard let history = try sessions.liveSession(id).attach(conn) else { throw Sessions.pausedAsAttached }
@@ -28,7 +30,10 @@ extension SessionAttach: Handled {
 
 extension SessionDetach: Handled {
     func handle(_ sessions: Sessions) throws -> Done { try handle(sessions, conn: -1) }
-    func handle(_ sessions: Sessions, conn: Int) throws -> Done { sessions.existing(id)?.detach(conn); return Done() }
+    func handle(_ sessions: Sessions, conn: Int) throws -> Done {
+        sessions.existing(id)?.detach(conn)
+        return Done()
+    }
 }
 
 extension SessionWrite: SessionInput {
@@ -85,8 +90,12 @@ extension SessionKill: Handled {
         // still running on the host (`connectionLost`). The live record too, before its exit is saved.
         let before = try sessions.store.session(id)
         try sessions.wakeLocks.withLock(id) {
-            if let ls = sessions.existing(id) { _ = ls.update { $0.tmux = nil }; ls.pty.terminate() }
-            else if try sessions.store.session(id)?.status == .paused { try sessions.change(id) { $0.status = .exited } }   // don't wake just to kill
+            if let ls = sessions.existing(id) {
+                _ = ls.update { $0.tmux = nil }
+                ls.pty.terminate()
+            } else if try sessions.store.session(id)?.status == .paused {
+                try sessions.change(id) { $0.status = .exited }
+            }   // don't wake just to kill
         }
         guard let before else { return Done() }
         sessions.endOwnTmux(before)
@@ -126,7 +135,9 @@ extension Sessions {
         let token = UUID()
         return await withCheckedContinuation { c in
             permissionWaits.withLock { w in w.updateValue((token, c), forKey: id) }?.1.resume(returning: nil)
-            DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in self?.answerPermission(id, nil, only: token) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
+                self?.answerPermission(id, nil, only: token)
+            }
         }
     }
 
@@ -151,7 +162,9 @@ extension AgentSetSecret: Handled {
     }
 }
 
-extension PortsList: Handled { func handle(_ sessions: Sessions) throws -> [Port] { sessions.ports(worktree: worktreeId) } }
+extension PortsList: Handled {
+    func handle(_ sessions: Sessions) throws -> [Port] { sessions.ports(worktree: worktreeId) }
+}
 extension SessionUsage: Handled { func handle(_ sessions: Sessions) throws -> [Usage] { sessions.usage() } }
 
 extension PortsStop: Handled {
@@ -162,15 +175,20 @@ extension PortsStop: Handled {
             throw RPCError.invalidParams("That process isn't running in this workspace.")
         }
         if let (_, remote) = sessions.remote(worktreeId) {
-            _ = try Git.run(remote.sshArgs(tty: false) + ["kill \(pid)"], cwd: NSHomeDirectory(), executable: remote.ssh)
-        } else { kill(pid, SIGTERM) }
+            _ = try Git.run(
+                remote.sshArgs(tty: false) + ["kill \(pid)"], cwd: NSHomeDirectory(), executable: remote.ssh)
+        } else {
+            kill(pid, SIGTERM)
+        }
         return Done()
     }
 }
 
 extension PortsForward: Handled {
     func handle(_ sessions: Sessions) throws -> Forwarded {
-        guard let (w, remote) = sessions.remote(worktreeId) else { throw RPCError.invalidParams("Only a remote project's ports are forwarded.") }
+        guard let (w, remote) = sessions.remote(worktreeId) else {
+            throw RPCError.invalidParams("Only a remote project's ports are forwarded.")
+        }
         let f = sessions.forwards
         let goal = try target.map(Forwards.target) ?? port.map { f.target(port: $0, in: w.id) }
         guard let goal else { throw RPCError.invalidParams("missing port") }
@@ -189,7 +207,9 @@ extension SessionBusy: Handled {
     func handle(_ sessions: Sessions) throws -> String? {
         guard let ls = sessions.existing(id) else { return nil }
         // In a terminal's own tmux session tmux is always in front: what runs is in its panes (closing ends them).
-        if let name = Tmux.session(ls.snapshot.argv), Tmux.isOwn(name) { return sessions.tmuxBusy(name, cwd: ls.snapshot.cwd) }
+        if let name = Tmux.session(ls.snapshot.argv), Tmux.isOwn(name) {
+            return sessions.tmuxBusy(name, cwd: ls.snapshot.cwd)
+        }
         return ls.pty.foregroundProgram
     }
 }
@@ -218,16 +238,26 @@ extension SessionTrail: Handled {
         return trail.read()
     }
 }
-extension SessionRead: Handled { func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 8192) } }
-extension SessionContext: Handled { func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) } }
+extension SessionRead: Handled {
+    func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 8192) }
+}
+extension SessionContext: Handled {
+    func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) }
+}
 
 /// Never re-inserts a deleted one (publish and change only update).
 extension SessionMarkRead: Handled {
     // Not `quick`: they wait for a wake of the same session (`Sessions.setUnread`), as long as a locked keychain can take.
-    func handle(_ sessions: Sessions) throws -> Done { try sessions.setUnread(id, false); return Done() }
+    func handle(_ sessions: Sessions) throws -> Done {
+        try sessions.setUnread(id, false)
+        return Done()
+    }
 }
 extension SessionMarkUnread: Handled {
-    func handle(_ sessions: Sessions) throws -> Done { try sessions.setUnread(id, true); return Done() }
+    func handle(_ sessions: Sessions) throws -> Done {
+        try sessions.setUnread(id, true)
+        return Done()
+    }
 }
 
 extension SessionContinueAt: Handled {
@@ -246,9 +276,13 @@ extension SessionTurnUndo: Handled {
         let plan = try Git.changed(since: t.tree, cwd: dir, remotes: r)
         guard apply == true else { return Plan(files: plan.files, state: plan.now) }
         let before = state ?? ""
-        guard plan.now == before else { throw RPCError.invalidParams("The files changed since you looked; nothing was put back.") }
+        guard plan.now == before else {
+            throw RPCError.invalidParams("The files changed since you looked; nothing was put back.")
+        }
         // What it was before stays reachable for Redo (git gc keeps it), each undo's in the ref's log.
-        try Git.run(["update-ref", "--create-reflog", "-m", "undo turn " + turn, Workspaces.undoneRef(id), before], cwd: dir, remotes: r)
+        try Git.run(
+            ["update-ref", "--create-reflog", "-m", "undo turn " + turn, Workspaces.undoneRef(id), before], cwd: dir,
+            remotes: r)
         do { try Git.restore(plan.files, from: t.tree, now: before, cwd: dir, remotes: r) } catch {
             // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
             let back: Void? = Log.session.attempt("putting a stopped undo back") {
@@ -266,8 +300,10 @@ extension SessionTurnUndo: Handled {
 extension SessionTurnRedo: Handled {
     var actsOn: String? { id }
     func handle(_ workspaces: Workspaces) throws -> Done {
-        let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes, ref = Workspaces.undoneRef(id)
-        let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: r).trimmingCharacters(in: .whitespacesAndNewlines)
+        let (_, dir) = try workspaces.turnPlace(session: id, turn: turn), r = workspaces.remotes,
+            ref = Workspaces.undoneRef(id)
+        let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: r)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
         let plan = try Git.changed(since: before, cwd: dir, remotes: r)
         try Git.restore(plan.files, from: before, now: state, cwd: dir, remotes: r)
@@ -285,12 +321,15 @@ extension Workspaces {
     func turnPlace(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
         guard try store.session(id) != nil else { throw RPCError.invalidParams("No such agent.") }
         let status = sessions.existing(id)?.snapshot.status   // nil: paused, so not in a turn
-        guard let t = try store.turns(session: id).first(where: { $0.id == turn }) else { throw RPCError.invalidParams("No such turn.") }
+        guard let t = try store.turns(session: id).first(where: { $0.id == turn }) else {
+            throw RPCError.invalidParams("No such turn.")
+        }
         let r = remotes, dir = try Git.root(of: t.folder, remotes: r)   // paths count from the top, whatever folder it was in
         guard status != .working, status != .waiting else {
             throw RPCError.invalidParams("The agent is still in its turn: stop it first.")
         }
-        let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: r).trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: r)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard (head.isEmpty ? nil : head) == t.head else {
             throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
         }
@@ -299,8 +338,12 @@ extension Workspaces {
             let s = o.snapshot, at = URL(fileURLWithPath: o.turnDir ?? s.cwd).resolvingSymlinksInPath().path
             return s.id != id && s.status != .exited && s.isAgent && (at == top || at.hasPrefix(top + "/"))
         }
-        guard others.isEmpty else { throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.") }
-        guard try !Git.run(["rev-parse", "--verify", "-q", t.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: r).isEmpty else {
+        guard others.isEmpty else {
+            throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.")
+        }
+        guard
+            try !Git.run(["rev-parse", "--verify", "-q", t.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: r).isEmpty
+        else {
             throw RPCError.invalidParams("That turn's snapshot is gone: git cleaned it up.")
         }
         return (t, dir)
@@ -317,17 +360,23 @@ extension Sessions {
             guard let dropped = try store.addTurn(t), remotes.of(t.folder) == nil else { return }   // no snapshots on a host
             let ref = "refs/kelp/turns/" + t.id
             try Git.run(["update-ref", ref, t.tree], cwd: t.folder, remotes: remotes)
-            dropRefs(dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) } + (try store.session(t.session) == nil ? [(ref, t.folder)] : []))
+            dropRefs(
+                dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) }
+                    + (try store.session(t.session) == nil ? [(ref, t.folder)] : []))
         }
     }
 
     /// A session going: its turns' snapshots and its last undone state needn't be kept any more. `repo`: where to drop
     /// them when their folder, a removed worktree, is gone; the refs are in the project's repository, which it shared.
     func dropTurnRefs(of session: String, in repo: String? = nil) {
-        Log.store.attempt("dropping \(session)'s turn refs") { dropTurnRefs(try store.turns(session: session), of: session, in: repo) }
+        Log.store.attempt("dropping \(session)'s turn refs") {
+            dropTurnRefs(try store.turns(session: session), of: session, in: repo)
+        }
     }
     func dropTurnRefs(_ marks: [SessionTurns.Mark], of session: String, in repo: String? = nil) {
-        dropRefs(marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) } + marks.prefix(1).map { (Workspaces.undoneRef(session), repo ?? $0.folder) })
+        dropRefs(
+            marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) }
+                + marks.prefix(1).map { (Workspaces.undoneRef(session), repo ?? $0.folder) })
     }
 
     /// Deletes each ref in its folder's repository, one git run per repository; one already gone, or a folder that is,
@@ -336,7 +385,9 @@ extension Sessions {
         for (folder, group) in Dictionary(grouping: refs, by: \.folder)
         where remotes.of(folder) == nil && FileManager.default.fileExists(atPath: folder) {
             Log.store.attempt("dropping turn refs in \(folder)") {
-                _ = try Git.run(["update-ref", "--stdin"], cwd: folder, stdin: group.map { "delete \($0.ref)\n" }.joined(), remotes: remotes)
+                _ = try Git.run(
+                    ["update-ref", "--stdin"], cwd: folder, stdin: group.map { "delete \($0.ref)\n" }.joined(),
+                    remotes: remotes)
             }
         }
     }
@@ -350,7 +401,9 @@ extension SessionTurn: Handled {
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> Info? {
         guard let ls = sessions.existing(id) else { return nil }
-        let turn = ls.lastTurn.map { t in Turn(files: t.files.map { .init(path: $0.path, added: $0.added, removed: $0.removed) }, seconds: t.seconds) }
+        let turn = ls.lastTurn.map { t in
+            Turn(files: t.files.map { .init(path: $0.path, added: $0.added, removed: $0.removed) }, seconds: t.seconds)
+        }
         return Info(turn: turn, hasBase: ls.turnBase != nil)
     }
 }
@@ -362,9 +415,14 @@ extension SessionLastReply: Handled {
 }
 
 extension Methods {
-    static let sessionMethods: [any Handled.Type] = [SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
-        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self, PortsForward.self,
+    static let sessionMethods: [any Handled.Type] = [
+        SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
+        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self,
+        PortsForward.self,
         PortsUnforward.self, SessionUsage.self, HostStatsRead.self, HostDisconnect.self,
-        SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self, SessionTurn.self, SessionLastReply.self,
-        SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self, SessionTurns.self, SessionTurnUndo.self, SessionTurnRedo.self]
+        SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self,
+        SessionTurn.self, SessionLastReply.self,
+        SessionCommands.self, SessionContinueAt.self, SessionWhy.self, SessionTrail.self, SessionTurns.self,
+        SessionTurnUndo.self, SessionTurnRedo.self
+    ]
 }

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 extension Sessions {
     /// How long an ended session stays. The app drops an ended session's tab the next time it starts; after that only
@@ -10,17 +10,25 @@ extension Sessions {
     /// names. Running and paused ones stay whatever their age. Run a minute after start and daily (`start`).
     func pruneEnded(now: Date = Date()) {
         do {
-            for s in try store.sessions() where s.status == .exited && (s.statusAt ?? s.createdAt) < now - Self.keepEnded {
+            for s in try store.sessions()
+            where s.status == .exited && (s.statusAt ?? s.createdAt) < now - Self.keepEnded {
                 // A remote one's host is asked only when its agent may still run there, in the background (endOwnTmux).
                 discard(s, keepTmux: !s.connectionLost)
             }
             let left = try store.sessions(), known = Set(left.map(\.id)), fm = FileManager.default
             ScratchChats(root: root).sweep(keeping: Set(left.map(\.cwd)), now: now)
-            let logs = (try? fm.contentsOfDirectory(at: root.appendingPathComponent("history"),
-                                                    includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-            for f in logs where ["log", "trail"].contains(f.pathExtension) && !known.contains(f.deletingPathExtension().lastPathComponent) {
+            let logs =
+                (try? fm.contentsOfDirectory(
+                    at: root.appendingPathComponent("history"),
+                    includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            for f in logs
+            where ["log", "trail"].contains(f.pathExtension)
+                && !known.contains(f.deletingPathExtension().lastPathComponent)
+            {
                 // A day old at least: a new session opens its log just before its record is saved.
-                guard let at = try f.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, at < now - 86400 else { continue }
+                guard let at = try f.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                    at < now - 86400
+                else { continue }
                 try fm.removeItem(at: f)
             }
         } catch { Log.store.error("couldn't prune ended sessions: \(error)") }

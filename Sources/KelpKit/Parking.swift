@@ -10,14 +10,21 @@ enum Parking {
 
     /// Park ▸ …
     static func choices(now: Date = Date(), calendar: Calendar = .current) -> [(title: String, until: Date)] {
-        let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now.addingTimeInterval(86400)) ?? now.addingTimeInterval(86400)
-        return [(String(localized: "Until It Needs Me"), Mutes.forever), (String(localized: "For 1 Hour"), now.addingTimeInterval(3600)),
-                (String(localized: "Until Tomorrow"), morning)]
+        let morning =
+            calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now.addingTimeInterval(86400))
+            ?? now.addingTimeInterval(86400)
+        return [
+            (String(localized: "Until It Needs Me"), Mutes.forever),
+            (String(localized: "For 1 Hour"), now.addingTimeInterval(3600)),
+            (String(localized: "Until Tomorrow"), morning)
+        ]
     }
 
     /// The parked row's time: how long it stays out of the way.
     static func until(_ d: Date) -> String {
-        d == Mutes.forever ? String(localized: "until it calls") : String(localized: "till \(d.formatted(date: .omitted, time: .shortened))")
+        d == Mutes.forever
+            ? String(localized: "until it calls")
+            : String(localized: "till \(d.formatted(date: .omitted, time: .shortened))")
     }
 }
 
@@ -27,7 +34,9 @@ extension AppModel {
     func isParked(_ id: String) -> Bool { arrangement.parked[id].map { $0 > Date() } ?? false }
 
     func park(_ id: String, until: Date) {
-        arrangement.parked = arrangement.parked.filter { $0.value > Date() && session($0.key) != nil }.merging([id: until]) { $1 }
+        arrangement.parked = arrangement.parked.filter { $0.value > Date() && session($0.key) != nil }.merging([
+            id: until
+        ]) { $1 }
         arrangement.parkedBack[id] = nil
     }
 
@@ -58,7 +67,9 @@ extension AppModel {
     /// CI that failed in a folder brings its parked agents back.
     func followParked(_ e: CIEvent) {
         guard e.result?.runs.first?.conclusion == "failure" else { return }
-        for s in sessions where s.worktreeId == e.worktree && isParked(s.id) { unpark(s.id, back: String(localized: "CI failed")) }
+        for s in sessions where s.worktreeId == e.worktree && isParked(s.id) {
+            unpark(s.id, back: String(localized: "CI failed"))
+        }
     }
 }
 

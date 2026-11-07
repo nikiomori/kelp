@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import Markdown
 
 /// A review an agent wrote (`.kelp/artifacts/<name>/review.md`) as a page to answer: each point's options are a choice
@@ -11,22 +11,26 @@ enum ReviewPage {
         var html = "<h1>\(esc(r.title))</h1>\n"
         if !r.intro.isEmpty { html += "<div class=\"k-intro\">\(MarkdownHTML.render(r.intro))</div>\n" }
         for p in r.points {
-            html += "<section class=\"k-point\"><div class=\"k-q\"><span class=\"k-n\">\(esc(p.number))</span><h2>\(inline(p.question))</h2></div>"
+            html +=
+                "<section class=\"k-point\"><div class=\"k-q\"><span class=\"k-n\">\(esc(p.number))</span><h2>\(inline(p.question))</h2></div>"
             html += "<div class=\"k-opts\">"
             for o in p.options {
                 let rec = o.recommended ? "<span class=\"k-rec\">\(esc(String(localized: "Recommended")))</span>" : ""
                 let detail = o.detail.isEmpty ? "" : "<span class=\"k-d\">\(inline(o.detail))</span>"
-                html += "<button type=\"button\" class=\"k-opt\(o.picked ? " on" : "")\" aria-pressed=\"\(o.picked)\" "
+                html +=
+                    "<button type=\"button\" class=\"k-opt\(o.picked ? " on" : "")\" aria-pressed=\"\(o.picked)\" "
                     + "data-p=\"\(esc(p.number))\" data-k=\"\(esc(o.key))\">"
                     + "<span class=\"k-dot\"></span><span class=\"k-key\">\(esc(o.key))</span>"
                     + "<span class=\"k-t\"><span class=\"k-line\">\(inline(o.text))\(rec)</span>\(detail)</span></button>"
             }
-            html += "</div><input class=\"k-note\" data-p=\"\(esc(p.number))\" value=\"\(esc(p.note))\" "
+            html +=
+                "</div><input class=\"k-note\" data-p=\"\(esc(p.number))\" value=\"\(esc(p.note))\" "
                 + "placeholder=\"\(esc(String(localized: "Add a note…")))\" aria-label=\"\(esc(String(localized: "Note on point \(p.number)")))\"></section>\n"
         }
         let picks = r.points.compactMap { p in p.pick.map { p.number + $0 } }.joined(separator: " ")
         let button = sendTo.map { String(localized: "Send to \($0)") } ?? String(localized: "Send to the Agent")
-        html += "<div class=\"k-bar\"><span class=\"k-sum\">\(esc(picks.isEmpty ? String(localized: "Pick an option in each point") : picks))</span>"
+        html +=
+            "<div class=\"k-bar\"><span class=\"k-sum\">\(esc(picks.isEmpty ? String(localized: "Pick an option in each point") : picks))</span>"
             + "<button type=\"button\" class=\"k-send\"\(picks.isEmpty ? " disabled" : "")>\(esc(button))</button></div>"
         return html
     }

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Plan limits that ran out, and the sessions they stopped: at the reset those can be told to go on.
 /// Limit: kept by this window; a limit that ran out before Kelp opened gets no reset notice.
@@ -9,7 +9,9 @@ struct LimitResets {
     private(set) var full: [String: Full] = [:]   // agent id → its full limits
 
     /// Agents whose limit just ran out, or now resets later (a weekly one ran out too), from the readings the sidebar shows.
-    mutating func update(_ readings: [(agent: String, limit: UsageGet.Limit, resetAt: Date?)], now: Date = Date()) -> [String] {
+    mutating func update(_ readings: [(agent: String, limit: UsageGet.Limit, resetAt: Date?)], now: Date = Date())
+        -> [String]
+    {
         var changed: [String] = []
         for r in readings where r.limit.percent >= 100 {
             guard let at = r.resetAt, at > now else { continue }
@@ -29,7 +31,9 @@ struct LimitResets {
     /// of slack.
     static func stopped(_ sessions: [Session], agent: String, _ f: Full) -> [Session] {
         sessions.filter { s in
-            guard s.agent == agent, [.done, .error].contains(s.status), s.continueAt == nil, let at = s.statusAt else { return false }
+            guard s.agent == agent, [.done, .error].contains(s.status), s.continueAt == nil, let at = s.statusAt else {
+                return false
+            }
             return at >= f.since.addingTimeInterval(-120) && at < f.until
         }
     }

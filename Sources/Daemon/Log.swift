@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// The daemon's log, for what would otherwise fail without a trace: `log stream --predicate 'subsystem == "dev.kelp.daemon"'`
 /// (or Console.app). Never terminal output, prompts, tokens or file contents; paths and messages stay private in the

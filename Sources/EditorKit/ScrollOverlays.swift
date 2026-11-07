@@ -8,9 +8,12 @@ final class EditorScrollView: NSScrollView {
 
     override func tile() {
         super.tile()
-        for v in [sticky, marks] where v.superview !== self || subviews.last !== v { addSubview(v, positioned: .above, relativeTo: nil) }
+        for v in [sticky, marks] where v.superview !== self || subviews.last !== v {
+            addSubview(v, positioned: .above, relativeTo: nil)
+        }
         let width = ScrollMarks.width
-        marks.frame = NSRect(x: bounds.maxX - width, y: contentView.frame.minY, width: width, height: contentView.frame.height)
+        marks.frame = NSRect(
+            x: bounds.maxX - width, y: contentView.frame.minY, width: width, height: contentView.frame.height)
         placeSticky()
     }
 
@@ -75,20 +78,24 @@ final class StickyLines: NSView {
     required init?(coder: NSCoder) { fatalError("not from a nib") }
     override var isFlipped: Bool { true }
 
-    func show(_ lines: [(line: Int, text: String)], look: (font: NSFont, text: NSColor, background: NSColor), indent: CGFloat, rowHeight: CGFloat) {
+    func show(
+        _ lines: [(line: Int, text: String)], look: (font: NSFont, text: NSColor, background: NSColor), indent: CGFloat,
+        rowHeight: CGFloat
+    ) {
         guard lines.map(\.line) != shown || self.rowHeight != rowHeight else { return }
         shown = lines.map(\.line)
         self.rowHeight = rowHeight
         layer?.backgroundColor = look.background.cgColor
-        stack.setViews(lines.map { l in
-            let row = NSTextField(labelWithString: l.text)
-            row.font = look.font
-            row.textColor = look.text
-            row.lineBreakMode = .byTruncatingTail
-            let holder = StickyRow(row, indent: indent, height: rowHeight)
-            holder.onClick = { [weak self] in self?.onLine?(l.line) }
-            return holder
-        }, in: .top)
+        stack.setViews(
+            lines.map { l in
+                let row = NSTextField(labelWithString: l.text)
+                row.font = look.font
+                row.textColor = look.text
+                row.lineBreakMode = .byTruncatingTail
+                let holder = StickyRow(row, indent: indent, height: rowHeight)
+                holder.onClick = { [weak self] in self?.onLine?(l.line) }
+                return holder
+            }, in: .top)
     }
 
     private final class StickyRow: NSView {
@@ -98,8 +105,10 @@ final class StickyLines: NSView {
             label.translatesAutoresizingMaskIntoConstraints = false
             addSubview(label)
             NSLayoutConstraint.activate([
-                heightAnchor.constraint(equalToConstant: height), label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: indent),
-                label.centerYAnchor.constraint(equalTo: centerYAnchor), trailingAnchor.constraint(equalTo: label.trailingAnchor)
+                heightAnchor.constraint(equalToConstant: height),
+                label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: indent),
+                label.centerYAnchor.constraint(equalTo: centerYAnchor),
+                trailingAnchor.constraint(equalTo: label.trailingAnchor)
             ])
         }
         required init?(coder: NSCoder) { fatalError("not from a nib") }
@@ -117,7 +126,9 @@ extension CodeEditor {
         var ticks: [(line: Int, color: NSColor)] = changeMarks.map { m in
             (m.line, m.kind == .added ? .textGreen : m.kind == .changed ? .textOrange : .textRed)
         }
-        ticks += textView.findMarks.prefix(2000).map { (lineIndex.line(at: $0.location, in: s), NSColor.findHighlightColor) }
+        ticks += textView.findMarks.prefix(2000).map {
+            (lineIndex.line(at: $0.location, in: s), NSColor.findHighlightColor)
+        }
         ticks += problems.map { ($0.line, $0.isError ? NSColor.textRed : NSColor.textOrange) }   // over what they share a pixel with
         ticks.reverse()
         ticks.append((lineIndex.line(at: textView.selectedRange().location, in: s), .tertiaryLabelColor))
@@ -139,12 +150,17 @@ extension CodeEditor {
         let level = Folds.indent(own, in: s), hashes = s.substring(with: own).prefix { $0 == "#" }.count
         var within = NSRange(location: 0, length: s.length)
         if let parent = scopeLines(around: line).last, let p = lineIndex.start(ofLine: parent, in: s),
-           let r = foldRegion(s.lineRange(for: NSRange(location: p, length: 0)), in: s) { within = r }
+            let r = foldRegion(s.lineRange(for: NSRange(location: p, length: 0)), in: s)
+        {
+            within = r
+        }
         var found: [Int] = [], at = within.location, n = lineIndex.line(at: at, in: s)
         while at < NSMaxRange(within), found.count < 500, n - line < 5000 {
             let l = s.lineRange(for: NSRange(location: at, length: 0))
             let text = s.substring(with: l)
-            let same = isMarkdown ? text.prefix { $0 == "#" }.count == hashes && text.dropFirst(hashes).hasPrefix(" ")
+            let same =
+                isMarkdown
+                ? text.prefix { $0 == "#" }.count == hashes && text.dropFirst(hashes).hasPrefix(" ")
                 : Folds.indent(l, in: s) == level && foldRegion(l, in: s) != nil
             if same, l.location >= within.location { found.append(lineIndex.line(at: l.location, in: s)) }
             at = NSMaxRange(l)
@@ -157,7 +173,11 @@ extension CodeEditor {
         let s = textView.string as NSString
         return lines.compactMap { n in
             guard let start = lineIndex.start(ofLine: n, in: s) else { return nil }
-            return (n, s.substring(with: s.lineRange(for: NSRange(location: start, length: 0))).trimmingCharacters(in: .newlines))
+            return (
+                n,
+                s.substring(with: s.lineRange(for: NSRange(location: start, length: 0))).trimmingCharacters(
+                    in: .newlines)
+            )
         }
     }
 
@@ -165,12 +185,14 @@ extension CodeEditor {
     private func scopeLines(around top: Int) -> [Int] {
         let s = textView.string as NSString
         guard top > 0, let at = lineIndex.start(ofLine: top, in: s) else { return [] }
-        var found: [Int] = [], least = Folds.indent(s.lineRange(for: NSRange(location: at, length: 0)), in: s) ?? Int.max, n = top - 1
+        var found: [Int] = [],
+            least = Folds.indent(s.lineRange(for: NSRange(location: at, length: 0)), in: s) ?? Int.max, n = top - 1
         while n >= 0, top - n <= Self.stickyReach, found.count < StickyLines.most, least > 0 || isMarkdown {
             defer { n -= 1 }
             guard let start = lineIndex.start(ofLine: n, in: s) else { continue }
             let line = s.lineRange(for: NSRange(location: start, length: 0))
-            guard let indent = Folds.indent(line, in: s), indent < least || (isMarkdown && s.character(at: start) == 35) else { continue }
+            guard let indent = Folds.indent(line, in: s), indent < least || (isMarkdown && s.character(at: start) == 35)
+            else { continue }
             guard let r = foldRegion(line, in: s), NSLocationInRange(at, r) else { continue }
             least = min(least, indent)
             found.append(n)
@@ -179,9 +201,13 @@ extension CodeEditor {
     }
 
     func refreshSticky() {
-        guard let view = scroll as? EditorScrollView, let tv = Optional(textView), let lm = tv.layoutManager else { return }
+        guard let view = scroll as? EditorScrollView, let tv = Optional(textView), let lm = tv.layoutManager else {
+            return
+        }
         let rows = scopeRows(stickyEnabled ? stickyLines() : [])
-        let indent = (scroll.verticalRulerView?.ruleThickness ?? 0) + tv.textContainerOrigin.x + (tv.textContainer?.lineFragmentPadding ?? 0)
+        let indent =
+            (scroll.verticalRulerView?.ruleThickness ?? 0) + tv.textContainerOrigin.x
+            + (tv.textContainer?.lineFragmentPadding ?? 0)
         let row = lm.defaultLineHeight(for: Self.font)
         view.sticky.show(rows, look: (Self.font, Self.page.text, Self.page.background), indent: indent, rowHeight: row)
         view.placeSticky()

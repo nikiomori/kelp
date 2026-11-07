@@ -1,9 +1,10 @@
 import AppKit
+import EditorKit
 import Foundation
 import Testing
-import EditorKit
-@testable import KelpKit
+
 @testable import BuiltinFiles
+@testable import KelpKit
 
 /// The Markdown editor's formatting: a bar floats over a selection, the strip's buttons hide in the preview.
 extension OneAtATime {
@@ -12,7 +13,9 @@ extension OneAtATime {
         let url = URL(fileURLWithPath: "/tmp/bar.md")
         let editor = CodeEditor(text: "# Plan\n\nWrite the spec.\n", url: url)
         let tab = MarkdownTab(editor: editor, url: url, app: AppModel())
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 400), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 400), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = tab.view
         tab.view.layoutSubtreeIfNeeded()
         if tab.currentMode != "edit" { tab.cycleMode() }   // preview → edit

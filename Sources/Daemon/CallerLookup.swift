@@ -1,7 +1,7 @@
+import Agents
+import Core
 import Foundation
 import os
-import Core
-import Agents
 
 /// Who a call comes from (`Caller`), by the process on the connection: what `Daemon.allow` lets it do goes by this.
 /// The user's when Kelp can tell it's theirs: Kelp's window and its terminals, a terminal of Kelp's no agent is on the line
@@ -71,9 +71,13 @@ final class Callers: Sendable {
         }
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
-        if throughTmux, let server = chain.last, Unix.executable(server).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux" {
+        if throughTmux, let server = chain.last,
+            Unix.executable(server).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux"
+        {
             let pane = tmuxPane(pid, server: server, pane: chain.dropLast().last ?? pid)
-            switch pane.flatMap({ Self.tmuxDecision($0.attached, shown: $0.shown, underAgent: underAgent, isAgent: heldAsAgent) }) {
+            switch pane.flatMap({
+                Self.tmuxDecision($0.attached, shown: $0.shown, underAgent: underAgent, isAgent: heldAsAgent)
+            }) {
             case .session(let id): return of(id)
             case .user: return underAgent ? .detached : .user
             case let c?: return c
@@ -86,7 +90,10 @@ final class Callers: Sendable {
 
     /// The programs of the agents Kelp knows (its presets'), by the name they're run as.
     static let agentPrograms: Set<String> = {
-        Set(AgentManifest.presets.filter { !["shell", "custom"].contains($0.id) }.map { URL(fileURLWithPath: $0.command).lastPathComponent })
+        Set(
+            AgentManifest.presets.filter { !["shell", "custom"].contains($0.id) }.map {
+                URL(fileURLWithPath: $0.command).lastPathComponent
+            })
     }()
 
     /// Whether `pid` is one of those: by the name it was run as (`claude`, whose file is named for its version), or the
@@ -94,12 +101,16 @@ final class Callers: Sendable {
     static func runsAnAgent(_ pid: pid_t) -> Bool {
         let agents = agentPrograms
         func interpreter(_ n: String) -> Bool { ["node", "bun", "deno", "ruby"].contains(n) || n.hasPrefix("python") }
-        guard let argv = Subprocess.arguments(pid), let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent }) else { return false }
+        guard let argv = Subprocess.arguments(pid),
+            let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent })
+        else { return false }
         guard interpreter(first) else { return agents.contains(first) }
         // Its script: the first word that isn't an option, a path to one anywhere (`node --require x …/codex`), or the
         // module after `-m` (`python -m aider`); not any word (`python3 bench.py --agent claude` is the user's).
         let words = Array(argv.dropFirst())
-        func names(_ w: String) -> Bool { agents.contains(URL(fileURLWithPath: w).deletingPathExtension().lastPathComponent) }
+        func names(_ w: String) -> Bool {
+            agents.contains(URL(fileURLWithPath: w).deletingPathExtension().lastPathComponent)
+        }
         if let first = words.first(where: { !$0.hasPrefix("-") }), names(first) { return true }
         if let m = words.firstIndex(of: "-m"), m + 1 < words.count, names(words[m + 1]) { return true }
         return words.contains { $0.contains("/") && !$0.hasPrefix("-") && names($0) }
@@ -112,7 +123,9 @@ final class Callers: Sendable {
         let path = Unix.executable(pid)
         if path == Clients.appExecutable { return true }
         // iTerm's own: the server that keeps its sessions (restored ones) lives outside its bundle.
-        if let path, path.hasPrefix(NSHomeDirectory() + "/Library/Application Support/iTerm2/iTermServer") { return true }
+        if let path, path.hasPrefix(NSHomeDirectory() + "/Library/Application Support/iTerm2/iTermServer") {
+            return true
+        }
         if let uid = Subprocess.owner(pid), uid != getuid(), let path, !Self.isSetuid(path) { return true }
         guard let path, let r = path.range(of: ".app/Contents/MacOS/") else { return false }
         let folder = String(path[..<r.upperBound])
@@ -137,32 +150,45 @@ final class Callers: Sendable {
     /// shown (the active pane of the active window); nil for no tmux to ask. Asked once a pane and 10 s (`tmuxAnswers`):
     /// a hook comes from the same pane many times a turn.
     private func tmuxPane(_ pid: pid_t, server: pid_t, pane: pid_t) -> TmuxPane? {
-        guard let dev = Subprocess.terminal(pid), let tty = devname(dev_t(dev), S_IFCHR).map({ "/dev/" + String(cString: $0) }) else { return nil }
+        guard let dev = Subprocess.terminal(pid),
+            let tty = devname(dev_t(dev), S_IFCHR).map({ "/dev/" + String(cString: $0) })
+        else { return nil }
         // Kept for the pane it was asked for: one whose first program (the tmux server's child) was there before the
         // answer; a terminal's name is given to the next pane once one closes.
         if let kept = tmuxAnswers.withLock({ $0[tty] }), kept.at.timeIntervalSinceNow > -10,
-           let born = Subprocess.started(pane), Double(born) / 1e6 < kept.at.timeIntervalSince1970 { return kept.pane }
+            let born = Subprocess.started(pane), Double(born) / 1e6 < kept.at.timeIntervalSince1970
+        {
+            return kept.pane
+        }
         let socket = Self.tmuxSocket(Subprocess.arguments(server) ?? [])
         func lines(_ args: [String]) -> [[Substring]] {
             // The server that pane is on: its socket as it was started with (-L, -S), else the default one (TMUX_TMPDIR).
             var env = ["PATH": Sessions.childPath]
             env["TMUX_TMPDIR"] = ProcessInfo.processInfo.environment["TMUX_TMPDIR"]
             do {
-                let r = try Subprocess.run([try LoginPath.resolve("tmux")] + socket + args, cwd: NSHomeDirectory(), env: env, timeLimit: 2)
+                let r = try Subprocess.run(
+                    [try LoginPath.resolve("tmux")] + socket + args, cwd: NSHomeDirectory(), env: env, timeLimit: 2)
                 guard r.status == 0 else { return [] }
                 // The session's name last, whole: it may hold spaces.
-                return String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map { $0.split(separator: " ", maxSplits: 3) }
+                return String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map {
+                    $0.split(separator: " ", maxSplits: 3)
+                }
             } catch {
                 Log.session.info("asking tmux who a caller is: \(error)")
                 return []
             }
         }
         let format = "#{pane_tty} #{pane_active} #{window_active} #{session_name}"
-        guard let row = lines(["list-panes", "-a", "-F", format]).first(where: { $0.first.map(String.init) == tty }), row.count == 4 else {
+        guard let row = lines(["list-panes", "-a", "-F", format]).first(where: { $0.first.map(String.init) == tty }),
+            row.count == 4
+        else {
             return nil
         }
-        let clients = lines(["list-clients", "-t", "=" + row[3], "-F", "#{client_pid}"]).compactMap { $0.first.flatMap { pid_t($0) } }
-        let found = TmuxPane(attached: clients.map { session(running: $0, throughTmux: false) }, shown: row[1] == "1" && row[2] == "1")
+        let clients = lines(["list-clients", "-t", "=" + row[3], "-F", "#{client_pid}"]).compactMap {
+            $0.first.flatMap { pid_t($0) }
+        }
+        let found = TmuxPane(
+            attached: clients.map { session(running: $0, throughTmux: false) }, shown: row[1] == "1" && row[2] == "1")
         tmuxAnswers.withLock { $0[tty] = (found, Date()) }
         return found
     }
@@ -178,7 +204,9 @@ final class Callers: Sendable {
     /// A pane's caller from who's attached: an agent's session (or a typed agent) outweighs any other client, any pane; a
     /// caller under an agent typed in is that agent's in the user's terminal attached, shown or not; else a terminal of the
     /// user's, Kelp's or another app's, counts for the pane shown there only (not a window an agent added out of sight).
-    static func tmuxDecision(_ attached: [Caller], shown: Bool, underAgent: Bool = false, isAgent: (String) -> Bool = { _ in false }) -> Caller? {
+    static func tmuxDecision(
+        _ attached: [Caller], shown: Bool, underAgent: Bool = false, isAgent: (String) -> Bool = { _ in false }
+    ) -> Caller? {
         if let typed = attached.first(where: { if case .typedAgent = $0 { true } else { false } }) { return typed }
         let sessions = attached.compactMap { if case .session(let id) = $0 { id } else { nil } }
         if let agent = sessions.first(where: isAgent) { return .session(agent) }
@@ -195,10 +223,13 @@ final class Callers: Sendable {
         while i < argv.count, argv[i].hasPrefix("-"), argv[i] != "-" {
             let flags = Array(argv[i].dropFirst())
             if let at = flags.firstIndex(where: valued.contains) {
-                let rest = String(flags[(at + 1)...]), value = rest.isEmpty ? (i + 1 < argv.count ? argv[i + 1] : "") : rest
+                let rest = String(flags[(at + 1)...]),
+                    value = rest.isEmpty ? (i + 1 < argv.count ? argv[i + 1] : "") : rest
                 if flags[at] == "L" || flags[at] == "S" { return ["-" + String(flags[at]), value] }
                 i += rest.isEmpty ? 2 : 1
-            } else { i += 1 }
+            } else {
+                i += 1
+            }
         }
         return []
     }

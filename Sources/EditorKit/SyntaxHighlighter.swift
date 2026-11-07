@@ -1,7 +1,7 @@
 import AppKit
-import os
 @preconcurrency import CodeEditLanguages
 @preconcurrency import SwiftTreeSitter
+import os
 
 /// Tree-sitter colors: the file parsed once and again after each edit (tree-sitter reuses what didn't change), and only
 /// what's on screen colored, as layout manager temporary attributes (they don't touch the text or its undo).
@@ -27,7 +27,8 @@ final class SyntaxHighlighter {
     static let syncLimit = 100_000
 
     init?(_ language: CodeLanguage) {
-        guard let l = language.language, let q = TreeSitterModel.shared.query(for: language.id), worker.setLanguage(l) else { return nil }
+        guard let l = language.language, let q = TreeSitterModel.shared.query(for: language.id), worker.setLanguage(l)
+        else { return nil }
         query = q
         bracketQuery = Self.bracketQuery(l)
     }
@@ -40,11 +41,17 @@ final class SyntaxHighlighter {
         }
         let start = point(range.location), t = text as NSString
         let lastBreak = t.range(of: "\n", options: .backwards)
-        let newEnd = lastBreak.location == NSNotFound
+        let newEnd =
+            lastBreak.location == NSNotFound
             ? Point(row: Int(start.row), column: Int(start.column) + t.length * 2)
-            : Point(row: Int(start.row) + text.utf16.lazy.filter { $0 == 10 }.count, column: (t.length - NSMaxRange(lastBreak)) * 2)
-        pending.append(InputEdit(startByte: range.location * 2, oldEndByte: NSMaxRange(range) * 2, newEndByte: (range.location + t.length) * 2,
-                                 startPoint: start, oldEndPoint: point(NSMaxRange(range)), newEndPoint: newEnd))
+            : Point(
+                row: Int(start.row) + text.utf16.lazy.filter { $0 == 10 }.count,
+                column: (t.length - NSMaxRange(lastBreak)) * 2)
+        pending.append(
+            InputEdit(
+                startByte: range.location * 2, oldEndByte: NSMaxRange(range) * 2,
+                newEndByte: (range.location + t.length) * 2,
+                startPoint: start, oldEndPoint: point(NSMaxRange(range)), newEndPoint: newEnd))
     }
 
     /// After the text changed: the tree follows (from scratch when the change wasn't described first, as setText's).
@@ -77,16 +84,21 @@ final class SyntaxHighlighter {
     func color(_ range: NSRange, in tv: NSTextView) {
         guard let lm = tv.layoutManager, let tree, let root = tree.rootNode else { return }
         let s = tv.string as NSString
-        let text: SwiftTreeSitter.Predicate.TextProvider = { r, _ in NSMaxRange(r) <= s.length ? s.substring(with: r) : nil }
+        let text: SwiftTreeSitter.Predicate.TextProvider = { r, _ in
+            NSMaxRange(r) <= s.length ? s.substring(with: r) : nil
+        }
         let cursor = query.execute(node: root, in: tree)
         cursor.setRange(range)
         let matches = Array(cursor.resolve(with: .init(textProvider: text)))
         lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: range)
         paint(matches.highlights(), at: 0, within: range, lm)
-        for inj in matches.compactMap({ $0.injection(with: text) }) where NSIntersectionRange(inj.range, range).length > 0 {
+        for inj in matches.compactMap({ $0.injection(with: text) })
+        where NSIntersectionRange(inj.range, range).length > 0 {
             // A block is parsed whole, here on the main thread: past this it keeps the outer grammar's colors.
             guard inj.range.length <= Self.injectedLimit else { continue }
-            guard NSMaxRange(inj.range) <= s.length, let found = injected(inj.name, s.substring(with: inj.range)) else { continue }
+            guard NSMaxRange(inj.range) <= s.length, let found = injected(inj.name, s.substring(with: inj.range)) else {
+                continue
+            }
             // Its own colors only: the outer grammar's go (a fenced block was all one string color); Markdown's inline
             // marks add to a heading's color instead.
             if Self.language(named: inj.name)?.id != .markdownInline {
@@ -120,7 +132,9 @@ final class SyntaxHighlighter {
         guard let language = Self.language(named: name) else { return nil }
         let key = language.tsName + "\u{0}" + text
         if let known = seen[key] { return known }
-        if parsers[language.id] == nil, let l = language.language, let q = TreeSitterModel.shared.query(for: language.id) {
+        if parsers[language.id] == nil, let l = language.language,
+            let q = TreeSitterModel.shared.query(for: language.id)
+        {
             let p = Parser()
             if (try? p.setLanguage(l)) != nil { parsers[language.id] = (p, q) }
         }
@@ -128,7 +142,10 @@ final class SyntaxHighlighter {
         let found = query.execute(in: tree).resolve(with: .init(string: text)).highlights()
         // By size: each edit of a block is a new entry here, as long as the block.
         seenCharacters += text.utf16.count
-        if seen.count > 500 || seenCharacters > 2_000_000 { seen = [:]; seenCharacters = text.utf16.count }
+        if seen.count > 500 || seenCharacters > 2_000_000 {
+            seen = [:]
+            seenCharacters = text.utf16.count
+        }
         seen[key] = found
         return found
     }
@@ -136,10 +153,16 @@ final class SyntaxHighlighter {
     /// A language by the name an injection or a fenced block gives it (`js`, `markdown_inline`, `yml`).
     static func language(named name: String) -> CodeLanguage? {
         let n = name.lowercased().replacingOccurrences(of: "_", with: "-")
-        let aliases = ["js": "javascript", "ts": "typescript", "sh": "bash", "shell": "bash", "zsh": "bash", "console": "bash", "yml": "yaml",
-                       "py": "python", "rb": "ruby", "rs": "rust", "c++": "cpp", "cs": "c-sharp", "csharp": "c-sharp", "golang": "go", "md": "markdown"]
+        let aliases = [
+            "js": "javascript", "ts": "typescript", "sh": "bash", "shell": "bash", "zsh": "bash", "console": "bash",
+            "yml": "yaml",
+            "py": "python", "rb": "ruby", "rs": "rust", "c++": "cpp", "cs": "c-sharp", "csharp": "c-sharp",
+            "golang": "go", "md": "markdown"
+        ]
         let id = aliases[n] ?? n
-        return CodeLanguage.allLanguages.first { $0.tsName == id || $0.extensions.contains(id) || $0.additionalIdentifiers.contains(id) }
+        return CodeLanguage.allLanguages.first {
+            $0.tsName == id || $0.extensions.contains(id) || $0.additionalIdentifiers.contains(id)
+        }
     }
 }
 
@@ -147,7 +170,10 @@ final class SyntaxHighlighter {
 private final class Worker: @unchecked Sendable {
     /// The newest parse asked for: an older one only applies its edits.
     let latest = OSAllocatedUnfairLock(initialState: 0)
-    struct Text: @unchecked Sendable { let s: NSString; init(_ s: NSString) { self.s = s } }   // an immutable copy, or read under sync
+    struct Text: @unchecked Sendable {
+        let s: NSString
+        init(_ s: NSString) { self.s = s }
+    }   // an immutable copy, or read under sync
     let queue = DispatchQueue(label: "kelp.editor.parse")
     private let parser = Parser()
     private var tree: MutableTree?
@@ -160,13 +186,15 @@ private final class Worker: @unchecked Sendable {
         let s = text.s
         if let edits, let tree { for e in edits { tree.edit(e) } } else { tree = nil }
         guard latest.withLock({ $0 <= n }) else { return nil }
-        tree = parser.parse(tree: tree, readBlock: { byte, _ in
-            let at = byte / 2
-            guard at < s.length else { return nil }
-            var chars = [unichar](repeating: 0, count: min(16_384, s.length - at))
-            s.getCharacters(&chars, range: NSRange(location: at, length: chars.count))
-            return chars.withUnsafeBytes { Data($0) }
-        })
+        tree = parser.parse(
+            tree: tree,
+            readBlock: { byte, _ in
+                let at = byte / 2
+                guard at < s.length else { return nil }
+                var chars = [unichar](repeating: 0, count: min(16_384, s.length - at))
+                s.getCharacters(&chars, range: NSRange(location: at, length: chars.count))
+                return chars.withUnsafeBytes { Data($0) }
+            })
         return tree?.copy()
     }
 }

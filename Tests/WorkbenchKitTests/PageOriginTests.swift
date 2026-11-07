@@ -12,7 +12,11 @@ import WorkbenchKit
     #expect(site("http://127.0.0.1:3000/a") == "http://127.0.0.1:3000")
     #expect(site("about:blank") == nil)
     // A shared host's customers, and a country's second level, are each their own site.
-    #expect(site("https://a.vercel.app") != site("https://b.vercel.app") && site("https://x.a.vercel.app") == site("https://a.vercel.app"))
-    #expect(site("https://shop.co.uk") != site("https://bank.co.uk") && site("https://www.bbc.co.uk") == "https://bbc.co.uk")
+    #expect(
+        site("https://a.vercel.app") != site("https://b.vercel.app")
+            && site("https://x.a.vercel.app") == site("https://a.vercel.app"))
+    #expect(
+        site("https://shop.co.uk") != site("https://bank.co.uk") && site("https://www.bbc.co.uk") == "https://bbc.co.uk"
+    )
     #expect(site("https://a.s3.amazonaws.com") != site("https://b.s3.amazonaws.com"))
 }

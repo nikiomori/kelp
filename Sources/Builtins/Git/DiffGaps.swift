@@ -1,6 +1,6 @@
 import AppKit
-import DesignKit
 import Core
+import DesignKit
 import KelpKit
 import WorkbenchKit
 
@@ -27,9 +27,13 @@ extension DiffViewController {
         whole.file = path
         whole.context = 1_000_000   // the file whole, as one hunk
         Task {
-            let shown = await app.call(whole)?.first { $0.path == path }?.hunks.flatMap(\.lines)
+            let shown =
+                await app.call(whole)?.first { $0.path == path }?.hunks.flatMap(\.lines)
                 .filter { $0.kind == .context && ($0.newLine.map { (from..<from + n).contains($0) } ?? false) } ?? []
-            guard shown.count == n else { NSSound.beep(); return }   // the file moved on since: the next read shows it
+            guard shown.count == n else {
+                NSSound.beep()
+                return
+            }   // the file moved on since: the next read shows it
             opened[DiffRows.gapKey(path, from)] = shown
             rebuildRows()
         }

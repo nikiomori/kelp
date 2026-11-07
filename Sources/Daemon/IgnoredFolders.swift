@@ -1,7 +1,7 @@
-import Foundation
-import os
 import Core
+import Foundation
 import GitKit
+import os
 
 /// The folders of a workspace git ignores (dist/, build/, coverage/…): what changes in them changes neither git status nor
 /// the file list, and a build writes there all the time. Each folder is asked once, all again after a .gitignore changes.
@@ -14,7 +14,8 @@ final class IgnoredFolders: Sendable {
     private let remotes: Remotes
 
     init(root: String, remotes: Remotes) {
-        self.root = root; self.remotes = remotes
+        self.root = root
+        self.remotes = remotes
         prefixes = Array(Set([root, Paths.real(root) ?? root].map { $0.hasSuffix("/") ? $0 : $0 + "/" }))
     }
 
@@ -28,7 +29,10 @@ final class IgnoredFolders: Sendable {
         if !unknown.isEmpty {
             // A git that fails here counts every change, as before.
             let hits = (try? Git.ignored(Array(unknown), cwd: root, remotes: remotes)) ?? []
-            k = known.withLock { k in for f in unknown { k[f] = hits.contains(f) }; return k }
+            k = known.withLock { k in
+                for f in unknown { k[f] = hits.contains(f) }
+                return k
+            }
         }
         return zip(paths, folders).filter { _, fs in !fs.contains { k[$0] == true } }.map(\.0)
     }
@@ -40,5 +44,7 @@ final class IgnoredFolders: Sendable {
         return parts.indices.map { parts[...$0].joined(separator: "/") + "/" }
     }
 
-    static func rulesChange(_ rel: String) -> Bool { rel == ".gitignore" || rel.hasSuffix("/.gitignore") || rel == ".git/info/exclude" }
+    static func rulesChange(_ rel: String) -> Bool {
+        rel == ".gitignore" || rel.hasSuffix("/.gitignore") || rel == ".git/info/exclude"
+    }
 }

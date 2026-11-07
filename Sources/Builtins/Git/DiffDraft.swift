@@ -34,17 +34,26 @@ extension DiffViewController {
         // One file, and one side's numbers: a range across two files, or from an old line to a new one, names lines that
         // aren't the ones quoted.
         let shown = table.selectedRowIndexes.compactMap { shownLine($0) }
-        guard let file = shown.first?.0 else { NSSound.beep(); return }
+        guard let file = shown.first?.0 else {
+            NSSound.beep()
+            return
+        }
         let lines = shown.filter { $0.0 == file }.map(\.1), removed = lines.allSatisfy { $0.newLine == nil }
         let numbers = lines.compactMap { removed ? $0.oldLine : $0.newLine }
-        guard let first = numbers.min(), let last = numbers.max() else { NSSound.beep(); return }
+        guard let first = numbers.min(), let last = numbers.max() else {
+            NSSound.beep()
+            return
+        }
         closeDraft()
-        let d = CommentDraft(file: file, start: first, end: last, quote: lines.map(\.text).joined(separator: "\n"), side: removed ? "old" : nil)
+        let d = CommentDraft(
+            file: file, start: first, end: last, quote: lines.map(\.text).joined(separator: "\n"),
+            side: removed ? "old" : nil)
         d.field.isEditable = true
         d.field.isBordered = true
         d.field.drawsBackground = true
         d.field.font = .ui(12)
-        d.field.placeholderString = String(localized: "Comment for the agent on \(file):\(first)\(first == last ? "" : "-\(last)")")
+        d.field.placeholderString = String(
+            localized: "Comment for the agent on \(file):\(first)\(first == last ? "" : "-\(last)")")
         draft = d
         placeDraft()
         view.window?.makeFirstResponder(d.field)
@@ -54,10 +63,12 @@ extension DiffViewController {
     func placeDraft() {
         rows.removeAll { $0 == .draft }
         guard let d = draft else { return }
-        guard let at = rows.indices.last(where: { i in
-            guard let (path, l) = shownLine(i) else { return false }
-            return path == d.file && (d.side == "old" ? l.newLine == nil && l.oldLine == d.end : l.newLine == d.end)
-        }) else { return }
+        guard
+            let at = rows.indices.last(where: { i in
+                guard let (path, l) = shownLine(i) else { return false }
+                return path == d.file && (d.side == "old" ? l.newLine == nil && l.oldLine == d.end : l.newLine == d.end)
+            })
+        else { return }
         var i = at + 1
         while i < rows.count, case .comment = rows[i] { i += 1 }
         rows.insert(.draft, at: i)
@@ -69,18 +80,26 @@ extension DiffViewController {
         let cancel = ClosureButton(title: String(localized: "Cancel")) { [weak self] in self?.closeDraft() }
         cancel.keyEquivalent = "\u{1b}"
         let save = ClosureButton(title: String(localized: "Comment")) { [weak self] in self?.saveDraft() }
-        save.keyEquivalent = "\r"; save.keyEquivalentModifierMask = .command
+        save.keyEquivalent = "\r"
+        save.keyEquivalentModifierMask = .command
         save.toolTip = String(localized: "Comment (⌘↩)")
-        for b in [cancel, save] { b.bezelStyle = .push; b.controlSize = .small }
+        for b in [cancel, save] {
+            b.bezelStyle = .push
+            b.controlSize = .small
+        }
         let buttons = NSStackView(views: [NSView(), cancel, save])
         let card = NSStackView(views: [d.field, buttons])
         card.orientation = .vertical
         card.alignment = .trailing
         card.spacing = Metrics.gap
-        card.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Self.codeIndent, bottom: Metrics.gap, right: Metrics.gapWide)
-        card.wantsLayer = true; card.layer?.backgroundColor = NSColor.fillRest.cgColor
-        NSLayoutConstraint.activate([d.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
-                                     d.field.heightAnchor.constraint(equalToConstant: Self.draftField)])
+        card.edgeInsets = NSEdgeInsets(
+            top: Metrics.gap, left: Self.codeIndent, bottom: Metrics.gap, right: Metrics.gapWide)
+        card.wantsLayer = true
+        card.layer?.backgroundColor = NSColor.fillRest.cgColor
+        NSLayoutConstraint.activate([
+            d.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
+            d.field.heightAnchor.constraint(equalToConstant: Self.draftField)
+        ])
         draft?.card = card
         return card
     }
@@ -105,10 +124,17 @@ extension DiffViewController {
     private func saveDraft() {
         guard let wid = worktreeId, let d = draft else { return }
         let text = d.field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { NSSound.beep(); return }
+        guard !text.isEmpty else {
+            NSSound.beep()
+            return
+        }
         Task {
-            guard await app.call(CommentAdd(id: wid, file: d.file, start: d.start, end: d.end, quote: d.quote, text: text, side: d.side,
-                                                   commit: shownCommit)) != nil else { return }
+            guard
+                await app.call(
+                    CommentAdd(
+                        id: wid, file: d.file, start: d.start, end: d.end, quote: d.quote, text: text, side: d.side,
+                        commit: shownCommit)) != nil
+            else { return }
             closeDraft()
             await load()
         }
@@ -119,7 +145,9 @@ extension DiffViewController {
 final class DiffLineRowView: NSTableRowView {
     var onPlus: (() -> Void)? { didSet { plus.isHidden = true } }
     private lazy var plus: IconButton = {
-        let b = IconButton(.symbol("plus"), tip: String(localized: "Comment on This Line")) { [weak self] in self?.onPlus?() }
+        let b = IconButton(.symbol("plus"), tip: String(localized: "Comment on This Line")) { [weak self] in
+            self?.onPlus?()
+        }
         b.isHidden = true
         addSubview(b)
         return b
@@ -128,8 +156,10 @@ final class DiffLineRowView: NSTableRowView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         area.map(removeTrackingArea)
-        let a = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(a); area = a
+        let a = NSTrackingArea(
+            rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
+        addTrackingArea(a)
+        area = a
     }
     override func mouseEntered(with e: NSEvent) { plus.isHidden = onPlus == nil }
     override func mouseExited(with e: NSEvent) { plus.isHidden = true }

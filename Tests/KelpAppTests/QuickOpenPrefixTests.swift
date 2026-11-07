@@ -1,6 +1,7 @@
-import Testing
-@testable import KelpKit
 import Core
+import Testing
+
+@testable import KelpKit
 
 @MainActor @Test func theFirstCharacterSaysWhatQuickOpenLists() {
     #expect(QuickOpen.Prefix(":120") == .line(120))
@@ -16,5 +17,8 @@ import Core
 
 @Test func headingsAreMarkdownsSymbols() {
     let text = "# Title\ntext\n## Part two\n```\n# not one\n```\n#tag\n"
-    #expect(QuickOpen.headings(text) == [CodeSymbol(name: "Title", kind: "h1", line: 1), CodeSymbol(name: "Part two", kind: "h2", line: 3)])
+    #expect(
+        QuickOpen.headings(text) == [
+            CodeSymbol(name: "Title", kind: "h1", line: 1), CodeSymbol(name: "Part two", kind: "h2", line: 3)
+        ])
 }

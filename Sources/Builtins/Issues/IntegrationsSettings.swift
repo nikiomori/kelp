@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 
 /// One row a service, so what's connected reads at a glance; fields that are filled in once open in a sheet.
 struct IntegrationsSettings: View {
@@ -23,7 +23,9 @@ struct IntegrationsSettings: View {
     var body: some View {
         Group {
             Section("Code hosting") {
-                cliRow("GitHub", gh, "Through the GitHub CLI and its login. Project boards need `gh auth refresh -s read:project`.")
+                cliRow(
+                    "GitHub", gh,
+                    "Through the GitHub CLI and its login. Project boards need `gh auth refresh -s read:project`.")
                 cliRow("GitLab", glab, "Through the GitLab CLI (glab) and its login, self-managed hosts too.")
                 linkRow(.bitbucket, bitbucket, "For repos whose origin is on bitbucket.org.")
             }
@@ -35,12 +37,15 @@ struct IntegrationsSettings: View {
         .sheet(item: $connecting) { a in ConnectSheet(account: a) { await connect(a, $0) } }
         .task {
             let s = await app.call(LinearStatus())
-            linear = Connection(status: s?.connected == true ? String(localized: "Connected as \(s?.name ?? "")") : off, on: s?.connected == true)
+            linear = Connection(
+                status: s?.connected == true ? String(localized: "Connected as \(s?.name ?? "")") : off,
+                on: s?.connected == true)
             let j = await app.call(JiraStatus())
             let inJira = String(localized: "Connected to \(j?.site ?? "") as \(j?.name ?? "")")
             jira = Connection(status: j?.connected == true ? inJira : off, on: j?.connected == true)
             let b = await app.call(BitbucketStatus())
-            bitbucket = Connection(status: b?.connected == true ? String(localized: "Credentials saved") : off, on: b?.connected == true)
+            bitbucket = Connection(
+                status: b?.connected == true ? String(localized: "Credentials saved") : off, on: b?.connected == true)
             await check()
         }
     }
@@ -50,7 +55,9 @@ struct IntegrationsSettings: View {
     /// What gh or glab can do now, and the button that sets it up in a terminal tab.
     struct CLIState { var status = String(localized: "Checking…"), on = false, setup: Forge.Setup? }
 
-    private func row(_ name: String, on: Bool, status: String, about: LocalizedStringKey, @ViewBuilder actions: () -> some View) -> some View {
+    private func row(
+        _ name: String, on: Bool, status: String, about: LocalizedStringKey, @ViewBuilder actions: () -> some View
+    ) -> some View {
         LabeledContent {
             HStack {
                 Circle().strokeBorder(on ? Color.clear : Color.secondary, lineWidth: 1.5)
@@ -76,14 +83,24 @@ struct IntegrationsSettings: View {
 
     private func linkRow(_ a: Account, _ l: Connection, _ about: LocalizedStringKey) -> some View {
         row(a.title, on: l.on, status: l.status, about: about) {
-            if l.on { Button("Disconnect") { Task { await disconnect(a) } } } else { Button("Connect…") { connecting = a } }
+            if l.on {
+                Button("Disconnect") { Task { await disconnect(a) } }
+            } else {
+                Button("Connect…") { connecting = a }
+            }
         }
     }
 
     private func disconnect(_ a: Account) async {
         switch a {
-        case .jira: if await app.call(JiraSetCredentials(site: "", email: "", token: "")) != nil { jira = Connection(status: off) }
-        case .bitbucket: if await app.call(BitbucketSetCredentials(user: "", token: "")) != nil { bitbucket = Connection(status: off) }
+        case .jira:
+            if await app.call(JiraSetCredentials(site: "", email: "", token: "")) != nil {
+                jira = Connection(status: off)
+            }
+        case .bitbucket:
+            if await app.call(BitbucketSetCredentials(user: "", token: "")) != nil {
+                bitbucket = Connection(status: off)
+            }
         case .linear: if await app.call(LinearSetKey(key: "")) != nil { linear = Connection(status: off) }
         }
     }
@@ -125,10 +142,17 @@ private enum Account: String, Identifiable {
     struct Field { let title: LocalizedStringKey, prompt: LocalizedStringKey, secret: Bool }
     var fields: [Field] {
         switch self {
-        case .jira: [Field(title: "Site", prompt: "acme.atlassian.net", secret: false), Field(title: "Email", prompt: "you@acme.com", secret: false),
-                     Field(title: "API token", prompt: "Paste the token", secret: true)]
-        case .bitbucket: [Field(title: "Username or email", prompt: "you@acme.com", secret: false),
-                          Field(title: "API token / app password", prompt: "Paste the token", secret: true)]
+        case .jira:
+            [
+                Field(title: "Site", prompt: "acme.atlassian.net", secret: false),
+                Field(title: "Email", prompt: "you@acme.com", secret: false),
+                Field(title: "API token", prompt: "Paste the token", secret: true)
+            ]
+        case .bitbucket:
+            [
+                Field(title: "Username or email", prompt: "you@acme.com", secret: false),
+                Field(title: "API token / app password", prompt: "Paste the token", secret: true)
+            ]
         case .linear: [Field(title: "Personal API key", prompt: "Paste the key", secret: true)]
         }
     }

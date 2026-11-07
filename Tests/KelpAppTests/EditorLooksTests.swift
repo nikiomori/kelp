@@ -1,12 +1,14 @@
 import AppKit
-import Testing
 import TestSupport
+import Testing
+
 @testable import EditorKit
 
 @MainActor private func opened(_ text: String, _ name: String) -> CodeEditor {
     _ = NSApplication.shared
     let e = CodeEditor(text: text, url: URL(fileURLWithPath: "/tmp/" + name))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: true)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView = e.view
     e.view.layoutSubtreeIfNeeded()
     return e
@@ -66,7 +68,8 @@ import TestSupport
 /// With no language server too, in the line's indent, and not after a dot.
 @MainActor @Test func aSnippetGoesInWhereTheCursorIs() async throws {
     let e = opened("    te", "s.swift")
-    let snippet = CodeEditor.Completion(label: "test", insert: "func ${1:a}() {\n\t$0\n}", kind: "snippet", snippet: true)
+    let snippet = CodeEditor.Completion(
+        label: "test", insert: "func ${1:a}() {\n\t$0\n}", kind: "snippet", snippet: true)
     e.snippetSource = { [snippet] }
     e.textView.setSelectedRange(NSRange(location: 6, length: 0))
     e.showCompletions()
@@ -84,7 +87,9 @@ import TestSupport
 
 /// A scope's neighbours are those as far in within the same scope; a heading's, those of its level under the same parent.
 @MainActor @Test func aScopesSiblingsAreBesideItInTheSameScope() {
-    let e = opened("class A {\n    func f() {\n        x\n    }\n    var v = 1\n    func g() {\n        y\n    }\n}\nclass B {\n    func h() {\n    }\n}\n", "sib.swift")
+    let e = opened(
+        "class A {\n    func f() {\n        x\n    }\n    var v = 1\n    func g() {\n        y\n    }\n}\nclass B {\n    func h() {\n    }\n}\n",
+        "sib.swift")
     #expect(e.siblingScopes(ofLine: 1).map(\.line) == [1, 5])
     #expect(e.siblingScopes(ofLine: 0).map(\.line) == [0, 9])
     let md = opened("# A\n## a1\ntext\n## a2\n# B\n## b1\n", "sib.md")

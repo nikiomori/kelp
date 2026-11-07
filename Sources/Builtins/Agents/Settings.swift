@@ -1,9 +1,9 @@
-import AppKit
-import SwiftUI
-import Core
 import Agents
+import AppKit
+import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 
 /// Settings › Agent Catalog: every agent Kelp knows, installed first. Its card: Install (its own installer in a terminal you
 /// can watch, or what it needs first), the version (and a newer one, if published) and Update, and how it's launched:
@@ -38,18 +38,28 @@ struct AgentsSettings: View {
         return a.compare(b, options: .numeric) == .orderedAscending
     }
     /// Found on this Mac: offered in New Agent.
-    private func installed(_ m: AgentManifest) -> Bool { app.availability.ids.contains(m.id) || versions[m.id]?.version != nil }
+    private func installed(_ m: AgentManifest) -> Bool {
+        app.availability.ids.contains(m.id) || versions[m.id]?.version != nil
+    }
 
     var body: some View {
         // Two grouped forms side by side, as every other page is one: the agents in a card on the left, the chosen one's on the
         // right. Settings' own search finds an agent by name and opens this page on it, so there's no second search field.
-        GeometryReader { pane in HStack(alignment: .top, spacing: 0) {
-            list.frame(width: min(Self.listWidth, pane.size.width * 0.4))
-            Form { if let m = current { card(m) } }.formStyle(.grouped)
-        } }
-        .onChange(of: selection) { _, _ in persist(); load() }
+        GeometryReader { pane in
+            HStack(alignment: .top, spacing: 0) {
+                list.frame(width: min(Self.listWidth, pane.size.width * 0.4))
+                Form { if let m = current { card(m) } }.formStyle(.grouped)
+            }
+        }
+        .onChange(of: selection) { _, _ in
+            persist()
+            load()
+        }
         .onChange(of: field) { _, now in if now == nil { persist() } }
-        .onAppear { reveal(); load() }
+        .onAppear {
+            reveal()
+            load()
+        }
         .onDisappear(perform: persist)
         .task { await loadVersions() }
         .onChange(of: app.availability.ids) { _, _ in Task { await loadVersions() } }   // an install ended
@@ -65,9 +75,15 @@ struct AgentsSettings: View {
         // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install. Over the list, not in a
         // card of its own: a box around one control.
         return VStack(alignment: .leading, spacing: 0) {
-            Segments(labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
-                     selection: Binding { show.rawValue } set: { show = Show(rawValue: $0) ?? .all })
-                .padding([.horizontal, .top], Metrics.sheetInset)   // the grouped form's own margin
+            Segments(
+                labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                selection: Binding {
+                    show.rawValue
+                } set: {
+                    show = Show(rawValue: $0) ?? .all
+                }
+            )
+            .padding([.horizontal, .top], Metrics.sheetInset)   // the grouped form's own margin
             catalogForm(have: have, rest: rest)
         }
     }
@@ -77,16 +93,23 @@ struct AgentsSettings: View {
             if !have.isEmpty {
                 Section {
                     ForEach(have, id: \.id) { row($0) }
-                } header: { Text("Installed \(have.count)") } footer: {
+                } header: {
+                    Text("Installed \(have.count)")
+                } footer: {
                     if !updates.isEmpty {
-                        Text(updates.count == 1 ? String(localized: "1 update available") : String(localized: "\(updates.count) updates available"))
-                            .font(.ui(11)).foregroundStyle(Color.textOrange)
+                        Text(
+                            updates.count == 1
+                                ? String(localized: "1 update available")
+                                : String(localized: "\(updates.count) updates available")
+                        )
+                        .font(.ui(11)).foregroundStyle(Color.textOrange)
                     }
                 }
             }
             if !rest.isEmpty { Section("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
             if have.isEmpty && rest.isEmpty {
-                Text(show == .installed ? "No agent is installed yet." : "Every agent Kelp knows is installed.").foregroundStyle(.secondary)
+                Text(show == .installed ? "No agent is installed yet." : "Every agent Kelp knows is installed.")
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -109,7 +132,9 @@ struct AgentsSettings: View {
 
     /// Opened from Settings' search on an agent's name: that agent.
     private func reveal() {
-        guard let word = UserDefaults.standard.string(forKey: "settings.group"), let m = agents.first(where: { $0.name == word }) else { return }
+        guard let word = UserDefaults.standard.string(forKey: "settings.group"),
+            let m = agents.first(where: { $0.name == word })
+        else { return }
         UserDefaults.standard.set("", forKey: "settings.group")
         selection = m.id
     }
@@ -117,9 +142,14 @@ struct AgentsSettings: View {
     private func row(_ a: AgentManifest) -> some View {
         let have = installed(a), on = a.id == selection
         var caption = String(localized: "Not installed")
-        if have { caption = versions[a.id]?.version.map { "\($0) · \(a.command)" } ?? a.command }
-        else if case .running? = app.availability.phases[a.id] { caption = String(localized: "Installing…") }
-        return Button { selection = a.id } label: {
+        if have {
+            caption = versions[a.id]?.version.map { "\($0) · \(a.command)" } ?? a.command
+        } else if case .running? = app.availability.phases[a.id] {
+            caption = String(localized: "Installing…")
+        }
+        return Button {
+            selection = a.id
+        } label: {
             HStack(spacing: Metrics.gapWide) {
                 Image(nsImage: app.catalog.icon(a.id, size: Metrics.iconMenu) ?? NSImage()).resizable()
                     .frame(width: Metrics.iconMenu, height: Metrics.iconMenu).opacity(have ? 1 : 0.5)
@@ -127,12 +157,15 @@ struct AgentsSettings: View {
                     HStack(spacing: Metrics.gap) {
                         Text(a.name).foregroundStyle(have ? .primary : .secondary)
                         if updates.contains(where: { $0.id == a.id }) {
-                            Circle().fill(Color.textOrange).frame(width: Metrics.gap, height: Metrics.gap).help("Update available")
+                            Circle().fill(Color.textOrange).frame(width: Metrics.gap, height: Metrics.gap).help(
+                                "Update available")
                         }
                     }
                     HStack(spacing: 0) {
                         Text(caption).foregroundStyle(.secondary)
-                        if let n = app.plans[a.id]?.note { Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color)) }
+                        if let n = app.plans[a.id]?.note {
+                            Text(" · " + n.text).foregroundStyle(Color(nsColor: n.color))
+                        }
                     }.font(.ui(11))
                 }
                 Spacer(minLength: 0)
@@ -162,7 +195,9 @@ struct AgentsSettings: View {
             if installed(m) {
                 if app.availability.phases[m.id] == .done { started(m) }
                 versionRow(m)
-            } else { installBox(m) }
+            } else {
+                installBox(m)
+            }
         }
         if installed(m) { launch(m) }
     }
@@ -173,17 +208,26 @@ struct AgentsSettings: View {
         case .running(let tab)?:
             HStack {
                 ProgressView().controlSize(.small)
-                status(String(localized: "Installing…"), String(localized: "In the tab “Install \(m.name)”. This page updates when it ends."))
+                status(
+                    String(localized: "Installing…"),
+                    String(localized: "In the tab “Install \(m.name)”. This page updates when it ends."))
                 Spacer()
                 Button("Show Tab") { show(tab) }
             }
             if let cmd = m.install { commandLine(cmd) }
         case .notFound(let tab)?:
             Label {
-                status(String(localized: "The installer finished, but \(m.name) isn’t found yet"),
-                       String(localized: "Kelp asked your login shell for its PATH again and still didn’t see \(m.command). ")
-                        + String(localized: "If the installer printed a line to add to your shell profile, add it, then check again."))
-            } icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+                status(
+                    String(localized: "The installer finished, but \(m.name) isn’t found yet"),
+                    String(
+                        localized: "Kelp asked your login shell for its PATH again and still didn’t see \(m.command). ")
+                        + String(
+                            localized:
+                                "If the installer printed a line to add to your shell profile, add it, then check again."
+                        ))
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
             HStack {
                 Spacer()
                 Button("Show Tab") { show(tab) }
@@ -193,8 +237,13 @@ struct AgentsSettings: View {
             if let cmd = m.install {
                 let tool = m.installNeeds.flatMap { lacking.contains($0) ? $0 : nil }
                 HStack {
-                    if let tool { status(String(localized: "Needs \(tool)"), String(localized: "\(tool) isn’t on this Mac.")) }
-                    else { status(String(localized: "Not installed"), String(localized: "Runs its own installer in a terminal tab you can watch.")) }
+                    if let tool {
+                        status(String(localized: "Needs \(tool)"), String(localized: "\(tool) isn’t on this Mac."))
+                    } else {
+                        status(
+                            String(localized: "Not installed"),
+                            String(localized: "Runs its own installer in a terminal tab you can watch."))
+                    }
                     Spacer()
                     Button("Install") { install(m) }.disabled(tool != nil).help(cmd)
                 }
@@ -206,8 +255,10 @@ struct AgentsSettings: View {
                 }
                 commandLine(cmd)
             } else {
-                Text("Kelp has no installer for \(m.name). Install it as its docs say; it shows up here once \(m.command) is on your PATH.")
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Kelp has no installer for \(m.name). Install it as its docs say; it shows up here once \(m.command) is on your PATH."
+                )
+                .foregroundStyle(.secondary)
             }
         }
     }
@@ -215,12 +266,17 @@ struct AgentsSettings: View {
     /// Found after its installer ended: offered in New Agent from now on.
     private func started(_ m: AgentManifest) -> some View {
         HStack {
-            Label { status(String(localized: "\(m.name) is installed"), String(localized: "Offered in New Agent.")) } icon: {
+            Label {
+                status(String(localized: "\(m.name) is installed"), String(localized: "Offered in New Agent."))
+            } icon: {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             }
             Spacer()
             Button("Start \(m.name)") {
-                guard let e = app.workbench.editor else { Banner.show(String(localized: "Open a chat to start \(m.name) there.")); return }
+                guard let e = app.workbench.editor else {
+                    Banner.show(String(localized: "Open a chat to start \(m.name) there."))
+                    return
+                }
                 e.newAgent(m.id)
                 app.workbench.bringToFront()
             }
@@ -239,7 +295,10 @@ struct AgentsSettings: View {
         HStack(alignment: .top) {
             Text(cmd).font(.uiMono(11)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             Spacer()
-            Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string) } label: {
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(cmd, forType: .string)
+            } label: {
                 Image(systemName: "doc.on.doc")
             }.buttonStyle(PointerButtonStyle()).help("Copy")
         }
@@ -251,8 +310,12 @@ struct AgentsSettings: View {
         let v = versions[m.id]
         HStack {
             if let installed = v?.version {
-                Text("Version \(installed)") + Text(newer(v) ? String(localized: " · \(v?.latest ?? "") available") : "").foregroundColor(.textOrange)
-            } else if versions.isEmpty { Text("Checking…").foregroundStyle(.secondary) }
+                Text("Version \(installed)")
+                    + Text(newer(v) ? String(localized: " · \(v?.latest ?? "") available") : "").foregroundColor(
+                        .textOrange)
+            } else if versions.isEmpty {
+                Text("Checking…").foregroundStyle(.secondary)
+            }
             Spacer()
             if let cmd = m.update {
                 Button(newer(v) ? String(localized: "Update") : String(localized: "Check for Update")) {
@@ -266,7 +329,9 @@ struct AgentsSettings: View {
                 let names = hosts.map(\.host).joined(separator: ", ")
                 Text("SSH hosts: \(names)").foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail).help(names)
                 Spacer()
-                Button("Update on Hosts") { for h in hosts { run(cmd, String(localized: "Update \(m.name) on \(h.host)"), in: h.folder) } }.help(cmd)
+                Button("Update on Hosts") {
+                    for h in hosts { run(cmd, String(localized: "Update \(m.name) on \(h.host)"), in: h.folder) }
+                }.help(cmd)
             }
         }
     }
@@ -287,30 +352,43 @@ struct AgentsSettings: View {
                 Spacer()
                 Button("Reset to Default…") { reset(m) }
             }
-        } header: { Text("Launch") } footer: {
-            Text("Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.")
-                .font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        } header: {
+            Text("Launch")
+        } footer: {
+            Text(
+                "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent."
+            )
+            .font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
     /// A bordered field beside its name, its text from the left: a form sets a field's text at its trailing end.
-    private func input(_ title: LocalizedStringKey, _ text: Binding<String>, _ which: LaunchField, prompt: LocalizedStringKey? = nil,
-                       lines: ClosedRange<Int> = 1...1) -> some View {
+    private func input(
+        _ title: LocalizedStringKey, _ text: Binding<String>, _ which: LaunchField, prompt: LocalizedStringKey? = nil,
+        lines: ClosedRange<Int> = 1...1
+    ) -> some View {
         LabeledContent(title) {
-            TextField("", text: text, prompt: prompt.map { Text($0) }, axis: lines.upperBound > 1 ? .vertical : .horizontal)
-                .lineLimit(lines).textFieldStyle(.roundedBorder).multilineTextAlignment(.leading)
-                .focused($field, equals: which).onSubmit(persist)
+            TextField(
+                "", text: text, prompt: prompt.map { Text($0) }, axis: lines.upperBound > 1 ? .vertical : .horizontal
+            )
+            .lineLimit(lines).textFieldStyle(.roundedBorder).multilineTextAlignment(.leading)
+            .focused($field, equals: which).onSubmit(persist)
         }
     }
 
     /// One remote project's folder per host: a command run in it runs on that host, in its login shell.
     private var hosts: [(host: String, folder: String)] {
         var seen = Set<String>()
-        return app.repos.compactMap { r in RemoteHost.of(r.path).flatMap { seen.insert($0.host).inserted ? ($0.host, r.path) : nil } }
+        return app.repos.compactMap { r in
+            RemoteHost.of(r.path).flatMap { seen.insert($0.host).inserted ? ($0.host, r.path) : nil }
+        }
     }
 
     private func install(_ m: AgentManifest) {
-        guard let e = app.workbench.editor else { run(m.install ?? "", String(localized: "Install \(m.name)")); return }   // says what to do
+        guard let e = app.workbench.editor else {
+            run(m.install ?? "", String(localized: "Install \(m.name)"))
+            return
+        }   // says what to do
         app.catalog.install(m, in: e)
         app.workbench.bringToFront()
     }
@@ -323,8 +401,10 @@ struct AgentsSettings: View {
     /// The agent's own command, in a terminal in the workspace on screen, so what it does is in plain sight.
     private func run(_ cmd: String, _ title: String, in folder: String? = nil) {
         guard let e = app.workbench.editor else {
-            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string)
-            Banner.show(String(localized: "Open a chat to run it there — the command is on the clipboard: \(cmd)")); return
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(cmd, forType: .string)
+            Banner.show(String(localized: "Open a chat to run it there — the command is on the clipboard: \(cmd)"))
+            return
         }
         e.run(command: cmd, title: title, cwd: folder)
         app.workbench.bringToFront()
@@ -338,46 +418,74 @@ struct AgentsSettings: View {
         for a in agents where v[a.id] == nil { v[a.id] = (nil, nil) }
         versions = v
         // What an installer runs with: without it, Install says what to get first. Not knowing, nothing is held back.
-        if let found = await app.quiet(ProcessWhich(commands: ["npm", "brew"])) { lacking = Set(["npm", "brew"].filter { found[$0] == nil }) }
+        if let found = await app.quiet(ProcessWhich(commands: ["npm", "brew"])) {
+            lacking = Set(["npm", "brew"].filter { found[$0] == nil })
+        }
     }
 
     /// Ways to run an agent through another provider, as environment variables its docs define.
     static func presets(_ agent: String) -> [(String, [String])] {
         switch agent {
-        case "claude": [
-            ("Anthropic API Key", ["ANTHROPIC_API_KEY="]),
-            ("Amazon Bedrock", ["CLAUDE_CODE_USE_BEDROCK=1", "AWS_REGION=us-east-1", "AWS_PROFILE=default"]),
-            ("Google Vertex AI", ["CLAUDE_CODE_USE_VERTEX=1", "CLOUD_ML_REGION=us-east5", "ANTHROPIC_VERTEX_PROJECT_ID="]),
-            ("Gateway (LiteLLM, Ollama…)", ["ANTHROPIC_BASE_URL=http://localhost:4000", "ANTHROPIC_AUTH_TOKEN="])
-        ]
-        case "codex": [("OpenAI API Key", ["OPENAI_API_KEY="]),
-                       ("OpenAI-compatible Endpoint (OpenRouter…)", ["OPENAI_BASE_URL=https://openrouter.ai/api/v1", "OPENAI_API_KEY="])]
-        case "gemini": [("Gemini API Key", ["GEMINI_API_KEY="]),
-                        ("Google Vertex AI", ["GOOGLE_GENAI_USE_VERTEXAI=true", "GOOGLE_CLOUD_PROJECT=", "GOOGLE_CLOUD_LOCATION=us-central1"])]
+        case "claude":
+            [
+                ("Anthropic API Key", ["ANTHROPIC_API_KEY="]),
+                ("Amazon Bedrock", ["CLAUDE_CODE_USE_BEDROCK=1", "AWS_REGION=us-east-1", "AWS_PROFILE=default"]),
+                (
+                    "Google Vertex AI",
+                    ["CLAUDE_CODE_USE_VERTEX=1", "CLOUD_ML_REGION=us-east5", "ANTHROPIC_VERTEX_PROJECT_ID="]
+                ),
+                ("Gateway (LiteLLM, Ollama…)", ["ANTHROPIC_BASE_URL=http://localhost:4000", "ANTHROPIC_AUTH_TOKEN="])
+            ]
+        case "codex":
+            [
+                ("OpenAI API Key", ["OPENAI_API_KEY="]),
+                (
+                    "OpenAI-compatible Endpoint (OpenRouter…)",
+                    ["OPENAI_BASE_URL=https://openrouter.ai/api/v1", "OPENAI_API_KEY="]
+                )
+            ]
+        case "gemini":
+            [
+                ("Gemini API Key", ["GEMINI_API_KEY="]),
+                (
+                    "Google Vertex AI",
+                    ["GOOGLE_GENAI_USE_VERTEXAI=true", "GOOGLE_CLOUD_PROJECT=", "GOOGLE_CLOUD_LOCATION=us-central1"]
+                )
+            ]
         default: []
         }
     }
     private func addLines(_ lines: [String]) {
         var have = env.split(separator: "\n").map(String.init)
-        for l in lines where !have.contains(where: { $0.hasPrefix(l.split(separator: "=").first.map { $0 + "=" } ?? l) }) { have.append(l) }
+        for l in lines
+        where !have.contains(where: { $0.hasPrefix(l.split(separator: "=").first.map { $0 + "=" } ?? l) }) {
+            have.append(l)
+        }
         env = have.joined(separator: "\n")
     }
 
     private var current: AgentManifest? { agents.first { $0.id == selection } }
-    private static func envText(_ m: AgentManifest) -> String { m.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n") }
+    private static func envText(_ m: AgentManifest) -> String {
+        m.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n")
+    }
     private func load() {
         guard let m = current else { return }
         loaded = m.id
-        command = m.command; args = m.args.joined(separator: " ")
+        command = m.command
+        args = m.args.joined(separator: " ")
         env = Self.envText(m)
     }
-    private func reload() { files = AgentManifest.load(dir: Paths.agents); load() }
+    private func reload() {
+        files = AgentManifest.load(dir: Paths.agents)
+        load()
+    }
 
     private func reset(_ m: AgentManifest) {
         Task {
-            let question = NSAlert(question: String(localized: "Reset how \(m.name) starts?"),
-                                   detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
-                                   action: String(localized: "Reset"))
+            let question = NSAlert(
+                question: String(localized: "Reset how \(m.name) starts?"),
+                detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
+                action: String(localized: "Reset"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
             AgentManifest.resetOverride(id: m.id, dir: Paths.agents)
             reload()
@@ -396,11 +504,13 @@ struct AgentsSettings: View {
     /// A secret the keychain refused, or a file that couldn't be written, says why.
     private func save(_ agent: AgentManifest, command: String, args: String, env: String) async {
         var m = agent
-        m.command = command; m.args = args.split(separator: " ").map(String.init)
-        var pairs = Dictionary(env.split(separator: "\n").compactMap { l -> (String, String)? in
-            let p = l.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-            return p.count == 2 ? (String(p[0]).trimmingCharacters(in: .whitespaces), String(p[1])) : nil
-        }, uniquingKeysWith: { $1 })
+        m.command = command
+        m.args = args.split(separator: " ").map(String.init)
+        var pairs = Dictionary(
+            env.split(separator: "\n").compactMap { l -> (String, String)? in
+                let p = l.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                return p.count == 2 ? (String(p[0]).trimmingCharacters(in: .whitespaces), String(p[1])) : nil
+            }, uniquingKeysWith: { $1 })
         // Secrets: the daemon puts them in the keychain; the file only says where they are.
         for (k, v) in pairs where AgentManifest.isSecret(k) && v != AgentManifest.keychainValue && !v.isEmpty {
             guard await app.call(AgentSetSecret(agent: m.id, key: k, value: v)) != nil else { return }
@@ -411,7 +521,8 @@ struct AgentsSettings: View {
         }
         m.env = pairs.filter { !$0.value.isEmpty }   // a preset's blank line until it's filled in
         do { try AgentManifest.saveOverride(m, dir: Paths.agents) } catch {
-            Banner.show(String(localized: "Couldn't save \(m.name): \(error.localizedDescription)"), style: .error); return
+            Banner.show(String(localized: "Couldn't save \(m.name): \(error.localizedDescription)"), style: .error)
+            return
         }
         files = AgentManifest.load(dir: Paths.agents)
         if field == nil { load() }   // a secret reads as the keychain's mark now; not under someone's typing

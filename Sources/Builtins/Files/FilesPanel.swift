@@ -1,17 +1,22 @@
 import AppKit
 import Core
 import DesignKit
-import Quartz
-import Markdown
-import WorkbenchKit
 import KelpKit
+import Markdown
+import Quartz
+import WorkbenchKit
 
 /// The workspace's files: tree with git status (click opens a tab), file operations, and project search.
 @MainActor
-final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate,
-                        NSMenuDelegate {
+final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource,
+    NSTableViewDelegate, NSSearchFieldDelegate,
+    NSMenuDelegate
+{
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
+    init(app: AppModel) {
+        self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
     let outline = FilesOutline()
     /// The row whose name is being edited in place (a rename, or a new file).
@@ -49,14 +54,18 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         styleLists()
         outline.dataSource = self
         outline.delegate = self
-        outline.target = self; outline.action = #selector(openSelected)
-        outline.registerForDraggedTypes([.fileURL]); outline.setDraggingSourceOperationMask([.copy, .move], forLocal: false)
+        outline.target = self
+        outline.action = #selector(openSelected)
+        outline.registerForDraggedTypes([.fileURL])
+        outline.setDraggingSourceOperationMask([.copy, .move], forLocal: false)
         outline.onSpace = { [weak self] in self?.togglePreview() }
-        outline.onReturn = { [weak self] in if self?.isNarrowed == true { self?.openSelected() } else { self?.rename() } }
+        outline.onReturn = { [weak self] in if self?.isNarrowed == true { self?.openSelected() } else { self?.rename() }
+        }
         outline.onDelete = { [weak self] in self?.trashSelected() }
         outline.menu = NSMenu()
         outline.menu?.delegate = self
-        results.menu = NSMenu(); results.menu?.delegate = self
+        results.menu = NSMenu()
+        results.menu?.delegate = self
         leftScroll.documentView = outline
         leftScroll.hasVerticalScroller = true
         leftScroll.drawsBackground = false
@@ -81,27 +90,51 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let v = NSView()
         let bar = header()
         setUpSearchRows()
-        for x in [bar, replaceRow, leftScroll, resultsScroll, patternError] as [NSView] { x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x) }
+        for x in [bar, replaceRow, leftScroll, resultsScroll, patternError] as [NSView] {
+            x.translatesAutoresizingMaskIntoConstraints = false
+            v.addSubview(x)
+        }
         noResults.place(in: v, under: bar)
         loadError.place(in: v, under: bar)
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: v.topAnchor), bar.leadingAnchor.constraint(equalTo: v.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            leftScroll.topAnchor.constraint(equalTo: bar.bottomAnchor), leftScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            leftScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), leftScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            replaceRow.topAnchor.constraint(equalTo: bar.bottomAnchor), replaceRow.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            replaceRow.trailingAnchor.constraint(equalTo: v.trailingAnchor), replaceRow.heightAnchor.constraint(equalToConstant: Metrics.row + Metrics.gap),
+            leftScroll.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            leftScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            leftScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            leftScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
+            replaceRow.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            replaceRow.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            replaceRow.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            replaceRow.heightAnchor.constraint(equalToConstant: Metrics.row + Metrics.gap),
             patternError.topAnchor.constraint(equalTo: bar.bottomAnchor),
             patternError.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: Metrics.inset),
             patternError.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -Metrics.inset),
             resultsTop, resultsScroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            resultsScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor), resultsScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor)
+            resultsScroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
+            resultsScroll.bottomAnchor.constraint(equalTo: v.bottomAnchor)
         ])
         view = v
-        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.bind($0) }
-        track(owner: self) { [app] in app.latest(FilesEvent.self, app.workbench.workspaceId ?? "") } changed: { [weak self] in self?.listed($0) }
-        track(owner: self) { [app] in app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes } changed: { [weak self] in self?.badges($0) }
-        track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.reloadIcons() }
+        track(owner: self) { [app] in
+            app.workbench.workspaceId
+        } changed: { [weak self] in
+            self?.bind($0)
+        }
+        track(owner: self) { [app] in
+            app.latest(FilesEvent.self, app.workbench.workspaceId ?? "")
+        } changed: { [weak self] in
+            self?.listed($0)
+        }
+        track(owner: self) { [app] in
+            app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes
+        } changed: { [weak self] in
+            self?.badges($0)
+        }
+        track(owner: self) {
+            app.fileIcons.revision
+        } changed: { [weak self] _ in
+            self?.reloadIcons()
+        }
     }
 
     func menuNeedsUpdate(_ m: NSMenu) {
@@ -131,8 +164,11 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let app = app, path = root + "/" + rel, wid = worktree?.id
         m.add(String(localized: "Open")) { [weak self] in self?.openFile(rel) }
         m.add(String(localized: "Open to the Side")) { app.workbench.open(TabURI.file(path), split: .right) }
-        if let wid, status[rel] != nil { m.add(String(localized: "Open Changes")) { app.workbench.open(TabURI.diff(wid, file: rel)) } }
-        m.addItem(withTitle: String(localized: "Quick Look"), action: #selector(togglePreview), keyEquivalent: "").target = self
+        if let wid, status[rel] != nil {
+            m.add(String(localized: "Open Changes")) { app.workbench.open(TabURI.diff(wid, file: rel)) }
+        }
+        m.addItem(withTitle: String(localized: "Quick Look"), action: #selector(togglePreview), keyEquivalent: "")
+            .target = self
         m.addItem(.separator())
         changeItems(m, rel)
     }
@@ -143,13 +179,21 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
         m.add(String(localized: "Rename")) { [weak self] in self?.beginRename(rel) }
         m.addItem(.separator())
-        WorkspaceActions.addLocate(to: m, path: path, copies: [(String(localized: "Relative Path"), { @MainActor [weak self] in self?.copyText(rel) }),
-                                                               (String(localized: "Web Link"), { @MainActor in FileActions(app).copyWebLink(path) })])
+        WorkspaceActions.addLocate(
+            to: m, path: path,
+            copies: [
+                (String(localized: "Relative Path"), { @MainActor [weak self] in self?.copyText(rel) }),
+                (String(localized: "Web Link"), { @MainActor in FileActions(app).copyWebLink(path) })
+            ])
         m.addItem(.separator())
-        m.add(String(localized: "Move to Trash")) { [weak self] in self?.trash({ [path] }, undo: String(localized: "Move to Trash")) }
+        m.add(String(localized: "Move to Trash")) { [weak self] in
+            self?.trash({ [path] }, undo: String(localized: "Move to Trash"))
+        }
     }
 
-    private func reloadIcons() { outline.reloadData(forRowIndexes: IndexSet(0..<outline.numberOfRows), columnIndexes: [0]) }
+    private func reloadIcons() {
+        outline.reloadData(forRowIndexes: IndexSet(0..<outline.numberOfRows), columnIndexes: [0])
+    }
 
     private func bind(_ wid: String?) {
         guard wid != worktree?.id else { return }
@@ -165,9 +209,13 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         worktree = next
         searchOptions = next.map { SearchOptions(app, workspace: $0.id) } ?? SearchOptions()
         showSearchOptions()
-        matches = []; results.reloadData()
+        matches = []
+        results.reloadData()
         watchShown()
-        if let next { badges(app.latest(GitEvent.self, next.id)?.changes); listed(app.latest(FilesEvent.self, next.id)) }
+        if let next {
+            badges(app.latest(GitEvent.self, next.id)?.changes)
+            listed(app.latest(FilesEvent.self, next.id))
+        }
     }
 
     override func viewWillAppear() {
@@ -180,7 +228,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         shown = false
         watchShown()
     }
-    private func watchShown() { filesWatch.key = shown ? worktree?.id : nil; gitWatch.key = shown ? worktree?.id : nil }
+    private func watchShown() {
+        filesWatch.key = shown ? worktree?.id : nil
+        gitWatch.key = shown ? worktree?.id : nil
+    }
 
     /// The files listed now, then `done`: after an operation of its own, which selects or renames what it made (the
     /// daemon's push follows a moment later). Otherwise the tree follows what's pushed.
@@ -199,7 +250,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
                 opened[f] = entries   // gone: nil drops it
             }
             shownPaths = nil
-            listed(FilesEvent(worktree: w.id, paths: r.value, ignored: await app.quiet(FilesIgnored(id: w.id)), error: r.error))
+            listed(
+                FilesEvent(
+                    worktree: w.id, paths: r.value, ignored: await app.quiet(FilesIgnored(id: w.id)), error: r.error))
             done?()
         }
     }
@@ -212,15 +265,18 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         // an agent saving a file changes its badge, not the tree
         guard let paths = e.paths, shownPaths.map({ $0 != paths || $1 != e.ignored }) ?? true else { return }
         shownPaths = (paths, e.ignored)
-        let expanded = Set((0..<outline.numberOfRows).compactMap {
-            (outline.item(atRow: $0) as? FileNode).flatMap { outline.isItemExpanded($0) ? $0.path : nil }
-        })
+        let expanded = Set(
+            (0..<outline.numberOfRows).compactMap {
+                (outline.item(atRow: $0) as? FileNode).flatMap { outline.isItemExpanded($0) ? $0.path : nil }
+            })
         let selected = (outline.item(atRow: outline.selectedRow) as? FileNode)?.path
         let places = outline.rowPlaces(rowKey)
         showFadedRows()
         nodes = treeShown(paths, ignored: e.ignored ?? [])
         // outer first
-        for f in opened.keys.sorted(by: { $0.count < $1.count }) { FileNode.find(f, in: nodes).map { if $0.ignored { $0.read(opened[f] ?? []) } } }
+        for f in opened.keys.sorted(by: { $0.count < $1.count }) {
+            FileNode.find(f, in: nodes).map { if $0.ignored { $0.read(opened[f] ?? []) } }
+        }
         outline.reloadData()
         @MainActor func expand(_ ns: [FileNode]) {
             for n in ns where n.children != nil && expanded.contains(n.path) {
@@ -230,9 +286,13 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
         expand(nodes)
         if isNarrowed { outline.expandItem(nil, expandChildren: true) }
-        if let selected, let n = node(at: selected) { outline.selectRowIndexes([outline.row(forItem: n)], byExtendingSelection: false) }
+        if let selected, let n = node(at: selected) {
+            outline.selectRowIndexes([outline.row(forItem: n)], byExtendingSelection: false)
+        }
         outline.settleRows(from: places, rowKey)
-        if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible { QLPreviewPanel.shared().reloadData() }
+        if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
+            QLPreviewPanel.shared().reloadData()
+        }
     }
 
     /// Git's letters on the rows (only the letters: Source Control says what failed), and folders holding a change.
@@ -242,11 +302,17 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         reloadIcons()
     }
 
-    func openFile(_ rel: String, line: Int? = nil, focus: Bool = true) { app.workbench.open(TabURI.file(root + "/" + rel, line: line), focus: focus) }
+    func openFile(_ rel: String, line: Int? = nil, focus: Bool = true) {
+        app.workbench.open(TabURI.file(root + "/" + rel, line: line), focus: focus)
+    }
 
     // MARK: outline
-    func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { (item as? FileNode)?.children?.count ?? (item == nil ? nodes.count : 0) }
-    func outlineView(_ o: NSOutlineView, child i: Int, ofItem item: Any?) -> Any { (item as? FileNode)?.children?[i] ?? nodes[i] }
+    func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        (item as? FileNode)?.children?.count ?? (item == nil ? nodes.count : 0)
+    }
+    func outlineView(_ o: NSOutlineView, child i: Int, ofItem item: Any?) -> Any {
+        (item as? FileNode)?.children?[i] ?? nodes[i]
+    }
     func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool { (item as? FileNode)?.children != nil }
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let n = item as? FileNode else { return nil }
@@ -254,7 +320,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let tf = NSTextField(labelWithString: n.name)
         let img = NSImageView()
         img.image = app.fileIcons.image(n.name, folder: n.children != nil, expanded: o.isItemExpanded(n))
-        tf.lineBreakMode = .byTruncatingMiddle; tf.font = .ui(12)
+        tf.lineBreakMode = .byTruncatingMiddle
+        tf.font = .ui(12)
         let badge = NSTextField(labelWithString: "")
         if let s = status[n.path] {
             let (letter, color) = s.badge
@@ -264,16 +331,26 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             badge.stringValue = "●"
             badge.textColor = .tertiaryLabelColor
             badge.setAccessibilityLabel(String(localized: "Has changes"))
-        } else if n.ignored { tf.textColor = .secondaryLabelColor; img.alphaValue = 0.5 }
+        } else if n.ignored {
+            tf.textColor = .secondaryLabelColor
+            img.alphaValue = 0.5
+        }
         badge.font = badge.stringValue == "●" ? .ui(7) : .ui(10, weight: .bold)
-        for v in [img, tf, badge] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; cell.addSubview(v) }
-        cell.textField = tf; cell.imageView = img
+        for v in [img, tf, badge] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(v)
+        }
+        cell.textField = tf
+        cell.imageView = img
         NSLayoutConstraint.activate([
-            img.leadingAnchor.constraint(equalTo: cell.leadingAnchor), img.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            img.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+            img.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             img.widthAnchor.constraint(equalToConstant: 16), img.heightAnchor.constraint(equalToConstant: 16),
-            tf.leadingAnchor.constraint(equalTo: img.trailingAnchor, constant: 4), tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            tf.leadingAnchor.constraint(equalTo: img.trailingAnchor, constant: 4),
+            tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             badge.leadingAnchor.constraint(greaterThanOrEqualTo: tf.trailingAnchor, constant: 4),
-            badge.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6), badge.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+            badge.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            badge.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
         ])
         return cell
     }
@@ -284,7 +361,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         Task {
             let entries = await app.call(FilesIgnored(id: w.id, folder: node.path + "/")) ?? []
             guard worktree?.id == w.id else { return }
-            opened[node.path] = entries; node.read(entries)
+            opened[node.path] = entries
+            node.read(entries)
             outline.reloadItem(node, reloadChildren: true)
         }
     }
@@ -305,7 +383,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     func outlineView(_ o: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         (item as? FileNode).map { URL(fileURLWithPath: root).appendingPathComponent($0.path) as NSURL }
     }
-    func outlineView(_ o: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
+    func outlineView(
+        _ o: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int
+    ) -> NSDragOperation {
         guard (item as? FileNode)?.children != nil || item == nil else { return [] }
         return info.draggingSource as? NSOutlineView === outline ? .move : .copy
     }
@@ -313,8 +393,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let destDir = URL(fileURLWithPath: root).appendingPathComponent((item as? FileNode)?.path ?? "")
         let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
         if info.draggingSource as? NSOutlineView === outline {
-            let pairs = urls.filter { $0.deletingLastPathComponent().standardizedFileURL != destDir.standardizedFileURL }
-                .map { FileMove(from: $0.path, to: destDir.appendingPathComponent($0.lastPathComponent).path) }
+            let pairs = urls.filter {
+                $0.deletingLastPathComponent().standardizedFileURL != destDir.standardizedFileURL
+            }
+            .map { FileMove(from: $0.path, to: destDir.appendingPathComponent($0.lastPathComponent).path) }
             move({ pairs }, unique: true, undo: String(localized: "Move"))
             return true
         }
@@ -328,23 +410,29 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         guard let n = node(at: rel) else { return }
         let row = outline.row(forItem: n)
         guard row >= 0 else { return }
-        outline.selectRowIndexes([row], byExtendingSelection: false); outline.scrollRowToVisible(row)
-        guard let tf = (outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView)?.textField else { return }
-        tf.isEditable = true; tf.delegate = self
+        outline.selectRowIndexes([row], byExtendingSelection: false)
+        outline.scrollRowToVisible(row)
+        guard let tf = (outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView)?.textField
+        else { return }
+        tf.isEditable = true
+        tf.delegate = self
         renaming = (tf, URL(fileURLWithPath: root).appendingPathComponent(rel), open)
         view.window?.makeFirstResponder(tf)
         let name = tf.stringValue as NSString   // the name without its extension, like Finder
-        tf.currentEditor()?.selectedRange = NSRange(location: 0, length: n.children == nil ? (name.deletingPathExtension as NSString).length : name.length)
+        tf.currentEditor()?.selectedRange = NSRange(
+            location: 0, length: n.children == nil ? (name.deletingPathExtension as NSString).length : name.length)
     }
 
     func controlTextDidEndEditing(_ note: Notification) {
         guard let r = renaming, note.object as? NSTextField === r.field else { return }
-        renaming = nil; r.field.isEditable = false
+        renaming = nil
+        r.field.isEditable = false
         view.window?.makeFirstResponder(outline)
         let name = r.field.stringValue.trimmingCharacters(in: .whitespaces), root = root
         let dst = r.url.deletingLastPathComponent().appendingPathComponent(name)
         // A name that's taken fails, and the daemon says so (Readme.md → README.md is the same file, renamed).
-        let moving = !name.isEmpty && !name.contains("/") && name != r.url.lastPathComponent
+        let moving =
+            !name.isEmpty && !name.contains("/") && name != r.url.lastPathComponent
             ? move({ [FileMove(from: r.url.path, to: dst.path)] }, undo: String(localized: "Rename")) : nil
         Task { [self] in
             let moved = await moving?.value.count == 1
@@ -366,30 +454,42 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             acc = acc.isEmpty ? String(part) : acc + "/" + part
             guard let f = list.first(where: { $0.path == acc }) else { return nil }
             if f.children != nil, acc != rel { outline.expandItem(f) }
-            found = f; list = f.children ?? []
+            found = f
+            list = f.children ?? []
         }
         return found
     }
 
     func outlineViewSelectionDidChange(_ n: Notification) {
-        if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible { QLPreviewPanel.shared().reloadData() }
+        if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
+            QLPreviewPanel.shared().reloadData()
+        }
     }
 
-    var selectedNode: FileNode? { (outline.clickedRow >= 0 ? outline.item(atRow: outline.clickedRow) : outline.item(atRow: outline.selectedRow)) as? FileNode }
+    var selectedNode: FileNode? {
+        (outline.clickedRow >= 0 ? outline.item(atRow: outline.clickedRow) : outline.item(atRow: outline.selectedRow))
+            as? FileNode
+    }
     var selectedDir: String {
         guard let n = selectedNode else { return "" }
         return n.children != nil ? n.path : (n.path as NSString).deletingLastPathComponent
     }
     @objc private func openSelected() {
         guard let n = selectedNode, NSApp.currentEvent?.type != .rightMouseDown else { return }
-        guard n.children == nil else { if outline.isItemExpanded(n) { outline.collapseItem(n) } else { outline.expandItem(n) }; return }
+        guard n.children == nil else {
+            if outline.isItemExpanded(n) { outline.collapseItem(n) } else { outline.expandItem(n) }
+            return
+        }
         // Like Xcode's navigator: the file opens, the keys stay here (↑↓, Space, ↩, ⌘C).
         openFile(n.path, focus: false)
     }
     /// Like Finder's new folder: "untitled" appears with its name selected; type one and it opens.
     @objc func newFile() { addFile(in: selectedDir) }
     private func addFile(in dir: String) {
-        let made = create(in: URL(fileURLWithPath: root).appendingPathComponent(dir).path, undo: String(localized: "New File")), root = root
+        let
+            made = create(
+                in: URL(fileURLWithPath: root).appendingPathComponent(dir).path, undo: String(localized: "New File")),
+            root = root
         Task { [self] in
             guard let path = await made.value else { return }
             let rel = String(path.dropFirst(root.count + 1))
@@ -400,55 +500,75 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     @objc func newFromTemplate() { addFromTemplate(in: selectedDir) }
     private func addFromTemplate(in dir: String) {
         let repo = app.repo(worktree?.repoId)
-        let dirs = [URL(fileURLWithPath: root).appendingPathComponent(".kelp/templates"), Paths.root.appendingPathComponent("templates")]
+        let dirs = [
+            URL(fileURLWithPath: root).appendingPathComponent(".kelp/templates"),
+            Paths.root.appendingPathComponent("templates")
+        ]
         let all = dirs.flatMap { Templates.list(in: $0) }
         guard !all.isEmpty else {
             // Nothing to decide, so no question: a note in the corner says where templates go.
-            let how = String(localized: "Add Markdown files to .kelp/templates in the repo or ~/.kelp/templates. Placeholders: {{date}}, {{time}}, {{branch}}, {{title}}, {{repo}}.")
+            let how = String(
+                localized:
+                    "Add Markdown files to .kelp/templates in the repo or ~/.kelp/templates. Placeholders: {{date}}, {{time}}, {{branch}}, {{title}}, {{repo}}."
+            )
             return Banner.show(String(localized: "No templates yet") + ". " + how)
         }
         let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 300, height: 26))
         for t in all { pop.addItem(withTitle: t.deletingPathExtension().lastPathComponent) }
-        let name = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24)); name.placeholderString = String(localized: "File name, e.g. plan-login.md")
+        let name = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        name.placeholderString = String(localized: "File name, e.g. plan-login.md")
         let box = NSStackView(views: [pop, name])
         box.orientation = .vertical
         box.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
         let a = NSAlert()
         a.messageText = String(localized: "New from Template")
         a.accessoryView = box
-        a.addButton(withTitle: String(localized: "Create")); a.addButton(withTitle: String(localized: "Cancel"))
+        a.addButton(withTitle: String(localized: "Create"))
+        a.addButton(withTitle: String(localized: "Cancel"))
         Task {
             guard await runSheet(a) == .alertFirstButtonReturn, !name.stringValue.isEmpty,
-                let text = await app.call(FilesRead(path: all[pop.indexOfSelectedItem].path))?.text else { return }
-            var file = name.stringValue; if (file as NSString).pathExtension.isEmpty { file += ".md" }
+                let text = await app.call(FilesRead(path: all[pop.indexOfSelectedItem].path))?.text
+            else { return }
+            var file = name.stringValue
+            if (file as NSString).pathExtension.isEmpty { file += ".md" }
             let title = (file as NSString).deletingPathExtension.replacingOccurrences(of: "-", with: " ")
-            let body = Templates.expand(text, vars: ["branch": worktree?.branch ?? "", "title": title, "repo": repo?.name ?? ""])
+            let body = Templates.expand(
+                text, vars: ["branch": worktree?.branch ?? "", "title": title, "repo": repo?.name ?? ""])
             let rel = dir.isEmpty ? file : dir + "/" + file
             // Its folders made too; a name that's taken fails rather than being written over.
             guard await app.call(FilesCreate(path: root + "/" + rel, text: body)) != nil else { return }
-            reloadTree(); openFile(rel)
+            reloadTree()
+            openFile(rel)
         }
     }
 
     @objc func newFolder() { addFolder(in: selectedDir) }
     private func addFolder(in dir: String) { Task { await newFolderNamed(in: dir) } }
     private func newFolderNamed(in dir: String) async {
-        guard let name = await prompt(String(localized: "New folder"), String(localized: "In /\(dir)")), !name.isEmpty else { return }
+        guard let name = await prompt(String(localized: "New folder"), String(localized: "In /\(dir)")), !name.isEmpty
+        else { return }
         let path = URL(fileURLWithPath: root).appendingPathComponent(dir).appendingPathComponent(name).path
         guard await app.call(FilesCreate(path: path, folder: true)) != nil else { return }
         reloadTree()   // empty folders are invisible to git; it appears once it has a file
     }
     @objc private func rename() {
-        guard let n = selectedNode else { NSSound.beep(); return }
+        guard let n = selectedNode else {
+            NSSound.beep()
+            return
+        }
         beginRename(n.path)
     }
     @objc private func trashSelected() {
-        guard let n = selectedNode else { NSSound.beep(); return }
+        guard let n = selectedNode else {
+            NSSound.beep()
+            return
+        }
         let path = URL(fileURLWithPath: root).appendingPathComponent(n.path).path
         trash({ [path] }, undo: String(localized: "Move to Trash"))
     }
     private func copyText(_ text: String) {
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
     /// The files couldn't be listed (a folder moved away, git refusing it): say why where the tree would be, not an empty tree.
     let loadError = EmptyStateView()
@@ -459,12 +579,20 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     /// What the field looks through: names narrow the tree in place, contents list matches instead of it.
     var byName = UserDefaults.standard.bool(forKey: "files.searchByName")
     private(set) lazy var resultsTop = resultsScroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
-    private(set) lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.toggle(\.matchCase) }
-    private(set) lazy var wordToggle = TextToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.toggle(\.wholeWord) }
-    private(set) lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in self?.toggle(\.regex) }
+    private(set) lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in
+        self?.toggle(\.matchCase)
+    }
+    private(set) lazy var wordToggle = TextToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in
+        self?.toggle(\.wholeWord)
+    }
+    private(set) lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in
+        self?.toggle(\.regex)
+    }
     /// Under the search, while it has found something.
     let replaceField = NSSearchField()
-    private(set) lazy var replaceButton = ClosureButton(title: String(localized: "Replace All…")) { [weak self] in self?.replaceAll() }
+    private(set) lazy var replaceButton = ClosureButton(title: String(localized: "Replace All…")) { [weak self] in
+        self?.replaceAll()
+    }
     lazy var replaceRow = NSStackView(views: [replaceField, replaceButton])
     /// Under the field: a pattern that isn't valid, while the last results stay.
     let patternError = NSTextField(labelWithString: "")

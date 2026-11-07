@@ -1,9 +1,9 @@
 import AppKit
 import Core
-import Observation
-import os
-import WorkbenchKit
 import KelpKit
+import Observation
+import WorkbenchKit
+import os
 
 /// The app's side of language servers, which run in the daemon (one per project and server command, shared by every
 /// client, stopped once no file is open for it). Which server a file gets comes from the extensions' `languages`; whether
@@ -14,7 +14,9 @@ final class LSPManager {
     @ObservationIgnored private var reported: Set<String> = []
     func enabled(_ app: AppModel) -> Bool { app.settings.bool("editor.lsp") != false }
 
-    func language(_ app: AppModel, _ path: String) -> LanguageSpec? { LanguageSpec.find(path, in: app.extensions.all.languages) }
+    func language(_ app: AppModel, _ path: String) -> LanguageSpec? {
+        LanguageSpec.find(path, in: app.extensions.all.languages)
+    }
 
     // Language servers run the project's own code — build scripts and proc macros (rust-analyzer), Package.swift
     // (sourcekit-lsp), the TypeScript in its node_modules — and formatters can (rustup takes the toolchain a repo's
@@ -47,7 +49,8 @@ final class LSPManager {
 
     /// True when `root` is trusted to run its own code; else `then` runs once the user trusts it. The question is the
     /// tab's bar (`asks`); `again` (the user asked for it: Format) brings it back after Not Now.
-    func askTrust(_ app: AppModel, _ root: String, again: Bool = false, _ then: @escaping @MainActor () -> Void) -> Bool {
+    func askTrust(_ app: AppModel, _ root: String, again: Bool = false, _ then: @escaping @MainActor () -> Void) -> Bool
+    {
         if trusted(app, root) { return true }
         waiting[root, default: []].append(then)
         if again { putOff.remove(root) }
@@ -57,7 +60,10 @@ final class LSPManager {
     /// Recorded by the daemon first (a refusal shows, and nothing starts), then the tabs waiting for it start.
     func trust(_ app: AppModel, _ root: String) async {
         if !trusted(app, root) {
-            guard await app.uiState.save(Self.trustKey, .array((app.uiState.strings(Self.trustKey) + [root]).map(JSONValue.string))) else { return }
+            guard
+                await app.uiState.save(
+                    Self.trustKey, .array((app.uiState.strings(Self.trustKey) + [root]).map(JSONValue.string)))
+            else { return }
         }
         (waiting.removeValue(forKey: root) ?? []).forEach { $0() }
     }
@@ -65,11 +71,16 @@ final class LSPManager {
     /// Gives a file a tab shows to its server, which the daemon starts when it isn't running. False when there's none: no
     /// server for its language, servers off, or refused — the daemon's reason shows (trust the project, install the server;
     /// `retry` runs once the user trusts it).
-    func open(_ app: AppModel, root: String, path: String, text: String, retry: @escaping @MainActor () -> Void) async -> Bool {
+    func open(_ app: AppModel, root: String, path: String, text: String, retry: @escaping @MainActor () -> Void) async
+        -> Bool
+    {
         guard enabled(app), let lang = language(app, path), let server = lang.server else { return false }
         await sent()   // after the file's close from a tab just closed, never before it
         do {
-            _ = try await app.get(LSPOpen(root: root, path: path, languageId: lang.id, command: server.command, args: server.args, text: text))
+            _ = try await app.get(
+                LSPOpen(
+                    root: root, path: path, languageId: lang.id, command: server.command, args: server.args, text: text)
+            )
             return true
         } catch {
             switch LSPRefusal(error) {
@@ -86,7 +97,10 @@ final class LSPManager {
     func change(_ app: AppModel, root: String, path: String, text: String) {
         guard let c = app.client else { return }
         let key = root + "\n" + path
-        let waiting = changes.withLock { q in defer { q[key] = LSPChange(root: root, path: path, text: text) }; return q[key] != nil }
+        let waiting = changes.withLock { q in
+            defer { q[key] = LSPChange(root: root, path: path, text: text) }
+            return q[key] != nil
+        }
         guard !waiting else { return }
         outbox.async { [changes] in if let m = changes.withLock({ $0.removeValue(forKey: key) }) { c.notify(m) } }
     }
@@ -116,10 +130,13 @@ final class LSPManager {
         let name = server.command
         var install: (String, @MainActor @Sendable () -> Void)?
         if let cmd = server.install {
-            install = (String(localized: "Install"), {
-                if let w = app.workbench.workspaceId { app.workbench.show(workspace: w) }   // a page on screen gives way to it
-                app.workbench.editor?.run(command: cmd, title: String(localized: "Install \(name)"))
-            })
+            install = (
+                String(localized: "Install"),
+                {
+                    if let w = app.workbench.workspaceId { app.workbench.show(workspace: w) }   // a page on screen gives way to it
+                    app.workbench.editor?.run(command: cmd, title: String(localized: "Install \(name)"))
+                }
+            )
         }
         Banner.show(String(localized: "Language server \(name) isn't installed."), action: install)
     }

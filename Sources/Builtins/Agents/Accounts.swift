@@ -1,9 +1,9 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
-import WorkbenchKit
 import KelpKit
+import SwiftUI
+import WorkbenchKit
 
 /// Account profiles for Claude Code / Codex: each has its own config dir (CLAUDE_CONFIG_DIR / CODEX_HOME),
 /// so logins stay side by side and switching is just a different environment.
@@ -48,20 +48,31 @@ struct AccountsSettings: View {
                 }
             }
             HStack {
-                Picker("", selection: $newAgent) { Text("Claude Code").tag("claude"); Text("Codex").tag("codex") }.labelsHidden().fixedSize()
-                TextField("Profile name", text: $newName, prompt: Text("Profile name")).labelsHidden().textFieldStyle(.roundedBorder).frame(minWidth: 110)
+                Picker("", selection: $newAgent) {
+                    Text("Claude Code").tag("claude")
+                    Text("Codex").tag("codex")
+                }.labelsHidden().fixedSize()
+                TextField("Profile name", text: $newName, prompt: Text("Profile name")).labelsHidden().textFieldStyle(
+                    .roundedBorder
+                ).frame(minWidth: 110)
                 Button("Add") {
-                    let n = newName.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
-                    profiles.append(AccountProfile(name: n, agent: newAgent, dir: AccountProfile.defaultDir(agent: newAgent, name: n)))
-                    newName = ""; Task { await Accounts.save(app, profiles) }
+                    let n = newName.trimmingCharacters(in: .whitespaces)
+                    guard !n.isEmpty else { return }
+                    profiles.append(
+                        AccountProfile(
+                            name: n, agent: newAgent, dir: AccountProfile.defaultDir(agent: newAgent, name: n)))
+                    newName = ""
+                    Task { await Accounts.save(app, profiles) }
                 }
                 .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Spacer()
                 Button("Log In…") { login() }.disabled(selection == nil)
                 Button("Remove…") { remove() }.disabled(selection == nil)
             }
-            Text("Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage.")
-                .font(.ui(11)).foregroundStyle(.secondary)
+            Text(
+                "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage."
+            )
+            .font(.ui(11)).foregroundStyle(.secondary)
         }
         .task { profiles = await Accounts.load(app) }
     }
@@ -74,9 +85,14 @@ struct AccountsSettings: View {
             return
         }
         Task {
-            guard let s = await app.call(SessionCreate(worktreeId: wid, agent: p.agent, title: String(localized: "Log in: \(p.name)"),
-                                                                   profile: p.name)) else { return }
-            app.upsert(s); app.workbench.open(TabURI.session(s.id))
+            guard
+                let s = await app.call(
+                    SessionCreate(
+                        worktreeId: wid, agent: p.agent, title: String(localized: "Log in: \(p.name)"),
+                        profile: p.name))
+            else { return }
+            app.upsert(s)
+            app.workbench.open(TabURI.session(s.id))
             app.workbench.bringToFront()
         }
     }
@@ -85,8 +101,9 @@ struct AccountsSettings: View {
     private func remove() {
         guard let p = profiles.first(where: { $0.id == selection }) else { return }
         Task {
-            let question = NSAlert(question: String(localized: "Remove the profile “\(p.name)”?"),
-                                   detail: String(localized: "Its login stays in \(p.dir)."), action: String(localized: "Remove"))
+            let question = NSAlert(
+                question: String(localized: "Remove the profile “\(p.name)”?"),
+                detail: String(localized: "Its login stays in \(p.dir)."), action: String(localized: "Remove"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
             profiles.removeAll { $0.id == p.id }
             await Accounts.save(app, profiles)

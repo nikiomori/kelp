@@ -1,7 +1,7 @@
+import Agents
+import Core
 import Foundation
 import os
-import Core
-import Agents
 
 /// What one kelpd hands the next when an update replaces it (`daemon.upgrade`): the socket, the home's lock and each
 /// running session's terminal, all left open across exec in the same process. The programs stay this process's children
@@ -19,7 +19,8 @@ public struct Handover: Codable, Sendable {
     /// What a session's status rests on beside its record. Lost, a Stop held for subagents read as done three minutes after
     /// an update, a dialog answered elsewhere stayed Needs You, and an agent that reports itself was guessed at again.
     struct Status: Codable, Sendable {
-        var holding: Bool, parked: Bool, hooked: Bool, asking: [String: Int], questionOpen: Bool, turnEnd: TurnEnd, transcript: String?
+        var holding: Bool, parked: Bool, hooked: Bool, asking: [String: Int], questionOpen: Bool, turnEnd: TurnEnd,
+            transcript: String?
         var boxEmpty: Bool?
         /// How text goes in, and what it would land on: lost, a multi-line send submitted line by line, and the next send's
         /// Enter sent an unread draft or the user's half line.
@@ -40,19 +41,27 @@ public struct Handover: Codable, Sendable {
     /// lock), and is stopped at the time limit. `home`: where that empty one is made.
     static func adoptable(_ executable: String, home: URL) -> Bool {
         let scratch = home.appendingPathComponent("adopt-check-\(getpid())")
-        defer { Log.start.attempt("removing the adopt check's home") { try FileManager.default.removeItem(at: scratch) } }
+        defer {
+            Log.start.attempt("removing the adopt check's home") { try FileManager.default.removeItem(at: scratch) }
+        }
         guard Log.start.attempt("making the adopt check's home", { try Paths.ensure(scratch) }) != nil,
-              let r = Log.start.attempt("asking \(executable) whether it adopts", {
-                  try Subprocess.run([executable, "--can-adopt"], cwd: "/", env: ["KELP_HOME": scratch.path], timeLimit: 10)
-              }) else { return false }
-        return r.status == 0 && String(decoding: r.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) == canAdopt
+            let r = Log.start.attempt(
+                "asking \(executable) whether it adopts",
+                {
+                    try Subprocess.run(
+                        [executable, "--can-adopt"], cwd: "/", env: ["KELP_HOME": scratch.path], timeLimit: 10)
+                })
+        else { return false }
+        return r.status == 0
+            && String(decoding: r.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) == canAdopt
     }
 
     /// The file `kelpd --adopt` names, read and removed. Nil if it can't be read: then the lock this process still holds
     /// makes the start fail, and the sessions end with it, as after a crash.
     public static func take(_ path: String) -> Handover? {
         defer { unlink(path) }
-        do { return try JSONDecoder().decode(Handover.self, from: Data(contentsOf: URL(fileURLWithPath: path))) } catch {
+        do { return try JSONDecoder().decode(Handover.self, from: Data(contentsOf: URL(fileURLWithPath: path))) } catch
+        {
             Log.start.fault("couldn't read what the last kelpd handed over: \(error)")
             return nil
         }
@@ -66,7 +75,10 @@ public struct Handover: Codable, Sendable {
         var pids = [pid_t](repeating: 0, count: 4096)
         let n = Int(proc_listchildpids(getpid(), &pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         for pid in pids.prefix(max(0, n)) where !kept.contains(pid) {
-            Thread.detachNewThread { var st: Int32 = 0; while waitpid(pid, &st, 0) < 0 && errno == EINTR {} }
+            Thread.detachNewThread {
+                var st: Int32 = 0
+                while waitpid(pid, &st, 0) < 0 && errno == EINTR {}
+            }
         }
     }
 
@@ -83,7 +95,9 @@ public struct Handover: Codable, Sendable {
         for fd in [0, 1, 2, socket, lock] + sessions.map(\.fd) { posix_spawn_file_actions_addinherit_np(&fa, fd) }
         let args: [String] = [exe, "--adopt", file]
         let argv = (args.map { strdup($0) } + [nil]) as [UnsafeMutablePointer<CChar>?]
-        let env = (ProcessInfo.processInfo.environment.map { strdup("\($0)=\($1)") } + [nil]) as [UnsafeMutablePointer<CChar>?]
+        let env =
+            (ProcessInfo.processInfo.environment.map { strdup("\($0)=\($1)") } + [nil])
+            as [UnsafeMutablePointer<CChar>?]
         defer { (argv + env).forEach { free($0) } }
         let rc = posix_spawn(nil, exe, &fa, &attr, argv, env)
         throw RPCError.internalError("couldn't run \(exe): \(String(cString: strerror(rc)))")

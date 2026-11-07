@@ -37,8 +37,13 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
 
     /// Where clones go: the last place used, else next to the newest project, else ~/Developer or home.
     private var lastParent: URL {
-        if let s = UserDefaults.standard.string(forKey: "newProject.parent"), FileManager.default.fileExists(atPath: s) { return URL(fileURLWithPath: s) }
-        if let r = app.repos.last(where: { !$0.path.hasPrefix(Paths.root.path) }) { return URL(fileURLWithPath: r.path).deletingLastPathComponent() }
+        if let s = UserDefaults.standard.string(forKey: "newProject.parent"), FileManager.default.fileExists(atPath: s)
+        {
+            return URL(fileURLWithPath: s)
+        }
+        if let r = app.repos.last(where: { !$0.path.hasPrefix(Paths.root.path) }) {
+            return URL(fileURLWithPath: r.path).deletingLastPathComponent()
+        }
         let dev = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Developer")
         return FileManager.default.fileExists(atPath: dev.path) ? dev : FileManager.default.homeDirectoryForCurrentUser
     }
@@ -57,7 +62,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         choose.bezelStyle = .push
         choose.target = self
         choose.action = #selector(pick)
-        let row = NSStackView(views: [dest, choose]); row.spacing = Metrics.gapWide
+        let row = NSStackView(views: [dest, choose])
+        row.spacing = Metrics.gapWide
         let grid = SheetForm.grid([(String(localized: "URL"), field), (String(localized: "Clone into"), row)])
         bar.style = .bar
         bar.isIndeterminate = true
@@ -77,8 +83,10 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         cancel.keyEquivalent = "\u{1b}"
         cancel.target = self
         cancel.action = #selector(stop)
-        let buttons = NSStackView(views: [NSView(), cancel, go]); buttons.spacing = Metrics.gapWide
-        window?.contentView = SheetForm.stack([title, grid, bar, status, buttons], wide: [bar, status, buttons], width: Metrics.sheetWidth)
+        let buttons = NSStackView(views: [NSView(), cancel, go])
+        buttons.spacing = Metrics.gapWide
+        window?.contentView = SheetForm.stack(
+            [title, grid, bar, status, buttons], wide: [bar, status, buttons], width: Metrics.sheetWidth)
         window?.initialFirstResponder = field
     }
 
@@ -90,7 +98,9 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     private func fill() {
         guard !destEdited else { return }
         let name = RepoClone.folderName(field.stringValue)
-        dest.stringValue = (parent.appendingPathComponent(name).path as NSString).abbreviatingWithTildeInPath + (name.isEmpty ? "/" : "")
+        dest.stringValue =
+            (parent.appendingPathComponent(name).path as NSString).abbreviatingWithTildeInPath
+            + (name.isEmpty ? "/" : "")
     }
 
     /// A folder to clone into, in an open panel: anywhere up or down from the last one, or a new one.
@@ -100,7 +110,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.canCreateDirectories = true
-        p.prompt = String(localized: "Choose"); p.directoryURL = parent
+        p.prompt = String(localized: "Choose")
+        p.directoryURL = parent
         p.beginSheetModal(for: w) { [self] r in
             guard r == .OK, let u = p.url else { return }
             parent = u
@@ -127,7 +138,10 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         status.isHidden = false
         status.textColor = .secondaryLabelColor
         status.stringValue = line
-        if let m = line.firstMatch(of: #/(\d+)%/#), let pct = Double(m.1) { bar.isIndeterminate = false; bar.doubleValue = pct }
+        if let m = line.firstMatch(of: #/(\d+)%/#), let pct = Double(m.1) {
+            bar.isIndeterminate = false
+            bar.doubleValue = pct
+        }
     }
 
     private func busy(_ on: Bool) {
@@ -146,21 +160,32 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
 
     @objc private func start() {
         let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { NSSound.beep(); return }
+        guard !text.isEmpty else {
+            NSSound.beep()
+            return
+        }
         guard let path = destination else {
-            status.isHidden = false; status.textColor = .textRed
-            status.stringValue = String(localized: "Enter the full path to clone to, like ~/Developer/app."); return
+            status.isHidden = false
+            status.textColor = .textRed
+            status.stringValue = String(localized: "Enter the full path to clone to, like ~/Developer/app.")
+            return
         }
         let parent = (path as NSString).deletingLastPathComponent, folder = (path as NSString).lastPathComponent
         let id = UUID().uuidString
-        running = id; busy(true)
-        status.isHidden = false; status.textColor = .secondaryLabelColor
+        running = id
+        busy(true)
+        status.isHidden = false
+        status.textColor = .secondaryLabelColor
         status.stringValue = String(localized: "Connecting…")
         Task {
             let r = await app.tryCall(RepoClone(url: text, parent: parent, folder: folder, id: id))
-            running = nil; busy(false)
+            running = nil
+            busy(false)
             if let e = r.error {
-                if e == "Clone cancelled." { close(); return }
+                if e == "Clone cancelled." {
+                    close()
+                    return
+                }
                 status.textColor = .textRed
                 status.stringValue = e
                 return

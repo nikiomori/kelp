@@ -25,12 +25,26 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
     public var checked: Date
     public var createdAt: Date
 
-    public init(id: String = "", name: String, repoId: String, agent: String, model: String? = nil, prompt: String, every: Every = .weekdays,
-                time: Int = 9 * 60, weekday: Int = 2, enabled: Bool = true, onWake: Bool = true, worktreeId: String? = nil,
-                checked: Date = Date(), createdAt: Date = Date()) {
-        self.id = id; self.name = name; self.repoId = repoId; self.agent = agent; self.model = model; self.prompt = prompt
-        self.every = every; self.time = time; self.weekday = weekday; self.enabled = enabled; self.onWake = onWake
-        self.worktreeId = worktreeId; self.checked = checked; self.createdAt = createdAt
+    public init(
+        id: String = "", name: String, repoId: String, agent: String, model: String? = nil, prompt: String,
+        every: Every = .weekdays,
+        time: Int = 9 * 60, weekday: Int = 2, enabled: Bool = true, onWake: Bool = true, worktreeId: String? = nil,
+        checked: Date = Date(), createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.repoId = repoId
+        self.agent = agent
+        self.model = model
+        self.prompt = prompt
+        self.every = every
+        self.time = time
+        self.weekday = weekday
+        self.enabled = enabled
+        self.onWake = onWake
+        self.worktreeId = worktreeId
+        self.checked = checked
+        self.createdAt = createdAt
     }
 
     /// One run: its agent's session, and how it went.
@@ -53,10 +67,19 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
         public var outcome: Outcome
         /// The agent's first line when done, what it asks, why it failed.
         public var summary: String
-        public init(id: String = UUID().uuidString, routineId: String, sessionId: String? = nil, due: Date, started: Date = Date(),
-                    ended: Date? = nil, outcome: Outcome = .running, summary: String = "") {
-            self.id = id; self.routineId = routineId; self.sessionId = sessionId; self.due = due; self.started = started
-            self.ended = ended; self.outcome = outcome; self.summary = summary
+        public init(
+            id: String = UUID().uuidString, routineId: String, sessionId: String? = nil, due: Date,
+            started: Date = Date(),
+            ended: Date? = nil, outcome: Outcome = .running, summary: String = ""
+        ) {
+            self.id = id
+            self.routineId = routineId
+            self.sessionId = sessionId
+            self.due = due
+            self.started = started
+            self.ended = ended
+            self.outcome = outcome
+            self.summary = summary
         }
         /// Started well after it was due: the Mac slept, or Kelp wasn't running.
         public var late: Bool { started.timeIntervalSince(due) > Routine.lateAfter }
@@ -67,7 +90,8 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
 
     /// The first time it's due after `date`. The same function plans the runs and draws the week ahead.
     public func next(after date: Date, calendar: Calendar = .current) -> Date? {
-        let at = DateComponents(hour: every == .hourly ? nil : time / 60, minute: time % 60, weekday: every == .weekly ? weekday : nil)
+        let at = DateComponents(
+            hour: every == .hourly ? nil : time / 60, minute: time % 60, weekday: every == .weekly ? weekday : nil)
         var d = date
         for _ in 0..<7 {   // weekdays: past a Saturday and a Sunday at most
             guard let n = calendar.nextDate(after: d, matching: at, matchingPolicy: .nextTime) else { return nil }
@@ -81,7 +105,10 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
     /// The due times after `from`, up to and including `to`.
     public func times(after from: Date, through to: Date, calendar: Calendar = .current) -> [Date] {
         var out: [Date] = [], d = from
-        while out.count < 400, let n = next(after: d, calendar: calendar), n <= to { out.append(n); d = n }
+        while out.count < 400, let n = next(after: d, calendar: calendar), n <= to {
+            out.append(n)
+            d = n
+        }
         return out
     }
 }
@@ -91,33 +118,40 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
 public struct RoutinesEvent: RPCEvent, Equatable {
     public static let name = "event.routines"
     public var routines: [Routine], runs: [Routine.Run]
-    public init(routines: [Routine], runs: [Routine.Run]) { self.routines = routines; self.runs = runs }
+    public init(routines: [Routine], runs: [Routine.Run]) {
+        self.routines = routines
+        self.runs = runs
+    }
 }
 
 /// All routines and their recent runs.
 public struct RoutineList: InternalMethod {
-    public static let name = "routine.list"; public typealias Result = RoutinesEvent
+    public static let name = "routine.list"
+    public typealias Result = RoutinesEvent
     public init() {}
 }
 
 /// Adds the routine (no id) or changes it. A new one, one switched on and one with a new schedule count from now:
 /// nothing before is run.
 public struct RoutineSet: InternalMethod {
-    public static let name = "routine.set"; public typealias Result = Routine
+    public static let name = "routine.set"
+    public typealias Result = Routine
     public var routine: Routine
     public init(routine: Routine) { self.routine = routine }
 }
 
 /// The routine and its runs; its workspace and their sessions stay.
 public struct RoutineDelete: InternalMethod {
-    public static let name = "routine.delete"; public typealias Result = Done
+    public static let name = "routine.delete"
+    public typealias Result = Done
     public var id: String
     public init(id: String) { self.id = id }
 }
 
 /// Runs it now, off schedule (Run Now).
 public struct RoutineRun: InternalMethod {
-    public static let name = "routine.run"; public typealias Result = Routine.Run
+    public static let name = "routine.run"
+    public typealias Result = Routine.Run
     public var id: String
     public init(id: String) { self.id = id }
 }

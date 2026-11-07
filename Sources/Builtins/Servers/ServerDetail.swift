@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 /// A connected server: the meters over the processes, and Kelp's side of it on the right.
@@ -40,18 +40,28 @@ struct ServerDetail: View {
         let s = stats
         return Grid(horizontalSpacing: 12) {
             GridRow {
-                Tile(label: "CPU", value: s.cpu.map { "\(Int($0.rounded()))%" } ?? "–",
-                     detail: s.load.map { String(localized: "load \($0.map { String(format: "%.2f", $0) }.joined(separator: " · "))") } ?? "",
-                     share: s.cpu.map { $0 / 100 }, trend: history.map(\.cpu))
-                Tile(label: "Memory", value: s.memory.map(serverBytes) ?? "–", detail: of(s.memory, s.memoryTotal),
-                     share: share(s.memory, s.memoryTotal), trend: history.map(\.memory))
-                Tile(label: "Swap", value: s.swap.map(serverBytes) ?? "–", detail: of(s.swap, s.swapTotal), share: share(s.swap, s.swapTotal))
-                Tile(label: "Disk /", value: s.disk.map(serverBytes) ?? "–", detail: of(s.disk, s.diskTotal), share: share(s.disk, s.diskTotal))
+                Tile(
+                    label: "CPU", value: s.cpu.map { "\(Int($0.rounded()))%" } ?? "–",
+                    detail: s.load.map {
+                        String(localized: "load \($0.map { String(format: "%.2f", $0) }.joined(separator: " · "))")
+                    } ?? "",
+                    share: s.cpu.map { $0 / 100 }, trend: history.map(\.cpu))
+                Tile(
+                    label: "Memory", value: s.memory.map(serverBytes) ?? "–", detail: of(s.memory, s.memoryTotal),
+                    share: share(s.memory, s.memoryTotal), trend: history.map(\.memory))
+                Tile(
+                    label: "Swap", value: s.swap.map(serverBytes) ?? "–", detail: of(s.swap, s.swapTotal),
+                    share: share(s.swap, s.swapTotal))
+                Tile(
+                    label: "Disk /", value: s.disk.map(serverBytes) ?? "–", detail: of(s.disk, s.diskTotal),
+                    share: share(s.disk, s.diskTotal))
             }
         }
     }
 
-    private func share(_ used: Int?, _ total: Int?) -> Double? { HostStats.percent(used, total).map { Double($0) / 100 } }
+    private func share(_ used: Int?, _ total: Int?) -> Double? {
+        HostStats.percent(used, total).map { Double($0) / 100 }
+    }
     private func of(_ used: Int?, _ total: Int?) -> String {
         guard let total, let p = HostStats.percent(used, total) else { return String(localized: "Linux only") }
         return String(localized: "of \(serverBytes(total)) · \(p)%")
@@ -91,7 +101,9 @@ private struct Sparkline: View {
     var body: some View {
         GeometryReader { g in
             let pts = values.enumerated().map { i, v in
-                CGPoint(x: g.size.width * CGFloat(i) / CGFloat(max(1, values.count - 1)), y: g.size.height * (1 - CGFloat(min(1, max(0, v)))))
+                CGPoint(
+                    x: g.size.width * CGFloat(i) / CGFloat(max(1, values.count - 1)),
+                    y: g.size.height * (1 - CGFloat(min(1, max(0, v)))))
             }
             let line = Path { p in p.addLines(pts) }
             let color = (values.last ?? 0) >= 0.9 ? Color.orange : Color.secondary

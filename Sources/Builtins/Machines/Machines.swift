@@ -1,9 +1,9 @@
 import AppKit
-import UniformTypeIdentifiers
 import Core
 import DesignKit
-import WorkbenchKit
 import KelpKit
+import UniformTypeIdentifiers
+import WorkbenchKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 extension AppModel {
@@ -12,7 +12,8 @@ extension AppModel {
     private static var xcodeInstalled: Bool {
         do {
             return try FileManager.default.contentsOfDirectory(atPath: "/Applications").contains {
-                $0.hasPrefix("Xcode") && $0.hasSuffix(".app") && FileManager.default.fileExists(atPath: "/Applications/\($0)/Contents/Developer")
+                $0.hasPrefix("Xcode") && $0.hasSuffix(".app")
+                    && FileManager.default.fileExists(atPath: "/Applications/\($0)/Contents/Developer")
             }
         } catch {
             return false   // no /Applications to read: no Xcode there
@@ -23,23 +24,29 @@ extension AppModel {
     /// Android SDK, Xcode).
     var machineChoices: [(title: String, image: String, missing: String?)] {
         #if arch(arm64)
-        let silicon: String? = nil
+            let silicon: String? = nil
         #else
-        let silicon: String? = String(localized: "Needs a Mac with Apple silicon")
+            let silicon: String? = String(localized: "Needs a Mac with Apple silicon")
         #endif
         let sdk = AndroidSDK.avdmanager != nil && AndroidSDK.newestImage() != nil
         let xcode = Self.xcodeInstalled || ProcessInfo.processInfo.environment["DEVELOPER_DIR"] != nil
-        return [(String(localized: "Linux (Debian 13)"), "debian-13", silicon),
-                (String(localized: "macOS…"), "macos", silicon),
-                (String(localized: "Android"), "android", sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image")),
-                (String(localized: "iOS"), "ios", xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))]
+        return [
+            (String(localized: "Linux (Debian 13)"), "debian-13", silicon),
+            (String(localized: "macOS…"), "macos", silicon),
+            (
+                String(localized: "Android"), "android",
+                sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image")
+            ),
+            (String(localized: "iOS"), "ios", xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))
+        ]
     }
 
     /// A machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
     func machineFromFile() {
         Task {
             let panel = NSOpenPanel()
-            panel.message = String(localized: "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)")
+            panel.message = String(
+                localized: "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)")
             panel.allowedContentTypes = ["ipsw", "raw", "img"].compactMap { UTType(filenameExtension: $0) }
             guard await runSheet(panel) == .OK, let url = panel.url else { return }
             newMachine(url.pathExtension.lowercased() == "ipsw" ? "macos" : "linux", file: url.path)
@@ -53,17 +60,23 @@ extension AppModel {
             if image == "macos", file == nil {
                 let a = NSAlert()
                 a.messageText = String(localized: "Make a macOS machine?")
-                a.informativeText = String(localized: """
-                    Kelp downloads macOS from Apple (over 20 GB), installs and sets it up: about 20 minutes. \
-                    It takes 6 GB of memory while it runs, none while it sleeps.
-                    """)
+                a.informativeText = String(
+                    localized: """
+                        Kelp downloads macOS from Apple (over 20 GB), installs and sets it up: about 20 minutes. \
+                        It takes 6 GB of memory while it runs, none while it sleeps.
+                        """)
                 a.addButton(withTitle: String(localized: "Make It"))
                 a.addButton(withTitle: String(localized: "Cancel"))
                 guard await runSheet(a) == .alertFirstButtonReturn else { return }
             }
-            let base = ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][image] ?? "vm"
+            let base =
+                ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][
+                    image] ?? "vm"
             var name = base, n = 2
-            while machineList.contains(where: { $0.id == name }) { name = "\(base)\(n)"; n += 1 }
+            while machineList.contains(where: { $0.id == name }) {
+                name = "\(base)\(n)"
+                n += 1
+            }
             if await call(VMCreate(name: name, image: image, file: file)) != nil { watchAgain(.machines) }   // as the daemon has it
         }
     }
@@ -111,19 +124,20 @@ extension AppModel {
     /// Where making it got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
     func stepText(_ v: VMInfo) -> String {
         let what = v.detail ?? ""
-        let text: String = switch v.step {
-        case .asking: String(localized: "Asking Apple for the latest macOS")
-        case .downloading: String(localized: "Downloading \(what)")
-        case .checking: String(localized: "Checking \(what)")
-        case .unpacking: String(localized: "Unpacking \(what)")
-        case .disk: String(localized: "Making its disk")
-        case .installing: String(localized: "Installing \(what)")
-        case .firstBoot: String(localized: "Setting macOS up (a few minutes)")
-        case .lettingIn: String(localized: "Letting Kelp in")
-        case .device: String(localized: "Making its device from \(what)")
-        case .building: String(localized: "Building Kelp's runner")
-        case .starting, nil: String(localized: "Starting for the first time")
-        }
+        let text: String =
+            switch v.step {
+            case .asking: String(localized: "Asking Apple for the latest macOS")
+            case .downloading: String(localized: "Downloading \(what)")
+            case .checking: String(localized: "Checking \(what)")
+            case .unpacking: String(localized: "Unpacking \(what)")
+            case .disk: String(localized: "Making its disk")
+            case .installing: String(localized: "Installing \(what)")
+            case .firstBoot: String(localized: "Setting macOS up (a few minutes)")
+            case .lettingIn: String(localized: "Letting Kelp in")
+            case .device: String(localized: "Making its device from \(what)")
+            case .building: String(localized: "Building Kelp's runner")
+            case .starting, nil: String(localized: "Starting for the first time")
+            }
         return text + (v.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")
     }
 
@@ -133,8 +147,11 @@ extension AppModel {
         case .creating: return stepText(v)
         case .error: return v.detail ?? ""
         case .sleeping, .off:
-            let wake = v.state == .off ? String(localized: "Boots in a few seconds")
-                : v.machine.os == "linux" ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
+            let wake =
+                v.state == .off
+                ? String(localized: "Boots in a few seconds")
+                : v.machine.os == "linux"
+                    ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
             guard let d = v.diskMiB else { return wake }
             return String(localized: "\(String(format: "%.1f GB", Double(d) / 1024)) on disk") + " · " + wake
         default:
@@ -142,10 +159,15 @@ extension AppModel {
             if let c = v.cpu { parts.append(String(localized: "\(String(format: "%.0f%%", c)) CPU")) }
             if let m = v.memoryMiB { parts.append(String(format: "%.1f GB", Double(m) / 1024)) }
             let n = v.connections ?? 0
-            if n > 0 { parts.append(String(localized: "\(n) running")) }
+            if n > 0 {
+                parts.append(String(localized: "\(n) running"))
+            }
             // Nothing runs, but an agent drives its screen (`VMInfo.sessions` names it then).
-            else if let s = v.sessions?.first { parts.append(String(localized: "\(catalog.name(session(s)?.agent)) is using the screen")) }
-            else { parts.append(String(localized: "Nothing running")) }
+            else if let s = v.sessions?.first {
+                parts.append(String(localized: "\(catalog.name(session(s)?.agent)) is using the screen"))
+            } else {
+                parts.append(String(localized: "Nothing running"))
+            }
             return parts.joined(separator: " · ")
         }
     }

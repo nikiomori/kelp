@@ -1,7 +1,7 @@
-import Foundation
-import os
 import Core
+import Foundation
 import GitKit
+import os
 
 /// Workspaces are worktree records. Most are in the project's folder (their path is the repo path): a set of
 /// tabs and agents, nothing on disk. Several workspaces can share the folder. Workspaces from older versions may still be
@@ -33,7 +33,10 @@ final class Workspaces: Sendable {
         do {
             try FileManager.default.createDirectory(at: discards, withIntermediateDirectories: true)
             try JSONEncoder().encode(d).write(to: discardFile(folder: folder, name: name), options: .atomic)
-        } catch { throw RPCError.internalError("Nothing was discarded: its Undo couldn't be kept (\(error.localizedDescription)).") }
+        } catch {
+            throw RPCError.internalError(
+                "Nothing was discarded: its Undo couldn't be kept (\(error.localizedDescription)).")
+        }
         // Gone after its minute even when nothing else is discarded: a patch can be large.
         DispatchQueue.global().asyncAfter(deadline: .now() + 61) { [weak self] in self?.sweepDiscards() }
     }
@@ -43,8 +46,13 @@ final class Workspaces: Sendable {
     func undoDiscard(folder: String, name: String?, _ putBack: (Discarded) throws -> Void) throws -> Bool {
         let file = discardFile(folder: folder, name: name), taken = file.appendingPathExtension(UUID().uuidString)
         guard rename(file.path, taken.path) == 0 else { return false }
-        let d = Log.store.attempt("reading a discard") { try JSONDecoder().decode(Discarded.self, from: Data(contentsOf: taken)) }
-        guard let d, d.at.timeIntervalSinceNow > -60 else { unlink(taken.path); return false }
+        let d = Log.store.attempt("reading a discard") {
+            try JSONDecoder().decode(Discarded.self, from: Data(contentsOf: taken))
+        }
+        guard let d, d.at.timeIntervalSinceNow > -60 else {
+            unlink(taken.path)
+            return false
+        }
         do { try putBack(d) } catch {
             if renamex_np(taken.path, file.path, UInt32(RENAME_EXCL)) != 0 { unlink(taken.path) }   // a newer one has its name
             throw error
@@ -104,7 +112,9 @@ final class Workspaces: Sendable {
     /// closing it would ask about nothing and then fail. A switch to another branch doesn't count: that one isn't the group's to delete.
     func branchNow(of w: Worktree, in r: Repo) -> String {
         guard !Git.branchExists(r.path, w.branch, remotes: remotes),
-              let now = Log.store.attempt("reading \(w.path)'s branch", { try Git.currentBranch(w.path, remotes: remotes) }), now != "HEAD" else {
+            let now = Log.store.attempt(
+                "reading \(w.path)'s branch", { try Git.currentBranch(w.path, remotes: remotes) }), now != "HEAD"
+        else {
             return w.branch
         }
         return now
@@ -127,8 +137,12 @@ final class Workspaces: Sendable {
             // A remote project's branch is read over ssh: not on every sync (an unreachable host would stall each one for
             // its connect timeout). Its workspaces keep the branch they have; git.status and the like read it when asked.
             if remotes.of(r.path) != nil, !workspaces.isEmpty { continue }
-            let branch = remotes.of(r.path) != nil ? r.baseBranch : (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
-            if workspaces.isEmpty { try store.save(Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace 1", base: branch)) }
+            let branch =
+                remotes.of(r.path) != nil
+                ? r.baseBranch : (try? Git.currentBranch(r.path, remotes: remotes)) ?? r.baseBranch
+            if workspaces.isEmpty {
+                try store.save(Worktree(repoId: r.id, branch: branch, path: r.path, note: "Workspace 1", base: branch))
+            }
             for w in workspaces where w.branch != branch || w.note.isEmpty {
                 try store.update(Worktree.self, w.id) {
                     $0.branch = branch
@@ -144,7 +158,9 @@ final class Workspaces: Sendable {
     /// At start: workspaces catch up with branches switched while no daemon ran, and from then on follow them.
     func followHeads() {
         watchHeads()
-        do { try syncMainWorkspaces() } catch { Log.store.error("workspaces didn't follow their folders' branches: \(error)") }
+        do { try syncMainWorkspaces() } catch {
+            Log.store.error("workspaces didn't follow their folders' branches: \(error)")
+        }
     }
 
     /// Workspaces follow their folder's branch as it moves, also when it's switched outside Kelp: a watcher on each local
@@ -163,7 +179,9 @@ final class Workspaces: Sendable {
             guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { continue }
             let fw = FileWatcher(root: dir, deliver: headQueue) { [weak self] paths in
                 guard paths.contains(where: { $0.hasSuffix("/HEAD") && !$0.contains("/logs/") }) else { return }
-                do { try self?.syncMainWorkspaces() } catch { Log.store.error("workspaces didn't follow their branch: \(error)") }
+                do { try self?.syncMainWorkspaces() } catch {
+                    Log.store.error("workspaces didn't follow their branch: \(error)")
+                }
             }
             if let fw { made[id] = HeadWatch(dir: dir, watcher: fw) }
         }
@@ -178,7 +196,10 @@ final class Workspaces: Sendable {
 
     /// The daemon stops: the folders aren't followed any more.
     func stopWatching() {
-        let h = heads.withLock { h in defer { h = nil }; return h }
+        let h = heads.withLock { h in
+            defer { h = nil }
+            return h
+        }
         _ = h   // the streams stop here, out of the lock
     }
 

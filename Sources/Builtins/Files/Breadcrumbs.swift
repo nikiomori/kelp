@@ -33,7 +33,8 @@ final class Breadcrumbs: NSView {
         self.height = height
         NSLayoutConstraint.activate([
             height, row.topAnchor.constraint(equalTo: topAnchor), row.bottomAnchor.constraint(equalTo: bottomAnchor),
-            row.leadingAnchor.constraint(equalTo: leadingAnchor), row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             line.bottomAnchor.constraint(equalTo: bottomAnchor), line.leadingAnchor.constraint(equalTo: leadingAnchor),
             line.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
@@ -65,7 +66,11 @@ final class Breadcrumbs: NSView {
         var files = Set<String>(), folders = Set<String>()
         for p in paths where p.hasPrefix(prefix) {
             let rest = p.dropFirst(prefix.count)
-            if let slash = rest.firstIndex(of: "/") { folders.insert(String(rest[..<slash])) } else { files.insert(String(rest)) }
+            if let slash = rest.firstIndex(of: "/") {
+                folders.insert(String(rest[..<slash]))
+            } else {
+                files.insert(String(rest))
+            }
         }
         return folders.sorted().map { ($0, true) } + files.sorted().map { ($0, false) }
     }
@@ -131,7 +136,8 @@ final class Breadcrumbs: NSView {
     }
 
     private func showSiblings(in folder: String, under b: NSButton) async {
-        guard let w = app.worktrees.first(where: { $0.path == root }), let paths = await app.call(FilesList(id: w.id)) else { return }
+        guard let w = app.worktrees.first(where: { $0.path == root }), let paths = await app.call(FilesList(id: w.id))
+        else { return }
         let menu = NSMenu(), filler = FolderMenu(folder, paths, root: root, app: app)
         menu.delegate = filler
         filler.menuNeedsUpdate(menu)

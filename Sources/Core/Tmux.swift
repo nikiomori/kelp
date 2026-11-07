@@ -9,7 +9,10 @@ public enum Tmux {
         /// When someone last typed in it or it printed something.
         public var activity: Date
         public init(name: String, windows: Int, attached: Int, activity: Date) {
-            self.name = name; self.windows = windows; self.attached = attached; self.activity = activity
+            self.name = name
+            self.windows = windows
+            self.attached = attached
+            self.activity = activity
         }
     }
 
@@ -22,7 +25,8 @@ public enum Tmux {
 
     /// A name tmux keeps as it is: it turns ":" and "." into "_" itself, and the tab has to find the session by that name.
     public static func name(_ s: String) -> String {
-        String(s.trimmingCharacters(in: .whitespacesAndNewlines).map { $0 == ":" || $0 == "." || $0.isNewline ? "_" : $0 })
+        String(
+            s.trimmingCharacters(in: .whitespacesAndNewlines).map { $0 == ":" || $0 == "." || $0.isNewline ? "_" : $0 })
     }
 
     /// Sessions Kelp starts for terminals of its own (the `terminal.tmux` setting) are named so ("kelp-tab-" and 8 hex
@@ -42,7 +46,8 @@ public enum Tmux {
     public static func parse(_ out: String) -> [Session] {
         out.split(whereSeparator: \.isNewline).compactMap { line -> Session? in
             let f = line.split(separator: ":", omittingEmptySubsequences: false)
-            guard f.count >= 4, let w = Int(f[f.count - 3]), let a = Int(f[f.count - 2]), let t = Double(f[f.count - 1]) else { return nil }
+            guard f.count >= 4, let w = Int(f[f.count - 3]), let a = Int(f[f.count - 2]), let t = Double(f[f.count - 1])
+            else { return nil }
             let name = f.dropLast(3).joined(separator: ":")   // the numbers are the last three, whatever a host's tmux allows in a name
             guard !name.isEmpty else { return nil }
             return Session(name: name, windows: w, attached: a, activity: Date(timeIntervalSince1970: t))

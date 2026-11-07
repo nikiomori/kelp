@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Markdown
 
 private func r(_ md: String) -> String { MarkdownHTML.render(md) }
@@ -22,8 +23,10 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
 }
 
 @Test func emphasis() {
-    #expect(r("*a* _b_ **c** __d__ ~~e~~ ***f***") ==
-            #"<p><em>a</em> <em>b</em> <strong>c</strong> <strong>d</strong> <del>e</del> <em><strong>f</strong></em></p>"#)
+    #expect(
+        r("*a* _b_ **c** __d__ ~~e~~ ***f***")
+            == #"<p><em>a</em> <em>b</em> <strong>c</strong> <strong>d</strong> <del>e</del> <em><strong>f</strong></em></p>"#
+    )
     #expect(r("snake_case_name and 2*3*4") == #"<p>snake_case_name and 2<em>3</em>4</p>"#)
     #expect(r("**bold *nested* bold**") == #"<p><strong>bold <em>nested</em> bold</strong></p>"#)
     #expect(r("a * b * c") == #"<p>a * b * c</p>"#)
@@ -31,7 +34,8 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
 }
 
 @Test func inlineCode() {
-    #expect(r("use `a <b> & *c*` and `` x`y ``") == #"<p>use <code>a &lt;b&gt; &amp; *c*</code> and <code>x`y</code></p>"#)
+    #expect(
+        r("use `a <b> & *c*` and `` x`y ``") == #"<p>use <code>a &lt;b&gt; &amp; *c*</code> and <code>x`y</code></p>"#)
 }
 
 @Test func fencedAndIndentedCode() {
@@ -71,21 +75,34 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
 
 @Test func tablesWithAlignment() {
     let h = r("| L | C | R | N |\n|:--|:-:|--:|---|\n| a | `b\\|c` | **r** |\n\nafter")
-    #expect(h.contains("<table>\n<thead>\n<tr><th style=\"text-align:left\">L</th>"
-        + "<th style=\"text-align:center\">C</th><th style=\"text-align:right\">R</th><th>N</th></tr>"))
-    #expect(h.contains(#"<tr><td style="text-align:left">a</td><td style="text-align:center"><code>b|c</code></td><td style="text-align:right"><strong>r</strong></td><td></td></tr>"#))
+    #expect(
+        h.contains(
+            "<table>\n<thead>\n<tr><th style=\"text-align:left\">L</th>"
+                + "<th style=\"text-align:center\">C</th><th style=\"text-align:right\">R</th><th>N</th></tr>"))
+    #expect(
+        h.contains(
+            #"<tr><td style="text-align:left">a</td><td style="text-align:center"><code>b|c</code></td><td style="text-align:right"><strong>r</strong></td><td></td></tr>"#
+        ))
     #expect(h.contains(#"<p>after</p>"#))
     #expect(!r("a | b\n---").contains("<table"))
 }
 
 @Test func linksImagesAutolinks() {
-    #expect(r("[x *y*](https://a.b/c?d=1&e=2 \"T\")") == #"<p><a href="https://a.b/c?d=1&amp;e=2" title="T">x <em>y</em></a></p>"#)
+    #expect(
+        r("[x *y*](https://a.b/c?d=1&e=2 \"T\")")
+            == #"<p><a href="https://a.b/c?d=1&amp;e=2" title="T">x <em>y</em></a></p>"#)
     #expect(r("![alt *t*](img/a.png)") == #"<p><img src="img/a.png" alt="alt t"></p>"#)
     #expect(r("[![CI](b.svg)](https://ci.io)") == #"<p><a href="https://ci.io"><img src="b.svg" alt="CI"></a></p>"#)
-    #expect(r("<https://x.io> and <me@x.io>") == #"<p><a href="https://x.io">https://x.io</a> and <a href="mailto:me@x.io">me@x.io</a></p>"#)
-    #expect(r("see https://x.io/a_(b). or www.y.com,")
-        == #"<p>see <a href="https://x.io/a_(b)">https://x.io/a_(b)</a>. or <a href="http://www.y.com">www.y.com</a>,</p>"#)
-    #expect(r("[ref] and [t][Ref]\n\n[ref]: /r \"tt\"") == #"<p><a href="/r" title="tt">ref</a> and <a href="/r" title="tt">t</a></p>"#)
+    #expect(
+        r("<https://x.io> and <me@x.io>")
+            == #"<p><a href="https://x.io">https://x.io</a> and <a href="mailto:me@x.io">me@x.io</a></p>"#)
+    #expect(
+        r("see https://x.io/a_(b). or www.y.com,")
+            == #"<p>see <a href="https://x.io/a_(b)">https://x.io/a_(b)</a>. or <a href="http://www.y.com">www.y.com</a>,</p>"#
+    )
+    #expect(
+        r("[ref] and [t][Ref]\n\n[ref]: /r \"tt\"")
+            == #"<p><a href="/r" title="tt">ref</a> and <a href="/r" title="tt">t</a></p>"#)
     #expect(r("[x](javascript:alert(1))").contains(##"href="#""##))
 }
 
@@ -101,7 +118,9 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     #expect(h.contains(#"<img src="x">"#) && !h.contains("onerror"))
     #expect(h.contains("<th><i></th>") && h.contains("<td>&amp;</td>"))
     #expect(r(#"<a href="javascript:alert(1)" onclick="x" style="color:red">a</a>"#) == ##"<p><a href="#">a</a></p>"##)
-    #expect(r(#"<p align="center"><img src="logo.png" width="120" onload="x"></p>"#) == #"<p align="center"><img src="logo.png" width="120"></p>"#)
+    #expect(
+        r(#"<p align="center"><img src="logo.png" width="120" onload="x"></p>"#)
+            == #"<p align="center"><img src="logo.png" width="120"></p>"#)
     #expect(r("<iframe src=x></iframe>").contains("&lt;iframe"))
     #expect(r("a <!-- hidden --> b") == #"<p>a  b</p>"#)
     #expect(r("&copy; & co") == #"<p>&copy; &amp; co</p>"#)
@@ -119,9 +138,11 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
 // MARK: templates
 
 @Test func templateExpansion() throws {
-    let now = try #require(Calendar.current.date(from: DateComponents(year: 2026, month: 3, day: 5, hour: 9, minute: 7)))
-    let out = Templates.expand("{{date}} {{time}} {{ datetime }} {{branch}}/{{repo}}: {{title}} {{who}} {{unknown}}",
-                               vars: ["branch": "feat", "repo": "kelp", "title": "Plan", "who": "me"], now: now)
+    let now = try #require(
+        Calendar.current.date(from: DateComponents(year: 2026, month: 3, day: 5, hour: 9, minute: 7)))
+    let out = Templates.expand(
+        "{{date}} {{time}} {{ datetime }} {{branch}}/{{repo}}: {{title}} {{who}} {{unknown}}",
+        vars: ["branch": "feat", "repo": "kelp", "title": "Plan", "who": "me"], now: now)
     #expect(out == "2026-03-05 09:07 2026-03-05 09:07 feat/kelp: Plan me {{unknown}}")
 }
 
@@ -194,7 +215,7 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     #expect(MarkdownFormat.toggleTask(k.text, k.selection).text == "  x\ny")
     let caret = MarkdownFormat.toggleBullet("one\ntwo", NSRange(location: 5, length: 0))
     #expect(caret.text == "one\n- two" && caret.selection == NSRange(location: 7, length: 0))
-    let nl = MarkdownFormat.toggleBullet("a\nb\nc", NSRange(location: 0, length: 4)) // selection ends after "b\n"
+    let nl = MarkdownFormat.toggleBullet("a\nb\nc", NSRange(location: 0, length: 4))   // selection ends after "b\n"
     #expect(nl.text == "- a\n- b\nc")
 }
 
@@ -207,13 +228,13 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
 
 @Test func notebookRender() throws {
     let nb = """
-    {"cells":[{"cell_type":"markdown","source":["# Title\\n","Some *text*"]},
-     {"cell_type":"code","execution_count":3,"source":"print('<hi>')","outputs":[
-       {"output_type":"stream","name":"stdout","text":["<hi>\\n"]},
-       {"output_type":"display_data","data":{"image/png":"iVBORw0KGgo=","text/plain":"<Figure>"}},
-       {"output_type":"error","ename":"ValueError","evalue":"bad","traceback":["\\u001b[31mValueError\\u001b[0m: bad"]}]}],
-     "metadata":{"language_info":{"name":"python"}},"nbformat":4}
-    """
+        {"cells":[{"cell_type":"markdown","source":["# Title\\n","Some *text*"]},
+         {"cell_type":"code","execution_count":3,"source":"print('<hi>')","outputs":[
+           {"output_type":"stream","name":"stdout","text":["<hi>\\n"]},
+           {"output_type":"display_data","data":{"image/png":"iVBORw0KGgo=","text/plain":"<Figure>"}},
+           {"output_type":"error","ename":"ValueError","evalue":"bad","traceback":["\\u001b[31mValueError\\u001b[0m: bad"]}]}],
+         "metadata":{"language_info":{"name":"python"}},"nbformat":4}
+        """
     let html = try #require(NotebookHTML.render(Data(nb.utf8)))
     #expect(html.contains("<h1"))
     #expect(html.contains("In [3]:"))
@@ -226,7 +247,8 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
 
 /// What a cloned repo's notebook holds can't leave its text or attribute: no markup, no handlers.
 @Test func hostileNotebookStaysInert() throws {
-    let nb = #"{"metadata":{"language_info":{"name":"x\"><img src=x onerror=alert(1)>"}},"#
+    let nb =
+        #"{"metadata":{"language_info":{"name":"x\"><img src=x onerror=alert(1)>"}},"#
         + #""cells":[{"cell_type":"code","source":"1","outputs":[{"output_type":"display_data","data":{"image/png":"\" onerror=\"alert(2)"}}]}]}"#
     let html = try #require(NotebookHTML.render(Data(nb.utf8)))
     #expect(!html.contains("onerror=") && !html.contains("<img src=x"))
@@ -246,18 +268,27 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
 @Test func alerts() {
     let h = r("> [!WARNING]\n> Mind the **gap**.\n\n> [!note]\n> Lower case too.\n\n> [!FOO]\n> Just a quote.")
     #expect(h.contains(#"<div class="markdown-alert markdown-alert-warning">"#))
-    #expect(h.contains(#"<p class="markdown-alert-title">Warning</p>"#) && h.contains("<p>Mind the <strong>gap</strong>.</p>"))
+    #expect(
+        h.contains(#"<p class="markdown-alert-title">Warning</p>"#)
+            && h.contains("<p>Mind the <strong>gap</strong>.</p>"))
     #expect(h.contains("markdown-alert-note"))
     #expect(h.contains("<blockquote>\n<p>[!FOO]\nJust a quote.</p>"))
 }
 
 @Test func detailsAndInlineTags() {
-    let h = r("<details>\n<summary>More</summary>\n\nHidden *text*.\n\n</details>\n\nPress <kbd>⌘</kbd>+<kbd>K</kbd>, x<sup>2</sup>.")
+    let h = r(
+        "<details>\n<summary>More</summary>\n\nHidden *text*.\n\n</details>\n\nPress <kbd>⌘</kbd>+<kbd>K</kbd>, x<sup>2</sup>."
+    )
     #expect(h.contains("<details>\n<summary>More</summary>"))
     #expect(h.contains("<p>Hidden <em>text</em>.</p>") && h.contains("</details>"))
     #expect(h.contains("Press <kbd>⌘</kbd>+<kbd>K</kbd>, x<sup>2</sup>."))
-    let pic = r(#"<picture><source media="(prefers-color-scheme: dark)" srcset="dark.png"><img src="light.png" alt="logo"></picture>"#)
-    #expect(pic == #"<picture><source media="(prefers-color-scheme: dark)" srcset="dark.png"><img src="light.png" alt="logo"></picture>"#)
+    let pic = r(
+        #"<picture><source media="(prefers-color-scheme: dark)" srcset="dark.png"><img src="light.png" alt="logo"></picture>"#
+    )
+    #expect(
+        pic
+            == #"<picture><source media="(prefers-color-scheme: dark)" srcset="dark.png"><img src="light.png" alt="logo"></picture>"#
+    )
     #expect(r("a\n<div>b</div>").contains("<p>a</p>\n<div>b</div>"))   // a block tag ends a paragraph
 }
 
@@ -266,7 +297,9 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     #expect(h.contains(##"Claim<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup>"##))
     #expect(h.contains(##"another<sup class="footnote-ref"><a href="#fn-2" id="fnref-2">2</a></sup>"##))
     #expect(h.contains(#"<section class="footnotes">"#))
-    #expect(h.contains(#"<li id="fn-1">The source,"#) && h.contains(##"with more. <a href="#fnref-1" class="footnote-backref">↩</a></li>"##))
+    #expect(
+        h.contains(#"<li id="fn-1">The source,"#)
+            && h.contains(##"with more. <a href="#fnref-1" class="footnote-backref">↩</a></li>"##))
     #expect(h.contains(##"<li id="fn-2">Second. <a href="#fnref-2" class="footnote-backref">↩</a></li>"##))
     #expect(h.contains("<p>After.</p>") && !h.contains("[^2]:"))
     #expect(r("No note[^x].") == "<p>No note[^x].</p>")
@@ -275,6 +308,6 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
 @Test func topLevelBlocksCarryTheirSourceLineWhenAsked() {
     let html = MarkdownHTML.render("# One\n\ntext\n\n- a\n  - b\n", marking: true)
     #expect(html.contains("data-line=\"1\"") && html.contains("data-line=\"3\"") && html.contains("data-line=\"5\""))
-    #expect(!html.contains("data-line=\"6\""))    // only the top level
+    #expect(!html.contains("data-line=\"6\""))   // only the top level
     #expect(!MarkdownHTML.render("# One").contains("data-line"))
 }

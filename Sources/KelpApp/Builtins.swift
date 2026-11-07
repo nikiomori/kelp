@@ -1,15 +1,17 @@
-import KelpKit
+import BuiltinActivity
 import BuiltinAgents
+import BuiltinBrowser
 import BuiltinFiles
 import BuiltinGit
-import BuiltinBrowser
 import BuiltinIssues
-import BuiltinActivity
+import BuiltinMachines
 import BuiltinRoutines
 import BuiltinServers
-import BuiltinMachines
+import KelpKit
 
 extension Builtins {
     /// Every built-in extension, in the order their contributions are taken.
-    static let all: [Builtin] = [workbench, agents, appearance, files, git, browser, issues, activity, routines, servers, machines]
+    static let all: [Builtin] = [
+        workbench, agents, appearance, files, git, browser, issues, activity, routines, servers, machines
+    ]
 }

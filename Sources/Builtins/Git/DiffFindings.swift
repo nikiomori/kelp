@@ -10,7 +10,8 @@ import WorkbenchKit
 extension DiffViewController {
     func commentRow(_ c: DiffComment) -> NSView {
         let who = c.author.map { "\($0): " } ?? ""
-        let text = label("💬 \(who)\(c.text)" + (c.state == .open ? "" : "  [\(c.state.rawValue)]"), font: .ui(11, weight: .medium))
+        let text = label(
+            "💬 \(who)\(c.text)" + (c.state == .open ? "" : "  [\(c.state.rawValue)]"), font: .ui(11, weight: .medium))
         text.lineBreakMode = .byTruncatingTail
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [text]
@@ -20,8 +21,10 @@ extension DiffViewController {
             box.state = skipped.contains(c.id) ? .off : .on
             box.toolTip = String(localized: "Send to Agent with the others")
             views.insert(box, at: 0)
-            for (title, run) in [(String(localized: "Fix This One"), { [weak self] in self?.send([c.id]) }),
-                                 (String(localized: "Dismiss"), { [weak self] in self?.dismiss(c.id) })] as [(String, () -> Void)] {
+            for (title, run) in [
+                (String(localized: "Fix This One"), { [weak self] in self?.send([c.id]) }),
+                (String(localized: "Dismiss"), { [weak self] in self?.dismiss(c.id) })
+            ] as [(String, () -> Void)] {
                 let b = ClosureButton(title: title, action: run)
                 b.bezelStyle = .inline
                 b.controlSize = .small
@@ -33,13 +36,15 @@ extension DiffViewController {
         let row = NSStackView(views: views)
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
-        row.wantsLayer = true; row.layer?.backgroundColor = NSColor.fillSelected.cgColor
+        row.wantsLayer = true
+        row.layer?.backgroundColor = NSColor.fillSelected.cgColor
         return row
     }
 
     /// Space on a selected comment: in or out of what Send to Agent sends.
     func flipSelectedComment() -> Bool {
-        guard rows.indices.contains(table.selectedRow), case .comment(let c) = rows[table.selectedRow], c.state == .open else { return false }
+        guard rows.indices.contains(table.selectedRow), case .comment(let c) = rows[table.selectedRow], c.state == .open
+        else { return false }
         flip(c.id)
         return true
     }
@@ -58,15 +63,22 @@ extension DiffViewController {
 
     func send(_ ids: [String]) {
         guard let wid = worktreeId else { return }
-        guard !ids.isEmpty else { status.stringValue = String(localized: "No open comments ticked"); return }
+        guard !ids.isEmpty else {
+            status.stringValue = String(localized: "No open comments ticked")
+            return
+        }
         Task {
             guard let sid = await pickAgentSession(wid) else { return }
             guard let n = await app.call(CommentSend(id: wid, session: sid, only: ids)) else { return }   // the banner says why
-            status.stringValue = String(localized: "Sent \(n) comments to agent"); await load()
+            status.stringValue = String(localized: "Sent \(n) comments to agent")
+            await load()
         }
     }
 
     private func dismiss(_ id: String) {
-        Task { await app.call(CommentSetState(id: id, state: "resolved")); await load() }
+        Task {
+            await app.call(CommentSetState(id: id, state: "resolved"))
+            await load()
+        }
     }
 }

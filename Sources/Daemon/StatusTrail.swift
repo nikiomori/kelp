@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// A session's status changes and the hooks it heard, a line each, beside its history log: what `kelp why` can't tell from
 /// the status of now, once a row has read wrong. The file goes on through a pause and a new kelpd.
@@ -34,6 +34,8 @@ struct StatusTrail: Sendable {
 
     private static func trim(_ url: URL) {
         guard let tail = Data(tailOf: url, bytes: limit / 2), let cut = tail.firstIndex(of: 0x0A) else { return }
-        Log.session.attempt("trimming \(url.lastPathComponent)") { try tail[tail.index(after: cut)...].write(to: url, options: .atomic) }
+        Log.session.attempt("trimming \(url.lastPathComponent)") {
+            try tail[tail.index(after: cut)...].write(to: url, options: .atomic)
+        }
     }
 }

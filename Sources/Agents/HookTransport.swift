@@ -21,15 +21,22 @@ public enum HookTransport: Sendable, Equatable {
     }
 
     init?(from c: KeyedDecodingContainer<AgentManifest.CodingKeys>) throws {
-        if let f = try c.decodeIfPresent(String.self, forKey: .hooksSettingsFlag) { self = .settingsFlag(f) }
-        else if let e = try c.decodeIfPresent(String.self, forKey: .hooksConfigDirEnv) { self = .pluginDir(env: e) }
-        else if let e = try c.decodeIfPresent(String.self, forKey: .hooksSettingsEnv) {
-            self = .settingsFile(env: e, replaces: AgentManifest.presets.lazy.compactMap { p -> String? in
-                if case .settingsFile(e, let r)? = p.hooks { return r }; return nil
-            }.first)
+        if let f = try c.decodeIfPresent(String.self, forKey: .hooksSettingsFlag) {
+            self = .settingsFlag(f)
+        } else if let e = try c.decodeIfPresent(String.self, forKey: .hooksConfigDirEnv) {
+            self = .pluginDir(env: e)
+        } else if let e = try c.decodeIfPresent(String.self, forKey: .hooksSettingsEnv) {
+            self = .settingsFile(
+                env: e,
+                replaces: AgentManifest.presets.lazy.compactMap { p -> String? in
+                    if case .settingsFile(e, let r)? = p.hooks { return r }
+                    return nil
+                }.first)
+        } else if try c.decodeIfPresent(Bool.self, forKey: .hooksHerdr) == true {
+            self = .herdr
+        } else {
+            return nil
         }
-        else if try c.decodeIfPresent(Bool.self, forKey: .hooksHerdr) == true { self = .herdr }
-        else { return nil }
     }
 
     func encode(to c: inout KeyedEncodingContainer<AgentManifest.CodingKeys>) throws {

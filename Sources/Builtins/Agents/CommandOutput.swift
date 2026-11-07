@@ -23,7 +23,8 @@ final class CommandOutput: NSViewController {
         title.maximumNumberOfLines = 6
         title.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // wraps at the popover's width, and says how tall that is
         title.isSelectable = true
-        let said = NSTextField(labelWithString: [c.description, Self.outcome(c)].compactMap { $0 }.joined(separator: " · "))
+        let said = NSTextField(
+            labelWithString: [c.description, Self.outcome(c)].compactMap { $0 }.joined(separator: " · "))
         said.font = .ui(11)
         said.textColor = c.outcome == .failed ? .textRed : .secondaryLabelColor
         said.lineBreakMode = .byTruncatingTail
@@ -32,9 +33,11 @@ final class CommandOutput: NSViewController {
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = Metrics.lineGap
-        text.edgeInsets = NSEdgeInsets(top: Metrics.inset, left: Metrics.inset, bottom: Metrics.gapWide, right: Metrics.inset)
+        text.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.gapWide, right: Metrics.inset)
         text.setHuggingPriority(.required, for: .vertical)
-        let line = NSBox(); line.boxType = .separator
+        let line = NSBox()
+        line.boxType = .separator
         let v = NSStackView(views: [text, line, output()])
         v.orientation = .vertical
         v.alignment = .leading
@@ -48,11 +51,15 @@ final class CommandOutput: NSViewController {
     /// What it printed, scrolled to its end; or why there's nothing to show.
     private func output() -> NSView {
         guard let out = command.output else {
-            let none = NSTextField(labelWithString: command.outcome == nil ? String(localized: "What it prints shows when it ends.")
-                                                                            : String(localized: "It printed nothing."))
-            none.font = .ui(11); none.textColor = .secondaryLabelColor
+            let none = NSTextField(
+                labelWithString: command.outcome == nil
+                    ? String(localized: "What it prints shows when it ends.")
+                    : String(localized: "It printed nothing."))
+            none.font = .ui(11)
+            none.textColor = .secondaryLabelColor
             let box = NSStackView(views: [none])
-            box.edgeInsets = NSEdgeInsets(top: Metrics.gapWide, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
+            box.edgeInsets = NSEdgeInsets(
+                top: Metrics.gapWide, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
             return box
         }
         let log = NSTextView()
@@ -73,7 +80,9 @@ final class CommandOutput: NSViewController {
         scroll.drawsBackground = false
         // As tall as what it printed, up to 300 pt.
         let lines = CGFloat(out.reduce(into: 1) { n, ch in if ch == "\n" { n += 1 } })
-        scroll.heightAnchor.constraint(equalToConstant: min(300, lines * ceil(NSFont.uiMono(11).boundingRectForFont.height) + 12)).isActive = true
+        scroll.heightAnchor.constraint(
+            equalToConstant: min(300, lines * ceil(NSFont.uiMono(11).boundingRectForFont.height) + 12)
+        ).isActive = true
         log.scrollToEndOfDocument(nil)
         return scroll
     }

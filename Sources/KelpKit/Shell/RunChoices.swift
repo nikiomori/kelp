@@ -33,7 +33,9 @@ extension ScriptsMenu {
 
     /// What ran last in the workspace's project (its workspaces share it).
     func remembered(_ wid: String) -> String? { project(wid).flatMap { app.uiState["run.last.\($0)"]?.string } }
-    func remember(_ choice: String, in wid: String) { project(wid).map { app.uiState["run.last.\($0)"] = .string(choice) } }
+    func remember(_ choice: String, in wid: String) {
+        project(wid).map { app.uiState["run.last.\($0)"] = .string(choice) }
+    }
 
     // MARK: hidden runs
 
@@ -41,11 +43,13 @@ extension ScriptsMenu {
     /// restarted Kelp doesn't bring their tabs back).
     /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
     var shown: [Session] {
-        let hidden = state.hidden.union(app.uiState.strings("run.hidden")), inTab = Set(app.uiState.strings(Session.inTabKey))
+        let hidden = state.hidden.union(app.uiState.strings("run.hidden")),
+            inTab = Set(app.uiState.strings(Session.inTabKey))
         return app.sessions.filter { !hidden.contains($0.id) && !isOnLine($0, inTab: inTab) }
     }
     func isHidden(_ sid: String) -> Bool {
-        state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid) || app.session(sid).map { isOnLine($0) } == true
+        state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid)
+            || app.session(sid).map { isOnLine($0) } == true
     }
     /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
     func isOnLine(_ s: Session, inTab: Set<String>? = nil) -> Bool {
@@ -53,7 +57,9 @@ extension ScriptsMenu {
     }
     /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).
     package func openInTab(_ sid: String) {
-        let live = app.uiState.strings(Session.inTabKey).filter { app.session($0).map { $0.status != .exited } ?? false }
+        let live = app.uiState.strings(Session.inTabKey).filter {
+            app.session($0).map { $0.status != .exited } ?? false
+        }
         app.uiState[Session.inTabKey] = .array((live.filter { $0 != sid } + [sid]).map(JSONValue.string))
         app.workbench.open(TabURI.session(sid), workspace: app.session(sid)?.worktreeId)
     }
@@ -73,7 +79,9 @@ extension ScriptsMenu {
     /// How a run's tab stands out among terminals: its purpose's symbol in colour (green ▶ for a server) and a glow of
     /// that colour, the port it serves after its name. nil for any other session.
     func look(_ s: Session) -> (icon: NSImage?, glow: NSColor?)? {
-        guard let wid = s.worktreeId, let c = choice(of: s), var r = rows(wid).first(where: { $0.id == c }) else { return nil }
+        guard let wid = s.worktreeId, let c = choice(of: s), var r = rows(wid).first(where: { $0.id == c }) else {
+            return nil
+        }
         r.running = false   // its purpose's mark, not the menu's "running" circle
         let (symbol, color) = Self.glyph(r)
         return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color)
@@ -81,14 +89,16 @@ extension ScriptsMenu {
 
     /// What the workspace serves, its main page first: the title bar's capsule, ⇧⌘O and the sidebar's card.
     func pages(_ wid: String) -> [ServedPage] {
-        ServedPages.list(printed: running(in: wid).compactMap { state.active[$0]?.url }, ports: app.latest(PortsEvent.self, wid)?.ports ?? [])
+        ServedPages.list(
+            printed: running(in: wid).compactMap { state.active[$0]?.url },
+            ports: app.latest(PortsEvent.self, wid)?.ports ?? [])
     }
 
     /// The port after a tab's name: what its run printed, else what its session listens on.
     func port(of s: Session) -> Int? {
         state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }
             ?? s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?
-                .first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
+            .first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
     }
 
     /// The page as this Mac reaches it, the ports read again when that moved it; nil and a banner when it can't be.
@@ -102,7 +112,10 @@ extension ScriptsMenu {
     func open(_ p: ServedPage, in wid: String) {
         Task {
             guard let p = await reach(p, in: wid) else { return }
-            guard p.isWeb else { copy(p); return }
+            guard p.isWeb else {
+                copy(p)
+                return
+            }
             app.workbench.open(p.url, split: .right, workspace: wid, focus: false)
         }
     }
@@ -117,11 +130,20 @@ extension ScriptsMenu {
     func portBusy(_ e: PortBusyEvent) {
         Task {
             for w in app.worktrees where !w.archived && RemoteHost.of(w.path) == nil {
-                guard let p = await app.quiet(PortsList(worktreeId: w.id))?.first(where: { $0.port == e.port && $0.session != e.session }) else { continue }
+                guard
+                    let p = await app.quiet(PortsList(worktreeId: w.id))?.first(where: {
+                        $0.port == e.port && $0.session != e.session
+                    })
+                else { continue }
                 let screen = app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName
-                Banner.show(String(localized: ":\(e.port) is taken: \(p.command) on \(screen)."), action: (String(localized: "Show"), { [app] in
-                    app.workbench.focus(session: p.session)
-                }))
+                Banner.show(
+                    String(localized: ":\(e.port) is taken: \(p.command) on \(screen)."),
+                    action: (
+                        String(localized: "Show"),
+                        { [app] in
+                            app.workbench.focus(session: p.session)
+                        }
+                    ))
                 return
             }
         }
@@ -129,7 +151,10 @@ extension ScriptsMenu {
 
     /// ⇧⌘O: the main page of the workspace on screen.
     func openPage() {
-        guard let wid = app.workbench.workspaceId, let p = pages(wid).first else { NSSound.beep(); return }
+        guard let wid = app.workbench.workspaceId, let p = pages(wid).first else {
+            NSSound.beep()
+            return
+        }
         open(p, in: wid)
     }
     private func project(_ wid: String) -> String? { app.worktree(wid)?.repoId }
@@ -158,14 +183,19 @@ extension ScriptsMenu {
     /// says what runs it where a bare "dev" wouldn't; a long one cut.
     func label(_ choice: String, in wid: String) -> String {
         if choice.hasPrefix("kelp:") {
-            return state.kelp[wid]?.first { "kelp:" + $0.name == choice }.map { Self.short($0.command) } ?? String(choice.dropFirst(5))
+            return state.kelp[wid]?.first { "kelp:" + $0.name == choice }.map { Self.short($0.command) }
+                ?? String(choice.dropFirst(5))
         }
-        guard let o = state.found[wid]?.options.first(where: { $0.id == choice }) else { return choice.split(separator: "|").last.map(String.init) ?? choice }
+        guard let o = state.found[wid]?.options.first(where: { $0.id == choice }) else {
+            return choice.split(separator: "|").last.map(String.init) ?? choice
+        }
         return (o.folder.isEmpty ? "" : "\((o.folder as NSString).lastPathComponent) › ") + Self.short(o.command)
     }
 
     /// A command as one short line (32 characters), whole in tips.
-    static func short(_ s: String) -> String { s.count > 32 ? s.prefix(31).trimmingCharacters(in: .whitespaces) + "…" : s }
+    static func short(_ s: String) -> String {
+        s.count > 32 ? s.prefix(31).trimmingCharacters(in: .whitespaces) + "…" : s
+    }
 
     /// What ⌘R would run in the workspace now, and whether it's only a guess (nothing ran in the project yet).
     func current(_ wid: String) -> (choice: String, guess: Bool)? {
@@ -180,7 +210,9 @@ extension ScriptsMenu {
     struct Offer: Equatable { var choice: String, label: String, command: String?, guess: Bool }
     func offer(_ wid: String) -> Offer? {
         current(wid).map { c in
-            let command = c.choice.hasPrefix("kelp:") ? state.kelp[wid]?.first { "kelp:" + $0.name == c.choice }?.command
+            let command =
+                c.choice.hasPrefix("kelp:")
+                ? state.kelp[wid]?.first { "kelp:" + $0.name == c.choice }?.command
                 : state.found[wid]?.options.first { $0.id == c.choice }?.command
             return Offer(choice: c.choice, label: label(c.choice, in: wid), command: command, guess: c.guess)
         }
@@ -189,7 +221,10 @@ extension ScriptsMenu {
     /// The Run menu under the chip, as Xcode's scheme menu: a section per file, what ⌘R runs checked, what runs now said
     /// under its name. Shown with what's known; the files are read again for next time (at once if nothing is known yet).
     func choose(from button: NSView? = nil) {
-        guard let wid = app.workbench.workspaceId else { NSSound.beep(); return }
+        guard let wid = app.workbench.workspaceId else {
+            NSSound.beep()
+            return
+        }
         Task { [weak self] in
             guard let self else { return }
             if state.found[wid] == nil { await detect(wid) } else { Task { await self.detect(wid) } }
@@ -197,8 +232,9 @@ extension ScriptsMenu {
             if let ports = await app.quiet(PortsList(worktreeId: wid)) { adopt(ports, wid) }
             let m = menu(wid)
             // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
-            if let a = button ?? anchor, a.window != nil { m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a) }
-            else if let v = app.workbench.window?.window?.contentView {
+            if let a = button ?? anchor, a.window != nil {
+                m.popUp(positioning: nil, at: NSPoint(x: 0, y: a.bounds.height + 4), in: a)
+            } else if let v = app.workbench.window?.window?.contentView {
                 m.popUp(positioning: nil, at: NSPoint(x: v.bounds.midX - 120, y: v.bounds.maxY - 40), in: v)
             }
         }
@@ -209,7 +245,9 @@ extension ScriptsMenu {
     private func adopt(_ ports: [PortsList.Port], _ wid: String) {
         state.ports[wid] = ports
         for p in ports {
-            guard let s = app.session(p.session), let c = choice(of: s), state.active[s.id]?.url == nil else { continue }
+            guard let s = app.session(p.session), let c = choice(of: s), state.active[s.id]?.url == nil else {
+                continue
+            }
             state.active[s.id] = RunState.Run(workspace: wid, choice: c, url: "http://localhost:\(p.port)")
         }
     }
@@ -220,7 +258,9 @@ extension ScriptsMenu {
     private func menu(_ wid: String) -> NSMenu {
         let m = NSMenu()
         // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
-        let elsewhere = (state.ports[wid] ?? []).filter { p in ServedPages.listed(p) && app.session(p.session).map { choice(of: $0) == nil } ?? false }
+        let elsewhere = (state.ports[wid] ?? []).filter { p in
+            ServedPages.listed(p) && app.session(p.session).map { choice(of: $0) == nil } ?? false
+        }
         if !elsewhere.isEmpty {
             m.addItem(.sectionHeader(title: String(localized: "Already Running")))
             for p in elsewhere { server(p, in: m, wid) }
@@ -231,7 +271,9 @@ extension ScriptsMenu {
         let column = Self.column(shown.map(\.name) + [String(localized: "More")])   // the programs, after the longest name
         for tool in tools {
             if m.numberOfItems > 0 { m.addItem(.separator()) }
-            let group = shown.filter { Self.source($0) == tool }.sorted { Self.purpose($0).rawValue < Self.purpose($1).rawValue }
+            let group = shown.filter { Self.source($0) == tool }.sorted {
+                Self.purpose($0).rawValue < Self.purpose($1).rawValue
+            }
             for r in group { item(r, in: m, wid, column: column) }
         }
         if rest.count > 3 {
@@ -239,7 +281,10 @@ extension ScriptsMenu {
             var file = ""
             for r in rest {
                 let from = r.folder.isEmpty ? r.file : "\(r.folder) · \(r.file)"
-                if from != file { sub.addItem(.sectionHeader(title: from)); file = from }
+                if from != file {
+                    sub.addItem(.sectionHeader(title: from))
+                    file = from
+                }
                 item(r, in: sub, wid, column: inSub)
             }
             let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -249,10 +294,15 @@ extension ScriptsMenu {
             m.addItem(more)
             m.setSubmenu(sub, for: more)
         }
-        if rows.isEmpty { m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled = false }
+        if rows.isEmpty {
+            m.addItem(withTitle: String(localized: "Nothing to run found"), action: nil, keyEquivalent: "").isEnabled =
+                false
+        }
         m.addItem(.separator())
         if let host = app.worktree(wid).flatMap({ RemoteHost.of($0.path)?.host }) {
-            m.add(String(localized: "Forward a Port from \(host)…"), symbol: "network") { [weak self] in self?.forwardByHand(host, wid) }
+            m.add(String(localized: "Forward a Port from \(host)…"), symbol: "network") { [weak self] in
+                self?.forwardByHand(host, wid)
+            }
         }
         m.add(String(localized: "Edit Commands…"), symbol: "pencil") { [weak self] in self?.edit() }
         return m
@@ -264,12 +314,21 @@ extension ScriptsMenu {
         // Running: a click shows its output (its tab may be hidden here), ⌥ stops it; ⌘R or ▶ starts it over.
         let i = m.add(r.name, key: r.current ? "r" : "") { [weak self] in
             guard let self else { return }
-            if let sid = r.session { show(sid); return }
-            Task { r.install ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id)) : await self.start(choice: r.id, in: wid) }
+            if let sid = r.session {
+                show(sid)
+                return
+            }
+            Task {
+                r.install
+                    ? await self.start(wid, r.id, RunStart(worktreeId: wid, id: r.id))
+                    : await self.start(choice: r.id, in: wid)
+            }
         }
         defer {
             if let sid = r.session {
-                let stop = m.add(String(localized: "Stop \(r.name)")) { [weak self] in Task { await self?.app.call(SessionKill(id: sid)) } }
+                let stop = m.add(String(localized: "Stop \(r.name)")) { [weak self] in
+                    Task { await self?.app.call(SessionKill(id: sid)) }
+                }
                 stop.show(Self.tinted("stop.circle.fill", .systemRed))
                 stop.keyEquivalent = i.keyEquivalent   // an alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone
                 stop.keyEquivalentModifierMask = i.keyEquivalent.isEmpty ? .option : [.command, .option]
@@ -290,18 +349,28 @@ extension ScriptsMenu {
     }
 
     /// A name, and in grey at `column` what tells it apart.
-    static func title(_ name: String, note: String, column: CGFloat, dim: Bool = false, noteColor: NSColor = .secondaryLabelColor) -> NSAttributedString {
+    static func title(
+        _ name: String, note: String, column: CGFloat, dim: Bool = false, noteColor: NSColor = .secondaryLabelColor
+    ) -> NSAttributedString {
         let tab = NSMutableParagraphStyle()
         tab.tabStops = [NSTextTab(textAlignment: .left, location: column)]
-        let t = NSMutableAttributedString(string: name, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
-                                                                     .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor])
-        t.append(NSAttributedString(string: "\t" + note, attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab, .foregroundColor: noteColor]))
+        let t = NSMutableAttributedString(
+            string: name,
+            attributes: [
+                .font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
+                .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor
+            ])
+        t.append(
+            NSAttributedString(
+                string: "\t" + note,
+                attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab, .foregroundColor: noteColor]))
         return t
     }
 
     /// The longest name's width and a gap: where the grey notes start.
     static func column(_ names: [String]) -> CGFloat {
-        (names.map { ($0 as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width }.max() ?? 0) + Metrics.inset
+        (names.map { ($0 as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width }.max() ?? 0)
+            + Metrics.inset
     }
 
     /// What a command is for: the order of a program's commands in the Run menu, its symbol.
@@ -333,11 +402,14 @@ extension ScriptsMenu {
         case .run: return ("play.fill", .systemGreen)
         case .test: return ("flask.fill", .systemPurple)
         case .build: return r.kind == "lint" ? ("checkmark.circle.fill", .systemBlue) : ("hammer.fill", .systemOrange)
-        case .deploy: return (n.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
+        case .deploy:
+            return (n.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
         case .other:
             if r.file.contains("compose") || r.file == "Dockerfile" { return ("shippingbox", .secondaryLabelColor) }
-            let named: [(words: [String], symbol: String)] = [(["clean"], "trash"), (["migrate", "seed", "db", "backup"], "cylinder"),
-                                                              (["log"], "text.alignleft"), (["doc"], "book")]
+            let named: [(words: [String], symbol: String)] = [
+                (["clean"], "trash"), (["migrate", "seed", "db", "backup"], "cylinder"),
+                (["log"], "text.alignleft"), (["doc"], "book")
+            ]
             return (named.first { $0.words.contains(where: n.hasPrefix) }?.symbol ?? "terminal", .secondaryLabelColor)
         }
     }
@@ -369,14 +441,18 @@ extension ScriptsMenu {
     /// task runs it; else the program), who started it and its port. A click opens its page; with ⌥, it stops.
     private func server(_ p: PortsList.Port, in m: NSMenu, _ wid: String) {
         let s = app.session(p.session)
-        let agent = s?.agent.flatMap { id in ["shell", "custom"].contains(id) ? nil : app.catalog.all.first { $0.id == id } }
+        let agent = s?.agent.flatMap { id in
+            ["shell", "custom"].contains(id) ? nil : app.catalog.all.first { $0.id == id }
+        }
         let tasks = s?.background ?? []
         let what = state.found[wid]?.options.first { o in tasks.contains { $0.contains(o.command) } }?.name ?? p.command
         let page = ServedPage(p)
         let open = m.add(what) { [weak self] in self?.open(page, in: wid) }
         open.show(agent.flatMap { app.catalog.icon($0.id) } ?? .symbol("terminal"))
         open.toolTip = String(localized: "Open \(page.url)")
-        if #available(macOS 14.4, *) { open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · \(page.place)" }
+        if #available(macOS 14.4, *) {
+            open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · \(page.place)"
+        }
         let stop = m.add(String(localized: "Stop \(what)")) { [weak self] in
             Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(p.pid))) }
         }
@@ -389,7 +465,9 @@ extension ScriptsMenu {
     private func forwardByHand(_ host: String, _ wid: String) {
         Task {
             let info = String(localized: "A port on the host, or an address it can reach: 5432, db.internal:5432.")
-            guard let text = await prompt(String(localized: "Forward a Port from \(host)"), info), !text.isEmpty else { return }
+            guard let text = await prompt(String(localized: "Forward a Port from \(host)"), info), !text.isEmpty else {
+                return
+            }
             if await app.call(PortsForward(worktreeId: wid, target: text)) != nil { app.watchAgain(.ports, wid) }
         }
     }
@@ -407,13 +485,19 @@ extension ScriptsMenu {
     /// Every command the menu offers: .kelp.yaml's, then the files', its own folder's first; what runs, and what ⌘R runs.
     func rows(_ wid: String) -> [Row] {
         let mark = current(wid)?.choice
-        let live = Dictionary(running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }) { a, _ in a }
+        let live = Dictionary(
+            running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }
+        ) { a, _ in a }
         let kinds = ["run": "run", "test": "test", "build": "build", "lint": "lint"]
         let kelp = (state.kelp[wid] ?? []).map {
-            Row(id: "kelp:" + $0.name, name: $0.name, command: $0.command, kind: kinds[$0.name] ?? "other", file: state.kelpFile[wid] ?? ".kelp.yaml")
+            Row(
+                id: "kelp:" + $0.name, name: $0.name, command: $0.command, kind: kinds[$0.name] ?? "other",
+                file: state.kelpFile[wid] ?? ".kelp.yaml")
         }
         let found = (state.found[wid]?.options ?? []).map { o in
-            Row(id: o.id, name: o.kind == "install" ? String(localized: "Install") : o.name, command: o.command, detail: o.detail,
+            Row(
+                id: o.id, name: o.kind == "install" ? String(localized: "Install") : o.name, command: o.command,
+                detail: o.detail,
                 missing: o.missing, kind: o.kind, file: o.source, folder: o.folder)
         }
         return (kelp + found).map { r in

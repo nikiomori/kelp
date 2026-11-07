@@ -84,7 +84,8 @@ public enum TerminalCopy {
     }
 
     static func indent(_ lines: [String]) -> Int {
-        lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map { $0.prefix { $0 == " " }.count }.min() ?? 0
+        lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map { $0.prefix { $0 == " " }.count }.min()
+            ?? 0
     }
     static func dedent(_ lines: [String], by m: Int) -> [String] {
         m > 0 ? lines.map { String($0.dropFirst(min(m, $0.prefix { $0 == " " }.count))) } : lines
@@ -104,7 +105,8 @@ public enum TerminalCopy {
             } else {
                 out.append(line)
             }
-            end = text.isEmpty ? 0 : width(line); lead = own
+            end = text.isEmpty ? 0 : width(line)
+            lead = own
         }
         return out
     }
@@ -115,7 +117,9 @@ public enum TerminalCopy {
         return String(t)
     }
 
-    static let stops: Set<Character> = [" ", "\t", "\"", "'", "`", "(", ")", "[", "]", "{", "}", "<", ">", "|", "│", ","]
+    static let stops: Set<Character> = [
+        " ", "\t", "\"", "'", "`", "(", ")", "[", "]", "{", "}", "<", ">", "|", "│", ","
+    ]
     static func isBlank(_ c: Character) -> Bool { c == " " || c == "\t" || c == "\u{00A0}" }
 
     /// The word around column `col` of a screen row: up to blanks, quotes and brackets, without sentence punctuation
@@ -131,16 +135,26 @@ public enum TerminalCopy {
     /// that ends its row at the edge (`columns`) goes on with the next row's first. `texts` is that joined word, then the
     /// row's own when they differ — a word that just filled its row isn't joined to the next row's first word.
     /// `start` and `width` are the row's own part.
-    public static func wrappedWord(rows: (Int) -> String?, row: Int, at col: Int, columns: Int) -> (texts: [String], start: Int, width: Int)? {
-        guard let line = rows(row), let own = word(in: line, at: col), let r = run(in: line, at: col) else { return nil }
+    public static func wrappedWord(rows: (Int) -> String?, row: Int, at col: Int, columns: Int) -> (
+        texts: [String], start: Int, width: Int
+    )? {
+        guard let line = rows(row), let own = word(in: line, at: col), let r = run(in: line, at: col) else {
+            return nil
+        }
         func atEdge(_ r: Run) -> Bool { r.last && r.start + width(r.text) >= columns }
         var text = r.text, cur = r, i = row
-        while atEdge(cur), let next = rows(i + 1), let n = run(in: next, at: width(String(next.prefix(while: isBlank)))) {
-            text += n.text; cur = n; i += 1
+        while atEdge(cur), let next = rows(i + 1), let n = run(in: next, at: width(String(next.prefix(while: isBlank))))
+        {
+            text += n.text
+            cur = n
+            i += 1
         }
-        cur = r; i = row
+        cur = r
+        i = row
         while cur.first, let prev = rows(i - 1), let p = run(in: prev, at: width(trimRight(prev)) - 1), atEdge(p) {
-            text = p.text + text; cur = p; i -= 1
+            text = p.text + text
+            cur = p
+            i -= 1
         }
         let joined = trimPunctuation(text)
         return (joined == own.text ? [joined] : [joined, own.text], own.start, own.width)
@@ -151,12 +165,17 @@ public enum TerminalCopy {
     static func run(in line: String, at col: Int) -> Run? {
         let chars = Array(line)
         var columns: [Int] = [], c = 0   // the column each character starts at
-        for ch in chars { columns.append(c); c += cells(ch) }
+        for ch in chars {
+            columns.append(c)
+            c += cells(ch)
+        }
         guard let i = columns.lastIndex(where: { $0 <= col }), col < c, !stops.contains(chars[i]) else { return nil }
         var a = i, b = i
         while a > 0, !stops.contains(chars[a - 1]) { a -= 1 }
         while b + 1 < chars.count, !stops.contains(chars[b + 1]) { b += 1 }
-        return (String(chars[a...b]), columns[a], chars[..<a].allSatisfy(isBlank), chars[(b + 1)...].allSatisfy(isBlank))
+        return (
+            String(chars[a...b]), columns[a], chars[..<a].allSatisfy(isBlank), chars[(b + 1)...].allSatisfy(isBlank)
+        )
     }
 
     static func trimPunctuation(_ s: String) -> String {
@@ -173,8 +192,10 @@ public enum TerminalCopy {
         guard let s = c.unicodeScalars.first else { return 1 }
         if s.properties.isEmojiPresentation || c.unicodeScalars.contains("\u{FE0F}") { return 2 }
         switch s.value {
-        case 0x1100...0x115F, 0x2E80...0x303E, 0x3041...0x33FF, 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xA000...0xA4CF, 0xAC00...0xD7A3,
-             0xF900...0xFAFF, 0xFE30...0xFE4F, 0xFF00...0xFF60, 0xFFE0...0xFFE6, 0x20000...0x3FFFD: return 2
+        case 0x1100...0x115F, 0x2E80...0x303E, 0x3041...0x33FF, 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xA000...0xA4CF,
+            0xAC00...0xD7A3,
+            0xF900...0xFAFF, 0xFE30...0xFE4F, 0xFF00...0xFF60, 0xFFE0...0xFFE6, 0x20000...0x3FFFD:
+            return 2
         default: return 1
         }
     }
@@ -187,8 +208,10 @@ final class ScrollIndicator: NSView {
     private var hide: DispatchWorkItem?
     override init(frame: NSRect) {
         super.init(frame: frame)
-        wantsLayer = true; alphaValue = 0
-        knob.cornerRadius = 3; layer?.addSublayer(knob)
+        wantsLayer = true
+        alphaValue = 0
+        knob.cornerRadius = 3
+        layer?.addSublayer(knob)
     }
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
@@ -198,18 +221,25 @@ final class ScrollIndicator: NSView {
     func show(total: Double, offset: Double, length: Double) {
         let now = total - length - offset
         defer { fromBottom = now }
-        guard total > length, length > 0 else { alphaValue = 0; return }
+        guard total > length, length > 0 else {
+            alphaValue = 0
+            return
+        }
         guard let was = fromBottom, was != now else { return }
         let h = max(24, bounds.height * length / total)
         let y = (bounds.height - h) * (1 - offset / max(1, total - length))   // offset 0 = the top of the scrollback
-        effectiveAppearance.performAsCurrentDrawingAppearance { knob.backgroundColor = NSColor.secondaryLabelColor.withAlphaComponent(0.55).cgColor }
-        CATransaction.begin(); CATransaction.setDisableActions(true)
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            knob.backgroundColor = NSColor.secondaryLabelColor.withAlphaComponent(0.55).cgColor
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         knob.frame = NSRect(x: 1, y: y, width: 5, height: h)
         CATransaction.commit()
         alphaValue = 1
         hide?.cancel()
         let w = DispatchWorkItem { [weak self] in fadeOut(self) }
-        hide = w; DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: w)
+        hide = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: w)
     }
 }
 
@@ -229,10 +259,18 @@ final class SizeBadge: NSView {
     private var hide: DispatchWorkItem?
     override init(frame: NSRect) {
         super.init(frame: frame)
-        wantsLayer = true; layer?.cornerRadius = 8; isHidden = true; alphaValue = 0
-        label.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium); label.textColor = .labelColor
-        label.translatesAutoresizingMaskIntoConstraints = false; addSubview(label)
-        NSLayoutConstraint.activate([label.centerXAnchor.constraint(equalTo: centerXAnchor), label.centerYAnchor.constraint(equalTo: centerYAnchor)])
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        isHidden = true
+        alphaValue = 0
+        label.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+        label.textColor = .labelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
@@ -240,11 +278,14 @@ final class SizeBadge: NSView {
         label.stringValue = text
         let w = label.intrinsicContentSize.width + 28
         frame = NSRect(x: b.midX - w / 2, y: b.midY - 18, width: w, height: 36)
-        effectiveAppearance.performAsCurrentDrawingAppearance { layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
+        }
         alphaValue = 1
         isHidden = false
         hide?.cancel()
         let item = DispatchWorkItem { [weak self] in fadeOut(self) }
-        hide = item; DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: item)
+        hide = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: item)
     }
 }

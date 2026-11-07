@@ -1,15 +1,15 @@
-import Foundation
 import Core
+import Foundation
 
 /// What a diff is taken against.
 public enum DiffSource: Sendable {
-    case unstaged                 // worktree vs index
-    case staged                   // index vs HEAD
-    case allUncommitted           // worktree vs HEAD
-    case branch(base: String)     // HEAD vs merge-base(base)
+    case unstaged   // worktree vs index
+    case staged   // index vs HEAD
+    case allUncommitted   // worktree vs HEAD
+    case branch(base: String)   // HEAD vs merge-base(base)
     case commit(String)
-    case since(tree: String)      // the working tree now vs a snapshot taken earlier (`snapshotTree`)
-    case between(String, String)  // one snapshot (or commit) vs a later one: a turn that ended before the next began
+    case since(tree: String)   // the working tree now vs a snapshot taken earlier (`snapshotTree`)
+    case between(String, String)   // one snapshot (or commit) vs a later one: a turn that ended before the next began
 }
 
 extension Git {
@@ -19,11 +19,21 @@ extension Git {
         var hunks: [Hunk] = []
         var cur: Hunk?
         var o = 0, n = 0
-        func flushHunk() { if let c = cur { hunks.append(c); cur = nil } }
+        func flushHunk() {
+            if let c = cur {
+                hunks.append(c)
+                cur = nil
+            }
+        }
         func flushFile() {
             flushHunk()
-            if !header.isEmpty { files.append(FileDiff(path: path, header: header.joined(separator: "\n"), hunks: hunks, binary: binary)) }
-            header = []; hunks = []; binary = false; path = ""
+            if !header.isEmpty {
+                files.append(FileDiff(path: path, header: header.joined(separator: "\n"), hunks: hunks, binary: binary))
+            }
+            header = []
+            hunks = []
+            binary = false
+            path = ""
         }
         for raw in s.components(separatedBy: "\n") {
             if raw.hasPrefix("diff --git ") {
@@ -31,7 +41,10 @@ extension Git {
                 header = [raw]
                 // `a/x b/x`, or `"a/x" "b/x"` when a name has quotes, backslashes or control characters (git escapes those).
                 if let r = raw.range(of: raw.hasSuffix("\"") ? " \"b/" : " b/", options: .backwards),
-                   let p = headerPath(raw[raw.index(after: r.lowerBound)...]) { path = p }
+                    let p = headerPath(raw[raw.index(after: r.lowerBound)...])
+                {
+                    path = p
+                }
             } else if cur == nil && !header.isEmpty && !raw.hasPrefix("@@") {
                 if raw.hasPrefix("Binary files") || raw.hasPrefix("GIT binary patch") { binary = true }
                 if raw.hasPrefix("+++ "), let p = headerPath(raw.dropFirst(4)) { path = p }
@@ -40,17 +53,27 @@ extension Git {
             } else if raw.hasPrefix("@@") {
                 flushHunk()
                 // @@ -a,b +c,d @@
-                let nums = raw.split(separator: " ").dropFirst().prefix(2).map { $0.dropFirst().split(separator: ",").first.flatMap { Int($0) } }
-                o = nums.first.flatMap { $0 } ?? 1; n = nums.dropFirst().first.flatMap { $0 } ?? 1
+                let nums = raw.split(separator: " ").dropFirst().prefix(2).map {
+                    $0.dropFirst().split(separator: ",").first.flatMap { Int($0) }
+                }
+                o = nums.first.flatMap { $0 } ?? 1
+                n = nums.dropFirst().first.flatMap { $0 } ?? 1
                 cur = Hunk(header: raw, oldStart: o, newStart: n, lines: [])
             } else if cur != nil {
                 // By scalar: "+" and a combining mark after it are one Character, and the line would be dropped.
                 guard let c = raw.unicodeScalars.first else { continue }   // trailing empty
                 let t = String(raw.unicodeScalars.dropFirst())
                 switch c {
-                case "+": cur?.lines.append(DiffLine(kind: .add, text: t, oldLine: nil, newLine: n)); n += 1
-                case "-": cur?.lines.append(DiffLine(kind: .del, text: t, oldLine: o, newLine: nil)); o += 1
-                case " ": cur?.lines.append(DiffLine(kind: .context, text: t, oldLine: o, newLine: n)); o += 1; n += 1
+                case "+":
+                    cur?.lines.append(DiffLine(kind: .add, text: t, oldLine: nil, newLine: n))
+                    n += 1
+                case "-":
+                    cur?.lines.append(DiffLine(kind: .del, text: t, oldLine: o, newLine: nil))
+                    o += 1
+                case " ":
+                    cur?.lines.append(DiffLine(kind: .context, text: t, oldLine: o, newLine: n))
+                    o += 1
+                    n += 1
                 case "\\": if let last = cur?.lines.indices.last { cur?.lines[last].noNewline = true }   // "\ No newline at end of file"
                 default: break
                 }
@@ -79,7 +102,8 @@ extension Git {
             guard fits(d.count) else { return false }
             let lines = d.withUnsafeBytes { b in b.reduce(0) { $1 == 0x0A ? $0 + 1 : $0 } }
             guard fits(d.count + 40 * lines) else { return false }
-            left -= d.count + 40 * lines; return true
+            left -= d.count + 40 * lines
+            return true
         }
     }
 
@@ -89,7 +113,10 @@ extension Git {
     static func parseDiff(_ d: Data, budget: inout Allowance) -> [FileDiff] {
         let mark = Data("\ndiff --git ".utf8)
         var starts = [d.startIndex], from = d.startIndex
-        while let r = d.range(of: mark, in: from..<d.endIndex) { starts.append(r.lowerBound + 1); from = r.upperBound }
+        while let r = d.range(of: mark, in: from..<d.endIndex) {
+            starts.append(r.lowerBound + 1)
+            from = r.upperBound
+        }
         return zip(starts, starts.dropFirst() + [d.endIndex]).flatMap { a, b -> [FileDiff] in
             var chunk = d[a..<b]
             let fits = budget.take(chunk)
@@ -116,24 +143,43 @@ extension Git {
     static func unquoted(_ s: String) -> String {
         guard s.count >= 2, s.hasPrefix("\""), s.hasSuffix("\"") else { return s }
         let b = Array(s.utf8.dropFirst().dropLast())
-        let escapes: [UInt8: UInt8] = [UInt8(ascii: "n"): 10, UInt8(ascii: "t"): 9, UInt8(ascii: "r"): 13, UInt8(ascii: "a"): 7,
-                                       UInt8(ascii: "b"): 8, UInt8(ascii: "f"): 12, UInt8(ascii: "v"): 11]
+        let escapes: [UInt8: UInt8] = [
+            UInt8(ascii: "n"): 10, UInt8(ascii: "t"): 9, UInt8(ascii: "r"): 13, UInt8(ascii: "a"): 7,
+            UInt8(ascii: "b"): 8, UInt8(ascii: "f"): 12, UInt8(ascii: "v"): 11
+        ]
         var out: [UInt8] = [], i = 0
         while i < b.count {
-            guard b[i] == UInt8(ascii: "\\"), i + 1 < b.count else { out.append(b[i]); i += 1; continue }
-            if i + 3 < b.count, let o = String(bytes: b[(i + 1)...(i + 3)], encoding: .ascii), let v = UInt8(o, radix: 8) { out.append(v); i += 4; continue }
-            out.append(escapes[b[i + 1]] ?? b[i + 1]); i += 2
+            guard b[i] == UInt8(ascii: "\\"), i + 1 < b.count else {
+                out.append(b[i])
+                i += 1
+                continue
+            }
+            if i + 3 < b.count, let o = String(bytes: b[(i + 1)...(i + 3)], encoding: .ascii),
+                let v = UInt8(o, radix: 8)
+            {
+                out.append(v)
+                i += 4
+                continue
+            }
+            out.append(escapes[b[i + 1]] ?? b[i + 1])
+            i += 2
         }
         return String(bytes: out, encoding: .utf8) ?? s
     }
 
     /// `ignoreSpace`: changes of whitespace alone left out (`git diff -w`), and the files with nothing else changed.
     /// `context`: unchanged lines around each change (git's -U); a large one gives a file whole, as one hunk.
-    public static func diff(_ path: String, source: DiffSource, file: String? = nil, ignoreSpace: Bool = false, context: Int = 3,
-                            remotes: Remotes = .none) throws -> [FileDiff] {
+    public static func diff(
+        _ path: String, source: DiffSource, file: String? = nil, ignoreSpace: Bool = false, context: Int = 3,
+        remotes: Remotes = .none
+    ) throws -> [FileDiff] {
         // Fixed prefixes and no external tool or textconv: a user's diff.noprefix / diff.mnemonicPrefix / diff.external don't
         // change the output, and a repo's own config can't run a program on every diff shown (nor give a patch that won't apply).
-        let common = ["--no-color", "--no-ext-diff", "--no-textconv", "-U\(max(0, context))", "--src-prefix=a/", "--dst-prefix=b/"]
+        let common =
+            [
+                "--no-color", "--no-ext-diff", "--no-textconv", "-U\(max(0, context))", "--src-prefix=a/",
+                "--dst-prefix=b/"
+            ]
             + (ignoreSpace ? ["-w"] : [])
         var a = ["diff"] + common
         switch source {
@@ -153,14 +199,17 @@ extension Git {
         var diffs = parseDiff(out.truncated ? wholeFiles(out.data) : out.data, budget: &budget)
         if out.truncated {
             let shown = Set(diffs.map(\.path))
-            let names = try run(a + ["--name-only", "-z"] + only, cwd: path, remotes: remotes).split(separator: "\0").map(String.init)
+            let names = try run(a + ["--name-only", "-z"] + only, cwd: path, remotes: remotes).split(separator: "\0")
+                .map(String.init)
             diffs += names.filter { !shown.contains($0) }.map {
                 FileDiff(path: $0, header: "diff --git a/\($0) b/\($0)", hunks: [], binary: false, tooLarge: true)
             }
         }
         // Untracked files are invisible to `git diff`; show them as all-added for working-tree sources.
         if case .unstaged = source { diffs += try untrackedDiffs(path, only: file, budget: &budget, remotes: remotes) }
-        if case .allUncommitted = source { diffs += try untrackedDiffs(path, only: file, budget: &budget, remotes: remotes) }
+        if case .allUncommitted = source {
+            diffs += try untrackedDiffs(path, only: file, budget: &budget, remotes: remotes)
+        }
         // With -w git still names a file whose only change was whitespace, with no hunks. Limit: a pure rename goes too.
         return ignoreSpace ? diffs.filter { !$0.hunks.isEmpty || $0.binary || $0.tooLarge == true } : diffs
     }
@@ -170,9 +219,13 @@ extension Git {
         d.range(of: Data("\ndiff --git ".utf8), options: .backwards).map { d[...$0.lowerBound] } ?? Data()
     }
 
-    static func untrackedDiffs(_ path: String, only: String?, budget: inout Allowance, remotes: Remotes = .none) throws -> [FileDiff] {
+    static func untrackedDiffs(_ path: String, only: String?, budget: inout Allowance, remotes: Remotes = .none) throws
+        -> [FileDiff]
+    {
         let remote = remotes.of(path)
-        let files = try status(path, only: only, limit: FileChange.limit, remotes: remotes).filter { $0.untracked && (only == nil || $0.path == only) }
+        let files = try status(path, only: only, limit: FileChange.limit, remotes: remotes).filter {
+            $0.untracked && (only == nil || $0.path == only)
+        }
         // On the host: all of them in one round trip, each at most a byte past the limit (the folder here is a marker).
         let there = remote.map { r in (try? untrackedOnHost(r, files.map(\.path), budget: budget.left)) ?? [:] } ?? [:]
         return files.compactMap { f in
@@ -192,12 +245,17 @@ extension Git {
             }
             // A symlink is shown as git stores it, its target path; following it could read /dev/zero or a huge file.
             if let target = try? FileManager.default.destinationOfSymbolicLink(atPath: full) {
-                let h = Hunk(header: "@@ -0,0 +1 @@", oldStart: 0, newStart: 1,
-                             lines: [DiffLine(kind: .add, text: target, oldLine: nil, newLine: 1, noNewline: true)])
-                return FileDiff(path: f.path, header: hdr.replacingOccurrences(of: "new file mode \(mode)", with: "new file mode 120000"),
-                                hunks: [h], binary: false)
+                let h = Hunk(
+                    header: "@@ -0,0 +1 @@", oldStart: 0, newStart: 1,
+                    lines: [DiffLine(kind: .add, text: target, oldLine: nil, newLine: 1, noNewline: true)])
+                return FileDiff(
+                    path: f.path,
+                    header: hdr.replacingOccurrences(of: "new file mode \(mode)", with: "new file mode 120000"),
+                    hunks: [h], binary: false)
             }
-            guard let size = (try? FileManager.default.attributesOfItem(atPath: full))?[.size] as? Int else { return nil }
+            guard let size = (try? FileManager.default.attributesOfItem(atPath: full))?[.size] as? Int else {
+                return nil
+            }
             guard size <= 1_000_000 else { return asBinary }   // a log, a dataset, a folder that should be ignored: not read
             guard budget.fits(size) else { return tooLarge }   // not read
             guard let data = FileManager.default.contents(atPath: full) else { return nil }
@@ -212,19 +270,30 @@ extension Git {
         var out: [String: Data?] = [:], left = budget
         for start in stride(from: 0, to: paths.count, by: 200) {
             let chunk = paths[start..<min(start + 200, paths.count)]
-            guard left > 0 else { chunk.forEach { out[$0] = .some(nil) }; continue }
+            guard left > 0 else {
+                chunk.forEach { out[$0] = .some(nil) }
+                continue
+            }
             let names = chunk.map { IDE.shellWord(r.path + "/" + $0) }.joined(separator: " ")
             // Each file as a line with its length (-1: not read, -2: the budget is spent) and then that many bytes.
-            let script = "t=$(mktemp) || exit 1; left=\(left); for f in \(names); do if [ $left -le 0 ]; then echo -2; "
+            let script =
+                "t=$(mktemp) || exit 1; left=\(left); for f in \(names); do if [ $left -le 0 ]; then echo -2; "
                 + "elif [ -f \"$f\" ] && head -c 1000001 -- \"$f\" > \"$t\" 2>/dev/null; "
                 + "then n=$(wc -c < \"$t\"); left=$((left - n)); echo $n; cat \"$t\"; else echo -1; fi; done; rm -f \"$t\""
             var rest = try r.run(script)[...]
             for p in chunk {
-                guard let nl = rest.firstIndex(of: 0x0A), let n = Int(String(decoding: rest[..<nl], as: UTF8.self)) else { break }
+                guard let nl = rest.firstIndex(of: 0x0A), let n = Int(String(decoding: rest[..<nl], as: UTF8.self))
+                else { break }
                 rest = rest[(nl + 1)...]
-                if n == -2 { out[p] = .some(nil); left = 0; continue }
+                if n == -2 {
+                    out[p] = .some(nil)
+                    left = 0
+                    continue
+                }
                 guard n >= 0, rest.count >= n else { continue }
-                out[p] = Data(rest.prefix(n)); rest = rest.dropFirst(n); left -= n
+                out[p] = Data(rest.prefix(n))
+                rest = rest.dropFirst(n)
+                left -= n
             }
         }
         return out

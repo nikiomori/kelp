@@ -1,7 +1,8 @@
 import Foundation
-import Testing
-@testable import AgentData
 import TestSupport
+import Testing
+
+@testable import AgentData
 
 @discardableResult
 private func write(_ dir: URL, _ name: String, _ lines: [Any]) throws -> URL {
@@ -9,7 +10,9 @@ private func write(_ dir: URL, _ name: String, _ lines: [Any]) throws -> URL {
     try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
     var d = Data()
     for l in lines {
-        d += try (l as? String).map { Data($0.utf8) } ?? JSONSerialization.data(withJSONObject: l, options: .withoutEscapingSlashes)
+        d +=
+            try (l as? String).map { Data($0.utf8) }
+            ?? JSONSerialization.data(withJSONObject: l, options: .withoutEscapingSlashes)
         d += Data("\n".utf8)
     }
     try d.write(to: u)
@@ -19,35 +22,60 @@ private func write(_ dir: URL, _ name: String, _ lines: [Any]) throws -> URL {
 private func date(_ s: String) -> Date { JSONL.date(s) ?? .distantPast }
 
 private func user(_ content: Any, _ ts: String, sid: String = "s1", meta: Bool = false) -> [String: Any] {
-    ["type": "user", "sessionId": sid, "cwd": "/work/demo", "timestamp": ts, "isMeta": meta, "message": ["role": "user", "content": content]]
+    [
+        "type": "user", "sessionId": sid, "cwd": "/work/demo", "timestamp": ts, "isMeta": meta,
+        "message": ["role": "user", "content": content]
+    ]
 }
 
-private func assistant(_ id: String, _ req: String, _ ts: String, model: String = "claude-opus-5-5", text: String = "ok",
-                       usage: [String: Int] = ["input_tokens": 10, "output_tokens": 20, "cache_creation_input_tokens": 30, "cache_read_input_tokens": 40]) -> [String: Any] {
-    ["type": "assistant", "sessionId": "s1", "timestamp": ts, "requestId": req,
-     "message": ["id": id, "role": "assistant", "model": model, "content": [["type": "text", "text": text]], "usage": usage]]
+private func assistant(
+    _ id: String, _ req: String, _ ts: String, model: String = "claude-opus-5-5", text: String = "ok",
+    usage: [String: Int] = [
+        "input_tokens": 10, "output_tokens": 20, "cache_creation_input_tokens": 30, "cache_read_input_tokens": 40
+    ]
+) -> [String: Any] {
+    [
+        "type": "assistant", "sessionId": "s1", "timestamp": ts, "requestId": req,
+        "message": [
+            "id": id, "role": "assistant", "model": model, "content": [["type": "text", "text": text]], "usage": usage
+        ]
+    ]
 }
 
 @Test func claudeSessionTitles() throws {
     let root = tmp(), p = root.appendingPathComponent("-work-demo")
     let long = "  Fix the\n login   bug " + String(repeating: "a", count: 100)
-    try write(p, "s1.jsonl", [
-        ["type": "mode", "mode": "normal", "sessionId": "s1"],
-        "not json {",
-        user("<local-command-caveat>caveat</local-command-caveat>", "2026-10-18T10:00:00.000Z", meta: true),
-        user("<command-name>/clear</command-name>", "2026-10-18T10:00:01.000Z"),
-        user([["type": "text", "text": long]], "2026-10-18T10:00:02.000Z"),
-        assistant("m1", "r1", "2026-10-18T10:00:05.000Z"),
-        user([["type": "tool_result", "content": "x"]], "2026-10-18T10:05:00.000Z")
-    ])
-    try write(p, "s2.jsonl", [["type": "summary", "summary": "Summarized work", "leafUuid": "x"], user("hello", "2026-10-17T09:00:00Z", sid: "s2")])
-    try write(p, "s3.jsonl", [
-        user("first prompt", "2026-10-16T09:00:00.000Z", sid: "s3"),
-        ["type": "ai-title", "aiTitle": "AI title", "sessionId": "s3"],
-        ["type": "custom-title", "customTitle": "Named by hand", "sessionId": "s3"]
-    ])
-    try write(p, "s4.jsonl", [user("<command-name>/goal</command-name>\n<command-message>goal</command-message>\n<command-args>ship it</command-args>",
-        "2026-10-15T09:00:00Z", sid: "s4")])
+    try write(
+        p, "s1.jsonl",
+        [
+            ["type": "mode", "mode": "normal", "sessionId": "s1"],
+            "not json {",
+            user("<local-command-caveat>caveat</local-command-caveat>", "2026-10-18T10:00:00.000Z", meta: true),
+            user("<command-name>/clear</command-name>", "2026-10-18T10:00:01.000Z"),
+            user([["type": "text", "text": long]], "2026-10-18T10:00:02.000Z"),
+            assistant("m1", "r1", "2026-10-18T10:00:05.000Z"),
+            user([["type": "tool_result", "content": "x"]], "2026-10-18T10:05:00.000Z")
+        ])
+    try write(
+        p, "s2.jsonl",
+        [
+            ["type": "summary", "summary": "Summarized work", "leafUuid": "x"],
+            user("hello", "2026-10-17T09:00:00Z", sid: "s2")
+        ])
+    try write(
+        p, "s3.jsonl",
+        [
+            user("first prompt", "2026-10-16T09:00:00.000Z", sid: "s3"),
+            ["type": "ai-title", "aiTitle": "AI title", "sessionId": "s3"],
+            ["type": "custom-title", "customTitle": "Named by hand", "sessionId": "s3"]
+        ])
+    try write(
+        p, "s4.jsonl",
+        [
+            user(
+                "<command-name>/goal</command-name>\n<command-message>goal</command-message>\n<command-args>ship it</command-args>",
+                "2026-10-15T09:00:00Z", sid: "s4")
+        ])
     try write(p, "s1/subagents/agent-a.jsonl", [user("sub", "2026-10-18T11:00:00.000Z", sid: "s1")])
     try write(p, "empty.jsonl", [["type": "mode", "mode": "normal"]])
 
@@ -93,29 +121,40 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 @Test func usageIndexDedupesAcrossReads() throws {
     let root = tmp(), p = root.appendingPathComponent("-work-demo")
     let now = ISO8601DateFormatter().string(from: Date())
-    let f = try write(p, "s1.jsonl", [assistant("m1", "r1", now), assistant("m1", "r1", now), assistant("m2", "r2", now, model: "<synthetic>")])
+    let f = try write(
+        p, "s1.jsonl",
+        [assistant("m1", "r1", now), assistant("m1", "r1", now), assistant("m2", "r2", now, model: "<synthetic>")])
     try write(p, "s1/subagents/agent-a.jsonl", [assistant("m3", "r3", now)])
     let idx = UsageIndex(cache: root.appendingPathComponent("cache.json"))
     let since = Date().addingTimeInterval(-86400)
     func output() -> Int { idx.rows(roots: [root], since: since).reduce(0) { $0 + $1.tally.tokens.output } }
     #expect(output() == 40)
     // The same response's next line lands after that read: still one response.
-    let h = try FileHandle(forWritingTo: f); try h.seekToEnd()
-    try h.write(contentsOf: JSONSerialization.data(withJSONObject: assistant("m1", "r1", now)) + Data("\n".utf8)); try h.close()
+    let h = try FileHandle(forWritingTo: f)
+    try h.seekToEnd()
+    try h.write(contentsOf: JSONSerialization.data(withJSONObject: assistant("m1", "r1", now)) + Data("\n".utf8))
+    try h.close()
     #expect(output() == 40)
     #expect(idx.currentBlock(roots: [root])?.tokens.output == 40)
 }
 
 @Test func fiveHourBlocks() throws {
     let t = UsageIndex.Tally(tokens: TokenCounts(input: 1_000_000), cost: 4)
-    func h(_ s: String, _ m: String = "claude-opus-5-5") -> UsageIndex.Hour { .init(start: date(s), model: m, tally: t) }
-    let hours = [h("2026-10-18T10:00:00Z", "claude-sonnet-5-5"), h("2026-10-18T11:00:00Z"), h("2026-10-18T14:00:00Z"),
-                 h("2026-10-18T15:00:00Z"), h("2026-10-18T22:00:00Z")]
+    func h(_ s: String, _ m: String = "claude-opus-5-5") -> UsageIndex.Hour {
+        .init(start: date(s), model: m, tally: t)
+    }
+    let hours = [
+        h("2026-10-18T10:00:00Z", "claude-sonnet-5-5"), h("2026-10-18T11:00:00Z"), h("2026-10-18T14:00:00Z"),
+        h("2026-10-18T15:00:00Z"), h("2026-10-18T22:00:00Z")
+    ]
     let first = try #require(UsageIndex.block(hours, now: date("2026-10-18T14:45:00Z")))
-    #expect(first.start == date("2026-10-18T10:00:00Z") && first.end == date("2026-10-18T15:00:00Z") && first.tokens.input == 3_000_000)
+    #expect(
+        first.start == date("2026-10-18T10:00:00Z") && first.end == date("2026-10-18T15:00:00Z")
+            && first.tokens.input == 3_000_000)
     #expect(first.models == ["claude-opus-5-5", "claude-sonnet-5-5"] && first.estimatedCostUSD == 12)
     let b = try #require(UsageIndex.block(hours, now: date("2026-10-18T16:00:00Z")))
-    #expect(b.start == date("2026-10-18T15:00:00Z") && b.end == date("2026-10-18T20:00:00Z") && b.tokens.input == 1_000_000)
+    #expect(
+        b.start == date("2026-10-18T15:00:00Z") && b.end == date("2026-10-18T20:00:00Z") && b.tokens.input == 1_000_000)
     #expect(UsageIndex.block(hours, now: date("2026-10-18T21:00:00Z")) == nil)
     #expect(UsageIndex.block(hours, now: date("2026-10-18T22:30:00Z"))?.end == date("2026-10-19T03:00:00Z"))
 }
@@ -123,7 +162,8 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 @Test func pricingMath() {
     let m = TokenCounts(input: 1_000_000, output: 1_000_000, cacheWrite: 1_000_000, cacheRead: 1_000_000)
     #expect(abs(Pricing.cost(model: "claude-opus-5-5", tokens: m) - 29.2) < 1e-9)
-    #expect(abs(Pricing.cost(model: "claude-opus-5-5[1m]", tokens: TokenCounts(input: 500, output: 100)) - 0.004) < 1e-12)
+    #expect(
+        abs(Pricing.cost(model: "claude-opus-5-5[1m]", tokens: TokenCounts(input: 500, output: 100)) - 0.004) < 1e-12)
     #expect(Pricing.cost(model: "claude-opus-4-8", tokens: TokenCounts(input: 1_000_000)) == 5)
     #expect(Pricing.cost(model: "claude-sonnet-4-6", tokens: TokenCounts(input: 1_000_000)) == 3)
     #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(input: 1_000_000)) == 2)
@@ -145,7 +185,9 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     // Haiku 5.5 past 100K of prompt pays five times every rate, the cache counted in the prompt.
     let long = TokenCounts(output: 1000, cacheRead: 100_001)
     #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: long) - 5 * (0.0005 + 0.00100001)) < 1e-12)
-    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: TokenCounts(output: 1000, cacheRead: 100_000)) - 0.0015) < 1e-12)
+    #expect(
+        abs(Pricing.cost(model: "claude-haiku-5-5", tokens: TokenCounts(output: 1000, cacheRead: 100_000)) - 0.0015)
+            < 1e-12)
 }
 
 @Test func aCodexChatsLastReplyIsItsFolders() throws {
@@ -158,7 +200,9 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     f.dateFormat = "yyyy-MM-dd'T'HH-mm-ss"
     try FileManager.default.createDirectory(at: day, withIntermediateDirectories: true)
     func rollout(after seconds: TimeInterval, cwd: String, replies: [String?]) throws {
-        func line(_ o: [String: Any]) throws -> String { String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self) }
+        func line(_ o: [String: Any]) throws -> String {
+            String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self)
+        }
         let meta: [String: Any] = ["id": UUID().uuidString, "cwd": cwd]
         var lines = [try line(["type": "session_meta", "payload": meta])]
         for r in replies {
@@ -174,7 +218,8 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     try rollout(after: 1, cwd: "/work/b", replies: ["another folder"])
     #expect(CodexHistory.lastReply(cwd: "/work/a", since: start, root: root) == "second")
     try rollout(after: 2, cwd: "/work/a", replies: [nil])
-    #expect(CodexHistory.lastReply(cwd: "/work/a", since: start, root: root) == "second", "a turn cut short says nothing")
+    #expect(
+        CodexHistory.lastReply(cwd: "/work/a", since: start, root: root) == "second", "a turn cut short says nothing")
     #expect(CodexHistory.lastReply(cwd: "/work/none", since: start, root: root) == nil)
 }
 
@@ -182,54 +227,92 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let root = tmp()
     let id1 = "019f47f3-8f9b-7823-98a3-9195ae68d901", id2 = "019f47f3-8f9b-7823-98a3-9195ae68d902"
     func item(_ role: String, _ text: String, _ ts: String) -> [String: Any] {
-        ["timestamp": ts, "type": "response_item", "payload": ["type": "message", "role": role, "content": [["type": role == "user" ? "input_text" : "output_text", "text": text]]]]
+        [
+            "timestamp": ts, "type": "response_item",
+            "payload": [
+                "type": "message", "role": role,
+                "content": [["type": role == "user" ? "input_text" : "output_text", "text": text]]
+            ]
+        ]
     }
     func tokens(_ ts: String, _ rl: Any) -> [String: Any] {
-        ["timestamp": ts, "type": "event_msg", "payload": ["type": "token_count", "info": NSNull(), "rate_limits": rl]]
+        [
+            "timestamp": ts, "type": "event_msg",
+            "payload": ["type": "token_count", "info": NSNull(), "rate_limits": rl]
+        ]
     }
-    let f1 = try write(root, "2026/10/17/rollout-2026-10-17T10-00-00-\(id1).jsonl", [
-        ["timestamp": "2026-10-17T10:00:00.100Z", "type": "session_meta", "payload": ["id": id1, "cwd": "/work/a", "timestamp": "2026-10-17T10:00:00.000Z"]],
-        item("user", "# AGENTS.md instructions for /work/a", "2026-10-17T10:00:01.000Z"),
-        item("user", "<environment_context><cwd>/work/a</cwd></environment_context>", "2026-10-17T10:00:01.000Z"),
-        ["timestamp": "2026-10-17T10:00:02.000Z", "type": "event_msg", "payload": ["type": "user_message", "message": "Refactor the parser"]],
-        item("user", "Refactor the parser", "2026-10-17T10:00:02.000Z"),
-        item("assistant", "Done", "2026-10-17T10:01:00.000Z"),
-        tokens("2026-10-17T10:01:00.000Z", ["primary": ["used_percent": 12.5, "window_minutes": 300, "resets_at": 1_792_000_000],
-                                             "secondary": ["used_percent": 40, "window_minutes": 10080, "resets_at": 1_792_500_000]]),
-        tokens("2026-10-17T10:02:00.000Z", ["primary": NSNull(), "secondary": NSNull(), "credits": NSNull()])
-    ])
-    try write(root, "2026/10/18/rollout-2026-10-18T09-00-00-\(id2).jsonl", [
-        ["timestamp": "2026-10-18T09:00:00.000Z", "type": "session_meta", "payload": ["id": id2, "cwd": "/work/b", "timestamp": "2026-10-18T09:00:00.000Z"]],
-        item("user", "Old shape please", "2026-10-18T09:00:01.000Z"),
-        tokens("2026-10-18T09:05:00.000Z", ["primary": ["used_percent": 50, "window_minutes": 300, "resets_in_seconds": 600]])
-    ])
+    let f1 = try write(
+        root, "2026/10/17/rollout-2026-10-17T10-00-00-\(id1).jsonl",
+        [
+            [
+                "timestamp": "2026-10-17T10:00:00.100Z", "type": "session_meta",
+                "payload": ["id": id1, "cwd": "/work/a", "timestamp": "2026-10-17T10:00:00.000Z"]
+            ],
+            item("user", "# AGENTS.md instructions for /work/a", "2026-10-17T10:00:01.000Z"),
+            item("user", "<environment_context><cwd>/work/a</cwd></environment_context>", "2026-10-17T10:00:01.000Z"),
+            [
+                "timestamp": "2026-10-17T10:00:02.000Z", "type": "event_msg",
+                "payload": ["type": "user_message", "message": "Refactor the parser"]
+            ],
+            item("user", "Refactor the parser", "2026-10-17T10:00:02.000Z"),
+            item("assistant", "Done", "2026-10-17T10:01:00.000Z"),
+            tokens(
+                "2026-10-17T10:01:00.000Z",
+                [
+                    "primary": ["used_percent": 12.5, "window_minutes": 300, "resets_at": 1_792_000_000],
+                    "secondary": ["used_percent": 40, "window_minutes": 10080, "resets_at": 1_792_500_000]
+                ]),
+            tokens("2026-10-17T10:02:00.000Z", ["primary": NSNull(), "secondary": NSNull(), "credits": NSNull()])
+        ])
+    try write(
+        root, "2026/10/18/rollout-2026-10-18T09-00-00-\(id2).jsonl",
+        [
+            [
+                "timestamp": "2026-10-18T09:00:00.000Z", "type": "session_meta",
+                "payload": ["id": id2, "cwd": "/work/b", "timestamp": "2026-10-18T09:00:00.000Z"]
+            ],
+            item("user", "Old shape please", "2026-10-18T09:00:01.000Z"),
+            tokens(
+                "2026-10-18T09:05:00.000Z",
+                ["primary": ["used_percent": 50, "window_minutes": 300, "resets_in_seconds": 600]])
+        ])
 
     let s = CodexHistory.sessions(root: root)
     #expect(s.map(\.id) == [id2, id1])
-    #expect(s[1].title == "Refactor the parser" && s[1].cwd == "/work/a" && s[1].messageCount == 4 && s[1].agent == .codex)
+    #expect(
+        s[1].title == "Refactor the parser" && s[1].cwd == "/work/a" && s[1].messageCount == 4 && s[1].agent == .codex)
     #expect(s[0].title == "Old shape please")
 
     let l1 = try #require(CodexUsage.latest(in: f1))
-    #expect(l1 == CodexLimits(primaryUsedPercent: 12.5, primaryResetsAt: Date(timeIntervalSince1970: 1_792_000_000),
-                              secondaryUsedPercent: 40, secondaryResetsAt: Date(timeIntervalSince1970: 1_792_500_000),
-                              observedAt: date("2026-10-17T10:01:00.000Z"), primaryWindowMinutes: 300, secondaryWindowMinutes: 10080))
+    #expect(
+        l1
+            == CodexLimits(
+                primaryUsedPercent: 12.5, primaryResetsAt: Date(timeIntervalSince1970: 1_792_000_000),
+                secondaryUsedPercent: 40, secondaryResetsAt: Date(timeIntervalSince1970: 1_792_500_000),
+                observedAt: date("2026-10-17T10:01:00.000Z"), primaryWindowMinutes: 300, secondaryWindowMinutes: 10080))
     let l = try #require(CodexUsage.latest(root: root))
     #expect(l.observedAt == date("2026-10-18T09:05:00.000Z") && l.primaryUsedPercent == 50)
     #expect(l.primaryResetsAt == date("2026-10-18T09:15:00.000Z") && l.secondaryUsedPercent == nil)
 
-    let flat = CodexUsage.limits(tokens("2026-10-18T09:05:00Z", ["primary_used_percent": 7, "secondary_used_percent": 3]))
+    let flat = CodexUsage.limits(
+        tokens("2026-10-18T09:05:00Z", ["primary_used_percent": 7, "secondary_used_percent": 3]))
     #expect(flat?.primaryUsedPercent == 7 && flat?.secondaryUsedPercent == 3)
 
     // The free plan's one window is a month; the app server names its length differently.
     let at = Date(timeIntervalSince1970: 1_792_000_000)
-    let free = CodexUsage.limits(rateLimits: ["primary": ["used_percent": 34, "window_minutes": 43200, "resets_at": 1_795_396_544], "secondary": NSNull()], at: at)
+    let free = CodexUsage.limits(
+        rateLimits: [
+            "primary": ["used_percent": 34, "window_minutes": 43200, "resets_at": 1_795_396_544], "secondary": NSNull()
+        ], at: at)
     #expect(free?.primaryWindowMinutes == 43200 && free?.secondaryUsedPercent == nil)
     let server = CodexUsage.limits(rateLimits: ["primary": ["usedPercent": 5, "windowDurationMins": 300]], at: at)
     #expect(server?.primaryWindowMinutes == 300)
 
     // Conversations Codex Desktop imported from Claude Code: newer than the real ones, and without limits.
     for i in 0..<12 {
-        let f = try write(root, "2026/10/20/rollout-2026-10-20T00-00-00-imported-\(i).jsonl", [tokens("2026-10-20T00:00:00.000Z", NSNull())])
+        let f = try write(
+            root, "2026/10/20/rollout-2026-10-20T00-00-00-imported-\(i).jsonl",
+            [tokens("2026-10-20T00:00:00.000Z", NSNull())])
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: f.path)
     }
     #expect(CodexUsage.latest(root: root)?.primaryUsedPercent == 50)
@@ -237,8 +320,18 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 
 @Test func searchAndResume() throws {
     let root = tmp(), p = root.appendingPathComponent("-work-demo")
-    try write(p, "a.jsonl", [user("deploy the app", "2026-10-18T10:00:00Z", sid: "a"), assistant("m1", "r1", "2026-10-18T10:01:00Z", text: "the flux capacitor is fine")])
-    try write(p, "b.jsonl", [user("write docs", "2026-10-18T11:00:00Z", sid: "b"), assistant("m2", "r2", "2026-10-18T11:01:00Z", text: "nothing here")])
+    try write(
+        p, "a.jsonl",
+        [
+            user("deploy the app", "2026-10-18T10:00:00Z", sid: "a"),
+            assistant("m1", "r1", "2026-10-18T10:01:00Z", text: "the flux capacitor is fine")
+        ])
+    try write(
+        p, "b.jsonl",
+        [
+            user("write docs", "2026-10-18T11:00:00Z", sid: "b"),
+            assistant("m2", "r2", "2026-10-18T11:01:00Z", text: "nothing here")
+        ])
     let s = ClaudeHistory.sessions(root: root)
     #expect(History.search(s, query: "DEPLOY").map(\.id) == ["a"])
     #expect(History.search(s, query: "/work/demo").count == 2)
@@ -257,7 +350,8 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let nowhere = URL(fileURLWithPath: "/nonexistent-\(UUID().uuidString)")
     #expect(ClaudeHistory.sessions(root: nowhere).isEmpty)
     #expect(CodexHistory.sessions(root: nowhere).isEmpty)
-    #expect(UsageIndex(cache: nowhere.appendingPathComponent("c.json")).rows(roots: [nowhere], since: .distantPast).isEmpty)
+    #expect(
+        UsageIndex(cache: nowhere.appendingPathComponent("c.json")).rows(roots: [nowhere], since: .distantPast).isEmpty)
     #expect(CodexUsage.latest(root: nowhere) == nil)
 }
 
@@ -265,7 +359,8 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let dir = root.appendingPathComponent("-work-my-app")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    let line = #"{"type":"user","sessionId":"abc","cwd":"/work/my_app","timestamp":"2026-10-19T00:00:00Z","message":{"content":"hi"}}"#
+    let line =
+        #"{"type":"user","sessionId":"abc","cwd":"/work/my_app","timestamp":"2026-10-19T00:00:00Z","message":{"content":"hi"}}"#
     try Data((line + "\n").utf8).write(to: dir.appendingPathComponent("abc.jsonl"))
     #expect(ClaudeHistory.sessions(cwd: "/work/my_app", root: root).map(\.id) == ["abc"])
     #expect(ClaudeHistory.sessions(cwd: "/work/other", root: root).isEmpty)
@@ -276,7 +371,8 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 }
 
 @Test func anHourLongCacheWriteCostsMoreThanAFiveMinuteOne() throws {
-    let line = #"{"cwd":"/p","message":{"id":"a","model":"claude-opus-5-5","usage":{"input_tokens":0,"output_tokens":0,"#
+    let line =
+        #"{"cwd":"/p","message":{"id":"a","model":"claude-opus-5-5","usage":{"input_tokens":0,"output_tokens":0,"#
         + #""cache_creation_input_tokens":1000000,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":1000000}}},"#
         + #""type":"assistant","timestamp":"2026-11-02T10:00:00.000Z"}"#
     #expect(try #require(UsageIndex.entry(Data(line.utf8))).cost == 8)
@@ -293,27 +389,41 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     }
     let now = ISO8601DateFormatter().string(from: Date())
     let old = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 86400))   // copied in by a resume: before the file existed
-    try [line("a", now, 5), line("a", now, 5), line("b", old, 100)].joined(separator: "\n").appending("\n").write(to: f, atomically: true, encoding: .utf8)
+    try [line("a", now, 5), line("a", now, 5), line("b", old, 100)].joined(separator: "\n").appending("\n").write(
+        to: f, atomically: true, encoding: .utf8)
     let idx = UsageIndex(cache: dir.appendingPathComponent("cache.json"))
     let since = Date().addingTimeInterval(-7 * 86400)
     #expect(idx.rows(roots: [dir], since: since).reduce(0) { $0 + $1.tally.tokens.output } == 5)
-    let h = try FileHandle(forWritingTo: f); try h.seekToEnd(); try h.write(contentsOf: Data((line("c", now, 7) + "\n").utf8)); try h.close()
+    let h = try FileHandle(forWritingTo: f)
+    try h.seekToEnd()
+    try h.write(contentsOf: Data((line("c", now, 7) + "\n").utf8))
+    try h.close()
     let again = UsageIndex(cache: dir.appendingPathComponent("cache.json"))   // from disk: the old part isn't read again
     let rows = again.rows(roots: [dir], since: since)
     #expect(rows.reduce(0) { $0 + $1.tally.tokens.output } == 12)
     #expect(rows.first?.cwd == "/p" && rows.first?.model == "claude-sonnet-4-5")
     // Read in 8 MB pieces from where the last read ended: a long line (a pasted image) puts the next one's end, usage
     // and all, past the first piece.
-    let d = line("d", now, 30), g = try FileHandle(forWritingTo: f); try g.seekToEnd()
-    try g.write(contentsOf: Data((#"{"type":"user","text":""# + String(repeating: "x", count: (8 << 20) - 26 - d.utf8.count + 120) + "\"}\n" + d + "\n").utf8)); try g.close()
-    #expect(UsageIndex(cache: dir.appendingPathComponent("cache.json")).rows(roots: [dir], since: since).reduce(0) { $0 + $1.tally.tokens.output } == 42)
+    let d = line("d", now, 30), g = try FileHandle(forWritingTo: f)
+    try g.seekToEnd()
+    try g.write(
+        contentsOf: Data(
+            (#"{"type":"user","text":""# + String(repeating: "x", count: (8 << 20) - 26 - d.utf8.count + 120) + "\"}\n"
+                + d + "\n").utf8))
+    try g.close()
+    #expect(
+        UsageIndex(cache: dir.appendingPathComponent("cache.json")).rows(roots: [dir], since: since).reduce(0) {
+            $0 + $1.tally.tokens.output
+        } == 42)
 }
 
 @Test func timesAndDaysReadTheWayTranscriptsWriteThem() throws {
-    let a = try #require(JSONL.date("2026-10-20T10:15:30.250Z")?.timeIntervalSince1970), b = try #require(JSONL.date("2026-10-20T10:15:30Z")?.timeIntervalSince1970)
+    let a = try #require(JSONL.date("2026-10-20T10:15:30.250Z")?.timeIntervalSince1970),
+        b = try #require(JSONL.date("2026-10-20T10:15:30Z")?.timeIntervalSince1970)
     #expect(abs(a - b - 0.25) < 0.001)   // with and without fractional seconds
     #expect(JSONL.date("not a time") == nil)
-    var c = Calendar.current; c.timeZone = .current
+    var c = Calendar.current
+    c.timeZone = .current
     let noon = try #require(c.date(from: DateComponents(year: 2026, month: 3, day: 7, hour: 12)))
     #expect(UsageIndex.day(noon) == "2026-03-07")   // the local day, zero-padded
 }
@@ -321,22 +431,39 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 /// What fills the context: since the last /compact, by part (Read by file, Bash by command, the conversation), scaled to
 /// the tokens the last reply counted on top of the first request's base.
 @Test func contextPartsSinceTheLastCompaction() throws {
-    func line(_ o: [String: Any]) -> String { String(decoding: (try? JSONSerialization.data(withJSONObject: o)) ?? Data(), as: UTF8.self) }
+    func line(_ o: [String: Any]) -> String {
+        String(decoding: (try? JSONSerialization.data(withJSONObject: o)) ?? Data(), as: UTF8.self)
+    }
     func reply(_ input: Int, _ blocks: [[String: Any]]) -> String {
         line(["type": "assistant", "message": ["content": blocks, "usage": ["input_tokens": input]]])
     }
     func results(_ r: [(String, String)]) -> String {
-        line(["type": "user", "message": ["content": r.map { ["type": "tool_result", "tool_use_id": $0.0, "content": $0.1] }]])
+        line([
+            "type": "user",
+            "message": ["content": r.map { ["type": "tool_result", "tool_use_id": $0.0, "content": $0.1] }]
+        ])
     }
-    let old = [line(["type": "user", "message": ["content": String(repeating: "x", count: 400)]]), reply(1100, [["type": "text", "text": "hi"]]),
-               results([("gone", String(repeating: "g", count: 9000))])]
+    let old = [
+        line(["type": "user", "message": ["content": String(repeating: "x", count: 400)]]),
+        reply(1100, [["type": "text", "text": "hi"]]),
+        results([("gone", String(repeating: "g", count: 9000))])
+    ]
     let now = [
-        line(["type": "system", "subtype": "compact_boundary", "compactMetadata": ["preTokens": 9000, "postTokens": 300]]),
+        line([
+            "type": "system", "subtype": "compact_boundary", "compactMetadata": ["preTokens": 9000, "postTokens": 300]
+        ]),
         line(["type": "user", "isCompactSummary": true, "message": ["content": String(repeating: "s", count: 400)]]),
-        reply(1200, [["type": "tool_use", "id": "r1", "name": "Read", "input": ["file_path": "/a/payment.ts"]],
-                     ["type": "tool_use", "id": "b1", "name": "Bash", "input": ["command": "cd app && npm test -- --ci"]],
-                     ["type": "tool_use", "id": "b2", "name": "Bash", "input": ["command": "npm test"]]]),
-        results([("r1", String(repeating: "f", count: 2000)), ("b1", String(repeating: "t", count: 1000)), ("b2", String(repeating: "t", count: 1000))]),
+        reply(
+            1200,
+            [
+                ["type": "tool_use", "id": "r1", "name": "Read", "input": ["file_path": "/a/payment.ts"]],
+                ["type": "tool_use", "id": "b1", "name": "Bash", "input": ["command": "cd app && npm test -- --ci"]],
+                ["type": "tool_use", "id": "b2", "name": "Bash", "input": ["command": "npm test"]]
+            ]),
+        results([
+            ("r1", String(repeating: "f", count: 2000)), ("b1", String(repeating: "t", count: 1000)),
+            ("b2", String(repeating: "t", count: 1000))
+        ]),
         line(["type": "attachment", "rendered": [["content": String(repeating: "n", count: 200)]]]),
         line(["type": "user", "isSidechain": true, "message": ["content": String(repeating: "z", count: 8000)]]),   // a subagent's
         reply(2400, [["type": "text", "text": "Done"]])
@@ -354,9 +481,15 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
     #expect(ClaudeContext.parts(Data(old.joined(separator: "\n").utf8), used: 0) == nil)
 
     // Thinking stays in the context; each of a reply's lines repeats its usage, so it counts once.
-    let thought = line(["type": "assistant", "message": ["id": "m1", "content": [["type": "thinking", "thinking": ""]],
-                                                         "usage": ["input_tokens": 3000, "output_tokens_details": ["thinking_tokens": 100]]]])
-    let t = try #require(ClaudeContext.parts(Data((old + now + [thought, thought]).joined(separator: "\n").utf8), used: 3000))
+    let thought = line([
+        "type": "assistant",
+        "message": [
+            "id": "m1", "content": [["type": "thinking", "thinking": ""]],
+            "usage": ["input_tokens": 3000, "output_tokens_details": ["thinking_tokens": 100]]
+        ]
+    ])
+    let t = try #require(
+        ClaudeContext.parts(Data((old + now + [thought, thought]).joined(separator: "\n").utf8), used: 3000))
     let conversation = try #require(t.parts.first { $0.kind == .conversation })
     let item = try #require(conversation.top.first { $0.label == "thinking" })
     #expect(item.tokens * 2 > conversation.top.filter { $0.label != "thinking" }.reduce(0) { $0 + $1.tokens })   // 237 characters, once
@@ -366,45 +499,45 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 /// elsewhere), the deferred tools and the buffer apart, the memory files and skills it lists under their category.
 @Test func contextSetupFromClaudeCodesOwnCount() throws {
     let printed = """
-    ## Context Usage
+        ## Context Usage
 
-    **Tokens:** 26.3k / 1m (3%)
+        **Tokens:** 26.3k / 1m (3%)
 
-    ### Estimated usage by category
+        ### Estimated usage by category
 
-    | Category | Tokens | Percentage |
-    |----------|--------|------------|
-    | System prompt | 2.5k | 0.2% |
-    | System tools | 578 | 0.1% |
-    | MCP tools (deferred) | 57.5k | 5.8% |
-    | Memory files | 7.8k | 0.8% |
-    | Skills | 1.2k | 0.1% |
-    | Messages | 2k | 0.2% |
-    | Free space | 940.7k | 94.1% |
-    | Autocompact buffer | 33k | 3.3% |
+        | Category | Tokens | Percentage |
+        |----------|--------|------------|
+        | System prompt | 2.5k | 0.2% |
+        | System tools | 578 | 0.1% |
+        | MCP tools (deferred) | 57.5k | 5.8% |
+        | Memory files | 7.8k | 0.8% |
+        | Skills | 1.2k | 0.1% |
+        | Messages | 2k | 0.2% |
+        | Free space | 940.7k | 94.1% |
+        | Autocompact buffer | 33k | 3.3% |
 
-    ### MCP Tools
+        ### MCP Tools
 
-    | Tool | Server | Tokens |
-    |------|--------|--------|
-    | mcp__x__y | x | 153 |
+        | Tool | Server | Tokens |
+        |------|--------|--------|
+        | mcp__x__y | x | 153 |
 
-    ### Memory Files
+        ### Memory Files
 
-    | Type | Path | Tokens |
-    |------|------|--------|
-    | Project | /Users/me/app/CLAUDE.md | 4k |
-    | AutoMem | /Users/me/.claude/projects/app/memory/MEMORY.md | 3.8k |
+        | Type | Path | Tokens |
+        |------|------|--------|
+        | Project | /Users/me/app/CLAUDE.md | 4k |
+        | AutoMem | /Users/me/.claude/projects/app/memory/MEMORY.md | 3.8k |
 
-    ### Skills
+        ### Skills
 
-    | Skill | Source | Tokens |
-    |-------|--------|--------|
-    | find-skills | User | ~110 |
-    | tabbit | User | ~40 |
-    | transitions-dev | User | ~520 |
-    | review | Plugin | ~300 |
-    """
+        | Skill | Source | Tokens |
+        |-------|--------|--------|
+        | find-skills | User | ~110 |
+        | tabbit | User | ~40 |
+        | transitions-dev | User | ~520 |
+        | review | Plugin | ~300 |
+        """
     let s = try #require(ClaudeContext.setup(printed))
     #expect(s.parts.map(\.label) == ["System prompt", "System tools", "Memory files", "Skills"])
     #expect(s.parts.map(\.tokens) == [2500, 578, 7800, 1200])
@@ -421,15 +554,21 @@ private func assistant(_ id: String, _ req: String, _ ts: String, model: String 
 }
 
 private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [String: Any] {
-    ["type": "assistant", "cwd": "/work/demo", "timestamp": ts,
-     "message": ["model": "claude-opus-5-5", "content": [["type": "tool_use", "name": tool, "input": input]],
-                 "usage": ["input_tokens": 2, "cache_read_input_tokens": 300, "cache_creation_input_tokens": 40]]]
+    [
+        "type": "assistant", "cwd": "/work/demo", "timestamp": ts,
+        "message": [
+            "model": "claude-opus-5-5", "content": [["type": "tool_use", "name": tool, "input": input]],
+            "usage": ["input_tokens": 2, "cache_read_input_tokens": 300, "cache_creation_input_tokens": 40]
+        ]
+    ]
 }
 
 @Test func aSubagentsTranscriptStaysInItsFolder() {
     let parent = URL(fileURLWithPath: "/p/0F.jsonl")
     #expect(SubagentTranscript.file(parent: parent, id: "a1")?.path == "/p/0F/subagents/agent-a1.jsonl")
-    #expect(SubagentTranscript.file(parent: URL(fileURLWithPath: "/p/0F/subagents/agent-b.jsonl"), id: "a1")?.path == "/p/0F/subagents/agent-a1.jsonl")
+    #expect(
+        SubagentTranscript.file(parent: URL(fileURLWithPath: "/p/0F/subagents/agent-b.jsonl"), id: "a1")?.path
+            == "/p/0F/subagents/agent-a1.jsonl")
     #expect(SubagentTranscript.file(parent: parent, id: "../../secret") == nil)
     #expect(SubagentTranscript.file(parent: parent, id: "") == nil)
 }
@@ -437,13 +576,16 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 @Test func aSubagentsJournalHasItsStepsAndReport() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
-    let url = try write(dir, "agent-a.jsonl", [
-        user("Review it", "2026-11-02T06:25:11.963Z"), "not json",
-        step("Read", ["file_path": "/work/demo/Sources/A.swift"], "2026-11-02T06:25:15.000Z"),
-        step("Bash", ["command": "grep -n x\nsecond line"], "2026-11-02T06:25:20.000Z"),
-        step("SubagentHandback", ["message": "All good."], "2026-11-02T06:25:30.000Z")
-    ])
-    try Data(#"{"agentType":"Explore","description":"Counts files"}"#.utf8).write(to: dir.appendingPathComponent("agent-a.meta.json"))
+    let url = try write(
+        dir, "agent-a.jsonl",
+        [
+            user("Review it", "2026-11-02T06:25:11.963Z"), "not json",
+            step("Read", ["file_path": "/work/demo/Sources/A.swift"], "2026-11-02T06:25:15.000Z"),
+            step("Bash", ["command": "grep -n x\nsecond line"], "2026-11-02T06:25:20.000Z"),
+            step("SubagentHandback", ["message": "All good."], "2026-11-02T06:25:30.000Z")
+        ])
+    try Data(#"{"agentType":"Explore","description":"Counts files"}"#.utf8).write(
+        to: dir.appendingPathComponent("agent-a.meta.json"))
     let j = try SubagentTranscript.journal(url)
     #expect(j.kind == "Explore" && j.task == "Counts files" && j.model == "claude-opus-5-5" && j.context == 342)
     #expect(j.steps.map(\.tool) == ["Read", "Bash"])
@@ -455,7 +597,8 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 @Test func aSubagentWithoutAHandbackReportsItsLastWords() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
-    let url = try write(dir, "agent-a.jsonl", [assistant("m", "r", "2026-11-02T06:25:15.000Z", text: "Done, nothing found.")])
+    let url = try write(
+        dir, "agent-a.jsonl", [assistant("m", "r", "2026-11-02T06:25:15.000Z", text: "Done, nothing found.")])
     #expect(try SubagentTranscript.journal(url).report == "Done, nothing found.")
 }
 
@@ -469,7 +612,10 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
     let idx = UsageIndex(cache: cache)
     _ = idx.rows(roots: [dir], since: .distantPast)
     let first = try Data(contentsOf: cache)
-    let h = try FileHandle(forWritingTo: f); try h.seekToEnd(); try h.write(contentsOf: Data("{}\n".utf8)); try h.close()
+    let h = try FileHandle(forWritingTo: f)
+    try h.seekToEnd()
+    try h.write(contentsOf: Data("{}\n".utf8))
+    try h.close()
     _ = idx.rows(roots: [dir], since: .distantPast)
     #expect(try Data(contentsOf: cache) == first)
 }

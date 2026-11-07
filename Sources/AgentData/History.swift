@@ -1,16 +1,19 @@
-import Foundation
 import Core
+import Foundation
 
 public enum ClaudeHistory {
     /// Where Claude Code keeps conversations: under CLAUDE_CONFIG_DIR when it's set, as Claude Code itself does.
-    public static let defaultRoot = (ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"].map { URL(fileURLWithPath: $0) }
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")).appendingPathComponent("projects")
+    public static let defaultRoot =
+        (ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"].map { URL(fileURLWithPath: $0) }
+        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")).appendingPathComponent(
+            "projects")
 
     /// Sessions under `root/<encoded-cwd>/<sessionId>.jsonl`, newest first. Subagent transcripts (deeper) are skipped.
     public static func sessions(root: URL = defaultRoot) -> [AgentSessionInfo] {
         let fm = FileManager.default
         let projects = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        return projects
+        return
+            projects
             .flatMap { (try? fm.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? [] }
             .filter { $0.pathExtension == "jsonl" }
             .compactMap(parse)
@@ -20,7 +23,8 @@ public enum ClaudeHistory {
     /// Interactive conversations started in `cwd`; Claude names the folder after the real path with every
     /// non-alphanumeric as "-". `claude -p` runs (entrypoint sdk-…) are left out: no terminal owns them.
     public static func sessions(cwd: String, root: URL = defaultRoot) -> [AgentSessionInfo] {
-        ((try? FileManager.default.contentsOfDirectory(at: folder(cwd: cwd, root: root), includingPropertiesForKeys: nil)) ?? [])
+        ((try? FileManager.default.contentsOfDirectory(
+            at: folder(cwd: cwd, root: root), includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "jsonl" && !isScripted($0) }.compactMap(parse)
     }
 
@@ -38,13 +42,18 @@ public enum ClaudeHistory {
     }
 
     private static func isScripted(_ url: URL) -> Bool {
-        let head = (try? FileHandle(forReadingFrom: url)).flatMap { h in defer { try? h.close() }; return try? h.read(upToCount: 8192) } ?? Data()
+        let head =
+            (try? FileHandle(forReadingFrom: url)).flatMap { h in
+                defer { try? h.close() }
+                return try? h.read(upToCount: 8192)
+            } ?? Data()
         return String(bytes: head, encoding: .utf8)?.contains(#""entrypoint":"sdk-"#) == true
     }
 
     static func parse(_ url: URL) -> AgentSessionInfo? {
         guard let (lines, covered) = JSONL.headAndTail(url) else { return nil }
-        var id: String?, cwd: String?, prompt: String?, summary: String?, aiTitle: String?, custom: String?, lastPrompt: String?
+        var id: String?, cwd: String?, prompt: String?, summary: String?, aiTitle: String?, custom: String?,
+            lastPrompt: String?
         var span = JSONL.Span(), count = 0
         for line in lines {
             guard let o = JSONL.object(line) else { continue }
@@ -60,22 +69,29 @@ public enum ClaudeHistory {
             case "user":
                 count += 1
                 if prompt == nil, o["isMeta"] as? Bool != true, o["isSidechain"] as? Bool != true,
-                   let m = o["message"] as? [String: Any] { prompt = JSONL.promptText(m["content"]) }
+                    let m = o["message"] as? [String: Any]
+                {
+                    prompt = JSONL.promptText(m["content"])
+                }
             default: break
             }
         }
         guard count > 0 else { return nil }
         let (started, updated) = span.orFileDate(url)
-        return AgentSessionInfo(agent: .claude, id: id ?? url.deletingPathExtension().lastPathComponent, cwd: cwd ?? "",
-                                title: JSONL.clip(custom ?? summary ?? aiTitle ?? prompt ?? lastPrompt ?? ""), started: started, updated: updated,
-                                messageCount: Int((Double(count) / covered).rounded()), path: url)
+        return AgentSessionInfo(
+            agent: .claude, id: id ?? url.deletingPathExtension().lastPathComponent, cwd: cwd ?? "",
+            title: JSONL.clip(custom ?? summary ?? aiTitle ?? prompt ?? lastPrompt ?? ""), started: started,
+            updated: updated,
+            messageCount: Int((Double(count) / covered).rounded()), path: url)
     }
 }
 
 public enum CodexHistory {
     /// Under CODEX_HOME when it's set, as Codex itself does.
-    public static let defaultRoot = (ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) }
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")).appendingPathComponent("sessions")
+    public static let defaultRoot =
+        (ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) }
+        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")).appendingPathComponent(
+            "sessions")
 
     /// Sessions from `root/YYYY/MM/DD/rollout-*.jsonl`, newest first.
     public static func sessions(root: URL = defaultRoot) -> [AgentSessionInfo] {
@@ -85,7 +101,8 @@ public enum CodexHistory {
     /// What the conversation in `rollout` ended its last turn with; nil before one ended, or if it ended with nothing to say.
     public static func lastReply(rollout url: URL) -> String? {
         for line in JSONL.headAndTail(url)?.lines.reversed() ?? [] {
-            guard let p = JSONL.object(line)?["payload"] as? [String: Any], p["type"] as? String == "task_complete" else { continue }
+            guard let p = JSONL.object(line)?["payload"] as? [String: Any], p["type"] as? String == "task_complete"
+            else { continue }
             let text = (p["last_agent_message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             return text?.isEmpty == false ? text : nil
         }
@@ -113,7 +130,9 @@ public enum CodexHistory {
     }
 
     static func rollouts(_ root: URL) -> [URL] {
-        let all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey])?.allObjects as? [URL] ?? []
+        let all =
+            FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey])?
+            .allObjects as? [URL] ?? []
         return all.filter { $0.lastPathComponent.hasPrefix("rollout-") && $0.pathExtension == "jsonl" }
     }
 
@@ -141,9 +160,10 @@ public enum CodexHistory {
         }
         guard id != nil || count > 0 else { return nil }
         let (started, updated) = span.orFileDate(url)
-        return AgentSessionInfo(agent: .codex, id: id ?? String(url.deletingPathExtension().lastPathComponent.suffix(36)), cwd: cwd ?? "",
-                                title: JSONL.clip(prompt ?? fallbackPrompt ?? ""), started: started, updated: updated,
-                                messageCount: Int((Double(count) / covered).rounded()), path: url)
+        return AgentSessionInfo(
+            agent: .codex, id: id ?? String(url.deletingPathExtension().lastPathComponent.suffix(36)), cwd: cwd ?? "",
+            title: JSONL.clip(prompt ?? fallbackPrompt ?? ""), started: started, updated: updated,
+            messageCount: Int((Double(count) / covered).rounded()), path: url)
     }
 }
 
@@ -152,12 +172,16 @@ public enum History {
     public static func search(_ sessions: [AgentSessionInfo], query: String) -> [AgentSessionInfo] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return sessions }
-        return sessions.filter { $0.title.localizedCaseInsensitiveContains(q) || $0.cwd.localizedCaseInsensitiveContains(q) }
+        return sessions.filter {
+            $0.title.localizedCaseInsensitiveContains(q) || $0.cwd.localizedCaseInsensitiveContains(q)
+        }
     }
 
     // Limit: byte match, so other casings and JSON-escaped text (quotes, newlines) miss; decode + normalize if that bites.
     /// Sessions whose transcript bytes contain `query` (as typed or lowercased), reading at most 2 MB per file.
-    public static func fullTextSearch(query: String, in sessions: [AgentSessionInfo], limit: Int = 50) -> [AgentSessionInfo] {
+    public static func fullTextSearch(query: String, in sessions: [AgentSessionInfo], limit: Int = 50)
+        -> [AgentSessionInfo]
+    {
         let needles = Set([query, query.lowercased()]).filter { !$0.isEmpty }.map { Data($0.utf8) }
         guard !needles.isEmpty else { return [] }
         var out: [AgentSessionInfo] = []
@@ -209,7 +233,7 @@ enum JSONL {
             var out: [Data] = [], start = 0
             while start < buf.count {
                 let end = memchr(base + start, 10, buf.count - start).map { base.distance(to: $0) } ?? buf.count
-                if end > start { out.append(d[d.startIndex + start ..< d.startIndex + end]) }
+                if end > start { out.append(d[d.startIndex + start..<d.startIndex + end]) }
                 start = end + 1
             }
             return out
@@ -225,19 +249,25 @@ enum JSONL {
     static func date(_ v: Any?) -> Date? {
         if let n = v as? NSNumber { return Date(timeIntervalSince1970: n.doubleValue) }
         guard let s = v as? String else { return nil }
-        return (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(s)) ?? (try? Date.ISO8601FormatStyle().parse(s))
+        return (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(s))
+            ?? (try? Date.ISO8601FormatStyle().parse(s))
     }
 
     /// Text a human typed: a string or the text blocks of a content array, minus injected `<tag>` and AGENTS.md blocks.
     /// A slash command with arguments counts as "/name args".
     static func promptText(_ content: Any?) -> String? {
-        let texts: [String] = if let s = content as? String { [s] }
-            else { (content as? [[String: Any]] ?? []).compactMap { $0["text"] as? String } }
+        let texts: [String] =
+            if let s = content as? String { [s] } else {
+                (content as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }
+            }
         return texts.lazy.compactMap { t -> String? in
             let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
             if s.hasPrefix("<command-"), let name = s.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-               let args = s.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
-               !args.allSatisfy(\.isWhitespace) { return "\(name) \(args)" }
+                let args = s.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
+                !args.allSatisfy(\.isWhitespace)
+            {
+                return "\(name) \(args)"
+            }
             return s.isEmpty || s.hasPrefix("<") || s.hasPrefix("# AGENTS.md") ? nil : s
         }.first
     }
@@ -251,10 +281,13 @@ enum JSONL {
         var first: Date?, last: Date?
         mutating func add(_ d: Date?) {
             guard let d else { return }
-            first = min(first ?? d, d); last = max(last ?? d, d)
+            first = min(first ?? d, d)
+            last = max(last ?? d, d)
         }
         func orFileDate(_ url: URL) -> (Date, Date) {
-            let m = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date(timeIntervalSince1970: 0)
+            let m =
+                (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+                ?? Date(timeIntervalSince1970: 0)
             return (first ?? m, last ?? m)
         }
     }

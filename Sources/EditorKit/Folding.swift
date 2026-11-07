@@ -12,7 +12,10 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
     /// The fold hiding `i`.
     func fold(at i: Int) -> NSRange? {
         var lo = 0, hi = hidden.count
-        while lo < hi { let mid = (lo + hi) / 2; if NSMaxRange(hidden[mid]) <= i { lo = mid + 1 } else { hi = mid } }
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if NSMaxRange(hidden[mid]) <= i { lo = mid + 1 } else { hi = mid }
+        }
         return lo < hidden.count && hidden[lo].location <= i ? hidden[lo] : nil
     }
 
@@ -27,7 +30,10 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
     }
 
     func remove(_ r: NSRange) { hidden.removeAll { $0 == r } }
-    func removeAll() -> [NSRange] { defer { hidden = [] }; return hidden }
+    func removeAll() -> [NSRange] {
+        defer { hidden = [] }
+        return hidden
+    }
 
     /// An edit about to be made (ranges top to bottom, new lengths): a fold it reaches into opens, those after it move.
     /// Returns the ones that opened, where they'll be.
@@ -98,11 +104,14 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
 extension EditorTextView: NSLayoutManagerDelegate {
     // swiftlint:disable function_parameter_count
     /// Folded characters get null glyphs: no width, no line of their own.
-    public nonisolated func layoutManager(_ lm: NSLayoutManager, shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>,
-                                          properties: UnsafePointer<NSLayoutManager.GlyphProperty>, characterIndexes: UnsafePointer<Int>,
-                                          font: NSFont, forGlyphRange range: NSRange) -> Int {
+    public nonisolated func layoutManager(
+        _ lm: NSLayoutManager, shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>,
+        properties: UnsafePointer<NSLayoutManager.GlyphProperty>, characterIndexes: UnsafePointer<Int>,
+        font: NSFont, forGlyphRange range: NSRange
+    ) -> Int {
         guard range.length > 0, !folds.isEmpty else { return 0 }
-        let chars = NSRange(location: characterIndexes[0], length: characterIndexes[range.length - 1] - characterIndexes[0] + 1)
+        let chars = NSRange(
+            location: characterIndexes[0], length: characterIndexes[range.length - 1] - characterIndexes[0] + 1)
         guard folds.intersects(chars) else { return 0 }
         var props = Array(UnsafeBufferPointer(start: properties, count: range.length))
         for k in 0..<range.length where folds.fold(at: characterIndexes[k]) != nil { props[k] = .null }
@@ -115,7 +124,9 @@ extension EditorTextView: NSLayoutManagerDelegate {
     func setFolded(_ r: NSRange, _ on: Bool) {
         if on { folds.add(r) } else { folds.remove(r) }
         relayOut(r)
-        if on, let i = cursors.first?.location, NSLocationInRange(i, r), i != r.location { setSelectedRange(NSRange(location: r.location, length: 0)) }
+        if on, let i = cursors.first?.location, NSLocationInRange(i, r), i != r.location {
+            setSelectedRange(NSRange(location: r.location, length: 0))
+        }
     }
 
     func relayOut(_ r: NSRange) {
@@ -141,7 +152,9 @@ extension EditorTextView: NSLayoutManagerDelegate {
             guard box.intersects(dirty) else { continue }
             color.withAlphaComponent(r == hoveredFold ? 0.24 : 0.14).setFill()   // under the pointer it brightens
             NSBezierPath(roundedRect: box, xRadius: box.height / 2, yRadius: box.height / 2).fill()
-            let dots = NSAttributedString(string: "⋯", attributes: [.font: font ?? .systemFont(ofSize: 13), .foregroundColor: color.withAlphaComponent(0.7)])
+            let dots = NSAttributedString(
+                string: "⋯",
+                attributes: [.font: font ?? .systemFont(ofSize: 13), .foregroundColor: color.withAlphaComponent(0.7)])
             let size = dots.size()
             dots.draw(at: NSPoint(x: box.midX - size.width / 2, y: box.midY - size.height / 2))
         }
@@ -169,7 +182,8 @@ extension CodeEditor {
     public func unfold() {
         let s = textView.string as NSString, i = textView.selectedRange().location
         let line = s.lineRange(for: NSRange(location: i, length: 0))
-        guard let f = textView.folds.fold(at: MultiCursor.lineEnd(s, line.location)) ?? textView.folds.fold(at: i) else { return NSSound.beep() }
+        guard let f = textView.folds.fold(at: MultiCursor.lineEnd(s, line.location)) ?? textView.folds.fold(at: i)
+        else { return NSSound.beep() }
         textView.setFolded(f, false)
     }
 
@@ -178,7 +192,9 @@ extension CodeEditor {
     /// A click on the gutter's chevron: the line's block folds, or opens.
     func toggleFold(line: NSRange) {
         let s = textView.string as NSString
-        if let f = textView.folds.fold(at: MultiCursor.lineEnd(s, line.location)) { return textView.setFolded(f, false) }
+        if let f = textView.folds.fold(at: MultiCursor.lineEnd(s, line.location)) {
+            return textView.setFolded(f, false)
+        }
         if let r = foldRegion(line, in: s) { textView.setFolded(r, true) }
     }
 }

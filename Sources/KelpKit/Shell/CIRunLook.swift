@@ -15,12 +15,14 @@ package enum CIRunLook {
             m.toolTip = words
             return m
         }
-        let (symbol, color): (String, NSColor) = switch (status, conclusion) {
-        case ("completed", "success"?): ("checkmark.circle.fill", .systemGreen)
-        case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?): ("minus.circle", .tertiaryLabelColor)
-        case ("completed", _): ("xmark.circle.fill", .systemRed)
-        default: ("circle", .tertiaryLabelColor)
-        }
+        let (symbol, color): (String, NSColor) =
+            switch (status, conclusion) {
+            case ("completed", "success"?): ("checkmark.circle.fill", .systemGreen)
+            case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
+                ("minus.circle", .tertiaryLabelColor)
+            case ("completed", _): ("xmark.circle.fill", .systemRed)
+            default: ("circle", .tertiaryLabelColor)
+            }
         let v = NSImageView(image: .symbol(symbol, words))
         v.contentTintColor = color
         v.toolTip = words
@@ -75,10 +77,15 @@ final class CIMark: NSView {
         word.font = .ui(11, weight: .semibold)
         word.textColor = .textRed
         for v in [agentLike, word] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v)
-            NSLayoutConstraint.activate([v.centerXAnchor.constraint(equalTo: centerXAnchor), v.centerYAnchor.constraint(equalTo: centerYAnchor)])
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+            NSLayoutConstraint.activate([
+                v.centerXAnchor.constraint(equalTo: centerXAnchor), v.centerYAnchor.constraint(equalTo: centerYAnchor)
+            ])
         }
-        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 12), heightAnchor.constraint(equalToConstant: 12)])
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 12), heightAnchor.constraint(equalToConstant: 12)
+        ])
         update()
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -92,12 +99,13 @@ final class CIMark: NSView {
         isHidden = state == nil
         word.isHidden = state != .failed || !spelled
         needsDisplay = true
-        agentLike.status = switch state {
-        case .running: .working
-        case .waiting: .waiting
-        case .passed: .done
-        case .failed, nil: nil
-        }
+        agentLike.status =
+            switch state {
+            case .running: .working
+            case .waiting: .waiting
+            case .passed: .done
+            case .failed, nil: nil
+            }
     }
 
     /// The failure's dot, 6 pt in the mark's 12: drawn here, so it follows the appearance as text colours do.
@@ -108,5 +116,7 @@ final class CIMark: NSView {
     }
 
     /// An empty image: holds the mark's place in a button's title or image slot.
-    static func room(_ side: CGFloat) -> NSImage { NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in true } }
+    static func room(_ side: CGFloat) -> NSImage {
+        NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in true }
+    }
 }

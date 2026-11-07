@@ -1,13 +1,13 @@
 import AppKit
 import Core
-import Quartz
-import Markdown
-import WorkbenchKit
 import KelpKit
+import Markdown
+import Quartz
+import WorkbenchKit
 
 final class FileNode: NSObject {
     let name: String, path: String   // path relative to worktree root
-    var children: [FileNode]?  // nil = file
+    var children: [FileNode]?   // nil = file
     /// Git ignores it (drawn dimmed, like VS Code's). `unread`: an ignored folder whose files are read when it opens.
     let ignored: Bool
     var unread: Bool
@@ -28,10 +28,17 @@ final class FileNode: NSObject {
             var parent = root, acc = ""
             for (i, part) in parts.enumerated() {
                 acc = acc.isEmpty ? part : acc + "/" + part
-                if let d = dirs[acc] { parent = d; continue }   // an ignored folder with tracked files in it: those show
-                let n = FileNode(name: part, path: acc, dir: dir || i < parts.count - 1, ignored: isIgnored && i == parts.count - 1)
+                if let d = dirs[acc] {
+                    parent = d
+                    continue
+                }   // an ignored folder with tracked files in it: those show
+                let n = FileNode(
+                    name: part, path: acc, dir: dir || i < parts.count - 1, ignored: isIgnored && i == parts.count - 1)
                 parent.children?.append(n)
-                if n.children != nil { dirs[acc] = n; parent = n }
+                if n.children != nil {
+                    dirs[acc] = n
+                    parent = n
+                }
             }
         }
         sort(root)
@@ -42,7 +49,9 @@ final class FileNode: NSObject {
     func read(_ entries: [String]) {
         unread = false
         children = entries.map { e in
-            FileNode(name: (e as NSString).lastPathComponent, path: String(e.dropLast(e.hasSuffix("/") ? 1 : 0)), dir: e.hasSuffix("/"), ignored: true)
+            FileNode(
+                name: (e as NSString).lastPathComponent, path: String(e.dropLast(e.hasSuffix("/") ? 1 : 0)),
+                dir: e.hasSuffix("/"), ignored: true)
         }
         Self.sort(self)
     }
@@ -52,14 +61,17 @@ final class FileNode: NSObject {
         var list = nodes, found: FileNode?
         for part in rel.split(separator: "/") {
             guard let f = list.first(where: { $0.name == part }) else { return nil }
-            found = f; list = f.children ?? []
+            found = f
+            list = f.children ?? []
         }
         return found
     }
 
     // Keys made once per node: lowercasing inside the comparator did it n log n times (100k files in a big repo).
     private static func sort(_ n: FileNode) {
-        n.children = n.children?.map { ($0.children != nil ? 0 : 1, $0.name.lowercased(), $0) }.sorted { ($0.0, $0.1) < ($1.0, $1.1) }.map(\.2)
+        n.children = n.children?.map { ($0.children != nil ? 0 : 1, $0.name.lowercased(), $0) }.sorted {
+            ($0.0, $0.1) < ($1.0, $1.1)
+        }.map(\.2)
         n.children?.forEach(sort)
     }
 }

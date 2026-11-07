@@ -1,8 +1,8 @@
 import AppKit
 import DesignKit
+import KelpKit
 import UniformTypeIdentifiers
 import WorkbenchKit
-import KelpKit
 
 /// Under a code file, like Xcode's and BBEdit's: what kind of file it is, where the cursor is, and the indentation the
 /// file uses (no encoding: Kelp opens UTF-8 only, so naming it would say nothing).
@@ -46,7 +46,9 @@ final class EditorStatusBar: NSView {
             guard let self, let b = Optional(indentButton), let m = indentMenu?() else { return }
             m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
         }
-        let kind = NSTextField(labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription ?? url.pathExtension.uppercased())
+        let kind = NSTextField(
+            labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription
+                ?? url.pathExtension.uppercased())
         for l in [kind, place] {
             l.font = .ui(11)
             l.textColor = .secondaryLabelColor
@@ -63,7 +65,8 @@ final class EditorStatusBar: NSView {
         restricted.padding = Metrics.gap
         restricted.contentTintColor = .textOrange
         restricted.isHidden = true
-        restricted.toolTip = String(localized: "Language servers and formatters don't run in this project until you trust it")
+        restricted.toolTip = String(
+            localized: "Language servers and formatters don't run in this project until you trust it")
         restricted.onClick = { [weak self] in self?.offerTrust() }
         problems.font = .ui(11)
         problems.padding = Metrics.gap
@@ -73,11 +76,14 @@ final class EditorStatusBar: NSView {
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
-        row.setViews([kind, place, problems, problem, NSView(), restricted, wrap, indentButton], in: .leading); row.spacing = 16
+        row.setViews([kind, place, problems, problem, NSView(), restricted, wrap, indentButton], in: .leading)
+        row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        let line = NSBox(); line.boxType = .separator
+        let line = NSBox()
+        line.boxType = .separator
         pin(row)
-        line.translatesAutoresizingMaskIntoConstraints = false; addSubview(line)
+        line.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(line)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.statusBar)),
             line.topAnchor.constraint(equalTo: topAnchor),
@@ -107,15 +113,17 @@ final class EditorStatusBar: NSView {
     }
 
     func show(indent: Indentation) {
-        indentButton.title = switch indent {
-        case .tabs: String(localized: "Tab Indentation")
-        case .spaces(let n): String(localized: "Spaces: \(n)")
-        }
+        indentButton.title =
+            switch indent {
+            case .tabs: String(localized: "Tab Indentation")
+            case .spaces(let n): String(localized: "Spaces: \(n)")
+            }
     }
 
     func show(errors: Int, warnings: Int) {
         problems.isHidden = errors + warnings == 0
-        problems.title = [errors > 0 ? "✕ \(errors)" : nil, warnings > 0 ? "⚠ \(warnings)" : nil].compactMap { $0 }.joined(separator: "  ")
+        problems.title = [errors > 0 ? "✕ \(errors)" : nil, warnings > 0 ? "⚠ \(warnings)" : nil].compactMap { $0 }
+            .joined(separator: "  ")
         problems.contentTintColor = errors > 0 ? .textRed : .textOrange
     }
 

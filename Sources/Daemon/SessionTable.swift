@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// The sessions whose program runs now, by id. Paused and ended ones are only in the store.
 final class SessionTable: Sendable {
@@ -17,7 +17,12 @@ final class SessionTable: Sendable {
         }
     }
     /// No more from now on: what runs, for the daemon to pause as it stops.
-    func close() -> [LiveSession] { table.withLock { $0.closed = true; return Array($0.live.values) } }
+    func close() -> [LiveSession] {
+        table.withLock {
+            $0.closed = true
+            return Array($0.live.values)
+        }
+    }
     /// Out of the table (paused, deleted): what was there.
     func remove(_ id: String) -> LiveSession? { table.withLock { $0.live.removeValue(forKey: id) } }
     /// Out only if `ls` is still the one there and `ok` says so, checked under the same lock.
@@ -25,7 +30,8 @@ final class SessionTable: Sendable {
         table.withLockUnchecked { t in   // `ok` runs here, never later
             let id = ls.snapshot.id
             guard t.live[id] === ls, ok(ls) else { return false }
-            t.live[id] = nil; return true
+            t.live[id] = nil
+            return true
         }
     }
 }

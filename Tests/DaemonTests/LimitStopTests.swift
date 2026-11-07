@@ -1,22 +1,30 @@
-import Foundation
-import Testing
-import Core
 import Agents
-@testable import Daemon
+import Core
+import Foundation
 import TestSupport
+import Testing
+
+@testable import Daemon
 
 private func stopped(_ p: World, _ s: Session) async throws {
-    let said: JSONValue = .obj(["notification_type": "stop_failure", "message": "You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki)"])
+    let said: JSONValue = .obj([
+        "notification_type": "stop_failure",
+        "message": "You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki)"
+    ])
     _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
     _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "done", "notification": said]))
 }
 
 /// A StopFailure that names a plan limit: the record says so, kept in the store, until the agent works again.
 @Test func aLimitStaysOnTheRecordUntilTheAgentWorksAgain() async throws {
-    let p = try await world(); defer { p.d.stop() }
+    let p = try await world()
+    defer { p.d.stop() }
     let w = try await firstWorkspace(p)
-    let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
-    func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
+    let s: Session = try await p.c.call(
+        "session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
+    func record() async throws -> Session? {
+        try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id }
+    }
     try await stopped(p, s)
     #expect(try await waitFor { try await record()?.status == .done })
     #expect(try await record()?.limitHit?.kind == "5-hour")
@@ -34,11 +42,17 @@ private func stopped(_ p: World, _ s: Session) async throws {
 /// Told to go on: "continue" once, at its time, while it still stands where the limit left it; taken back, or gone on by
 /// itself, nothing is typed.
 @Test func continueIsTypedOnceAtItsTime() async throws {
-    let p = try await world(); defer { p.d.stop() }
+    let p = try await world()
+    defer { p.d.stop() }
     let w = try await firstWorkspace(p)
-    let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "cat"]), as: Session.self)
-    func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
-    func printed() async throws -> String { try await p.c.call("session.read", .obj(["id": .string(s.id)])).string ?? "" }
+    let s: Session = try await p.c.call(
+        "session.create", .obj(["worktreeId": .string(w.id), "command": "cat"]), as: Session.self)
+    func record() async throws -> Session? {
+        try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id }
+    }
+    func printed() async throws -> String {
+        try await p.c.call("session.read", .obj(["id": .string(s.id)])).string ?? ""
+    }
     let soon = Date().addingTimeInterval(1)
 
     // Not without a limit: there's nothing to go on from.
@@ -70,8 +84,10 @@ private func stopped(_ p: World, _ s: Session) async throws {
 /// An agent without hooks: the words count by a turn that stopped, not in the middle of one.
 @Test func wordsCountOnlyByATurnThatStopped() throws {
     func state() -> LiveSession.State {
-        LiveSession.State(record: Session(cwd: "/", command: "codex", agent: "codex"), manifest: AgentManifest(id: "codex", name: "Codex", command: "codex"),
-                          logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
+        LiveSession.State(
+            record: Session(cwd: "/", command: "codex", agent: "codex"),
+            manifest: AgentManifest(id: "codex", name: "Codex", command: "codex"),
+            logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
     }
     let words = Data("You've hit your usage limit. Try again at Oct 30, 2026 3:40 PM.".utf8)
     var s = state()
@@ -98,10 +114,14 @@ private func stopped(_ p: World, _ s: Session) async throws {
 
 /// A turn an API error ended didn't finish: the row says Failed and what went wrong, and the next prompt takes that back.
 @Test func aTurnThatFailedSaysSo() async throws {
-    let p = try await world(); defer { p.d.stop() }
+    let p = try await world()
+    defer { p.d.stop() }
     let w = try await firstWorkspace(p)
-    let s: Session = try await p.c.call("session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
-    func record() async throws -> Session? { try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id } }
+    let s: Session = try await p.c.call(
+        "session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
+    func record() async throws -> Session? {
+        try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id }
+    }
     let said: JSONValue = .obj(["notification_type": "stop_failure", "message": "API Error: 529 overloaded"])
     _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
     _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "done", "notification": said]))

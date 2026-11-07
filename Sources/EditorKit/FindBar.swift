@@ -8,21 +8,36 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     private weak var editor: CodeEditor?
     let field = NSSearchField(), replaceField = NSSearchField()
     private let count = NSTextField(labelWithString: "")
-    private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Match (⇧⌘G)"), next: String(localized: "Next Match (⌘G)"),
-                                                      target: self, action: #selector(stepped))
+    private lazy var steps = NSSegmentedControl.steps(
+        previous: String(localized: "Previous Match (⇧⌘G)"), next: String(localized: "Next Match (⌘G)"),
+        target: self, action: #selector(stepped))
     private(set) var options = FindOptions()
     private var scope: NSRange?
     private var found: [NSTextCheckingResult] = []
     private var regex: NSRegularExpression?
     private var index: Int?
-    private lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in self?.flip(\.matchCase) }
-    private lazy var wordToggle = TextToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in self?.flip(\.wholeWord) }
-    private lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in self?.flip(\.regex) }
-    private lazy var scopeToggle = TextToggle("[ ]", tip: String(localized: "In Selection")) { [weak self] in self?.flipScope() }
-    private lazy var caseKept = TextToggle("AB", tip: String(localized: "Preserve Case")) { [weak self] in self?.flip(\.preserveCase) }
-    private lazy var more = IconButton(Self.symbol("chevron.right"), tip: String(localized: "Replace")) { [weak self] in self?.toggleReplace() }
-    private lazy var replaceRow = NSStackView(views: [replaceField, caseKept, button(String(localized: "Replace")) { [weak self] in self?.replaceOne() },
-                                                      button(String(localized: "All")) { [weak self] in self?.replaceAll() }])
+    private lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in
+        self?.flip(\.matchCase)
+    }
+    private lazy var wordToggle = TextToggle("ab", tip: String(localized: "Whole Word")) { [weak self] in
+        self?.flip(\.wholeWord)
+    }
+    private lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in
+        self?.flip(\.regex)
+    }
+    private lazy var scopeToggle = TextToggle("[ ]", tip: String(localized: "In Selection")) { [weak self] in
+        self?.flipScope()
+    }
+    private lazy var caseKept = TextToggle("AB", tip: String(localized: "Preserve Case")) { [weak self] in
+        self?.flip(\.preserveCase)
+    }
+    private lazy var more = IconButton(Self.symbol("chevron.right"), tip: String(localized: "Replace")) { [weak self] in
+        self?.toggleReplace()
+    }
+    private lazy var replaceRow = NSStackView(views: [
+        replaceField, caseKept, button(String(localized: "Replace")) { [weak self] in self?.replaceOne() },
+        button(String(localized: "All")) { [weak self] in self?.replaceAll() }
+    ])
 
     init(editor: CodeEditor) {
         self.editor = editor
@@ -42,7 +57,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         count.textColor = .secondaryLabelColor
         count.setContentHuggingPriority(.required, for: .horizontal)
         let close = IconButton(Self.symbol("xmark"), tip: String(localized: "Close")) { [weak self] in self?.close() }
-        let top = NSStackView(views: [more, field, count, caseToggle, wordToggle, regexToggle, scopeToggle, steps, close])
+        let top = NSStackView(views: [
+            more, field, count, caseToggle, wordToggle, regexToggle, scopeToggle, steps, close
+        ])
         top.spacing = Metrics.gap
         replaceRow.spacing = Metrics.gap
         replaceRow.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.iconButton + Metrics.gap, bottom: 0, right: 0)
@@ -57,12 +74,15 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         addSubview(card)
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: leadingAnchor), card.trailingAnchor.constraint(equalTo: trailingAnchor)
+            card.leadingAnchor.constraint(equalTo: leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
-    private static func symbol(_ name: String) -> NSImage? { NSImage(systemSymbolName: name, accessibilityDescription: nil) }
+    private static func symbol(_ name: String) -> NSImage? {
+        NSImage(systemSymbolName: name, accessibilityDescription: nil)
+    }
 
     private func button(_ title: String, _ action: @escaping () -> Void) -> NSView {
         let b = PointerButton()
@@ -155,7 +175,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
             return
         }
         let more = found.count >= TextSearch.mostMatches ? "+" : ""
-        count.stringValue = found.isEmpty ? String(localized: "No matches") : String(localized: "\((index ?? 0) + 1) of \("\(found.count)\(more)")")
+        count.stringValue =
+            found.isEmpty
+            ? String(localized: "No matches") : String(localized: "\((index ?? 0) + 1) of \("\(found.count)\(more)")")
         steps.isEnabled = !found.isEmpty
     }
 
@@ -171,7 +193,10 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     func step(forward: Bool) {
-        guard !found.isEmpty else { NSSound.beep(); return }
+        guard !found.isEmpty else {
+            NSSound.beep()
+            return
+        }
         show(((index ?? -1) + (forward ? 1 : found.count - 1)) % found.count)
     }
 
@@ -197,7 +222,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     private func replaceAll() {
         guard let tv = editor?.textView, let regex, !found.isEmpty else { return }
         let s = tv.string as NSString, template = replaceField.stringValue
-        tv.replace(found.map(\.range), with: found.map { TextSearch.replacement($0, regex, in: s, template: template, options) }, keep: true)
+        tv.replace(
+            found.map(\.range),
+            with: found.map { TextSearch.replacement($0, regex, in: s, template: template, options) }, keep: true)
         search(moving: false)
     }
 
@@ -209,7 +236,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     override func performKeyEquivalent(with e: NSEvent) -> Bool {
         let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard e.keyCode == 5, mods.subtracting(.shift) == .command, !isHidden,
-              (window?.firstResponder as? NSView)?.isDescendant(of: self) == true else { return super.performKeyEquivalent(with: e) }
+            (window?.firstResponder as? NSView)?.isDescendant(of: self) == true
+        else { return super.performKeyEquivalent(with: e) }
         step(forward: !mods.contains(.shift))
         return true
     }
@@ -232,7 +260,13 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
         guard sel == #selector(NSResponder.insertNewline(_:)) else { return false }
         let mods = NSApp.currentEvent?.modifierFlags ?? []
-        if c === replaceField { replaceOne() } else if mods.contains(.option) { selectAllMatches() } else { step(forward: !mods.contains(.shift)) }
+        if c === replaceField {
+            replaceOne()
+        } else if mods.contains(.option) {
+            selectAllMatches()
+        } else {
+            step(forward: !mods.contains(.shift))
+        }
         return true
     }
 }
@@ -240,7 +274,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
 extension CodeEditor {
     /// ⌘F, ⌘G, ⇧⌘G and ⌘E.
     func find(_ action: NSFindPanelAction) {
-        let selected = textView.selectedRange().length > 0 ? (textView.string as NSString).substring(with: textView.selectedRange()) : nil
+        let selected =
+            textView.selectedRange().length > 0
+            ? (textView.string as NSString).substring(with: textView.selectedRange()) : nil
         let oneLine = selected?.contains("\n") == true ? nil : selected
         switch action {
         case .next, .previous:
@@ -254,18 +290,20 @@ extension CodeEditor {
     }
 
     func openFind(with text: String?) {
-        let bar = findBar ?? {
-            let b = FindBar(editor: self)
-            b.translatesAutoresizingMaskIntoConstraints = false
-            // Beside the scroll view, not in it: its clip view would draw over the bar.
-            (scroll.superview ?? scroll).addSubview(b, positioned: .above, relativeTo: scroll)
-            NSLayoutConstraint.activate([
-                b.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gap),
-                b.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.inset)
-            ])
-            findBar = b
-            return b
-        }()
+        let bar =
+            findBar
+            ?? {
+                let b = FindBar(editor: self)
+                b.translatesAutoresizingMaskIntoConstraints = false
+                // Beside the scroll view, not in it: its clip view would draw over the bar.
+                (scroll.superview ?? scroll).addSubview(b, positioned: .above, relativeTo: scroll)
+                NSLayoutConstraint.activate([
+                    b.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gap),
+                    b.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.inset)
+                ])
+                findBar = b
+                return b
+            }()
         bar.begin(with: text)
     }
 }
@@ -274,7 +312,8 @@ extension EditorTextView {
     /// Every match in what's drawn; the one the bar is on stands out.
     func drawFindMarks(in rect: NSRect) {
         guard !findMarks.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
-        let shown = lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
+        let shown = lm.characterRange(
+            forGlyphRange: lm.glyphRange(forBoundingRect: rect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
         var lo = 0, hi = findMarks.count
         while lo < hi {
             let mid = (lo + hi) / 2
@@ -285,8 +324,10 @@ extension EditorTextView {
             if m.location > NSMaxRange(shown) { break }
             if folds.intersects(m) { continue }
             NSColor.findHighlightColor.withAlphaComponent(m == findCurrent ? 0.7 : 0.3).setFill()
-            lm.enumerateEnclosingRects(forGlyphRange: lm.glyphRange(forCharacterRange: m, actualCharacterRange: nil),
-                                       withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc) { r, _ in
+            lm.enumerateEnclosingRects(
+                forGlyphRange: lm.glyphRange(forCharacterRange: m, actualCharacterRange: nil),
+                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
+            ) { r, _ in
                 r.offsetBy(dx: origin.x, dy: origin.y).fill()
             }
         }

@@ -1,7 +1,8 @@
 import Foundation
-import Testing
-@testable import Core
 import TestSupport
+import Testing
+
+@testable import Core
 
 private let env = ProcessInfo.processInfo.environment
 
@@ -19,7 +20,8 @@ private let env = ProcessInfo.processInfo.environment
     let start = Date()
     let r = try Subprocess.run(["/bin/bash", "-c", script], cwd: "/tmp", env: env, timeLimit: 0.5)
     #expect(r.timedOut && Date().timeIntervalSince(start) < 20)   // 0.5 s, then TERM, then KILL: far less than 20 even on a busy runner
-    let child = try #require(pid_t((try String(contentsOfFile: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
+    let child = try #require(
+        pid_t((try String(contentsOfFile: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
     defer { kill(child, SIGKILL) }
     let deadline = Date().addingTimeInterval(20)   // a busy runner takes its time
     while kill(child, 0) == 0, Date() < deadline { usleep(50_000) }
@@ -30,8 +32,11 @@ private let env = ProcessInfo.processInfo.environment
 @Test func aSubprocessDoesntWaitForAChildHoldingItsPipes() throws {
     let pidFile = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
     let start = Date()
-    let r = try Subprocess.run(["/bin/bash", "-c", "echo hi; sleep 30 & echo $! > \(pidFile)"], cwd: "/tmp", env: env, timeLimit: 30)
-    if let child = (try? String(contentsOfFile: pidFile, encoding: .utf8)).flatMap({ pid_t($0.trimmingCharacters(in: .whitespacesAndNewlines)) }) {
+    let r = try Subprocess.run(
+        ["/bin/bash", "-c", "echo hi; sleep 30 & echo $! > \(pidFile)"], cwd: "/tmp", env: env, timeLimit: 30)
+    if let child = (try? String(contentsOfFile: pidFile, encoding: .utf8)).flatMap({
+        pid_t($0.trimmingCharacters(in: .whitespacesAndNewlines))
+    }) {
         kill(child, SIGKILL)
     }
     #expect(r.status == 0 && String(decoding: r.stdout, as: UTF8.self) == "hi\n")
@@ -43,7 +48,8 @@ private let env = ProcessInfo.processInfo.environment
 @Test func aSubprocessLetsGoOfPipesAChildStillHolds() throws {
     let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
     defer { try? FileManager.default.removeItem(atPath: mark) }
-    let r = try Subprocess.run(["/bin/bash", "-c", "echo hi; (sleep 3; echo late && touch \(mark)) &"], cwd: "/tmp", env: env, timeLimit: 30)
+    let r = try Subprocess.run(
+        ["/bin/bash", "-c", "echo hi; (sleep 3; echo late && touch \(mark)) &"], cwd: "/tmp", env: env, timeLimit: 30)
     #expect(String(decoding: r.stdout, as: UTF8.self) == "hi\n")   // back after the pipes' 2 s, before the child writes
     Thread.sleep(forTimeInterval: 2.5)   // past the child's write at 3 s: it failed (nobody reads), so no mark
     #expect(!FileManager.default.fileExists(atPath: mark))
@@ -62,10 +68,13 @@ private let env = ProcessInfo.processInfo.environment
 /// Past its limit a stream is still read, so the program runs to its end (its status is its own), but only the first
 /// `limit` bytes are kept, and the output says it's cut.
 @Test func aSubprocessKeepsItsLimitAndRunsToTheEnd() throws {
-    let r = try Subprocess.run(["/bin/sh", "-c", "head -c 3000000 /dev/zero; echo done >&2; exit 3"], cwd: "/tmp", env: env, timeLimit: 30, limit: 1 << 20)
+    let r = try Subprocess.run(
+        ["/bin/sh", "-c", "head -c 3000000 /dev/zero; echo done >&2; exit 3"], cwd: "/tmp", env: env, timeLimit: 30,
+        limit: 1 << 20)
     #expect(r.status == 3 && !r.timedOut && r.truncated)
     #expect(r.stdout.count == 1 << 20 && String(decoding: r.stderr, as: UTF8.self) == "done\n")
-    let whole = try Subprocess.run(["/bin/sh", "-c", "head -c 1048576 /dev/zero"], cwd: "/tmp", env: env, timeLimit: 30, limit: 1 << 20)
+    let whole = try Subprocess.run(
+        ["/bin/sh", "-c", "head -c 1048576 /dev/zero"], cwd: "/tmp", env: env, timeLimit: 30, limit: 1 << 20)
     #expect(whole.stdout.count == 1 << 20 && !whole.truncated)   // exactly the limit is all of it
 }
 
@@ -73,7 +82,8 @@ private let env = ProcessInfo.processInfo.environment
 /// process, never to one given its pid since.
 @Test func aProcessIsKnownByItsStartTime() throws {
     let p = Process()
-    p.executableURL = URL(fileURLWithPath: "/bin/sleep"); p.arguments = ["30"]
+    p.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    p.arguments = ["30"]
     try p.run()
     let pid = p.processIdentifier
     let t = try #require(Subprocess.started(pid))

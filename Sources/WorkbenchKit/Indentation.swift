@@ -18,7 +18,10 @@ public enum Indentation: Equatable, Sendable {
             i = end < b.endIndex ? b.index(after: end) : end
             guard !line.isEmpty else { continue }
             lines += 1
-            if line.first == 9 { tabs += 1; continue }
+            if line.first == 9 {
+                tabs += 1
+                continue
+            }
             let n = line.prefix { $0 == 32 }.count
             guard n < line.count else { continue }   // only spaces: says nothing
             if n > 0 { indented += 1 }
@@ -38,7 +41,9 @@ public enum Indentation: Equatable, Sendable {
             let columns = lead.reduce(0) { $1 == "\t" ? $0 + tabSize - $0 % tabSize : $0 + 1 }
             let indent: String
             switch self {
-            case .tabs: indent = String(repeating: "\t", count: columns / tabSize) + String(repeating: " ", count: columns % tabSize)
+            case .tabs:
+                indent =
+                    String(repeating: "\t", count: columns / tabSize) + String(repeating: " ", count: columns % tabSize)
             case .spaces: indent = String(repeating: " ", count: columns)
             }
             return indent + line.dropFirst(lead.count)
@@ -47,13 +52,16 @@ public enum Indentation: Equatable, Sendable {
 
     /// What Save tidies: spaces and tabs at line ends, and a last line without a newline.
     public static func cleaned(_ text: String, trim: Bool, finalNewline: Bool) -> String {
-        var out = !trim ? text : text.components(separatedBy: "\n").map { line -> String in
-            var l = Substring(line)
-            let cr = l.last == "\r"
-            if cr { l = l.dropLast() }
-            while l.last == " " || l.last == "\t" { l = l.dropLast() }
-            return cr ? l + "\r" : String(l)
-        }.joined(separator: "\n")
+        var out =
+            !trim
+            ? text
+            : text.components(separatedBy: "\n").map { line -> String in
+                var l = Substring(line)
+                let cr = l.last == "\r"
+                if cr { l = l.dropLast() }
+                while l.last == " " || l.last == "\t" { l = l.dropLast() }
+                return cr ? l + "\r" : String(l)
+            }.joined(separator: "\n")
         if finalNewline, !out.isEmpty, !out.hasSuffix("\n") { out += "\n" }
         return out
     }

@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import Testing
+
 @testable import KelpVM
 
 /// A new size waits for a machine that's down: not one running, nor one whose boot is being tried again (no VM for a
@@ -48,10 +49,14 @@ import Testing
         let (mine, theirs) = (fds[0], fds[1])
         let got = await withCheckedContinuation { (c: CheckedContinuation<VMHelper.Request?, Never>) in
             Control.read(theirs) { c.resume(returning: $0) }
-            for part in chunks { _ = part.withCString { Darwin.write(mine, $0, strlen($0)) }; usleep(20_000) }
+            for part in chunks {
+                _ = part.withCString { Darwin.write(mine, $0, strlen($0)) }
+                usleep(20_000)
+            }
             shutdown(mine, SHUT_WR)
         }
-        close(mine); close(theirs)
+        close(mine)
+        close(theirs)
         return got
     }
     #expect(await read(["{\"op\":", "\"sleep\"}\n{\"op\":\"stop\"}\n"])?.op == .sleep)

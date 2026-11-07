@@ -1,7 +1,8 @@
-import Foundation
-import Testing
 import Core
+import Foundation
 import Markdown
+import Testing
+
 @testable import BuiltinFiles
 
 /// A review's page: each option a button that says which point and letter it is, the picked one marked, Send off
@@ -26,7 +27,9 @@ import Markdown
     #expect(body.contains(#"class="k-opt on" aria-pressed="true" data-p="1" data-k="A""#))
     #expect(body.contains(#"data-p="2" data-k="B""#) && body.contains("<code>init(from:)</code>"))
     #expect(body.contains(#"value="CI has no &quot;real&quot; database""#) && !body.contains("<script>"))
-    #expect(body.contains(#"<span class="k-sum">1A</span><button type="button" class="k-send">Send to GRDB 7 plan</button>"#))
+    #expect(
+        body.contains(
+            #"<span class="k-sum">1A</span><button type="button" class="k-send">Send to GRDB 7 plan</button>"#))
     #expect(ReviewPage.body(Review("# T\n\n## 1. Q\n- [ ] A. a\n"), sendTo: nil).contains("class=\"k-send\" disabled"))
 
     if let dir = ProcessInfo.processInfo.environment["KELP_REVIEW_HTML"] {

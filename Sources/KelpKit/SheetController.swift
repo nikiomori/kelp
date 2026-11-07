@@ -6,7 +6,10 @@ class SheetController: NSWindowController {
     let app: AppModel
     init(app: AppModel, width: CGFloat) {
         self.app = app
-        super.init(window: NSPanel(contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered, defer: true))
+        super.init(
+            window: NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered,
+                defer: true))
     }
     required init?(coder: NSCoder) { fatalError() }
 

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import KelpKit
 
 /// The workspace on screen's git, watched for as long as it's on screen (the daemon pushes it when its files change):
@@ -13,7 +13,12 @@ final class ChangedFiles {
     var count: Int { app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes?.count ?? 0 }
 
     init(app: AppModel) {
-        self.app = app; watched = Watched(.git, in: app)
-        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.watched.key = $0 }
+        self.app = app
+        watched = Watched(.git, in: app)
+        track(owner: self) { [app] in
+            app.workbench.workspaceId
+        } changed: { [weak self] in
+            self?.watched.key = $0
+        }
     }
 }

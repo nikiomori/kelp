@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// What kelp-vm decides about its machine from where the machine is, apart from Virtualization so it can be tested
 /// (KelpVMTests): the runtimes ask these.
@@ -55,7 +55,10 @@ extension Control {
     @MainActor
     static func listen(_ path: String, _ accepted: @escaping @MainActor (Int32) -> Void) -> any DispatchSourceRead {
         let fd: Int32
-        do { fd = try Unix.listen(path) } catch { log("can't listen on \(path): \(error)"); exit(1) }
+        do { fd = try Unix.listen(path) } catch {
+            log("can't listen on \(path): \(error)")
+            exit(1)
+        }
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
         src.setEventHandler {
             let c = accept(fd, nil, nil)
@@ -70,7 +73,9 @@ extension Control {
     /// `tick` every 5 s, and `leave` on SIGTERM or SIGINT (an install, a logout), both on the main actor; the signal
     /// sources are the caller's to keep.
     @MainActor
-    static func run(tick: @escaping @MainActor () -> Void, leave: @escaping @MainActor () -> Void) -> [any DispatchSourceSignal] {
+    static func run(tick: @escaping @MainActor () -> Void, leave: @escaping @MainActor () -> Void)
+        -> [any DispatchSourceSignal]
+    {
         let timer = Timer(timeInterval: 5, repeats: true) { _ in MainActor.assumeIsolated { tick() } }   // main run loop
         RunLoop.main.add(timer, forMode: .common)
         return [SIGTERM, SIGINT].map { sig in

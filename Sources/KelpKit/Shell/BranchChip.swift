@@ -21,7 +21,8 @@ package final class BranchChip: PointerButton {
 
     override package func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        guard let row = superview as? NSStackView, row.superview is Bar, (row.arrangedSubviews.first ?? self) === self else { return }
+        guard let row = superview as? NSStackView, row.superview is Bar, (row.arrangedSubviews.first ?? self) === self
+        else { return }
         // Measured with a name: the branch comes later, and with no title the cell puts the glyph elsewhere.
         var glyph: CGFloat = 0
         if let c = cell?.copy() as? NSButtonCell {

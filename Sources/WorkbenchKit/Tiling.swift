@@ -16,7 +16,9 @@ extension WorkspaceLayout {
         }
         var cells = picked.map { cell([$0], showing: $0) }
         if !rest.isEmpty {
-            let shown = rest.first { $0.id == was } ?? rest.first { t in groups.values.contains { $0.selectedTab == t } } ?? rest[0]
+            let shown =
+                rest.first { $0.id == was } ?? rest.first { t in groups.values.contains { $0.selectedTab == t } }
+                ?? rest[0]
             cells.append(cell(rest, showing: shown))
         }
         let rows = (cells.count + 2) / 3

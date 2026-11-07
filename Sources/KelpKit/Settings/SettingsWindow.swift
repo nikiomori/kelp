@@ -1,8 +1,8 @@
-import AppKit
-import SwiftUI
-import Core
 import Agents
+import AppKit
+import Core
 import DesignKit
+import SwiftUI
 import WorkbenchKit
 
 /// Settings: every section comes from an extension's settings schema (plus custom views), searchable, like VS Code.
@@ -17,8 +17,10 @@ enum SettingsWindow {
         let fresh = window == nil
         if fresh {
             language = app.settings.string("workbench.language")
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 600), styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
-                             backing: .buffered, defer: false)
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
+                styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+                backing: .buffered, defer: false)
             w.title = String(localized: "Settings")
             w.isReleasedWhenClosed = false
             w.animationBehavior = .documentWindow   // the system's own open and close
@@ -28,7 +30,8 @@ enum SettingsWindow {
             host.sizingOptions = [.minSize]
             w.contentViewController = host
             w.setContentSize(NSSize(width: 860, height: 600))
-            w.setFrameAutosaveName("settings"); if w.frame.origin == .zero { w.center() }
+            w.setFrameAutosaveName("settings")
+            if w.frame.origin == .zero { w.center() }
             window = w
         }
         window?.makeKeyAndOrderFront(nil)
@@ -49,30 +52,43 @@ struct SettingsView: View {
             List(selection: Binding(get: { query.isEmpty ? current : nil }, set: { if let s = $0 { open(s) } })) {
                 Section {
                     ForEach(sections) { s in
-                        Label { Text(loc(s.title)) } icon: { SettingsIcon(symbol: s.icon, id: s.id) }.tag(Optional(s.id))
+                        Label {
+                            Text(loc(s.title))
+                        } icon: {
+                            SettingsIcon(symbol: s.icon, id: s.id)
+                        }.tag(Optional(s.id))
                     }
                 }
                 Section {
-                    Label { Text("Extensions") } icon: { SettingsIcon(symbol: "puzzlepiece.extension", id: "extensions") }.tag(Optional("extensions"))
+                    Label {
+                        Text("Extensions")
+                    } icon: {
+                        SettingsIcon(symbol: "puzzlepiece.extension", id: "extensions")
+                    }.tag(Optional("extensions"))
                 }
             }
             .toolbar(removing: .sidebarToggle)   // a settings window keeps its sections in view (HIG › Settings)
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
             Group {
-                if !query.isEmpty { SearchResults(query: query, open: open) }
-                else if current == "extensions" { ExtensionsSettings() }
-                else if let s = registry.all.settings.first(where: { $0.id == current }) {
+                if !query.isEmpty {
+                    SearchResults(query: query, open: open)
+                } else if current == "extensions" {
+                    ExtensionsSettings()
+                } else if let s = registry.all.settings.first(where: { $0.id == current }) {
                     if s.fillsPane { s.custom?() } else { SectionForm(section: s) }
+                } else {
+                    ContentUnavailableView("Pick a section", systemImage: "gearshape")
                 }
-                else { ContentUnavailableView("Pick a section", systemImage: "gearshape") }
             }
             .navigationTitle(title)
             .toolbar {
-                Button { app.workbench.showFile(Paths.root.appendingPathComponent("settings.json")) } label: {
+                Button {
+                    app.workbench.showFile(Paths.root.appendingPathComponent("settings.json"))
+                } label: {
                     Label("Open settings.json", systemImage: "curlybraces")
                 }
-                    .help("Edit settings.json in the editor")
+                .help("Edit settings.json in the editor")
             }
         }
         .searchable(text: $query, placement: .sidebar, prompt: "Search settings")
@@ -82,15 +98,21 @@ struct SettingsView: View {
     private var sections: [SettingsSection] { registry.all.settings.sorted { $0.order < $1.order } }
     /// The section remembered, or the first when it's gone (its extension turned off, an old name): never a blank pane.
     private var current: String {
-        selection == "extensions" || sections.contains { $0.id == selection } ? selection : sections.first?.id ?? selection
+        selection == "extensions" || sections.contains { $0.id == selection }
+            ? selection : sections.first?.id ?? selection
     }
 
     private var title: String {
         if !query.isEmpty { return String(localized: "Search") }
-        return loc(registry.all.settings.first { $0.id == current }?.title ?? (current == "extensions" ? "Extensions" : "Settings"))
+        return loc(
+            registry.all.settings.first { $0.id == current }?.title
+                ?? (current == "extensions" ? "Extensions" : "Settings"))
     }
 
-    private func open(_ section: String) { selection = section; query = "" }
+    private func open(_ section: String) {
+        selection = section
+        query = ""
+    }
 }
 
 /// A section's symbol on a coloured tile, as System Settings shows its panes: the one place colour tells things apart without
@@ -100,12 +122,15 @@ private struct SettingsIcon: View {
     var body: some View {
         Image(systemName: symbol).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
-            .background(Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
+            .background(
+                Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
     /// Grey is General's alone. Terminal is a terminal's near-black, lifted in dark mode, where dark grey sank into the sidebar.
-    static let tint: [String: Color] = ["general": .gray, "appearance": .blue, "agents": .purple, "catalog": .mint, "notifications": .pink,
-                                        "terminal": Color(nsColor: .dynamic(light: .darkGray, dark: NSColor(white: 0.42, alpha: 1))),
-                                        "editor": .teal, "git": .orange, "integrations": .green, "keyboard": .indigo, "extensions": .brown]
+    static let tint: [String: Color] = [
+        "general": .gray, "appearance": .blue, "agents": .purple, "catalog": .mint, "notifications": .pink,
+        "terminal": Color(nsColor: .dynamic(light: .darkGray, dark: NSColor(white: 0.42, alpha: 1))),
+        "editor": .teal, "git": .orange, "integrations": .green, "keyboard": .indigo, "extensions": .brown
+    ]
 }
 
 private struct SectionForm: View {
@@ -123,13 +148,21 @@ private struct SectionForm: View {
             Form {
                 if section.id == "editor" { LanguagePicker(language: $language) }
                 ForEach(groups.indices, id: \.self) { i in
-                    let rows = groups[i].1.filter { (language.isEmpty || SettingRow.perLanguage.contains($0.key)) && store.meets($0.requires) }
+                    let rows = groups[i].1.filter {
+                        (language.isEmpty || SettingRow.perLanguage.contains($0.key)) && store.meets($0.requires)
+                    }
                     if rows.isEmpty {
                         EmptyView()
                     } else if let title = groups[i].0 {
-                        Section(loc(title)) { SettingPreview(section: section.id, group: title); ForEach(rows) { row($0) } }.id(title)
+                        Section(loc(title)) {
+                            SettingPreview(section: section.id, group: title)
+                            ForEach(rows) { row($0) }
+                        }.id(title)
                     } else {
-                        Section { SettingPreview(section: section.id, group: nil); ForEach(rows) { row($0) } }
+                        Section {
+                            SettingPreview(section: section.id, group: nil)
+                            ForEach(rows) { row($0) }
+                        }
                     }
                 }
                 section.custom?()
@@ -167,7 +200,10 @@ private struct SearchResults: View {
                     ForEach(f.screens, id: \.self) { word in
                         // The word goes along: the Agent Catalog opens on the agent it names (it has no search of its own).
                         LabeledContent(word) {
-                            Button("Open") { UserDefaults.standard.set(word, forKey: "settings.group"); open(f.section.id) }
+                            Button("Open") {
+                                UserDefaults.standard.set(word, forKey: "settings.group")
+                                open(f.section.id)
+                            }
                         }
                     }
                 }
@@ -178,8 +214,9 @@ private struct SearchResults: View {
     }
 
     /// The window's own page, not a section an extension gave.
-    private static let extensions = SettingsSection(id: "extensions", title: "Extensions", icon: "puzzlepiece.extension", specs: [],
-                                                    keywords: ["Extensions", "Library"])
+    private static let extensions = SettingsSection(
+        id: "extensions", title: "Extensions", icon: "puzzlepiece.extension", specs: [],
+        keywords: ["Extensions", "Library"])
 }
 
 /// One row, typed by its spec; reads and writes settings.json through the daemon. The description is the control's own
@@ -207,8 +244,12 @@ struct SettingRow: View {
         control
             .help(spec.key)
             .contextMenu {
-                Button(language == nil ? "Reset to Default" : "Use the Value for All Files") { put(nil) }.disabled(!changed)
-                Button("Copy Key") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(spec.key, forType: .string) }
+                Button(language == nil ? "Reset to Default" : "Use the Value for All Files") { put(nil) }.disabled(
+                    !changed)
+                Button("Copy Key") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(spec.key, forType: .string)
+                }
                 if let reveal { Button("Show in Section", action: reveal) }
             }
     }
@@ -222,7 +263,10 @@ struct SettingRow: View {
         HStack(spacing: Metrics.gap) {
             Text(loc(spec.title))
             if let h = spec.help { HelpMark(text: loc(h)) }
-            if changed { Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel("Changed") }
+            if changed {
+                Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel(
+                    "Changed")
+            }
         }
     }
 
@@ -239,7 +283,9 @@ struct SettingRow: View {
                 ForEach(shown, id: \.self) { v in
                     Text(Self.label(spec.key, v == v.rounded() ? String(Int(v)) : String(v), app)).tag(v)
                 }
-            } label: { label }
+            } label: {
+                label
+            }
         case "number":
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
             let value = Binding<Double>(get: { number() ?? 0 }, set: { put(number: spec.clamped($0)) })
@@ -247,10 +293,16 @@ struct SettingRow: View {
             LabeledContent {
                 // The stepper keeps it in bounds; what they are is the field's help, as macOS panels say it.
                 HStack(spacing: Metrics.gap) {
-                    TextField("", value: value, format: .number).textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 56)
-                    Stepper("", value: value, in: spec.bounds ?? -.greatestFiniteMagnitude ... .greatestFiniteMagnitude).labelsHidden()
+                    TextField("", value: value, format: .number).textFieldStyle(.roundedBorder).multilineTextAlignment(
+                        .trailing
+                    ).frame(width: 56)
+                    Stepper("", value: value, in: spec.bounds ?? -.greatestFiniteMagnitude ... .greatestFiniteMagnitude)
+                        .labelsHidden()
                 }
-                .help(spec.bounds.map { String(localized: "From \(Int($0.lowerBound)) to \(Int($0.upperBound))") } ?? spec.key)
+                .help(
+                    spec.bounds.map { String(localized: "From \(Int($0.lowerBound)) to \(Int($0.upperBound))") }
+                        ?? spec.key
+                )
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
@@ -259,45 +311,68 @@ struct SettingRow: View {
         case "enum" where SettingPictures.keys.contains(spec.key):
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
                 TileHeading(title: { title }, about: spec.description.map(loc))
-                PictureGrid(key: spec.key, options: Self.shown(Self.options(spec, app), string() ?? ""),
-                            selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }), label: { Self.label(spec.key, $0, app) })
+                PictureGrid(
+                    key: spec.key, options: Self.shown(Self.options(spec, app), string() ?? ""),
+                    selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }),
+                    label: { Self.label(spec.key, $0, app) })
             }
             .padding(.vertical, Metrics.lineGap)
         case "enum" where Self.segmented.contains(spec.key):
             // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
             let options = Self.shown(Self.options(spec, app), string() ?? "")
             LabeledContent {
-                Segments(labels: options.map { Self.label(spec.key, $0, app) },
-                         selection: Binding(get: { options.firstIndex(of: string() ?? "") ?? -1 },
-                                            set: { if options.indices.contains($0) { put(.string(options[$0])) } }))
-            } label: { label }
+                Segments(
+                    labels: options.map { Self.label(spec.key, $0, app) },
+                    selection: Binding(
+                        get: { options.firstIndex(of: string() ?? "") ?? -1 },
+                        set: { if options.indices.contains($0) { put(.string(options[$0])) } }))
+            } label: {
+                label
+            }
         case "enum":
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
-                ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) { Text(Self.label(spec.key, $0, app)).tag($0) }
-            } label: { label }
+                ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) {
+                    Text(Self.label(spec.key, $0, app)).tag($0)
+                }
+            } label: {
+                label
+            }
         case "panels":
             InspectorPanelsRow(title: AnyView(title), about: spec.description.map(loc))
         case "theme":
-            ThemeGallery(selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
-                         heading: AnyView(TileHeading(title: { title }, about: spec.description.map(loc))))
+            ThemeGallery(
+                selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
+                heading: AnyView(TileHeading(title: { title }, about: spec.description.map(loc))))
         case "color":
-            ColorPicker(selection: Binding(get: { Color(hex: string() ?? "") ?? .accentColor },
-                                           set: { put(.string($0.hex)) })) { label }
+            ColorPicker(
+                selection: Binding(
+                    get: { Color(hex: string() ?? "") ?? .accentColor },
+                    set: { put(.string($0.hex)) })
+            ) { label }
         case "font":
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 Text("Default").tag("")
                 ForEach(Self.shown(Self.monospaced, string() ?? ""), id: \.self) { Text($0).tag($0) }
-            } label: { label }
+            } label: {
+                label
+            }
         default:
-            LabeledContent { SettingTextField(key: spec.key, language: language, placeholder: spec.placeholder.map(loc)).frame(width: 220) } label: { label }
+            LabeledContent {
+                SettingTextField(key: spec.key, language: language, placeholder: spec.placeholder.map(loc)).frame(
+                    width: 220)
+            } label: {
+                label
+            }
         }
     }
 
     /// Two or three short choices seen side by side, as macOS shows them, instead of behind a menu.
-    static let segmented: Set<String> = ["agents.onWaiting", "agents.onFinish", "agents.onError", "power.keepAwake", "usage.limits",
-                                         "workbench.sidebar.order", "markdown.defaultMode", "workbench.inspectorIcons",
-                                         "workbench.inspectorIconsPosition"]
+    static let segmented: Set<String> = [
+        "agents.onWaiting", "agents.onFinish", "agents.onError", "power.keepAwake", "usage.limits",
+        "workbench.sidebar.order", "markdown.defaultMode", "workbench.inspectorIcons",
+        "workbench.inspectorIconsPosition"
+    ]
 
     /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
     /// installed), which would otherwise leave the picker blank.
@@ -320,23 +395,43 @@ struct SettingRow: View {
         switch key {
         case "agents.default": return app.catalog.name(v)
         case "workbench.theme":
-            return v == "auto" ? String(localized: "Match System") : v == "ghostty" ? String(localized: "Ghostty config")
-                : app.themes.themes.first { $0.id == v }?.name ?? v
+            return v == "auto"
+                ? String(localized: "Match System")
+                : v == "ghostty"
+                    ? String(localized: "Ghostty config")
+                    : app.themes.themes.first { $0.id == v }?.name ?? v
         case "workbench.iconTheme": return app.fileIcons.themes.first { $0.id == v }?.label ?? v
         case "agents.dockStrip.comesFor":
-            return ["questions": String(localized: "Questions"), "failures": String(localized: "Questions and Failures"),
-                    "all": String(localized: "Anything New")][v] ?? v
+            return [
+                "questions": String(localized: "Questions"), "failures": String(localized: "Questions and Failures"),
+                "all": String(localized: "Anything New")
+            ][v] ?? v
         case "agents.dockStrip":
-            return ["needed": String(localized: "When Needed"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
+            return [
+                "needed": String(localized: "When Needed"), "always": String(localized: "Always"),
+                "off": String(localized: "Never")
+            ][v] ?? v
         case "agents.dockIcon":
-            return ["agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"), "icon": String(localized: "App Icon")][v] ?? v
+            return [
+                "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
+                "icon": String(localized: "App Icon")
+            ][v] ?? v
         case "terminal.opacity": return v == "theme" ? String(localized: "From Theme") : "\(v)%"
         case "artifacts.where":
-            return ["agent": String(localized: "Agent’s Own When It Has One"), "local": String(localized: "Always on This Mac")][v] ?? v
+            return [
+                "agent": String(localized: "Agent’s Own When It Has One"),
+                "local": String(localized: "Always on This Mac")
+            ][v] ?? v
         case "agents.skills.browser":
-            return ["auto": String(localized: "In Web Projects"), "on": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
+            return [
+                "auto": String(localized: "In Web Projects"), "on": String(localized: "Always"),
+                "off": String(localized: "Never")
+            ][v] ?? v
         case "power.keepAwake":
-            return ["agents": String(localized: "While Agents Work"), "always": String(localized: "Always"), "off": String(localized: "Never")][v] ?? v
+            return [
+                "agents": String(localized: "While Agents Work"), "always": String(localized: "Always"),
+                "off": String(localized: "Never")
+            ][v] ?? v
         // Each language in its own words, so it can be found whichever language Kelp is in.
         case "workbench.language": return ["en": "English", "ru": "Русский"][v] ?? String(localized: "Match System")
         case "workbench.sidebar.rowHeight" where v == "system": return String(localized: "Match System")
@@ -345,11 +440,16 @@ struct SettingRow: View {
         case "workbench.sidebar.projectColor":
             return v == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
         case "workbench.sidebar.serverLook":
-            let said = ["stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
-                        "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")]
+            let said = [
+                "stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
+                "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")
+            ]
             return said[v] ?? v
         case "workbench.ci.branchChip":
-            let said = ["icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"), "off": String(localized: "Off")]
+            let said = [
+                "icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"),
+                "off": String(localized: "Off")
+            ]
             return said[v] ?? v
         case "workbench.inspectorIconsPosition":
             return v == "bottom" ? String(localized: "Under the Panel") : String(localized: "Beside the Tabs")
@@ -358,13 +458,21 @@ struct SettingRow: View {
         case "workbench.sidebar.order":
             return v == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
         case "agents.onFinish", "agents.onWaiting", "agents.onError":
-            return ["sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"), "off": String(localized: "Off")][v] ?? v
+            return [
+                "sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"),
+                "off": String(localized: "Off")
+            ][v] ?? v
         case "agents.quietUnder": return v == "0" ? String(localized: "Off") : String(localized: "\(v) Seconds")
         case "sessions.hibernateMinutes":
             let m = Int(v) ?? -1
-            return m == 0 ? String(localized: "Never") : m == 60 ? String(localized: "After 1 Hour")
-                : m > 0 && m % 60 == 0 ? String(localized: "After \(m / 60) Hours") : String(localized: "After \(v) Minutes")
-        case "agents.remindAfter": return v == "off" ? String(localized: "Off") : String(localized: "After \(v) Minutes")
+            return m == 0
+                ? String(localized: "Never")
+                : m == 60
+                    ? String(localized: "After 1 Hour")
+                    : m > 0 && m % 60 == 0
+                        ? String(localized: "After \(m / 60) Hours") : String(localized: "After \(v) Minutes")
+        case "agents.remindAfter":
+            return v == "off" ? String(localized: "Off") : String(localized: "After \(v) Minutes")
         default: return loc(v.prefix(1).uppercased() + v.dropFirst())
         }
     }
@@ -379,13 +487,18 @@ struct HelpMark: View {
     let text: String
     @State private var shown = false
     var body: some View {
-        Button { shown.toggle() } label: { Image(systemName: "info.circle").foregroundStyle(.secondary) }
-            .buttonStyle(.borderless)
-            .help(text)
-            .accessibilityLabel(text)
-            .popover(isPresented: $shown, arrowEdge: .bottom) {
-                Text(text).fixedSize(horizontal: false, vertical: true).frame(width: 280, alignment: .leading).padding(Metrics.inset)
-            }
+        Button {
+            shown.toggle()
+        } label: {
+            Image(systemName: "info.circle").foregroundStyle(.secondary)
+        }
+        .buttonStyle(.borderless)
+        .help(text)
+        .accessibilityLabel(text)
+        .popover(isPresented: $shown, arrowEdge: .bottom) {
+            Text(text).fixedSize(horizontal: false, vertical: true).frame(width: 280, alignment: .leading).padding(
+                Metrics.inset)
+        }
     }
 }
 
@@ -396,7 +509,10 @@ private struct RelaunchRow: View {
         if app.settings.string("workbench.language") != SettingsWindow.language {
             LabeledContent("Kelp needs to reopen for this.") {
                 Button("Relaunch") {
-                    guard app.workbench.editedFiles.isEmpty else { Banner.show(String(localized: "Save your files, then relaunch.")); return }
+                    guard app.workbench.editedFiles.isEmpty else {
+                        Banner.show(String(localized: "Save your files, then relaunch."))
+                        return
+                    }
                     AppDelegate.relaunch()
                 }
             }
@@ -434,14 +550,22 @@ private struct SettingTextField: View {
 
     private func commit() {
         guard draft != store.string(key, language: language) ?? "" else { return }
-        if let language { store.setOwn(key, .string(draft), language: language) } else { store.set(key, .string(draft)) }
+        if let language {
+            store.setOwn(key, .string(draft), language: language)
+        } else {
+            store.set(key, .string(draft))
+        }
     }
 }
 
 extension Color {
-    init?(hex: String) { guard let c = NSColor(hex: hex) else { return nil }; self.init(nsColor: c) }
+    init?(hex: String) {
+        guard let c = NSColor(hex: hex) else { return nil }
+        self.init(nsColor: c)
+    }
     var hex: String {
         guard let c = NSColor(self).usingColorSpace(.sRGB) else { return "#000000" }
-        return String(format: "#%02x%02x%02x", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+        return String(
+            format: "#%02x%02x%02x", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
     }
 }

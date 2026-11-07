@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import GitKit
 
 /// Chats outside any project ("No Project" in the sidebar): the scratch folder in Kelp's home, with each agent in a folder
@@ -18,7 +18,8 @@ struct ScratchChats {
     func newChat(now: Date = Date()) throws -> String {
         try Paths.ensure(folder)
         let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
         let day = f.string(from: now)
         var n = 1
         while FileManager.default.fileExists(atPath: folder.appendingPathComponent("\(day)-\(n)").path) { n += 1 }
@@ -49,8 +50,11 @@ struct ScratchChats {
             let p = real + "/" + name
             var dir: ObjCBool = false
             guard fm.fileExists(atPath: p, isDirectory: &dir), dir.boolValue, !used.contains(p), Self.isEmpty(p),
-                  let made = Log.store.attempt("reading when \(name) was made", { try fm.attributesOfItem(atPath: p)[.creationDate] as? Date }) ?? nil,
-                  made < now - 86400 else { continue }
+                let made = Log.store.attempt(
+                    "reading when \(name) was made", { try fm.attributesOfItem(atPath: p)[.creationDate] as? Date })
+                    ?? nil,
+                made < now - 86400
+            else { continue }
             Log.store.attempt("removing the empty chat folder \(name)") { try fm.removeItem(atPath: p) }
         }
     }
@@ -60,11 +64,17 @@ struct ScratchChats {
         let fm = FileManager.default
         // `rev-parse --verify -q` prints nothing and exits 1 when there's no commit.
         guard fm.fileExists(atPath: folder.appendingPathComponent(".git").path),
-              Self.names(folder.path).allSatisfy({ [".git", ".DS_Store"].contains($0) }),
-              Log.store.attempt("reading scratch's git", {
-                  try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: folder.path, ok: [0, 1], remotes: remotes)
-              })?.isEmpty == true else { return }
-        Log.store.attempt("removing scratch's empty git repo") { try fm.removeItem(at: folder.appendingPathComponent(".git")) }
+            Self.names(folder.path).allSatisfy({ [".git", ".DS_Store"].contains($0) }),
+            Log.store.attempt(
+                "reading scratch's git",
+                {
+                    try Git.run(
+                        ["rev-parse", "--verify", "-q", "HEAD"], cwd: folder.path, ok: [0, 1], remotes: remotes)
+                })?.isEmpty == true
+        else { return }
+        Log.store.attempt("removing scratch's empty git repo") {
+            try fm.removeItem(at: folder.appendingPathComponent(".git"))
+        }
     }
 
     private static func isEmpty(_ path: String) -> Bool {
@@ -73,8 +83,9 @@ struct ScratchChats {
 
     /// What's right in a folder (none when it isn't one).
     private static func names(_ path: String) -> [String] {
-        let e = FileManager.default.enumerator(at: URL(fileURLWithPath: path), includingPropertiesForKeys: nil,
-                                               options: [.skipsSubdirectoryDescendants])
+        let e = FileManager.default.enumerator(
+            at: URL(fileURLWithPath: path), includingPropertiesForKeys: nil,
+            options: [.skipsSubdirectoryDescendants])
         return (e?.allObjects as? [URL] ?? []).map(\.lastPathComponent)
     }
 }

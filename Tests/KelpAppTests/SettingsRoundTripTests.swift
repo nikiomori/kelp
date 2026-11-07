@@ -1,18 +1,19 @@
 import AppKit
-import Foundation
-import Testing
-import TestSupport
 import Core
 import Daemon
 import EditorKit
-@testable import KelpApp
-@testable import KelpKit
+import Foundation
+import TestSupport
+import Testing
+
+@testable import BuiltinActivity
 @testable import BuiltinAgents
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinGit
-@testable import BuiltinBrowser
 @testable import BuiltinIssues
-@testable import BuiltinActivity
+@testable import KelpApp
+@testable import KelpKit
 
 /// Settings as the app and everything else share them: a change made in the app lands in settings.json through the
 /// daemon, and one made elsewhere (`kelp settings set`, an agent) shows in the app without a restart.
@@ -23,16 +24,21 @@ extension OneAtATime {
         let root = URL(fileURLWithPath: "/tmp/kst-\(UUID().uuidString.prefix(6))")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let d = try Daemon(root: root); try d.start(); defer { d.stop() }
+        let d = try Daemon(root: root)
+        try d.start()
+        defer { d.stop() }
         let app = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let cli = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let m = AppModel(builtins: Builtins.all), s = m.settings
-        m.client = app; m.listen(app)
+        m.client = app
+        m.listen(app)
         await s.load()
 
         s.set("editor.autoSave", .bool(true))   // in the app
         let file = root.appendingPathComponent("settings.json")
-        func onDisk() -> JSONValue? { (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) } }
+        func onDisk() -> JSONValue? {
+            (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        }
         #expect(try await waitFor(5) { !(onDisk()?["editor.autoSave"]?.bool != true) })
         #expect(onDisk()?["editor.autoSave"]?.bool == true)
 
@@ -47,11 +53,14 @@ extension OneAtATime {
         let root = URL(fileURLWithPath: "/tmp/kst-\(UUID().uuidString.prefix(6))")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let d = try Daemon(root: root); try d.start(); defer { d.stop() }
+        let d = try Daemon(root: root)
+        try d.start()
+        defer { d.stop() }
         let app = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let cli = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let m = AppModel(builtins: Builtins.all), s = m.settings
-        m.client = app; m.listen(app)
+        m.client = app
+        m.listen(app)
         m.extensions.reload()
         await s.load()
 
@@ -70,7 +79,9 @@ extension OneAtATime {
 
         s.set("markdown.defaultMode", .string("split"))   // in the app
         let file = root.appendingPathComponent("settings.json")
-        func onDisk() -> JSONValue? { (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) } }
+        func onDisk() -> JSONValue? {
+            (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        }
         #expect(try await waitFor(5) { !(onDisk()?["markdown.defaultMode"]?.string != "split") })
         #expect(onDisk()?["markdown.defaultMode"]?.string == "split")
 
@@ -94,7 +105,7 @@ extension OneAtATime {
         s.set("terminal.fontSize", .int(15))
         s.received(s.values.merging(["terminal.fontSize": .int(14)]) { $1 })   // the echo of the set before it
         #expect(s.values["terminal.fontSize"] == .int(15))
-        s.received(s.values.merging(["editor.lsp": .bool(false)]) { $1 })      // other keys still follow the daemon
+        s.received(s.values.merging(["editor.lsp": .bool(false)]) { $1 })   // other keys still follow the daemon
         #expect(s.values["editor.lsp"] == .bool(false))
     }
 }
@@ -104,7 +115,10 @@ extension OneAtATime {
 @MainActor @Test func aConnectionLeftByARestartIsNoLongerHeard() async throws {
     let path = NSTemporaryDirectory() + "kelp-hear-\(getpid()).sock"
     let server = try Unix.listen(path)
-    defer { close(server); unlink(path) }
+    defer {
+        close(server)
+        unlink(path)
+    }
     let c = try RPCClient(socket: path), m = AppModel(builtins: [])
     m.listen(c)
     c.onEvent?(Repo(id: "r1", name: "one", path: "/one"))

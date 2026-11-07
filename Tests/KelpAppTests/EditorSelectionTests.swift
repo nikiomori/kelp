@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+
 @testable import EditorKit
 @testable import KelpKit
 
@@ -69,7 +70,8 @@ extension OneAtATime {
 @MainActor @Test func theEditorSaysAndTakesItsTopLine() {
     _ = NSApplication.shared
     let e = CodeEditor(text: (1...400).map { "line \($0)\n" }.joined(), url: URL(fileURLWithPath: "/t.txt"))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView = e.view
     e.view.layoutSubtreeIfNeeded()
     #expect(e.topLine == 1)
@@ -80,7 +82,8 @@ extension OneAtATime {
 @MainActor @Test func wrappingStopsAtItsColumnOrTheEdge() throws {
     _ = NSApplication.shared
     let e = CodeEditor(text: String(repeating: "word ", count: 100), url: URL(fileURLWithPath: "/t.swift"))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 800, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView = e.view
     e.view.layoutSubtreeIfNeeded()
     e.wrapsHere = true
@@ -97,8 +100,11 @@ extension OneAtATime {
 }
 
 @MainActor @Test func spacesNobodyMeansToHaveAreKnown() {
-    #expect(EditorTextView.isUnusualSpace(0xA0) && EditorTextView.isUnusualSpace(0x200B) && EditorTextView.isUnusualSpace(0xFEFF))
-    #expect(!EditorTextView.isUnusualSpace(32) && !EditorTextView.isUnusualSpace(9) && !EditorTextView.isUnusualSpace(97))
+    #expect(
+        EditorTextView.isUnusualSpace(0xA0) && EditorTextView.isUnusualSpace(0x200B)
+            && EditorTextView.isUnusualSpace(0xFEFF))
+    #expect(
+        !EditorTextView.isUnusualSpace(32) && !EditorTextView.isUnusualSpace(9) && !EditorTextView.isUnusualSpace(97))
 }
 
 @MainActor private func foldEditor(_ text: String, _ name: String) -> CodeEditor {
@@ -122,7 +128,8 @@ extension OneAtATime {
 }
 
 @MainActor @Test func marksRegionsAndHeadingsFold() {
-    let code = foldEditor("// MARK: One\nlet a = 1\n\n// MARK: Two\nlet b = 2\n//#region x\nlet c = 3\n//#endregion\n", "marks.swift")
+    let code = foldEditor(
+        "// MARK: One\nlet a = 1\n\n// MARK: Two\nlet b = 2\n//#region x\nlet c = 3\n//#endregion\n", "marks.swift")
     #expect(hidden(code, line: 1) == "\nlet a = 1")
     #expect(hidden(code, line: 6) == "\nlet c = 3\n//#endregion")
     let md = foldEditor("# A\ntext\n## B\nmore\n# C\nend\n", "doc.md")
@@ -137,21 +144,23 @@ extension OneAtATime {
     e.unfoldAll()
     e.foldAll(level: 2)
     #expect(e.textView.folds.hidden.count == 1)
-    #expect((e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("let x") )
+    #expect((e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("let x"))
     #expect(!(e.text as NSString).substring(with: e.textView.folds.hidden[0]).contains("func"))
 }
 
 @MainActor @Test func theScopesAroundTheTopLineStayPinned() throws {
     let body = (1...200).map { "        let v\($0) = \($0)\n" }.joined()
     let e = foldEditor("class A {\n    func f() {\n\(body)    }\n}\n", "sticky.swift")
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView = e.view
     e.view.layoutSubtreeIfNeeded()
     #expect(e.stickyLines().isEmpty)
     e.scroll(toLine: 100)
     #expect(e.stickyLines() == [0, 1])
     let md = foldEditor("# A\n\n## B\n\n" + String(repeating: "text\n", count: 100), "sticky.md")
-    let other = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    let other = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
     other.contentView = md.view
     md.view.layoutSubtreeIfNeeded()
     md.scroll(toLine: 50)

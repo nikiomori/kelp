@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import GitKit
 
 // What `Watches` reads, asked as a client would ask it, and the records pushed as they change.
@@ -27,10 +27,14 @@ extension Daemon {
         case .ports:
             // A host is asked over ssh: less often, and as with git only while watched.
             let remote = sessions.remote(k.key) != nil
-            return ((try? await ask(PortsList(worktreeId: k.key))).flatMap { line(PortsEvent(worktree: k.key, ports: $0)) }, remote ? 10 : 3)
+            return (
+                (try? await ask(PortsList(worktreeId: k.key))).flatMap { line(PortsEvent(worktree: k.key, ports: $0)) },
+                remote ? 10 : 3
+            )
         case .activity:
-            do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) }
-            catch { return (line(ActivityEvent(error: message(error))), 2) }
+            do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) } catch {
+                return (line(ActivityEvent(error: message(error))), 2)
+            }
         case .ci:
             // gh / glab ask the forge: often while a run goes on (or just after a push asked, `fast`), else every 2 minutes,
             // for a run started elsewhere (a merge on the forge, a push from another machine).
@@ -42,7 +46,10 @@ extension Daemon {
                 return (line(CIEvent(worktree: k.key, error: message(error))), 120)
             }
         case .pr:
-            return ((try? await ask(GitHubBranchPR(worktreeId: k.key))).flatMap { line(PREvent(worktree: k.key, pr: $0)) }, 60)
+            return (
+                (try? await ask(GitHubBranchPR(worktreeId: k.key))).flatMap { line(PREvent(worktree: k.key, pr: $0)) },
+                60
+            )
         case .context:
             // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
             let usage = try? await ask(SessionContextWindow(id: k.key))
@@ -53,7 +60,9 @@ extension Daemon {
             return (line(CommandsEvent(session: k.key, commands: sessions.existing(k.key)?.commands ?? [])), nil)
         case .subagents:
             // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
-            do { return (line(SubagentsEvent(session: k.key, steps: try await ask(SessionSubagentSteps(id: k.key)))), 3) } catch { return (nil, 3) }
+            do {
+                return (line(SubagentsEvent(session: k.key, steps: try await ask(SessionSubagentSteps(id: k.key)))), 3)
+            } catch { return (nil, 3) }
         case .limits:
             // From memory (the probes read the plans on their own clock): cheap.
             return ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)
@@ -61,13 +70,21 @@ extension Daemon {
             // A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
             guard k.key.hasPrefix("/"), remotes.containing(k.key) == nil else { return (nil, nil) }
             var problems: [CodeProblem] = []
-            do { problems = try await ask(LSPProblems(path: k.key)) } catch { Log.session.error("reading \(k.key)'s problems: \(error)") }
-            return (line(FileEvent(path: k.key, stamp: FileService.stamp(k.key), problems: problems.isEmpty ? nil : problems)), nil)
+            do { problems = try await ask(LSPProblems(path: k.key)) } catch {
+                Log.session.error("reading \(k.key)'s problems: \(error)")
+            }
+            return (
+                line(
+                    FileEvent(path: k.key, stamp: FileService.stamp(k.key), problems: problems.isEmpty ? nil : problems)
+                ), nil
+            )
         case .files:
             let remote = (try? store.worktree(k.key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
             var e: FilesEvent
             do {
-                e = FilesEvent(worktree: k.key, paths: try await ask(FilesList(id: k.key)), ignored: try? await ask(FilesIgnored(id: k.key)))
+                e = FilesEvent(
+                    worktree: k.key, paths: try await ask(FilesList(id: k.key)),
+                    ignored: try? await ask(FilesIgnored(id: k.key)))
             } catch { e = FilesEvent(worktree: k.key, error: message(error)) }
             return (line(e), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
         case .artifacts:
@@ -76,7 +93,9 @@ extension Daemon {
             let store = store, remotes = remotes
             do {
                 let items = try await offload {
-                    try store.worktree(k.key).flatMap { remotes.of($0.path) == nil ? Artifacts.items(root: $0.path) : [] } ?? []
+                    try store.worktree(k.key).flatMap {
+                        remotes.of($0.path) == nil ? Artifacts.items(root: $0.path) : []
+                    } ?? []
                 }
                 return (line(ArtifactsEvent(worktree: k.key, items: items)), nil)
             } catch {
@@ -87,18 +106,26 @@ extension Daemon {
             // Each machine's kelp-vm answers from memory; one with a command running is asked over its own connection who runs it.
             do {
                 let all = try await ask(VMList())
-                return (line(MachinesEvent(machines: all)), all.contains { [.creating, .starting].contains($0.state) } ? 1 : 5)
+                return (
+                    line(MachinesEvent(machines: all)),
+                    all.contains { [.creating, .starting].contains($0.state) } ? 1 : 5
+                )
             } catch { return (nil, 5) }
         case .machineDetail:
-            do { return (line(MachineEvent(name: k.key, detail: try await ask(VMDetailRead(name: k.key)))), 2) } catch { return (nil, 2) }
+            do { return (line(MachineEvent(name: k.key, detail: try await ask(VMDetailRead(name: k.key)))), 2) } catch {
+                return (nil, 2)
+            }
         case .host, .hostDetail:
             let again: TimeInterval = k.topic == .host ? 10 : 2
-            do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch { return (nil, again) }
+            do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: k.key)))), again) } catch {
+                return (nil, again)
+            }
         }
     }
 
     private func line(_ e: some RPCEvent) -> Data? {
-        let enc = JSONEncoder(); enc.outputFormatting = .sortedKeys
+        let enc = JSONEncoder()
+        enc.outputFormatting = .sortedKeys
         guard var d = try? enc.encode(RPCNotification(e)) else { return nil }
         d.append(0x0A)
         return d
@@ -121,11 +148,17 @@ extension Daemon {
 extension WatchStart: Handled {
     static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
     func handle(_ watches: Watches) throws -> Done { throw RPCError.internalError("needs its connection") }
-    func handle(_ watches: Watches, conn: Int) throws -> Done { watches.start(.init(topic: topic, key: key), conn: conn); return Done() }
+    func handle(_ watches: Watches, conn: Int) throws -> Done {
+        watches.start(.init(topic: topic, key: key), conn: conn)
+        return Done()
+    }
 }
 
 extension WatchStop: Handled {
     static var inOrder: Bool { true }
     func handle(_ watches: Watches) throws -> Done { throw RPCError.internalError("needs its connection") }
-    func handle(_ watches: Watches, conn: Int) throws -> Done { watches.stop(.init(topic: topic, key: key), conn: conn); return Done() }
+    func handle(_ watches: Watches, conn: Int) throws -> Done {
+        watches.stop(.init(topic: topic, key: key), conn: conn)
+        return Done()
+    }
 }

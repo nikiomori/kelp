@@ -29,7 +29,8 @@ final class StripPanel: NSPanel {
     private static func onScreen(_ e: NSEvent) -> CGPoint { e.cgEvent?.location ?? .zero }
 
     static func floating(_ content: NSView, radius: CGFloat, fullScreen: Bool) -> StripPanel {
-        let p = StripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let p = StripPanel(
+            contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
@@ -44,7 +45,9 @@ final class StripPanel: NSPanel {
 
     /// Off: it stays out of a full-screen app's Space (a talk, a film).
     func apply(fullScreen: Bool) {
-        collectionBehavior = [.canJoinAllSpaces, fullScreen ? .fullScreenAuxiliary : .fullScreenNone, .stationary, .ignoresCycle]
+        collectionBehavior = [
+            .canJoinAllSpaces, fullScreen ? .fullScreenAuxiliary : .fullScreenNone, .stationary, .ignoresCycle
+        ]
     }
 
     /// Liquid Glass where there is, the popover card before.
@@ -101,16 +104,22 @@ final class StripButton: PointerControl {
         clipsToBounds = false   // a closed tile is a circle, and its corner would cut the mark in two
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
-        for v in [glow, icon, label, mark] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [glow, icon, label, mark] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
         notch()
         let closed = trailingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 4)
         trailing = closed
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Self.height), closed,
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4), icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: Self.tile), icon.heightAnchor.constraint(equalToConstant: Self.tile),
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: Self.tile),
+            icon.heightAnchor.constraint(equalToConstant: Self.tile),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: Metrics.gapWide),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor), label.widthAnchor.constraint(lessThanOrEqualToConstant: Self.wordsWidth),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.widthAnchor.constraint(lessThanOrEqualToConstant: Self.wordsWidth),
             mark.centerXAnchor.constraint(equalTo: icon.trailingAnchor, constant: -Self.markInset),
             mark.centerYAnchor.constraint(equalTo: icon.bottomAnchor, constant: -Self.markInset)
         ])
@@ -125,7 +134,8 @@ final class StripButton: PointerControl {
         let side = Self.tile, around = Self.markInset + 6
         let square = CGRect(x: 0, y: 0, width: side, height: side), corner = Metrics.radiusSM
         let tile = CGPath(roundedRect: square, cornerWidth: corner, cornerHeight: corner, transform: nil)
-        let round = CGRect(x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around)
+        let round = CGRect(
+            x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around)
         let hole = CGPath(ellipseIn: round, transform: nil)
         bite.path = tile.subtracting(hole)
         icon.layer?.mask = bite
@@ -139,18 +149,23 @@ final class StripButton: PointerControl {
         mark.status = item.cell == .working ? nil : status
         icon.layer?.mask = item.cell == .working ? rounded : bite
         // A clear icon keeps the tile's shape.
-        effectiveAppearance.performAsCurrentDrawingAppearance { icon.layer?.backgroundColor = NSColor.fillHover.cgColor }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            icon.layer?.backgroundColor = NSColor.fillHover.cgColor
+        }
         label.isHidden = !open
         trailing?.isActive = false
-        trailing = trailingAnchor.constraint(equalTo: open ? label.trailingAnchor : icon.trailingAnchor, constant: open ? 12 : 4)
+        trailing = trailingAnchor.constraint(
+            equalTo: open ? label.trailingAnchor : icon.trailingAnchor, constant: open ? 12 : 4)
         trailing?.isActive = true
         label.attributedStringValue = open ? words(item) : NSAttributedString()
         let calls = open && item.cell <= .failed
-        glow.show(calls ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, breathing: calls && item.cell == .asks)
+        glow.show(
+            calls ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, breathing: calls && item.cell == .asks)
         restFill = calls ? .fillHover : nil
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel([item.name, status.words, open ? item.words : nil].compactMap { $0 }.joined(separator: ", "))
+        setAccessibilityLabel(
+            [item.name, status.words, open ? item.words : nil].compactMap { $0 }.joined(separator: ", "))
     }
 
     private func words(_ item: StripItem) -> NSAttributedString {
@@ -161,18 +176,25 @@ final class StripButton: PointerControl {
             NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
         }
         let t = NSMutableAttributedString(attributedString: text(item.name, .ui(12, weight: .medium), .labelColor))
-        let color: NSColor = switch item.cell {
-        case .asks: .textOrange
-        case .failed: .textRed
-        case .working, .done: .secondaryLabelColor
-        }
+        let color: NSColor =
+            switch item.cell {
+            case .asks: .textOrange
+            case .failed: .textRed
+            case .working, .done: .secondaryLabelColor
+            }
         t.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), color))
         return t
     }
 
     override func clicked() { onClick?() }
-    override func mouseEntered(with event: NSEvent) { super.mouseEntered(with: event); onHover?(true) }
-    override func mouseExited(with event: NSEvent) { super.mouseExited(with: event); onHover?(false) }
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        onHover?(true)
+    }
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        onHover?(false)
+    }
     /// A tile is most of the strip, so a drag from one moves it; held still and let go, it's a click.
     override func mouseDown(with event: NSEvent) {
         guard let panel = window as? StripPanel else { return super.mouseDown(with: event) }
@@ -237,14 +259,17 @@ final class StripCard {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gapWide
-        stack.edgeInsets = NSEdgeInsets(top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
+        stack.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
         stack.addArrangedSubview(header(s))
         stack.addArrangedSubview(title(s))
         if s.status == .done { stack.addArrangedSubview(replyField()) }
         let foot = footer(s)
         stack.addArrangedSubview(foot)
         stack.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
-        for v in stack.arrangedSubviews { v.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true }
+        for v in stack.arrangedSubviews {
+            v.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
+        }
         panel = StripPanel.floating(stack, radius: Metrics.radiusXL, fullScreen: fullScreen)
     }
 
@@ -274,7 +299,10 @@ final class StripCard {
     }
 
     private func title(_ s: Session) -> NSView {
-        let plain = s.status == .done ? String(localized: "Done") : s.status == .error ? String(localized: "Failed") : String(localized: "Needs your input")
+        let plain =
+            s.status == .done
+            ? String(localized: "Done")
+            : s.status == .error ? String(localized: "Failed") : String(localized: "Needs your input")
         let text = NSTextField(wrappingLabelWithString: s.summary.isEmpty ? plain : s.summary)
         text.font = .ui(13, weight: .semibold)
         text.textColor = s.status == .error ? .textRed : .labelColor
@@ -321,7 +349,12 @@ final class StripCard {
         let text = reply.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let id = session, app = app
-        Task { if await app.call(SessionSend(id: id, text: text, enter: true)) == nil { NSApp.activate(); app.workbench.focus(session: id) } }
+        Task {
+            if await app.call(SessionSend(id: id, text: text, enter: true)) == nil {
+                NSApp.activate()
+                app.workbench.focus(session: id)
+            }
+        }
         onEnd(.answered)
     }
 
@@ -373,7 +406,8 @@ final class StripTip {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 2
-        stack.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.gapWide + 2, bottom: Metrics.gap, right: Metrics.gapWide + 2)
+        stack.edgeInsets = NSEdgeInsets(
+            top: Metrics.gap, left: Metrics.gapWide + 2, bottom: Metrics.gap, right: Metrics.gapWide + 2)
         let p = StripPanel.floating(stack, radius: Metrics.radiusMD, fullScreen: true)
         p.ignoresMouseEvents = true
         return p
@@ -387,7 +421,9 @@ final class StripTip {
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = content?.fittingSize ?? .zero
-        var frame = NSRect(x: tile.midX - size.width / 2, y: below ? tile.minY - 12 - size.height : tile.maxY + 12, width: size.width, height: size.height)
+        var frame = NSRect(
+            x: tile.midX - size.width / 2, y: below ? tile.minY - 12 - size.height : tile.maxY + 12, width: size.width,
+            height: size.height)
         if let area = NSScreen.screens.first(where: { $0.frame.intersects(tile) })?.visibleFrame {
             frame.origin.x = min(max(frame.minX, area.minX + 4), area.maxX - size.width - 4)
         }
@@ -400,6 +436,7 @@ final class StripTip {
 
     static func lines(_ agents: [String]) -> String {
         let more = agents.count - listed
-        return (agents.prefix(listed) + (more > 0 ? [String(localized: "and \(more) more")] : [])).joined(separator: "\n")
+        return (agents.prefix(listed) + (more > 0 ? [String(localized: "and \(more) more")] : [])).joined(
+            separator: "\n")
     }
 }

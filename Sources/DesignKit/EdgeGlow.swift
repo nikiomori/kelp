@@ -12,7 +12,12 @@ public final class EdgeGlow: NSView {
     private var faint = false
     private let hairline: Bool
     /// The corner it follows (a tab's capsule changes it as it lays out).
-    public var radius: CGFloat { didSet { layer?.cornerRadius = radius; needsLayout = true } }
+    public var radius: CGFloat {
+        didSet {
+            layer?.cornerRadius = radius
+            needsLayout = true
+        }
+    }
 
     /// `spread`: how far the light reaches in, `strength` its opacity at the edge (a pane 14 and 0.6; a tab, 28 pt tall,
     /// 3 and 0.5, so its middle stays the tab's own colour). `hairline` off: light only, no line along the edge (a tab: a
@@ -21,7 +26,8 @@ public final class EdgeGlow: NSView {
         self.radius = radius
         self.hairline = hairline
         super.init(frame: .zero)
-        wantsLayer = true; isHidden = true
+        wantsLayer = true
+        isHidden = true
         layer?.masksToBounds = true
         layer?.cornerRadius = radius
         layer?.cornerCurve = .continuous
@@ -50,8 +56,11 @@ public final class EdgeGlow: NSView {
         self.faint = faint
         guard let color else {
             // Keeps its colour and breathing while it fades; hidden at the end unless it was called back meanwhile.
-            NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.disappear); animator().alphaValue = 0 }) { [weak self] in
-                MainActor.assumeIsolated {  // AppKit runs the completion on the main thread
+            NSAnimationContext.runAnimationGroup({
+                $0.duration = Motion.duration(Motion.disappear)
+                animator().alphaValue = 0
+            }) { [weak self] in
+                MainActor.assumeIsolated {   // AppKit runs the completion on the main thread
                     guard let self, self.color == nil else { return }
                     self.isHidden = true
                     self.frameLayer.removeAllAnimations()
@@ -59,7 +68,10 @@ public final class EdgeGlow: NSView {
             }
             return
         }
-        if isHidden { alphaValue = 0; isHidden = false }
+        if isHidden {
+            alphaValue = 0
+            isHidden = false
+        }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.duration(Motion.appear)
             ctx.allowsImplicitAnimation = true
@@ -67,7 +79,8 @@ public final class EdgeGlow: NSView {
             effectiveAppearance.performAsCurrentDrawingAppearance {
                 let light = color.withAlphaComponent(faint ? 0.5 : 1).cgColor
                 layer?.borderColor = color.withAlphaComponent(faint ? 0.25 : 0.5).cgColor
-                frameLayer.fillColor = light; frameLayer.shadowColor = light
+                frameLayer.fillColor = light
+                frameLayer.shadowColor = light
             }
         }
         breathe(breathes)

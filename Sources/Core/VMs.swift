@@ -17,10 +17,19 @@ public struct VMMachine: Codable, Sendable, Equatable {
     public var rosetta: Bool
     public var network: Bool
 
-    public init(name: String, os: String = "linux", image: String, cpus: Int, memoryMiB: Int, diskGiB: Int, user: String,
-                rosetta: Bool = true, network: Bool = true) {
-        self.name = name; self.os = os; self.image = image; self.cpus = cpus; self.memoryMiB = memoryMiB; self.diskGiB = diskGiB
-        self.user = user; self.rosetta = rosetta; self.network = network
+    public init(
+        name: String, os: String = "linux", image: String, cpus: Int, memoryMiB: Int, diskGiB: Int, user: String,
+        rosetta: Bool = true, network: Bool = true
+    ) {
+        self.name = name
+        self.os = os
+        self.image = image
+        self.cpus = cpus
+        self.memoryMiB = memoryMiB
+        self.diskGiB = diskGiB
+        self.user = user
+        self.rosetta = rosetta
+        self.network = network
     }
 }
 
@@ -60,9 +69,16 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     /// A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).
     public var files: String?
 
-    public init(machine: VMMachine, state: VMState, detail: String? = nil, connections: Int? = nil, memoryMiB: Int? = nil, diskMiB: Int? = nil) {
-        self.machine = machine; self.state = state; self.detail = detail; self.connections = connections
-        self.memoryMiB = memoryMiB; self.diskMiB = diskMiB
+    public init(
+        machine: VMMachine, state: VMState, detail: String? = nil, connections: Int? = nil, memoryMiB: Int? = nil,
+        diskMiB: Int? = nil
+    ) {
+        self.machine = machine
+        self.state = state
+        self.detail = detail
+        self.connections = connections
+        self.memoryMiB = memoryMiB
+        self.diskMiB = diskMiB
     }
 }
 
@@ -92,7 +108,11 @@ public enum VMStep: String, Codable, Sendable, CaseIterable {
 /// What a machine's `creating` file holds while it's made: its step, how far, and what it's made from.
 public struct VMMaking: Codable, Sendable, Equatable {
     public var step: VMStep, progress: Double?, detail: String?
-    public init(step: VMStep, progress: Double? = nil, detail: String? = nil) { self.step = step; self.progress = progress; self.detail = detail }
+    public init(step: VMStep, progress: Double? = nil, detail: String? = nil) {
+        self.step = step
+        self.progress = progress
+        self.detail = detail
+    }
     public var data: Data { do { return try JSONEncoder().encode(self) } catch { return Data() } }
 }
 
@@ -107,8 +127,14 @@ public struct VMDetail: Codable, Sendable, Equatable {
     /// says). Nil: not a macOS machine, or Kelp Guest isn't in it. `screenRecording` is no longer asked for: always false.
     public var guest: Guest?
 
-    public init(address: String? = nil, ports: [Int] = [], runs: [Run] = [], folders: [String] = [], guest: Guest? = nil) {
-        self.address = address; self.ports = ports; self.runs = runs; self.folders = folders; self.guest = guest
+    public init(
+        address: String? = nil, ports: [Int] = [], runs: [Run] = [], folders: [String] = [], guest: Guest? = nil
+    ) {
+        self.address = address
+        self.ports = ports
+        self.runs = runs
+        self.folders = folders
+        self.guest = guest
     }
 
     public struct Guest: Codable, Sendable, Equatable {
@@ -117,7 +143,10 @@ public struct VMDetail: Codable, Sendable, Equatable {
         /// The session whose turn the screen is, while it lasts.
         public var screen: String?
         public init(running: Bool, screenRecording: Bool = false, accessibility: Bool = false, screen: String? = nil) {
-            self.running = running; self.screenRecording = screenRecording; self.accessibility = accessibility; self.screen = screen
+            self.running = running
+            self.screenRecording = screenRecording
+            self.accessibility = accessibility
+            self.screen = screen
         }
     }
 
@@ -127,14 +156,18 @@ public struct VMDetail: Codable, Sendable, Equatable {
         public var session: String?
         public var command: String
         public init(pid: Int, seconds: Int, session: String?, command: String) {
-            self.pid = pid; self.seconds = seconds; self.session = session; self.command = command
+            self.pid = pid
+            self.seconds = seconds
+            self.session = session
+            self.command = command
         }
     }
 }
 
 /// What runs in a running machine; nil while it isn't running (reading never wakes it).
 public struct VMDetailRead: InternalMethod {
-    public static let name = "vm.detail"; public typealias Result = VMDetail?
+    public static let name = "vm.detail"
+    public typealias Result = VMDetail?
     public var name: String
     public init(name: String) { self.name = name }
 }
@@ -147,20 +180,25 @@ public struct VMConnection: Codable, Sendable, Equatable {
     /// An iOS machine's: its simulator's UDID and its runner's port (`ssh` is then xcrun simctl).
     public var device: String?, port: Int?
     public init(ssh: [String], prefix: String, device: String? = nil, port: Int? = nil) {
-        self.ssh = ssh; self.prefix = prefix; self.device = device; self.port = port
+        self.ssh = ssh
+        self.prefix = prefix
+        self.device = device
+        self.port = port
     }
 }
 
 /// The machines and their state.
 public struct VMList: RPCMethod {
-    public static let name = "vm.list"; public typealias Result = [VMInfo]
+    public static let name = "vm.list"
+    public typealias Result = [VMInfo]
     public init() {}
 }
 
 /// Makes a machine: downloads its image the first time (checked against the distribution's checksums), then its disk and
 /// first boot. Answers at once, `creating`; `vm.list` follows it.
 public struct VMCreate: RPCMethod {
-    public static let name = "vm.create"; public typealias Result = VMInfo
+    public static let name = "vm.create"
+    public typealias Result = VMInfo
     public var name: String
     public var image: String?
     /// Memory in GiB, disk in GiB.
@@ -168,15 +206,23 @@ public struct VMCreate: RPCMethod {
     /// A file of the user's to make it from instead of downloading: macOS's restore image (.ipsw), or a Linux cloud image's
     /// raw disk (cloud-init sets its account up, as Debian's).
     public var file: String?
-    public init(name: String, image: String? = nil, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil, file: String? = nil) {
-        self.name = name; self.image = image; self.cpus = cpus; self.memory = memory; self.disk = disk; self.file = file
+    public init(
+        name: String, image: String? = nil, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil, file: String? = nil
+    ) {
+        self.name = name
+        self.image = image
+        self.cpus = cpus
+        self.memory = memory
+        self.disk = disk
+        self.file = file
     }
 }
 
 /// `start` boots or wakes it; `sleep` saves it to disk (its memory freed, what ran inside goes on when it wakes); `stop`
 /// shuts it down (what ran inside ends); `delete` stops it and removes it, its disk and all. Stop and delete are the user's.
 public struct VMControl: RPCMethod {
-    public static let name = "vm.control"; public typealias Result = VMInfo
+    public static let name = "vm.control"
+    public typealias Result = VMInfo
     /// A start can boot: up to a few minutes, more than a call's usual deadline. Show can be two boots (`showWait`).
     public static var timeout: TimeInterval? { 1200 }
     /// What kelpd waits for a Show (a headless first boot an agent began, then the windowed one): within `timeout`.
@@ -184,25 +230,36 @@ public struct VMControl: RPCMethod {
     /// `show`: its screen in a window of its own (a macOS machine's), woken first.
     public enum Action: String, Codable, Sendable, CaseIterable { case start, sleep, stop, show, delete }
     public var name: String, action: Action
-    public init(name: String, action: Action) { self.name = name; self.action = action }
+    public init(name: String, action: Action) {
+        self.name = name
+        self.action = action
+    }
 }
 
 /// Changes a Linux or macOS machine's processors, memory (GB) and disk (GB, only larger: Linux grows into it as it
 /// boots) while it's shut down. The user's: what every chat's machine has, and the Mac's memory.
 public struct VMConfigure: RPCMethod {
-    public static let name = "vm.configure"; public typealias Result = VMInfo
+    public static let name = "vm.configure"
+    public typealias Result = VMInfo
     public var name: String, cpus: Int?, memory: Int?, disk: Int?
     public init(name: String, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
-        self.name = name; self.cpus = cpus; self.memory = memory; self.disk = disk
+        self.name = name
+        self.cpus = cpus
+        self.memory = memory
+        self.disk = disk
     }
 }
 
 /// Types into a macOS machine's screen. `text` nil: the machine's password (from the Keychain), for a dialog inside
 /// that asks for it (Privacy & Security, an installer).
 public struct VMType: RPCMethod {
-    public static let name = "vm.type"; public typealias Result = Done
+    public static let name = "vm.type"
+    public typealias Result = Done
     public var name: String, text: String?
-    public init(name: String, text: String? = nil) { self.name = name; self.text = text }
+    public init(name: String, text: String? = nil) {
+        self.name = name
+        self.text = text
+    }
 }
 
 /// A macOS machine's screen, read and driven from the Mac's side (no permission inside it): `args` as `kelp vm` takes
@@ -210,20 +267,29 @@ public struct VMType: RPCMethod {
 /// ["drag", "X", "Y", "X2", "Y2"], ["scroll", "DY", "X"?, "Y"?], ["type", "TEXT"], ["key", "cmd+space"]. Points of its
 /// 1280 × 800 screen. Clicks, keys and scrolls take turns by `session`.
 public struct VMScreen: RPCMethod {
-    public static let name = "vm.screen"; public typealias Result = Done
+    public static let name = "vm.screen"
+    public typealias Result = Done
     public static var timeout: TimeInterval? { 120 }   // a sleeping machine wakes first; another session's turn is waited for
     public var name: String, args: [String], session: String?
-    public init(name: String, args: [String], session: String? = nil) { self.name = name; self.args = args; self.session = session }
+    public init(name: String, args: [String], session: String? = nil) {
+        self.name = name
+        self.args = args
+        self.session = session
+    }
 }
 
 /// What `kelp vm run` needs to run a command in it, in `cwd`'s project folder (shared with the machine at the same path);
 /// with no `cwd`, in its own home folder, nothing shared.
 public struct VMConnect: RPCMethod {
-    public static let name = "vm.connect"; public typealias Result = VMConnection
+    public static let name = "vm.connect"
+    public typealias Result = VMConnection
     /// As long as the daemon may take: idle machines put to sleep for room (60 s each), then a cold start (Android's, iOS's: 620 s).
     public static var timeout: TimeInterval? { 900 }
     public var name: String, cwd: String?
-    public init(name: String, cwd: String?) { self.name = name; self.cwd = cwd }
+    public init(name: String, cwd: String?) {
+        self.name = name
+        self.cwd = cwd
+    }
 }
 
 /// An image a machine can start from: a distribution's own cloud image, checked against its published checksums.
@@ -237,9 +303,10 @@ public struct VMImage: Sendable, Equatable {
     public var os = "linux"
 
     public static let all = [
-        VMImage(id: "debian-13", title: "Debian 13",
-                url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
-                sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
+        VMImage(
+            id: "debian-13", title: "Debian 13",
+            url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
+            sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
         VMImage(id: "linux", title: "Linux", url: "", sums: "", member: ""),   // from a raw disk of the user's (--file)
         VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos"),
         VMImage(id: "android", title: "Android", url: "", sums: "", member: "", os: "android"),
@@ -261,11 +328,16 @@ public enum VMHelper {
         public var args: [String]?, session: String?
         /// A `start` kelpd sends as it wakes the machine (`VMService.wake`): answered as soon as it starts, the boot going
         /// on; `show` along, for a boot with its window.
-        public static func begin(show: Bool) -> Request { .init(op: .start, args: show ? ["begin", "show"] : ["begin"]) }
+        public static func begin(show: Bool) -> Request {
+            .init(op: .start, args: show ? ["begin", "show"] : ["begin"])
+        }
         public var begins: Bool { op == .start && args?.first == "begin" }
         public var beginsShown: Bool { begins && args?.contains("show") == true }
         public init(op: Operation, path: String? = nil, args: [String]? = nil, session: String? = nil) {
-            self.op = op; self.path = path; self.args = args; self.session = session
+            self.op = op
+            self.path = path
+            self.args = args
+            self.session = session
         }
     }
     public struct Reply: Codable, Sendable {
@@ -282,8 +354,15 @@ public enum VMHelper {
         public var screen: String?
         /// While it runs: its CPU over the last 5 s, % of one core (`VMInfo.cpu`).
         public var cpu: Double?
-        public init(state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil, serial: String? = nil) {
-            self.state = state; self.connections = connections; self.memoryMiB = memoryMiB; self.error = error; self.slot = slot
+        public init(
+            state: VMState, connections: Int, memoryMiB: Int? = nil, error: String? = nil, slot: Int? = nil,
+            serial: String? = nil
+        ) {
+            self.state = state
+            self.connections = connections
+            self.memoryMiB = memoryMiB
+            self.error = error
+            self.slot = slot
             self.serial = serial
         }
     }
@@ -292,46 +371,49 @@ public enum VMHelper {
 public enum VMs {
     /// A host name, a folder name and part of socket paths: short, lowercase, no dots.
     public static func isName(_ s: String) -> Bool {
-        (1...20).contains(s.count) && s.first?.isLetter == true && s.allSatisfy { ("a"..."z").contains(String($0)) || $0.isNumber || $0 == "-" }
+        (1...20).contains(s.count) && s.first?.isLetter == true
+            && s.allSatisfy { ("a"..."z").contains(String($0)) || $0.isNumber || $0 == "-" }
     }
 
     /// A Linux account name for the Mac user's, else "kelp".
     public static func user(_ mac: String) -> String {
-        let ok = !mac.isEmpty && mac.count <= 32 && mac.first.map { $0.isLowercase || $0 == "_" } == true
+        let ok =
+            !mac.isEmpty && mac.count <= 32 && mac.first.map { $0.isLowercase || $0 == "_" } == true
             && mac.allSatisfy { $0.isLowercase || $0.isNumber || $0 == "_" || $0 == "-" } && mac != "root"
         return ok ? mac : "kelp"
     }
 
     /// Rosetta's binfmt line (Apple's "Running Intel binaries in Linux VMs with Rosetta").
-    static let rosettaBinfmt = #":rosetta:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3e\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/mnt/rosetta/rosetta:CF"#
+    static let rosettaBinfmt =
+        #":rosetta:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3e\x00:\xff\xff\xff\xff\xff\xfe\xfe\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/mnt/rosetta/rosetta:CF"#
 
     /// cloud-init's user-data for the first boot: the account with its key, the shared folders' mount, Rosetta.
     public static func userData(_ m: VMMachine, publicKey: String, timeZone: String) -> String {
         var s = """
-        #cloud-config
-        hostname: \(m.name)
-        timezone: \(timeZone)
-        ssh_pwauth: false
-        users:
-          - name: \(m.user)
-            sudo: ALL=(ALL) NOPASSWD:ALL
-            shell: /bin/bash
-            ssh_authorized_keys:
-              - \(publicKey.trimmingCharacters(in: .whitespacesAndNewlines))
-
-        """
-        if m.rosetta {
-            s += """
-            mounts:
-              - [rosetta, /mnt/rosetta, virtiofs, "defaults,nofail", "0", "0"]
-            write_files:
-              - path: /etc/binfmt.d/rosetta.conf
-                content: |
-                  \(rosettaBinfmt)
-            runcmd:
-              - [systemctl, restart, systemd-binfmt]
+            #cloud-config
+            hostname: \(m.name)
+            timezone: \(timeZone)
+            ssh_pwauth: false
+            users:
+              - name: \(m.user)
+                sudo: ALL=(ALL) NOPASSWD:ALL
+                shell: /bin/bash
+                ssh_authorized_keys:
+                  - \(publicKey.trimmingCharacters(in: .whitespacesAndNewlines))
 
             """
+        if m.rosetta {
+            s += """
+                mounts:
+                  - [rosetta, /mnt/rosetta, virtiofs, "defaults,nofail", "0", "0"]
+                write_files:
+                  - path: /etc/binfmt.d/rosetta.conf
+                    content: |
+                      \(rosettaBinfmt)
+                runcmd:
+                  - [systemctl, restart, systemd-binfmt]
+
+                """
         }
         return s
     }
@@ -378,7 +460,8 @@ public enum VMs {
         }
         // macOS: mount(8) lists it as "kelp3 on /path (virtiofs, …)"; mount_virtiofs needs the folder there first.
         return "{ mount | grep -qF \(shellQuoted("\(tag) on \(folder) (")) && ls \(f) >/dev/null 2>&1; } "
-            + "|| { sudo umount -f \(f) 2>/dev/null; sudo mkdir -p \(f) && sudo mount_virtiofs \(tag) \(f); } || exit 1; " + cd
+            + "|| { sudo umount -f \(f) 2>/dev/null; sudo mkdir -p \(f) && sudo mount_virtiofs \(tag) \(f); } || exit 1; "
+            + cd
     }
 
     /// What the guest keeps beyond what it uses, so a build that starts doesn't wait for memory.
@@ -431,8 +514,9 @@ public enum VMs {
             let g = lines(3)
             func on(_ key: String) -> Bool { g.contains("\(key): on") }
             let screen = g.first { $0.hasPrefix("screen: ") }.map { String($0.dropFirst("screen: ".count)) }
-            d.guest = .init(running: !g.contains("not running") && !g.isEmpty, screenRecording: on("screen recording"),
-                            accessibility: on("accessibility"), screen: screen == "free" ? nil : screen)
+            d.guest = .init(
+                running: !g.contains("not running") && !g.isEmpty, screenRecording: on("screen recording"),
+                accessibility: on("accessibility"), screen: screen == "free" ? nil : screen)
         }
         return d
     }
@@ -444,7 +528,10 @@ public enum VMs {
         let argv = f[2].dropFirst("kelp-vm-run:".count)
         let session = String(argv.prefix { $0 != " " })
         var command = argv.dropFirst(session.count).trimmingCharacters(in: .whitespaces)
-        for flags in ["-l -c " + trapped, "-l -c ", "-l"] where command.hasPrefix(flags) { command = String(command.dropFirst(flags.count)); break }
+        for flags in ["-l -c " + trapped, "-l -c ", "-l"] where command.hasPrefix(flags) {
+            command = String(command.dropFirst(flags.count))
+            break
+        }
         return VMDetail.Run(pid: pid, seconds: seconds(f[1]), session: session == "-" ? nil : session, command: command)
     }
 
@@ -460,7 +547,8 @@ public enum VMs {
     /// takes the tag; `filesSetup` makes it `~/Kelp` either way, as the machine boots.
     public static let filesTag = "kelpfiles"
     public static func filesSetup(os: String) -> String {
-        os == "macos" ? #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#
+        os == "macos"
+            ? #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#
             : "mountpoint -q ~/Kelp || { mkdir -p ~/Kelp && sudo mount -t virtiofs \(filesTag) ~/Kelp; }"
     }
 
@@ -475,30 +563,39 @@ public enum VMs {
 
     /// Key names and characters → US key codes (`kelp vm key cmd+shift+t`).
     public static let keyCodes: [String: UInt16] = [
-        "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14,
-        "r": 15, "y": 16, "t": 17, "1": 18, "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27,
-        "8": 28, "0": 29, "]": 30, "o": 31, "u": 32, "[": 33, "i": 34, "p": 35, "\n": 36, "l": 37, "j": 38, "'": 39, "k": 40,
+        "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13,
+        "e": 14,
+        "r": 15, "y": 16, "t": 17, "1": 18, "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26,
+        "-": 27,
+        "8": 28, "0": 29, "]": 30, "o": 31, "u": 32, "[": 33, "i": 34, "p": 35, "\n": 36, "l": 37, "j": 38, "'": 39,
+        "k": 40,
         ";": 41, "\\": 42, ",": 43, "/": 44, "n": 45, "m": 46, ".": 47, "\t": 48, " ": 49, "`": 50,
         "return": 36, "enter": 36, "tab": 48, "space": 49, "delete": 51, "backspace": 51, "escape": 53, "esc": 53,
         "left": 123, "right": 124, "down": 125, "up": 126, "home": 115, "end": 119, "pageup": 116, "pagedown": 121,
-        "forwarddelete": 117, "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97, "f7": 98, "f8": 100, "f9": 101,
+        "forwarddelete": 117, "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97, "f7": 98, "f8": 100,
+        "f9": 101,
         "f10": 109, "f11": 103, "f12": 111
     ]
     static let shifted: [Character: Character] = [
-        "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-", "+": "=",
+        "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-",
+        "+": "=",
         "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/", "~": "`"
     ]
 
     /// Kelp Guest's program inside a macOS machine (`kelp vm ui`, `press`), run over SSH.
     public static let guestProgram = "\"$HOME/Applications/KelpGuest.app/Contents/MacOS/KelpGuest\""
 
-    public static func shellQuoted(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: #"'\''"#) + "'" }
+    public static func shellQuoted(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
+    }
 
     /// Whether `path` may be shared with a machine: a folder below the home folder, not the home folder itself or above.
     public static func mayShare(_ path: String) -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
         func inside(_ p: String) -> Bool {
-            p.hasPrefix(home + "/") && ![".ssh", ".kelp", "Library"].contains(p.dropFirst(home.count + 1).split(separator: "/").first.map(String.init) ?? "")
+            p.hasPrefix(home + "/")
+                && ![".ssh", ".kelp", "Library"].contains(
+                    p.dropFirst(home.count + 1).split(separator: "/").first.map(String.init) ?? "")
         }
         // Where it really is too: a link in a project to ~/.ssh shares ~/.ssh.
         return inside(URL(fileURLWithPath: path).standardizedFileURL.path) && Paths.real(path).map(inside) != false

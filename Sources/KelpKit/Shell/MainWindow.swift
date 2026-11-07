@@ -1,7 +1,7 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 import TerminalKit
 import WorkbenchKit
 
@@ -35,19 +35,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private lazy var bar = WindowBar(app: app)
     private lazy var updatePill = UpdatePill(app: app)
     /// While the pill shows, the sidebar's toggle stays clear of it (a hidden view still holds constraints).
-    private lazy var clearOfPill = sidebarToggle.leadingAnchor.constraint(greaterThanOrEqualTo: updatePill.trailingAnchor, constant: Metrics.gap)
+    private lazy var clearOfPill = sidebarToggle.leadingAnchor.constraint(
+        greaterThanOrEqualTo: updatePill.trailingAnchor, constant: Metrics.gap)
     /// Fixed in the window bar's corners, whichever panels are open.
-    private let sidebarToggle = NSButton.titlebar("sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar (⌘0)"))
-    private let inspectorToggle = NSButton.titlebar("sidebar.trailing", String(localized: "Inspector"),
-                                                    tip: String(localized: "Show or hide the inspector (⌥⌘0)"))
+    private let sidebarToggle = NSButton.titlebar(
+        "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar (⌘0)"))
+    private let inspectorToggle = NSButton.titlebar(
+        "sidebar.trailing", String(localized: "Inspector"),
+        tip: String(localized: "Show or hide the inspector (⌥⌘0)"))
 
     init(app: AppModel) {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
-                         styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered,
+            defer: false)
         self.app = app
         editors = EditorHost(app: app)
-        sidebar = SidebarController(app: app); inspector = InspectorController(app: app)
-        sidebarItem = Self.column(sidebar); inspectorItem = Self.column(inspector)
+        sidebar = SidebarController(app: app)
+        inspector = InspectorController(app: app)
+        sidebarItem = Self.column(sidebar)
+        inspectorItem = Self.column(inspector)
         surface = DropRoot(app: app)
         super.init(window: w)
         app.workbench.window = self   // what acts on the window reaches it there
@@ -55,18 +62,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
         w.titlebarSeparatorStyle = .none
-        sidebarItem.minimumThickness = 220; sidebarItem.maximumThickness = 400
+        sidebarItem.minimumThickness = 220
+        sidebarItem.maximumThickness = 400
         let content = NSSplitViewItem(viewController: editors)
         content.minimumThickness = 420
-        inspectorItem.minimumThickness = 250; inspectorItem.maximumThickness = 520
+        inspectorItem.minimumThickness = 250
+        inspectorItem.maximumThickness = 520
         inspectorItem.isCollapsed = UserDefaults.standard.bool(forKey: "inspector.collapsed")
         [sidebarItem, content, inspectorItem].forEach(split.addSplitViewItem)
         split.splitView.autosaveName = "main.split"
         let root = NSViewController()
         root.view = surface
         root.addChild(split)
-        sidebarToggle.target = self; sidebarToggle.action = #selector(toggleSidebarPanel)
-        inspectorToggle.target = self; inspectorToggle.action = #selector(toggleInspectorPanel)
+        sidebarToggle.target = self
+        sidebarToggle.action = #selector(toggleSidebarPanel)
+        inspectorToggle.target = self
+        inspectorToggle.action = #selector(toggleInspectorPanel)
         root.view.pin(split.view)
         // The inspector's toggle under its floater: on the floater's corner it stood half on its border. The sidebar's stays
         // over its floater, beside the traffic lights, which are over everything anyway.
@@ -74,20 +85,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.view.addSubview(v)
         }
-        leftFloat.attach(leading: true); rightFloat.attach(leading: false)
-        leftEdge.isHidden = true; rightEdge.isHidden = true
+        leftFloat.attach(leading: true)
+        rightFloat.attach(leading: false)
+        leftEdge.isHidden = true
+        rightEdge.isHidden = true
         leftEdge.onEnter = { [weak self] in self?.peek(sidebar: true) }
         rightEdge.onEnter = { [weak self] in self?.peek(sidebar: false) }
         let lights = w.standardWindowButton(.zoomButton).map { $0.convert($0.bounds, to: nil).maxX } ?? 69
         // The bar lies over the editor area only: the sidebar and the inspector both run the window's full height. With
         // the sidebar away it runs under the traffic lights; with the inspector away, under its toggle.
         NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: root.view.topAnchor), bar.heightAnchor.constraint(equalToConstant: WindowBar.height),
-            bar.leadingAnchor.constraint(equalTo: editors.view.leadingAnchor), bar.trailingAnchor.constraint(equalTo: editors.view.trailingAnchor),
+            bar.topAnchor.constraint(equalTo: root.view.topAnchor),
+            bar.heightAnchor.constraint(equalToConstant: WindowBar.height),
+            bar.leadingAnchor.constraint(equalTo: editors.view.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: editors.view.trailingAnchor),
             // The bar is as tall as the title bar, so the traffic lights and the toggles share a centre line. The sidebar's
             // toggle is in the sidebar's top right corner, or after the traffic lights while the sidebar is away.
-            sidebarToggle.leadingAnchor.constraint(greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12),
-            sidebarToggle.trailingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: -8).withPriority(600),
+            sidebarToggle.leadingAnchor.constraint(
+                greaterThanOrEqualTo: root.view.leadingAnchor, constant: lights + 12),
+            sidebarToggle.trailingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: -8).withPriority(
+                600),
             sidebarToggle.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
             updatePill.leadingAnchor.constraint(equalTo: root.view.leadingAnchor, constant: lights + 12),
             updatePill.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
@@ -96,29 +113,49 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             bar.context.leadingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: 12).withPriority(700),
             inspectorToggle.trailingAnchor.constraint(equalTo: root.view.trailingAnchor, constant: -10),
             inspectorToggle.centerYAnchor.constraint(equalTo: sidebarToggle.centerYAnchor),
-            leftEdge.leadingAnchor.constraint(equalTo: root.view.leadingAnchor), leftEdge.widthAnchor.constraint(equalToConstant: 4),
-            leftEdge.topAnchor.constraint(equalTo: bar.bottomAnchor), leftEdge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor),
-            rightEdge.trailingAnchor.constraint(equalTo: root.view.trailingAnchor), rightEdge.widthAnchor.constraint(equalToConstant: 4),
-            rightEdge.topAnchor.constraint(equalTo: bar.bottomAnchor), rightEdge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor)
+            leftEdge.leadingAnchor.constraint(equalTo: root.view.leadingAnchor),
+            leftEdge.widthAnchor.constraint(equalToConstant: 4),
+            leftEdge.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            leftEdge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor),
+            rightEdge.trailingAnchor.constraint(equalTo: root.view.trailingAnchor),
+            rightEdge.widthAnchor.constraint(equalToConstant: 4),
+            rightEdge.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            rightEdge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor)
         ])
         w.contentViewController = root
         w.title = String(localized: "Kelp")
         w.setFrameAutosaveName("main")
         w.delegate = self
         if w.frame.origin == .zero { w.center() }
-        track { app.worktree(app.workbench.workspaceId) } changed: { [weak self] _ in self?.updateTitle() }
-        track { app.updates.ready != nil } changed: { [weak self] in self?.clearOfPill.isActive = $0 }
-        track { app.themes.look } changed: { [weak self] look in
+        track {
+            app.worktree(app.workbench.workspaceId)
+        } changed: { [weak self] _ in
+            self?.updateTitle()
+        }
+        track {
+            app.updates.ready != nil
+        } changed: { [weak self] in
+            self?.clearOfPill.isActive = $0
+        }
+        track {
+            app.themes.look
+        } changed: { [weak self] look in
             self?.surface.show(look)
             for f in [self?.leftFloat, self?.rightFloat] { f?.show(look) }
         }
-        track { app.settings.bool("workbench.sidebar.autoHide") == true } changed: { [weak self] in
+        track {
+            app.settings.bool("workbench.sidebar.autoHide") == true
+        } changed: { [weak self] in
             self?.setAutoHide(sidebar: true, $0)
-            self?.sidebarToggle.menu = self?.autoHideMenu(String(localized: "Auto-Hide Sidebar"), "workbench.sidebar.autoHide", $0)
+            self?.sidebarToggle.menu = self?.autoHideMenu(
+                String(localized: "Auto-Hide Sidebar"), "workbench.sidebar.autoHide", $0)
         }
-        track { app.settings.bool("workbench.inspector.autoHide") == true } changed: { [weak self] in
+        track {
+            app.settings.bool("workbench.inspector.autoHide") == true
+        } changed: { [weak self] in
             self?.setAutoHide(sidebar: false, $0)
-            self?.inspectorToggle.menu = self?.autoHideMenu(String(localized: "Auto-Hide Inspector"), "workbench.inspector.autoHide", $0)
+            self?.inspectorToggle.menu = self?.autoHideMenu(
+                String(localized: "Auto-Hide Inspector"), "workbench.inspector.autoHide", $0)
         }
     }
     /// A panel's column. It holds the panel while it's docked; while the panel hides (auto-hide, focus mode) the panel is
@@ -129,7 +166,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         slot.addChild(panel)
         slot.view.pin(panel.view)
         let item = NSSplitViewItem(viewController: slot)
-        item.canCollapse = true; item.holdingPriority = .init(260)   // a resized window widens the editor area, not the panels
+        item.canCollapse = true
+        item.holdingPriority = .init(260)   // a resized window widens the editor area, not the panels
         return item
     }
     /// The toggles' right-click menu: the panel's auto-hide, as in Settings › Appearance.
@@ -167,9 +205,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func windowDidResize(_ n: Notification) {
         guard focusMode == nil, !autoHide.inspector, let width = window?.frame.width else { return }
         if let at = narrowedAt {
-            if width >= at + 20 { narrowedAt = nil; inspectorItem.isCollapsed = false }   // a little past it, or it flaps
+            if width >= at + 20 {
+                narrowedAt = nil
+                inspectorItem.isCollapsed = false
+            }   // a little past it, or it flaps
         } else if !inspectorItem.isCollapsed, editors.view.frame.width < 640 {
-            narrowedAt = width; inspectorItem.isCollapsed = true
+            narrowedAt = width
+            inspectorItem.isCollapsed = true
         }
     }
 
@@ -182,7 +224,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         UserDefaults.standard.set(collapsed, forKey: "inspector.collapsed")
     }
     func showInspector(panel: String) {
-        if inspectorItem.isCollapsed, peeking !== inspectorItem { if hides(inspectorItem) { peek(sidebar: false) } else { toggleInspectorPanel() } }
+        if inspectorItem.isCollapsed, peeking !== inspectorItem {
+            if hides(inspectorItem) { peek(sidebar: false) } else { toggleInspectorPanel() }
+        }
         inspector.show(panel: panel)
     }
     @objc func toggleSidebarPanel() {
@@ -201,22 +245,28 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let was = focusMode else { return }
         focusMode = nil
         place()
-        sidebarItem.isCollapsed = was.sidebar; inspectorItem.isCollapsed = was.inspector
-        sidebarToggle.isHidden = false; inspectorToggle.isHidden = false
+        sidebarItem.isCollapsed = was.sidebar
+        inspectorItem.isCollapsed = was.inspector
+        sidebarToggle.isHidden = false
+        inspectorToggle.isHidden = false
     }
 
     @objc func toggleFocusMode() {
         stopPeek()
         if let was = focusMode {
-            focusMode = nil; place()
+            focusMode = nil
+            place()
             slide([(sidebarItem, was.sidebar), (inspectorItem, was.inspector)])
         } else {
-            focusMode = (sidebarItem.isCollapsed || hides(sidebarItem), inspectorItem.isCollapsed || hides(inspectorItem))
+            focusMode = (
+                sidebarItem.isCollapsed || hides(sidebarItem), inspectorItem.isCollapsed || hides(inspectorItem)
+            )
             place()   // before the columns close: the floaters take their widths
             slide([(sidebarItem, true), (inspectorItem, true)])
         }
         let on = focusMode != nil
-        sidebarToggle.isHidden = on; inspectorToggle.isHidden = on
+        sidebarToggle.isHidden = on
+        inspectorToggle.isHidden = on
     }
     var inFocusMode: Bool { focusMode != nil }
 
@@ -256,7 +306,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
     private func hides(_ item: NSSplitViewItem) -> Bool {
-        focusMode != nil || (item === sidebarItem ? autoHide.sidebar && !pinned.sidebar : autoHide.inspector && !pinned.inspector)
+        focusMode != nil
+            || (item === sidebarItem ? autoHide.sidebar && !pinned.sidebar : autoHide.inspector && !pinned.inspector)
     }
     private func floater(_ item: NSSplitViewItem) -> Floater { item === sidebarItem ? leftFloat : rightFloat }
 
@@ -295,13 +346,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         peekReached = false
         floater(item).slide(in: true)
         window?.acceptsMouseMovedEvents = true
-        peekMoves = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] e in self?.pointerMoved(e); return e }
+        peekMoves = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] e in
+            self?.pointerMoved(e)
+            return e
+        }
     }
     private func pointerMoved(_ e: NSEvent) {
         guard let item = peeking, e.window === window, let root = window?.contentView else { return }
         let p = root.convert(e.locationInWindow, from: nil)
         let edge = item === sidebarItem ? leftEdge : rightEdge
-        if Self.overPeek(p, panel: floater(item).frame, edge: edge.frame) { peekReached = true; return }
+        if Self.overPeek(p, panel: floater(item).frame, edge: edge.frame) {
+            peekReached = true
+            return
+        }
         // Not while it slides in: the panel isn't where the pointer is headed yet.
         if peekReached, Date().timeIntervalSince(peekedAt) > 0.4 { endPeek() }
     }
@@ -309,14 +366,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// 4 pt strip, and a slow move across that gap closed it under the pointer.
     static func overPeek(_ p: NSPoint, panel: NSRect, edge: NSRect) -> Bool { panel.union(edge).contains(p) }
     private func endPeek(animated: Bool = true) {
-        if let m = peekMoves { NSEvent.removeMonitor(m); peekMoves = nil }
+        if let m = peekMoves {
+            NSEvent.removeMonitor(m)
+            peekMoves = nil
+        }
         guard let p = peeking else { return }
         peeking = nil
         floater(p).slide(in: false, animated: animated)
     }
     /// The panels change for good (focus mode, auto-hide switched, pinned): the peeking one goes at once.
     private func stopPeek() { endPeek(animated: false) }
-    private func togglePeek(_ item: NSSplitViewItem) { if peeking === item { endPeek() } else { peek(sidebar: item === sidebarItem) } }
+    private func togglePeek(_ item: NSSplitViewItem) {
+        if peeking === item { endPeek() } else { peek(sidebar: item === sidebarItem) }
+    }
     /// Auto-hide: pinned, the panel stays in its column (a peeking one moves there); unpinned, it goes and comes in at
     /// the edge again.
     private func togglePin(_ item: NSSplitViewItem) {
@@ -328,5 +390,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// Closing the window quits (the daemon keeps agents running) — through the unsaved-files question; Cancel keeps it.
-    func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        NSApp.terminate(nil)
+        return false
+    }
 }

@@ -14,27 +14,40 @@ final class CIStatusRow: NSView {
 
     init() {
         super.init(frame: .zero)
-        text.font = .ui(12); text.lineBreakMode = .byTruncatingTail
+        text.font = .ui(12)
+        text.lineBreakMode = .byTruncatingTail
         text.maximumNumberOfLines = 1
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        time.font = .uiDigits(11); time.textColor = .secondaryLabelColor
+        time.font = .uiDigits(11)
+        time.textColor = .secondaryLabelColor
         chevron.image = .symbol("chevron.right", "")
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
-        line.spacing = 6; line.alignment = .centerY
+        line.spacing = 6
+        line.alignment = .centerY
         pin(line, inset: NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4))
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
-        setAccessibilityElement(true); setAccessibilityRole(.button)
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
         isHidden = true
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// `latest`: one run per workflow, newest first; `failure`: where the failed one broke ("job › step"), once its jobs are read.
     func show(_ latest: [CIRuns.Run], failure: String?) {
-        guard let run = latest.first(where: \.failed) ?? latest.first(where: { $0.status != "completed" }) ?? latest.first else { isHidden = true; return }
+        guard
+            let run = latest.first(where: \.failed) ?? latest.first(where: { $0.status != "completed" }) ?? latest.first
+        else {
+            isHidden = true
+            return
+        }
         isHidden = false
         let failing = run.failed
-        let name = latest.count > 1 && !failing && run.status == "completed" ? String(localized: "\(latest.count) workflows") : run.workflow
+        let name =
+            latest.count > 1 && !failing && run.status == "completed"
+            ? String(localized: "\(latest.count) workflows") : run.workflow
         let head = "\(name): \(CIRunLook.words(run.status, run.conclusion))"
         let job = failing ? failure?.components(separatedBy: " › ").first ?? "" : ""
         let one = NSMutableParagraphStyle()
@@ -42,13 +55,20 @@ final class CIStatusRow: NSView {
         let look: [NSAttributedString.Key: Any] = [.font: NSFont.ui(12), .paragraphStyle: one]
         let headColor: NSColor = failing ? .labelColor : .secondaryLabelColor
         let s = NSMutableAttributedString(string: head, attributes: look.merging([.foregroundColor: headColor]) { $1 })
-        if !job.isEmpty { s.append(NSAttributedString(string: " · " + job, attributes: look.merging([.foregroundColor: NSColor.secondaryLabelColor]) { $1 })) }
+        if !job.isEmpty {
+            s.append(
+                NSAttributedString(
+                    string: " · " + job,
+                    attributes: look.merging([.foregroundColor: NSColor.secondaryLabelColor]) { $1 }))
+        }
         text.attributedStringValue = s
         time.stringValue = CIRunLook.ago(run.began)
         line.setViews([CIRunLook.mark(run.status, run.conclusion), text, NSView(), time, chevron], in: .leading)
         let place = failing ? failure ?? "" : ""
-        toolTip = latest.map { "\($0.workflow): \(CIRunLook.words($0.status, $0.conclusion)) · \(CIRunLook.ago($0.began))" }
-            .joined(separator: "\n") + (place.isEmpty ? "" : "\n" + place) + String(localized: "\n\nClick to open CI Runs")
+        toolTip =
+            latest.map { "\($0.workflow): \(CIRunLook.words($0.status, $0.conclusion)) · \(CIRunLook.ago($0.began))" }
+            .joined(separator: "\n") + (place.isEmpty ? "" : "\n" + place)
+            + String(localized: "\n\nClick to open CI Runs")
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
@@ -60,17 +80,30 @@ final class CIStatusRow: NSView {
         layer?.cornerRadius = Metrics.radiusSM
         fadeBackground(to: pressed ? .fillSelected : hover ? .fillHover : nil, held: pressed)
     }
-    override func mouseEntered(with e: NSEvent) { hover = true; showFill() }
+    override func mouseEntered(with e: NSEvent) {
+        hover = true
+        showFill()
+    }
     override func mouseExited(with e: NSEvent) {
         hover = false
         pressed = false
         showFill()
     }
     override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) != nil ? self : nil }   // one target, labels included
-    override func mouseDown(with e: NSEvent) { pressed = true; showFill() }   // the click is the row's, not the panel's
+    override func mouseDown(with e: NSEvent) {
+        pressed = true
+        showFill()
+    }   // the click is the row's, not the panel's
     override func mouseUp(with e: NSEvent) {
-        pressed = false; showFill()
-        if bounds.contains(convert(e.locationInWindow, from: nil)) { pressBounce(); onClick?() }
+        pressed = false
+        showFill()
+        if bounds.contains(convert(e.locationInWindow, from: nil)) {
+            pressBounce()
+            onClick?()
+        }
     }
-    override func accessibilityPerformPress() -> Bool { onClick?(); return true }
+    override func accessibilityPerformPress() -> Bool {
+        onClick?()
+        return true
+    }
 }

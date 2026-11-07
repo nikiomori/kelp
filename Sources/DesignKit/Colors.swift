@@ -7,7 +7,9 @@ private let chosenAccent = OSAllocatedUnfairLock<NSColor?>(initialState: nil)
 extension NSColor {
     /// 0xRRGGBB in sRGB.
     public convenience init(hex: Int, alpha: CGFloat = 1) {
-        self.init(srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+        self.init(
+            srgbRed: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
     }
 
     /// "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours, with two more digits for alpha; nil for
@@ -22,8 +24,9 @@ extension NSColor {
     /// "#rrggbb" in sRGB, as CSS and themes write it (the colour as the current appearance has it).
     public var hexString: String {
         guard let c = usingColorSpace(.sRGB) else { return "#000000" }
-        return String(format: "#%02x%02x%02x", Int((c.redComponent * 255).rounded()), Int((c.greenComponent * 255).rounded()),
-                      Int((c.blueComponent * 255).rounded()))
+        return String(
+            format: "#%02x%02x%02x", Int((c.redComponent * 255).rounded()), Int((c.greenComponent * 255).rounded()),
+            Int((c.blueComponent * 255).rounded()))
     }
 
     /// One colour in light appearances, another in dark.
@@ -90,7 +93,8 @@ extension NSColor {
     private static func grey(_ alpha: CGFloat) -> NSColor {
         NSColor(name: nil) { a in
             let strong = fillAlpha(alpha, highContrast: increaseContrast)
-            return a.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(white: 1, alpha: strong) : NSColor(white: 0, alpha: strong)
+            return a.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(white: 1, alpha: strong) : NSColor(white: 0, alpha: strong)
         }
     }
     public static func fillAlpha(_ alpha: CGFloat, highContrast: Bool) -> CGFloat { highContrast ? 2 * alpha : alpha }

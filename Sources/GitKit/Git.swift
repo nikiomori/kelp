@@ -1,13 +1,17 @@
+import Core
 import Foundation
 import os
-import Core
 
 public struct GitError: Error, CustomStringConvertible, Sendable {
-    public var args: [String]; public var status: Int32; public var stderr: String
+    public var args: [String]
+    public var status: Int32
+    public var stderr: String
     public var description: String { "git \(args.joined(separator: " ")) failed (\(status)): \(stderr)" }
     /// For people: git's first sentence without the command line or "fatal:" ("…overwritten by checkout:" keeps its next line).
     public var message: String {
-        let lines = stderr.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let lines = stderr.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter {
+            !$0.isEmpty
+        }
         guard var first = lines.first else { return description }
         for p in ["fatal: ", "error: "] where first.hasPrefix(p) { first.removeFirst(p.count) }
         if first.hasSuffix(":"), lines.count > 1 { first += " " + lines[1] }
@@ -18,32 +22,43 @@ public struct GitError: Error, CustomStringConvertible, Sendable {
 /// Running the system git (the daemon's). Behaviour matches what you'd see in a terminal.
 extension Git {
     @discardableResult
-    public static func run(_ args: [String], cwd: String, stdin: String? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-                           env extra: [String: String] = [:], remotes: Remotes = .none) throws -> String {
-        String(decoding: try runData(args, cwd: cwd, stdin: stdin.map { Data($0.utf8) }, executable: executable, ok: ok, env: extra,
-                                     remotes: remotes), as: UTF8.self)
+    public static func run(
+        _ args: [String], cwd: String, stdin: String? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
+        env extra: [String: String] = [:], remotes: Remotes = .none
+    ) throws -> String {
+        String(
+            decoding: try runData(
+                args, cwd: cwd, stdin: stdin.map { Data($0.utf8) }, executable: executable, ok: ok, env: extra,
+                remotes: remotes), as: UTF8.self)
     }
 
     /// `run`, its output as the bytes git wrote (a diff of a file that isn't UTF-8 goes back to `git apply` unchanged).
     /// More than `Subprocess.outputLimit` of it is an error: nothing here works on a part as if it were the whole.
     @discardableResult
-    public static func runData(_ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-                               env extra: [String: String] = [:], timeLimit: TimeInterval = 300, remotes: Remotes = .none) throws -> Data {
-        let r = try runPart(args, cwd: cwd, stdin: stdin, executable: executable, ok: ok, env: extra, timeLimit: timeLimit,
-                            limit: Subprocess.outputLimit, remotes: remotes)
+    public static func runData(
+        _ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
+        env extra: [String: String] = [:], timeLimit: TimeInterval = 300, remotes: Remotes = .none
+    ) throws -> Data {
+        let r = try runPart(
+            args, cwd: cwd, stdin: stdin, executable: executable, ok: ok, env: extra, timeLimit: timeLimit,
+            limit: Subprocess.outputLimit, remotes: remotes)
         guard !r.truncated else { throw tooMuch(args) }
         return r.data
     }
 
     static func tooMuch(_ args: [String]) -> GitError {
-        GitError(args: args, status: 0, stderr: "It printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads.")
+        GitError(
+            args: args, status: 0,
+            stderr: "It printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads.")
     }
 
     /// `runData` keeping the first `limit` bytes of the output: `truncated` says there was more (read and dropped), for a
     /// caller that shows a part (a long status, a huge diff) and says so.
-    static func runPart(_ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-                        env extra: [String: String] = [:], timeLimit: TimeInterval = 300, limit: Int,
-                        remotes: Remotes = .none) throws -> (data: Data, truncated: Bool) {
+    static func runPart(
+        _ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
+        env extra: [String: String] = [:], timeLimit: TimeInterval = 300, limit: Int,
+        remotes: Remotes = .none
+    ) throws -> (data: Data, truncated: Bool) {
         // timeLimit: longest a git / gh / ssh run may take before it's stopped (it then fails like any other error). Five
         // minutes: far past any real fetch or push, short of a thread lost for good.
         var args = args, executable = executable, cwd = cwd
@@ -62,28 +77,41 @@ extension Git {
                 if remote == nil { off = RepoFilters.off(cwd) }
             }
             if let r = remote {   // a remote project: the same git, on its host
-                args = r.sshArgs(tty: false) + ["cd \(RemoteHost.cdArg(r.path)) && git " + args.map(IDE.shellWord).joined(separator: " ")]
-                executable = r.ssh; cwd = NSHomeDirectory()
+                args =
+                    r.sshArgs(tty: false) + [
+                        "cd \(RemoteHost.cdArg(r.path)) && git " + args.map(IDE.shellWord).joined(separator: " ")
+                    ]
+                executable = r.ssh
+                cwd = NSHomeDirectory()
             }
         }
         var env = ProcessInfo.processInfo.environment
-        env["GIT_TERMINAL_PROMPT"] = "0"; env["LC_ALL"] = "C"
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        env["LC_ALL"] = "C"
         env["GIT_OPTIONAL_LOCKS"] = "0"   // a status doesn't rewrite the index (which would wake the file watchers again)
         // gh and glab run git themselves: no fsmonitor and no signature program of a repo's own there either.
         if executable != "/usr/bin/git" { off = [("core.fsmonitor", "false"), ("log.showSignature", "false")] }
         env.merge(extra) { $1 }
         env.merge(configEnv(off, after: env)) { $1 }
         // A host that drops packets or a credential helper waiting on nobody is stopped at the time limit, with its children.
-        let r = try Subprocess.run([executable] + args, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
+        let r = try Subprocess.run(
+            [executable] + args, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
         guard ok.contains(r.status), !r.timedOut else {
-            throw GitError(args: args, status: r.status, stderr: String(decoding: r.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+            throw GitError(
+                args: args, status: r.status,
+                stderr: String(decoding: r.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return (r.stdout, r.truncated)
     }
 
     /// What Kelp runs by itself (watches, panels): these read, and never run a repository's own filters (`RepoFilters`).
-    static let noSignatures = ["-c", "log.showSignature=false", "-c", "gpg.program=false", "-c", "gpg.ssh.program=false", "-c", "gpg.x509.program=false"]
-    static let readOnly: Set<String> = ["status", "diff", "show", "log", "blame", "ls-files", "grep", "diff-files", "diff-index"]
+    static let noSignatures = [
+        "-c", "log.showSignature=false", "-c", "gpg.program=false", "-c", "gpg.ssh.program=false", "-c",
+        "gpg.x509.program=false"
+    ]
+    static let readOnly: Set<String> = [
+        "status", "diff", "show", "log", "blame", "ls-files", "grep", "diff-files", "diff-index"
+    ]
 
     /// Config for one run, after what `env` holds already. Unlike `-c`, it takes any key: a filter can be called `a=b`, and
     /// `-c` would split that at its first `=`. A submodule's git still gets it.
@@ -99,14 +127,17 @@ extension Git {
     }
 
     /// `d` up to its last `separator`, inclusive: the whole entries of output cut off mid-entry.
-    static func wholeEntries(_ d: Data, _ separator: UInt8) -> Data { d.lastIndex(of: separator).map { d[...$0] } ?? Data() }
+    static func wholeEntries(_ d: Data, _ separator: UInt8) -> Data {
+        d.lastIndex(of: separator).map { d[...$0] } ?? Data()
+    }
 
     /// File names as pathspecs that mean just those files: "[id].tsx" isn't a pattern for "i.tsx" or "d.tsx".
     /// (Not `--literal-pathspecs`: `stash -u` uses pathspec magic of its own and then leaves untracked files behind.)
     static func literal(_ files: [String]) -> [String] { files.map { ":(literal)" + $0 } }
 
     public static func root(of path: String, remotes: Remotes = .none) throws -> String {
-        try run(["rev-parse", "--show-toplevel"], cwd: path, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
+        try run(["rev-parse", "--show-toplevel"], cwd: path, remotes: remotes).trimmingCharacters(
+            in: .whitespacesAndNewlines)
     }
 
     /// A branch name Kelp may pass to git as a revision: never one that reads as an option. Git won't create such a
@@ -118,7 +149,9 @@ extension Git {
     /// `name` as a revision or branch argument, wherever it came from (a client, the database, git's own output): every
     /// GitKit call that puts one where git reads options goes through this, so none can become an option.
     static func rev(_ name: String) throws -> String {
-        guard isRevision(name) else { throw GitError(args: [name], status: 1, stderr: "“\(name)” isn't a branch or commit name.") }
+        guard isRevision(name) else {
+            throw GitError(args: [name], status: 1, stderr: "“\(name)” isn't a branch or commit name.")
+        }
         return name
     }
 
@@ -128,7 +161,9 @@ extension Git {
             let b = String(s.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 != "/" }).dropFirst())
             if isRevision(b) { return b }
         }
-        for b in ["main", "master"] where (try? run(["rev-parse", "--verify", b], cwd: repo, remotes: remotes)) != nil { return b }
+        for b in ["main", "master"] where (try? run(["rev-parse", "--verify", b], cwd: repo, remotes: remotes)) != nil {
+            return b
+        }
         return (try? currentBranch(repo, remotes: remotes)) ?? "main"
     }
 
@@ -136,12 +171,20 @@ extension Git {
     /// Detached, a linked worktree (.git is a file), a reftable repository or a remote project: git itself.
     public static func currentBranch(_ path: String, remotes: Remotes = .none) throws -> String {
         var name = ""
-        if remotes.of(path) == nil, let head = try? String(contentsOfFile: path + "/.git/HEAD", encoding: .utf8), head.hasPrefix("ref: refs/heads/") {
+        if remotes.of(path) == nil, let head = try? String(contentsOfFile: path + "/.git/HEAD", encoding: .utf8),
+            head.hasPrefix("ref: refs/heads/")
+        {
             name = String(head.dropFirst("ref: refs/heads/".count)).trimmingCharacters(in: .whitespacesAndNewlines)
             if name == ".invalid" { name = "" }   // a reftable repository's stub HEAD: the real one is in its tables
         }
-        if name.isEmpty { name = try run(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines) }
-        guard isRevision(name) else { throw GitError(args: ["rev-parse", "HEAD"], status: 1, stderr: "the branch's name reads as an option: \(name)") }
+        if name.isEmpty {
+            name = try run(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+        }
+        guard isRevision(name) else {
+            throw GitError(
+                args: ["rev-parse", "HEAD"], status: 1, stderr: "the branch's name reads as an option: \(name)")
+        }
         return name
     }
 }
@@ -149,7 +192,9 @@ extension Git {
 extension RemoteHost {
     /// `script` in sh on the host (whatever its login shell is), its output as the bytes it wrote.
     public func run(_ script: String, timeLimit: TimeInterval = 300) throws -> Data {
-        try Git.runData(sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), executable: ssh, timeLimit: timeLimit)
+        try Git.runData(
+            sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), executable: ssh,
+            timeLimit: timeLimit)
     }
 }
 
@@ -160,7 +205,8 @@ extension RemoteHost {
 /// Limit: with its filter off, a file whose stat changed reads as modified in a git-crypt-style repo until it's added.
 enum RepoFilters {
     /// By config file: the names, and the stamp of every file they were read from (the config and what it includes).
-    private static let cache = OSAllocatedUnfairLock<[String: (stamps: [String: Date], names: [String])]>(initialState: [:])
+    private static let cache = OSAllocatedUnfairLock<[String: (stamps: [String: Date], names: [String])]>(
+        initialState: [:])
 
     /// The config that turns them off for one run in `cwd` (`Git.configEnv`).
     static func off(_ cwd: String) -> [(String, String)] {
@@ -173,7 +219,8 @@ enum RepoFilters {
     /// dots, spaces and `=`.
     static func name(ofKey key: Substring) -> String? {
         guard key.hasPrefix("filter."), let dot = key.lastIndex(of: "."),
-              ["clean", "smudge", "process"].contains(key[key.index(after: dot)...]) else { return nil }
+            ["clean", "smudge", "process"].contains(key[key.index(after: dot)...])
+        else { return nil }
         let start = key.index(key.startIndex, offsetBy: 7)
         return start < dot ? String(key[start..<dot]) : nil
     }
@@ -182,10 +229,14 @@ enum RepoFilters {
     /// can't be found. Limit: an included file with nothing in it yet isn't watched until the config is read again.
     static func names(_ cwd: String) -> [String] {
         guard let file = configFile(cwd) else { return read(cwd).names }
-        if let hit = cache.withLock({ $0[file] }), hit.stamps.allSatisfy({ stamp($0.key) == $0.value }) { return hit.names }
+        if let hit = cache.withLock({ $0[file] }), hit.stamps.allSatisfy({ stamp($0.key) == $0.value }) {
+            return hit.names
+        }
         let r = read(cwd), subs = submodules(of: file)
         let names = Array(Set(r.names + subs.names)).sorted()
-        let stamps = Dictionary((r.files + subs.files + [file]).compactMap { f in stamp(f).map { (f, $0) } }) { a, _ in a }
+        let stamps = Dictionary((r.files + subs.files + [file]).compactMap { f in stamp(f).map { (f, $0) } }) { a, _ in
+            a
+        }
         cache.withLock { $0[file] = (stamps, names) }
         return names
     }
@@ -194,12 +245,19 @@ enum RepoFilters {
     /// populated one too, and Kelp's `-c` reaches them (GIT_CONFIG_PARAMETERS). Their config files are stamped as well.
     private static func submodules(of config: String) -> (names: [String], files: [String]) {
         let modules = URL(fileURLWithPath: config).deletingLastPathComponent().appendingPathComponent("modules")
-        let all = (FileManager.default.enumerator(at: modules, includingPropertiesForKeys: nil)?.allObjects as? [URL]) ?? []
+        let all =
+            (FileManager.default.enumerator(at: modules, includingPropertiesForKeys: nil)?.allObjects as? [URL]) ?? []
         let files = all.filter { $0.lastPathComponent == "config" }.map(\.path)
         var names = Set<String>()
         for f in files {
-            let args = ["/usr/bin/git", "config", "-z", "--file", f, "--includes", "--get-regexp", #"^filter\..*\.(clean|smudge|process)$"#]
-            guard let r = try? Subprocess.run(args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20) else { continue }
+            let args = [
+                "/usr/bin/git", "config", "-z", "--file", f, "--includes", "--get-regexp",
+                #"^filter\..*\.(clean|smudge|process)$"#
+            ]
+            guard
+                let r = try? Subprocess.run(
+                    args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20)
+            else { continue }
             for entry in String(decoding: r.stdout, as: UTF8.self).split(separator: "\0") {   // "key\nvalue"
                 if let n = name(ofKey: entry.prefix { $0 != "\n" }) { names.insert(n) }
             }
@@ -207,12 +265,19 @@ enum RepoFilters {
         return (Array(names), files)
     }
 
-    private static func stamp(_ path: String) -> Date? { try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date }
+    private static func stamp(_ path: String) -> Date? {
+        try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date
+    }
 
     /// The repository's own filter names, and the files its config was read from (includes followed).
     private static func read(_ cwd: String) -> (names: [String], files: [String]) {
-        let args = ["/usr/bin/git", "-c", "core.fsmonitor=false", "config", "-z", "--show-scope", "--show-origin", "--list"]
-        guard let r = try? Subprocess.run(args, cwd: cwd, env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20) else { return ([], []) }
+        let args = [
+            "/usr/bin/git", "-c", "core.fsmonitor=false", "config", "-z", "--show-scope", "--show-origin", "--list"
+        ]
+        guard
+            let r = try? Subprocess.run(
+                args, cwd: cwd, env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20)
+        else { return ([], []) }
         var names = Set<String>(), files = Set<String>()
         // Scope, origin and "key\nvalue", each ended by a NUL: nothing a name holds can pass for the next field.
         let fields = String(decoding: r.stdout, as: UTF8.self).split(separator: "\0", omittingEmptySubsequences: false)
@@ -232,10 +297,18 @@ enum RepoFilters {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: git.path, isDirectory: &isDir) {
                 if isDir.boolValue { return git.appendingPathComponent("config").path }
-                guard let text = try? String(contentsOf: git, encoding: .utf8), text.hasPrefix("gitdir: ") else { return nil }
-                let gitdir = URL(fileURLWithPath: text.dropFirst(8).trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: dir).standardizedFileURL
-                let common = (try? String(contentsOf: gitdir.appendingPathComponent("commondir"), encoding: .utf8))
-                    .map { URL(fileURLWithPath: $0.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: gitdir).standardizedFileURL } ?? gitdir
+                guard let text = try? String(contentsOf: git, encoding: .utf8), text.hasPrefix("gitdir: ") else {
+                    return nil
+                }
+                let gitdir = URL(
+                    fileURLWithPath: text.dropFirst(8).trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: dir
+                ).standardizedFileURL
+                let common =
+                    (try? String(contentsOf: gitdir.appendingPathComponent("commondir"), encoding: .utf8))
+                    .map {
+                        URL(fileURLWithPath: $0.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: gitdir)
+                            .standardizedFileURL
+                    } ?? gitdir
                 return common.appendingPathComponent("config").path
             }
             let up = dir.deletingLastPathComponent()

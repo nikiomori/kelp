@@ -8,12 +8,14 @@ enum Glyph {
     static func image(_ name: String, size: CGFloat = 17) -> NSImage? {   // as tall as a 14-point symbol
         guard let shape = shapes[name] else { return nil }
         let img = NSImage(size: NSSize(width: size, height: size), flipped: true) { r in
-            let p = NSBezierPath(); shape(p)
+            let p = NSBezierPath()
+            shape(p)
             p.transform(using: AffineTransform(scale: r.width / 16))
             p.lineWidth = 1.3 * r.width / 16
             p.lineCapStyle = .round
             p.lineJoinStyle = .round
-            NSColor.black.setStroke(); p.stroke()
+            NSColor.black.setStroke()
+            p.stroke()
             return true
         }
         img.isTemplate = true
@@ -36,7 +38,9 @@ enum Glyph {
             ring(p, 4, 12.5)
             ring(p, 12, 5)
             line(p, (4, 5), (4, 11))
-            p.move(to: NSPoint(x: 12, y: 6.5)); p.curve(to: NSPoint(x: 4, y: 11), controlPoint1: NSPoint(x: 12, y: 9.5), controlPoint2: NSPoint(x: 4, y: 8.5))
+            p.move(to: NSPoint(x: 12, y: 6.5))
+            p.curve(
+                to: NSPoint(x: 4, y: 11), controlPoint1: NSPoint(x: 12, y: 9.5), controlPoint2: NSPoint(x: 4, y: 8.5))
         },
         // A pull request: the branch's commit coming back to the trunk.
         "arrow.triangle.pull": { p in
@@ -44,15 +48,20 @@ enum Glyph {
             ring(p, 4, 12.5)
             ring(p, 12, 12.5)
             line(p, (4, 5), (4, 11))
-            p.move(to: NSPoint(x: 12, y: 11)); p.line(to: NSPoint(x: 12, y: 6.5))
-            p.curve(to: NSPoint(x: 10, y: 4.5), controlPoint1: NSPoint(x: 12, y: 5.4), controlPoint2: NSPoint(x: 11.1, y: 4.5))
+            p.move(to: NSPoint(x: 12, y: 11))
+            p.line(to: NSPoint(x: 12, y: 6.5))
+            p.curve(
+                to: NSPoint(x: 10, y: 4.5), controlPoint1: NSPoint(x: 12, y: 5.4),
+                controlPoint2: NSPoint(x: 11.1, y: 4.5))
             p.line(to: NSPoint(x: 7.5, y: 4.5))
             line(p, (9, 3), (7.5, 4.5), (9, 6))
         },
         // Issues and pull requests: a list.
         "checklist": { p in
-            ring(p, 3.5, 4.5); ring(p, 3.5, 11.5)
-            line(p, (7, 4.5), (14, 4.5)); line(p, (7, 11.5), (14, 11.5))
+            ring(p, 3.5, 4.5)
+            ring(p, 3.5, 11.5)
+            line(p, (7, 4.5), (14, 4.5))
+            line(p, (7, 11.5), (14, 11.5))
         },
         // CI: a check in a ring.
         "checkmark.seal": { p in

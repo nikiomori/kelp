@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// A project another tool set up first. Without a .kelp.yaml, Kelp reads that tool's file for the same things: the setup a
 /// new worktree gets, run / test and named commands, and the teardown, which becomes the `archive` command. So a project
@@ -25,8 +25,10 @@ enum ImportedConfig {
     static func find(_ root: String) -> (file: String, text: String, config: RepoConfig)? {
         for s in sources {
             for file in s.file.hasPrefix(".codex/") ? codexFiles(root) : [s.file] {
-                guard let data = FileManager.default.contents(atPath: root + "/" + file), let text = String(data: data, encoding: .utf8),
-                      let c = s.read(text, root), !Workspaces.asksNothing(c) else { continue }
+                guard let data = FileManager.default.contents(atPath: root + "/" + file),
+                    let text = String(data: data, encoding: .utf8),
+                    let c = s.read(text, root), !Workspaces.asksNothing(c)
+                else { continue }
                 return (file, text, c)
             }
         }
@@ -38,7 +40,9 @@ enum ImportedConfig {
         let dir = ".codex/environments"
         let all: [String] = FileManager.default.enumerator(atPath: root + "/" + dir)?.allObjects as? [String] ?? []
         let names = all.filter { $0.hasSuffix(".toml") && !$0.contains("/") }.sorted()
-        return (names.filter { $0 == "environment.toml" } + names.filter { $0 != "environment.toml" }).map { dir + "/" + $0 }
+        return (names.filter { $0 == "environment.toml" } + names.filter { $0 != "environment.toml" }).map {
+            dir + "/" + $0
+        }
     }
 
     // MARK: the tools
@@ -53,7 +57,9 @@ enum ImportedConfig {
         for id in ids {
             let k = "scripts.run.\(id)."
             guard var cmd = t.string(k + "command") else { continue }
-            if let args = t.strings(k + "args"), !args.isEmpty { cmd += " " + args.map(IDE.shellWord).joined(separator: " ") }
+            if let args = t.strings(k + "args"), !args.isEmpty {
+                cmd += " " + args.map(IDE.shellWord).joined(separator: " ")
+            }
             if let cwd = t.string(k + "options.cwd") { cmd = "cd \(IDE.shellWord(cwd)) && \(cmd)" }
             add(&c, id == main ? "run" : id, cmd)
         }
@@ -71,7 +77,10 @@ enum ImportedConfig {
     }
 
     static func conductorVars(_ root: String) -> [(String, String)] {
-        [("CONDUCTOR_ROOT_PATH", IDE.shellWord(root)), ("CONDUCTOR_WORKSPACE_PATH", here), ("CONDUCTOR_WORKSPACE_NAME", name), ("CONDUCTOR_PORT", port)]
+        [
+            ("CONDUCTOR_ROOT_PATH", IDE.shellWord(root)), ("CONDUCTOR_WORKSPACE_PATH", here),
+            ("CONDUCTOR_WORKSPACE_NAME", name), ("CONDUCTOR_PORT", port)
+        ]
     }
 
     /// Codex's local environment: setup (its macOS one first), cleanup, and actions (`icon = "run"` / `"test"` are those).
@@ -81,9 +90,14 @@ enum ImportedConfig {
         c.setup = t.string("setup.darwin.script") ?? t.string("setup.script")
         for i in t.names(under: "actions.") {
             let k = "actions.\(i)."
-            guard let cmd = t.string(k + "command"), ["darwin", nil].contains(t.string(k + "platform")) else { continue }
+            guard let cmd = t.string(k + "command"), ["darwin", nil].contains(t.string(k + "platform")) else {
+                continue
+            }
             let icon = t.string(k + "icon") ?? ""
-            add(&c, ["run", "test"].contains(icon) && !c.scripts.contains { $0.name == icon } ? icon : t.string(k + "name") ?? icon, cmd)
+            add(
+                &c,
+                ["run", "test"].contains(icon) && !c.scripts.contains { $0.name == icon }
+                    ? icon : t.string(k + "name") ?? icon, cmd)
         }
         add(&c, "archive", t.string("cleanup.darwin.script") ?? t.string("cleanup.script"))
         return finish(c, [("CODEX_SOURCE_TREE_PATH", IDE.shellWord(root)), ("CODEX_WORKTREE_PATH", here)])
@@ -107,7 +121,12 @@ enum ImportedConfig {
         c.setup = steps(j["setup"])
         add(&c, "run", steps(j["run"]))
         add(&c, "archive", steps(j["teardown"]))
-        return finish(c, [("SUPERSET_ROOT_PATH", IDE.shellWord(root)), ("SUPERSET_WORKSPACE_PATH", here), ("SUPERSET_WORKSPACE_NAME", name)])
+        return finish(
+            c,
+            [
+                ("SUPERSET_ROOT_PATH", IDE.shellWord(root)), ("SUPERSET_WORKSPACE_PATH", here),
+                ("SUPERSET_WORKSPACE_NAME", name)
+            ])
     }
 
     static func emdash(_ text: String, _ root: String) -> RepoConfig? {
@@ -160,14 +179,17 @@ enum ImportedConfig {
 
     /// A command, or a list of them run in turn that stops at the first to fail (as those tools run them). Empty: none.
     static func steps(_ v: Any?) -> String? {
-        let list = (v as? [String] ?? (v as? String).map { [$0] } ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        let list = (v as? [String] ?? (v as? String).map { [$0] } ?? []).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
         return list.isEmpty ? nil : list.count == 1 ? list[0] : "set -e\n" + list.joined(separator: "\n")
     }
 
     static func add(_ c: inout RepoConfig, _ name: String, _ command: String?) {
         let name = name.trimmingCharacters(in: .whitespaces)
         guard let command = command?.trimmingCharacters(in: .whitespacesAndNewlines), !command.isEmpty, !name.isEmpty,
-              !c.scripts.contains(where: { $0.name == name }) else { return }
+            !c.scripts.contains(where: { $0.name == name })
+        else { return }
         c.scripts.append(.init(name: name, command: command))
     }
 

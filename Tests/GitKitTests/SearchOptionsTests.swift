@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import GitKit
 
 @Test func searchTakesWholeWordsCaseAndPatterns() throws {

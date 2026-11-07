@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Daemon
 
 private func home() throws -> URL {
@@ -32,7 +33,8 @@ private func home() throws -> URL {
 @Test func setKeepsKeysAndNullRemovesThem() throws {
     let d = try home()
     let s = SettingsStore(root: d)
-    _ = try s.set("editor.fontSize", .int(14)); _ = try s.set("theme", .string("nord"))
+    _ = try s.set("editor.fontSize", .int(14))
+    _ = try s.set("theme", .string("nord"))
     #expect(s.number("editor.fontSize") == 14)
     _ = try s.set("editor.fontSize", .null)
     #expect(s["editor.fontSize"] == nil && s["theme"] == .string("nord"))
@@ -41,7 +43,9 @@ private func home() throws -> URL {
 
 @Test func numbersReadAsEitherIntOrDouble() throws {
     let s = SettingsStore(root: try home())
-    _ = try s.set("a", .int(2)); _ = try s.set("b", .double(2.5)); _ = try s.set("c", .string("x"))
+    _ = try s.set("a", .int(2))
+    _ = try s.set("b", .double(2.5))
+    _ = try s.set("c", .string("x"))
     #expect(s.number("a") == 2 && s.number("b") == 2.5 && s.number("c") == nil && s.number("missing") == nil)
 }
 
@@ -51,7 +55,8 @@ private func home() throws -> URL {
     _ = try s.set("a", .int(1))
     #expect(!s.reloadIfChanged())   // we wrote that ourselves
     try #"{"a": 2}"#.write(to: d.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
-    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: d.appendingPathComponent("settings.json").path)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: d.appendingPathComponent("settings.json").path)
     #expect(s.reloadIfChanged() && s["a"] == .int(2))
     #expect(!s.reloadIfChanged())   // nothing changed since
 }
@@ -73,7 +78,8 @@ private func home() throws -> URL {
     let d = try home()
     let s = SettingsStore(root: d)
     _ = try s.set("a", .int(1))
-    try #"{"a": 1, "byHand": true}"#.write(to: d.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)   // not polled yet
+    try #"{"a": 1, "byHand": true}"#.write(
+        to: d.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)   // not polled yet
     _ = try s.set("b", .int(2))
     let back = SettingsStore(root: d)
     #expect(back["byHand"] == .bool(true) && back["b"] == .int(2) && back["a"] == .int(1))
@@ -95,7 +101,9 @@ private func home() throws -> URL {
     try "{}".write(to: real, atomically: true, encoding: .utf8)
     try FileManager.default.createSymbolicLink(at: d.appendingPathComponent("settings.json"), withDestinationURL: real)
     _ = try SettingsStore(root: d).set("theme", .string("nord"))
-    #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: d.appendingPathComponent("settings.json").path)) != nil)   // still a link
+    #expect(
+        (try? FileManager.default.destinationOfSymbolicLink(atPath: d.appendingPathComponent("settings.json").path))
+            != nil)   // still a link
     #expect(try String(contentsOf: real, encoding: .utf8).contains("nord"))   // and the file it points at has the change
 }
 

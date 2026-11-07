@@ -1,17 +1,18 @@
 import AppKit
-import Foundation
 import Core
-import Testing
+import Foundation
 import TestSupport
+import Testing
 import WorkbenchKit
-@testable import KelpApp
-@testable import KelpKit
+
+@testable import BuiltinActivity
 @testable import BuiltinAgents
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinGit
-@testable import BuiltinBrowser
 @testable import BuiltinIssues
-@testable import BuiltinActivity
+@testable import KelpApp
+@testable import KelpKit
 
 /// A file tab as an agent and the user share it: the agent's change shows when nothing is edited here, ⌘S writes the
 /// user's edit, and never over a change the agent made meanwhile.
@@ -33,7 +34,8 @@ extension AppOfItsOwn {
     /// The close sheet says Save writes a deleted file at its old place again, and it does: it used to leave the tab open with
     /// no word. A plain save still doesn't write over what it hasn't seen.
     @Test func saveInTheCloseSheetPutsADeletedFileBack() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
         tab.editor?.setText("mine\n")
@@ -46,7 +48,8 @@ extension AppOfItsOwn {
 
     /// A crash leaves what was typed: the tab that opens next takes it back, as unsaved. A save takes it away for good.
     @Test func unsavedTextComesBackAfterACrash() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig), kept = UnsavedBackup(app: rig.app, uri: tab.uri)
         tab.editor?.setText("mine\n")
@@ -63,7 +66,8 @@ extension AppOfItsOwn {
 
     /// An untitled tab was never on disk, so a crash would take all of it. Don't Save takes the kept text too.
     @Test func anUntitledTabComesBackUntilDontSave() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let tab = UntitledTab(uri: "untitled:1", app: rig.app), kept = UnsavedBackup(app: rig.app, uri: "untitled:1")
         tab.editor.setText("draft")
         tab.editor.onChange?("draft")
@@ -77,7 +81,8 @@ extension AppOfItsOwn {
 
     /// One the saved layout never had still gets its tab; one whose workspace is gone goes.
     @Test func whatACrashLeftGetsATab() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let host = EditorHost(app: rig.app), workspace = rig.workspace.id
         rig.app.uiState["backup.\(workspace).untitled:7"] = .array(["untitled:7", .string(workspace), "x"])
         rig.app.uiState["backup.gone.untitled:8"] = .array(["untitled:8", "gone", "y"])
@@ -86,7 +91,9 @@ extension AppOfItsOwn {
         let client = rig.app.client
         rig.app.client = nil
         await UnsavedBackups.reopen(rig.app, in: host)
-        #expect(rig.app.uiState["backup.gone.untitled:8"] != nil && rig.app.uiState["backup.\(workspace).untitled:7"] != nil)
+        #expect(
+            rig.app.uiState["backup.gone.untitled:8"] != nil && rig.app.uiState["backup.\(workspace).untitled:7"] != nil
+        )
         rig.app.client = client
         rig.app.worktrees = [rig.workspace]
         await UnsavedBackups.reopen(rig.app, in: host)
@@ -97,7 +104,8 @@ extension AppOfItsOwn {
     /// A tab dropped without its question (its workspace went and the save failed) keeps what was typed even before the
     /// pause in typing; a workspace gone hands a file's text to the workspace that holds the file, instead of dropping it.
     @Test func aDroppedTabsTextIsKeptForAWorkspaceHoldingIt() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         var tab: FileTab? = await opened(p, in: rig)
         let kept = UnsavedBackup(app: rig.app, uri: TabURI.file(p))
@@ -115,7 +123,8 @@ extension AppOfItsOwn {
     }
 
     @Test func anAgentsChangeShowsWhenNothingIsEditedHere() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
         #expect(tab.editor?.text == "one\n")
@@ -125,7 +134,8 @@ extension AppOfItsOwn {
     }
 
     @Test func saveWritesTheEditButNeverOverAnAgentsChange() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
         tab.editor?.setText("mine\n")
@@ -140,10 +150,12 @@ extension AppOfItsOwn {
     /// An agent's change to a file edited here, once its version is pushed: the edit stays, and ⌘S asks instead of
     /// writing over it (here, with no window to ask in, it just doesn't write).
     @Test func anAgentsChangeToAnEditedFileKeepsTheEditAndAsks() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
-        tab.editor?.setText("mine\n"); tab.editor?.onChange?("mine\n")
+        tab.editor?.setText("mine\n")
+        tab.editor?.onChange?("mine\n")
         let was = rig.app.latest(FileEvent.self, p)?.stamp
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
         #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
@@ -158,20 +170,26 @@ extension AppOfItsOwn {
     /// A file only touched (a new modification time, the same text) while edited here asks nothing: ⌘S writes the edit,
     /// whether its new version was pushed before the save or the daemon finds it at the save.
     @Test func aTouchedFileIsSavedWithoutAsking() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
         func touch(_ ahead: Int) throws {
-            var times = [timespec(tv_sec: 0, tv_nsec: Int(UTIME_NOW)), timespec(tv_sec: Int(Date().timeIntervalSince1970) + ahead, tv_nsec: 0)]
+            var times = [
+                timespec(tv_sec: 0, tv_nsec: Int(UTIME_NOW)),
+                timespec(tv_sec: Int(Date().timeIntervalSince1970) + ahead, tv_nsec: 0)
+            ]
             #expect(utimensat(AT_FDCWD, p, &times, 0) == 0)
         }
-        tab.editor?.setText("mine\n"); tab.editor?.onChange?("mine\n")
+        tab.editor?.setText("mine\n")
+        tab.editor?.onChange?("mine\n")
         let was = rig.app.latest(FileEvent.self, p)?.stamp
         try touch(5)
         #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
         #expect(await tab.save())
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
-        tab.editor?.setText("mine again\n"); tab.editor?.onChange?("mine again\n")
+        tab.editor?.setText("mine again\n")
+        tab.editor?.onChange?("mine again\n")
         try touch(10)   // and saved before the daemon says so
         #expect(await tab.save())
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine again\n")
@@ -181,18 +199,22 @@ extension AppOfItsOwn {
     /// workspace going away doesn't ask again); without Cancel the second button is Don't Save. Then what's left to wait
     /// for (a remote file's save) is nothing.
     @Test func closingAWorkspaceAsksAboutItsUnsavedFiles() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("one\n")
         let tab = await opened(p, in: rig), untitled = UntitledTab(uri: "untitled:1", app: rig.app)
-        func type(_ t: String) { tab.editor?.setText(t); tab.editor?.onChange?(t) }   // as typing does
+        func type(_ t: String) {
+            tab.editor?.setText(t)
+            tab.editor?.onChange?(t)
+        }   // as typing does
         type("mine\n")
         #expect(await !UnsavedChanges.settle([tab], .alertSecondButtonReturn))   // Cancel
         #expect(tab.isEdited)
-        #expect(await UnsavedChanges.settle([tab], .alertFirstButtonReturn))     // Save
+        #expect(await UnsavedChanges.settle([tab], .alertFirstButtonReturn))   // Save
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
         type("mine again\n")
         #expect(tab.isEdited)
-        #expect(await UnsavedChanges.settle([tab], .alertThirdButtonReturn))     // Don't Save
+        #expect(await UnsavedChanges.settle([tab], .alertThirdButtonReturn))   // Don't Save
         #expect(!tab.isEdited)
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
         untitled.editor.setText("draft")
@@ -204,7 +226,8 @@ extension AppOfItsOwn {
     /// The shell reaches a file tab only as `TabContent`: what it asks must be the tab's own answer, not the protocol's
     /// "not this one" default (a signature that drifts would fall back to it silently).
     @Test func theShellSeesAFileTabThroughTabContent() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("a\nb\nc\nd\n")
         let file = await opened(p, in: rig)
         let tab: TabContent = file
@@ -219,10 +242,13 @@ extension AppOfItsOwn {
     /// 110 ms for 3 MB, each one); a letter typed over and back still clears the dot, compared off it.
     @Test func typingInABigFileDoesntCompareItAll() async throws {
         let line = "let label = \"größe\" // a line of code\n"
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file(String(repeating: line, count: 3_000_000 / line.utf8.count))
         let tab = await opened(p, in: rig)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = tab.view
         let tv = try #require(tab.editor?.textView)
         let end = tv.length - 10
@@ -243,7 +269,8 @@ extension AppOfItsOwn {
     /// A 60 MB log or a pipe isn't read whole on the main thread: the tab says why instead (a pipe used to block forever,
     /// /dev/zero to eat memory). A terminal path that's a pipe isn't a file to preview either.
     @Test func hugeFilesAndPipesAreNotReadIntoTheEditor() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("")
         #expect(truncate(p, 60 << 20) == 0)   // sparse: no 60 MB written
         #expect(await opened(p, in: rig).editor == nil)
@@ -258,13 +285,15 @@ extension AppOfItsOwn {
     /// log a dev server appends to used to read all of it on the main thread. Rewritten in place with the same size and
     /// its old modification time put back, the file looks untouched, so the tab keeps what it read.
     @Test func aFileEventWithTheSameStampReadsNothing() async throws {
-        let rig = try await AppRig(files: [:]); defer { rig.done() }
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
         let p = try file("aaaa\n")
         let tab = await opened(p, in: rig)
         var st = stat()
         #expect(stat(p, &st) == 0)
         let h = try FileHandle(forWritingTo: URL(fileURLWithPath: p))
-        try h.write(contentsOf: Data("bbbb\n".utf8)); try h.close()   // same inode, same size
+        try h.write(contentsOf: Data("bbbb\n".utf8))
+        try h.close()   // same inode, same size
         var times = [st.st_atimespec, st.st_mtimespec]
         #expect(utimensat(AT_FDCWD, p, &times, 0) == 0)
         try await Task.sleep(for: .seconds(1))   // the events of both arrive meanwhile
@@ -278,8 +307,11 @@ extension AppOfItsOwn {
 /// A picture bigger than the window is shown smaller: it used to grow the window to its own size (#39).
 @MainActor @Test func aBigImageDoesntGrowTheWindow() {
     let image = NSImage(size: NSSize(width: 6000, height: 4000))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .resizable], backing: .buffered, defer: true)
-    let box = NSView(); window.contentView = box
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .resizable], backing: .buffered,
+        defer: true)
+    let box = NSView()
+    window.contentView = box
     box.pin(ImagePreview(image: image, url: URL(fileURLWithPath: "/tmp/big.png")))
     window.layoutIfNeeded()
     #expect(window.contentLayoutRect.size == NSSize(width: 800, height: 600))
@@ -297,17 +329,18 @@ extension AppOfItsOwn {
 /// What VS Code writes goes in as it is: a comment, a prefix list, a body of lines.
 @Test func snippetsReadVSCodesFormat() throws {
     let text = """
-    {
-      // a comment
-      "Test": { "prefix": ["test", "tt"], "body": ["func test$1() {", "\\t$0", "}"], "description": "A test" },
-      "One": { "prefix": "one", "body": "$TM_FILENAME_BASE ${TM_FILENAME}" },
-      "Broken": { "prefix": "x" },
-    }
-    """
+        {
+          // a comment
+          "Test": { "prefix": ["test", "tt"], "body": ["func test$1() {", "\\t$0", "}"], "description": "A test" },
+          "One": { "prefix": "one", "body": "$TM_FILENAME_BASE ${TM_FILENAME}" },
+          "Broken": { "prefix": "x" },
+        }
+        """
     let all = try Snippets.read(text, path: "/p/a.swift")
     #expect(all.map(\.label) == ["one", "test", "tt"])
     #expect(all[0].insert == "a a.swift")
-    #expect(all[1].insert.contains("\n") && all[1].snippet && all[1].documentation == "A test" && all[1].detail == "Test")
+    #expect(
+        all[1].insert.contains("\n") && all[1].snippet && all[1].documentation == "A test" && all[1].detail == "Test")
     #expect(throws: (any Error).self) { try Snippets.read("{", path: "/p/a.swift") }
 }
 
@@ -323,5 +356,6 @@ extension AppOfItsOwn {
     var layout = WorkspaceLayout()
     _ = layout.add(TabURI.file(dir + "/a.txt"), to: nil)
     #expect(layout.fileTab(sameFileAs: TabURI.file("/private" + dir + "/a.txt", line: 2)) == nil)   // by name alone: another
-    #expect(layout.fileTab(sameFileAs: TabURI.file("/private" + dir + "/a.txt", line: 2), real: EditorArea.realPath) != nil)
+    #expect(
+        layout.fileTab(sameFileAs: TabURI.file("/private" + dir + "/a.txt", line: 2), real: EditorArea.realPath) != nil)
 }

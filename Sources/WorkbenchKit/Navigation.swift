@@ -1,17 +1,20 @@
-import Foundation
-import CoreGraphics
 import Core
+import CoreGraphics
+import Foundation
 
 extension WorkspaceLayout {
     /// The tab `offset` steps from the selected one in the focused group, wrapping around (⌃Tab).
     public func tab(cycling offset: Int) -> String? {
-        guard let g = focusedGroup, let cur = g.selectedTab, let i = g.tabs.firstIndex(of: cur), !g.tabs.isEmpty else { return nil }
+        guard let g = focusedGroup, let cur = g.selectedTab, let i = g.tabs.firstIndex(of: cur), !g.tabs.isEmpty else {
+            return nil
+        }
         return g.tabs[(i + offset % g.tabs.count + g.tabs.count) % g.tabs.count].id
     }
 
     /// The selected tab of the pane `offset` steps from the focused one, wrapping around; nil with a single pane.
     public func tabInGroup(cycling offset: Int) -> String? {
-        guard let ids = root?.sessions, let cur = focusedGroup?.id, let i = ids.firstIndex(of: cur), ids.count > 1 else { return nil }
+        guard let ids = root?.sessions, let cur = focusedGroup?.id, let i = ids.firstIndex(of: cur), ids.count > 1
+        else { return nil }
         return groups[ids[(i + offset % ids.count + ids.count) % ids.count]]?.selectedTab?.id
     }
 
@@ -28,9 +31,13 @@ extension WorkspaceLayout {
     public func pageTab(for uri: String) -> TabRef? {
         guard ["http", "https"].contains(TabURI.scheme(uri)) else { return nil }
         if let exact = tab(uri: uri) { return exact }
-        guard let u = URLComponents(string: uri), ["", "/"].contains(u.path), ["localhost", "127.0.0.1"].contains(u.host ?? "") else { return nil }
+        guard let u = URLComponents(string: uri), ["", "/"].contains(u.path),
+            ["localhost", "127.0.0.1"].contains(u.host ?? "")
+        else { return nil }
         return allTabs.first { t in
-            guard ["http", "https"].contains(TabURI.scheme(t.uri)), let o = URLComponents(string: t.uri) else { return false }
+            guard ["http", "https"].contains(TabURI.scheme(t.uri)), let o = URLComponents(string: t.uri) else {
+                return false
+            }
             return o.host == u.host && o.port == u.port
         }
     }
@@ -39,12 +46,13 @@ extension WorkspaceLayout {
     /// 2 points or less still count as beside it. Window coordinates: y grows upward (`.maxY` is up).
     public static func nearestPane(from a: CGRect, among panes: [String: CGRect], toward edge: NSRectEdge) -> String? {
         panes.compactMap { id, b -> (String, CGFloat)? in
-            let beyond = switch edge {
-            case .minX: b.maxX <= a.minX + 2
-            case .maxX: b.minX >= a.maxX - 2
-            case .minY: b.maxY <= a.minY + 2
-            default: b.minY >= a.maxY - 2
-            }
+            let beyond =
+                switch edge {
+                case .minX: b.maxX <= a.minX + 2
+                case .maxX: b.minX >= a.maxX - 2
+                case .minY: b.maxY <= a.minY + 2
+                default: b.minY >= a.maxY - 2
+                }
             return beyond ? (id, hypot(b.midX - a.midX, b.midY - a.midY)) : nil
         }.min { $0.1 < $1.1 || ($0.1 == $1.1 && $0.0 < $1.0) }?.0
     }
@@ -70,7 +78,10 @@ public struct WorkspaceHistory: Equatable, Sendable {
     }
 
     /// Goes there (from `target`) and says which workspace that is.
-    public mutating func go(to i: Int) -> String { at = i; return visits[i] }
+    public mutating func go(to i: Int) -> String {
+        at = i
+        return visits[i]
+    }
 }
 
 /// A project's own screen: its oldest workspace, the one its chats are on. It has no heading and doesn't close; every other
@@ -99,13 +110,19 @@ public struct WorkspaceClosing: Equatable, Sendable {
         for (repo, mine) in Dictionary(grouping: picked, by: \.repoId) {
             if let r = repos.first(where: { $0.id == repo }), let own = mainWorkspace(of: r, among: open) {
                 if mine.contains(own) { kept.insert(own.id) }
-            } else if mine.count >= open.filter({ $0.repoId == repo }).count, let oldest = mine.min(by: { $0.createdAt < $1.createdAt }) {
+            } else if mine.count >= open.filter({ $0.repoId == repo }).count,
+                let oldest = mine.min(by: { $0.createdAt < $1.createdAt })
+            {
                 kept.insert(oldest.id)
             }
         }
         keptSome = !kept.isEmpty
         for w in picked where !kept.contains(w.id) {
-            if w.path == repos.first(where: { $0.id == w.repoId })?.path { remove.append(w.id) } else { archive.append(w.id) }
+            if w.path == repos.first(where: { $0.id == w.repoId })?.path {
+                remove.append(w.id)
+            } else {
+                archive.append(w.id)
+            }
         }
     }
 
@@ -114,7 +131,8 @@ public struct WorkspaceClosing: Equatable, Sendable {
     /// `rows`: the project's open workspaces, as the sidebar lists them.
     public static func afterLastTab(of w: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
         guard let r = repos.first(where: { $0.id == w.repoId }), w.id != mainWorkspace(of: r, among: rows)?.id,
-              let i = rows.firstIndex(where: { $0.id == w.id }) else { return nil }
+            let i = rows.firstIndex(where: { $0.id == w.id })
+        else { return nil }
         return rows.dropFirst(i + 1).first ?? rows[..<i].last
     }
 }

@@ -9,7 +9,9 @@ import WorkbenchKit
     let readable: (String) -> Bool = { $0 == "a" }   // b is asking: not read by a glance
     let t0 = Date()
     func tick(_ s: Double, front: Bool = true, shown: [String] = ["a", "b"]) -> [String] {
-        g.tick(front: front, shown: shown, readable: { readable($0) && unread.contains($0) }, unread: { unread.contains($0) }, now: t0.addingTimeInterval(s))
+        g.tick(
+            front: front, shown: shown, readable: { readable($0) && unread.contains($0) },
+            unread: { unread.contains($0) }, now: t0.addingTimeInterval(s))
     }
     #expect(tick(0) == [])
     #expect(tick(0.5) == [])
@@ -21,7 +23,8 @@ import WorkbenchKit
     #expect(tick(5) == [] && tick(6) == ["a"])
     g.failed("a")
     #expect(tick(6.5) == [] && tick(7.5) == ["a"])   // the ask failed: asked again
-    unread = ["a"]; g = Glances()
+    unread = ["a"]
+    g = Glances()
     #expect(tick(0, front: false) == [] && tick(5, front: false) == [])   // never in front
     #expect(tick(10) == [] && tick(10.5, shown: []) == [] && tick(11) == [] && tick(12) == ["a"])   // passed by: the second starts over
 }

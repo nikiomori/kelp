@@ -1,21 +1,24 @@
+import Core
 import Foundation
 import Testing
-import Core
-@testable import KelpApp
-@testable import KelpKit
+
+@testable import BuiltinActivity
 @testable import BuiltinAgents
+@testable import BuiltinBrowser
 @testable import BuiltinFiles
 @testable import BuiltinGit
-@testable import BuiltinBrowser
 @testable import BuiltinIssues
-@testable import BuiltinActivity
+@testable import KelpApp
+@testable import KelpKit
 
 /// A session list that was on its way while an event about a session came doesn't take that session back: the event
 /// (sent after the list was read, or as it was) wins; the others come from the list.
 @MainActor
 @Test func aListOnItsWayDoesntUndoANewerEvent() {
-    var done = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude"); done.status = .done
-    var stale = done; stale.status = .working
+    var done = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude")
+    done.status = .done
+    var stale = done
+    stale.status = .working
     let other = Session(worktreeId: "w", cwd: "/tmp", command: "zsh", agent: "shell")
     let created = Session(worktreeId: "w", cwd: "/tmp", command: "codex", agent: "codex")   // created after the list was read
     let merged = AppModel.merge(list: [stale, other], local: [done, created], newer: [done.id, created.id])
@@ -27,8 +30,10 @@ import Core
 /// A turn that ended while the connection was down, during an update say: the list that comes after is the only word of it.
 @MainActor
 @Test func aChangeNoEventToldIsCaughtUpWith() {
-    var was = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude"); was.status = .working
-    var now = was; now.status = .done
+    var was = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude")
+    was.status = .working
+    var now = was
+    now.status = .done
     let new = Session(worktreeId: "w", cwd: "/tmp", command: "codex", agent: "codex")
     let missed = AppModel.caughtUp([now, new], local: [was])
     #expect(missed.count == 1 && missed.first?.now.status == .done && missed.first?.was.status == .working)
@@ -40,7 +45,8 @@ import Core
 @MainActor
 @Test func aListOnItsWayDoesntBringBackARemovedWorkspace() {
     let kept = Worktree(repoId: "r", branch: "main", path: "/p", note: "Workspace 1")
-    var renamed = kept; renamed.note = "Renamed"
+    var renamed = kept
+    renamed.note = "Renamed"
     let removed = Worktree(repoId: "r", branch: "main", path: "/p", note: "Workspace 2")
     let merged = AppModel.merge(list: [kept, removed], local: [renamed], newer: [kept.id, removed.id])
     #expect(merged == [renamed])
@@ -53,10 +59,12 @@ import Core
     let m = AppModel(builtins: Builtins.all)
     let gone = Session(worktreeId: "w", cwd: "/tmp", command: "zsh", agent: "shell")
     let restarted = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude")
-    m.upsert(gone); m.upsert(restarted)
+    m.upsert(gone)
+    m.upsert(restarted)
     #expect(m.session(gone.id) != nil && m.session(restarted.id) != nil)
     m.restarting.insert(restarted.id)
-    m.handle(RemovedEvent(session: gone.id)); m.handle(RemovedEvent(session: restarted.id))
+    m.handle(RemovedEvent(session: gone.id))
+    m.handle(RemovedEvent(session: restarted.id))
     #expect(m.session(gone.id) == nil)
     #expect(m.session(restarted.id) != nil)
 }
@@ -65,14 +73,21 @@ import Core
 @MainActor
 @Test func anOlderCopyOfASessionIsDropped() {
     let m = AppModel(builtins: Builtins.all)
-    var s = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude"); s.status = .done; s.revision = 3
-    var old = s; old.status = .working; old.revision = 2
-    m.upsert(s); m.upsert(old)
+    var s = Session(worktreeId: "w", cwd: "/tmp", command: "claude", agent: "claude")
+    s.status = .done
+    s.revision = 3
+    var old = s
+    old.status = .working
+    old.revision = 2
+    m.upsert(s)
+    m.upsert(old)
     #expect(m.session(s.id)?.status == .done)
     m.handle(old)
     #expect(m.session(s.id)?.status == .done)
     #expect(AppModel.merge(list: [old], local: [s], newer: []) == [s])
-    var newer = s; newer.status = .working; newer.revision = 4
+    var newer = s
+    newer.status = .working
+    newer.revision = 4
     m.upsert(newer)
     #expect(m.session(s.id)?.status == .working)
 }

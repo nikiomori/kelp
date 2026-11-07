@@ -46,7 +46,9 @@ public struct ServedPage: Equatable, Sendable {
 
     /// As this Mac reaches it: one on a host comes here first through `call` (the app's `PortsForward`), and a dropped
     /// connection is opened again. nil when it can't be; `call` has said why.
-    @MainActor public func reached(in wid: String, call: @MainActor (PortsForward) async -> PortsForward.Forwarded?) async -> ServedPage? {
+    @MainActor public func reached(in wid: String, call: @MainActor (PortsForward) async -> PortsForward.Forwarded?)
+        async -> ServedPage?
+    {
         guard host != nil, !forwarded || offline else { return self }
         guard let f = await call(PortsForward(worktreeId: wid, port: remotePort)) else { return nil }
         var here = self
@@ -56,7 +58,10 @@ public struct ServedPage: Equatable, Sendable {
 
     /// Brought to port `here` on this Mac.
     public mutating func moved(to here: Int) {
-        if var u = URLComponents(string: url) { u.port = here; url = u.string ?? url }
+        if var u = URLComponents(string: url) {
+            u.port = here
+            url = u.string ?? url
+        }
         port = here
         forwarded = true
         offline = false
@@ -77,12 +82,15 @@ public enum ServedPages {
     public static func list(printed: [String], ports: [PortsList.Port]) -> [ServedPage] {
         var all = printed.compactMap { url -> ServedPage? in
             guard let port = URLComponents(string: url)?.port else { return nil }
-            var page = ports.first { ($0.here ?? $0.port) == port }.map(ServedPage.init) ?? ServedPage(url: url, port: port)
+            var page =
+                ports.first { ($0.here ?? $0.port) == port }.map(ServedPage.init) ?? ServedPage(url: url, port: port)
             page.url = url
             page.isWeb = true
             return page
         }
-        for p in ports where listed(p) && !all.contains(where: { $0.port == (p.here ?? p.port) }) { all.append(ServedPage(p)) }
+        for p in ports where listed(p) && !all.contains(where: { $0.port == (p.here ?? p.port) }) {
+            all.append(ServedPage(p))
+        }
         return all.filter(\.isWeb) + all.filter { !$0.isWeb }
     }
 }

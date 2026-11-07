@@ -7,9 +7,11 @@ import Foundation
 public enum IOSRunner {
     /// Path in the project → contents; nil when this build lacks them.
     public static var files: [String: String]? {
-        let names = ["KelpRunner.xcodeproj/project.pbxproj": "runner-pbxproj",
-                     "KelpRunner.xcodeproj/xcshareddata/xcschemes/KelpRunner.xcscheme": "runner-scheme",
-                     "Host/App.swift": "runner-app", "Runner/Runner.swift": "runner-runner"]
+        let names = [
+            "KelpRunner.xcodeproj/project.pbxproj": "runner-pbxproj",
+            "KelpRunner.xcodeproj/xcshareddata/xcschemes/KelpRunner.xcscheme": "runner-scheme",
+            "Host/App.swift": "runner-app", "Runner/Runner.swift": "runner-runner"
+        ]
         var files: [String: String] = [:]
         for (path, name) in names {
             guard let text = IDE.resource(name, "txt") else { return nil }
@@ -27,9 +29,13 @@ public enum IOSRunnerClient {
         guard fd >= 0 else { return nil }
         defer { close(fd) }
         var a = sockaddr_in()
-        a.sin_family = sa_family_t(AF_INET); a.sin_port = UInt16(port).bigEndian; a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_port = UInt16(port).bigEndian
+        a.sin_addr.s_addr = inet_addr("127.0.0.1")
         let r = withUnsafePointer(to: &a) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
         }
         var line: Data
         do { line = try JSONSerialization.data(withJSONObject: request) } catch { return nil }

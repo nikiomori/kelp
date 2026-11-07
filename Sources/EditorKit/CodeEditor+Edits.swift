@@ -19,8 +19,10 @@ extension CodeEditor {
             return tv.setCursors(sels.map { $0.length > 0 ? $0 : Self.word(at: $0.location, in: s) })
         }
         guard let last = sels.last else { return }
-        let free = Self.occurrences(of: s.substring(with: last), in: s, wholeWords: sels.allSatisfy { Self.isWord($0, in: s) })
-            .filter { !sels.contains($0) }
+        let free = Self.occurrences(
+            of: s.substring(with: last), in: s, wholeWords: sels.allSatisfy { Self.isWord($0, in: s) }
+        )
+        .filter { !sels.contains($0) }
         guard let next = free.first(where: { $0.location >= NSMaxRange(last) }) ?? free.first else { return }
         tv.setCursors(sels + [next])
         tv.scrollRangeToVisible(next)
@@ -55,18 +57,22 @@ extension CodeEditor {
         let swaps = blocks.map { b -> (range: NSRange, text: String, shift: Int)? in
             guard down ? NSMaxRange(b) < s.length : b.location > 0 else { return nil }
             let other = s.lineRange(for: NSRange(location: down ? NSMaxRange(b) : b.location - 1, length: 0))
-            var (top, bottom) = down ? (s.substring(with: other), s.substring(with: b)) : (s.substring(with: b), s.substring(with: other))
+            var (top, bottom) =
+                down
+                ? (s.substring(with: other), s.substring(with: b)) : (s.substring(with: b), s.substring(with: other))
             if !(top as NSString).hasSuffix("\n") {   // the last line moves up: its line break goes with the line now above it
-                top += bottom.hasSuffix("\r\n") ? "\r\n" : "\n"; bottom.removeLast()
+                top += bottom.hasSuffix("\r\n") ? "\r\n" : "\n"
+                bottom.removeLast()
             }
             return (NSUnionRange(b, other), top + bottom, down ? (top as NSString).length : -other.length)
         }
         let done = swaps.compactMap { $0 }
         tv.replace(done.map(\.range), with: done.map(\.text))
-        tv.setCursors(sels.map { r in
-            let i = blocks.lastIndex { $0.location <= r.location } ?? 0
-            return NSRange(location: r.location + (swaps[i]?.shift ?? 0), length: r.length)
-        })
+        tv.setCursors(
+            sels.map { r in
+                let i = blocks.lastIndex { $0.location <= r.location } ?? 0
+                return NSRange(location: r.location + (swaps[i]?.shift ?? 0), length: r.length)
+            })
         tv.scrollRangeToVisible(tv.selectedRange())
     }
 
@@ -81,21 +87,27 @@ extension CodeEditor {
         }
         tv.replace(blocks.map { NSRange(location: down ? NSMaxRange($0) : $0.location, length: 0) }, with: copies)
         let lengths = copies.map { ($0 as NSString).length }
-        tv.setCursors(sels.map { r in
-            let i = blocks.lastIndex { $0.location <= r.location } ?? 0
-            return NSRange(location: r.location + lengths[..<i].reduce(0, +) + (down ? lengths[i] : 0), length: r.length)
-        })
+        tv.setCursors(
+            sels.map { r in
+                let i = blocks.lastIndex { $0.location <= r.location } ?? 0
+                return NSRange(
+                    location: r.location + lengths[..<i].reduce(0, +) + (down ? lengths[i] : 0), length: r.length)
+            })
     }
 
     /// ⌘/: the touched lines commented out, or back in when they all are: with the language's line comment, else each
     /// line in its block comment (CSS, HTML).
     public func toggleComment() {
-        let (open, close) = language.lineCommentString.isEmpty ? language.rangeCommentStrings : (language.lineCommentString, "")
+        let (open, close) =
+            language.lineCommentString.isEmpty ? language.rangeCommentStrings : (language.lineCommentString, "")
         guard !open.isEmpty else { return NSSound.beep() }   // plain text
         let s = textView.string as NSString
-        let lines = Typing.lines(textView.cursors, in: s).filter { Typing.leading(s, $0).length < $0.length - Typing.lineBreak(s, $0) }
+        let lines = Typing.lines(textView.cursors, in: s).filter {
+            Typing.leading(s, $0).length < $0.length - Typing.lineBreak(s, $0)
+        }
         guard !lines.isEmpty else { return }
-        let bodies = lines.map { l in NSRange(location: NSMaxRange(Typing.leading(s, l)), length: 0) }.enumerated().map { i, b in
+        let bodies = lines.map { l in NSRange(location: NSMaxRange(Typing.leading(s, l)), length: 0) }.enumerated().map
+        { i, b in
             NSRange(location: b.location, length: NSMaxRange(lines[i]) - Typing.lineBreak(s, lines[i]) - b.location)   // after the indent
         }
         let texts = bodies.map { s.substring(with: $0) }
@@ -105,7 +117,9 @@ extension CodeEditor {
                 let o = (open as NSString).length + (t.hasPrefix(open + " ") ? 1 : 0)
                 edits.append((NSRange(location: b.location, length: o), ""))
                 if !close.isEmpty {
-                    let c = (close as NSString).length + (t.hasSuffix(" " + close) && t.count > open.count + close.count ? 1 : 0)
+                    let c =
+                        (close as NSString).length
+                        + (t.hasSuffix(" " + close) && t.count > open.count + close.count ? 1 : 0)
                     edits.append((NSRange(location: NSMaxRange(b) - c, length: c), ""))
                 }
             }
@@ -129,7 +143,9 @@ extension CodeEditor {
     /// The identifier around `i` (letters, digits, `_`, `$`); empty when there is none.
     static func word(at i: Int, in s: NSString) -> NSRange {
         let ident = CharacterSet.alphanumerics.union(.init(charactersIn: "_$"))
-        func isIdent(_ j: Int) -> Bool { j >= 0 && j < s.length && UnicodeScalar(s.character(at: j)).map(ident.contains) == true }
+        func isIdent(_ j: Int) -> Bool {
+            j >= 0 && j < s.length && UnicodeScalar(s.character(at: j)).map(ident.contains) == true
+        }
         var a = i, b = i
         while isIdent(a - 1) { a -= 1 }
         while isIdent(b) { b += 1 }
@@ -155,10 +171,16 @@ extension CodeEditor {
     /// a line (a triple-click) doesn't take that line.
     static func lineBlocks(_ sels: [NSRange], in s: NSString) -> [NSRange] {
         let lines = sels.sorted { $0.location < $1.location }.map { r in
-            s.lineRange(for: r.length > 0 && s.character(at: NSMaxRange(r) - 1) == 10 ? NSRange(location: r.location, length: r.length - 1) : r)
+            s.lineRange(
+                for: r.length > 0 && s.character(at: NSMaxRange(r) - 1) == 10
+                    ? NSRange(location: r.location, length: r.length - 1) : r)
         }
         return lines.reduce(into: []) { out, l in
-            if let p = out.last, l.location <= NSMaxRange(p) { out[out.count - 1] = NSUnionRange(p, l) } else { out.append(l) }
+            if let p = out.last, l.location <= NSMaxRange(p) {
+                out[out.count - 1] = NSUnionRange(p, l)
+            } else {
+                out.append(l)
+            }
         }
     }
 }
@@ -183,7 +205,9 @@ extension CodeEditor {
     }
 
     private func wider(than r: NSRange, in s: NSString) -> NSRange? {
-        if let root = highlighter?.tree?.rootNode, var n = root.descendant(in: UInt32(r.location * 2)..<UInt32(NSMaxRange(r) * 2)) {
+        if let root = highlighter?.tree?.rootNode,
+            var n = root.descendant(in: UInt32(r.location * 2)..<UInt32(NSMaxRange(r) * 2))
+        {
             while n.range.length <= r.length || NSIntersectionRange(n.range, r) != r, let up = n.parent { n = up }
             if n.range.length > r.length { return n.range }
         }
@@ -196,7 +220,9 @@ extension CodeEditor {
     /// One more cursor on the line above or below each, at the same column.
     public func addCursor(above: Bool) {
         let tv = textView, s = tv.string as NSString
-        tv.setCursors(tv.cursors + tv.cursors.map { NSRange(location: MultiCursor.vertical(s, $0.location, up: above), length: 0) })
+        tv.setCursors(
+            tv.cursors
+                + tv.cursors.map { NSRange(location: MultiCursor.vertical(s, $0.location, up: above), length: 0) })
     }
 
     /// ⌥⇧I: a cursor at the end of every line of the selection.

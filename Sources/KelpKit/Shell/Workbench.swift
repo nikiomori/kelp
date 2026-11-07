@@ -1,6 +1,6 @@
 import AppKit
-import Observation
 import Core
+import Observation
 import WorkbenchKit
 
 /// What's on screen: the selected workspace and what has focus in it. The app's (`app.workbench`): what acts on the
@@ -32,7 +32,8 @@ package final class Workbench {
         didSet {
             app.uiState["workbench.lastWorkspace"] = workspaceId.map(JSONValue.string)
             if let id = workspaceId {
-                app.uiState["workbench.recentWorkspaces"] = .array(([id] + recentWorkspaces.filter { $0 != id }).prefix(50).map(JSONValue.string))
+                app.uiState["workbench.recentWorkspaces"] = .array(
+                    ([id] + recentWorkspaces.filter { $0 != id }).prefix(50).map(JSONValue.string))
             }
         }
     }
@@ -60,7 +61,12 @@ package final class Workbench {
     @ObservationIgnored package var terminalGrid: (cols: Int, rows: Int)? = {
         let g = UserDefaults.standard.array(forKey: "terminal.lastGrid") as? [Int] ?? []
         return g.count == 2 ? (g[0], g[1]) : nil
-    }() {
-        didSet { if let g = terminalGrid, g != oldValue ?? (0, 0) { UserDefaults.standard.set([g.cols, g.rows], forKey: "terminal.lastGrid") } }
+    }()
+    {
+        didSet {
+            if let g = terminalGrid, g != oldValue ?? (0, 0) {
+                UserDefaults.standard.set([g.cols, g.rows], forKey: "terminal.lastGrid")
+            }
+        }
     }
 }

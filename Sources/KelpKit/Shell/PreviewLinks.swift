@@ -19,16 +19,22 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
 
     /// `html` as the preview's page; Kelp's `scripts` (JavaScript) run in `world` once its document is read, in order. That
     /// world, not the page's, is where the tab's message handlers belong.
-    package func load(_ html: String, baseURL: URL?, scripts: [String] = [], world: WKContentWorld = .defaultClient, in web: WKWebView) {
+    package func load(
+        _ html: String, baseURL: URL?, scripts: [String] = [], world: WKContentWorld = .defaultClient, in web: WKWebView
+    ) {
         let uc = web.configuration.userContentController
         uc.removeAllUserScripts()
-        for s in scripts { uc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world)) }
+        for s in scripts {
+            uc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world))
+        }
         shown = baseURL.map(Self.sansFragment) ?? "about:blank"
         web.loadHTMLString(html, baseURL: baseURL)
     }
 
-    package func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences,
-                         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+    package func webView(
+        _ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
+    ) {
         preferences.allowsContentJavaScript = false
         decisionHandler(policy(a, in: w), preferences)
     }
@@ -60,14 +66,21 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         guard opensOutside(u) else { return refuse(u) }
         NSWorkspace.shared.open(u)
     }
-    static func opensOutside(_ u: URL) -> Bool { ["http", "https", "mailto", "x-apple.systempreferences"].contains(u.scheme?.lowercased() ?? "") }
+    static func opensOutside(_ u: URL) -> Bool {
+        ["http", "https", "mailto", "x-apple.systempreferences"].contains(u.scheme?.lowercased() ?? "")
+    }
 
     /// Says why nothing opened, with the link to copy (a terminal's links go by the same rules: `target`).
     private static func refuse(_ u: URL) {
-        Banner.show(String(localized: "Kelp opens links to web pages and files only, not “\(u.absoluteString)”."),
-                    action: (String(localized: "Copy Link"), {
-                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(u.absoluteString, forType: .string)
-                    }))
+        Banner.show(
+            String(localized: "Kelp opens links to web pages and files only, not “\(u.absoluteString)”."),
+            action: (
+                String(localized: "Copy Link"),
+                {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(u.absoluteString, forType: .string)
+                }
+            ))
     }
 
     package static func target(_ u: URL) -> Target {

@@ -24,9 +24,12 @@ enum Usage {
         var cpu: [pid_t: UInt64] = [:], bytes: UInt64 = 0
         for p in pids.prefix(max(0, n)) where p > 0 && (p == me || responsible(p) == me) {
             var info = rusage_info_v2()
-            let ok = withUnsafeMutablePointer(to: &info) {
-                $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(p, RUSAGE_INFO_V2, $0) }
-            } == 0
+            let ok =
+                withUnsafeMutablePointer(to: &info) {
+                    $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
+                        proc_pid_rusage(p, RUSAGE_INFO_V2, $0)
+                    }
+                } == 0
             guard ok else { continue }
             cpu[p] = info.ri_user_time + info.ri_system_time
             bytes += info.ri_phys_footprint
@@ -50,7 +53,8 @@ enum Usage {
         var name = [CChar](repeating: 0, count: 256)
         return pids.prefix(max(0, n)).filter { p in
             guard p > 0, p != me, proc_name(p, &name, UInt32(name.count)) > 0, programs.contains(String(cString: name)),
-                  Subprocess.parent(p) != me, let argv = Subprocess.arguments(p) else { return false }
+                Subprocess.parent(p) != me, let argv = Subprocess.arguments(p)
+            else { return false }
             return argv.dropFirst().contains { $0.contains(id) }
         }.count
     }

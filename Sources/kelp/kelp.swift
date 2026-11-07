@@ -1,69 +1,69 @@
-import Foundation
 import Core
+import Foundation
 
 // kelp: every action in the UI is available here, so agents can drive the app too.
 let usage = """
-usage: kelp <command>
-  status                               repos, worktrees and sessions at a glance
-  repo add [path] [--init | --no-git] | repo list
-                                       a folder outside a repository needs one: git init it, or add it without git
-  worktree create <branch> [--repo id] [--base b] | list | current | note <text> | remove <id> [--force] [--drop-commits] | archive <id>
-  session new [--agent id] [--worktree id] [--cmd "..."] [--prompt text] [--title t] [--model m] [--split right|down] [--wait] [--outlive] | list
-                                       from inside an agent, --agent starts its child: its news comes to the agent as input, and it ends
-                                       with the agent. --outlive: not a child
-                                       --cmd there goes on the line under its terminal, --split or not, and goes on
-                                       when the agent ends; with --outlive it's a tab of its own
-                                       elsewhere --split opens its tab beside yours
-                                       --wait prints its id, then exits with its command's exit code when it ends
-  wait <session> [--for done,waiting,idle,exited] [--timeout 10m]   until it stops working (or reaches one of those)
-  wait --children all|any [--timeout 10m]   inside an agent: until its children stopped
-  why <session> [--all]                its status, where that came from (a hook, the program, the screen)
-                                       and the last changes and hooks that led there
-  terminal list | read <session> [bytes] | send <session> <text> [--no-enter]
-  diff [--source unstaged|staged|all|branch] | commit <msg> | merge | push
-  comment add <file> <line[-line]> <text> | send <session>
-  session restart|rename <id> [title]|handoff <id> [--agent a]
-  terminal context <session>          bounded transcript (for pasting elsewhere)
-  attach <session> [--detach]          make this terminal the session's terminal (detach: close it, or Ctrl+\\ with --detach)
-  agents                               who runs and who needs you, live, for a narrow terminal: Enter opens one, Ctrl+\\ comes
-                                       back, y/n answers a permission request. Printed once when it isn't a terminal
-  usage                                each agent's plan limits: percent used, when it resets, when it was read
-                                       (stale: over half an hour ago), as JSON
-  hook <working|waiting|done>          (called by agent hooks inside a session)
-  report <working|blocked|done|error|idle|clear> [message] [--progress 0-100] [--kind permission|question|auth]
-                                       inside a session: what you're doing, on your row and tab
-  install | uninstall                  launchd agent for the daemon
-  github prs|issues [--filter mine|review] | checks [pr] | pr-create [--title t] [--draft] | pr-merge | issue <n> [--send]
-  linear login <key> | tasks | start <ENG-123> [--send]
-                                       issue / start: the brief is typed into the new agent, not sent (--send sends it)
-  open <path[:line]|url> [--split right|down] [--focus]   open a tab in the app (relative paths are fine);
-                                                --focus also brings Kelp forward and shows that workspace
-  settings | settings get <key> | set <key> <json-or-text> | unset <key>
-  ui state                             what the app shows: workspace, tabs, extensions, commands
-  shot [file]                          the app's window as a PNG; prints where it went (a temporary file by default)
-  \(Main.browserUsage)
-                                       a page in a tab beside you, the user watching: snapshot lists what's on it with refs
-                                       (e12) to click and type in; its own cookies unless --shared (the user's)
-  run <command-id> [json-args]         run an app command (ids from `kelp ui state`)
-  ext list | new <id> [--name N] [--description D] | enable <id> | disable <id> | reload | path
-  ext search [text]                    the extension library (github.com/nikiomori/kelp-extensions)
-  ext install <id | github-url | ./folder> [--yes]   from the library, any GitHub folder (…/tree/<branch>/<path>) or
-                                       disk; one from elsewhere on GitHub shows what it runs and asks first (--yes: don't)
-  ext update [id]                      what came from GitHub, to the library's latest (or its branch's)
-  routine add <name> --prompt <text> [--agent id] [--model m] [--every hourly|daily|weekdays|weekly] [--at 9:00]
-              [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
-                                       missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
-  routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
-  artifact guide <doc|review|slides|design|dashboard>   how and where to make one: read it first
-  artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
-  artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
-                                       browser, where they're signed in); list one an agent published elsewhere
-  \(Main.vmUsage)
-                                       a Linux machine for commands: run goes through SSH (no network address), the
-                                       project folder at the same path inside; it pauses and sleeps when unused, and
-                                       the next command wakes it
-  schema [method|type] | --openrpc     the daemon's methods, events and types; all of it as an OpenRPC document
-"""
+    usage: kelp <command>
+      status                               repos, worktrees and sessions at a glance
+      repo add [path] [--init | --no-git] | repo list
+                                           a folder outside a repository needs one: git init it, or add it without git
+      worktree create <branch> [--repo id] [--base b] | list | current | note <text> | remove <id> [--force] [--drop-commits] | archive <id>
+      session new [--agent id] [--worktree id] [--cmd "..."] [--prompt text] [--title t] [--model m] [--split right|down] [--wait] [--outlive] | list
+                                           from inside an agent, --agent starts its child: its news comes to the agent as input, and it ends
+                                           with the agent. --outlive: not a child
+                                           --cmd there goes on the line under its terminal, --split or not, and goes on
+                                           when the agent ends; with --outlive it's a tab of its own
+                                           elsewhere --split opens its tab beside yours
+                                           --wait prints its id, then exits with its command's exit code when it ends
+      wait <session> [--for done,waiting,idle,exited] [--timeout 10m]   until it stops working (or reaches one of those)
+      wait --children all|any [--timeout 10m]   inside an agent: until its children stopped
+      why <session> [--all]                its status, where that came from (a hook, the program, the screen)
+                                           and the last changes and hooks that led there
+      terminal list | read <session> [bytes] | send <session> <text> [--no-enter]
+      diff [--source unstaged|staged|all|branch] | commit <msg> | merge | push
+      comment add <file> <line[-line]> <text> | send <session>
+      session restart|rename <id> [title]|handoff <id> [--agent a]
+      terminal context <session>          bounded transcript (for pasting elsewhere)
+      attach <session> [--detach]          make this terminal the session's terminal (detach: close it, or Ctrl+\\ with --detach)
+      agents                               who runs and who needs you, live, for a narrow terminal: Enter opens one, Ctrl+\\ comes
+                                           back, y/n answers a permission request. Printed once when it isn't a terminal
+      usage                                each agent's plan limits: percent used, when it resets, when it was read
+                                           (stale: over half an hour ago), as JSON
+      hook <working|waiting|done>          (called by agent hooks inside a session)
+      report <working|blocked|done|error|idle|clear> [message] [--progress 0-100] [--kind permission|question|auth]
+                                           inside a session: what you're doing, on your row and tab
+      install | uninstall                  launchd agent for the daemon
+      github prs|issues [--filter mine|review] | checks [pr] | pr-create [--title t] [--draft] | pr-merge | issue <n> [--send]
+      linear login <key> | tasks | start <ENG-123> [--send]
+                                           issue / start: the brief is typed into the new agent, not sent (--send sends it)
+      open <path[:line]|url> [--split right|down] [--focus]   open a tab in the app (relative paths are fine);
+                                                    --focus also brings Kelp forward and shows that workspace
+      settings | settings get <key> | set <key> <json-or-text> | unset <key>
+      ui state                             what the app shows: workspace, tabs, extensions, commands
+      shot [file]                          the app's window as a PNG; prints where it went (a temporary file by default)
+      \(Main.browserUsage)
+                                           a page in a tab beside you, the user watching: snapshot lists what's on it with refs
+                                           (e12) to click and type in; its own cookies unless --shared (the user's)
+      run <command-id> [json-args]         run an app command (ids from `kelp ui state`)
+      ext list | new <id> [--name N] [--description D] | enable <id> | disable <id> | reload | path
+      ext search [text]                    the extension library (github.com/nikiomori/kelp-extensions)
+      ext install <id | github-url | ./folder> [--yes]   from the library, any GitHub folder (…/tree/<branch>/<path>) or
+                                           disk; one from elsewhere on GitHub shows what it runs and asks first (--yes: don't)
+      ext update [id]                      what came from GitHub, to the library's latest (or its branch's)
+      routine add <name> --prompt <text> [--agent id] [--model m] [--every hourly|daily|weekdays|weekly] [--at 9:00]
+                  [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
+                                           missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
+      routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
+      artifact guide <doc|review|slides|design|dashboard>   how and where to make one: read it first
+      artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
+      artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
+                                           browser, where they're signed in); list one an agent published elsewhere
+      \(Main.vmUsage)
+                                           a Linux machine for commands: run goes through SSH (no network address), the
+                                           project folder at the same path inside; it pauses and sleeps when unused, and
+                                           the next command wakes it
+      schema [method|type] | --openrpc     the daemon's methods, events and types; all of it as an OpenRPC document
+    """
 
 // Internal: the daemon starts agents through this so the PTY becomes their controlling terminal
 // (posix_spawn can't do TIOCSCTTY). Without it no SIGWINCH reaches them and resizes are ignored.
@@ -72,17 +72,29 @@ func ctty() -> Never {
     let rest = Array(CommandLine.arguments.dropFirst(2))
     let cargs = rest.map { strdup($0) } + [nil]
     execvp(rest[0], cargs)
-    FileHandle.standardError.write(Data("kelp: \(rest[0]): \(String(cString: strerror(errno)))\n".utf8)); exit(127)
+    FileHandle.standardError.write(Data("kelp: \(rest[0]): \(String(cString: strerror(errno)))\n".utf8))
+    exit(127)
 }
 
-func fail(_ m: String) -> Never { FileHandle.standardError.write(Data((m + "\n").utf8)); exit(1) }
+func fail(_ m: String) -> Never {
+    FileHandle.standardError.write(Data((m + "\n").utf8))
+    exit(1)
+}
 
 nonisolated(unsafe) var args = Array(CommandLine.arguments.dropFirst())
 func flag(_ n: String) -> String? {
     guard let i = args.firstIndex(of: n), i + 1 < args.count else { return nil }
-    let v = args[i + 1]; args.removeSubrange(i...i + 1); return v
+    let v = args[i + 1]
+    args.removeSubrange(i...i + 1)
+    return v
 }
-func has(_ n: String) -> Bool { if let i = args.firstIndex(of: n) { args.remove(at: i); return true }; return false }
+func has(_ n: String) -> Bool {
+    if let i = args.firstIndex(of: n) {
+        args.remove(at: i)
+        return true
+    }
+    return false
+}
 
 func daemonBinary() -> String {
     let me = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
@@ -92,22 +104,34 @@ func daemonBinary() -> String {
 func connect() throws -> RPCClient {
     if let c = try? RPCClient(socket: Paths.socket.path) { return c }
     // Start the daemon on demand.
-    let p = Process(); p.executableURL = URL(fileURLWithPath: daemonBinary())
-    p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: daemonBinary())
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice
     try? p.run()
-    for _ in 0..<50 { usleep(100_000); if let c = try? RPCClient(socket: Paths.socket.path) { return c } }
+    for _ in 0..<50 {
+        usleep(100_000)
+        if let c = try? RPCClient(socket: Paths.socket.path) { return c }
+    }
     throw RPCError.internalError("cannot reach the Kelp daemon at \(Paths.socket.path)")
 }
 
 func show(_ v: JSONValue) {
-    let e = JSONEncoder(); e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-    if case .string(let s) = v { print(s) } else if v != .null, let d = try? e.encode(v), let s = String(bytes: d, encoding: .utf8) { print(s) }
+    let e = JSONEncoder()
+    e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    if case .string(let s) = v {
+        print(s)
+    } else if v != .null, let d = try? e.encode(v), let s = String(bytes: d, encoding: .utf8) {
+        print(s)
+    }
 }
 /// A typed result, printed as the JSON it came as.
 func show<T: Encodable>(_ v: T) { show((try? JSONValue.from(v)) ?? .null) }
 
 /// A CLI value: JSON when it parses (3, true, [1], "x"), else the text itself.
-func jsonOrText(_ s: String) -> JSONValue { (try? JSONDecoder().decode(JSONValue.self, from: Data(s.utf8))) ?? .string(s) }
+func jsonOrText(_ s: String) -> JSONValue {
+    (try? JSONDecoder().decode(JSONValue.self, from: Data(s.utf8))) ?? .string(s)
+}
 
 /// The workspace the current directory is in; an agent's own one (KELP_SESSION) when several share the folder.
 func currentWorktree(_ c: RPCClient) async throws -> Worktree {
@@ -121,7 +145,11 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
     if let r = flag("--repo") { return r }
     let cwd = FileManager.default.currentDirectoryPath
     // The nearest: a project inside another (~/code/app in ~/code) is the one its folder is in.
-    if let id = try await c.call(RepoList()).filter({ IDE.inside(cwd, $0.path) }).max(by: { $0.path.count < $1.path.count })?.id { return id }
+    if let id = try await c.call(RepoList()).filter({ IDE.inside(cwd, $0.path) }).max(by: {
+        $0.path.count < $1.path.count
+    })?.id {
+        return id
+    }
     if let id = (try? await currentWorktree(c))?.repoId { return id }
     fail("no repo here; pass --repo <id> or run `kelp repo add`")
 }
@@ -142,17 +170,22 @@ func plist() -> String {
     static func main() async {
         if CommandLine.arguments.count > 2, CommandLine.arguments[1] == "__ctty" { ctty() }
         signal(SIGPIPE, SIG_IGN)
-        guard !args.isEmpty else { print(usage); return }
+        guard !args.isEmpty else {
+            print(usage)
+            return
+        }
         let cmd = args.removeFirst()
         do {
             switch cmd {
             case "install":
-                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/dev.kelp.daemon.plist")
+                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+                    "Library/LaunchAgents/dev.kelp.daemon.plist")
                 try plist().write(to: u, atomically: true, encoding: .utf8)
                 _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["load", u.path])
                 print("installed \(u.path)")
             case "uninstall":
-                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/dev.kelp.daemon.plist")
+                let u = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+                    "Library/LaunchAgents/dev.kelp.daemon.plist")
                 _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["unload", u.path])
                 try? FileManager.default.removeItem(at: u)
             case "attach":
@@ -161,22 +194,36 @@ func plist() -> String {
                 Attach.run(id, detachKey: detachKey)
             case "schema":   // no daemon: the file ships with this binary
                 guard let file = IDE.resource("rpc", "json") else { fail("this build has no schema") }
-                print(has("--openrpc") ? file : RPCSchema.text(try JSONDecoder().decode(JSONValue.self, from: Data(file.utf8)), args.first))
+                print(
+                    has("--openrpc")
+                        ? file
+                        : RPCSchema.text(try JSONDecoder().decode(JSONValue.self, from: Data(file.utf8)), args.first))
             case "ext" where ["types", "check"].contains(args.first ?? ""):   // no daemon: they read files
-                if args.first == "types" { print(ExtBridge.declarations); break }
+                if args.first == "types" {
+                    print(ExtBridge.declarations)
+                    break
+                }
                 let folder = URL(fileURLWithPath: args.dropFirst().first ?? ".").standardizedFileURL
                 let found = ExtCheck.problems(in: folder)
-                guard !found.isEmpty else { print("OK: \(folder.path)"); break }
+                guard !found.isEmpty else {
+                    print("OK: \(folder.path)")
+                    break
+                }
                 found.forEach { print($0) }
                 exit(1)
             case "hook":   // inside an agent session: report status to the daemon
-                guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else { fail("hook: needs KELP_SESSION and an event") }
+                guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else {
+                    fail("hook: needs KELP_SESSION and an event")
+                }
                 var h = SessionHook(id: id, event: ev, at: ProcessInfo.processInfo.systemUptime)
                 var hookPayload: JSONValue?
                 // Claude Code hooks pass a JSON payload on stdin (session id, transcript path).
-                if isatty(0) == 0, let d = try? FileHandle.standardInput.readToEnd(), let v = try? JSONDecoder().decode(JSONValue.self, from: d) {
+                if isatty(0) == 0, let d = try? FileHandle.standardInput.readToEnd(),
+                    let v = try? JSONDecoder().decode(JSONValue.self, from: d)
+                {
                     hookPayload = v
-                    h.hookName = v["hook_event_name"]?.string; h.agentId = v["agent_id"]?.string
+                    h.hookName = v["hook_event_name"]?.string
+                    h.agentId = v["agent_id"]?.string
                     h.agentType = v["agent_type"]?.string
                     h.transcript = v["transcript_path"]?.string
                     h.cwd = v["cwd"]?.string   // where it works now: its own worktree, maybe
@@ -192,19 +239,23 @@ func plist() -> String {
                 try await h.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
                 // A permission question: Allow or Deny given in Kelp comes back as this hook's decision, not as keys typed
                 // into the menu, which stays on screen meanwhile (Claude Code shows it while its hook runs).
-                if h.hookName == "PermissionRequest", let answer = try await connect().call(SessionPermissionWait(id: id)) {
-                    let decision = answer == "allow" ? #"{"behavior":"allow"}"# : #"{"behavior":"deny","message":"Denied in Kelp"}"#
+                if h.hookName == "PermissionRequest",
+                    let answer = try await connect().call(SessionPermissionWait(id: id))
+                {
+                    let decision =
+                        answer == "allow"
+                        ? #"{"behavior":"allow"}"# : #"{"behavior":"deny","message":"Denied in Kelp"}"#
                     print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":"# + decision + "}}")
                 }
                 if ev == "command", let v = hookPayload, let page = Artifacts.published(hook: v) {
-                    await notePublished(page, cwd: v["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
+                    await notePublished(
+                        page, cwd: v["cwd"]?.string ?? FileManager.default.currentDirectoryPath, session: id)
                 }
             default:
                 let c = try connect()
                 try await run(cmd, c)
             }
-        } catch let e as RPCError { fail("error: \(e.message)") }
-        catch { fail("error: \(error)") }
+        } catch let e as RPCError { fail("error: \(e.message)") } catch { fail("error: \(error)") }
     }
 
     static func run(_ cmd: String, _ c: RPCClient) async throws {
@@ -233,7 +284,9 @@ func plist() -> String {
     /// Accept a full id or a unique prefix (what `kelp status` prints) of a session (`session.list`) or else a workspace.
     static func resolve(_ c: RPCClient, _ prefix: String, _ listMethod: String) async throws -> String {
         guard !prefix.isEmpty else { fail("id required") }
-        let ids = listMethod == SessionList.name ? try await c.call(SessionList()).map(\.id) : try await c.call(WorktreeList()).map(\.id)
+        let ids =
+            listMethod == SessionList.name
+            ? try await c.call(SessionList()).map(\.id) : try await c.call(WorktreeList()).map(\.id)
         let found = ids.filter { $0.hasPrefix(prefix) }
         guard found.count == 1 else { fail(found.isEmpty ? "no match for \(prefix)" : "ambiguous: \(prefix)") }
         return found[0]

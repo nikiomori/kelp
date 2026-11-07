@@ -1,6 +1,7 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import KelpKit
 
 @Test func codexWindowsAreNamedByTheirLength() {
@@ -19,14 +20,19 @@ import Core
     #expect(abs((month.pace(now: now) ?? 0) - 11.0 / 30) < 0.0001)
     #expect(month.soon(now: now) == nil)
     // Claude's 5 hours resetting in 3: 40 % gone, and the time shows.
-    let session = UsageView.Line(label: "5 hours", used: 0.08, resets: "3:40 PM", resetAt: now + 3 * 3600, window: UsageView.window("session"))
+    let session = UsageView.Line(
+        label: "5 hours", used: 0.08, resets: "3:40 PM", resetAt: now + 3 * 3600, window: UsageView.window("session"))
     #expect(abs((session.pace(now: now) ?? 0) - 0.4) < 0.0001)
     #expect(session.soon(now: now) == "3:40 PM")
     // Without a reset, a known window or one that already passed: no tick.
     #expect(UsageView.Line(label: "Week", used: 0.1, resets: nil, resetAt: nil, window: 7 * day).pace(now: now) == nil)
-    #expect(UsageView.Line(label: "Week", used: 0.1, resets: "x", resetAt: now + day, window: nil).pace(now: now) == nil)
-    #expect(UsageView.Line(label: "Week", used: 0.1, resets: "x", resetAt: now - 60, window: 7 * day).pace(now: now) == nil)
-    #expect(UsageView.window("week · Fable") == 7 * day && UsageView.window("Gemini week") == 7 * day && UsageView.window("daily") == nil)
+    #expect(
+        UsageView.Line(label: "Week", used: 0.1, resets: "x", resetAt: now + day, window: nil).pace(now: now) == nil)
+    #expect(
+        UsageView.Line(label: "Week", used: 0.1, resets: "x", resetAt: now - 60, window: 7 * day).pace(now: now) == nil)
+    #expect(
+        UsageView.window("week · Fable") == 7 * day && UsageView.window("Gemini week") == 7 * day
+            && UsageView.window("daily") == nil)
 }
 
 @Test func limitForecastTellsFromOneReadingByTheWindowsAverage() {
@@ -40,30 +46,41 @@ import Core
     #expect(abs((f.atReset(key, resetAt: reset, window: week, now: now) ?? 0) - 140) < 0.001)
     #expect(f.warning(key, resetAt: reset, window: week, now: now) == nil)   // more than a day away
     #expect(f.untilFull(key, resetAt: now.addingTimeInterval(week - 600), window: week, now: now) == nil)   // the window just began
-    #expect(f.untilFull(key, resetAt: reset, now: now) == nil)              // no window, no average
+    #expect(f.untilFull(key, resetAt: reset, now: now) == nil)   // no window, no average
 }
 
 @Test func onlyLongWindowsWithMostLeftCountAsUnusedAtTheReset() {
     let now = Date(timeIntervalSince1970: 1_800_000_000), week = 7 * 86400.0
-    #expect(LimitForecast.unusedNearReset(percent: 30, resetAt: now.addingTimeInterval(18 * 3600), window: week, now: now))
-    #expect(!LimitForecast.unusedNearReset(percent: 60, resetAt: now.addingTimeInterval(18 * 3600), window: week, now: now))   // most used
-    #expect(!LimitForecast.unusedNearReset(percent: 30, resetAt: now.addingTimeInterval(30 * 3600), window: week, now: now))   // not yet
-    #expect(!LimitForecast.unusedNearReset(percent: 10, resetAt: now.addingTimeInterval(3600), window: 5 * 3600, now: now))     // a session
+    #expect(
+        LimitForecast.unusedNearReset(percent: 30, resetAt: now.addingTimeInterval(18 * 3600), window: week, now: now))
+    #expect(
+        !LimitForecast.unusedNearReset(percent: 60, resetAt: now.addingTimeInterval(18 * 3600), window: week, now: now))   // most used
+    #expect(
+        !LimitForecast.unusedNearReset(percent: 30, resetAt: now.addingTimeInterval(30 * 3600), window: week, now: now))   // not yet
+    #expect(
+        !LimitForecast.unusedNearReset(percent: 10, resetAt: now.addingTimeInterval(3600), window: 5 * 3600, now: now))   // a session
     #expect(!LimitForecast.unusedNearReset(percent: 10, resetAt: nil, window: week, now: now))
 }
 
 @Test func readingsNameCodexWindowsByTheirLengthAndKeepWhenTheyWereRead() {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
-    let u = UsageGet.Result(claude: [], codex: [.init(observedAt: now.timeIntervalSince1970 - 3600, primaryUsedPercent: 35,
-                                                      primaryResetsAt: now.timeIntervalSince1970 + 19 * 86400, secondaryUsedPercent: nil,
-                                                      secondaryResetsAt: nil, primaryWindowMinutes: 43200)],
-                            plans: ["grok": [.init(kind: "week", percent: 17, resets: "in 2d")]], plansReadAt: ["grok": now.timeIntervalSince1970])
+    let u = UsageGet.Result(
+        claude: [],
+        codex: [
+            .init(
+                observedAt: now.timeIntervalSince1970 - 3600, primaryUsedPercent: 35,
+                primaryResetsAt: now.timeIntervalSince1970 + 19 * 86400, secondaryUsedPercent: nil,
+                secondaryResetsAt: nil, primaryWindowMinutes: 43200)
+        ],
+        plans: ["grok": [.init(kind: "week", percent: 17, resets: "in 2d")]],
+        plansReadAt: ["grok": now.timeIntervalSince1970])
     let r = u.readings(now: now)
     #expect(r.map(\.agent) == ["grok", "codex"])
     #expect(r[1].limit.kind == "month" && r[1].window == 30 * 86400 && r[1].readAt == now.addingTimeInterval(-3600))
     #expect(r[0].window == 7 * 86400 && r[0].resetAt == now.addingTimeInterval(2 * 86400) && r[0].readAt == now)
     #expect(LimitAlerts.readings(u, now: now).count == 1)   // Codex's, an hour old, says nothing about now
-    var old = u; old.plansReadAt = ["grok": now.timeIntervalSince1970 - 3 * 3600]   // "in 2d", said three hours ago
+    var old = u
+    old.plansReadAt = ["grok": now.timeIntervalSince1970 - 3 * 3600]   // "in 2d", said three hours ago
     #expect(old.readings(now: now)[0].resetAt == now.addingTimeInterval(2 * 86400 - 3 * 3600))
 }
 

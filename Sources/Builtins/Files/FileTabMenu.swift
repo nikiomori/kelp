@@ -23,7 +23,9 @@ extension FileTab {
             m.add(String(localized: "Quick Fix…")) { [weak self] in self?.server.quickFix() }
         }
         if let p = editor?.problemAtCursor {
-            m.add(String(localized: "Fix with Agent")) { FileActions(app).sendToAgent(text: "\(path):\(p.line + 1): \(p.message)") }
+            m.add(String(localized: "Fix with Agent")) {
+                FileActions(app).sendToAgent(text: "\(path):\(p.line + 1): \(p.message)")
+            }
         }
         m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: lines()) }
         m.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) }
@@ -35,7 +37,9 @@ extension FileTab {
         guard let editor else { return }
         let found = app.latest(FileEvent.self, path)?.problems ?? []
         editor.problems = found.map {
-            .init(line: $0.line, column: $0.column, endLine: $0.endLine, endColumn: $0.endColumn, isError: $0.isError, message: $0.message)
+            .init(
+                line: $0.line, column: $0.column, endLine: $0.endLine, endColumn: $0.endColumn, isError: $0.isError,
+                message: $0.message)
         }
         let errors = found.filter(\.isError).count
         statusBar?.show(errors: errors, warnings: found.count - errors)
@@ -61,8 +65,10 @@ extension FileTab {
         e.completionProvider = { [weak self] line, col in
             await self?.lspCaughtUp()
             return await app.lsp.completion(app, root: r, path: p, line: line, column: col).map {
-                CodeEditor.Completion(label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind, documentation: $0.documentation,
-                                      snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
+                CodeEditor.Completion(
+                    label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind,
+                    documentation: $0.documentation,
+                    snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
             }
         }
         e.hoverProvider = { [weak self] line, col in
@@ -73,7 +79,9 @@ extension FileTab {
         e.signatureProvider = { [weak self] line, col in
             guard app.settings.bool("editor.hover") != false else { return nil }
             await self?.lspCaughtUp()
-            guard let found = await app.quiet(LSPSignature(root: r, path: p, line: line, column: col)) ?? nil else { return nil }
+            guard let found = await app.quiet(LSPSignature(root: r, path: p, line: line, column: col)) ?? nil else {
+                return nil
+            }
             let active = found.activeStart.flatMap { a in found.activeEnd.map { NSRange(location: a, length: $0 - a) } }
             return (found.label, active)
         }

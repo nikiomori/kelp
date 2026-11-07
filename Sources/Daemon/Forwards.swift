@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// What listens on a remote project's host, read in one call over its shared connection: the folder a process runs in says
 /// whose it is, so an agent's server and a terminal's count, and a tmux or nohup doesn't hide them. Own processes only.
@@ -9,15 +9,21 @@ enum HostPorts {
 
     /// `\036port pid program` a line, so a shell's greeting can't pass for one. ss on Linux, lsof where there's none.
     static func script(_ path: String) -> String {
-        let ss = #"ss -ltnpH 2>/dev/null | sed -n 's/.*[]:]\([0-9][0-9]*\)  *[^ ]*  *users:(("\([^"]*\)",pid=\([0-9]*\),.*/\1 \3 \2/p'"#
-        let lsof = #"lsof -nP -iTCP -sTCP:LISTEN -u "$(id -u)" -Fpcn 2>/dev/null"#
+        let ss =
+            #"ss -ltnpH 2>/dev/null | sed -n 's/.*[]:]\([0-9][0-9]*\)  *[^ ]*  *users:(("\([^"]*\)",pid=\([0-9]*\),.*/\1 \3 \2/p'"#
+        let lsof =
+            #"lsof -nP -iTCP -sTCP:LISTEN -u "$(id -u)" -Fpcn 2>/dev/null"#
             + #" | awk '/^p/{p=substr($0,2)} /^c/{c=substr($0,2)} /^n/{n=$0; sub(/.*:/,"",n)"#
             + #"; print n, p, c}'"#
-        let folder = #"cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null) || cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | sed -n 's/^n//p')"#
-        return ["cd \(RemoteHost.cdArg(path)) 2>/dev/null || exit 0", "here=$(pwd -P)",
-                "if command -v ss >/dev/null 2>&1", "then \(ss)", "else \(lsof)",
-                "fi | sort -un | while read -r port pid name", "do \(folder)",
-                "case \"$cwd/\" in \"$here\"/*) printf '\\036%s %s %s\\n' \"$port\" \"$pid\" \"$name\";; esac", "done", "exit 0"].joined(separator: "; ")
+        let folder =
+            #"cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null) || cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | sed -n 's/^n//p')"#
+        return [
+            "cd \(RemoteHost.cdArg(path)) 2>/dev/null || exit 0", "here=$(pwd -P)",
+            "if command -v ss >/dev/null 2>&1", "then \(ss)", "else \(lsof)",
+            "fi | sort -un | while read -r port pid name", "do \(folder)",
+            "case \"$cwd/\" in \"$here\"/*) printf '\\036%s %s %s\\n' \"$port\" \"$pid\" \"$name\";; esac", "done",
+            "exit 0"
+        ].joined(separator: "; ")
     }
 
     static func parse(_ out: String) -> [Listener] {
@@ -56,15 +62,20 @@ final class Forwards: Sendable {
 
     init(store: Store) {
         self.store = store
-        let records = Log.store.attempt("reading the port forwardings") {
-            try JSONDecoder().decode([Record].self, from: Data((try store.uiState(prefix: Self.key)[Self.key]?.string ?? "[]").utf8))
-        } ?? []
+        let records =
+            Log.store.attempt("reading the port forwardings") {
+                try JSONDecoder().decode(
+                    [Record].self, from: Data((try store.uiState(prefix: Self.key)[Self.key]?.string ?? "[]").utf8))
+            } ?? []
         state = OSAllocatedUnfairLock(initialState: State(records: records))
     }
 
     func change(_ edit: @Sendable (inout [Record]) -> Void) {
         saving.withLock {
-            let records = state.withLock { s in edit(&s.records); return s.records }
+            let records = state.withLock { s in
+                edit(&s.records)
+                return s.records
+            }
             Log.store.attempt("saving the port forwardings") {
                 let text = String(decoding: try JSONEncoder().encode(records), as: UTF8.self)
                 try store.setUIState(Self.key, .string(text))
@@ -107,7 +118,8 @@ final class Forwards: Sendable {
     func forward(url: String, in worktree: String, _ remote: RemoteHost) -> String {
         guard var u = URLComponents(string: url), let port = u.port else { return url }
         let target = (u.host == "127.0.0.1" ? "127.0.0.1" : "localhost") + ":\(port)"
-        guard let here = Log.session.attempt("forwarding \(target)", { try forward(target, in: worktree, remote) }) else { return url }
+        guard let here = Log.session.attempt("forwarding \(target)", { try forward(target, in: worktree, remote) })
+        else { return url }
         u.host = "localhost"
         u.port = here
         return u.string ?? url
@@ -121,7 +133,8 @@ final class Forwards: Sendable {
 
     /// `port`'s record in the workspace: a port asked for by hand may be on another machine than the host.
     func target(port: Int, in worktree: String) -> String {
-        state.withLock { s in s.records.first { $0.worktree == worktree && $0.port == port }?.target } ?? "localhost:\(port)"
+        state.withLock { s in s.records.first { $0.worktree == worktree && $0.port == port }?.target }
+            ?? "localhost:\(port)"
     }
 
     /// What the workspace's folder serves on the host, and where each is here. Never opens a connection (Kelp must not
@@ -130,7 +143,9 @@ final class Forwards: Sendable {
         let args = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(HostPorts.script(remote.path))]
         guard let connection = remote.connection, let out = Sessions.run(args, path: "/usr/bin:/bin", timeout: 5) else {
             return state.withLock { $0.seen[w.id] ?? [] }.map {
-                PortsList.Port(port: $0.port, pid: $0.pid, command: $0.command, session: $0.session, host: $0.host, here: $0.here, offline: true)
+                PortsList.Port(
+                    port: $0.port, pid: $0.pid, command: $0.command, session: $0.session, host: $0.host, here: $0.here,
+                    offline: true)
             }
         }
         restore(on: connection, remote)
@@ -141,10 +156,13 @@ final class Forwards: Sendable {
         // Which session started it isn't known on the host: alone in the workspace, it's that one.
         var ports = found.map {
             let session = sessions.count == 1 ? sessions[0] : ""
-            return PortsList.Port(port: $0.port, pid: $0.pid, command: $0.command, session: session, host: remote.host, here: here($0.port))
+            return PortsList.Port(
+                port: $0.port, pid: $0.pid, command: $0.command, session: session, host: remote.host,
+                here: here($0.port))
         }
         for r in records where r.manual && !found.contains(where: { $0.port == r.port }) {
-            ports.append(PortsList.Port(port: r.port, pid: 0, command: r.target, session: "", host: remote.host, here: r.here))
+            ports.append(
+                PortsList.Port(port: r.port, pid: 0, command: r.target, session: "", host: remote.host, here: r.here))
         }
         let answer = ports
         state.withLock { $0.seen[w.id] = answer }
@@ -159,7 +177,9 @@ final class Forwards: Sendable {
             return s.connections[remote.host] == connection ? [] : s.records.filter { $0.host == remote.host }
         }
         for r in again where r.seen || r.manual {
-            _ = Log.session.attempt("forwarding \(r.target) again") { try forward(r.target, in: r.worktree, remote, manual: r.manual) }
+            _ = Log.session.attempt("forwarding \(r.target) again") {
+                try forward(r.target, in: r.worktree, remote, manual: r.manual)
+            }
         }
         let host = remote.host
         change { $0.removeAll { r in again.contains(r) && r.host == host && !r.seen && !r.manual } }
@@ -182,7 +202,9 @@ final class Forwards: Sendable {
     }
 
     private func cancel(_ r: Record, _ remote: RemoteHost) {
-        Log.session.attempt("ending the forwarding of \(r.target)") { try remote.control("cancel", Self.spec(r.here, r.target)) }
+        Log.session.attempt("ending the forwarding of \(r.target)") {
+            try remote.control("cancel", Self.spec(r.here, r.target))
+        }
     }
 
     /// This Mac only, whatever ~/.ssh/config says of GatewayPorts.
@@ -192,7 +214,8 @@ final class Forwards: Sendable {
 extension RemoteHost {
     /// The shared connection as it names itself (its process), nil with none. Changes when the connection does.
     var connection: String? {
-        Sessions.run([ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", "check", "--", host], path: "/usr/bin:/bin", timeout: 3)
+        Sessions.run(
+            [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", "check", "--", host], path: "/usr/bin:/bin", timeout: 3)
     }
 
     /// Opens the shared connection and leaves it there.
@@ -204,6 +227,8 @@ extension RemoteHost {
 
     /// `ssh -O`: asks the shared connection's master, which adds or drops a forwarding without a new login.
     func control(_ op: String, _ spec: String) throws {
-        _ = try Git.run(["-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory(), executable: ssh)
+        _ = try Git.run(
+            ["-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory(),
+            executable: ssh)
     }
 }

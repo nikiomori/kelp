@@ -1,14 +1,16 @@
 import Foundation
-import Testing
-@testable import GitKit
-@testable import Core
 import TestSupport
+import Testing
+
+@testable import Core
+@testable import GitKit
 
 @Test func unsyncedListsWhatAPushSendsAndAPullBrings() throws {
     let repo = try tempRepo()
     func commit(_ dir: String, _ file: String, _ subject: String) throws {
         try "\(subject)\n".write(toFile: dir + "/" + file, atomically: true, encoding: .utf8)
-        try Git.run(["add", file], cwd: dir); try Git.run(["commit", "-q", "--author=Ada <ada@example.com>", "-m", subject], cwd: dir)
+        try Git.run(["add", file], cwd: dir)
+        try Git.run(["commit", "-q", "--author=Ada <ada@example.com>", "-m", subject], cwd: dir)
     }
     #expect(try Git.unsynced(repo) == Unsynced(outgoing: [], incoming: []))   // no remote branch: a push has nowhere to land
     let bare = tmp().path
@@ -22,10 +24,12 @@ import TestSupport
     #expect(try Git.branches(repo).ahead == 1)
     try Git.run(["switch", "-q", "main"], cwd: repo)
     // Two more here, two there (pushed from a second clone, fetched here).
-    try commit(repo, "b.txt", "mine 1"); try commit(repo, "c.txt", "mine 2")
+    try commit(repo, "b.txt", "mine 1")
+    try commit(repo, "c.txt", "mine 2")
     let other = tmp().path
     try Git.run(["clone", "-q", bare, other], cwd: NSTemporaryDirectory())
-    try commit(other, "d.txt", "theirs 1"); try commit(other, "e.txt", "theirs 2")
+    try commit(other, "d.txt", "theirs 1")
+    try commit(other, "e.txt", "theirs 2")
     try Git.run(["push", "-q"], cwd: other)
     try Git.remote(repo, .fetch)
     let u = try Git.unsynced(repo, limit: 1)

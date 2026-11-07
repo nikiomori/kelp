@@ -1,29 +1,33 @@
 import Foundation
 import Testing
+
 @testable import Core
 
 private let page = """
-# GRDB 7: four decisions
+    # GRDB 7: four decisions
 
-Pick one in each; your picks come back to me.
+    Pick one in each; your picks come back to me.
 
-## 1. Records that lose their implicit defaults
-- [ ] A. Write defaults into each init(from:) *recommended*
-  Nine small edits; decoding stays strict.
-- [ ] B. A migration that fills the columns once
+    ## 1. Records that lose their implicit defaults
+    - [ ] A. Write defaults into each init(from:) *recommended*
+      Nine small edits; decoding stays strict.
+    - [ ] B. A migration that fills the columns once
 
-## 2. How the upgrade lands
-- [ ] A. One pull request *recommended*
-- [ ] B. Store by store, behind a setting
+    ## 2. How the upgrade lands
+    - [ ] A. One pull request *recommended*
+    - [ ] B. Store by store, behind a setting
 
-"""
+    """
 
 @Test func reviewIsRead() {
     let r = Review(page)
     #expect(r.title == "GRDB 7: four decisions" && r.intro == "Pick one in each; your picks come back to me.")
     #expect(r.points.map(\.number) == ["1", "2"] && r.points[1].question == "How the upgrade lands")
-    #expect(r.points[0].options[0] == .init(key: "A", text: "Write defaults into each init(from:)",
-                                            detail: "Nine small edits; decoding stays strict.", recommended: true, picked: false))
+    #expect(
+        r.points[0].options[0]
+            == .init(
+                key: "A", text: "Write defaults into each init(from:)",
+                detail: "Nine small edits; decoding stays strict.", recommended: true, picked: false))
     #expect(r.points[0].pick == nil)
 }
 

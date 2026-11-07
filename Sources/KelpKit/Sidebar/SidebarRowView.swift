@@ -14,7 +14,8 @@ final class SidebarOutline: NSOutlineView {
         // The content ends as far inside its card on the right as a project's icon starts on the left (SidebarRowView.band).
         // Under a heading a step further in than the rows beside the heading: the group ends where the indent does.
         let x = Self.lead + (level(forRow: row) >= 2 ? Self.step : 0)
-        r.origin.x = x; r.size.width = bounds.width - 8 - x
+        r.origin.x = x
+        r.size.width = bounds.width - 8 - x
         return r
     }
     /// The row a right-click opened the menu for; `clickedRow` stays -1, see `menu(for:)`.
@@ -45,7 +46,9 @@ final class SidebarOutline: NSOutlineView {
 @MainActor
 final class SidebarRowView: NSTableRowView {
     /// Where this row is in its project's card; the outline leaves room for its ends (`pads`), the pill follows its corners.
-    var group: (first: Bool, last: Bool)? { didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } } }
+    var group: (first: Bool, last: Bool)? {
+        didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } }
+    }
     /// Room over it that starts a server's card (`SidebarController.serverGap`): no pill there.
     var gap: CGFloat = 0 { didSet { if gap != oldValue { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
@@ -82,14 +85,17 @@ final class SidebarRowView: NSTableRowView {
     }
 
     /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
-    static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) { (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0) }
+    static func pads(_ g: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
+        (g.first ? 4 : 0, g.last ? (g.first ? 4 : 8) : 0)
+    }
 
     override func drawBackground(in r: NSRect) {
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
         // In a card the pill is 2 pt inside it on every side, its corners following the card's (radiusLG − 2); a row on its own gets a pill
         // where its card would be.
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(8).insetBy(dx: 0, dy: 2)
-        pill.origin.y += pad.top + gap; pill.size.height -= pad.top + pad.bottom + gap
+        pill.origin.y += pad.top + gap
+        pill.size.height -= pad.top + pad.bottom + gap
         let radius = Self.pillRadius(inCard: group != nil)
         let path = NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius)
         CATransaction.begin()
@@ -99,7 +105,8 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.fillColor = NSColor.fillHover.cgColor   // drawing runs in the row's appearance
         CATransaction.commit()
         guard isSelected else { return }   // the outline draws no selection of its own (selectionHighlightStyle .none)
-        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua, key = window?.isKeyWindow ?? true
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua,
+            key = window?.isKeyWindow ?? true
         NSGraphicsContext.saveGraphicsState()
         if !dark && key {   // light: white lifted off the grey card by a hairline shadow; dark: lighter is nearer, no shadow
             let shadow = NSShadow()
@@ -114,7 +121,8 @@ final class SidebarRowView: NSTableRowView {
         NSGraphicsContext.restoreGraphicsState()
         if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {   // the pill alone is 1.5:1 to its card
             (dark ? NSColor.white.withAlphaComponent(0.35) : NSColor.black.withAlphaComponent(0.25)).setStroke()
-            let edge = NSBezierPath(roundedRect: pill.insetBy(dx: 0.5, dy: 0.5), xRadius: radius - 0.5, yRadius: radius - 0.5)
+            let edge = NSBezierPath(
+                roundedRect: pill.insetBy(dx: 0.5, dy: 0.5), xRadius: radius - 0.5, yRadius: radius - 0.5)
             edge.lineWidth = 1
             edge.stroke()
         }
@@ -133,9 +141,11 @@ final class SidebarRowView: NSTableRowView {
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
         guard bounds.height > 1, let o = superview as? NSOutlineView, case let row = o.row(for: self), row >= 0,
-              let cell = subviews.first(where: { $0 is NSTableCellView }) else { return }
+            let cell = subviews.first(where: { $0 is NSTableCellView })
+        else { return }
         let f = o.frameOfCell(atColumn: 0, row: row)   // only its height: mid-update a project's row comes back narrower
-        cell.frame = NSRect(x: cell.frame.minX, y: f.minY - o.rect(ofRow: row).minY, width: cell.frame.width, height: f.height)
+        cell.frame = NSRect(
+            x: cell.frame.minX, y: f.minY - o.rect(ofRow: row).minY, width: cell.frame.width, height: f.height)
     }
     override var isSelected: Bool {
         didSet {
@@ -145,7 +155,10 @@ final class SidebarRowView: NSTableRowView {
             for case let c as SidebarCell in subviews { c.selected = isSelected }   // its grey text a step lighter on the pill
         }
     }
-    override func updateTrackingAreas() { super.updateTrackingAreas(); area = retracked(area, .activeInActiveApp) }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeInActiveApp)
+    }
     override func mouseEntered(with e: NSEvent) { hovering = true }
     override func mouseExited(with e: NSEvent) { hovering = false }
     override func prepareForReuse() {
@@ -159,8 +172,13 @@ final class SidebarRowView: NSTableRowView {
         super.viewDidMoveToWindow()
         if let scrollWatch { NotificationCenter.default.removeObserver(scrollWatch) }
         scrollWatch = nil
-        guard window != nil, let clip = enclosingScrollView?.contentView else { hovering = false; return }
-        scrollWatch = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
+        guard window != nil, let clip = enclosingScrollView?.contentView else {
+            hovering = false
+            return
+        }
+        scrollWatch = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification, object: clip, queue: .main
+        ) { [weak self] _ in
             MainActor.assumeIsolated { self?.recheckPointer() }   // queue: .main
         }
     }
@@ -172,11 +190,14 @@ final class SidebarRowView: NSTableRowView {
     override func viewWillMove(toWindow w: NSWindow?) {
         super.viewWillMove(toWindow: w)
         keyWatch.forEach(NotificationCenter.default.removeObserver)
-        keyWatch = w == nil ? [] : [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
-            NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { if self?.isSelected == true { self?.needsDisplay = true } }   // queue: .main
+        keyWatch =
+            w == nil
+            ? []
+            : [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
+                NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { if self?.isSelected == true { self?.needsDisplay = true } }   // queue: .main
+                }
             }
-        }
     }
     override func didAddSubview(_ v: NSView) {
         super.didAddSubview(v)
@@ -257,7 +278,10 @@ final class ProjectCard: NSView {
             l.mask = m
         }
         l.mask?.frame = l.bounds   // a mask doesn't follow its layer's size: set again as the card grows (setFrameSize)
-        if fading == nil { layer?.insertSublayer(l, at: 0); fading = l }
+        if fading == nil {
+            layer?.insertSublayer(l, at: 0)
+            fading = l
+        }
     }
     override func setFrameSize(_ s: NSSize) {
         super.setFrameSize(s)
@@ -284,7 +308,8 @@ final class ProjectCard: NSView {
     /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
     /// One pattern with the fill in it, the card's own ground, so it grows with the card (a layer of its own stayed at the
     /// height of a row that was still arriving).
-    private static let stripe = NSColor.dynamic(light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
+    private static let stripe = NSColor.dynamic(
+        light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
     static func stripes(over base: NSColor?, side: CGFloat = 6) -> NSColor {
         let tile = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
             if let base {

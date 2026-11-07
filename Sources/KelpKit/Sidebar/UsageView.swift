@@ -1,7 +1,7 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 
 /// How much of the agents' plans is used: the fullest limit of all (or each agent's fullest, by setting) with the agent's
 /// icon and name over a bar the width of the row, its percentage, the time it resets if that's within 12 hours, and a tick
@@ -10,7 +10,7 @@ import DesignKit
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor — the daemon reads them) and
 /// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
 struct UsageView: View {
-    struct Line: Equatable { // used: 0...1
+    struct Line: Equatable {   // used: 0...1
         var label: String
         var used: Double
         var resets: String?
@@ -45,7 +45,10 @@ struct UsageView: View {
     let app: AppModel
     /// The line over it, against the sidebar's rows; Settings' preview of it has none.
     private let ruled: Bool
-    init(app: AppModel, ruled: Bool = true) { self.app = app; self.ruled = ruled }
+    init(app: AppModel, ruled: Bool = true) {
+        self.app = app
+        self.ruled = ruled
+    }
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
@@ -68,13 +71,19 @@ struct UsageView: View {
                 // The reset times only while the bars keep their room; a narrow sidebar has them on hover.
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
                     let resets = app.settings.bool("usage.resets") != false
-                    ViewThatFits(in: .horizontal) { bars(resets: resets); bars(resets: false) }.padding(.horizontal, 14).padding(.vertical, 10)
+                    ViewThatFits(in: .horizontal) {
+                        bars(resets: resets)
+                        bars(resets: false)
+                    }.padding(.horizontal, 14).padding(.vertical, 10)
                 }
             }
         }
         .fontDesign(app.themes.chromeDesign)
         // Watched while shown: the daemon says when a plan read or the token count changed.
-        .onAppear { app.watch(.limits); load() }
+        .onAppear {
+            app.watch(.limits)
+            load()
+        }
         .onDisappear { app.unwatch(.limits) }
         .onChange(of: app.latest(LimitsEvent.self)?.usage) { load() }
         .onChange(of: app.availability.ids) { load() }
@@ -95,8 +104,11 @@ struct UsageView: View {
                             // An old reading says how old in place of its reset, which it can no longer vouch for; the
                             // row is dimmed and its share marked "~", so the age doesn't read as a reset time.
                             if r.stale, let read = r.readAt {
-                                Text(String(localized: "\(shortAgo(read)) ago")).fixedSize().monospacedDigit().foregroundStyle(.secondary)
-                            } else if resets, let at = main.soon() { Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary) }
+                                Text(String(localized: "\(shortAgo(read)) ago")).fixedSize().monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            } else if resets, let at = main.soon() {
+                                Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary)
+                            }
                             Text((r.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
                                 .monospacedDigit().foregroundStyle(UsageView.tint(main.used, quiet: .primary))
                         }
@@ -107,13 +119,19 @@ struct UsageView: View {
                 .opacity(r.stale ? 0.45 : 1)
                 // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(hovered == r.id ? Color(nsColor: .fillHover) : .clear))
+                .background(
+                    RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(
+                        hovered == r.id ? Color(nsColor: .fillHover) : .clear)
+                )
                 .padding(.horizontal, -4).padding(.vertical, -2)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
                 .contentShape(Rectangle())
                 .onHover { hovered = $0 ? r.id : (hovered == r.id ? nil : hovered) }
                 .onTapGesture { hovered = r.id }   // trackpads, and anyone who'd rather click
-                .popover(isPresented: Binding(get: { hovered == r.id }, set: { if !$0, hovered == r.id { hovered = nil } }), arrowEdge: .top) {
+                .popover(
+                    isPresented: Binding(get: { hovered == r.id }, set: { if !$0, hovered == r.id { hovered = nil } }),
+                    arrowEdge: .top
+                ) {
                     // A row per agent: the card is about the one under the pointer. One row: it's the only way to the others.
                     let cards = all ? [r] : used
                     VStack(alignment: .leading, spacing: 0) {
@@ -124,9 +142,12 @@ struct UsageView: View {
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(used.flatMap { u in
-                    u.lines.map { String(localized: "\(u.fullName) \($0.label): \(Int(($0.used * 100).rounded()))% used") }
-                }.joined(separator: ", "))
+                .accessibilityLabel(
+                    used.flatMap { u in
+                        u.lines.map {
+                            String(localized: "\(u.fullName) \($0.label): \(Int(($0.used * 100).rounded()))% used")
+                        }
+                    }.joined(separator: ", "))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -152,7 +173,9 @@ struct UsageView: View {
                 // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
                 // popover's vibrancy (the track went black).
                 .overlay(alignment: .leading) {
-                    if let p = pace { Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(x: (w * p).rounded()) }
+                    if let p = pace {
+                        Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(x: (w * p).rounded())
+                    }
                 }
             }
             .frame(minWidth: 48, maxWidth: .infinity)   // a bar, not a dot, when the text beside it is long
@@ -170,10 +193,14 @@ struct UsageView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.fullName).font(.ui(13, weight: .semibold))
                     if let at = row.readAt {
-                        Text(row.stale ? String(localized: "Read \(shortAgo(at)) ago; not since, so these may be out of date.")
-                             : Date().timeIntervalSince(at) < 60 ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago"))
-                            .font(.ui(11)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Text(
+                            row.stale
+                                ? String(localized: "Read \(shortAgo(at)) ago; not since, so these may be out of date.")
+                                : Date().timeIntervalSince(at) < 60
+                                    ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago")
+                        )
+                        .font(.ui(11)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 ForEach(row.lines, id: \.label) { l in
@@ -181,7 +208,8 @@ struct UsageView: View {
                         HStack {
                             Text(l.label).foregroundStyle(.secondary)
                             Spacer()
-                            Text(UsageView.percent(l.used)).monospacedDigit().fontWeight(.semibold).foregroundStyle(UsageView.tint(l.used, quiet: .primary))
+                            Text(UsageView.percent(l.used)).monospacedDigit().fontWeight(.semibold).foregroundStyle(
+                                UsageView.tint(l.used, quiet: .primary))
                         }
                         let even = pace ? l.pace() : nil
                         Bar(used: l.used, pace: even)
@@ -190,16 +218,27 @@ struct UsageView: View {
                             HStack {
                                 if let r = l.resets { Text("Resets \(r)").lineLimit(1) }
                                 Spacer(minLength: Metrics.gapWide)
-                                if let e = even { Text("Even pace \(UsageView.percent(e))").fixedSize().monospacedDigit() }
+                                if let e = even {
+                                    Text("Even pace \(UsageView.percent(e))").fixedSize().monospacedDigit()
+                                }
                             }
                             .font(.ui(11)).foregroundStyle(.secondary)
                         }
-                        if !row.stale, let eta = forecast.warning(LimitForecast.key(row.id, l.kind), resetAt: l.resetAt, window: l.window) {
-                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(.ui(11)).foregroundStyle(Color.textOrange)
+                        if !row.stale,
+                            let eta = forecast.warning(
+                                LimitForecast.key(row.id, l.kind), resetAt: l.resetAt, window: l.window)
+                        {
+                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(
+                                .ui(11)
+                            ).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
-                        } else if !row.stale, LimitForecast.unusedNearReset(percent: l.used * 100, resetAt: l.resetAt, window: l.window) {
-                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(11)).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                        } else if !row.stale,
+                            LimitForecast.unusedNearReset(percent: l.used * 100, resetAt: l.resetAt, window: l.window)
+                        {
+                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(11)).foregroundStyle(
+                                .secondary
+                            )
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
@@ -226,9 +265,13 @@ struct UsageView: View {
             switch a.id {
             case "claude":
                 r.lines = Self.claude(u)
-                if r.readAt == nil { r.readAt = u.claudeLimits?.compactMap(\.observedAt).max().map { Date(timeIntervalSince1970: $0) } }
+                if r.readAt == nil {
+                    r.readAt = u.claudeLimits?.compactMap(\.observedAt).max().map { Date(timeIntervalSince1970: $0) }
+                }
             // Codex logs its limits only when it's used: an old reading says how old it is.
-            case "codex": r.lines = Self.codex(u); r.readAt = u.codex.first.map { Date(timeIntervalSince1970: $0.observedAt) }
+            case "codex":
+                r.lines = Self.codex(u)
+                r.readAt = u.codex.first.map { Date(timeIntervalSince1970: $0.observedAt) }
             default: r.lines = Self.lines(u.plans?[a.id] ?? [])
             }
             return r.lines.isEmpty ? nil : r
@@ -244,15 +287,22 @@ struct UsageView: View {
     /// Readings as the daemon passes them: kind ("session", "week", "week · Fable", "Gemini week"), percent, resets.
     private static func lines(_ readings: [UsageGet.Limit]) -> [Line] {
         readings.map { l in
-            Line(label: label(l.kind), used: l.percent / 100, resets: l.resets.map { ResetTime.shown($0) },
-                 resetAt: l.resets.flatMap { ResetTime.parse($0) }, window: window(l.kind), kind: l.kind)
+            Line(
+                label: label(l.kind), used: l.percent / 100, resets: l.resets.map { ResetTime.shown($0) },
+                resetAt: l.resets.flatMap { ResetTime.parse($0) }, window: window(l.kind), kind: l.kind)
         }
     }
 
     private static func label(_ kind: String) -> String {
-        kind == "session" ? String(localized: "5 hours") : kind == "week" ? String(localized: "Week")
-            : kind == "month" ? String(localized: "Month")
-            : kind.hasPrefix("week · ") ? String(localized: "Week, \(String(kind.dropFirst(7)))") : kind.prefix(1).uppercased() + kind.dropFirst()
+        kind == "session"
+            ? String(localized: "5 hours")
+            : kind == "week"
+                ? String(localized: "Week")
+                : kind == "month"
+                    ? String(localized: "Month")
+                    : kind.hasPrefix("week · ")
+                        ? String(localized: "Week, \(String(kind.dropFirst(7)))")
+                        : kind.prefix(1).uppercased() + kind.dropFirst()
     }
 
     static func window(_ kind: String) -> TimeInterval? { UsageGet.window(kind) }
@@ -266,14 +316,17 @@ struct UsageView: View {
         guard let x = u.codex.first else { return [] }
         let now = Date().timeIntervalSince1970
         // The window's own length names it: the free plan's only window is a month, not 5 hours.
-        return [(x.primaryUsedPercent, x.primaryResetsAt, x.primaryWindowMinutes, true),
-                (x.secondaryUsedPercent, x.secondaryResetsAt, x.secondaryWindowMinutes, false)].compactMap { used, reset, minutes, primary in
+        return [
+            (x.primaryUsedPercent, x.primaryResetsAt, x.primaryWindowMinutes, true),
+            (x.secondaryUsedPercent, x.secondaryResetsAt, x.secondaryWindowMinutes, false)
+        ].compactMap { used, reset, minutes, primary in
             guard let p = used else { return nil }
             let kind = UsageGet.Codex.kind(minutes: minutes, primary: primary)
             let t = reset ?? 0, expired = t > 0 && t < now
             let at = t > now ? Date(timeIntervalSince1970: t) : nil
-            return Line(label: label(kind), used: expired ? 0 : p / 100, resets: at.map { ResetTime.shown($0) }, resetAt: at,
-                        window: minutes.map { $0 * 60 } ?? window(kind), kind: kind)
+            return Line(
+                label: label(kind), used: expired ? 0 : p / 100, resets: at.map { ResetTime.shown($0) }, resetAt: at,
+                window: minutes.map { $0 * 60 } ?? window(kind), kind: kind)
         }
     }
 }
@@ -281,26 +334,38 @@ struct UsageView: View {
 extension AppModel {
     /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read: the Usage tab's
     /// Plan column (kept coming with `watchingPlans`).
-    package var plans: [String: (limits: [(label: String, used: Double, resets: String?)], readAt: Date?, note: (text: String, color: NSColor)?)] {
+    package var plans:
+        [String: (
+            limits: [(label: String, used: Double, resets: String?)], readAt: Date?,
+            note: (text: String, color: NSColor)?
+        )]
+    {
         let notes = planNotes
-        return Dictionary(UsageView.rows(self).map { r in
-            let limits = r.lines.sorted { $0.used > $1.used }.map { (label: $0.label, used: $0.used, resets: $0.resets) }
-            return (r.id, (limits, r.readAt, notes[r.id].map { ($0.text, $0.color) }))
-        }, uniquingKeysWith: { a, _ in a })
+        return Dictionary(
+            UsageView.rows(self).map { r in
+                let limits = r.lines.sorted { $0.used > $1.used }.map {
+                    (label: $0.label, used: $0.used, resets: $0.resets)
+                }
+                return (r.id, (limits, r.readAt, notes[r.id].map { ($0.text, $0.color) }))
+            }, uniquingKeysWith: { a, _ in a })
     }
 
     /// What's said beside an agent where agents are chosen; nothing once plan limits are turned off.
     var planNotes: [String: PlanNote] {
         guard settings.bool("usage.readPlans") != false else { return [:] }
-        return Dictionary(UsageView.rows(self).compactMap { r in
-            PlanNote(fullest: r.main.map { (label: $0.label, used: $0.used, resets: $0.resets) }, readAt: r.readAt).map { (r.id, $0) }
-        }, uniquingKeysWith: { a, _ in a })
+        return Dictionary(
+            UsageView.rows(self).compactMap { r in
+                PlanNote(fullest: r.main.map { (label: $0.label, used: $0.used, resets: $0.resets) }, readAt: r.readAt)
+                    .map { (r.id, $0) }
+            }, uniquingKeysWith: { a, _ in a })
     }
 }
 
 extension View {
     /// Keeps the agents' plan limits coming while this is shown (`AppModel.plans`).
-    package func watchingPlans(_ app: AppModel) -> some View { onAppear { app.watch(.limits) }.onDisappear { app.unwatch(.limits) } }
+    package func watchingPlans(_ app: AppModel) -> some View {
+        onAppear { app.watch(.limits) }.onDisappear { app.unwatch(.limits) }
+    }
 }
 
 /// The sidebar's foot: a right-click sets what it shows.

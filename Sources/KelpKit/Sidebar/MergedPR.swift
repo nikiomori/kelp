@@ -11,7 +11,9 @@ struct MergedPR {
     }
 
     /// The PRs that went from open to merged between two readings.
-    nonisolated static func justMerged(_ now: [String: GitHub.PullRequest], was: [String: GitHub.PullRequest]) -> [String: GitHub.PullRequest] {
+    nonisolated static func justMerged(_ now: [String: GitHub.PullRequest], was: [String: GitHub.PullRequest])
+        -> [String: GitHub.PullRequest]
+    {
         now.filter { id, p in p.state == "MERGED" && was[id]?.number == p.number && was[id]?.state == "OPEN" }
     }
 
@@ -23,10 +25,15 @@ struct MergedPR {
 
     /// Nil unless `w`'s folder still stands on a merged PR's branch and isn't on the base branch already.
     func next(_ w: Worktree) -> (pr: GitHub.PullRequest, next: Next)? {
-        guard let p = app.rowBadges.prs[w.id], p.state == "MERGED", p.headRefName == w.branch, let base = app.repo(w.repoId)?.baseBranch,
-              base != w.branch else { return nil }
+        guard let p = app.rowBadges.prs[w.id], p.state == "MERGED", p.headRefName == w.branch,
+            let base = app.repo(w.repoId)?.baseBranch,
+            base != w.branch
+        else { return nil }
         let working = app.sessions.contains { $0.status == .working && app.worktree($0.worktreeId)?.path == w.path }
-        return (p, Self.next(base: base, working: working, uncommitted: app.latest(GitEvent.self, w.id)?.changes?.count ?? 0))
+        return (
+            p,
+            Self.next(base: base, working: working, uncommitted: app.latest(GitEvent.self, w.id)?.changes?.count ?? 0)
+        )
     }
 
     func tell(_ w: Worktree) {
@@ -34,12 +41,19 @@ struct MergedPR {
         let title = String(localized: "PR #\(pr.number) merged")
         switch next {
         case .switchTo(let base):
-            Banner.show(String(localized: "The project folder is still on \(w.branch)."),
-                        action: (String(localized: "Switch to \(base)"), { start(w, base) }), title: title)
+            Banner.show(
+                String(localized: "The project folder is still on \(w.branch)."),
+                action: (String(localized: "Switch to \(base)"), { start(w, base) }), title: title)
         case .agentWorking:
-            Banner.show(String(localized: "An agent is at work in the folder, so it stays on \(w.branch). The project's menu can switch it later."), title: title)
+            Banner.show(
+                String(
+                    localized:
+                        "An agent is at work in the folder, so it stays on \(w.branch). The project's menu can switch it later."
+                ), title: title)
         case .uncommitted(let n):
-            Banner.show(String(localized: "\(n) files not committed on \(w.branch). The project's menu can switch it later."), title: title)
+            Banner.show(
+                String(localized: "\(n) files not committed on \(w.branch). The project's menu can switch it later."),
+                title: title)
         }
     }
 
@@ -57,7 +71,10 @@ struct MergedPR {
     /// Asked again as it starts: a banner can wait a while. A failed step says why, the folder stays where it was. The old
     /// branch stays too: deleting it is another decision.
     private func start(_ w: Worktree, _ base: String) {
-        guard next(w)?.next == .switchTo(base) else { tell(w); return }
+        guard next(w)?.next == .switchTo(base) else {
+            tell(w)
+            return
+        }
         Task { [app] in
             guard await app.call(GitSwitch(id: w.id, branch: base)) != nil else { return }
             if let e = await GitSync.run(app, w.id, ["pull"]) { Banner.show(e, style: .error) }

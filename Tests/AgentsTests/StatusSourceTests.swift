@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Agents
 
 /// A program with no "done" of its own (Codex at its prompt, herdr) ends a turn with idle: that's a finished turn, told as
@@ -8,15 +9,18 @@ import Testing
     var d = StatusDetector(manifest: try #require(AgentManifest.presets.first { $0.id == "codex" }))
     d.program("idle")
     #expect(d.status == .idle)
-    d.program("working"); d.program("idle")
+    d.program("working")
+    d.program("idle")
     #expect(d.status == .done && d.source == "reported by the program: idle")
     d.program("idle")
     #expect(d.status == .done)
     d.program("clear")
     #expect(d.status == .idle)
-    d.program("working"); d.program("idle", cutShort: true)
+    d.program("working")
+    d.program("idle", cutShort: true)
     #expect(d.status == .idle)
-    d.program("blocked"); d.program("idle")
+    d.program("blocked")
+    d.program("idle")
     #expect(d.status == .idle)
 }
 

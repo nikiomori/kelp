@@ -24,8 +24,10 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
 
     static func uri(worktree: String, job: CIRuns.Job) -> String {
         var c = URLComponents()
-        c.queryItems = [URLQueryItem(name: "worktree", value: worktree), URLQueryItem(name: "job", value: String(job.id)),
-                        URLQueryItem(name: "name", value: job.name)]
+        c.queryItems = [
+            URLQueryItem(name: "worktree", value: worktree), URLQueryItem(name: "job", value: String(job.id)),
+            URLQueryItem(name: "name", value: job.name)
+        ]
         return "cilog:" + (c.string ?? "")
     }
 
@@ -34,7 +36,9 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
         let uri = uri(worktree: worktree, job: job)
         if let tab = shown[uri]?() {
             if let step { tab.go(to: step) }
-        } else if let step { waiting[uri] = step }
+        } else if let step {
+            waiting[uri] = step
+        }
         app.workbench.open(uri)
     }
 

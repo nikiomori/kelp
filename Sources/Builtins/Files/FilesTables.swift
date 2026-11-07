@@ -19,7 +19,10 @@ final class FilesOutline: ListOutlineView {
 /// Return in the results opens the line (a click does too).
 final class ResultsTable: NSTableView {
     override func keyDown(with e: NSEvent) {
-        if e.keyCode == 36 || e.keyCode == 76, let a = action { NSApp.sendAction(a, to: target, from: self); return }
+        if e.keyCode == 36 || e.keyCode == 76, let a = action {
+            NSApp.sendAction(a, to: target, from: self)
+            return
+        }
         super.keyDown(with: e)
     }
 }

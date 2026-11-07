@@ -1,6 +1,6 @@
-import Foundation
-import Core
 import Agents
+import Core
+import Foundation
 
 /// What an agent's hooks do to its session (`SessionHook`): its status, a Stop's verdict, its tools and commands.
 extension LiveSession {
@@ -20,8 +20,10 @@ extension LiveSession {
 
     /// `State.hook`: the record goes out when its status or what the row says changed. `at`: checked again here, in the lock
     /// the change is made in: a newer hook on another thread may have gone first since `newest` said yes.
-    func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
-              goal: String? = nil, at: TimeInterval? = nil) {
+    func hook(
+        _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
+        goal: String? = nil, at: TimeInterval? = nil
+    ) {
         state.withLock { s in
             if let at, at < s.newestHook { return }
             let said = s.record.summary, awaited = s.record.awaiting
@@ -53,13 +55,22 @@ extension LiveSession {
     }
 
     /// The /goal the turn's prompt set, once: its first Stop goes by it.
-    func takeGoalAsked() -> String? { state.withLock { s in defer { s.goalAsked = nil }; return s.goalAsked } }
+    func takeGoalAsked() -> String? {
+        state.withLock { s in
+            defer { s.goalAsked = nil }
+            return s.goalAsked
+        }
+    }
 
     /// Stop: done, or still working while it goes on by itself (TurnEnd); the record says what it works toward and
     /// what runs in the background. `failure`: an API error ended the turn, and what it said. Returns the verdict and the
     /// hook's time, which `release` checks.
-    func stop(_ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil, at: TimeInterval? = nil)
-        -> (TurnEnd.Verdict, Date)? {
+    func stop(
+        _ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil,
+        at: TimeInterval? = nil
+    )
+        -> (TurnEnd.Verdict, Date)?
+    {
         state.withLock { s in
             if let at, at < s.newestHook { return nil }   // as in `hook`
             let now = Date()
@@ -97,7 +108,12 @@ extension LiveSession {
     static let commandLimit = 100
 
     /// A tool started or ended, or a batch of them did (`kelp hook command`): `State.tool`.
-    func tool(_ hook: String?, agent: String?) { state.withLock { s in s.tool(hook, agent: agent); emit(s.sync()) } }
+    func tool(_ hook: String?, agent: String?) {
+        state.withLock { s in
+            s.tool(hook, agent: agent)
+            emit(s.sync())
+        }
+    }
 
     /// A command its shell tool started or ended (`kelp hook command`), into its list; the row says the one running. The
     /// record when what it runs changed.

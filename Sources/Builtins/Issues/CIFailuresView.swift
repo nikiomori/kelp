@@ -25,18 +25,24 @@ final class CIFailuresView: NSView {
         scroll.drawsBackground = false
         page.translatesAutoresizingMaskIntoConstraints = false
         pin(scroll)
-        NSLayoutConstraint.activate([page.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-                                     page.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor)])
+        NSLayoutConstraint.activate([
+            page.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
+            page.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// False: the log said nothing to show here. `note`: what the run's earlier try says of this.
     @discardableResult func show(_ r: CIRuns.Report, note: String? = nil) -> Bool {
-        let rows: [NSView] = r.failures.map { f in
-            FailureRow(f, open: { [weak self] in self?.onOpen?(f) }, fix: { [weak self] in self?.onFix?(f) })
-        } + (r.more > 0 ? [Self.caption(String(localized: "\(r.more) more in the log"))] : [])
-        list.setViews((rows.isEmpty ? Self.ending(r) : Self.count(r) + rows) + (note.map { [Self.caption($0)] } ?? []), in: .top)
-        for v in list.arrangedSubviews { v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Metrics.gap).isActive = true }
+        let rows: [NSView] =
+            r.failures.map { f in
+                FailureRow(f, open: { [weak self] in self?.onOpen?(f) }, fix: { [weak self] in self?.onFix?(f) })
+            } + (r.more > 0 ? [Self.caption(String(localized: "\(r.more) more in the log"))] : [])
+        list.setViews(
+            (rows.isEmpty ? Self.ending(r) : Self.count(r) + rows) + (note.map { [Self.caption($0)] } ?? []), in: .top)
+        for v in list.arrangedSubviews {
+            v.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -2 * Metrics.gap).isActive = true
+        }
         return !list.arrangedSubviews.isEmpty
     }
 
@@ -51,7 +57,9 @@ final class CIFailuresView: NSView {
     private static func ending(_ r: CIRuns.Report) -> [NSView] {
         guard r.exitCode != nil || !r.lastLines.isEmpty else { return [] }
         // Past 128 a shell counts the signal that stopped the process.
-        let head = r.exitCode.map { $0 > 128 ? String(localized: "Exit \($0): stopped by signal \($0 - 128)") : String(localized: "Exit \($0)") }
+        let head = r.exitCode.map {
+            $0 > 128 ? String(localized: "Exit \($0): stopped by signal \($0 - 128)") : String(localized: "Exit \($0)")
+        }
         let lines = r.lastLines.isEmpty ? nil : r.lastLines.joined(separator: "\n")
         return [head.map(caption), lines.map { mono($0, color: .secondaryLabelColor) }].compactMap { $0 }
     }
@@ -80,7 +88,10 @@ final class CIFailuresView: NSView {
 private final class FailureRow: PointerControl {
     private let failure: CIRuns.Failure, open: @MainActor @Sendable () -> Void, fix: @MainActor @Sendable () -> Void
 
-    init(_ f: CIRuns.Failure, open: @escaping @MainActor @Sendable () -> Void, fix: @escaping @MainActor @Sendable () -> Void) {
+    init(
+        _ f: CIRuns.Failure, open: @escaping @MainActor @Sendable () -> Void,
+        fix: @escaping @MainActor @Sendable () -> Void
+    ) {
         failure = f
         self.open = open
         self.fix = fix
@@ -93,8 +104,13 @@ private final class FailureRow: PointerControl {
         let head = NSStackView(views: [CIRunLook.mark("completed", "failure"), name])
         head.spacing = Metrics.gap
         // A panel is narrow: the file's own name and line. The tooltip has its folder, and the class.
-        let place = f.test == nil ? nil : f.file.map { file in ((file as NSString).lastPathComponent + (f.line.map { ":\($0)" } ?? "")) } ?? f.suite
-        let body = (place.map { [CIFailuresView.caption($0)] } ?? []) + f.messages.map { CIFailuresView.mono($0, color: .textRed) }
+        let place =
+            f.test == nil
+            ? nil
+            : f.file.map { file in ((file as NSString).lastPathComponent + (f.line.map { ":\($0)" } ?? "")) } ?? f.suite
+        let body =
+            (place.map { [CIFailuresView.caption($0)] } ?? [])
+            + f.messages.map { CIFailuresView.mono($0, color: .textRed) }
         let text = NSStackView(views: body)
         text.orientation = .vertical
         text.alignment = .leading
@@ -110,7 +126,8 @@ private final class FailureRow: PointerControl {
         toolTip = [f.place, f.suite].compactMap { $0 }.joined(separator: "\n")
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel(([f.test, f.place] + f.messages.map(Optional.some)).compactMap { $0 }.joined(separator: ", "))
+        setAccessibilityLabel(
+            ([f.test, f.place] + f.messages.map(Optional.some)).compactMap { $0 }.joined(separator: ", "))
     }
     required init?(coder: NSCoder) { fatalError() }
 

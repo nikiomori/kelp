@@ -21,13 +21,17 @@ enum ColorfulIcons {
     }
     private static func sym(_ g: String, _ c: NSColor) -> Style { Style(glyph: g, color: c) }
     private static func text(_ t: String, _ c: NSColor) -> Style { Style(glyph: t, color: c, text: true) }
-    private static func badge(_ g: String, _ c: NSColor) -> Style { Style(glyph: "folder.fill", color: folderColor, badge: (g, c)) }
+    private static func badge(_ g: String, _ c: NSColor) -> Style {
+        Style(glyph: "folder.fill", color: folderColor, badge: (g, c))
+    }
     private static var cache: [String: NSImage] = [:]
 
     private static let plainFile = sym("doc", .secondaryLabelColor)
     /// systemYellow is too pale on white; folders are a lighter blue in dark mode, like Finder's.
-    private static let yellow = NSColor.dynamic(light: NSColor(srgbRed: 0.85, green: 0.6, blue: 0, alpha: 1), dark: .systemYellow)
-    private static let folderColor = NSColor.dynamic(light: .systemBlue, dark: NSColor(srgbRed: 0.42, green: 0.69, blue: 0.98, alpha: 1))
+    private static let yellow = NSColor.dynamic(
+        light: NSColor(srgbRed: 0.85, green: 0.6, blue: 0, alpha: 1), dark: .systemYellow)
+    private static let folderColor = NSColor.dynamic(
+        light: .systemBlue, dark: NSColor(srgbRed: 0.42, green: 0.69, blue: 0.98, alpha: 1))
 
     private static func fileStyle(_ n: String) -> (String, Style) {
         if let s = byName[n] { return (n, s) }
@@ -80,14 +84,20 @@ enum ColorfulIcons {
         (["json", "jsonc", "json5"], sym("curlybraces", yellow)),
         (["yaml", "yml"], sym("list.bullet.indent", .systemPink)),
         (["toml"], sym("list.bullet.indent", .systemOrange)),
-        (["ini", "cfg", "conf", "properties", "plist", "xcconfig", "entitlements"], sym("gearshape.fill", .systemGray)),
+        (
+            ["ini", "cfg", "conf", "properties", "plist", "xcconfig", "entitlements"],
+            sym("gearshape.fill", .systemGray)
+        ),
         (["md", "markdown", "mdx"], text("M↓", .systemTeal)),
         (["txt", "rtf"], sym("text.alignleft", .secondaryLabelColor)),
         (["log"], sym("list.bullet", .secondaryLabelColor)),
         (["csv", "tsv", "xlsx", "xls", "numbers"], sym("tablecells.fill", .systemGreen)),
         (["pdf"], sym("doc.richtext.fill", .systemRed)),
         (["doc", "docx", "pages"], sym("doc.text.fill", .systemBlue)),
-        (["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp", "ico", "icns", "avif", "svg"], sym("photo.fill", .systemMint)),
+        (
+            ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp", "ico", "icns", "avif", "svg"],
+            sym("photo.fill", .systemMint)
+        ),
         (["mp4", "mov", "m4v", "webm", "mkv", "avi"], sym("film.fill", .systemPink)),
         (["mp3", "wav", "m4a", "aac", "flac", "ogg", "aiff", "caf"], sym("waveform", .systemPurple)),
         (["zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar", "zst", "jar"], sym("archivebox.fill", .systemBrown)),
@@ -111,10 +121,16 @@ enum ColorfulIcons {
         (["gemfile", "podfile"], sym("shippingbox.fill", .systemRed)),
         (["package-lock.json", "pnpm-lock.yaml", "go.sum", "bun.lock"], sym("lock.fill", .systemGray)),
         (["tsconfig.json", "jsconfig.json"], sym("gearshape.fill", .systemBlue)),
-        ([".editorconfig", ".prettierrc", ".swiftlint.yml", ".swift-format", ".clang-format", ".npmrc", ".nvmrc"], sym("gearshape.fill", .systemGray)),
+        (
+            [".editorconfig", ".prettierrc", ".swiftlint.yml", ".swift-format", ".clang-format", ".npmrc", ".nvmrc"],
+            sym("gearshape.fill", .systemGray)
+        ),
         (["makefile", "gnumakefile", "cmakelists.txt", "justfile", "rakefile"], sym("hammer.fill", .systemOrange)),
         (["containerfile", ".dockerignore", "compose.yml", "compose.yaml"], sym("cube.fill", .systemBlue)),
-        ([".gitignore", ".gitattributes", ".gitmodules", ".gitkeep", ".git-blame-ignore-revs"], sym("arrow.triangle.branch", .systemOrange)),
+        (
+            [".gitignore", ".gitattributes", ".gitmodules", ".gitkeep", ".git-blame-ignore-revs"],
+            sym("arrow.triangle.branch", .systemOrange)
+        ),
         (["claude.md", "claude.local.md"], sym("sparkle", .systemOrange)),
         (["agents.md", "gemini.md", ".cursorrules"], sym("sparkles", .systemPurple))
     ])
@@ -130,8 +146,10 @@ enum ColorfulIcons {
     ]
 
     /// Build output and dependency caches: a dimmed folder.
-    private static let generated: Set<String> = ["node_modules", ".build", "build", "dist", "out", "target", "deriveddata", ".venv", "venv",
-                                                 "__pycache__", ".next", ".cache", "coverage", ".swiftpm", ".gradle"]
+    private static let generated: Set<String> = [
+        "node_modules", ".build", "build", "dist", "out", "target", "deriveddata", ".venv", "venv",
+        "__pycache__", ".next", ".cache", "coverage", ".swiftpm", ".gradle"
+    ]
 
     private static let byFolder = table([
         (["src", "source", "sources", "lib"], badge("chevron.left.forwardslash.chevron.right", .systemBlue)),
@@ -143,7 +161,10 @@ enum ColorfulIcons {
         ([".vscode", ".idea", ".config", "config", "configs", ".kelp"], badge("gearshape.fill", .systemGray)),
         ([".claude"], badge("sparkle", .systemOrange)),
         ([".cursor", ".codex", ".agents", "agents", "skills"], badge("sparkles", .systemPurple)),
-        (["assets", "images", "img", "icons", "resources", "public", "static", "media"], badge("photo.fill", .systemMint)),
+        (
+            ["assets", "images", "img", "icons", "resources", "public", "static", "media"],
+            badge("photo.fill", .systemMint)
+        ),
         (["vendor", "packages", "pods", "third_party"], badge("shippingbox.fill", .systemBrown)),
         (["extensions", "plugins"], badge("puzzlepiece.extension.fill", .systemPurple)),
         (["api", "server", "backend"], badge("network", .systemCyan)),
@@ -155,7 +176,11 @@ enum ColorfulIcons {
 
     private static func render(_ s: Style) -> NSImage {
         NSImage(size: NSSize(width: 16, height: 16), flipped: false) { r in
-            if s.text { drawText(s.glyph, s.color, in: r) } else { drawSymbol(s.glyph, s.color, pointSize: 12, in: r.insetBy(dx: 0.5, dy: 1)) }
+            if s.text {
+                drawText(s.glyph, s.color, in: r)
+            } else {
+                drawSymbol(s.glyph, s.color, pointSize: 12, in: r.insetBy(dx: 0.5, dy: 1))
+            }
             if let b = s.badge {
                 let spot = NSRect(x: 6, y: 0, width: 10, height: 10)
                 NSGraphicsContext.current?.compositingOperation = .destinationOut   // a gap around the badge
@@ -168,12 +193,18 @@ enum ColorfulIcons {
     }
 
     /// Monochrome, tinted in a layer of its own: cut-outs (the "i" in info.circle.fill) stay transparent.
-    private static func drawSymbol(_ name: String, _ color: NSColor, pointSize: CGFloat, weight: NSFont.Weight = .medium, in box: NSRect) {
-        guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: pointSize, weight: weight)),
-              let ctx = NSGraphicsContext.current?.cgContext else { return }
+    private static func drawSymbol(
+        _ name: String, _ color: NSColor, pointSize: CGFloat, weight: NSFont.Weight = .medium, in box: NSRect
+    ) {
+        guard
+            let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(
+                .init(pointSize: pointSize, weight: weight)),
+            let ctx = NSGraphicsContext.current?.cgContext
+        else { return }
         let k = min(box.width / img.size.width, box.height / img.size.height, 1)
         let size = NSSize(width: img.size.width * k, height: img.size.height * k)
-        let r = NSRect(x: box.midX - size.width / 2, y: box.midY - size.height / 2, width: size.width, height: size.height)
+        let r = NSRect(
+            x: box.midX - size.width / 2, y: box.midY - size.height / 2, width: size.width, height: size.height)
         ctx.beginTransparencyLayer(in: r, auxiliaryInfo: nil)
         img.draw(in: r)
         color.set()
@@ -191,6 +222,7 @@ enum ColorfulIcons {
         } while (t as NSString).size(withAttributes: attrs).width > r.width && size > 6
         let font = attrs[.font] as? NSFont ?? .systemFont(ofSize: size)
         let w = (t as NSString).size(withAttributes: attrs).width
-        (t as NSString).draw(at: NSPoint(x: r.midX - w / 2, y: r.midY - (font.capHeight / 2) + font.descender), withAttributes: attrs)
+        (t as NSString).draw(
+            at: NSPoint(x: r.midX - w / 2, y: r.midY - (font.capHeight / 2) + font.descender), withAttributes: attrs)
     }
 }

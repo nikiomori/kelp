@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 /// "routines:<project>" — the project's routines over this week: a row a routine, a column a day, a mark a run (done,
@@ -17,7 +17,8 @@ final class RoutinesTab: KelpKit.TabContent {   // not SwiftUI's
     init(uri: String, app: AppModel) {
         self.uri = uri
         let routines = RoutinesView(app: app, repoId: TabURI.body(uri))
-        let host = NSHostingView(rootView: routines.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        let host = NSHostingView(
+            rootView: routines.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
         host.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
         view = host
     }
@@ -52,7 +53,9 @@ struct RoutinesView: View {
                             WeekGrid(week: week, routines: list, runs: runs, chosen: $chosen, picked: $picked, app: app)
                             Divider()
                             if let r = list.first(where: { $0.id == chosen }) ?? list.first {
-                                RoutineDetail(app: app, routine: r, runs: runs.filter { $0.routineId == r.id }, picked: picked, week: week)
+                                RoutineDetail(
+                                    app: app, routine: r, runs: runs.filter { $0.routineId == r.id }, picked: picked,
+                                    week: week)
                             }
                         }
                     }
@@ -66,7 +69,8 @@ struct RoutinesView: View {
             let on = list.filter(\.enabled).count
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
-            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(12)).foregroundStyle(.secondary)
+            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(12)).foregroundStyle(
+                .secondary)
             Spacer()
             if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() }.controlSize(.small) }   // else it's under No Routines
         }
@@ -77,7 +81,8 @@ struct RoutinesView: View {
     private func newRoutine() {
         let app = self.app, repo = repoId
         Task {
-            guard let r = await RoutineSheet.run(app, repoId: repo), let saved = await app.call(RoutineSet(routine: r)) else { return }
+            guard let r = await RoutineSheet.run(app, repoId: repo), let saved = await app.call(RoutineSet(routine: r))
+            else { return }
             chosen = saved.id
         }
     }
@@ -97,7 +102,9 @@ struct WeekGrid: View {
                 ForEach(week.days, id: \.self) { day in
                     let today = week.isToday(day)
                     Text(day.formatted(.dateTime.weekday(.abbreviated).day()))
-                        .font(.ui(11, weight: today ? .semibold : .regular)).foregroundStyle(today ? Color.accentColor : .secondary)
+                        .font(.ui(11, weight: today ? .semibold : .regular)).foregroundStyle(
+                            today ? Color.accentColor : .secondary
+                        )
                         .frame(maxWidth: .infinity, minHeight: Metrics.rowSection)
                         .background(today ? Color(nsColor: .fillRest) : .clear)
                 }
@@ -107,15 +114,24 @@ struct WeekGrid: View {
                 GridRow {
                     name(r)
                     ForEach(week.days, id: \.self) { day in cell(r, day) }
-                    Button { run(r) } label: {
-                        Image(systemName: runs.contains { $0.routineId == r.id && [.running, .asked].contains($0.outcome) } ? "stop.fill" : "play.fill")
+                    Button {
+                        run(r)
+                    } label: {
+                        Image(
+                            systemName: runs.contains {
+                                $0.routineId == r.id && [.running, .asked].contains($0.outcome)
+                            } ? "stop.fill" : "play.fill")
                     }
-                    .buttonStyle(.borderless).help(String(localized: "Run Now")).frame(width: Metrics.iconButton + Metrics.inset)
+                    .buttonStyle(.borderless).help(String(localized: "Run Now")).frame(
+                        width: Metrics.iconButton + Metrics.inset)
                 }
                 .frame(minHeight: 44)
                 .background((chosen ?? routines.first?.id) == r.id ? Color(nsColor: .fillSelected) : .clear)
                 .contentShape(Rectangle())
-                .onTapGesture { chosen = r.id; picked = nil }
+                .onTapGesture {
+                    chosen = r.id
+                    picked = nil
+                }
                 Divider().gridCellUnsizedAxes(.horizontal)
             }
         }
@@ -123,10 +139,16 @@ struct WeekGrid: View {
 
     private func name(_ r: Routine) -> some View {
         HStack(spacing: Metrics.gapWide) {
-            Toggle("", isOn: Binding(get: { r.enabled }, set: { on in
-                var x = r; x.enabled = on
-                Task { await app.call(RoutineSet(routine: x)) }
-            }))
+            Toggle(
+                "",
+                isOn: Binding(
+                    get: { r.enabled },
+                    set: { on in
+                        var x = r
+                        x.enabled = on
+                        Task { await app.call(RoutineSet(routine: x)) }
+                    })
+            )
             .toggleStyle(.switch).controlSize(.small).labelsHidden()
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(r.name).font(.ui(12, weight: .medium)).lineLimit(1)
@@ -140,7 +162,8 @@ struct WeekGrid: View {
             Button(String(localized: "Run Now")) { run(r) }
             Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(r) }
             Button(r.enabled ? String(localized: "Turn Off") : String(localized: "Turn On")) {
-                var x = r; x.enabled.toggle()
+                var x = r
+                x.enabled.toggle()
                 Task { await app.call(RoutineSet(routine: x)) }
             }
             Divider()
@@ -157,7 +180,9 @@ struct WeekGrid: View {
                     picked = m.run?.id
                 }
             }
-            if marks.count > 3 { Text("+\(marks.count - 2)").font(.ui(11).monospacedDigit()).foregroundStyle(.tertiary) }
+            if marks.count > 3 {
+                Text("+\(marks.count - 2)").font(.ui(11).monospacedDigit()).foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 44)
         .background(week.isToday(day) ? Color(nsColor: .fillRest) : .clear)
@@ -165,10 +190,17 @@ struct WeekGrid: View {
 
     private func run(_ r: Routine) {
         let app = self.app
-        if let open = runs.first(where: { $0.routineId == r.id && [.running, .asked].contains($0.outcome) }), let s = open.sessionId {
+        if let open = runs.first(where: { $0.routineId == r.id && [.running, .asked].contains($0.outcome) }),
+            let s = open.sessionId
+        {
             Task { await app.call(SessionKill(id: s)) }
         } else {
-            Task { if let run = await app.call(RoutineRun(id: r.id)) { picked = run.id; chosen = r.id } }
+            Task {
+                if let run = await app.call(RoutineRun(id: r.id)) {
+                    picked = run.id
+                    chosen = r.id
+                }
+            }
         }
     }
 }
@@ -181,10 +213,14 @@ struct RunMark: View {
     var body: some View {
         VStack(spacing: 1) {
             symbol.frame(height: 16)
-            Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+            Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.ui(11).monospacedDigit()).foregroundStyle(
+                .secondary
+            ).lineLimit(1)
         }
         .padding(.horizontal, 3).padding(.vertical, 2)
-        .background(picked ? Color(nsColor: .fillSelected) : .clear, in: RoundedRectangle(cornerRadius: Metrics.radiusXS))
+        .background(
+            picked ? Color(nsColor: .fillSelected) : .clear, in: RoundedRectangle(cornerRadius: Metrics.radiusXS)
+        )
         .help(mark.run?.summary ?? "")
     }
 

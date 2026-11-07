@@ -1,6 +1,6 @@
-import Foundation
-import Core
 import Agents
+import Core
+import Foundation
 
 /// Typing into a session: what holds text back (a trust question, a startup menu, text queued before it), answering an
 /// agent's menu, and sending text as text.
@@ -34,7 +34,8 @@ extension LiveSession.State {
     /// the last bytes in 20 s or so while it's still on screen.
     func menuScreen() -> String {
         let reach = ring.suffix(LiveSession.menuReach)
-        let cursor = reach.range(of: Data("❯".utf8), options: .backwards) ?? reach.range(of: Data("›".utf8), options: .backwards)
+        let cursor =
+            reach.range(of: Data("❯".utf8), options: .backwards) ?? reach.range(of: Data("›".utf8), options: .backwards)
         guard asks || (hooked && steering != nil), let mark = cursor else { return screen(1500) }
         let around = max(reach.startIndex, mark.lowerBound - 1500)..<min(reach.endIndex, mark.upperBound + 1500)
         return StatusDetector.stripANSI(String(decoding: reach[around], as: UTF8.self))
@@ -45,7 +46,8 @@ extension LiveSession.State {
     /// the input box, and for text that's sent (`submits`) nothing the user typed and hasn't sent: its Enter would send their
     /// half line.
     func readyForText(submits: Bool) -> Bool {
-        steering == nil && !draftWaiting && !(submits && !typing.isEmpty) && !asks && !trustQuestionOpen() && !menuOpen()
+        steering == nil && !draftWaiting && !(submits && !typing.isEmpty) && !asks && !trustQuestionOpen()
+            && !menuOpen()
     }
 
     /// Nothing came up since a send's `text` went in. A dialog that opens in those moments would take its Enter as the answer,
@@ -72,7 +74,8 @@ extension LiveSession.State {
     /// A child's report waits until the agent rests at an empty prompt. In a turn, its Enter could land on a dialog that opened
     /// meanwhile, and nobody sent it to be answered like that; ↑ leaves an old prompt in the box with nothing typed.
     func takesReport() -> Bool {
-        !reports.isEmpty && pendingPrompts.isEmpty && [.done, .idle, .error].contains(record.status) && (boxEmpty || !typedYet)
+        !reports.isEmpty && pendingPrompts.isEmpty && [.done, .idle, .error].contains(record.status)
+            && (boxEmpty || !typedYet)
             && readyForText(submits: true)
     }
 }
@@ -82,12 +85,18 @@ extension LiveSession {
     func steer() {
         let key = state.withLock { s -> String? in
             guard let st = s.steering else { return nil }
-            if Date().timeIntervalSince(st.since) > 30 { s.steering = nil; return nil }
+            if Date().timeIntervalSince(st.since) > 30 {
+                s.steering = nil
+                return nil
+            }
             guard Date().timeIntervalSince(st.lastKey) > 0.7 else { return nil }
             let screen = s.menuScreen()
             // The dialog it was armed for has to be the one on screen, at every key: another menu is never pressed.
-            if let must = st.screen, must.firstMatch(in: screen, range: NSRange(screen.startIndex..., in: screen)) == nil || s.typedYet {
-                s.steering = nil; return nil
+            if let must = st.screen,
+                must.firstMatch(in: screen, range: NSRange(screen.startIndex..., in: screen)) == nil || s.typedYet
+            {
+                s.steering = nil
+                return nil
             }
             guard let option = AgentManifest.AutoAnswer.optionAtCursor(screen) else { return nil }
             if st.choose.firstMatch(in: option, range: NSRange(option.startIndex..., in: option)) != nil {
@@ -95,7 +104,8 @@ extension LiveSession {
                 s.dialogSettled = true
                 return "\r"
             }
-            s.steering?.lastKey = Date(); return "\u{1B}[B"   // menus wrap, so stepping down always reaches it
+            s.steering?.lastKey = Date()
+            return "\u{1B}[B"   // menus wrap, so stepping down always reaches it
         }
         if let key { write(Data(key.utf8)) }   // after what's being typed: never between a send's text and its Enter
     }
@@ -106,11 +116,17 @@ extension LiveSession {
     func choose(_ answer: String, to question: String? = nil) -> Session? {
         state.withLock { s in
             if let question, !s.asksOnly(question) { return nil }
-            let inTmux = s.record.tmux != nil, screen = inTmux ? StartupQuestion.optionsOnLines(s.menuScreen()) : s.menuScreen()
-            let pattern = answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
-            let lines = screen.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " ❯›>")) }
-            guard AgentManifest.AutoAnswer.optionAtCursor(screen) != nil, let re = try? NSRegularExpression(pattern: pattern),
-                  lines.contains(where: { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil }) else { return nil }
+            let inTmux = s.record.tmux != nil,
+                screen = inTmux ? StartupQuestion.optionsOnLines(s.menuScreen()) : s.menuScreen()
+            let pattern =
+                answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
+            let lines = screen.split(whereSeparator: \.isNewline).map {
+                $0.trimmingCharacters(in: CharacterSet(charactersIn: " ❯›>"))
+            }
+            guard AgentManifest.AutoAnswer.optionAtCursor(screen) != nil,
+                let re = try? NSRegularExpression(pattern: pattern),
+                lines.contains(where: { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil })
+            else { return nil }
             // tmux sends only the cells that changed, so the option a moving cursor reaches can't be read: its number picks it.
             let option = lines.first { re.firstMatch(in: $0, range: NSRange($0.startIndex..., in: $0)) != nil }
             if inTmux, let number = option?.prefix(while: \.isNumber), !number.isEmpty {
@@ -118,7 +134,8 @@ extension LiveSession {
             } else {
                 s.steering = (re, Date(), .distantPast, nil)
             }
-            s.detector.input(); s.record.unread = false
+            s.detector.input()
+            s.record.unread = false
             // A "No" ends the turn: the screen says so.
             if s.saysItself {
                 s.interruptArmed = (Date(), "")
@@ -139,7 +156,8 @@ extension LiveSession {
 
     func answeredThroughHook() -> Session {
         state.withLock { s in
-            s.detector.input(); s.record.unread = false
+            s.detector.input()
+            s.record.unread = false
             s.detector.override(.working, because: "an answer from Kelp, through its hook")
             return s.sync() ?? s.record
         }
@@ -152,7 +170,10 @@ extension LiveSession {
 
     /// A task's text (a launch prompt): typed once the program is ready, as a paste, so a leading "!" or "/" is text.
     func queuePrompt(_ p: String, draft: Bool = false) {
-        state.withLock { s in s.pendingPrompts.append((p, draft, true)); s.sawFirstPrompt = true }
+        state.withLock { s in
+            s.pendingPrompts.append((p, draft, true))
+            s.sawFirstPrompt = true
+        }
     }
 
     /// Text sent from outside (`session.send`: `kelp send`, review comments): one gate for all of it. Typed now when the
@@ -162,10 +183,16 @@ extension LiveSession {
     func submit(_ text: String, enter: Bool) throws {
         try state.withLock { s in
             if enter, !s.typing.isEmpty {
-                throw RPCError.invalidParams("Not sent: the prompt has text you typed and haven't sent. Send it or clear it (⌃U), then try again.")
+                throw RPCError.invalidParams(
+                    "Not sent: the prompt has text you typed and haven't sent. Send it or clear it (⌃U), then try again."
+                )
             }
-            if s.startedUp, s.pendingPrompts.isEmpty, s.readyForText(submits: enter) { type(text, enter: enter, paste: false, &s) }
-            else { s.pendingPrompts.append((text, !enter, false)); s.sawFirstPrompt = true }
+            if s.startedUp, s.pendingPrompts.isEmpty, s.readyForText(submits: enter) {
+                type(text, enter: enter, paste: false, &s)
+            } else {
+                s.pendingPrompts.append((text, !enter, false))
+                s.sawFirstPrompt = true
+            }
         }
     }
 
@@ -183,7 +210,10 @@ extension LiveSession {
     func takeOwed() -> [OwedInput] {
         state.withLock { s in
             let id = s.record.id
-            defer { s.pendingPrompts.removeAll(); s.reports.removeAll() }
+            defer {
+                s.pendingPrompts.removeAll()
+                s.reports.removeAll()
+            }
             return s.pendingPrompts.map { OwedInput(session: id, text: $0.text, draft: $0.draft, paste: $0.paste) }
                 + s.reports.map { OwedInput(session: id, text: $0, report: true) }
         }
@@ -202,19 +232,24 @@ extension LiveSession {
     /// order typed. `paste`: as a paste even on one line (when the program takes pastes), so a leading "!" or "/" (an
     /// issue title) is text, not a mode or command. Without it one line is typed, so `kelp send <id> /compact` still runs it.
     func type(_ text: String, enter: Bool, paste: Bool, _ s: inout State) {
-        s.detector.input(); s.typedYet = true
+        s.detector.input()
+        s.typedYet = true
         s.inputs += 1
         if enter {
-            s.boxEmpty = true; s.expectHook()
+            s.boxEmpty = true
+            s.expectHook()
             s.lastSent = text   // what the turn it starts is named after
-        } else { s.draftWaiting = true }   // a draft is left for the user to read and send
+        } else {
+            s.draftWaiting = true
+        }   // a draft is left for the user to read and send
         let takesPastes = s.pasteMode
         var text = Self.typeable(text)
         // Not to be sent (a draft: an issue's text, say) to a program that takes no pastes: each newline would submit a
         // line of it. One line instead, so nothing goes before the user presses Return.
         if !enter, !takesPastes { text = text.replacingOccurrences(of: "\n", with: " ") }
         // A program that never asked for pastes (a plain line reader) has no modes to trip: it gets the text as is.
-        let typed = text, body = (paste || text.contains("\n")) && takesPastes ? "\u{1B}[200~" + text + "\u{1B}[201~" : text
+        let typed = text,
+            body = (paste || text.contains("\n")) && takesPastes ? "\u{1B}[200~" + text + "\u{1B}[201~" : text
         // One after another, Enter included: two quick sends must arrive as text, Enter, text, Enter, not text, text, Enter, Enter.
         sends.async { [weak self] in
             guard let self else { return }
@@ -233,8 +268,10 @@ extension LiveSession {
     /// Text from elsewhere (an issue, a recipe, a review comment) as plain text: no escape sequences and no control keys but
     /// newlines and tabs. An issue body with ESC[201~ would end the paste, then Return, Shift-Tab or "!cmd" would act as keys.
     static func typeable(_ s: String) -> String {
-        String(String.UnicodeScalarView(s.replacingOccurrences(of: "\r\n", with: "\n").unicodeScalars.filter { c in
-            c == "\n" || c == "\t" || !(c.value < 0x20 || c.value == 0x7F || (0x80...0x9F).contains(c.value))
-        }))
+        String(
+            String.UnicodeScalarView(
+                s.replacingOccurrences(of: "\r\n", with: "\n").unicodeScalars.filter { c in
+                    c == "\n" || c == "\t" || !(c.value < 0x20 || c.value == 0x7F || (0x80...0x9F).contains(c.value))
+                }))
     }
 }

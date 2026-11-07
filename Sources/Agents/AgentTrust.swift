@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Folders an agent already trusts, read from its own config (never written). Kelp answers an agent's "trust this
 /// folder?" itself only inside them; anywhere else the question is the user's, as the agent intends (a repository's own
@@ -7,9 +7,13 @@ import Core
 public enum AgentTrust {
     /// Whether `agent` trusts any of `folders` (or a folder above one). `env` is the session's: an account profile can point
     /// the agent at a config of its own (CLAUDE_CONFIG_DIR, CODEX_HOME).
-    public static func trusts(agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()) -> Bool {
+    public static func trusts(
+        agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()
+    ) -> Bool {
         let trusted = trustedFolders(agent: agent, env: env, home: home).map(normal)
-        return folders.map(normal).contains { f in trusted.contains { t in f == t || f.hasPrefix(t == "/" ? "/" : t + "/") } }
+        return folders.map(normal).contains { f in
+            trusted.contains { t in f == t || f.hasPrefix(t == "/" ? "/" : t + "/") }
+        }
     }
 
     public static func trustedFolders(agent: String, env: [String: String], home: String) -> [String] {
@@ -25,7 +29,9 @@ public enum AgentTrust {
     /// `projects[path].hasTrustDialogAccepted`.
     static func claude(_ file: String) -> [String] {
         guard let projects = json(file)?["projects"] as? [String: Any] else { return [] }
-        return projects.compactMap { path, v in (v as? [String: Any])?["hasTrustDialogAccepted"] as? Bool == true ? path : nil }
+        return projects.compactMap { path, v in
+            (v as? [String: Any])?["hasTrustDialogAccepted"] as? Bool == true ? path : nil
+        }
     }
 
     /// `[projects."<path>"]` sections with `trust_level = "trusted"`.
@@ -35,7 +41,9 @@ public enum AgentTrust {
         for raw in text.split(whereSeparator: \.isNewline) {
             let line = raw.trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("[") {
-                section = line.hasPrefix("[projects.\"") && line.hasSuffix("\"]") ? String(line.dropFirst(11).dropLast(2)) : nil
+                section =
+                    line.hasPrefix("[projects.\"") && line.hasSuffix("\"]")
+                    ? String(line.dropFirst(11).dropLast(2)) : nil
             } else if let s = section, line.replacingOccurrences(of: " ", with: "") == "trust_level=\"trusted\"" {
                 out.append(s)
             }
@@ -47,18 +55,23 @@ public enum AgentTrust {
     static func gemini(_ file: String) -> [String] {
         guard let o = json(file) as? [String: String] else { return [] }
         return o.compactMap { path, level in
-            level == "TRUST_FOLDER" ? path : level == "TRUST_PARENT" ? (path as NSString).deletingLastPathComponent : nil
+            level == "TRUST_FOLDER"
+                ? path : level == "TRUST_PARENT" ? (path as NSString).deletingLastPathComponent : nil
         }
     }
 
     /// One JSON file per workspace under `workspace-trust/`: `{"root":"/path","trustedAt":…}`.
     static func kimi(_ home: String) -> [String] {
         let dir = home + "/workspace-trust"
-        return (FileManager.default.enumerator(atPath: dir)?.allObjects as? [String] ?? []).compactMap { json(dir + "/" + $0)?["root"] as? String }
+        return (FileManager.default.enumerator(atPath: dir)?.allObjects as? [String] ?? []).compactMap {
+            json(dir + "/" + $0)?["root"] as? String
+        }
     }
 
     private static func json(_ file: String) -> [String: Any]? {
-        FileManager.default.contents(atPath: file).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        FileManager.default.contents(atPath: file).flatMap {
+            try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+        }
     }
 
     /// Symlinks resolved where the folder exists (/tmp is /private/tmp), no trailing slash.

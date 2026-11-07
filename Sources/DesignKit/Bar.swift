@@ -24,7 +24,8 @@ public final class Bar: NSView {
     private var sizesControls = false
 
     public static func foot(_ leading: [NSView], _ trailing: [NSView] = []) -> Bar {
-        let b = Bar(height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset), lineOnTop: true)
+        let b = Bar(
+            height: Metrics.contentBar, gap: Metrics.gapWide, insets: (Metrics.inset, Metrics.inset), lineOnTop: true)
         b.set(leading, trailing)
         return b
     }
@@ -38,16 +39,23 @@ public final class Bar: NSView {
         super.init(frame: .zero)
         let line = NSBox()
         line.boxType = .separator
-        for v in [stack, line] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [stack, line] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
         NSLayoutConstraint.activate([
             stack.heightAnchor.constraint(equalToConstant: TextSize.of(height)),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor), stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             line.heightAnchor.constraint(equalToConstant: 1),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor), line.trailingAnchor.constraint(equalTo: trailingAnchor)
+            line.leadingAnchor.constraint(equalTo: leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
         let (top, bottom): (NSView, NSView) = lineOnTop ? (line, stack) : (stack, line)
-        NSLayoutConstraint.activate([top.topAnchor.constraint(equalTo: topAnchor), bottom.topAnchor.constraint(equalTo: top.bottomAnchor),
-                                     bottom.bottomAnchor.constraint(equalTo: bottomAnchor)])
+        NSLayoutConstraint.activate([
+            top.topAnchor.constraint(equalTo: topAnchor), bottom.topAnchor.constraint(equalTo: top.bottomAnchor),
+            bottom.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
     }
 
     /// Puts these controls in the bar instead of the ones it had. The room left over goes to `stretching` (a search field,
@@ -59,7 +67,8 @@ public final class Bar: NSView {
         for v in (stretching == nil ? leading + [flex] + trailing : leading + trailing) { stack.addArrangedSubview(v) }
         if sizesControls { (leading + trailing).forEach(Self.small) }
         // Icon buttons side by side: their 22 pt squares already hold them apart.
-        for (a, b) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst()) where a is IconButton && b is IconButton {
+        for (a, b) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst())
+        where a is IconButton && b is IconButton {
             stack.setCustomSpacing(Metrics.iconGap, after: a)
         }
     }
@@ -68,9 +77,16 @@ public final class Bar: NSView {
     /// Push buttons, pop-ups and segments as AppKit draws them, and those in a stack among them: small, in the chrome's
     /// 11 pt. Kelp's own (`PointerButton`, `PointerPopUpButton`) size themselves.
     private static func small(_ v: NSView) {
-        if let s = v as? NSStackView { s.arrangedSubviews.forEach(small); return }
-        let push = (v as? NSButton).map { !($0 is PointerButton) && !($0 is NSPopUpButton) && $0.isBordered && $0.bezelStyle == .push } ?? false
-        let plain = [ObjectIdentifier(NSPopUpButton.self), ObjectIdentifier(NSSegmentedControl.self)].contains(ObjectIdentifier(type(of: v)))
+        if let s = v as? NSStackView {
+            s.arrangedSubviews.forEach(small)
+            return
+        }
+        let push =
+            (v as? NSButton).map {
+                !($0 is PointerButton) && !($0 is NSPopUpButton) && $0.isBordered && $0.bezelStyle == .push
+            } ?? false
+        let plain = [ObjectIdentifier(NSPopUpButton.self), ObjectIdentifier(NSSegmentedControl.self)].contains(
+            ObjectIdentifier(type(of: v)))
         guard push || plain, let c = v as? NSControl else { return }
         c.controlSize = .small
         c.font = .ui(11)

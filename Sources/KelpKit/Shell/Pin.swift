@@ -11,11 +11,14 @@ extension NSLayoutConstraint {
 extension NSView {
     /// Adds `v` filling this view, `inset` in from its edges.
     package func pin(_ v: NSView, inset: NSEdgeInsets = NSEdgeInsetsZero) {
-        v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v)
-        NSLayoutConstraint.activate([v.topAnchor.constraint(equalTo: topAnchor, constant: inset.top),
-                                     v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset.bottom),
-                                     v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset.left),
-                                     v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset.right)])
+        v.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(v)
+        NSLayoutConstraint.activate([
+            v.topAnchor.constraint(equalTo: topAnchor, constant: inset.top),
+            v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset.bottom),
+            v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset.left),
+            v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset.right)
+        ])
     }
 }
 
@@ -29,9 +32,12 @@ package func stacked(_ views: NSView...) -> NSView {
     let v = NSView()
     var above = v.topAnchor
     for x in views {
-        x.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(x)
-        NSLayoutConstraint.activate([x.topAnchor.constraint(equalTo: above), x.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-                                     x.trailingAnchor.constraint(equalTo: v.trailingAnchor)])
+        x.translatesAutoresizingMaskIntoConstraints = false
+        v.addSubview(x)
+        NSLayoutConstraint.activate([
+            x.topAnchor.constraint(equalTo: above), x.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            x.trailingAnchor.constraint(equalTo: v.trailingAnchor)
+        ])
         above = x.bottomAnchor
     }
     above.constraint(equalTo: v.bottomAnchor).isActive = true

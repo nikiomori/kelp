@@ -10,7 +10,10 @@ import WorkbenchKit
 @MainActor
 package final class ScriptsMenu: NSObject, NSMenuDelegate {
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init() }
+    init(app: AppModel) {
+        self.app = app
+        super.init()
+    }
     let state = RunState()
     private var setupCommand: [String: String] = [:]
     private var watching = false
@@ -30,9 +33,13 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         var at = (seps.first ?? 2) + 1
         let extra = (wid.flatMap { state.kelp[$0] } ?? []).filter { !["run", "test"].contains($0.name) }.map(\.name)
         for name in (wid.flatMap { setupCommand[$0] } != nil ? ["setup"] : []) + extra {
-            let i = NSMenuItem(title: name.prefix(1).uppercased() + name.dropFirst(), action: #selector(runNamed(_:)), keyEquivalent: "")
-            i.target = self; i.representedObject = name
-            m.insertItem(i, at: at); at += 1
+            let i = NSMenuItem(
+                title: name.prefix(1).uppercased() + name.dropFirst(), action: #selector(runNamed(_:)),
+                keyEquivalent: "")
+            i.target = self
+            i.representedObject = name
+            m.insertItem(i, at: at)
+            at += 1
         }
         if let wid { Task { await load(wid) } }   // next time it's current
     }
@@ -58,12 +65,16 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     /// ⌘R ("run"): what last ran in the project, else .kelp.yaml's run, else the list. ⌘U ("test"): .kelp.yaml's test,
     /// else the files' tests. Without either, the focused file's language's.
     func run(_ name: String) {
-        guard let wid = app.workbench.workspaceId else { NSSound.beep(); return }
+        guard let wid = app.workbench.workspaceId else {
+            NSSound.beep()
+            return
+        }
         watch()
         Task { [weak self] in
             guard let self, let info = await load(wid, asked: true) else { return }
             let scripts = state.kelp[wid] ?? []
-            if name == "setup" || scripts.contains(where: { $0.name == name }), name != "run" || remembered(wid) == nil {
+            if name == "setup" || scripts.contains(where: { $0.name == name }), name != "run" || remembered(wid) == nil
+            {
                 await runKelp(wid, name, info)
                 return
             }
@@ -73,21 +84,32 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
                 await start(wid, t.id, RunStart(worktreeId: wid, id: t.id))
                 return
             }
-            if name == "run", found?.options.isEmpty == false { choose(); return }
-            // Nothing in the project: ⌘R runs the focused file, ⌘U its test at the cursor, when its language says how.
-            if let t = app.workbench.editor?.focusedContent, ["run", "test"].contains(name), t.language?[command: name] != nil {
-                runFile(t, name); return
+            if name == "run", found?.options.isEmpty == false {
+                choose()
+                return
             }
-            Banner.show(String(localized: "This project has no “\(name)” command. Add one to .kelp.yaml (\(name): the command)."),
-                        action: (String(localized: "Edit Commands"), { [weak self] in self?.edit() }))
+            // Nothing in the project: ⌘R runs the focused file, ⌘U its test at the cursor, when its language says how.
+            if let t = app.workbench.editor?.focusedContent, ["run", "test"].contains(name),
+                t.language?[command: name] != nil
+            {
+                runFile(t, name)
+                return
+            }
+            Banner.show(
+                String(
+                    localized: "This project has no “\(name)” command. Add one to .kelp.yaml (\(name): the command)."),
+                action: (String(localized: "Edit Commands"), { [weak self] in self?.edit() }))
         }
     }
 
     /// A .kelp.yaml command, trusted first if the file isn't yet. Its run (or one picked in the list) becomes ⌘R's.
     /// `pullRequest`: the folder holds that PR's code, which the file's trust doesn't cover; it's asked about every time.
-    func runKelp(_ wid: String, _ name: String, _ info: ScriptsList.Result, remember: Bool = false, pullRequest: Int? = nil) async {
+    func runKelp(
+        _ wid: String, _ name: String, _ info: ScriptsList.Result, remember: Bool = false, pullRequest: Int? = nil
+    ) async {
         if let pullRequest {
-            guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askPullRequest(pullRequest, info) else { return }
+            guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askPullRequest(pullRequest, info)
+            else { return }
         }
         if !info.trusted {
             // A snapshot run takes clicks and keys from its environment (DevAids): anyone could start one that presses
@@ -104,7 +126,10 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     /// Run File / Test at Cursor: the file's language's `run` / `test`, run like the project's commands. Languages come
     /// from extensions the user installed, so there's no trust question.
     package func runFile(_ t: TabContent, _ name: String) {
-        guard let wid = app.workbench.workspaceId else { NSSound.beep(); return }
+        guard let wid = app.workbench.workspaceId else {
+            NSSound.beep()
+            return
+        }
         watch()
         Task {
             guard let cmd = await t.command(name) else { return }
@@ -114,7 +139,8 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     }
 
     /// Again: start over, like Xcode's Run (the last run's tab gives way to the new one). False when it didn't start.
-    @discardableResult func start<M: RPCMethod>(_ wid: String, _ choice: String, _ method: M) async -> Bool where M.Result == Session {
+    @discardableResult func start<M: RPCMethod>(_ wid: String, _ choice: String, _ method: M) async -> Bool
+    where M.Result == Session {
         watch()
         let same = running(in: wid).filter { app.session($0).flatMap(self.choice(of:)) == choice }
         let hidden = same.contains(where: isHidden)   // put away in the Run menu: started over, it stays there
@@ -129,10 +155,16 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         guard let sid = s?.id else { return false }
         state.active[sid] = RunState.Run(workspace: wid, choice: choice, url: state.early.removeValue(forKey: sid))
         await app.refresh()
-        if hidden { hide(sid); return true }
+        if hidden {
+            hide(sid)
+            return true
+        }
         // Below what you're doing, like a console; the keys stay where they were.
-        if wid == app.workbench.workspaceId { app.workbench.open(TabURI.session(sid), split: .down, workspace: wid, focus: false) }
-        else { app.workbench.window?.editors.openInBackground(TabURI.session(sid), workspace: wid) }
+        if wid == app.workbench.workspaceId {
+            app.workbench.open(TabURI.session(sid), split: .down, workspace: wid, focus: false)
+        } else {
+            app.workbench.window?.editors.openInBackground(TabURI.session(sid), workspace: wid)
+        }
         return true
     }
 
@@ -143,7 +175,9 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
 
     /// The runs still going in a workspace, the first started first.
     func running(in wid: String) -> [String] {
-        app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && choice(of: $0) != nil }.sorted { $0.createdAt < $1.createdAt }.map(\.id)
+        app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && choice(of: $0) != nil }.sorted {
+            $0.createdAt < $1.createdAt
+        }.map(\.id)
     }
 
     /// What a session runs, when it's one of its workspace's choices: started here, before Kelp restarted, or by `kelp`
@@ -151,7 +185,9 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     func choice(of s: Session) -> String? {
         if let r = state.active[s.id] { return r.choice }
         guard s.agent == "custom", let wid = s.worktreeId, let line = s.argv.last else { return nil }
-        if let o = state.found[wid]?.options.first(where: { ($0.folder.isEmpty ? $0.command : "cd \(IDE.shellWord($0.folder)) && \($0.command)") == line }) {
+        if let o = state.found[wid]?.options.first(where: {
+            ($0.folder.isEmpty ? $0.command : "cd \(IDE.shellWord($0.folder)) && \($0.command)") == line
+        }) {
             return o.id
         }
         return state.kelp[wid]?.first { $0.command == line }.map { "kelp:" + $0.name }
@@ -159,7 +195,10 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
 
     /// A page a session printed (event.devserver): a run's waits on the chip for a click; any other's (Jupyter) opens beside.
     func served(_ e: DevServerEvent) -> Bool {
-        if state.active[e.session] != nil { state.active[e.session]?.url = e.url; return true }
+        if state.active[e.session] != nil {
+            state.active[e.session]?.url = e.url
+            return true
+        }
         guard starting > 0 else { return false }
         state.early[e.session] = e.url
         return true
@@ -170,20 +209,32 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     private func askTrust(_ info: ScriptsList.Result) async -> Bool {
         let a = NSAlert()
         a.messageText = String(localized: "Run this project's commands?")
-        a.informativeText = String(localized: "\((info.file as NSString).abbreviatingWithTildeInPath) asks Kelp to run these as you, in this folder. ")
-            + String(localized: "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
+        a.informativeText =
+            String(
+                localized:
+                    "\((info.file as NSString).abbreviatingWithTildeInPath) asks Kelp to run these as you, in this folder. "
+            )
+            + String(
+                localized:
+                    "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
         a.accessoryView = Self.trustText(info)
-        a.addButton(withTitle: String(localized: "Trust and Run")); a.addButton(withTitle: String(localized: "Cancel"))
+        a.addButton(withTitle: String(localized: "Trust and Run"))
+        a.addButton(withTitle: String(localized: "Cancel"))
         return await runSheet(a) == .alertFirstButtonReturn
     }
 
     private func askPullRequest(_ n: Int, _ info: ScriptsList.Result) async -> Bool {
         let a = NSAlert()
         a.messageText = String(localized: "Run setup on pull request #\(n)?")
-        a.informativeText = String(localized: "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. ")
+        a.informativeText =
+            String(
+                localized:
+                    "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. "
+            )
             + String(localized: "Skip it to read the code first.")
         a.accessoryView = Self.trustText(info)
-        a.addButton(withTitle: String(localized: "Run Setup")); a.addButton(withTitle: String(localized: "Skip"))
+        a.addButton(withTitle: String(localized: "Run Setup"))
+        a.addButton(withTitle: String(localized: "Skip"))
         return await runSheet(a) == .alertFirstButtonReturn
     }
 
@@ -208,8 +259,10 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         text.isEditable = false
         text.drawsBackground = false
         text.font = .uiMono(11)
-        text.isVerticallyResizable = true; text.textContainer?.widthTracksTextView = true
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8)))
+        text.isVerticallyResizable = true
+        text.textContainer?.widthTracksTextView = true
+        let scroll = NSScrollView(
+            frame: NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8)))
         scroll.documentView = text
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
@@ -222,26 +275,41 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         let app = self.app
         guard !watching else { return }
         watching = true
-        track(owner: self) { app.sessions.filter { $0.status == .exited } } changed: { [weak self] ended in
+        track(owner: self) {
+            app.sessions.filter { $0.status == .exited }
+        } changed: { [weak self] ended in
             guard let self else { return }
             for s in ended {
                 guard let r = state.active.removeValue(forKey: s.id) else { continue }
                 let name = "“\(label(r.choice, in: r.workspace))”"
                 let id = s.id
-                let show: (String, @MainActor @Sendable () -> Void) = (String(localized: "Show Output"), { app.workbench.focus(session: id) })
+                let show: (String, @MainActor @Sendable () -> Void) = (
+                    String(localized: "Show Output"), { app.workbench.focus(session: id) }
+                )
                 if s.connectionLost {
-                    Banner.show(String(localized: "The connection to the host dropped. \(name) keeps running there."), action: show)
+                    Banner.show(
+                        String(localized: "The connection to the host dropped. \(name) keeps running there."),
+                        action: show)
                 } else if s.summary.hasPrefix("Ended with an error") {
-                    Banner.show(String(localized: "\(name) failed \(s.summary.replacingOccurrences(of: "Ended with an error ", with: ""))"),
-                                style: .error, action: show)
-                } else { Banner.show(String(localized: "\(name) finished"), action: show) }
+                    Banner.show(
+                        String(
+                            localized:
+                                "\(name) failed \(s.summary.replacingOccurrences(of: "Ended with an error ", with: ""))"
+                        ),
+                        style: .error, action: show)
+                } else {
+                    Banner.show(String(localized: "\(name) finished"), action: show)
+                }
             }
         }
     }
 
     /// The project's .kelp.yaml in a tab (started with the keys it knows, if there isn't one).
     func edit() {
-        guard let w = app.worktree(app.workbench.workspaceId) else { NSSound.beep(); return }
+        guard let w = app.worktree(app.workbench.workspaceId) else {
+            NSSound.beep()
+            return
+        }
         let path = (app.repo(w.repoId)?.path ?? w.path) + "/.kelp.yaml"
         let keys = """
             # Kelp's Run menu runs these in the workspace's folder (Kelp asks before the first run).

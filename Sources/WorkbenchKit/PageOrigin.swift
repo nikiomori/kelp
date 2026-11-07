@@ -7,13 +7,19 @@ import Foundation
 /// public suffix list; a shared host missing from `shared` is one site.
 public enum PageOrigin {
     public static func of(_ u: URL?) -> String? {
-        guard let u, let scheme = u.scheme?.lowercased(), let host = u.host?.lowercased(), !host.isEmpty else { return nil }
+        guard let u, let scheme = u.scheme?.lowercased(), let host = u.host?.lowercased(), !host.isEmpty else {
+            return nil
+        }
         let labels = host.split(separator: ".").map(String.init)
         let numeric = host.contains(":") || labels.allSatisfy { $0.allSatisfy(\.isNumber) }
         if numeric || labels.count < 2 { return "\(scheme)://\(host)" + (u.port.map { ":\($0)" } ?? "") }
-        let country = labels.last?.count == 2 && ["co", "com", "net", "org", "gov", "ac", "edu", "ne", "or"].contains(labels[labels.count - 2])
+        let country =
+            labels.last?.count == 2
+            && ["co", "com", "net", "org", "gov", "ac", "edu", "ne", "or"].contains(labels[labels.count - 2])
         // The longest shared suffix it ends in (`s3.amazonaws.com` before `amazonaws.com`), and one label more.
-        let suffix = (1..<labels.count).reversed().first { shared.contains(labels.suffix($0).joined(separator: ".")) } ?? (country ? 2 : 1)
+        let suffix =
+            (1..<labels.count).reversed().first { shared.contains(labels.suffix($0).joined(separator: ".")) }
+            ?? (country ? 2 : 1)
         return "\(scheme)://" + labels.suffix(suffix + 1).joined(separator: ".")
     }
 
@@ -21,6 +27,7 @@ public enum PageOrigin {
     static let shared: Set<String> = [
         "vercel.app", "netlify.app", "github.io", "gitlab.io", "pages.dev", "workers.dev", "web.app", "firebaseapp.com",
         "herokuapp.com", "onrender.com", "fly.dev", "railway.app", "glitch.me", "repl.co", "ngrok.io", "ngrok-free.app",
-        "azurewebsites.net", "cloudfront.net", "amazonaws.com", "s3.amazonaws.com", "appspot.com", "blogspot.com", "surge.sh", "deno.dev"
+        "azurewebsites.net", "cloudfront.net", "amazonaws.com", "s3.amazonaws.com", "appspot.com", "blogspot.com",
+        "surge.sh", "deno.dev"
     ]
 }

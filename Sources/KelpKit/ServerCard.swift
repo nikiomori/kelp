@@ -1,6 +1,6 @@
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 
 /// In a remote project's hover card: its server, how the machine is doing now, and the way into the server's tab.
 struct ServerSection: View {
@@ -14,13 +14,21 @@ struct ServerSection: View {
             HStack(spacing: 6) {
                 Image(systemName: "server.rack").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
                 Text(host).font(.ui(12, weight: .semibold)).lineLimit(1)
-                if let word = app.serverWord(host) { Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color)) }
+                if let word = app.serverWord(host) {
+                    Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
+                }
             }
             Text(serverLine(s)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(2)
             if let s, s.connected { ServerMeters(stats: s) }
             HStack(spacing: Metrics.gapWide) {
-                Button(String(localized: "Open Server")) { close(); app.openServer(host) }
-                Button("htop") { close(); app.openHtop(host) }
+                Button(String(localized: "Open Server")) {
+                    close()
+                    app.openServer(host)
+                }
+                Button("htop") {
+                    close()
+                    app.openHtop(host)
+                }
             }
             .controlSize(.small)
         }
@@ -30,9 +38,13 @@ struct ServerSection: View {
 /// "Ubuntu 24.04.5 LTS · 2 cores · up 3 d 10 h", or why there's nothing to say.
 package func serverLine(_ s: HostStats?) -> String {
     guard let s else { return String(localized: "Reading…") }
-    guard s.connected else { return s.error.map { String(localized: "Can't reach: \($0)") } ?? String(localized: "Not connected. Opening it connects.") }
+    guard s.connected else {
+        return s.error.map { String(localized: "Can't reach: \($0)") }
+            ?? String(localized: "Not connected. Opening it connects.")
+    }
     let cores = s.cores.map { String(localized: "\($0) cores") }
-    return [s.os, cores, s.uptime.map { String(localized: "up \(serverDuration($0))") }].compactMap { $0 }.joined(separator: " · ")
+    return [s.os, cores, s.uptime.map { String(localized: "up \(serverDuration($0))") }].compactMap { $0 }.joined(
+        separator: " · ")
 }
 
 /// CPU, memory, swap and disk as bars with their numbers; orange past 90 %.

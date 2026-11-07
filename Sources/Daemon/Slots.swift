@@ -1,12 +1,15 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// At most `limit` holders at once; the rest wait first come, first served, suspended (no thread held while waiting).
 /// Limit: a waiter whose task is cancelled still takes its turn; nothing here cancels (a client's deadline is its own).
 final class Slots: Sendable {
     let limit: Int
-    private struct State { var held = 0, closed = false; var waiting: [CheckedContinuation<Bool, Never>] = [] }
+    private struct State {
+        var held = 0, closed = false
+        var waiting: [CheckedContinuation<Bool, Never>] = []
+    }
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// Quick work's own cap (a thread each): it never waits behind slow work, only behind this much quick work at once,
     /// so a client looping on `kelp hook` can't make thousands of threads.
@@ -24,8 +27,12 @@ final class Slots: Sendable {
         await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             let now = state.withLock { s -> Bool? in
                 if s.closed { return false }
-                guard s.held < limit else { s.waiting.append(c); return nil }
-                s.held += 1; return true
+                guard s.held < limit else {
+                    s.waiting.append(c)
+                    return nil
+                }
+                s.held += 1
+                return true
             }
             if let now { c.resume(returning: now) }
         }
@@ -34,7 +41,10 @@ final class Slots: Sendable {
     /// The slot passes straight to the longest waiter, if there is one.
     func release() {
         let next = state.withLock { s -> CheckedContinuation<Bool, Never>? in
-            guard !s.waiting.isEmpty else { s.held -= 1; return nil }
+            guard !s.waiting.isEmpty else {
+                s.held -= 1
+                return nil
+            }
             return s.waiting.removeFirst()
         }
         next?.resume(returning: true)
@@ -75,7 +85,9 @@ final class Slots: Sendable {
         if let slots, await !slots.acquire() { throw RPCError.updating }
         return try await Self.onThread {
             defer { slots?.release() }
-            return Sessions.$asker.withValue(asker) { quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work) }
+            return Sessions.$asker.withValue(asker) {
+                quick ? Result { try Subprocess.quickOnly(work) } : Result(catching: work)
+            }
         }
     }
 

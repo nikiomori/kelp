@@ -10,12 +10,16 @@ extension EditorArea {
 
     /// `shown` was just on screen in its group: it moves to the front, and terminals hidden longest are released.
     func noteShown(_ shown: String?, now: Date = Date()) {
-        if let shown { recent.removeAll { $0 == shown }; recent.append(shown) }
+        if let shown {
+            recent.removeAll { $0 == shown }
+            recent.append(shown)
+        }
         let onScreen = Set(layout.groups.values.compactMap { $0.selectedTab?.id })
         let hidden = recent.filter { !onScreen.contains($0) && contents[$0] != nil }
         hiddenAt = hiddenAt.filter { hidden.contains($0.key) }
         for id in hidden where hiddenAt[id] == nil { hiddenAt[id] = now }
-        for id in hidden.dropLast(Self.keptHidden) where now.timeIntervalSince(hiddenAt[id] ?? now) >= Self.releaseAfter {
+        for id in hidden.dropLast(Self.keptHidden) where now.timeIntervalSince(hiddenAt[id] ?? now) >= Self.releaseAfter
+        {
             guard let c = contents[id], TabURI.scheme(c.uri) == "session", !c.isEdited else { continue }
             contents[id] = nil
         }

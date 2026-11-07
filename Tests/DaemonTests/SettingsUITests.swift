@@ -1,25 +1,33 @@
+import Core
 import Foundation
 import IOKit.pwr_mgt
 import Testing
-import Core
+
 @testable import Daemon
 
 final class EventBox: @unchecked Sendable {
-    private let l = NSLock(); private var events: [(String, JSONValue)] = []
+    private let l = NSLock()
+    private var events: [(String, JSONValue)] = []
     func add(_ m: String, _ p: JSONValue) { l.withLock { events.append((m, p)) } }
     func last(_ m: String) -> JSONValue? { l.withLock { events.last { $0.0 == m }?.1 } }
 }
 
 @Test func settingsLoadSetAndHandEdit() async throws {
     let root = tmp()
-    try #"{"sessions.hibernateMinutes":5,"power.keepAwake":"off","accounts.profiles":[{"name":"Work","agent":"claude","dir":"/x"}]}"#
+    try
+        #"{"sessions.hibernateMinutes":5,"power.keepAwake":"off","accounts.profiles":[{"name":"Work","agent":"claude","dir":"/x"}]}"#
         .write(to: root.appendingPathComponent("settings.json"), atomically: true, encoding: .utf8)
-    let d = try Daemon(root: root); try d.start(); defer { d.stop() }
+    let d = try Daemon(root: root)
+    try d.start()
+    defer { d.stop() }
     let c = try client(root)
-    let box = EventBox(); c.onNotification = { box.add($0, $1) }
+    let box = EventBox()
+    c.onNotification = { box.add($0, $1) }
 
     let s0 = try await c.call("settings.get")
-    #expect(s0["sessions.hibernateMinutes"] == 5 && s0["power.keepAwake"] == "off" && s0["accounts.profiles"]?.array?.count == 1)
+    #expect(
+        s0["sessions.hibernateMinutes"] == 5 && s0["power.keepAwake"] == "off"
+            && s0["accounts.profiles"]?.array?.count == 1)
 
     let s1 = try await c.call("settings.set", .obj(["key": "editor.fontSize", "value": 13]))
     #expect(s1["editor.fontSize"] == 13)
@@ -43,17 +51,28 @@ final class EventBox: @unchecked Sendable {
 }
 
 @Test func uiRelayReachesTheApp() async throws {
-    let (d, agent, root) = try daemon(); defer { d.stop() }
+    let (d, agent, root) = try daemon()
+    defer { d.stop() }
     #expect(try await agent.call("ui.state") == .object([:]))
-    await #expect(throws: RPCError.internalError("The Kelp app isn't running")) { try await agent.call("ui.open", .obj(["uri": "/a.swift"])) }
+    await #expect(throws: RPCError.internalError("The Kelp app isn't running")) {
+        try await agent.call("ui.open", .obj(["uri": "/a.swift"]))
+    }
 
     let app = try client(root)
-    let box = EventBox(); app.onNotification = { box.add($0, $1) }
-    let state: JSONValue = .obj(["extensions": .array([.obj(["id": "git", "name": "Git", "enabled": true, "builtin": true])])])
+    let box = EventBox()
+    app.onNotification = { box.add($0, $1) }
+    let state: JSONValue = .obj([
+        "extensions": .array([.obj(["id": "git", "name": "Git", "enabled": true, "builtin": true])])
+    ])
     _ = try await app.call("ui.publish", .obj(["state": state]))
     #expect(try await agent.call("ui.state") == state)
-    #expect(try await agent.call("ui.open", .obj(["uri": "file:///a.swift#L3", "split": "right"])) == .obj(["delivered": 1]))
-    #expect(try await waitFor { box.last("event.ui") == .obj(["action": "open", "uri": "file:///a.swift#L3", "split": "right"]) })
+    #expect(
+        try await agent.call("ui.open", .obj(["uri": "file:///a.swift#L3", "split": "right"])) == .obj(["delivered": 1])
+    )
+    #expect(
+        try await waitFor {
+            box.last("event.ui") == .obj(["action": "open", "uri": "file:///a.swift#L3", "split": "right"])
+        })
     _ = try await agent.call("ui.command", .obj(["id": "extensions.reload"]))
     #expect(try await waitFor { box.last("event.ui") == .obj(["action": "command", "id": "extensions.reload"]) })
     await #expect(throws: RPCError.self) { try await agent.call("ui.open", .obj(["uri": "x", "split": "left"])) }
@@ -65,10 +84,14 @@ final class EventBox: @unchecked Sendable {
 
 /// `kelp browser`: the app gets the request, and its answer, or what went wrong, is the agent's reply.
 @Test func browserRequestsWaitForTheApp() async throws {
-    let (d, agent, root) = try daemon(); defer { d.stop() }
-    await #expect(throws: RPCError.internalError("The Kelp app isn't running")) { try await agent.call("ui.browser", .obj(["action": "info"])) }
+    let (d, agent, root) = try daemon()
+    defer { d.stop() }
+    await #expect(throws: RPCError.internalError("The Kelp app isn't running")) {
+        try await agent.call("ui.browser", .obj(["action": "info"]))
+    }
     let app = try client(root)
-    let box = EventBox(); app.onNotification = { box.add($0, $1) }
+    let box = EventBox()
+    app.onNotification = { box.add($0, $1) }
     _ = try await app.call("ui.publish", .obj(["state": .object([:])]))
 
     let page = Task { try await agent.call("ui.browser", .obj(["action": "snapshot", "worktreeId": "w1"])) }
@@ -88,21 +111,28 @@ final class EventBox: @unchecked Sendable {
 
 /// What the app restores lives in the daemon: by key, by prefix, null deletes; a removed workspace takes its layout along.
 @Test func uiStateByKeyAndPrefix() async throws {
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     func get(_ k: String) async throws -> JSONValue { try await c.call("state.get", .obj(["key": .string(k)])) }
-    func set(_ k: String, _ v: JSONValue) async throws { _ = try await c.call("state.set", .obj(["key": .string(k), "value": v])) }
+    func set(_ k: String, _ v: JSONValue) async throws {
+        _ = try await c.call("state.set", .obj(["key": .string(k), "value": v]))
+    }
     #expect(try await get("sidebar.order") == .null)
     try await set("sidebar.order", .array(["a", "b"]))
     try await set("layout/w1", .obj(["groups": .object([:])]))
     #expect(try await get("sidebar.order") == .array(["a", "b"]))
-    #expect(try await c.call("state.get", .obj(["prefix": "layout/"])) == .obj(["layout/w1": .obj(["groups": .object([:])])]))
+    #expect(
+        try await c.call("state.get", .obj(["prefix": "layout/"]))
+            == .obj(["layout/w1": .obj(["groups": .object([:])])]))
     try await set("sidebar.order", .null)
     #expect(try await c.call("state.get", .obj(["prefix": ""])) == .obj(["layout/w1": .obj(["groups": .object([:])])]))
 
     let repo: Repo = try await c.call("repo.add", .obj(["path": .string(try makeRepo())]), as: Repo.self)
-    let workspace: Worktree = try await c.call("workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)
+    let workspace: Worktree = try await c.call(
+        "workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)
     let first = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.id != workspace.id })
-    try await set("layout/\(workspace.id)", 1); try await set("layout/\(first.id)", 2)
+    try await set("layout/\(workspace.id)", 1)
+    try await set("layout/\(first.id)", 2)
     _ = try await c.call("worktree.remove", .obj(["id": .string(workspace.id)]))
     #expect(try await get("layout/\(workspace.id)") == .null)
     #expect(try await get("layout/\(first.id)") == 2)
@@ -116,15 +146,19 @@ final class EventBox: @unchecked Sendable {
 @Test func keepAwakeAlwaysHoldsTheDisplay() throws {
     func held() -> [String] {
         var all: Unmanaged<CFDictionary>?
-        guard IOPMCopyAssertionsByProcess(&all) == kIOReturnSuccess, let byPID = all?.takeRetainedValue() as? [NSNumber: [[String: Any]]] else { return [] }
+        guard IOPMCopyAssertionsByProcess(&all) == kIOReturnSuccess,
+            let byPID = all?.takeRetainedValue() as? [NSNumber: [[String: Any]]]
+        else { return [] }
         // Only the display's: other tests' daemons in this process hold system-sleep assertions while their agents work.
         return (byPID[NSNumber(value: getpid())] ?? []).compactMap { $0[kIOPMAssertionTypeKey] as? String }
             .filter { $0 == kIOPMAssertPreventUserIdleDisplaySleep }
     }
     let root = tmp()
     let d = try Daemon(root: root)
-    _ = try d.settings.set("power.keepAwake", .string("always")); d.sessions.applyKeepAwake()
+    _ = try d.settings.set("power.keepAwake", .string("always"))
+    d.sessions.applyKeepAwake()
     #expect(held() == [kIOPMAssertPreventUserIdleDisplaySleep])
-    _ = try d.settings.set("power.keepAwake", .string("off")); d.sessions.applyKeepAwake()
+    _ = try d.settings.set("power.keepAwake", .string("off"))
+    d.sessions.applyKeepAwake()
     #expect(held().isEmpty)
 }

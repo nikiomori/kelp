@@ -14,10 +14,11 @@ public enum ViewedFiles {
     }
 
     public static func read(_ entries: [String]) -> [String: String] {
-        Dictionary(entries.compactMap { e in
-            let p = e.split(separator: "\t", maxSplits: 1)
-            return p.count == 2 ? (String(p[0]), String(p[1])) : nil
-        }, uniquingKeysWith: { _, b in b })
+        Dictionary(
+            entries.compactMap { e in
+                let p = e.split(separator: "\t", maxSplits: 1)
+                return p.count == 2 ? (String(p[0]), String(p[1])) : nil
+            }, uniquingKeysWith: { _, b in b })
     }
 
     /// Marks kept of files the diff on screen doesn't hold: another source (Staged, a commit) shows them.

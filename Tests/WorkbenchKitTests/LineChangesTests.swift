@@ -14,12 +14,13 @@ private func hunk(_ newStart: Int, _ s: String) -> Hunk {
 }
 
 @Test func aHunkCanHoldSeveralChanges() {
-    #expect(LineChange.of([hunk(1, "+ - ++"), hunk(20, "-")]) == [
-        LineChange(kind: .added, line: 0, count: 1, hunk: 0),
-        LineChange(kind: .removed, line: 2, count: 0, hunk: 0),
-        LineChange(kind: .added, line: 3, count: 2, hunk: 0),
-        LineChange(kind: .removed, line: 19, count: 0, hunk: 1)
-    ])
+    #expect(
+        LineChange.of([hunk(1, "+ - ++"), hunk(20, "-")]) == [
+            LineChange(kind: .added, line: 0, count: 1, hunk: 0),
+            LineChange(kind: .removed, line: 2, count: 0, hunk: 0),
+            LineChange(kind: .added, line: 3, count: 2, hunk: 0),
+            LineChange(kind: .removed, line: 19, count: 0, hunk: 1)
+        ])
 }
 
 @Test func aWhollyRemovedFileMarksTheTop() {

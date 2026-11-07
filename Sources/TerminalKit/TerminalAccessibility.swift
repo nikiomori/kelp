@@ -10,7 +10,9 @@ extension GhosttyTerminalView {
     public override func accessibilityIdentifier() -> String { "terminal" }
     public override func accessibilityValue() -> Any? { screen().text }
     public override func accessibilityNumberOfCharacters() -> Int { (screen().text as NSString).length }
-    public override func accessibilityVisibleCharacterRange() -> NSRange { NSRange(location: 0, length: accessibilityNumberOfCharacters()) }
+    public override func accessibilityVisibleCharacterRange() -> NSRange {
+        NSRange(location: 0, length: accessibilityNumberOfCharacters())
+    }
     public override func accessibilitySelectedTextRange() -> NSRange { NSRange(location: screen().caret, length: 0) }
     public override func accessibilitySelectedText() -> String? { "" }
     public override func accessibilityString(for range: NSRange) -> String? {
@@ -30,8 +32,9 @@ extension GhosttyTerminalView {
         }
         let size = ghostty_surface_size(surface), scale = window?.backingScaleFactor ?? 2
         let cw = Double(size.cell_width_px) / scale, ch = Double(size.cell_height_px) / scale
-        let r = NSRect(x: Self.padX + Double(cell.col) * cw, y: bounds.height - Self.padY - Double(cell.row + 1) * ch,
-                       width: Double(range.length) * cw, height: ch)
+        let r = NSRect(
+            x: Self.padX + Double(cell.col) * cw, y: bounds.height - Self.padY - Double(cell.row + 1) * ch,
+            width: Double(range.length) * cw, height: ch)
         return window?.convertToScreen(convert(r, to: nil)) ?? r
     }
 
@@ -42,7 +45,9 @@ extension GhosttyTerminalView {
     func screen() -> (text: String, caret: Int, cursor: (row: Int, col: Int)?) {
         let text = readText(GHOSTTY_POINT_ACTIVE), ns = text as NSString
         guard let c = cursorCell, let size = gridSize else { return (text, ns.length, nil) }
-        let at = { (x: Int, y: Int) in ghostty_point_s(tag: GHOSTTY_POINT_ACTIVE, coord: GHOSTTY_POINT_COORD_EXACT, x: UInt32(x), y: UInt32(y)) }
+        let at = { (x: Int, y: Int) in
+            ghostty_point_s(tag: GHOSTTY_POINT_ACTIVE, coord: GHOSTTY_POINT_COORD_EXACT, x: UInt32(x), y: UInt32(y))
+        }
         var caret = 0
         if c.col > 0 {
             caret = (read(from: at(0, 0), to: at(c.col - 1, c.row)) as NSString).length

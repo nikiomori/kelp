@@ -1,7 +1,7 @@
 import AppKit
 import Core
-import WorkbenchKit
 import KelpKit
+import WorkbenchKit
 
 /// An agent or terminal session as a tab (libghostty via PaneView; the daemon keeps the process).
 @MainActor
@@ -15,14 +15,17 @@ final class SessionTab: TabContent {
     init?(uri: String, app: AppModel) {
         let sid = TabURI.body(uri)
         guard let s = app.session(sid) else { return nil }
-        sessionId = sid; self.app = app
+        sessionId = sid
+        self.app = app
         pane = PaneView(session: s, app: app)
         pane.onRestart = { p in AgentActions(app).restart(p.sessionId) }
         pane.onClose = { p in app.workbench.closeTab(uri: TabURI.session(p.sessionId)) }
         // A terminal left with `exit` (code 0) while its tab is open closes, as Terminal's does; an agent, a failed
         // command or a tab opened onto an ended session keeps its output and the Restart / Close bar.
         var running = s.status != .exited
-        track(owner: self) { [app] in app.session(sid) } changed: { [weak self] s in
+        track(owner: self) { [app] in
+            app.session(sid)
+        } changed: { [weak self] s in
             guard let self, let s else { return }
             pane.update(s)
             if running, s.status == .exited, s.agent == "shell", s.exitCode == 0 { app.workbench.closeTab(uri: uri) }
@@ -40,7 +43,8 @@ final class SessionTab: TabContent {
     var terminalGrid: (cols: Int, rows: Int)? { pane.window == nil ? nil : pane.gridSize }
     var toolTip: String? {
         session.map {
-            "\(title) — \($0.statusWords)" + ($0.summary.isEmpty ? "" : "\n\($0.summary)") + ($0.workingElsewhere.map { "\n\($0)" } ?? "")
+            "\(title) — \($0.statusWords)" + ($0.summary.isEmpty ? "" : "\n\($0.summary)")
+                + ($0.workingElsewhere.map { "\n\($0)" } ?? "")
                 + ($0.backgroundTip.map { "\n\($0)" } ?? "")
         }
     }
@@ -51,11 +55,15 @@ final class SessionTab: TabContent {
     func close() async -> Bool { await Self.close(app, session: sessionId) }
 
     /// Its items in the tab's context menu.
-    static func menu(_ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void) {
+    static func menu(
+        _ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void
+    ) {
         let sid = TabURI.body(uri)
         m.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
         if app.session(sid)?.agent != "shell" {   // a terminal has no conversation to copy or hand over
-            m.setSubmenu(AgentActions(app).handoffMenu(sid), for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            m.setSubmenu(
+                AgentActions(app).handoffMenu(sid),
+                for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             m.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             m.add(String(localized: "Changes in Its Last Turn")) {
                 app.workbench.focusedSession = sid
@@ -69,18 +77,25 @@ final class SessionTab: TabContent {
     static func close(_ app: AppModel, session sid: String) async -> Bool {
         let session = app.session(sid)
         let beside = session?.aside ?? [], names = beside.joined(separator: ", ")
-        if let s = session, s.agent != "shell", s.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty {
-            let a = NSAlert(); a.messageText = String(localized: "Stop \(app.catalog.displayName(s))?")
-            a.informativeText = (s.status == .working ? String(localized: "The agent is still working. Closing the tab ends its session.")
-                : String(localized: "Closing the tab ends its session.")) + app.sessions.childrenWords(of: [sid])
+        if let s = session, s.agent != "shell",
+            s.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty
+        {
+            let a = NSAlert()
+            a.messageText = String(localized: "Stop \(app.catalog.displayName(s))?")
+            a.informativeText =
+                (s.status == .working
+                    ? String(localized: "The agent is still working. Closing the tab ends its session.")
+                    : String(localized: "Closing the tab ends its session.")) + app.sessions.childrenWords(of: [sid])
                 + (beside.isEmpty ? "" : " " + String(localized: "What it runs in the background stops too: \(names)."))
-            a.addButton(withTitle: String(localized: "Stop Agent")); a.addButton(withTitle: String(localized: "Cancel"))
+            a.addButton(withTitle: String(localized: "Stop Agent"))
+            a.addButton(withTitle: String(localized: "Cancel"))
             guard await runSheet(a) == .alertFirstButtonReturn else { return false }
         } else if session?.agent == "shell", let program = await busy(app, sid) {
             let a = NSAlert()
             a.messageText = String(localized: "Stop “\(program)”?")
             a.informativeText = String(localized: "It is still running in this terminal. Closing the tab stops it.")
-            a.addButton(withTitle: String(localized: "Stop and Close")); a.addButton(withTitle: String(localized: "Cancel"))
+            a.addButton(withTitle: String(localized: "Stop and Close"))
+            a.addButton(withTitle: String(localized: "Cancel"))
             guard await runSheet(a) == .alertFirstButtonReturn else { return false }
         }
         Task { await app.call(SessionKill(id: sid)) }

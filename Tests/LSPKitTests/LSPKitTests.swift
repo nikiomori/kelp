@@ -1,7 +1,8 @@
-import Foundation
-import Testing
-import TestSupport
 import Core
+import Foundation
+import TestSupport
+import Testing
+
 @testable import LSPKit
 
 @Test func framerHandlesSplitAndMultipleMessages() {
@@ -36,7 +37,8 @@ import Core
     let c = try #require(LSPClient(argv: ["/bin/cat"], root: NSTemporaryDirectory()))
     let idle = Counter()
     c.onIdle = { idle.add() }
-    c.open("/x.swift", text: "", languageId: "swift"); c.open("/x.swift", text: "", languageId: "swift")
+    c.open("/x.swift", text: "", languageId: "swift")
+    c.open("/x.swift", text: "", languageId: "swift")
     c.close("/x.swift")
     #expect(idle.count == 0)
     c.close("/x.swift")
@@ -60,20 +62,32 @@ import Core
 }
 
 final class Counter: @unchecked Sendable {
-    private let l = NSLock(); private var n = 0
-    func add() { l.lock(); n += 1; l.unlock() }
-    var count: Int { l.lock(); defer { l.unlock() }; return n }
+    private let l = NSLock()
+    private var n = 0
+    func add() {
+        l.lock()
+        n += 1
+        l.unlock()
+    }
+    var count: Int {
+        l.lock()
+        defer { l.unlock() }
+        return n
+    }
 }
 
 @Test func symbolAroundALine() throws {
     func json(_ s: String) throws -> JSONValue { try JSONDecoder().decode(JSONValue.self, from: Data(s.utf8)) }
-    func range(_ a: Int, _ b: Int) -> String { #"{"start":{"line":\#(a),"character":0},"end":{"line":\#(b),"character":0}}"# }
+    func range(_ a: Int, _ b: Int) -> String {
+        #"{"start":{"line":\#(a),"character":0},"end":{"line":\#(b),"character":0}}"#
+    }
     // class TestParse (lines 1-9) > def test_empty (3-5) > local x (4); def helper (11-12)
-    let tree = try json(#"""
-    [{"name":"TestParse","kind":5,"range":\#(range(0, 8)),"children":[
-       {"name":"test_empty","kind":6,"range":\#(range(2, 4)),"children":[{"name":"x","kind":13,"range":\#(range(3, 3))}]}]},
-     {"name":"helper","kind":12,"range":\#(range(10, 11))}]
-    """#)
+    let tree = try json(
+        #"""
+        [{"name":"TestParse","kind":5,"range":\#(range(0, 8)),"children":[
+           {"name":"test_empty","kind":6,"range":\#(range(2, 4)),"children":[{"name":"x","kind":13,"range":\#(range(3, 3))}]}]},
+         {"name":"helper","kind":12,"range":\#(range(10, 11))}]
+        """#)
     #expect(LSPClient.enclosingSymbol(tree, line: 4) == "test_empty")   // not the variable x
     #expect(LSPClient.enclosingSymbol(tree, line: 2) == "TestParse")
     #expect(LSPClient.enclosingSymbol(tree, line: 12) == "helper")
@@ -133,7 +147,10 @@ final class Counter: @unchecked Sendable {
 /// A server that ignores SIGTERM is gone once `terminateNow` returns: the daemon execs or exits right after, and the
 /// SIGKILL `terminate` leaves for later would never come.
 @Test func aServerThatIgnoresSIGTERMIsGoneBeforeTheDaemonMovesOn() throws {
-    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", "trap '' TERM; i=0; while [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done"], root: NSTemporaryDirectory()))
+    let c = try #require(
+        LSPClient(
+            argv: ["/bin/sh", "-c", "trap '' TERM; i=0; while [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done"],
+            root: NSTemporaryDirectory()))
     let pid = try #require(c.pid)
     Thread.sleep(forTimeInterval: 0.2)   // the trap is set
     c.terminateNow()
@@ -142,11 +159,22 @@ final class Counter: @unchecked Sendable {
 
 @Test func workspaceSymbolsReadEitherShape() {
     let result: JSONValue = .array([
-        .obj(["name": .string("Basket"), "kind": .int(23), "location": .obj(["uri": .string("file:///p/a.swift"),
-              "range": .obj(["start": .obj(["line": .int(4), "character": .int(0)]), "end": .obj(["line": .int(4), "character": .int(6)])])])]),
+        .obj([
+            "name": .string("Basket"), "kind": .int(23),
+            "location": .obj([
+                "uri": .string("file:///p/a.swift"),
+                "range": .obj([
+                    "start": .obj(["line": .int(4), "character": .int(0)]),
+                    "end": .obj(["line": .int(4), "character": .int(6)])
+                ])
+            ])
+        ]),
         .obj(["name": .string("total"), "kind": .int(12), "location": .obj(["uri": .string("file:///p/b.swift")])]),
         .obj(["name": .string("lost")])
     ])
-    #expect(LSPClient.workspaceSymbols(result) == [CodeSymbol(name: "Basket", kind: "struct", line: 5, path: "/p/a.swift"),
-                                                   CodeSymbol(name: "total", kind: "function", line: 1, path: "/p/b.swift")])
+    #expect(
+        LSPClient.workspaceSymbols(result) == [
+            CodeSymbol(name: "Basket", kind: "struct", line: 5, path: "/p/a.swift"),
+            CodeSymbol(name: "total", kind: "function", line: 1, path: "/p/b.swift")
+        ])
 }

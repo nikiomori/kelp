@@ -15,9 +15,16 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     /// Its file as each turn of its agent left it, oldest first (`Artifacts.keepVersions`).
     public var versions: [ArtifactVersion]?
 
-    public init(type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil,
-                versions: [ArtifactVersion]? = nil) {
-        self.type = type; self.title = title; self.created = created; self.session = session; self.file = file; self.url = url
+    public init(
+        type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil,
+        versions: [ArtifactVersion]? = nil
+    ) {
+        self.type = type
+        self.title = title
+        self.created = created
+        self.session = session
+        self.file = file
+        self.url = url
         self.versions = versions
     }
 }
@@ -37,10 +44,21 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     /// Its kept versions, oldest first; `changed`: the file differs from the last of them (written since, or none kept yet).
     public var versions: [ArtifactVersion]?, changed: Bool?
 
-    public init(slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil, target: String,
-                points: Int? = nil, answered: Int? = nil, modified: Double? = nil) {
-        self.slug = slug; self.type = type; self.title = title; self.created = created; self.session = session; self.url = url
-        self.target = target; self.points = points; self.answered = answered; self.modified = modified
+    public init(
+        slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil,
+        target: String,
+        points: Int? = nil, answered: Int? = nil, modified: Double? = nil
+    ) {
+        self.slug = slug
+        self.type = type
+        self.title = title
+        self.created = created
+        self.session = session
+        self.url = url
+        self.target = target
+        self.points = points
+        self.answered = answered
+        self.modified = modified
     }
 }
 
@@ -65,7 +83,9 @@ public enum Artifacts {
     /// A folder name from the title, in Latin letters ("План" → "plan"): lowercase words joined by "-", at most 48
     /// characters; "artifact" for none.
     public static func slug(_ title: String) -> String {
-        let latin = title.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? title
+        let latin =
+            title.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false)
+            ?? title
         let words = latin.lowercased().split { !($0.isASCII && ($0.isLetter || $0.isNumber)) }
         var s = ""
         for w in words where s.count + w.count + 1 <= 48 { s += (s.isEmpty ? "" : "-") + w }
@@ -73,17 +93,22 @@ public enum Artifacts {
     }
 
     /// A new page of `kind` in `root`'s artifacts: its folder, its first lines and its record. Returns the page's file.
-    public static func create(_ kind: Kind, title: String, root: String, session: String?, now: Date = Date()) throws -> URL {
+    public static func create(_ kind: Kind, title: String, root: String, session: String?, now: Date = Date()) throws
+        -> URL
+    {
         let folder = try newFolder(title, root: root)
         let page = folder.appendingPathComponent(kind.file)
         try (kind.isHTML ? htmlStart(title) : "# \(title)\n\n").write(to: page, atomically: true, encoding: .utf8)
-        try save(ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file), in: folder)
+        try save(
+            ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file),
+            in: folder)
         return page
     }
 
     /// A page of HTML's first lines: its title, and the system's font in the app's light or dark.
     static func htmlStart(_ title: String) -> String {
-        let t = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
+        let t = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
         return """
             <!doctype html>
             <html>
@@ -104,7 +129,9 @@ public enum Artifacts {
     }
 
     /// Keeps the link to a page the agent published on its own service; nil when it's known already (a later version).
-    public static func addNative(url: String, title: String, type: String, root: String, session: String?, now: Date = Date()) throws -> URL? {
+    public static func addNative(
+        url: String, title: String, type: String, root: String, session: String?, now: Date = Date()
+    ) throws -> URL? {
         guard !list(root: root).contains(where: { $0.record.url == url }) else { return nil }
         let folder = try newFolder(title, root: root)
         try save(ArtifactRecord(type: type, title: title, created: now, session: session, url: url), in: folder)
@@ -114,7 +141,8 @@ public enum Artifacts {
     /// The project's artifacts, newest first.
     public static func list(root: String) -> [(slug: String, record: ArtifactRecord)] {
         let base = dir(root: root), fm = FileManager.default
-        let names = fm.enumerator(at: base, includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)?
+        let names =
+            fm.enumerator(at: base, includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)?
             .compactMap { ($0 as? URL)?.lastPathComponent } ?? []
         return names.compactMap { name in record(in: base.appendingPathComponent(name)).map { (name, $0) } }
             .sorted { $0.record.created > $1.record.created }
@@ -124,8 +152,9 @@ public enum Artifacts {
     public static func items(root: String) -> [ArtifactItem] {
         list(root: root).map { slug, r in
             let target = target(slug, r, root: root)
-            var item = ArtifactItem(slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
-                                    url: r.url, target: target)
+            var item = ArtifactItem(
+                slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
+                url: r.url, target: target)
             guard r.url == nil else { return item }
             let page = fileStat(target)
             item.modified = page.map { Double($0.mtime.tv_sec) }
@@ -139,7 +168,8 @@ public enum Artifacts {
             let text = small(target).map { String(decoding: $0, as: UTF8.self) }
             if r.type == Kind.review.rawValue, let text {
                 let points = Review(text).points
-                item.points = points.count; item.answered = points.filter { $0.pick != nil }.count
+                item.points = points.count
+                item.answered = points.filter { $0.pick != nil }.count
             }
             item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
             return item
@@ -150,7 +180,8 @@ public enum Artifacts {
     /// commit one, so it holds only what Kelp writes: a link to a web page, a file in its own folder.
     public static func record(in folder: URL) -> ArtifactRecord? {
         guard let d = small(folder.appendingPathComponent("artifact.json").path, limit: 1 << 20),
-              let r = try? decoder.decode(ArtifactRecord.self, from: d) else { return nil }
+            let r = try? decoder.decode(ArtifactRecord.self, from: d)
+        else { return nil }
         if let url = r.url, !url.hasPrefix("https://") { return nil }
         if let f = r.file, f.isEmpty || f.contains("/") || f.hasPrefix(".") { return nil }
         return r
@@ -191,11 +222,13 @@ public enum Artifacts {
     /// (list_types, list_artifacts, read_artifact) name pages too, the types' own and other people's.
     public static func published(hook v: JSONValue) -> (url: String, title: String, type: String)? {
         guard v["hook_event_name"]?.string == "PostToolUse", let tool = v["tool_name"]?.string, tool.hasPrefix("mcp__"),
-              publishers.contains(where: tool.hasSuffix), let response = v["tool_response"] else { return nil }
+            publishers.contains(where: tool.hasSuffix), let response = v["tool_response"]
+        else { return nil }
         let unescaped = strings(in: response).joined(separator: "\n")
         guard let url = unescaped.firstMatch(of: nativePage).map({ String($0.output) }) else { return nil }
         let input = v["tool_input"]
-        let title = input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
+        let title =
+            input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
             ?? unescaped.firstMatch(of: /\\?"title\\?"\s*:\s*\\?"([^"\\]+)/).map { String($0.output.1) } ?? url
         // Which of claude.ai's types it is, the answer doesn't say; a doc is the Docs connector's.
         let type = v["tool_name"]?.string?.contains("Claude_Docs") == true ? "doc" : "page"
@@ -203,8 +236,10 @@ public enum Artifacts {
     }
 
     /// The tools that make or change a page: claude-artifacts' and Claude Docs'.
-    static let publishers = ["__publish_version", "__publish_files", "__edit_version", "Claude_Docs__batch", "Claude_Docs__create",
-                             "Claude_Docs__update"]
+    static let publishers = [
+        "__publish_version", "__publish_files", "__edit_version", "Claude_Docs__batch", "Claude_Docs__create",
+        "Claude_Docs__update"
+    ]
 
     /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
     private static func strings(in v: JSONValue) -> [String] {
@@ -223,15 +258,18 @@ public enum Artifacts {
         guard let rules = rules[kind] else { return nil }
         var out = "# Making \(article(kind)) in Kelp\n\n"
         if kind == Kind.review.rawValue {
-            out += "Reviews stay in the project, even if you can publish artifacts elsewhere: the user's picks come back to you from the file.\n"
+            out +=
+                "Reviews stay in the project, even if you can publish artifacts elsewhere: the user's picks come back to you from the file.\n"
         } else if whereTo == "local" {
             out += "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
         } else {
-            out += "If you can publish artifacts yourself (claude.ai's claude-artifacts or Claude Docs tools), make it there: "
+            out +=
+                "If you can publish artifacts yourself (claude.ai's claude-artifacts or Claude Docs tools), make it there: "
                 + "give the user its link: it opens in their own browser, where they're signed in, and Kelp lists it. "
                 + "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
         }
-        out += "\nRun `kelp artifact new \(kind) \"<title>\"`: it prints the file to write, and Kelp shows it beside you as you save.\n"
+        out +=
+            "\nRun `kelp artifact new \(kind) \"<title>\"`: it prints the file to write, and Kelp shows it beside you as you save.\n"
         return out + "\nRules for \(article(kind)):\n" + rules
     }
 
@@ -240,52 +278,58 @@ public enum Artifacts {
 
     private static let rules: [String: String] = [
         "doc": """
-            - One H1, the title. Then a `> [!NOTE]` with the answer in two sentences.
-            - An H2 per section. Tables for comparisons, ```mermaid blocks for flows.
-            - Name code as path:line (Sources/App.swift:88): the user opens it from the page.
-            - No HTML, no images from the web.
+        - One H1, the title. Then a `> [!NOTE]` with the answer in two sentences.
+        - An H2 per section. Tables for comparisons, ```mermaid blocks for flows.
+        - Name code as path:line (Sources/App.swift:88): the user opens it from the page.
+        - No HTML, no images from the web.
 
-            """,
+        """,
         "review": """
-            - One H1, the title, and a line on what the choices are for.
-            - A point per decision: `## 1. The question`, numbered from 1, at most 9.
-            - Its options as `- [ ] A. What it means`, 2 to 4 of them, with a detail on the next line, indented two spaces.
-            - Mark at most one option per point `*recommended*`.
-            - Then tell the user the page is beside them and end your turn: they answer by number (1A 2B), and their
-              picks may arrive as a line like `My answers in <file>: 1A 2B`, with `[x]` on the picked options in the file.
+        - One H1, the title, and a line on what the choices are for.
+        - A point per decision: `## 1. The question`, numbered from 1, at most 9.
+        - Its options as `- [ ] A. What it means`, 2 to 4 of them, with a detail on the next line, indented two spaces.
+        - Mark at most one option per point `*recommended*`.
+        - Then tell the user the page is beside them and end your turn: they answer by number (1A 2B), and their
+          picks may arrive as a line like `My answers in <file>: 1A 2B`, with `[x]` on the picked options in the file.
 
-            """,
+        """,
         "slides": """
-            - Markdown. A line `---` with an empty line above and below starts the next slide; the first slide is the title.
-            - One idea a slide, at most four bullets; a number that matters on a slide of its own.
-            - Kelp shows them as 16:9 slides, one under the next (← → step through them, Print gives a page each).
+        - Markdown. A line `---` with an empty line above and below starts the next slide; the first slide is the title.
+        - One idea a slide, at most four bullets; a number that matters on a slide of its own.
+        - Kelp shows them as 16:9 slides, one under the next (← → step through them, Print gives a page each).
 
-            """,
+        """,
         "design": """
-            - One HTML file with its CSS inline, no scripts or files from the web; icons as inline SVG.
-            - A `<section>` per variant, headed `<h2>A. What it is</h2>`, its screens at their real size, side by side.
-            - Each screen in light and dark, side by side, in the project's own colours, type and spacing when it has them.
-            - Set a background and its text colour together: the page opens in the app's light or dark.
-            - Mark one variant recommended in its heading.
+        - One HTML file with its CSS inline, no scripts or files from the web; icons as inline SVG.
+        - A `<section>` per variant, headed `<h2>A. What it is</h2>`, its screens at their real size, side by side.
+        - Each screen in light and dark, side by side, in the project's own colours, type and spacing when it has them.
+        - Set a background and its text colour together: the page opens in the app's light or dark.
+        - Mark one variant recommended in its heading.
 
-            """,
+        """,
         "dashboard": """
-            - One HTML file with its CSS inline, no scripts or files from the web; charts as inline SVG.
-            - Numbers first, as large figures with a label; then charts; then the table they came from.
-            - Set a background and its text colour together: the page opens in the app's light or dark.
-            - Every number names where it came from (the command you ran, the file you read) and when, beside it or under it.
+        - One HTML file with its CSS inline, no scripts or files from the web; charts as inline SVG.
+        - Numbers first, as large figures with a label; then charts; then the table they came from.
+        - Set a background and its text colour together: the page opens in the app's light or dark.
+        - Every number names where it came from (the command you ran, the file you read) and when, beside it or under it.
 
-            """
+        """
     ]
 
     private static func article(_ kind: String) -> String { kind == "slides" ? "slides" : "a \(kind)" }
 
     // MARK: files
 
-    static let decoder: JSONDecoder = { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }()
+    static let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
 
     static func save(_ r: ArtifactRecord, in folder: URL) throws {
-        let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try e.encode(r).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
     }
 
@@ -295,7 +339,10 @@ public enum Artifacts {
         if !fm.fileExists(atPath: base.path) { try excludeFromGit(root: root) }
         let s = slug(title)
         var name = s, n = 2
-        while fm.fileExists(atPath: base.appendingPathComponent(name).path) { name = "\(s)-\(n)"; n += 1 }
+        while fm.fileExists(atPath: base.appendingPathComponent(name).path) {
+            name = "\(s)-\(n)"
+            n += 1
+        }
         let folder = base.appendingPathComponent(name)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder
@@ -318,6 +365,7 @@ public enum Artifacts {
         let text = fm.contents(atPath: exclude.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
         guard !text.split(separator: "\n").contains(where: { $0 == entry }) else { return }
         try fm.createDirectory(at: exclude.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try (text + (text.isEmpty || text.hasSuffix("\n") ? "" : "\n") + entry + "\n").write(to: exclude, atomically: true, encoding: .utf8)
+        try (text + (text.isEmpty || text.hasSuffix("\n") ? "" : "\n") + entry + "\n").write(
+            to: exclude, atomically: true, encoding: .utf8)
     }
 }

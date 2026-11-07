@@ -1,8 +1,8 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 import KelpKit
+import WorkbenchKit
 
 @MainActor
 extension DiffViewController {
@@ -19,7 +19,10 @@ extension DiffViewController {
     private func tint(_ k: DiffLine.Kind) -> NSColor? { k == .add ? .diffAdded : k == .del ? .diffRemoved : nil }
     func number(_ n: Int?, kind: DiffLine.Kind) -> NSTextField {
         let t = label(n.map(String.init) ?? "", font: font, color: .secondaryLabelColor, align: .right)
-        if let c = tint(kind) { t.drawsBackground = true; t.backgroundColor = c }
+        if let c = tint(kind) {
+            t.drawsBackground = true
+            t.backgroundColor = c
+        }
         return t
     }
     /// The side of a side-by-side row that has no line: hatched, like VS Code.
@@ -31,7 +34,8 @@ extension DiffViewController {
     }
     func band(_ s: String) -> NSTextField {
         let t = label(s, font: .ui(11), color: .tertiaryLabelColor)
-        t.drawsBackground = true; t.backgroundColor = .diffGap
+        t.drawsBackground = true
+        t.backgroundColor = .diffGap
         return t
     }
     private func prefix(_ l: DiffLine, marker: Bool) -> String {
@@ -44,7 +48,10 @@ extension DiffViewController {
         let p = NSMutableParagraphStyle(), space = charWidth(font)
         p.tabStops = []
         p.defaultTabInterval = 4 * space
-        guard text.utf16.count <= 4000 else { p.lineBreakMode = .byCharWrapping; return p }
+        guard text.utf16.count <= 4000 else {
+            p.lineBreakMode = .byCharWrapping
+            return p
+        }
         p.lineBreakMode = .byWordWrapping
         p.headIndent = min(CGFloat(indent(prefix, text)) * space, width / 2)
         return p
@@ -58,28 +65,38 @@ extension DiffViewController {
         return column
     }
     /// The width a code column wraps its lines at.
-    private func wrapWidth(marker: Bool) -> CGFloat { (table.tableColumn(withIdentifier: .init(marker ? "t" : "r"))?.width ?? 0) - 4 }
+    private func wrapWidth(marker: Bool) -> CGFloat {
+        (table.tableColumn(withIdentifier: .init(marker ? "t" : "r"))?.width ?? 0) - 4
+    }
     /// What a row shows of a line: a text field takes seconds over a megabyte, and nobody reads that far along one line.
     static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
     func codeCell(_ l: DiffLine, file f: Int, marker: Bool) -> NSTextField {
         let prefix = prefix(l, marker: marker)
         let text = Self.shown(l.text)
-        let colored = DiffColors.key(f, l).flatMap { syntax[$0] }.map {
-            Highlighter.attributed(prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
-        } ?? Highlighter.attributed(prefix + text, ext: ext(f), font: font)
+        let colored =
+            DiffColors.key(f, l).flatMap { syntax[$0] }.map {
+                Highlighter.attributed(
+                    prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
+            } ?? Highlighter.attributed(prefix + text, ext: ext(f), font: font)
         let s = NSMutableAttributedString(attributedString: colored)
-        let key = l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil
+        let key =
+            l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil
         if let key, let r = words[key], r.length > 0, r.location + r.length <= (text as NSString).length {
-            s.addAttribute(.backgroundColor, value: l.kind == .add ? NSColor.diffAddedWord : .diffRemovedWord,
-                           range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
+            s.addAttribute(
+                .backgroundColor, value: l.kind == .add ? NSColor.diffAddedWord : .diffRemovedWord,
+                range: NSRange(location: r.location + (prefix as NSString).length, length: r.length))
         }
         markFound(s, from: (prefix as NSString).length)
         // Its own paragraph style, the same `height(of:)` measures with: the field's mode doesn't reach an attributed string.
-        s.addAttribute(.paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(marker: marker)),
-                       range: NSRange(location: 0, length: s.length))
+        s.addAttribute(
+            .paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(marker: marker)),
+            range: NSRange(location: 0, length: s.length))
         let t = NSTextField(labelWithAttributedString: s)
         t.maximumNumberOfLines = 0
-        if let c = tint(l.kind) { t.drawsBackground = true; t.backgroundColor = c }
+        if let c = tint(l.kind) {
+            t.drawsBackground = true
+            t.backgroundColor = c
+        }
         return t
     }
 
@@ -89,8 +106,10 @@ extension DiffViewController {
     }
     /// A file's band to the top, its changes under it; false for a file this diff doesn't show.
     @discardableResult func scroll(toFile path: String) -> Bool {
-        guard let i = rows.firstIndex(where: { if case .diff(.file(let p, _, _)) = $0 { p == path } else { false } }) else { return false }
-        table.scrollRowToVisible(min(i + 40, rows.count - 1)); table.scrollRowToVisible(i)
+        guard let i = rows.firstIndex(where: { if case .diff(.file(let p, _, _)) = $0 { p == path } else { false } })
+        else { return false }
+        table.scrollRowToVisible(min(i + 40, rows.count - 1))
+        table.scrollRowToVisible(i)
         return true
     }
 
@@ -99,19 +118,31 @@ extension DiffViewController {
     /// A file clicked in Source Control: the review of that workspace on screen scrolls to it, in place of a tab of its
     /// own; false when none shows it.
     static func reveal(_ path: String, worktree: String) -> Bool {
-        reviews.allObjects.contains { $0.single == nil && $0.worktreeId == worktree && $0.view.window != nil && $0.scroll(toFile: path) }
+        reviews.allObjects.contains {
+            $0.single == nil && $0.worktreeId == worktree && $0.view.window != nil && $0.scroll(toFile: path)
+        }
     }
 
     // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥⇧↓/⌥⇧↑ comments, ⌥→/⌥← files
     func key(_ e: NSEvent) -> Bool {
-        if e.keyCode == 49, e.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask) { return flipSelectedComment() }
+        if e.keyCode == 49, e.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask) {
+            return flipSelectedComment()
+        }
         guard e.modifierFlags.contains(.option) else { return false }
         let comments = e.modifierFlags.contains(.shift)
         switch e.keyCode {
-        case 125: jump(1, comments: comments); return true
-        case 126: jump(-1, comments: comments); return true
-        case 124: files.selectRowIndexes([min(files.selectedRow + 1, diffs.count - 1)], byExtendingSelection: false); return true
-        case 123: files.selectRowIndexes([max(files.selectedRow - 1, 0)], byExtendingSelection: false); return true
+        case 125:
+            jump(1, comments: comments)
+            return true
+        case 126:
+            jump(-1, comments: comments)
+            return true
+        case 124:
+            files.selectRowIndexes([min(files.selectedRow + 1, diffs.count - 1)], byExtendingSelection: false)
+            return true
+        case 123:
+            files.selectRowIndexes([max(files.selectedRow - 1, 0)], byExtendingSelection: false)
+            return true
         default: return false
         }
     }
@@ -127,10 +158,16 @@ extension DiffViewController {
             }
         }
         let cur = max(table.selectedRow, dir > 0 ? -1 : rows.count)
-        guard let t = dir > 0 ? idx.first(where: { $0 > cur }) : idx.last(where: { $0 < cur }), let n = idx.firstIndex(of: t) else {
-            NSSound.beep(); return
+        guard let t = dir > 0 ? idx.first(where: { $0 > cur }) : idx.last(where: { $0 < cur }),
+            let n = idx.firstIndex(of: t)
+        else {
+            NSSound.beep()
+            return
         }
-        position.stringValue = comments ? String(localized: "Comment \(n + 1) of \(idx.count)") : String(localized: "Change \(n + 1) of \(idx.count)")
+        position.stringValue =
+            comments
+            ? String(localized: "Comment \(n + 1) of \(idx.count)")
+            : String(localized: "Change \(n + 1) of \(idx.count)")
         table.selectRowIndexes([t], byExtendingSelection: false)
         table.scrollRowToVisible(min(t + 8, rows.count - 1))
         table.scrollRowToVisible(t)
@@ -141,18 +178,26 @@ extension DiffViewController {
         let d = diffs[row]
         // The same letters and colours as Source Control and Files; a long name loses its middle, not its counts.
         let (letter, color) = changes.first { $0.path == d.path }?.badge ?? (" ", .labelColor)
-        let t = NSMutableAttributedString(string: letter + "  ", attributes: [.font: NSFont.ui(10, weight: .bold), .foregroundColor: color])
+        let t = NSMutableAttributedString(
+            string: letter + "  ", attributes: [.font: NSFont.ui(10, weight: .bold), .foregroundColor: color])
         // The name, then its folder in grey, shown only when all of it fits: a cut folder ("So…") says nothing.
         let dir = (d.path as NSString).deletingLastPathComponent
-        t.append(NSAttributedString(string: (d.path as NSString).lastPathComponent + "  ",
-            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.labelColor]))
+        t.append(
+            NSAttributedString(
+                string: (d.path as NSString).lastPathComponent + "  ",
+                attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.labelColor]))
         let full = NSMutableAttributedString(attributedString: t)
         if !dir.isEmpty {
-            full.append(NSAttributedString(string: "  " + dir,
-                                           attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
+            full.append(
+                NSAttributedString(
+                    string: "  " + dir,
+                    attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
         }
-        let para = NSMutableParagraphStyle(); para.lineBreakMode = .byTruncatingMiddle
-        for s in [t, full] { s.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: s.length)) }
+        let para = NSMutableParagraphStyle()
+        para.lineBreakMode = .byTruncatingMiddle
+        for s in [t, full] {
+            s.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: s.length))
+        }
         let v = FitLabel(labelWithAttributedString: t)
         v.full = full
         v.short = t
@@ -178,14 +223,19 @@ extension DiffViewController {
         let name = label(path, font: .ui(12, weight: .semibold))
         name.lineBreakMode = .byTruncatingHead
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let stack = NSStackView(views: [icon, name, NSTextField(labelWithAttributedString: RowBadges.changes(added: a, removed: d))])
+        let stack = NSStackView(views: [
+            icon, name, NSTextField(labelWithAttributedString: RowBadges.changes(added: a, removed: d))
+        ])
         if single == nil, let i = diffs.firstIndex(where: { $0.path == path }) {   // the room between goes to a spacer
-            let gap = NSView(); gap.setContentHuggingPriority(.init(1), for: .horizontal)
-            stack.addArrangedSubview(gap); stack.addArrangedSubview(viewedBox(i))
+            let gap = NSView()
+            gap.setContentHuggingPriority(.init(1), for: .horizontal)
+            stack.addArrangedSubview(gap)
+            stack.addArrangedSubview(viewedBox(i))
         }
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
-        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.fillSelected.cgColor
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = NSColor.fillSelected.cgColor
         return stack
     }
 
@@ -206,17 +256,21 @@ extension DiffViewController {
             guard shown.utf16.count <= Highlighter.maxColored else { return (n + fit - 1) / fit }
             // Word wrap leaves each line's end empty, so the characters alone would undercount: ask the text system.
             let marked = prefix(l, marker: marker)
-            let text = NSAttributedString(string: marked + l.text,
-                                          attributes: [.font: font, .paragraphStyle: Self.wrap(l.text, prefix: marked, font: font, width: width)])
-            let tall = text.boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin).height
+            let text = NSAttributedString(
+                string: marked + l.text,
+                attributes: [.font: font, .paragraphStyle: Self.wrap(l.text, prefix: marked, font: font, width: width)])
+            let tall = text.boundingRect(
+                with: NSSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin
+            ).height
             return max(1, Int((tall / NSLayoutManager().defaultLineHeight(for: font)).rounded(.up)))
         }
-        let n = switch r {
-        case .line(_, let l): lines(l, "t", marker: true)
-        case .pair(_, let l, let right): max(lines(l, "l", marker: false), lines(right, "r", marker: false))
-        case .file: 0
-        default: 1
-        }
+        let n =
+            switch r {
+            case .line(_, let l): lines(l, "t", marker: true)
+            case .pair(_, let l, let right): max(lines(l, "l", marker: false), lines(right, "r", marker: false))
+            case .file: 0
+            default: 1
+            }
         return n == 0 ? h + 6 : h + CGFloat(max(n, 1) - 1) * (h - 4)
     }
 
@@ -238,7 +292,8 @@ extension DiffViewController {
         let stack = NSStackView()
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
-        stack.wantsLayer = true; stack.layer?.backgroundColor = NSColor.diffHunk.cgColor
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = NSColor.diffHunk.cgColor
         let where_ = label(header, font: .uiMono(11), color: .secondaryLabelColor)
         where_.lineBreakMode = .byTruncatingTail
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -249,13 +304,16 @@ extension DiffViewController {
                 let b = NSButton(title: title, target: self, action: a)
                 b.bezelStyle = .push
                 b.controlSize = .small
-                b.tag = f * 10000 + h; return b
+                b.tag = f * 10000 + h
+                return b
             }
             stack.addArrangedSubview(NSView())
             // Only where the hunks shown are the unstaged diff's, the one Discard works on.
-            let unstaged = single.map { $0.source == "unstaged" && $0.commit == nil } ?? (source.indexOfSelectedItem == 1)
+            let unstaged =
+                single.map { $0.source == "unstaged" && $0.commit == nil } ?? (source.indexOfSelectedItem == 1)
             if unstaged { stack.addArrangedSubview(button(String(localized: "Discard"), #selector(discardHunk(_:)))) }
-            stack.addArrangedSubview(button(staged ? String(localized: "Unstage") : String(localized: "Stage"), #selector(hunkAction(_:))))
+            stack.addArrangedSubview(
+                button(staged ? String(localized: "Unstage") : String(localized: "Stage"), #selector(hunkAction(_:))))
         }
         return stack
     }

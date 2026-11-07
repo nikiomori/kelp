@@ -1,6 +1,6 @@
+import Core
 import CoreGraphics
 import Foundation
-import Core
 import os
 
 /// A push to a phone through a service like ntfy (Settings › Agents, off until it has an address), when an agent needs you
@@ -55,20 +55,33 @@ extension Sessions {
     /// Told once per stop by `eventsHeard`.
     func phoneHeard(_ s: Session) {
         guard PhonePush.worthTelling(s), PhonePush.url(settings["phone.url"]?.string) != nil else { return }
-        if phoneAway { phoneSend(s); return }
+        if phoneAway {
+            phoneSend(s)
+            return
+        }
         events.queue.asyncAfter(deadline: .now() + PhonePush.askAgainAfter) { [weak self] in
-            guard let self, phoneAway, let now = existing(s.id)?.snapshot, now.status == s.status, now.statusAt == s.statusAt else { return }
+            guard let self, phoneAway, let now = existing(s.id)?.snapshot, now.status == s.status,
+                now.statusAt == s.statusAt
+            else { return }
             phoneSend(now)
         }
     }
 
     private func phoneSend(_ s: Session) {
         guard let url = PhonePush.url(settings["phone.url"]?.string) else { return }
-        let w = s.worktreeId.flatMap { id in Log.session.attempt("reading a workspace") { try store.worktree(id) } ?? nil }
-        let mutes = Log.session.attempt("reading mutes") { try store.uiState(prefix: "notifications.muted")["notifications.muted"] } ?? nil
+        let w = s.worktreeId.flatMap { id in
+            Log.session.attempt("reading a workspace") { try store.worktree(id) } ?? nil
+        }
+        let mutes =
+            Log.session.attempt("reading mutes") {
+                try store.uiState(prefix: "notifications.muted")["notifications.muted"]
+            } ?? nil
         guard !PhonePush.muted(mutes, [s.id, w?.id, w?.repoId]) else { return }
-        let name = Log.session.attempt("reading a manifest") { try manifest(s.agent, command: nil, fallbackArgv: s.argv).name } ?? s.agent ?? "Agent"
-        let (title, body) = PhonePush.message(s, name: name, place: w?.displayName ?? s.displayTitle, details: settings["phone.details"]?.bool == true)
+        let name =
+            Log.session.attempt("reading a manifest") { try manifest(s.agent, command: nil, fallbackArgv: s.argv).name }
+            ?? s.agent ?? "Agent"
+        let (title, body) = PhonePush.message(
+            s, name: name, place: w?.displayName ?? s.displayTitle, details: settings["phone.details"]?.bool == true)
         guard let request = PhonePush.request(url, title: title, body: body) else { return }
         Task.detached {
             // Once more a little later: right after a wake the network often isn't back yet, and being away is that.

@@ -1,42 +1,68 @@
-import Foundation
-import os
-import Testing
-import Core
 import Agents
-@testable import Daemon
+import Core
+import Foundation
 import TestSupport
+import Testing
+import os
+
+@testable import Daemon
 
 private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 
 /// A session's state is a long list, and hand-overs lost a field more than once: a new one has to say here which it is.
 @Test func everyFieldOfASessionGoesOverAnUpdateOrIsLetGoOnPurpose() {
-    let s = LiveSession.State(record: Session(cwd: "/", command: "x"), manifest: AgentManifest(id: "x", name: "x", command: "x"),
-                              logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
-    let carried: Set = ["record", "detector", "ring", "ringModes", "logSize", "holding", "parked", "asking", "questionOpen", "turnEnd", "transcript",
-                        "boxEmpty", "pasteMode", "draftWaiting", "typing", "hooksSpoke", "pendingPrompts", "reports"]
-    let fromLaunch: Set = ["hooked", "selfNames", "trail", "started", "wantsTopic", "wantsURL", "wantsLimits", "autoAnswers"]
+    let s = LiveSession.State(
+        record: Session(cwd: "/", command: "x"), manifest: AgentManifest(id: "x", name: "x", command: "x"),
+        logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
+    let carried: Set = [
+        "record", "detector", "ring", "ringModes", "logSize", "holding", "parked", "asking", "questionOpen", "turnEnd",
+        "transcript",
+        "boxEmpty", "pasteMode", "draftWaiting", "typing", "hooksSpoke", "pendingPrompts", "reports"
+    ]
+    let fromLaunch: Set = [
+        "hooked", "selfNames", "trail", "started", "wantsTopic", "wantsURL", "wantsLimits", "autoAnswers"
+    ]
     // Set by `adopted` as what's true of a program long past starting.
     let settled: Set = ["startedUp", "typedYet", "dialogSettled", "sawFirstPrompt"]
     // Of this connection or this moment, a carry of half a sequence, or only for a while: nothing is lost with it.
-    let letGo: Set = ["attached", "lastOutputAt", "lastInputAt", "redrawUntil", "final", "letGo", "inputs", "inputsInFlight", "ended", "oscCarry", "titleCarry",
-                      "lastTopic", "utf8Carry", "pasteCarry", "sawURL", "sawBusy", "lastLimits", "limitSeen", "lastHookAt", "compactManual", "compactSummary",
-                      "lastLifeUp", "newestHook", "lineSentUp", "commands", "commandChanges", "interruptArmed", "goalAsked", "stopKeyAt",
-                      "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn", "lastSent", "turnPrompt"]
-    #expect(Set(Mirror(reflecting: s).children.compactMap(\.label)) == carried.union(fromLaunch).union(settled).union(letGo))
+    let letGo: Set = [
+        "attached", "lastOutputAt", "lastInputAt", "redrawUntil", "final", "letGo", "inputs", "inputsInFlight", "ended",
+        "oscCarry", "titleCarry",
+        "lastTopic", "utf8Carry", "pasteCarry", "sawURL", "sawBusy", "lastLimits", "limitSeen", "lastHookAt",
+        "compactManual", "compactSummary",
+        "lastLifeUp", "newestHook", "lineSentUp", "commands", "commandChanges", "interruptArmed", "goalAsked",
+        "stopKeyAt",
+        "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn", "lastSent",
+        "turnPrompt"
+    ]
+    #expect(
+        Set(Mirror(reflecting: s).children.compactMap(\.label)) == carried.union(fromLaunch).union(settled).union(letGo)
+    )
 }
 
 /// An unread draft or a half-typed line stays in the box over an update, and a send's Enter mustn't take it along.
 @Test func whatTextWouldLandOnGoesOverAnUpdate() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
-    let from = try await c.call(SessionCreate(cwd: root.path, command: "cat")), to = try await c.call(SessionCreate(cwd: root.path, command: "cat"))
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
+    let from = try await c.call(SessionCreate(cwd: root.path, command: "cat")),
+        to = try await c.call(SessionCreate(cwd: root.path, command: "cat"))
     let old = try #require(d.sessions.existing(from.id)), new = try #require(d.sessions.existing(to.id))
-    old.state.withLock { $0.pasteMode = true; $0.draftWaiting = true; $0.typing = "half a li"; $0.hooksSpoke = true }
+    old.state.withLock {
+        $0.pasteMode = true
+        $0.draftWaiting = true
+        $0.typing = "half a li"
+        $0.hooksSpoke = true
+    }
     let handed = try JSONDecoder().decode(Handover.Session.self, from: JSONEncoder().encode(old.handedOver(fd: 0)))
     new.adopted(modes: handed.modes, bytes: 0, status: handed.status)
-    let s = new.state.withLock { ($0.pasteMode, $0.draftWaiting, $0.typing, $0.hooksSpoke, $0.readyForText(submits: true)) }
+    let s = new.state.withLock {
+        ($0.pasteMode, $0.draftWaiting, $0.typing, $0.hooksSpoke, $0.readyForText(submits: true))
+    }
     #expect(s.0 && s.1 && s.2 == "half a li" && s.3 && !s.4)
     // A kelpd that didn't say leaves the modes it was in.
-    let older = Handover.Status(holding: false, parked: true, hooked: false, asking: [:], questionOpen: false, turnEnd: TurnEnd(), transcript: nil)
+    let older = Handover.Status(
+        holding: false, parked: true, hooked: false, asking: [:], questionOpen: false, turnEnd: TurnEnd(),
+        transcript: nil)
     new.adopted(modes: "\u{1B}[?2004h", bytes: 0, status: older)
     #expect(new.state.withLock { $0.pasteMode })
 }
@@ -44,14 +70,16 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 /// An update hands each running session to the next kelpd (`handOver`, then `start(adopting:)`; kelpd execs in between):
 /// the same program goes on, its history comes along, typing reaches it, and its end is still seen.
 @Test func runningSessionsCarryOnIntoTheNextDaemon() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     // A daemon hosted in another program (this one) won't exec it.
     await #expect(throws: RPCError.self) { try await c.call(DaemonUpgrade()) }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     #expect(try await waitFor { d.sessions.existing(s.id)?.tail(4096).range(of: Data("before".utf8)) != nil })
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover)
+    defer { next.stop() }
     #expect(d.sessions.existing(s.id) == nil)
     let c2 = try client(root)
     #expect(try await c2.call(DaemonInfo()).liveSessions == 1)
@@ -66,7 +94,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 /// An update refuses calls, then hangs up, while the agents go on: a hook sent then waits for the next kelpd. Lost, a Stop
 /// left the row working for minutes. What's refused for another reason doesn't wait.
 @Test func aHookOutlastsAnUpdate() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     let started = Date()
     await #expect(throws: RPCError.self) { try await SessionHook(id: s.id, event: nil).send(socket: d.socketPath) }
@@ -79,7 +108,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(d.sessions.existing(s.id)?.snapshot.status != .waiting)
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover)
+    defer { next.stop() }
     try await sent.value
     #expect(next.sessions.existing(s.id)?.snapshot.status == .waiting)
 }
@@ -87,14 +117,23 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 /// A kelpd that doesn't answer isn't waited for: the hook stays in the socket and is read when it's back, and the agent goes
 /// on. Its next one can then be read first, and the older one says nothing about now.
 @Test func aHookDoesntHoldItsAgentAndALateOneChangesNothing() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     let quiet = socket(AF_UNIX, SOCK_STREAM, 0), path = tmp().path.prefix(40) + ".s"
-    var addr = sockaddr_un(); addr.sun_family = sa_family_t(AF_UNIX)
+    var addr = sockaddr_un()
+    addr.sun_family = sa_family_t(AF_UNIX)
     _ = withUnsafeMutableBytes(of: &addr.sun_path) { b in path.utf8.enumerated().map { b[$0] = $1 } }
-    let bound = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(quiet, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
+    let bound = withUnsafePointer(to: &addr) {
+        $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            Darwin.bind(quiet, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+        }
+    }
     #expect(bound == 0 && listen(quiet, 8) == 0)   // nobody accepts: a stopped kelpd
-    defer { close(quiet); unlink(String(path)) }
+    defer {
+        close(quiet)
+        unlink(String(path))
+    }
     let started = Date()
     try await SessionHook(id: s.id, event: "done").send(socket: String(path))
     #expect(Date().timeIntervalSince(started) < SessionHook.replyWait + 1)
@@ -118,7 +157,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 /// What a status rests on goes along. A Stop held for its subagents stays held (it read as done 3 minutes later), a dialog
 /// answered elsewhere still clears when its tools ran, and what an agent reported itself isn't guessed at again.
 @Test func whatAStatusRestsOnGoesThroughAnUpdate() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let held = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     let asking = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     let reporting = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
@@ -130,7 +170,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(try await waitFor { d.sessions.existing(reporting.id)?.snapshot.status == .waiting })
 
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover)
+    defer { next.stop() }
     func live(_ s: Session) throws -> LiveSession { try #require(next.sessions.existing(s.id)) }
     #expect(try live(held).snapshot.status == .working && live(held).state.withLock { $0.holding })
     #expect(try live(held).transcriptPath == "/p/\(held.id).jsonl")
@@ -148,14 +189,16 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     let next = PTY(adopting: p.pid, fd: fd)
     let seen = OSAllocatedUnfairLock(initialState: false)
     next.onOutput = { d in if String(decoding: d, as: UTF8.self).contains("ready") { seen.withLock { $0 = true } } }
-    next.start(); defer { _ = next.terminate() }
+    next.start()
+    defer { _ = next.terminate() }
     #expect(try await waitFor { seen.withLock { $0 } })
 }
 
 /// A question the kelpd before read off the screen is read again by the next one: Grok's opt-in banner, which the old
 /// "allow .* to" took for one, doesn't keep it in Needs You after the update that fixed that. Read stays read.
 @Test func aQuestionGuessedBeforeAnUpdateIsGuessedAgain() async throws {
-    let screen = "Worked for 4m0s\nHelp improve Grok [Opt out] [Opt in]\nOff by default. Opt-in to allow SpaceXAI to retain coding data, "
+    let screen =
+        "Worked for 4m0s\nHelp improve Grok [Opt out] [Opt in]\nOff by default. Opt-in to allow SpaceXAI to retain coding data, "
         + "e.g., prompts, traces, & metrics, for training and debugging purposes. Change anytime via settings.\n"
     let grok = AgentManifest(id: "grok", name: "Grok", command: "/bin/sh", args: ["-c", "printf '\(screen)'; cat"])
     let (d, c, root) = try daemon(agents: [grok])
@@ -181,11 +224,15 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     let p = Process()
     p.executableURL = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd")
     p.environment = ProcessInfo.processInfo.environment.merging(["KELP_HOME": root.path]) { $1 }
-    p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice   // left running, it would hold swift test open
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice   // left running, it would hold swift test open
     try p.run()
     defer { if p.isRunning { kill(p.processIdentifier, SIGKILL) } }   // only the kelpd this test started; exec'd, it ignores SIGTERM at first
     func connected() async throws -> RPCClient? {
-        for _ in 0..<50 { if let c = try? client(root) { return c }; try await Task.sleep(for: .milliseconds(100)) }
+        for _ in 0..<50 {
+            if let c = try? client(root) { return c }
+            try await Task.sleep(for: .milliseconds(100))
+        }
         return nil
     }
     let c = try #require(try await connected())
@@ -205,7 +252,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("handover.json").path))
     _ = try await c2.call(SessionWrite(id: s.id, text: "x\n"))
     #expect(try await waitFor { try await c2.call(SessionRead(id: s.id)).contains("got-x") })
-    #expect(try await waitFor(5) { children(of: p.processIdentifier).allSatisfy { name($0) != "sleep" && !isZombie($0) } })
+    #expect(
+        try await waitFor(5) { children(of: p.processIdentifier).allSatisfy { name($0) != "sleep" && !isZombie($0) } })
     _ = try await c2.call(DaemonShutdown())
     #expect(try await waitFor { !p.isRunning && kill(s.pid, 0) != 0 })
 }
@@ -247,7 +295,8 @@ private func name(_ pid: pid_t) -> String {
     #expect(upgrade.refused() == "can't take them")
     #expect(throws: RPCError.self) { try DaemonUpgrade().handle(upgrade) }
     // Refused in the call itself, before anything is handed over, so the app hears it as the call's error.
-    let other = home.appendingPathComponent("again"), fresh = Upgrade(executable: fake, root: other, adoptable: { false }) {}
+    let other = home.appendingPathComponent("again"),
+        fresh = Upgrade(executable: fake, root: other, adoptable: { false }) {}
     try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
     #expect(throws: RPCError.self) { try DaemonUpgrade().handle(fresh) }
     #expect(fresh.refused() != nil)
@@ -260,7 +309,8 @@ private func name(_ pid: pid_t) -> String {
 @Test func anUpdateWhoseExecFailsKeepsTheSessions() async throws {
     let kelp = try #require(ProcessInfo.processInfo.environment["KELP_TRAMPOLINE"])
     let kelpd = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd").path
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     #expect(try await waitFor { d.sessions.existing(s.id)?.tail(4096).range(of: Data("before".utf8)) != nil })
     let back = try #require(d.upgrade(to: kelpd) { _, _, _ in throw POSIXError(.ENOEXEC) })
@@ -274,31 +324,36 @@ private func name(_ pid: pid_t) -> String {
 /// A send right before an update reaches the program whole, its Enter included (it comes 0.3 s behind the text): the
 /// hand-over waits for what was sent, as the next kelpd couldn't send it.
 @Test func aSendJustBeforeAnUpdateArrivesWithItsEnter() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     #expect(try await waitFor { d.sessions.existing(s.id)?.tail(4096).range(of: Data("before".utf8)) != nil })
     #expect(try await waitFor(30) { d.sessions.existing(s.id)?.startedUp == true })   // a send goes straight in
     _ = try await c.call(SessionSend(id: s.id, text: "whole"))
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover)
+    defer { next.stop() }
     let c2 = try client(root)
     #expect(try await waitFor { try await c2.call(SessionRead(id: s.id)).contains("got-whole") })
 }
 
 /// Text sent before the agent is ready (it waits for it to start up) is typed by the kelpd that takes over, not lost.
 @Test func aPromptWaitingForTheAgentIsTypedAfterAnUpdate() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     _ = try await c.call(SessionSend(id: s.id, text: "waited"))   // right away: it isn't started up yet, so it waits
     let next = try Daemon(root: root)
-    try next.start(adopting: try #require(d.handOver()) as Handover); defer { next.stop() }
+    try next.start(adopting: try #require(d.handOver()) as Handover)
+    defer { next.stop() }
     let c2 = try client(root)
     #expect(try await waitFor(10) { try await c2.call(SessionRead(id: s.id)).contains("got-waited") })
 }
 
 /// Once a hand-over drains a session's input, no more is taken: a write is refused, not answered as done and lost.
 @Test func inputAfterTheHandOverDrainIsRefused() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let s = try await c.call(SessionCreate(cwd: root.path, command: readAndEcho))
     let ls = try #require(d.sessions.existing(s.id))
     ls.drainInput(within: 1)

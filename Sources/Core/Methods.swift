@@ -10,7 +10,10 @@ public struct DaemonInfo: InternalMethod {
     public struct Result: Codable, Sendable {
         public var path: String, binaryMTime: Double?, pid: Int, liveSessions: Int   // no binaryMTime before 2026-10-19
         public init(path: String, binaryMTime: Double?, pid: Int, liveSessions: Int) {
-            self.path = path; self.binaryMTime = binaryMTime; self.pid = pid; self.liveSessions = liveSessions
+            self.path = path
+            self.binaryMTime = binaryMTime
+            self.pid = pid
+            self.liveSessions = liveSessions
         }
     }
     public init() {}
@@ -29,7 +32,10 @@ public struct StateGet: InternalMethod {
     public static let name = "state.get"
     public typealias Result = JSONValue
     public var key: String?, prefix: String?
-    public init(key: String? = nil, prefix: String? = nil) { self.key = key; self.prefix = prefix }
+    public init(key: String? = nil, prefix: String? = nil) {
+        self.key = key
+        self.prefix = prefix
+    }
 }
 
 /// A nil (or null) value deletes the key.
@@ -37,7 +43,10 @@ public struct StateSet: InternalMethod {
     public static let name = "state.set"
     public typealias Result = Done
     public var key: String, value: JSONValue?
-    public init(key: String, value: JSONValue?) { self.key = key; self.value = value }
+    public init(key: String, value: JSONValue?) {
+        self.key = key
+        self.value = value
+    }
 }
 
 /// An empty title names the session from its task again.
@@ -46,7 +55,10 @@ public struct SessionMove: RPCMethod {
     public static let name = "session.move"
     public typealias Result = Done
     public var id: String, worktreeId: String
-    public init(id: String, worktreeId: String) { self.id = id; self.worktreeId = worktreeId }
+    public init(id: String, worktreeId: String) {
+        self.id = id
+        self.worktreeId = worktreeId
+    }
 }
 
 /// Sets its title.
@@ -54,7 +66,10 @@ public struct SessionRename: RPCMethod {
     public static let name = "session.rename"
     public typealias Result = Done
     public var id: String, title: String
-    public init(id: String, title: String) { self.id = id; self.title = title }
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
+    }
 }
 
 /// How full the agent's conversation is (Claude Code transcripts); nil when that isn't known.
@@ -64,7 +79,11 @@ public struct SessionContextWindow: RPCMethod {
         public var used: Int, window: Int
         /// When the prompt cache goes cold, by what the last reply wrote to it; nil when that isn't known.
         public var cacheUntil: Date?
-        public init(used: Int, window: Int, cacheUntil: Date? = nil) { self.used = used; self.window = window; self.cacheUntil = cacheUntil }
+        public init(used: Int, window: Int, cacheUntil: Date? = nil) {
+            self.used = used
+            self.window = window
+            self.cacheUntil = cacheUntil
+        }
     }
     public typealias Result = Usage?
     public var id: String
@@ -89,20 +108,33 @@ public struct SessionContextParts: InternalMethod {
     public struct Item: Codable, Sendable, Equatable {
         /// "payment.ts", "npm test", "its replies"; `count` times ("npm test ×38", "your 9 messages").
         public var label: String, tokens: Int, count: Int
-        public init(label: String, tokens: Int, count: Int = 1) { self.label = label; self.tokens = tokens; self.count = count }
+        public init(label: String, tokens: Int, count: Int = 1) {
+            self.label = label
+            self.tokens = tokens
+            self.count = count
+        }
     }
     public struct Part: Codable, Sendable, Equatable {
         public var kind: Kind, tokens: Int
         /// The biggest three, biggest first; `more` items besides them.
         public var top: [Item], more: Int
-        public init(kind: Kind, tokens: Int, top: [Item], more: Int) { self.kind = kind; self.tokens = tokens; self.top = top; self.more = more }
+        public init(kind: Kind, tokens: Int, top: [Item], more: Int) {
+            self.kind = kind
+            self.tokens = tokens
+            self.top = top
+            self.more = more
+        }
     }
     public struct Parts: Codable, Sendable, Equatable {
         /// In Kind's order, the empty ones left out.
         public var base: Int, parts: [Part]
         /// The base as the agent itself splits it, when it says (Claude Code's /context).
         public var setup: Setup?
-        public init(base: Int, parts: [Part], setup: Setup? = nil) { self.base = base; self.parts = parts; self.setup = setup }
+        public init(base: Int, parts: [Part], setup: Setup? = nil) {
+            self.base = base
+            self.parts = parts
+            self.setup = setup
+        }
     }
     /// What every request starts with, as Claude Code's /context counts it: system prompt, tools, MCP, memory files,
     /// skills… (`parts`, in its order, summing to the base), with the biggest items of some ("CLAUDE.md 4k").
@@ -112,7 +144,10 @@ public struct SessionContextParts: InternalMethod {
             public var label: String, tokens: Int
             public var top: [Item], more: Int
             public init(label: String, tokens: Int, top: [Item] = [], more: Int = 0) {
-                self.label = label; self.tokens = tokens; self.top = top; self.more = more
+                self.label = label
+                self.tokens = tokens
+                self.top = top
+                self.more = more
             }
         }
         public var parts: [Group]
@@ -120,7 +155,11 @@ public struct SessionContextParts: InternalMethod {
         public var deferred: [Item]
         /// Kept free for compacting: the conversation compacts by itself before it reaches this.
         public var buffer: Int
-        public init(parts: [Group], deferred: [Item] = [], buffer: Int = 0) { self.parts = parts; self.deferred = deferred; self.buffer = buffer }
+        public init(parts: [Group], deferred: [Item] = [], buffer: Int = 0) {
+            self.parts = parts
+            self.deferred = deferred
+            self.buffer = buffer
+        }
     }
     public typealias Result = Parts?
     public var id: String
@@ -135,7 +174,11 @@ public struct RepoWorktreeSizes: InternalMethod {
         public var path: String, bytes: Int
         /// Nothing uncommitted or untracked, not locked, not one of Kelp's workspaces (those go with Delete Workspace).
         public var removable: Bool
-        public init(path: String, bytes: Int, removable: Bool) { self.path = path; self.bytes = bytes; self.removable = removable }
+        public init(path: String, bytes: Int, removable: Bool) {
+            self.path = path
+            self.bytes = bytes
+            self.removable = removable
+        }
     }
     public typealias Result = [Item]
     public var id: String
@@ -148,10 +191,16 @@ public struct RepoRemoveWorktrees: InternalMethod {
     public static let name = "repo.removeWorktrees"
     public struct Result: Codable, Sendable {
         public var removed: [String], kept: [String: String]   // kept: path → why
-        public init(removed: [String], kept: [String: String]) { self.removed = removed; self.kept = kept }
+        public init(removed: [String], kept: [String: String]) {
+            self.removed = removed
+            self.kept = kept
+        }
     }
     public var id: String, paths: [String]
-    public init(id: String, paths: [String]) { self.id = id; self.paths = paths }
+    public init(id: String, paths: [String]) {
+        self.id = id
+        self.paths = paths
+    }
 }
 
 /// The workspace's name.
@@ -159,7 +208,10 @@ public struct WorktreeNote: RPCMethod {
     public static let name = "worktree.note"
     public typealias Result = Done
     public var id: String, note: String
-    public init(id: String, note: String) { self.id = id; self.note = note }
+    public init(id: String, note: String) {
+        self.id = id
+        self.note = note
+    }
 }
 
 /// Throws away one hunk of a file's unstaged changes (index `hunk` of its unstaged diff) in workspace `id`. `header`
@@ -174,7 +226,12 @@ public struct GitDiscardHunk: RPCMethod {
     /// A name the caller picks, for `git.undoDiscard` to put back this hunk and no other.
     public var undo: String?
     public init(id: String, file: String, hunk: Int, header: String, fingerprint: String? = nil, undo: String? = nil) {
-        self.id = id; self.file = file; self.hunk = hunk; self.header = header; self.fingerprint = fingerprint; self.undo = undo
+        self.id = id
+        self.file = file
+        self.hunk = hunk
+        self.header = header
+        self.fingerprint = fingerprint
+        self.undo = undo
     }
 }
 
@@ -185,14 +242,24 @@ public struct RemoteListFolders: InternalMethod {
     public static let name = "remote.listFolders"
     public struct Folder: Codable, Sendable, Equatable {
         public var name: String, git: Bool
-        public init(name: String, git: Bool) { self.name = name; self.git = git }
+        public init(name: String, git: Bool) {
+            self.name = name
+            self.git = git
+        }
     }
     public struct Result: Codable, Sendable {
         public var path: String, repo: Bool, folders: [Folder]
-        public init(path: String, repo: Bool, folders: [Folder]) { self.path = path; self.repo = repo; self.folders = folders }
+        public init(path: String, repo: Bool, folders: [Folder]) {
+            self.path = path
+            self.repo = repo
+            self.folders = folders
+        }
     }
     public var host: String, path: String
-    public init(host: String, path: String) { self.host = host; self.path = path }
+    public init(host: String, path: String) {
+        self.host = host
+        self.path = path
+    }
 }
 
 /// What a program in the session says it's doing (`kelp report`; the same as writing OSC 7501 itself): `state` is idle,
@@ -202,23 +269,32 @@ public struct SessionReport: RPCMethod {
     public typealias Result = Done
     public var id: String, state: String, message: String?, progress: Int?, kind: String?
     public init(id: String, state: String, message: String? = nil, progress: Int? = nil, kind: String? = nil) {
-        self.id = id; self.state = state; self.message = message; self.progress = progress; self.kind = kind
+        self.id = id
+        self.state = state
+        self.message = message
+        self.progress = progress
+        self.kind = kind
     }
 }
 
 /// herdr's agent report, which fx sends to `HERDR_SOCKET_PATH` (kelpd's socket for it): `pane_id` is the session, `state`
 /// idle, working or blocked. herdr's other calls (`pane.rename`…) aren't Kelp's: refused.
 public struct PaneReportAgent: InternalMethod {
-    public static let name = "pane.report_agent"; public typealias Result = Done
+    public static let name = "pane.report_agent"
+    public typealias Result = Done
     public var paneId: String, state: String
     enum CodingKeys: String, CodingKey { case paneId = "pane_id", state }
-    public init(paneId: String, state: String) { self.paneId = paneId; self.state = state }
+    public init(paneId: String, state: String) {
+        self.paneId = paneId
+        self.state = state
+    }
 }
 
 /// Whether this connection wants the daemon's broadcast events. `kelp attach`'s control connection only sends sizes:
 /// without this, every open terminal would be one more reader of every event.
 public struct ClientEvents: InternalMethod {
-    public static let name = "client.events"; public typealias Result = Done
+    public static let name = "client.events"
+    public typealias Result = Done
     public var events: Bool
     public init(events: Bool) { self.events = events }
 }

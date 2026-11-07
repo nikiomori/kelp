@@ -26,34 +26,41 @@ extension StripModel {
     /// A side with another screen past it isn't an edge: what hides would show there.
     static func outer(_ edge: StripEdge, of screen: NSRect, among others: [NSRect]) -> Bool {
         !others.contains { o in
-            let beside = edge == .right ? o.minX >= screen.maxX - 1 && o.minX <= screen.maxX + 1 : o.maxX <= screen.minX + 1 && o.maxX >= screen.minX - 1
+            let beside =
+                edge == .right
+                ? o.minX >= screen.maxX - 1 && o.minX <= screen.maxX + 1
+                : o.maxX <= screen.minX + 1 && o.maxX >= screen.minX - 1
             return beside && o.maxY > screen.minY && o.minY < screen.maxY
         }
     }
 
     /// Behind `edge` with its sliver out, or all of it out (`out`: the pointer on it); `y` up from the area's foot.
     static func tucked(_ size: NSSize, in area: NSRect, edge: StripEdge, y: CGFloat, out: Bool) -> NSRect {
-        let x = switch edge {
-        case .right: out ? area.maxX - size.width - margin : area.maxX - sliver
-        case .left: out ? area.minX + margin : area.minX + sliver - size.width
-        }
+        let x =
+            switch edge {
+            case .right: out ? area.maxX - size.width - margin : area.maxX - sliver
+            case .left: out ? area.minX + margin : area.minX + sliver - size.width
+            }
         let top = max(area.minY + margin, min(area.minY + y, area.maxY - size.height - margin))
         return NSRect(x: x, y: top, width: size.width, height: size.height)
     }
 
     /// Between a strip that's out and the edge it came from: a pointer pushed against the edge, still on it in all but name.
     static func inGap(_ p: NSPoint, beside strip: NSRect, edge: StripEdge) -> Bool {
-        let x = switch edge {
-        case .right: p.x >= strip.maxX && p.x <= strip.maxX + margin + 1
-        case .left: p.x <= strip.minX && p.x >= strip.minX - margin - 1
-        }
+        let x =
+            switch edge {
+            case .right: p.x >= strip.maxX && p.x <= strip.maxX + margin + 1
+            case .left: p.x <= strip.minX && p.x >= strip.minX - margin - 1
+            }
         return x && p.y >= strip.minY && p.y <= strip.maxY
     }
 
     /// What comes out of the edge as a line: a question or a failure not told yet, the oldest question first. Finished work
     /// is only the sliver's dot, and work going on says nothing.
     static func news(_ items: [StripItem], told: Set<String>) -> StripItem? {
-        items.filter { $0.cell <= .failed && !told.contains(newsKey($0)) }.min { ($0.cell, $0.since) < ($1.cell, $1.since) }
+        items.filter { $0.cell <= .failed && !told.contains(newsKey($0)) }.min {
+            ($0.cell, $0.since) < ($1.cell, $1.since)
+        }
     }
 
     static func newsKey(_ item: StripItem) -> String { "\(item.session)|\(item.since.timeIntervalSince1970)" }
@@ -72,7 +79,10 @@ final class StripGlint: NSView {
         wantsLayer = true
         layer?.addSublayer(mark)
         translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: Self.size.width), heightAnchor.constraint(equalToConstant: Self.size.height)])
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: Self.size.width),
+            heightAnchor.constraint(equalToConstant: Self.size.height)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -81,14 +91,18 @@ final class StripGlint: NSView {
         let s = Self.size, dot = cell == .done
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        mark.frame = dot ? CGRect(x: 0, y: (s.height - s.width) / 2, width: s.width, height: s.width) : CGRect(x: 1, y: 0, width: s.width - 2, height: s.height)
+        mark.frame =
+            dot
+            ? CGRect(x: 0, y: (s.height - s.width) / 2, width: s.width, height: s.width)
+            : CGRect(x: 1, y: 0, width: s.width - 2, height: s.height)
         mark.cornerRadius = dot ? s.width / 2 : (s.width - 2) / 2
-        let color: NSColor = switch cell {
-        case .asks: .systemOrange
-        case .failed: .systemRed
-        case .done: .labelColor
-        default: .secondaryLabelColor
-        }
+        let color: NSColor =
+            switch cell {
+            case .asks: .systemOrange
+            case .failed: .systemRed
+            case .done: .labelColor
+            default: .secondaryLabelColor
+            }
         mark.backgroundColor = color.cgColor
         let glows = cell == .asks || cell == .failed
         mark.shadowColor = color.cgColor
@@ -107,8 +121,14 @@ final class StripGlint: NSView {
         breathe.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)   // as the spinners
         mark.add(breathe, forKey: "breathe")
     }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
-    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); needsDisplay = true }   // animations stop when a view leaves a window
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        needsDisplay = true
+    }   // animations stop when a view leaves a window
 }
 
 /// Beside a hidden strip, one line out of the edge: the project and what it wants. A click brings the strip out.
@@ -183,7 +203,8 @@ final class StripLine {
             addSubview(row)
             NSLayoutConstraint.activate([
                 heightAnchor.constraint(equalToConstant: StripLine.height),
-                icon.widthAnchor.constraint(equalToConstant: StripLine.icon), icon.heightAnchor.constraint(equalToConstant: StripLine.icon),
+                icon.widthAnchor.constraint(equalToConstant: StripLine.icon),
+                icon.heightAnchor.constraint(equalToConstant: StripLine.icon),
                 row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: (StripLine.height - StripLine.icon) / 2),
                 row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.inset),
                 row.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -194,10 +215,17 @@ final class StripLine {
 
         func show(_ item: StripItem, app: AppModel) {
             if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
-            effectiveAppearance.performAsCurrentDrawingAppearance { icon.layer?.backgroundColor = NSColor.fillHover.cgColor }
-            let t = NSMutableAttributedString(string: item.name, attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.labelColor])
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                icon.layer?.backgroundColor = NSColor.fillHover.cgColor
+            }
+            let t = NSMutableAttributedString(
+                string: item.name,
+                attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.labelColor])
             let color: NSColor = item.cell == .asks ? .textOrange : .textRed
-            t.append(NSAttributedString(string: "  " + StripModel.brief(item.words ?? ""), attributes: [.font: NSFont.ui(12), .foregroundColor: color]))
+            t.append(
+                NSAttributedString(
+                    string: "  " + StripModel.brief(item.words ?? ""),
+                    attributes: [.font: NSFont.ui(12), .foregroundColor: color]))
             words.attributedStringValue = t
             let says = [item.name, item.words].compactMap { $0 }.joined(separator: ", ")
             setAccessibilityElement(true)

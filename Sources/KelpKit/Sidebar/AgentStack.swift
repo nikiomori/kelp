@@ -34,10 +34,13 @@ final class AgentStack: NSView {
 
     func show(_ chats: [Session], _ app: AppModel) {
         let rank: (AgentStatus) -> Int = { [.error: 0, .waiting: 0, .working: 1, .done: 2][$0] ?? 3 }
-        let sorted = chats.enumerated().sorted { (rank(Self.badge($0.element) ?? .idle), $0.offset) < (rank(Self.badge($1.element) ?? .idle), $1.offset) }
-            .map(\.element)
+        let sorted = chats.enumerated().sorted {
+            (rank(Self.badge($0.element) ?? .idle), $0.offset) < (rank(Self.badge($1.element) ?? .idle), $1.offset)
+        }
+        .map(\.element)
         let now = sorted.map { "\($0.agent ?? "") \(Self.badge($0).map { "\($0)" } ?? "") \($0.status == .paused)" }
-        toolTip = sorted.map { app.catalog.displayName($0) + " · " + SidebarCell.shownStatus($0).words }.joined(separator: "\n")
+        toolTip = sorted.map { app.catalog.displayName($0) + " · " + SidebarCell.shownStatus($0).words }.joined(
+            separator: "\n")
         setAccessibilityLabel(toolTip)
         guard now != shown else { return }
         shown = now
@@ -52,7 +55,10 @@ final class AgentStack: NSView {
     func width(showing k: Int) -> CGFloat {
         let k = min(k, faces.count)
         guard k > 0 else { return 0 }
-        let rest = total - k, label = rest > 0 ? NSAttributedString(string: "+\(rest)", attributes: [.font: more.font as Any]).size().width + 4 : 0
+        let rest = total - k,
+            label =
+                rest > 0
+                ? NSAttributedString(string: "+\(rest)", attributes: [.font: more.font as Any]).size().width + 4 : 0
         return Self.side + CGFloat(k - 1) * Self.step + 2 + ceil(label)
     }
     var count: Int { faces.count }
@@ -89,7 +95,8 @@ final class AgentStack: NSView {
         let y = (bounds.height - Self.side) / 2
         for (i, f) in faces.enumerated() { f.setFrameOrigin(NSPoint(x: CGFloat(i) * Self.step, y: y)) }
         let x = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + 6
-        more.frame = NSRect(x: x, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
-                            height: more.intrinsicContentSize.height)
+        more.frame = NSRect(
+            x: x, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
+            height: more.intrinsicContentSize.height)
     }
 }

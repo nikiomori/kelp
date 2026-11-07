@@ -1,6 +1,6 @@
-import Foundation
-import CryptoKit
 import Core
+import CryptoKit
+import Foundation
 import GitKit
 
 /// Files' text and the Files panel's operations, for a file here or in a remote project (on its host, by ssh), with the
@@ -15,7 +15,9 @@ struct FileService: Sendable {
     func read(_ path: String) throws -> FilesRead.Result {
         let path = try absolute(path)
         if let r = remotes.containing(path) { return try readRemote(r.remote, r.remotePath) }
-        guard let (stamp, data) = try contents(path) else { throw RPCError.invalidParams("It isn't on this Mac any more (moved or deleted).") }
+        guard let (stamp, data) = try contents(path) else {
+            throw RPCError.invalidParams("It isn't on this Mac any more (moved or deleted).")
+        }
         guard let text = String(data: data, encoding: .utf8) else { throw Unopenable.binary.error }
         return .init(text: text, stamp: stamp)
     }
@@ -27,7 +29,8 @@ struct FileService: Sendable {
         guard let r = remotes.containing(path) else { return path }
         let data = try remoteBytes(r.remote, r.remotePath)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-remote")
-            .appendingPathComponent(String(Self.digest(Data((r.remote.host + ":" + r.remotePath).utf8)).dropFirst(7).prefix(16)))
+            .appendingPathComponent(
+                String(Self.digest(Data((r.remote.host + ":" + r.remotePath).utf8)).dropFirst(7).prefix(16)))
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let copy = dir.appendingPathComponent((path as NSString).lastPathComponent)
         try data.write(to: copy, options: .atomic)
@@ -40,8 +43,12 @@ struct FileService: Sendable {
         let repo = try absolute(repo)
         guard let remote = remotes.of(repo) else { throw RPCError.invalidParams("Not a remote project.") }
         let kept = repo + "/.kelp-icon"
-        guard let name = (try? FileManager.default.contentsOfDirectory(atPath: kept))?.first else { return try findIcon(remote, keep: kept) }
-        DispatchQueue.global(qos: .utility).async { Log.store.attempt("looking for \(remote.host)'s project icon") { _ = try findIcon(remote, keep: kept) } }
+        guard let name = (try? FileManager.default.contentsOfDirectory(atPath: kept))?.first else {
+            return try findIcon(remote, keep: kept)
+        }
+        DispatchQueue.global(qos: .utility).async {
+            Log.store.attempt("looking for \(remote.host)'s project icon") { _ = try findIcon(remote, keep: kept) }
+        }
         return kept + "/" + name
     }
 
@@ -55,12 +62,15 @@ struct FileService: Sendable {
             if now != base {
                 // Unreadable as text (grown past the limit, a pipe now, another encoding): no text, and still not written.
                 let c = try? contents(path)
-                return .init(conflict: .init(stamp: c?.stamp ?? now, text: c.flatMap { String(data: $0.data, encoding: .utf8) }))
+                return .init(
+                    conflict: .init(stamp: c?.stamp ?? now, text: c.flatMap { String(data: $0.data, encoding: .utf8) }))
             }
         }
         // Through a symlink to the file it points at: an atomic write to the link would replace it with a plain file.
         try data.write(to: URL(fileURLWithPath: path).resolvingSymlinksInPath(), options: .atomic)
-        guard let stamp = Self.stamp(path) else { throw RPCError.internalError("\(path) was written but isn't there now.") }
+        guard let stamp = Self.stamp(path) else {
+            throw RPCError.internalError("\(path) was written but isn't there now.")
+        }
         return .init(stamp: stamp)
     }
 
@@ -91,7 +101,8 @@ struct FileService: Sendable {
         var made: [String] = []
         for p in paths {
             do {
-                let from = try here(p), dir = try here(into), to = Self.free(dir + "/" + (from as NSString).lastPathComponent)
+                let from = try here(p), dir = try here(into),
+                    to = Self.free(dir + "/" + (from as NSString).lastPathComponent)
                 try FileManager.default.copyItem(atPath: from, toPath: to)
                 made.append(to)
             } catch { return .init(made: made, error: message(error)) }
@@ -103,8 +114,11 @@ struct FileService: Sendable {
         let named = try here(path), path = unique ? Self.free(named, word: nil) : named, fm = FileManager.default
         try fm.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         // A taken name fails: never an existing file written over, or a folder taken for a new one.
-        if folder { try fm.createDirectory(atPath: path, withIntermediateDirectories: false) }
-        else { try Data((text ?? "").utf8).write(to: URL(fileURLWithPath: path), options: .withoutOverwriting) }
+        if folder {
+            try fm.createDirectory(atPath: path, withIntermediateDirectories: false)
+        } else {
+            try Data((text ?? "").utf8).write(to: URL(fileURLWithPath: path), options: .withoutOverwriting)
+        }
         return path
     }
 
@@ -112,7 +126,8 @@ struct FileService: Sendable {
     static func free(_ path: String, word: String? = "copy") -> String {
         let fm = FileManager.default
         guard fm.fileExists(atPath: path) else { return path }
-        let u = URL(fileURLWithPath: path), ext = u.pathExtension, base = u.deletingPathExtension().lastPathComponent, dir = u.deletingLastPathComponent()
+        let u = URL(fileURLWithPath: path), ext = u.pathExtension, base = u.deletingPathExtension().lastPathComponent,
+            dir = u.deletingLastPathComponent()
         var i = word == nil ? 2 : 1
         while true {
             let stem = [base, word].compactMap { $0 }.joined(separator: " ") + (i > 1 ? " \(i)" : "")
@@ -134,7 +149,9 @@ struct FileService: Sendable {
         var st = stat()
         return stat(path, &st) == 0 ? Self.stamp(st) : nil
     }
-    private static func stamp(_ st: stat) -> FileStamp { "\(st.st_size)-\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)-\(st.st_ino)" }
+    private static func stamp(_ st: stat) -> FileStamp {
+        "\(st.st_size)-\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)-\(st.st_ino)"
+    }
 
     /// Its stamp and bytes, refused as a tab would (a pipe, past the limit); nil when it's gone. The stamp is taken before
     /// the read: a write in between makes the next check read it again, never miss it.
@@ -159,7 +176,9 @@ struct FileService: Sendable {
     private func here(_ path: String) throws -> String {
         let path = try absolute(path)
         if let r = remotes.containing(path) {
-            throw RPCError.invalidParams("\((path as NSString).lastPathComponent) is in a remote project: move, copy or make files there on \(r.remote.host).")
+            throw RPCError.invalidParams(
+                "\((path as NSString).lastPathComponent) is in a remote project: move, copy or make files there on \(r.remote.host)."
+            )
         }
         return path
     }
@@ -177,11 +196,13 @@ struct FileService: Sendable {
     /// One round trip: what it is (gone, not a regular file, its size), then its bytes only when a tab would open it.
     private func remoteBytes(_ remote: RemoteHost, _ path: String) throws -> Data {
         let limit = Unopenable.openLimit
-        let script = "f=\(IDE.shellWord(path)); if [ ! -e \"$f\" ]; then echo missing; elif [ ! -f \"$f\" ]; then echo special; "
+        let script =
+            "f=\(IDE.shellWord(path)); if [ ! -e \"$f\" ]; then echo missing; elif [ ! -f \"$f\" ]; then echo special; "
             + "else n=$(wc -c < \"$f\") || exit 1; echo $n; [ $n -gt \(limit) ] || head -c \(limit + 1) -- \"$f\"; fi"
         let out = try remote.run(script)
         guard let nl = out.firstIndex(of: 0x0A) else { throw RPCError.internalError("\(remote.host) didn't answer.") }
-        let head = String(decoding: out[..<nl], as: UTF8.self).trimmingCharacters(in: .whitespaces), body = out[(nl + 1)...]
+        let head = String(decoding: out[..<nl], as: UTF8.self).trimmingCharacters(in: .whitespaces),
+            body = out[(nl + 1)...]
         if head == "missing" { throw RPCError.invalidParams("It isn't on \(remote.host) any more (moved or deleted).") }
         if head == "special" { throw Unopenable.special.error }
         guard let size = Int(head) else { throw RPCError.internalError("\(remote.host) answered: \(head)") }
@@ -193,9 +214,11 @@ struct FileService: Sendable {
     /// with their size), then the icon's bytes: kept in `keep` (emptied when there's none) → the kept copy.
     private func findIcon(_ remote: RemoteHost, keep: String) throws -> String? {
         let places = IconSearch.places.map(IDE.shellWord).joined(separator: " ")
-        let script = "cd \(RemoteHost.cdArg(remote.path)) || exit 1; export LC_ALL=C; "
+        let script =
+            "cd \(RemoteHost.cdArg(remote.path)) || exit 1; export LC_ALL=C; "
             + #"l() { [ -d "$1" ] && ls -1A "$1" | while IFS= read -r f; do printf '%s\t%s\n' "$1" "$f"; done; }; l .; "#
-            + #"{ echo; ls -1 | grep -vx node_modules | head -40 | sed 's|$|/|'; } | while IFS= read -r b; do for p in "# + places
+            + #"{ echo; ls -1 | grep -vx node_modules | head -40 | sed 's|$|/|'; } | while IFS= read -r b; do for p in "#
+            + places
             + #"; do d="./$b$p"; l "$d"; s="${d}Assets.xcassets/AppIcon.appiconset"; [ -d "$s" ] && for f in "$s"/*.png; do "#
             + #"[ -f "$f" ] && printf '%s\t%s\t%s\n' "$s" "${f##*/}" "$(wc -c < "$f" | tr -d ' ')"; done; done; done; true"#
         var names: [String: [String]] = [:], sizes: [String: Int] = [:]
@@ -216,13 +239,17 @@ struct FileService: Sendable {
         return copy
     }
 
-    private func writeRemote(_ remote: RemoteHost, _ path: String, _ data: Data, base: FileStamp?) throws -> FilesWrite.Result {
+    private func writeRemote(_ remote: RemoteHost, _ path: String, _ data: Data, base: FileStamp?) throws
+        -> FilesWrite.Result
+    {
         let file = IDE.shellWord(path)
         // Changed there since it was read: the caller decides. Compared by the bytes' digest; one that can't be read
         // (permissions) fails the save rather than being written over.
         if let base {
             let out = try remote.run("if [ -e \(file) ]; then echo present; cat -- \(file); else echo missing; fi")
-            guard let nl = out.firstIndex(of: 0x0A) else { throw RPCError.internalError("\(remote.host) didn't answer.") }
+            guard let nl = out.firstIndex(of: 0x0A) else {
+                throw RPCError.internalError("\(remote.host) didn't answer.")
+            }
             if out[..<nl].elementsEqual("missing".utf8) { return .init(missing: true) }
             let now = out[(nl + 1)...], stamp = Self.digest(now)
             if stamp != base { return .init(conflict: .init(stamp: stamp, text: String(data: now, encoding: .utf8))) }
@@ -231,26 +258,37 @@ struct FileService: Sendable {
         // upload as if it were done: its size tells), so the file keeps its mode, owner and links. Limit: a disk that fills up
         // during that copy leaves it short, so the copy beside it stays then, and the error says where.
         let tmp = IDE.shellWord(path + ".kelp-XXXXXX")
-        let script = "t=$(mktemp \(tmp)) || exit 1; "
+        let script =
+            "t=$(mktemp \(tmp)) || exit 1; "
             + "if ! { cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ]; }; then rm -f \"$t\"; exit 1; fi; "
             + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; rm -f \"$t\""
-        try Git.runData(remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), stdin: data, executable: remote.ssh)
+        try Git.runData(
+            remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), stdin: data,
+            executable: remote.ssh)
         return .init(stamp: Self.digest(data))
     }
 }
 
 extension FilesRead: Handled { func handle(_ files: FileService) throws -> Result { try files.read(path) } }
-extension FilesWrite: Handled { func handle(_ files: FileService) throws -> Result { try files.write(path, text, base: base) } }
-extension FilesMove: Handled { func handle(_ files: FileService) throws -> Result { files.move(pairs, unique: unique == true) } }
+extension FilesWrite: Handled {
+    func handle(_ files: FileService) throws -> Result { try files.write(path, text, base: base) }
+}
+extension FilesMove: Handled {
+    func handle(_ files: FileService) throws -> Result { files.move(pairs, unique: unique == true) }
+}
 extension FilesTrash: Handled { func handle(_ files: FileService) throws -> Result { files.trash(paths) } }
 extension FilesCopy: Handled { func handle(_ files: FileService) throws -> Result { files.copy(paths, into: into) } }
 extension FilesFetch: Handled { func handle(_ files: FileService) throws -> String { try files.fetch(path) } }
 extension RepoIcon: Handled { func handle(_ files: FileService) throws -> String? { try files.icon(path) } }
 extension FilesCreate: Handled {
-    func handle(_ files: FileService) throws -> String { try files.create(path, folder: folder == true, text: text, unique: unique == true) }
+    func handle(_ files: FileService) throws -> String {
+        try files.create(path, folder: folder == true, text: text, unique: unique == true)
+    }
 }
 
 extension Methods {
-    static let fileMethods: [any Handled.Type] = [FilesRead.self, FilesWrite.self, FilesMove.self, FilesTrash.self, FilesCopy.self, FilesCreate.self,
-                                                        FilesFetch.self, RepoIcon.self]
+    static let fileMethods: [any Handled.Type] = [
+        FilesRead.self, FilesWrite.self, FilesMove.self, FilesTrash.self, FilesCopy.self, FilesCreate.self,
+        FilesFetch.self, RepoIcon.self
+    ]
 }

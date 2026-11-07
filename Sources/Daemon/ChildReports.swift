@@ -1,12 +1,13 @@
-import Foundation
-import Core
 import Agents
+import Core
+import Foundation
 import os
 
 /// What an agent's children have told it, and which sessions are only restarting.
 final class ChildReports: Sendable {
     private struct State {
-        var told: [String: AgentStatus] = [:], replies: [String: String] = [:], said: [String: String] = [:], restarting: Set<String> = []
+        var told: [String: AgentStatus] = [:], replies: [String: String] = [:], said: [String: String] = [:],
+            restarting: Set<String> = []
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// A status from before this daemon was told before it, or will be found by asking.
@@ -19,21 +20,34 @@ final class ChildReports: Sendable {
 
     func make(_ work: @escaping @Sendable () -> Void) {
         making.enter()
-        queue.async { [making] in work(); making.leave() }
+        queue.async { [making] in
+            work()
+            making.leave()
+        }
     }
 
     /// Before a hand-over: the reports on their way are kept (typed or owed) first, for up to `seconds`.
     func settle(within seconds: Double) { _ = making.wait(timeout: .now() + seconds) }
 
     /// An ended child's replies, kept only to tell its next one from the last (its status stays: an exit is said once).
-    func ended(_ id: String) { state.withLock { $0.replies[id] = nil; $0.said[id] = nil } }
+    func ended(_ id: String) {
+        state.withLock {
+            $0.replies[id] = nil
+            $0.said[id] = nil
+        }
+    }
     /// A deleted one's everything.
     func forget(_ id: String) {
-        state.withLock { $0.told[id] = nil; $0.replies[id] = nil }
+        state.withLock {
+            $0.told[id] = nil
+            $0.replies[id] = nil
+        }
         ended(id)
     }
 
-    func restarting(_ id: String, _ on: Bool) { state.withLock { if on { $0.restarting.insert(id) } else { $0.restarting.remove(id) } } }
+    func restarting(_ id: String, _ on: Bool) {
+        state.withLock { if on { $0.restarting.insert(id) } else { $0.restarting.remove(id) } }
+    }
     func isRestarting(_ id: String) -> Bool { state.withLock { $0.restarting.contains(id) } }
 
     /// Once per stop: a session is saved for many reasons, and work begun again makes the next stop news. Leaving after a
@@ -42,7 +56,8 @@ final class ChildReports: Sendable {
         state.withLock { st in
             if s.status == .working { st.told[s.id] = nil }
             guard [.done, .error, .waiting, .exited].contains(s.status), (s.statusAt ?? .distantPast) >= started,
-                  st.told[s.id] != s.status, !(s.status == .exited && st.told[s.id] == .done) else { return false }
+                st.told[s.id] != s.status, !(s.status == .exited && st.told[s.id] == .done)
+            else { return false }
             st.told[s.id] = s.status
             return true
         }
@@ -64,9 +79,12 @@ final class ChildReports: Sendable {
     /// What the parent reads. It's the child's text, so a closing tag in it can't end the block.
     static func text(_ s: Session, body: String, most: Int = 4000) -> String {
         let name = s.displayTitle.filter { !"\"<>\n".contains($0) }
-        let cut = body.count > most ? "…" + body.suffix(most) + "\n(cut: kelp terminal read \(s.id.prefix(8)) shows more)" : body
+        let cut =
+            body.count > most
+            ? "…" + body.suffix(most) + "\n(cut: kelp terminal read \(s.id.prefix(8)) shows more)" : body
         // As it will be typed: a control character taken out later would close the tag again.
-        let safe = LiveSession.typeable(cut).replacingOccurrences(of: "<(/?kelp)", with: "<\\\\$1", options: [.regularExpression, .caseInsensitive])
+        let safe = LiveSession.typeable(cut).replacingOccurrences(
+            of: "<(/?kelp)", with: "<\\\\$1", options: [.regularExpression, .caseInsensitive])
         return "<kelp from=\"\(name) \(s.id.prefix(8))\" status=\"\(s.status.rawValue)\">\n" + safe + "\n</kelp>"
     }
 }
@@ -76,7 +94,8 @@ extension Sessions {
     /// typed there, a report would be run as a command. A command it runs is its own affair too.
     func parent(_ id: String?, of create: SessionCreate) throws -> String? {
         guard let id, create.command == nil, create.tmux == nil, !["shell", nil].contains(create.agent),
-              let p = try store.session(id), p.isAgent else { return nil }
+            let p = try store.session(id), p.isAgent
+        else { return nil }
         return p.id
     }
 
@@ -94,8 +113,13 @@ extension Sessions {
         guard news || s.status == .exited else { return }
         reports.make { [weak self] in
             guard let self else { return }
-            if news, let parent = s.parent, !askedEarlier(s), let body = reportBody(s) { tell(parent, ChildReports.text(s, body: body)) }
-            if s.status == .exited { endChildren(of: s.id); reports.ended(s.id) }
+            if news, let parent = s.parent, !askedEarlier(s), let body = reportBody(s) {
+                tell(parent, ChildReports.text(s, body: body))
+            }
+            if s.status == .exited {
+                endChildren(of: s.id)
+                reports.ended(s.id)
+            }
         }
     }
 
@@ -121,7 +145,8 @@ extension Sessions {
         // reports this, spinner frames and all.
         func tail() -> String {
             let text = Log.session.attempt("reading what \(s.id) printed") { try printed(s.id, bytes: 1500) } ?? ""
-            return text.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.suffix(30).joined(separator: "\n")
+            return text.split(whereSeparator: \.isNewline).filter { !$0.allSatisfy(\.isWhitespace) }.suffix(30).joined(
+                separator: "\n")
         }
         switch s.status {
         case .done:
@@ -156,7 +181,8 @@ extension Sessions {
             guard let self else { return }
             for var s in left {
                 endChildren(of: s.id)
-                guard let parent = s.parent, !ids.contains(parent), settings["agents.childReports"]?.bool != false else { continue }
+                guard let parent = s.parent, !ids.contains(parent), settings["agents.childReports"]?.bool != false
+                else { continue }
                 s.status = .exited
                 tell(parent, ChildReports.text(s, body: "Closed by the user"))
             }
@@ -173,7 +199,9 @@ extension Sessions {
 
     private func endChildren(of id: String) {
         Log.session.attempt("ending the children of \(id)") {
-            for c in try store.sessions() where c.parent == id && c.status != .exited { _ = try SessionKill(id: c.id).handle(self) }
+            for c in try store.sessions() where c.parent == id && c.status != .exited {
+                _ = try SessionKill(id: c.id).handle(self)
+            }
         }
     }
 
@@ -188,11 +216,18 @@ extension Sessions {
             if s.origin == old { s.origin = new } else if s.origin == typedOld { s.origin = typedNew }
         }
         for c in try store.sessions() where [c.parent, c.startedBy, c.origin].contains(old) || c.origin == typedOld {
-            if let ls = existing(c.id) { _ = ls.update(pass); publish(ls) } else { try change(c.id, pass) }
+            if let ls = existing(c.id) {
+                _ = ls.update(pass)
+                publish(ls)
+            } else {
+                try change(c.id, pass)
+            }
         }
         for w in try store.worktrees() where w.madeBy == old || w.madeBy == typedOld {
             // In one write: a copy saved back would undo a rename or an archive meanwhile, or bring a removed one back.
-            try store.update(Worktree.self, w.id) { $0.madeBy = $0.madeBy == old ? new : $0.madeBy == typedOld ? typedNew : $0.madeBy }
+            try store.update(Worktree.self, w.id) {
+                $0.madeBy = $0.madeBy == old ? new : $0.madeBy == typedOld ? typedNew : $0.madeBy
+            }
         }
         existing(new)?.giveBack(owed + (existing(old)?.takeOwed() ?? []) + (try store.takeOwed(old)))
     }

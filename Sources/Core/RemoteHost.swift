@@ -8,7 +8,10 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     public var host: String, path: String
     /// Where the shared connections' sockets live, and the `ssh` that makes them: its home's (`Remotes`).
     public var controlDir = NSTemporaryDirectory(), ssh = "/usr/bin/ssh"
-    public init(host: String, path: String) { self.host = host; self.path = path }
+    public init(host: String, path: String) {
+        self.host = host
+        self.path = path
+    }
     private enum CodingKeys: String, CodingKey { case host, path }
 
     public static let marker = ".kelp-remote"
@@ -18,7 +21,8 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// What may follow `ssh`: not an option, nothing a shell would split.
     /// Also a folder name under remote/: "." / ".." or a "/" would put it somewhere else.
     public static func isHost(_ h: String) -> Bool {
-        !h.isEmpty && !h.hasPrefix("-") && !h.contains(where: \.isWhitespace) && !h.contains("/") && h != "." && h != ".."
+        !h.isEmpty && !h.hasPrefix("-") && !h.contains(where: \.isWhitespace) && !h.contains("/") && h != "."
+            && h != ".."
     }
 
     /// ssh's options for this host: the shared connection; no password prompts where nobody can answer them. A host gone
@@ -26,8 +30,11 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// waits on it, and its panels show it connected.
     public func sshArgs(tty: Bool) -> [String] {
         (tty ? ["-tt"] : ["-T", "-o", "BatchMode=yes"])
-            + ["-o", "ConnectTimeout=15", "-o", "ControlMaster=auto", "-o", "ControlPath=\(controlDir)/%C", "-o", "ControlPersist=600",
-               "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", "--", host]
+            + [
+                "-o", "ConnectTimeout=15", "-o", "ControlMaster=auto", "-o", "ControlPath=\(controlDir)/%C", "-o",
+                "ControlPersist=600",
+                "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", "--", host
+            ]
     }
 
     /// What the host's shell runs: `argv` in the project's folder, through an interactive login shell so the host's PATH
@@ -48,18 +55,27 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// none. Without tmux on the host, `argv` runs as it is.
     public func command(_ argv: [String], inTmux name: String) -> String {
         guard !argv.isEmpty else { return command(nil) }
-        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(IDE.shellWord).joined(separator: " ")
+        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(IDE.shellWord).joined(
+            separator: " ")
         let pane = "exec \"$SHELL\" -ilc " + IDE.shellWord(words)   // tmux runs a pane's one-string command in a shell
         // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
-        let options = [["status", "off"], ["mouse", "on"], ["set-titles", "on"], ["set-titles-string", "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"],
-                       ["allow-passthrough", "on"]]
+        let options = [
+            ["status", "off"], ["mouse", "on"], ["set-titles", "on"],
+            ["set-titles-string", "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"],
+            ["allow-passthrough", "on"]
+        ]
         // "=name:": exactly that session (an option's target is a pane, and "=name" alone isn't read as a session there).
-        let tmux = ["tmux", "new-session", "-A", "-s", name, pane] + options.flatMap { [";", "set-option", "-t", "=" + name + ":"] + $0 }
-        let missed = "s=$(tmux show-options -qv -t \(IDE.shellWord("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
+        let tmux =
+            ["tmux", "new-session", "-A", "-s", name, pane]
+            + options.flatMap { [";", "set-option", "-t", "=" + name + ":"] + $0 }
+        let missed =
+            "s=$(tmux show-options -qv -t \(IDE.shellWord("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
             + #"[ -z "$s" ] || printf '\033]7501;%s\007' "$s"; "#
         let cd = "cd \(Self.cdArg(path))"
         return cd + " && exec \"$SHELL\" -ilc "
-            + IDE.shellWord(missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(IDE.shellWord).joined(separator: " ") + " || exec " + words)
+            + IDE.shellWord(
+                missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(IDE.shellWord).joined(separator: " ")
+                    + " || exec " + words)
     }
 
     /// `cd`'s argument: quoted, with a leading ~ left outside the quotes so the host's shell expands it.
@@ -84,22 +100,29 @@ public struct Remotes: Sendable, Equatable {
         controlDir = home.appendingPathComponent("ssh").path
         self.ssh = ssh
     }
-    private init() { folder = nil; controlDir = NSTemporaryDirectory(); ssh = "/usr/bin/ssh" }
+    private init() {
+        folder = nil
+        controlDir = NSTemporaryDirectory()
+        ssh = "/usr/bin/ssh"
+    }
     /// No remote projects: git and the rest run here, whatever a folder holds.
     public static let none = Remotes()
 
     /// `path` on `host`, reached through this home's shared connections.
     public func host(_ host: String, path: String) -> RemoteHost {
         var r = RemoteHost(host: host, path: path)
-        r.controlDir = controlDir; r.ssh = ssh
+        r.controlDir = controlDir
+        r.ssh = ssh
         return r
     }
 
     /// The remote a project folder stands for (its own folder only: a workspace is that folder).
     public func of(_ dir: String) -> RemoteHost? {
         let path = URL(fileURLWithPath: dir).standardizedFileURL.path
-        guard let folder, path.hasPrefix(folder + "/"), let d = FileManager.default.contents(atPath: path + "/" + RemoteHost.marker),
-              let r = try? JSONDecoder().decode(RemoteHost.self, from: d), RemoteHost.isHost(r.host) else { return nil }
+        guard let folder, path.hasPrefix(folder + "/"),
+            let d = FileManager.default.contents(atPath: path + "/" + RemoteHost.marker),
+            let r = try? JSONDecoder().decode(RemoteHost.self, from: d), RemoteHost.isHost(r.host)
+        else { return nil }
         return host(r.host, path: r.path)
     }
 

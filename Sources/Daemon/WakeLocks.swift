@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// One lock per session for what changes whether its program runs: waking it, pausing it, stopping it, deleting it.
 /// Per session, not one for the daemon: waiting for one program to exit (up to 3 s) or a slow host doesn't hold up

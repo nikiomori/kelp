@@ -70,17 +70,28 @@ final class DockFaceView: NSView {
     private func mark(_ cell: DockFace.Cell, at box: NSRect) {
         let dot = NSBezierPath(ovalIn: box)
         switch cell {
-        case .asks: NSColor.systemOrange.setFill(); dot.fill()
-        case .failed: NSColor.systemRed.setFill(); dot.fill()
-        case .working: NSColor.white.setFill(); dot.fill()
+        case .asks:
+            NSColor.systemOrange.setFill()
+            dot.fill()
+        case .failed:
+            NSColor.systemRed.setFill()
+            dot.fill()
+        case .working:
+            NSColor.white.setFill()
+            dot.fill()
         case .done:   // a ring: done is told from working by form, as on every other mark
             let ring = NSBezierPath(ovalIn: box.insetBy(dx: 1.5, dy: 1.5))
             ring.lineWidth = 3
-            NSColor.white.setStroke(); ring.stroke()
+            NSColor.white.setStroke()
+            ring.stroke()
         }
     }
 
     private func label(_ text: String, size: CGFloat, color: NSColor) -> NSAttributedString {
-        NSAttributedString(string: text, attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: size, weight: .semibold), .foregroundColor: color])
+        NSAttributedString(
+            string: text,
+            attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: size, weight: .semibold), .foregroundColor: color
+            ])
     }
 }

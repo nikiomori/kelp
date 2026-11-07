@@ -2,8 +2,8 @@ import AppKit
 import Core
 import DesignKit
 import EditorKit
-import WorkbenchKit
 import KelpKit
+import WorkbenchKit
 
 final class DiffTable: NSTableView {
     var onKey: ((NSEvent) -> Bool)?
@@ -15,14 +15,21 @@ final class DiffTable: NSTableView {
 @MainActor
 final class DiffViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
+    init(app: AppModel) {
+        self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
     let source = NSPopUpButton()
-    private let layoutToggle = NSSegmentedControl(images: [.symbol("rectangle.split.2x1", String(localized: "Side by Side")),
-                                                           .symbol("rectangle", String(localized: "Inline"))],
-                                                  trackingMode: .selectOne, target: nil, action: nil)
-    private let spaceToggle = NSSegmentedControl(images: [.symbol("text.word.spacing", String(localized: "Hide Whitespace Changes"))],
-                                                 trackingMode: .selectAny, target: nil, action: nil)
+    private let layoutToggle = NSSegmentedControl(
+        images: [
+            .symbol("rectangle.split.2x1", String(localized: "Side by Side")),
+            .symbol("rectangle", String(localized: "Inline"))
+        ],
+        trackingMode: .selectOne, target: nil, action: nil)
+    private let spaceToggle = NSSegmentedControl(
+        images: [.symbol("text.word.spacing", String(localized: "Hide Whitespace Changes"))],
+        trackingMode: .selectAny, target: nil, action: nil)
     /// Whitespace-only changes left out: what's shown is then no patch git can stage or discard as it is.
     var hidesSpace: Bool { spaceToggle.isSelected(forSegment: 0) }
     var find = DiffFinding()
@@ -47,8 +54,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     lazy var turnBar = NSStackView(views: [turnPop, undoTurnButton()])
     /// "Change 3 of 17" after a step; a comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
-    private lazy var steps = NSSegmentedControl.steps(previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
-                                                      target: self, action: #selector(stepped(_:)))
+    private lazy var steps = NSSegmentedControl.steps(
+        previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
+        target: self, action: #selector(stepped(_:)))
     let files = NSTableView()
     let table = DiffTable()
     let status = NSTextField(labelWithString: "")
@@ -72,49 +80,65 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var single: (file: String, source: String, commit: String?)?
     /// The editor's font and size, as the code it shows is the editor's; a row is a line of it and 4 pt.
     var font: NSFont { CodeEditor.font }
-    static var lineHeight: CGFloat { let f = CodeEditor.font; return (f.ascender - f.descender + f.leading).rounded(.up) + 4 }
+    static var lineHeight: CGFloat {
+        let f = CodeEditor.font
+        return (f.ascender - f.descender + f.leading).rounded(.up) + 4
+    }
     /// Side by side when chosen and there's room for two columns; a narrow pane shows it inline (like VS Code).
     private var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
     private var narrow = false
 
-    static let hatch = NSColor(patternImage: NSImage(size: NSSize(width: 7, height: 7), flipped: false) { _ in
-        NSColor.secondaryLabelColor.withAlphaComponent(0.14).setStroke()
-        let p = NSBezierPath()
-        p.move(to: .zero)
-        p.line(to: NSPoint(x: 7, y: 7))
-        p.lineWidth = 1
-        p.stroke()
-        return true
-    })
+    static let hatch = NSColor(
+        patternImage: NSImage(size: NSSize(width: 7, height: 7), flipped: false) { _ in
+            NSColor.secondaryLabelColor.withAlphaComponent(0.14).setStroke()
+            let p = NSBezierPath()
+            p.move(to: .zero)
+            p.line(to: NSPoint(x: 7, y: 7))
+            p.lineWidth = 1
+            p.stroke()
+            return true
+        })
 
     override func loadView() {
         table.target = self
         table.doubleAction = #selector(rowDoubleClicked)
         layoutToggle.selectedSegment = UserDefaults.standard.bool(forKey: "diff.inline") ? 1 : 0
-        layoutToggle.target = self; layoutToggle.action = #selector(layoutChanged)
-        layoutToggle.setToolTip(String(localized: "Side by Side"), forSegment: 0); layoutToggle.setToolTip(String(localized: "Inline"), forSegment: 1)
+        layoutToggle.target = self
+        layoutToggle.action = #selector(layoutChanged)
+        layoutToggle.setToolTip(String(localized: "Side by Side"), forSegment: 0)
+        layoutToggle.setToolTip(String(localized: "Inline"), forSegment: 1)
         spaceToggle.setSelected(UserDefaults.standard.bool(forKey: "diff.ignoreSpace"), forSegment: 0)
         spaceToggle.setToolTip(String(localized: "Hide Whitespace Changes"), forSegment: 0)
-        spaceToggle.target = self; spaceToggle.action = #selector(spaceChanged)
-        source.addItems(withTitles: [String(localized: "Uncommitted"), String(localized: "Unstaged"), String(localized: "Staged"),
-                                     String(localized: "Branch vs base"), String(localized: "Commit…"), String(localized: "Agent's Last Turn")])
-        source.lastItem?.toolTip = String(localized: "What changed since the agent's last prompt, even with other agents in the same folder")
+        spaceToggle.target = self
+        spaceToggle.action = #selector(spaceChanged)
+        source.addItems(withTitles: [
+            String(localized: "Uncommitted"), String(localized: "Unstaged"), String(localized: "Staged"),
+            String(localized: "Branch vs base"), String(localized: "Commit…"), String(localized: "Agent's Last Turn")
+        ])
+        source.lastItem?.toolTip = String(
+            localized: "What changed since the agent's last prompt, even with other agents in the same folder")
         source.target = self
         source.action = #selector(sourceChanged)
-        status.font = .ui(11); status.textColor = .secondaryLabelColor
-        position.font = .uiDigits(11); position.textColor = .secondaryLabelColor
+        status.font = .ui(11)
+        status.textColor = .secondaryLabelColor
+        position.font = .uiDigits(11)
+        position.textColor = .secondaryLabelColor
         position.toolTip = String(localized: "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments")
-        pathLabel.lineBreakMode = .byTruncatingHead; pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        pathLabel.lineBreakMode = .byTruncatingHead
+        pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let fc = NSTableColumn(identifier: .init("file")); fc.title = String(localized: "Files")
+        let fc = NSTableColumn(identifier: .init("file"))
+        fc.title = String(localized: "Files")
         files.addTableColumn(fc)
         files.dataSource = self
         files.delegate = self
         files.rowHeight = 26
         files.style = .sourceList
         files.headerView = nil
-        fc.resizingMask = .autoresizingMask; files.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle   // rows as wide as the pane
-        files.menu = NSMenu(); files.menu?.delegate = self
+        fc.resizingMask = .autoresizingMask
+        files.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle   // rows as wide as the pane
+        files.menu = NSMenu()
+        files.menu?.delegate = self
         let fs = NSScrollView()
         fs.documentView = files
         fs.hasVerticalScroller = true
@@ -124,14 +148,18 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         table.delegate = self
         table.rowHeight = Self.lineHeight
         table.intercellSpacing = .zero
-        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle; table.style = .plain
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        table.style = .plain
         table.allowsMultipleSelection = true
         table.headerView = nil
         table.usesAlternatingRowBackgroundColors = false
-        table.backgroundColor = CodeEditor.page.background; table.floatsGroupRows = false
-        NotificationCenter.default.addObserver(self, selector: #selector(columnsResized), name: NSTableView.columnDidResizeNotification, object: table)
+        table.backgroundColor = CodeEditor.page.background
+        table.floatsGroupRows = false
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(columnsResized), name: NSTableView.columnDidResizeNotification, object: table)
         table.onKey = { [weak self] e in self?.key(e) ?? false }
-        table.menu = NSMenu(); table.menu?.delegate = self
+        table.menu = NSMenu()
+        table.menu?.delegate = self
         let ts = NSScrollView()
         ts.documentView = table
         ts.hasVerticalScroller = true
@@ -141,18 +169,29 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         let split = NSSplitView()
         split.isVertical = true
         split.dividerStyle = .thin
-        split.addArrangedSubview(fs); split.addArrangedSubview(ts)
+        split.addArrangedSubview(fs)
+        split.addArrangedSubview(ts)
         fs.widthAnchor.constraint(greaterThanOrEqualToConstant: 160).isActive = true
         ts.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
-        self.split = split; fileList = fs
+        self.split = split
+        fileList = fs
         buildBar()
         view = stacked(bar, split)
-        track(owner: self) { [app] in app.themes.editorRevision } changed: { [weak self] _ in self?.themeChanged() }
-        track(owner: self) { [app] in app.workbench.panelBeside } changed: { [weak self] _ in self?.placeFileList() }
+        track(owner: self) { [app] in
+            app.themes.editorRevision
+        } changed: { [weak self] _ in
+            self?.themeChanged()
+        }
+        track(owner: self) { [app] in
+            app.workbench.panelBeside
+        } changed: { [weak self] _ in
+            self?.placeFileList()
+        }
         Self.reviews.add(self)
         turnBar.isHidden = true
-        turnPop.target = self; turnPop.action = #selector(sourceChanged)
+        turnPop.target = self
+        turnPop.action = #selector(sourceChanged)
         reviewPop.addItem(withTitle: String(localized: "Review with"))
         reviewPop.menu?.delegate = self
         followReviewer()
@@ -173,13 +212,19 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     override func viewDidLayout() {
         super.viewDidLayout()
         placeFileList()
-        if !positioned, fileList?.isHidden == false, let s = split, s.bounds.width > 400 { positioned = true; s.setPosition(220, ofDividerAt: 0) }
+        if !positioned, fileList?.isHidden == false, let s = split, s.bounds.width > 400 {
+            positioned = true
+            s.setPosition(220, ofDividerAt: 0)
+        }
         let n = table.bounds.width > 0 && table.bounds.width < 640
         if n != narrow {
             narrow = n
             layoutToggle.setEnabled(!n, forSegment: 0)
-            layoutToggle.setToolTip(n ? String(localized: "Side by Side (needs a wider pane)") : String(localized: "Side by Side"), forSegment: 0)
-            setColumns(); rebuildRows()
+            layoutToggle.setToolTip(
+                n ? String(localized: "Side by Side (needs a wider pane)") : String(localized: "Side by Side"),
+                forSegment: 0)
+            setColumns()
+            rebuildRows()
         }
     }
 
@@ -192,12 +237,18 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 b.bezelStyle = .push
                 return b
             }
-            bar.set([source, turnBar, layoutToggle, spaceToggle, btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
-                     btn(String(localized: "Send to Agent"), #selector(sendComments))], [status, position, steps])
+            bar.set(
+                [
+                    source, turnBar, layoutToggle, spaceToggle,
+                    btn(String(localized: "Comment"), #selector(addComment)), reviewPop,
+                    btn(String(localized: "Send to Agent"), #selector(sendComments))
+                ], [status, position, steps])
         }
     }
 
-    @objc private func stepped(_ s: NSSegmentedControl) { if s.selectedSegment == 0 { prevChange() } else { nextChange() } }
+    @objc private func stepped(_ s: NSSegmentedControl) {
+        if s.selectedSegment == 0 { prevChange() } else { nextChange() }
+    }
 
     private func setColumns() {
         table.tableColumns.forEach(table.removeTableColumn)
@@ -217,7 +268,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     func show(worktree id: String?) {
-        worktreeId = id; asking += 1
+        worktreeId = id
+        asking += 1
         Task { await load() }
     }
 
@@ -232,10 +284,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         single = (path, source, commit)
         placeFileList()
         let dir = (path as NSString).deletingLastPathComponent
-        let s = NSMutableAttributedString(string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(12, weight: .medium)])
+        let s = NSMutableAttributedString(
+            string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(12, weight: .medium)])
         if !dir.isEmpty {
-            s.append(NSAttributedString(string: "  " + dir,
-                                        attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.tertiaryLabelColor]))
+            s.append(
+                NSAttributedString(
+                    string: "  " + dir,
+                    attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.tertiaryLabelColor]))
         }
         pathLabel.attributedStringValue = s
         buildBar()
@@ -246,7 +301,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var stale = false
     override func viewDidAppear() {
         super.viewDidAppear()
-        if stale { stale = false; reload() }
+        if stale {
+            stale = false
+            reload()
+        }
     }
     /// Its workspace's git as pushed: the diff is read again only when what it's read from changed (`GitDiff.basis`).
     func gitChanged(_ e: GitEvent?) {
@@ -262,7 +320,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private var askCommit = false
     @objc private func layoutChanged() {
         UserDefaults.standard.set(!sideBySide, forKey: "diff.inline")
-        setColumns(); rebuildRows()
+        setColumns()
+        rebuildRows()
     }
 
     @objc private func spaceChanged() {
@@ -279,7 +338,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private func request() -> GitDiff {
         let id = worktreeId ?? ""
         if let s = single {
-            return s.commit.map { GitDiff(id: id, source: "commit", file: s.file, commit: $0) } ?? GitDiff(id: id, source: s.source, file: s.file)
+            return s.commit.map { GitDiff(id: id, source: "commit", file: s.file, commit: $0) }
+                ?? GitDiff(id: id, source: s.source, file: s.file)
         }
         switch source.indexOfSelectedItem {
         case 1: return GitDiff(id: id, source: "unstaged")
@@ -312,7 +372,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             return
         }
         let t = Task {
-            repeat { readAgain = false; await loadOnce() } while readAgain
+            repeat {
+                readAgain = false
+                await loadOnce()
+            } while readAgain
             reading = nil   // with the last check: no await between, so a later caller starts a new one
         }
         reading = t
@@ -340,11 +403,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
                 let m = menu.addItem(withTitle: "\(c.hash)  \(c.subject)", action: nil, keyEquivalent: "")
                 m.representedObject = c.hash
             }
-            let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26)); pop.menu = menu
+            let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26))
+            pop.menu = menu
             let a = NSAlert()
             a.messageText = String(localized: "Review which commit?")
             a.accessoryView = pop
-            a.addButton(withTitle: String(localized: "Show")); a.addButton(withTitle: String(localized: "Cancel"))
+            a.addButton(withTitle: String(localized: "Show"))
+            a.addButton(withTitle: String(localized: "Cancel"))
             if await runSheet(a) == .alertFirstButtonReturn {
                 commitHash = pop.selectedItem?.representedObject as? String
             } else {
@@ -361,7 +426,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             words = [:]
             files.reloadData()
             table.reloadData()
-            status.stringValue = String(localized: "No agent on this screen"); return
+            status.stringValue = String(localized: "No agent on this screen")
+            return
         }
         if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? agent : nil) }
         let asked = asking, request = diffRequest()
@@ -371,7 +437,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         var ch: [FileChange] = [], cm: [DiffComment] = []
         if single == nil, r.error == nil {   // the files' letters and the comments: the diff above already said what failed
             // The letters as pushed for this workspace (a review tab watches it), else asked.
-            if let pushed = app.latest(GitEvent.self, wid)?.changes { ch = pushed } else { ch = await app.quiet(GitStatus(id: wid)) ?? [] }
+            if let pushed = app.latest(GitEvent.self, wid)?.changes {
+                ch = pushed
+            } else {
+                ch = await app.quiet(GitStatus(id: wid)) ?? []
+            }
             cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
         }
         if d != diffs { opened = [:] }   // lines opened between changes may have moved
@@ -383,7 +453,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == asking, wid == worktreeId else { return }
         builds += 1   // rows a layout change is still building are the old diff's
-        if d != diffs { position.stringValue = ""; syntax = spans }   // "Change 3 of 17" counted another diff
+        if d != diffs {
+            position.stringValue = ""
+            syntax = spans
+        }   // "Change 3 of 17" counted another diff
         diffs = d
         prints = printed
         changes = ch
@@ -391,10 +464,14 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         readViewed()
         (rows, words) = built
         placeDraft()
-        files.reloadData(); reloadKeepingDraft()
+        files.reloadData()
+        reloadKeepingDraft()
         if !find.needle.isEmpty { search(find.needle, step: false) }
         if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
-        if let e = r.error { status.stringValue = e; return }   // why there's nothing, not "0 files"
+        if let e = r.error {
+            status.stringValue = e
+            return
+        }   // why there's nothing, not "0 files"
         status.stringValue = statusText()
     }
 
@@ -423,16 +500,24 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         case .diff(let r):
             switch r {
             case .file(let p, let a, let d): return fileBand(p, added: a, removed: d)
-            case .binary(let p): return label(first ? String(localized: "Binary file \(p) not shown") : "", font: font, color: .secondaryLabelColor)
+            case .binary(let p):
+                return label(
+                    first ? String(localized: "Binary file \(p) not shown") : "", font: font,
+                    color: .secondaryLabelColor)
             case .tooLarge(let p):
-                let said = label(first ? String(localized: "\(p) is too large to show here") : "", font: font, color: .secondaryLabelColor)
+                let said = label(
+                    first ? String(localized: "\(p) is too large to show here") : "", font: font,
+                    color: .secondaryLabelColor)
                 guard first, let uri = alone(p) else { return said }
                 said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                 let open = ClosureButton(title: String(localized: "Open Changes")) { app.workbench.open(uri) }
-                open.bezelStyle = .push; open.controlSize = .small
-                let stack = NSStackView(views: [said, open]); stack.spacing = 8
+                open.bezelStyle = .push
+                open.controlSize = .small
+                let stack = NSStackView(views: [said, open])
+                stack.spacing = 8
                 return stack
-            case .gap(let f, let from, let n, let context): return first ? gapRow(file: f, from: from, lines: n, context: context) : band("")
+            case .gap(let f, let from, let n, let context):
+                return first ? gapRow(file: f, from: from, lines: n, context: context) : band("")
             case .hunk(let f, let h, let header): return first ? hunkRow(file: f, hunk: h, header: header) : band("")
             case .line(let f, let l):
                 switch id {
@@ -466,10 +551,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 
 extension DiffViewController {
     /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
-    private func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> ([ReviewRow], [String: NSRange]) {
+    private func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> (
+        [ReviewRow], [String: NSRange]
+    ) {
         let one = single != nil, open = opened
         return await Task.detached {
-            (DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open), DiffRows.changedWords(d))
+            (
+                DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open),
+                DiffRows.changedWords(d)
+            )
         }.value
     }
 
@@ -482,7 +572,8 @@ extension DiffViewController {
             if fadesNextLoad { table.crossfade(Motion.base) }
             fadesNextLoad = false
             (rows, words) = built
-            placeDraft(); reloadKeepingDraft()
+            placeDraft()
+            reloadKeepingDraft()
             if !find.needle.isEmpty { search(find.needle, step: false) }
         }
     }
@@ -492,7 +583,8 @@ extension DiffViewController {
     func placeFileList() {
         let hide = single != nil || app.workbench.panelBeside == "git.changes"
         guard let list = fileList, let s = split, list.isHidden != hide else { return }
-        list.isHidden = hide; s.adjustSubviews()
+        list.isHidden = hide
+        s.adjustSubviews()
         if !hide { positioned = false }   // at its width again on the next layout
     }
 
@@ -501,7 +593,9 @@ extension DiffViewController {
     /// nothing staged, and the staged one's for a file with nothing left unstaged.
     func hunksStaged(_ f: Int) -> Bool? {
         if hidesSpace { return nil }
-        if let s = single { return s.commit == nil && (s.source == "unstaged" || s.source == "staged") ? s.source == "staged" : nil }
+        if let s = single {
+            return s.commit == nil && (s.source == "unstaged" || s.source == "staged") ? s.source == "staged" : nil
+        }
         switch source.indexOfSelectedItem {
         case 1: return false
         case 2: return true

@@ -1,11 +1,14 @@
+import Agents
+import Core
 import Foundation
 import Testing
-import Core
-import Agents
+
 @testable import Daemon
 
 /// A session whose /restart would land in `cat`, which prints it; its turn just ended with this payload.
-private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil, crons: [JSONValue]? = nil) async throws -> (Session, LiveSession) {
+private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil, crons: [JSONValue]? = nil) async throws
+    -> (Session, LiveSession)
+{
     let wt = try await workspace(w, name)
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "stty -echo; echo ready; exec cat"))
     let ls = try #require(w.d.sessions.live[s.id])
@@ -18,7 +21,8 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 
 /// Its turn over and nothing left to lose, the agent is restarted: once for a version, again for the next one.
 @Test func anIdleAgentRestartsOncePerVersion() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let (s, ls) = try await finishedTurn(w, "update")
     #expect(!ls.restartAgent(into: "v2", quiet: 3600))   // not quiet for long enough
     #expect(ls.restartAgent(into: "v2", quiet: 0))
@@ -29,7 +33,8 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 
 /// Quiet isn't idle: what runs in the background and the timers of a /loop would be lost with the program.
 @Test func anAgentWithSomethingToWakeItIsLeftAlone() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let server: JSONValue = .obj(["id": "b1", "type": "shell", "status": "running", "command": "npm run dev"])
     let cron: JSONValue = .obj(["id": "c1", "schedule": "*/5 * * * *", "recurring": true, "prompt": "go on"])
     #expect(!(try await finishedTurn(w, "tasks", tasks: [server]).1.restartAgent(into: "v2", quiet: 0)))
@@ -39,7 +44,8 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 /// Any key since the last line sent: /restart would land behind what's in the box and its Return send both. ↑ puts an old
 /// prompt there without a character for `typing` to see.
 @Test func anAgentWithKeysInItsBoxIsLeftAlone() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let (s, ls) = try await finishedTurn(w, "keys")
     func keys(_ k: String) async throws {
         let before = ls.inputs
@@ -55,7 +61,8 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
 
 /// Before its first turn, while it works and while it asks, there's no moment to take.
 @Test func onlyAFinishedTurnCounts() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let wt = try await workspace(w, "fresh")
     let fresh = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let ls = try #require(w.d.sessions.live[fresh.id])
@@ -74,7 +81,10 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
     let versions = "/Users/me/.local/share/claude/versions"
     #expect(Sessions.outdated(running: "\(versions)/2.1.314", installed: "\(versions)/2.1.315"))
     #expect(!Sessions.outdated(running: "\(versions)/2.1.314", installed: "\(versions)/2.1.314"))
-    #expect(!Sessions.outdated(running: "/opt/homebrew/Caskroom/claude-code/2.1.314/claude", installed: "/opt/homebrew/Caskroom/claude-code/2.1.315/claude"))
+    #expect(
+        !Sessions.outdated(
+            running: "/opt/homebrew/Caskroom/claude-code/2.1.314/claude",
+            installed: "/opt/homebrew/Caskroom/claude-code/2.1.315/claude"))
     #expect(!Sessions.outdated(running: "/usr/bin/ssh", installed: "\(versions)/2.1.315"))
     #expect(!Sessions.outdated(running: nil, installed: "\(versions)/2.1.315"))
 }

@@ -1,7 +1,7 @@
 import AppKit
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 import WorkbenchKit
 
 /// The window's split: its dividers aren't drawn (the panels and the gap round the card are one surface), and each can
@@ -16,9 +16,12 @@ final class ShellSplit: NSSplitViewController {
         splitView = v
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func splitView(_ v: NSSplitView, effectiveRect proposed: NSRect, forDrawnRect drawn: NSRect, ofDividerAt i: Int) -> NSRect {
+    override func splitView(
+        _ v: NSSplitView, effectiveRect proposed: NSRect, forDrawnRect drawn: NSRect, ofDividerAt i: Int
+    ) -> NSRect {
         var r = super.splitView(v, effectiveRect: proposed, forDrawnRect: drawn, ofDividerAt: i)
-        r.size.width += Card.gap; if i > 0 { r.origin.x -= Card.gap }   // into the gap, which is on the editor area's side
+        r.size.width += Card.gap
+        if i > 0 { r.origin.x -= Card.gap }   // into the gap, which is on the editor area's side
         return r
     }
     private final class Seamless: NSSplitView { override var dividerColor: NSColor { .clear } }
@@ -49,7 +52,8 @@ final class Floater: NSView {
         self.width = width
         self.inset = inset
         super.init(frame: .zero)
-        isHidden = true; wantsLayer = true
+        isHidden = true
+        wantsLayer = true
         material.material = .sidebar
         material.blendingMode = .behindWindow
         material.state = .followsWindowActiveState
@@ -57,7 +61,8 @@ final class Floater: NSView {
         material.layer?.borderWidth = 1
         box.wantsLayer = true
         for v in [material, box] {
-            v.layer?.cornerRadius = Self.radius; v.layer?.cornerCurve = .continuous
+            v.layer?.cornerRadius = Self.radius
+            v.layer?.cornerCurve = .continuous
             v.layer?.masksToBounds = true
         }
         pin(material)
@@ -76,7 +81,8 @@ final class Floater: NSView {
         if on, #available(macOS 26, *) {
             let g = glass as? NSGlassEffectView ?? NSGlassEffectView()
             if glass == nil {
-                g.cornerRadius = Self.radius; pin(g)
+                g.cornerRadius = Self.radius
+                pin(g)
                 glass = g
             }
             g.contentView = box
@@ -92,11 +98,16 @@ final class Floater: NSView {
     /// Against the window's leading or trailing edge, its full height; out of sight until it slides in.
     func attach(leading: Bool) {
         guard let s = superview else { return }
-        let e = leading ? leadingAnchor.constraint(equalTo: s.leadingAnchor) : s.trailingAnchor.constraint(equalTo: trailingAnchor)
+        let e =
+            leading
+            ? leadingAnchor.constraint(equalTo: s.leadingAnchor) : s.trailingAnchor.constraint(equalTo: trailingAnchor)
         let w = widthAnchor.constraint(equalToConstant: width)
-        NSLayoutConstraint.activate([e, w, topAnchor.constraint(equalTo: s.topAnchor, constant: inset),
-                                     bottomAnchor.constraint(equalTo: s.bottomAnchor, constant: -inset)])
-        edge = e; widthC = w
+        NSLayoutConstraint.activate([
+            e, w, topAnchor.constraint(equalTo: s.topAnchor, constant: inset),
+            bottomAnchor.constraint(equalTo: s.bottomAnchor, constant: -inset)
+        ])
+        edge = e
+        widthC = w
     }
 
     func slide(in on: Bool, animated: Bool = true) {
@@ -127,7 +138,8 @@ final class Floater: NSView {
     }
     override func layout() {
         super.layout()
-        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: Self.radius, cornerHeight: Self.radius, transform: nil)
+        layer?.shadowPath = CGPath(
+            roundedRect: bounds, cornerWidth: Self.radius, cornerHeight: Self.radius, transform: nil)
     }
 }
 
@@ -172,7 +184,8 @@ final class EdgeTrigger: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self))
+        addTrackingArea(
+            NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self))
     }
     override func mouseEntered(with e: NSEvent) { onEnter?() }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to whatever is under it
@@ -203,7 +216,8 @@ final class DropRoot: NSVisualEffectView {
     override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation { Workbench.files(s).isEmpty ? [] : .copy }
     override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
         let files = Workbench.files(s)
-        app.workbench.open(files: files); return !files.isEmpty
+        app.workbench.open(files: files)
+        return !files.isEmpty
     }
 }
 
@@ -211,7 +225,10 @@ final class DropRoot: NSVisualEffectView {
 @MainActor
 final class EditorHost: NSViewController {
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init(nibName: nil, bundle: nil) }
+    init(app: AppModel) {
+        self.app = app
+        super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
     /// The editor area (or the welcome) is in this card, under the window bar, which lies over this view's top.
     private let card = Card()
@@ -232,16 +249,37 @@ final class EditorHost: NSViewController {
         card.identifier = Banner.anchor   // banners sit in its corner
         showWelcome()
         // Daemon state: workspaces that are gone leave; sessions' tabs come and show their status and context ring.
-        track { app.repos } changed: { [weak self] _ in self?.refresh() }
-        track { app.worktrees } changed: { [weak self] _ in self?.refresh() }
-        track { app.sessions } changed: { [weak self] _ in self?.refresh() }
-        track { app.latest(ContextEvent.self).byKey } changed: { [weak self] _ in self?.refresh() }
-        track { app.themes.look } changed: { [weak self] in self?.card.look = $0 }
+        track {
+            app.repos
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
+        track {
+            app.worktrees
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
+        track {
+            app.sessions
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
+        track {
+            app.latest(ContextEvent.self).byKey
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
+        track {
+            app.themes.look
+        } changed: { [weak self] in
+            self?.card.look = $0
+        }
     }
 
     func show(_ id: String?) {
         if let p = page {   // back from a page: it goes (it reads its server only while it's there)
-            p.view.removeFromSuperview(); page = nil
+            p.view.removeFromSuperview()
+            page = nil
             if let c = current, c.workspaceId == id {
                 card.pin(c.view)
                 c.focusSelected()
@@ -255,14 +293,22 @@ final class EditorHost: NSViewController {
             showWelcome()
             return
         }
-        welcome?.removeFromSuperview(); welcome = nil
+        welcome?.removeFromSuperview()
+        welcome = nil
         let area = areas[id] ?? EditorArea(app: app, workspaceId: id)
-        if areas[id] == nil { areas[id] = area; addChild(area) }
-        recent.removeAll { $0 == id }; recent.insert(id, at: 0)
+        if areas[id] == nil {
+            areas[id] = area
+            addChild(area)
+        }
+        recent.removeAll { $0 == id }
+        recent.insert(id, at: 0)
         // Their terminals detach.
         let gone: [String]
         (recent, gone) = Self.evicting(recent, keep: Self.keep) { self.areas[$0]?.editedFiles.isEmpty == false }
-        for old in gone { areas[old]?.removeFromParent(); areas[old] = nil }
+        for old in gone {
+            areas[old]?.removeFromParent()
+            areas[old] = nil
+        }
         current = area
         card.pin(area.view)
         area.reconcile()
@@ -277,7 +323,8 @@ final class EditorHost: NSViewController {
         guard let made = app.extensions.tabProvider(for: uri)?.make(uri) else { return nil }
         page?.view.removeFromSuperview()
         current?.view.removeFromSuperview()
-        welcome?.removeFromSuperview(); welcome = nil
+        welcome?.removeFromSuperview()
+        welcome = nil
         page = made
         card.pin(made.view)
         made.focus()
@@ -286,7 +333,8 @@ final class EditorHost: NSViewController {
 
     /// The areas past the newest `keep` go, except those with unsaved files: they stay listed, and go on a later switch
     /// once saved (dropped from the list, one would stay loaded, and its terminal attached, until shown again).
-    static func evicting(_ recent: [String], keep: Int, edited: (String) -> Bool) -> (recent: [String], gone: [String]) {
+    static func evicting(_ recent: [String], keep: Int, edited: (String) -> Bool) -> (recent: [String], gone: [String])
+    {
         let gone = recent.dropFirst(keep).filter { !edited($0) }
         return (recent.filter { !gone.contains($0) }, gone)
     }
@@ -299,14 +347,21 @@ final class EditorHost: NSViewController {
         }
         guard !TabURI.runs(uri) else { return }
         var l = WorkspaceLayout.load(id, from: app.uiState)
-        if l.tab(uri: uri) == nil { _ = l.add(uri, to: l.focusedGroup?.id); l.save(id, to: app.uiState) }
+        if l.tab(uri: uri) == nil {
+            _ = l.add(uri, to: l.focusedGroup?.id)
+            l.save(id, to: app.uiState)
+        }
     }
 
     /// Chats went from a workspace that may not be on screen, the same two ways: a group left with no tab closes.
     func chatsLeft(_ id: String) {
-        if let a = areas[id] { a.reconcile(); return }
+        if let a = areas[id] {
+            a.reconcile()
+            return
+        }
         var l = WorkspaceLayout.load(id, from: app.uiState)
-        for t in l.allTabs where TabURI.scheme(t.uri) == "session" && app.session(TabURI.body(t.uri))?.worktreeId != id { l.remove(t.id) }
+        for t in l.allTabs where TabURI.scheme(t.uri) == "session" && app.session(TabURI.body(t.uri))?.worktreeId != id
+        { l.remove(t.id) }
         l.save(id, to: app.uiState)
         if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
     }
@@ -315,14 +370,21 @@ final class EditorHost: NSViewController {
     /// the screen isn't loaded yet, its session ending and its place in the saved layout going.
     func closeChat(_ sid: String, workspace id: String) {
         let uri = TabURI.session(sid)
-        if let a = areas[id], let t = a.layout.tab(uri: uri) { a.closeTab(t.id); return }
+        if let a = areas[id], let t = a.layout.tab(uri: uri) {
+            a.closeTab(t.id)
+            return
+        }
         let title = app.session(sid)?.displayTitle ?? ""
         Task {
             guard await app.extensions.tabProvider(for: uri)?.closeUnbuilt?(uri) ?? true else { return }
-            if let a = areas[id] { a.reconcile(); return }
+            if let a = areas[id] {
+                a.reconcile()
+                return
+            }
             var l = WorkspaceLayout.load(id, from: app.uiState)
             guard let t = l.tab(uri: uri) else { return }
-            app.workbench.closedTabs.remember(ClosedTab(uri: uri, title: title, workspace: id, group: l.group(of: t.id), index: nil))
+            app.workbench.closedTabs.remember(
+                ClosedTab(uri: uri, title: title, workspace: id, group: l.group(of: t.id), index: nil))
             l.remove(t.id)
             l.save(id, to: app.uiState)
             if l.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
@@ -331,7 +393,10 @@ final class EditorHost: NSViewController {
 
     /// A restarted session into its old tab in a workspace that isn't on screen, the same two ways.
     func replaceInBackground(_ old: String, with new: String, workspace id: String) {
-        if let a = areas[id] { a.replace(old, with: new, focus: false); return }
+        if let a = areas[id] {
+            a.replace(old, with: new, focus: false)
+            return
+        }
         var l = WorkspaceLayout.load(id, from: app.uiState)
         if l.replace(old, with: new) == nil, l.tab(uri: new) == nil { l.add(new, to: l.focusedGroup?.id) }
         l.save(id, to: app.uiState)
@@ -344,10 +409,15 @@ final class EditorHost: NSViewController {
             recent.removeAll { $0 == id }
             // Closed from elsewhere (the CLI, an agent): unsaved files still get their question, only without Cancel.
             let edited = a.editedFiles
-            guard !edited.isEmpty else { a.removeFromParent(); continue }
+            guard !edited.isEmpty else {
+                a.removeFromParent()
+                continue
+            }
             Task {
                 let answer = await runSheet(UnsavedChanges.alert(edited, quitting: false, canCancel: false))
-                if await UnsavedChanges.settle(edited, answer, canCancel: false) { _ = await UnsavedChanges.written(edited) }
+                if await UnsavedChanges.settle(edited, answer, canCancel: false) {
+                    _ = await UnsavedChanges.written(edited)
+                }
                 a.removeFromParent()
             }
         }
@@ -374,18 +444,28 @@ final class WelcomeView: NSView {
         self.hasRepos = hasRepos
         super.init(frame: .zero)
         let icon = NSImageView(image: .symbol(hasRepos ? "sidebar.left" : "bubble.left"))
-        icon.symbolConfiguration = .chrome(Metrics.iconHero); icon.contentTintColor = .tertiaryLabelColor
-        let title = NSTextField(labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
+        icon.symbolConfiguration = .chrome(Metrics.iconHero)
+        icon.contentTintColor = .tertiaryLabelColor
+        let title = NSTextField(
+            labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(20, weight: .semibold)
-        let body = NSTextField(wrappingLabelWithString: hasRepos
-            ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one.")
-            : String(localized: "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side."))
-        body.alignment = .center; body.textColor = .secondaryLabelColor
+        let body = NSTextField(
+            wrappingLabelWithString: hasRepos
+                ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one.")
+                : String(
+                    localized:
+                        "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side."
+                ))
+        body.alignment = .center
+        body.textColor = .secondaryLabelColor
         // With no project yet a chat needs none: it's the first thing to do, adding a project the second.
         let chat = ClosureButton(title: String(localized: "New Chat")) { [app] in app.workbench.newChat() }
         let add = ClosureButton(title: String(localized: "Add Project…")) { [app] in app.workbench.addProject() }
         let buttons = NSStackView(views: hasRepos ? [chat] : [add, chat])
-        for case let b as NSButton in buttons.arrangedSubviews { b.bezelStyle = .push; b.controlSize = .large }
+        for case let b as NSButton in buttons.arrangedSubviews {
+            b.bezelStyle = .push
+            b.controlSize = .large
+        }
         chat.keyEquivalent = "\r"
         // First run: how it looks and who answers, picked here before anything else (the same tiles as in Settings).
         let setup = hasRepos ? nil : NSHostingView(rootView: WelcomeSetup().environment(app))
@@ -394,10 +474,13 @@ final class WelcomeView: NSView {
         stack.spacing = Metrics.gapWide
         stack.setCustomSpacing(Metrics.sheetInset, after: setup ?? body)
         if setup != nil { stack.setCustomSpacing(2 * Metrics.inset, after: body) }
-        stack.translatesAutoresizingMaskIntoConstraints = false; addSubview(stack)
-        NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-                                     stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Metrics.emptyLift),
-                                     body.widthAnchor.constraint(equalToConstant: Metrics.sheetWidth - 2 * Metrics.sheetInset)])
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Metrics.emptyLift),
+            body.widthAnchor.constraint(equalToConstant: Metrics.sheetWidth - 2 * Metrics.sheetInset)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 }

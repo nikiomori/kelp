@@ -1,7 +1,8 @@
-import Foundation
-import Testing
 import Core
+import Foundation
 import TestSupport
+import Testing
+
 @testable import GitKit
 
 /// A line that starts with a combining mark: with its "+" it's one Character, and it used to fall out of the hunk.
@@ -15,9 +16,10 @@ import TestSupport
 @Test func hidingWhitespaceLeavesOutSpaceOnlyChanges() throws {
     let repo = try tempRepo()
     try "a\nb\nc\n".write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "g.txt"], cwd: repo); try Git.run(["commit", "-qm", "g"], cwd: repo)
+    try Git.run(["add", "g.txt"], cwd: repo)
+    try Git.run(["commit", "-qm", "g"], cwd: repo)
     try "a  \nb\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // a space and a real line
-    try "  a\nb\nc\n".write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)      // a space only
+    try "  a\nb\nc\n".write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)   // a space only
     #expect(try Git.diff(repo, source: .allUncommitted).map(\.path) == ["f.txt", "g.txt", ".env"])
     let hidden = try Git.diff(repo, source: .allUncommitted, ignoreSpace: true)
     #expect(hidden.map(\.path) == ["f.txt", ".env"])   // .env: untracked, all of it new
@@ -53,13 +55,21 @@ import TestSupport
     try Git.run(["branch", "feat/local"], cwd: repo)
     try Git.run(["push", "-q", "origin", "main:spike", "main:refs/pull/7/head"], cwd: repo)
     try Git.run(["fetch", "-q", "origin"], cwd: repo)
-    let a = try Git.addWorktree(repo: repo, branch: "feat/local", base: "main", into: dir, copyFiles: [], existing: true)
-    #expect(try Git.run(["branch", "--show-current"], cwd: a).trimmingCharacters(in: .whitespacesAndNewlines) == "feat/local")
-    let b = try Git.addWorktree(repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
-    #expect(try Git.run(["branch", "--show-current"], cwd: b).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")
+    let a = try Git.addWorktree(
+        repo: repo, branch: "feat/local", base: "main", into: dir, copyFiles: [], existing: true)
+    #expect(
+        try Git.run(["branch", "--show-current"], cwd: a).trimmingCharacters(in: .whitespacesAndNewlines)
+            == "feat/local")
+    let b = try Git.addWorktree(
+        repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
+    #expect(
+        try Git.run(["branch", "--show-current"], cwd: b).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")
     try Git.run(["worktree", "remove", "--force", b], cwd: repo)
-    let again = try Git.addWorktree(repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
-    #expect(try Git.run(["branch", "--show-current"], cwd: again).trimmingCharacters(in: .whitespacesAndNewlines) == "spike")   // the local one
+    let again = try Git.addWorktree(
+        repo: repo, branch: "origin/spike", base: "main", into: dir, copyFiles: [], existing: true)
+    #expect(
+        try Git.run(["branch", "--show-current"], cwd: again).trimmingCharacters(in: .whitespacesAndNewlines) == "spike"
+    )   // the local one
     #expect(try Git.fetchPullRequest(repo: repo, number: 7) == "pr-7")
     #expect(Git.branchExists(repo, "pr-7"))
 }
@@ -68,14 +78,17 @@ import TestSupport
 /// `main` checked out here) is never taken for it; your own branch is, when it is free and at the PR's head.
 @Test func aPullRequestIsItsOwnHead() throws {
     let origin = tmp().path, repo = try tempRepo()
-    func head(_ ref: String) throws -> String { try Git.run(["rev-parse", ref], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines) }
+    func head(_ ref: String) throws -> String {
+        try Git.run(["rev-parse", ref], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     try Git.run(["init", "-q", "--bare", origin], cwd: repo)
     try Git.run(["remote", "add", "origin", origin], cwd: repo)
     try Git.run(["branch", "fix-typo"], cwd: repo)   // mine, unrelated
     try Git.run(["commit", "-q", "--allow-empty", "-m", "theirs"], cwd: repo)
     try Git.run(["push", "-q", "origin", "HEAD:refs/pull/8/head", "HEAD:refs/pull/9/head"], cwd: repo)
     try Git.run(["reset", "-q", "--hard", "HEAD~1"], cwd: repo)
-    let theirs = try Git.run(["rev-parse", "refs/pull/8/head"], cwd: origin).trimmingCharacters(in: .whitespacesAndNewlines)
+    let theirs = try Git.run(["rev-parse", "refs/pull/8/head"], cwd: origin).trimmingCharacters(
+        in: .whitespacesAndNewlines)
     #expect(try Git.fetchPullRequest(repo: repo, number: 8, wanted: "fix-typo") == "pr-8")
     #expect(try head("pr-8") == theirs && head("fix-typo") != theirs)
     #expect(try Git.fetchPullRequest(repo: repo, number: 9, wanted: "main") == "pr-9")   // main: checked out here

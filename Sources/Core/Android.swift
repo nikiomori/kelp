@@ -5,7 +5,8 @@ import Foundation
 public enum AndroidSDK {
     public static var root: URL? {
         let env = ProcessInfo.processInfo.environment
-        let candidates = [env["ANDROID_HOME"], env["ANDROID_SDK_ROOT"]].compactMap { $0 }
+        let candidates =
+            [env["ANDROID_HOME"], env["ANDROID_SDK_ROOT"]].compactMap { $0 }
             + [FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Android/sdk").path]
         return candidates.map { URL(fileURLWithPath: $0) }
             .first { FileManager.default.isExecutableFile(atPath: $0.appendingPathComponent("emulator/emulator").path) }
@@ -35,7 +36,9 @@ public enum AndroidSDK {
         }
         return nil
     }
-    private static func rank(_ tag: String) -> Int { ["default": 0, "google_apis": 1, "google_apis_playstore": 2][tag] ?? 3 }
+    private static func rank(_ tag: String) -> Int {
+        ["default": 0, "google_apis": 1, "google_apis_playstore": 2][tag] ?? 3
+    }
 
     /// What an app's screen holds, from `uiautomator dump`: a line each for the controls worth naming, indented by depth,
     /// with a ref to press and where it is: `- button "Sign in" [ref=e3] (96,1180 888×132)`. `centers` by ref, for taps.
@@ -50,7 +53,10 @@ public enum AndroidSDK {
     private final class UIReader: NSObject, XMLParserDelegate {
         var lines: [String] = [], centers: [String: (x: Int, y: Int)] = [:]
         private var shown: [Bool] = []
-        func parser(_ p: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes a: [String: String] = [:]) {
+        func parser(
+            _ p: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?,
+            attributes a: [String: String] = [:]
+        ) {
             guard name == "node" else { return }
             let label = [a["text"], a["content-desc"]].compactMap { $0 }.first { !$0.isEmpty } ?? ""
             let acts = ["clickable", "checkable", "scrollable", "long-clickable"].contains { a[$0] == "true" }
@@ -60,8 +66,12 @@ public enum AndroidSDK {
                 let ref = "e\(centers.count + 1)"
                 centers[ref] = ((b.0 + b.2) / 2, (b.1 + b.3) / 2)
                 let depth = shown.filter { $0 }.count
-                let id = (a["resource-id"].flatMap { $0.isEmpty ? nil : $0.split(separator: "/").last.map(String.init) }).map { " #\($0)" } ?? ""
-                lines.append(String(repeating: "  ", count: depth) + "- \(role) \"\(label)\"\(id) [ref=\(ref)] (\(b.0),\(b.1) \(b.2 - b.0)×\(b.3 - b.1))")
+                let id =
+                    (a["resource-id"].flatMap { $0.isEmpty ? nil : $0.split(separator: "/").last.map(String.init) }).map
+                { " #\($0)" } ?? ""
+                lines.append(
+                    String(repeating: "  ", count: depth)
+                        + "- \(role) \"\(label)\"\(id) [ref=\(ref)] (\(b.0),\(b.1) \(b.2 - b.0)×\(b.3 - b.1))")
             }
             shown.append(show)
         }
@@ -79,14 +89,21 @@ public enum AndroidSDK {
     public static func inputText(_ s: String) -> String {
         var out = ""
         for c in s {
-            if c == " " { out += "%s" } else if "()<>|;&*\\~\"'`$".contains(c) { out += "\\\(c)" } else { out.append(c) }
+            if c == " " {
+                out += "%s"
+            } else if "()<>|;&*\\~\"'`$".contains(c) {
+                out += "\\\(c)"
+            } else {
+                out.append(c)
+            }
         }
         return out
     }
 
     /// Key names agents use, as Android keycodes.
     public static let keys: [String: Int] = [
-        "home": 3, "back": 4, "up": 19, "down": 20, "left": 21, "right": 22, "enter": 66, "return": 66, "tab": 61, "space": 62,
+        "home": 3, "back": 4, "up": 19, "down": 20, "left": 21, "right": 22, "enter": 66, "return": 66, "tab": 61,
+        "space": 62,
         "delete": 67, "backspace": 67, "escape": 111, "esc": 111, "menu": 82, "search": 84, "power": 26, "volumeup": 24,
         "volumedown": 25, "appswitch": 187, "recents": 187, "forwarddelete": 112
     ]

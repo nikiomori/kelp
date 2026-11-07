@@ -1,19 +1,21 @@
-import Foundation
 import Core
+import Foundation
 
 extension Main {
     /// `status`, `repo …`, `worktree …`.
     static func projects(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("status", _):
-            let repos = try await c.call(RepoList()), wts = try await c.call(WorktreeList()), ss = try await c.call(SessionList())
+            let repos = try await c.call(RepoList()), wts = try await c.call(WorktreeList()),
+                ss = try await c.call(SessionList())
             for r in repos {
                 print("\(r.name)  \(r.path)")
                 for w in wts where w.repoId == r.id {
                     let note = w.note.isEmpty ? "" : " — \(w.note)"
                     print("  \(w.branch)  [\(w.id.prefix(8))]\(note)")
                     for s in ss where s.worktreeId == w.id {
-                        print("    \(s.agent ?? "cmd") \(s.status.rawValue)\(s.unread ? " •" : "")  [\(s.id.prefix(8))]")
+                        print(
+                            "    \(s.agent ?? "cmd") \(s.status.rawValue)\(s.unread ? " •" : "")  [\(s.id.prefix(8))]")
                     }
                 }
             }
@@ -25,7 +27,9 @@ extension Main {
             guard let b = args.first, !b.hasPrefix("-") else { fail("worktree create <branch>") }
             args.removeFirst()
             let base = flag("--base"), setup: Bool? = has("--no-setup") ? false : nil
-            show(try await c.call(WorktreeCreate(repoId: try await currentRepoID(c), branch: b, base: base, setup: setup)))
+            show(
+                try await c.call(
+                    WorktreeCreate(repoId: try await currentRepoID(c), branch: b, base: base, setup: setup)))
         case ("worktree", "list"): show(try await c.call(WorktreeList(archived: has("--all") ? true : nil)))
         case ("worktree", "current"): show(try await currentWorktree(c))
         case ("worktree", "note"):

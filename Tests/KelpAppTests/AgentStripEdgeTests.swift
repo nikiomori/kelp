@@ -1,18 +1,23 @@
 import AppKit
 import Core
 import Testing
+
 @testable import KelpKit
 
 private let area = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 
 private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0) -> StripItem {
-    StripItem(workspace: session, name: session, cell: cell, session: session, words: "Allow npm test?", since: Date(timeIntervalSince1970: at))
+    StripItem(
+        workspace: session, name: session, cell: cell, session: session, words: "Allow npm test?",
+        since: Date(timeIntervalSince1970: at))
 }
 
 @MainActor @Test func aStripLetGoPastASideHidesBehindIt() {
-    func edge(_ x: CGFloat) -> StripEdge? { StripModel.edge(dropped: NSRect(x: x, y: 300, width: 120, height: 40), in: area) }
+    func edge(_ x: CGFloat) -> StripEdge? {
+        StripModel.edge(dropped: NSRect(x: x, y: 300, width: 120, height: 40), in: area)
+    }
     #expect(edge(1930) == .right)   // 50 of 120 past: more than a third
-    #expect(edge(1900) == nil)      // 20 past: it goes to a corner
+    #expect(edge(1900) == nil)   // 20 past: it goes to a corner
     #expect(edge(-50) == .left)
     #expect(edge(8) == nil)
 }
@@ -119,7 +124,12 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         var last = strip.frame, still = 0
         while still < 3, Date() < end {
             try await Task.sleep(for: .milliseconds(50))
-            if strip.frame == last { still += 1 } else { still = 0; last = strip.frame }
+            if strip.frame == last {
+                still += 1
+            } else {
+                still = 0
+                last = strip.frame
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import GitKit
 
 /// CI runs of one branch: GitHub Actions (`gh run`) and GitLab pipelines (`glab api`), the values in Core.
@@ -9,33 +9,47 @@ extension CIRuns {
     public static func runs(cwd: String, branch: String) throws -> [Run] {
         if GitLab.isGitLab(cwd: cwd) { return try gitlabRuns(cwd: cwd, branch: branch) }
         struct RawRun: Decodable {
-            var databaseId: Int, displayTitle: String, workflowName: String?, name: String?, status: String, conclusion: String?
+            var databaseId: Int, displayTitle: String, workflowName: String?, name: String?, status: String,
+                conclusion: String?
             var event: String, url: String, createdAt: String
             var number: Int?, attempt: Int?, headSha: String?, startedAt: String?, updatedAt: String?
         }
-        let fields = "databaseId,displayTitle,workflowName,name,status,conclusion,event,url,createdAt,number,attempt,headSha,startedAt,updatedAt"
+        let fields =
+            "databaseId,displayTitle,workflowName,name,status,conclusion,event,url,createdAt,number,attempt,headSha,startedAt,updatedAt"
         let d = try GitHub.gh(["run", "list", "--branch", branch, "-L", "20", "--json", fields], cwd: cwd)
         return try JSONDecoder().decode([RawRun].self, from: d).map {
-            Run(id: $0.databaseId, title: $0.displayTitle, workflow: $0.workflowName ?? $0.name ?? "", status: $0.status,
-                conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }, event: $0.event, url: $0.url, createdAt: $0.createdAt,
-                number: $0.number, sha: $0.headSha, attempt: $0.attempt, startedAt: moment($0.startedAt), updatedAt: moment($0.updatedAt))
+            Run(
+                id: $0.databaseId, title: $0.displayTitle, workflow: $0.workflowName ?? $0.name ?? "",
+                status: $0.status,
+                conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }, event: $0.event, url: $0.url,
+                createdAt: $0.createdAt,
+                number: $0.number, sha: $0.headSha, attempt: $0.attempt, startedAt: moment($0.startedAt),
+                updatedAt: moment($0.updatedAt))
         }
     }
 
     public static func jobs(cwd: String, run: Int) throws -> [Job] {
         if GitLab.isGitLab(cwd: cwd) { return try gitlabJobs(cwd: cwd, pipeline: run) }
-        struct RawStep: Decodable { var name: String, status: String, conclusion: String?, number: Int?, startedAt: String?, completedAt: String? }
+        struct RawStep: Decodable {
+            var name: String, status: String, conclusion: String?, number: Int?, startedAt: String?,
+                completedAt: String?
+        }
         struct RawJob: Decodable {
             var databaseId: Int, name: String, status: String, conclusion: String?, url: String?, steps: [RawStep]?
             var startedAt: String?, completedAt: String?
         }
         struct RunView: Decodable { var jobs: [RawJob] }
-        let v = try JSONDecoder().decode(RunView.self, from: GitHub.gh(["run", "view", String(run), "--json", "jobs"], cwd: cwd))
+        let v = try JSONDecoder().decode(
+            RunView.self, from: GitHub.gh(["run", "view", String(run), "--json", "jobs"], cwd: cwd))
         return v.jobs.map { j in
-            Job(id: j.databaseId, name: j.name, status: j.status, conclusion: j.conclusion.flatMap { $0.isEmpty ? nil : $0 }, url: j.url,
+            Job(
+                id: j.databaseId, name: j.name, status: j.status,
+                conclusion: j.conclusion.flatMap { $0.isEmpty ? nil : $0 }, url: j.url,
                 steps: (j.steps ?? []).map {
-                    Step(name: $0.name, status: $0.status, conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 }, number: $0.number,
-                         startedAt: moment($0.startedAt), completedAt: moment($0.completedAt))
+                    Step(
+                        name: $0.name, status: $0.status, conclusion: $0.conclusion.flatMap { $0.isEmpty ? nil : $0 },
+                        number: $0.number,
+                        startedAt: moment($0.startedAt), completedAt: moment($0.completedAt))
                 }, startedAt: moment(j.startedAt), completedAt: moment(j.completedAt))
         }
     }
@@ -48,8 +62,11 @@ extension CIRuns {
 
     /// Every step of a job.
     public static func fullLog(cwd: String, job: Int) throws -> String {
-        if GitLab.isGitLab(cwd: cwd) { return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd)) }
-        return readable(String(decoding: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), as: UTF8.self))
+        if GitLab.isGitLab(cwd: cwd) {
+            return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd))
+        }
+        return readable(
+            String(decoding: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), as: UTF8.self))
     }
 
     /// What broke in a job, read from its log before the tail is cut.
@@ -64,10 +81,17 @@ extension CIRuns {
     }
 
     private static func failedText(cwd: String, job: Int) throws -> String {
-        if GitLab.isGitLab(cwd: cwd) { return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd)) }
-        let failed = (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap { String(bytes: $0, encoding: .utf8) } ?? ""
+        if GitLab.isGitLab(cwd: cwd) {
+            return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd))
+        }
+        let failed =
+            (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap {
+                String(bytes: $0, encoding: .utf8)
+            } ?? ""
         if !failed.isEmpty { return readable(failed) }
-        return readable(String(bytes: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), encoding: .utf8) ?? "")
+        return readable(
+            String(bytes: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), encoding: .utf8)
+                ?? "")
     }
 
     private static func wholeLog(trace: Data) -> String { readable(String(bytes: trace, encoding: .utf8) ?? "") }
@@ -80,18 +104,26 @@ extension CIRuns {
             var text = line
             let f = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false)
             if f.count == 3 {
-                if f[1] != step { step = f[1]; out.append((out.isEmpty ? "" : "\n") + "▸ " + f[1]) }
+                if f[1] != step {
+                    step = f[1]
+                    out.append((out.isEmpty ? "" : "\n") + "▸ " + f[1])
+                }
                 text = f[2].replacing(/^\x{FEFF}?\d{4}-\d\d-\d\dT[\d:.]+Z ?/, with: "")
             }
             if text == "##[endgroup]" { continue }
-            out.append(String(text.replacing(/(\x{1B}|\^\[)\[[0-9;]*[A-Za-z]/, with: "").replacing(/^##\[group\]/, with: "")
-                .replacing(/^##\[error\]/, with: "Error: ").replacing(/^##\[warning\]/, with: "Warning: ")))
+            out.append(
+                String(
+                    text.replacing(/(\x{1B}|\^\[)\[[0-9;]*[A-Za-z]/, with: "").replacing(/^##\[group\]/, with: "")
+                        .replacing(/^##\[error\]/, with: "Error: ").replacing(/^##\[warning\]/, with: "Warning: ")))
         }
         return out.joined(separator: "\n")
     }
 
     public static func rerunFailed(cwd: String, run: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) { _ = try GitLab.api("projects/:id/pipelines/\(run)/retry", cwd: cwd, method: "POST"); return }
+        if GitLab.isGitLab(cwd: cwd) {
+            _ = try GitLab.api("projects/:id/pipelines/\(run)/retry", cwd: cwd, method: "POST")
+            return
+        }
         try GitHub.gh(["run", "rerun", String(run), "--failed"], cwd: cwd)
     }
 
@@ -102,12 +134,18 @@ extension CIRuns {
     }
 
     public static func rerunJob(cwd: String, job: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) { _ = try GitLab.api("projects/:id/jobs/\(job)/retry", cwd: cwd, method: "POST"); return }
+        if GitLab.isGitLab(cwd: cwd) {
+            _ = try GitLab.api("projects/:id/jobs/\(job)/retry", cwd: cwd, method: "POST")
+            return
+        }
         try GitHub.gh(["run", "rerun", "--job", String(job)], cwd: cwd)
     }
 
     public static func cancel(cwd: String, run: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) { _ = try GitLab.api("projects/:id/pipelines/\(run)/cancel", cwd: cwd, method: "POST"); return }
+        if GitLab.isGitLab(cwd: cwd) {
+            _ = try GitLab.api("projects/:id/pipelines/\(run)/cancel", cwd: cwd, method: "POST")
+            return
+        }
         try GitHub.gh(["run", "cancel", String(run)], cwd: cwd)
     }
 
@@ -120,7 +158,9 @@ extension CIRuns {
     /// `.github/workflows/*.yml` that can be started by hand, read just far enough for their inputs.
     public static func dispatchable(repo: String) -> [Workflow] {
         let dir = URL(fileURLWithPath: repo).appendingPathComponent(".github/workflows")
-        let files = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).filter { $0.hasSuffix(".yml") || $0.hasSuffix(".yaml") }.sorted()
+        let files = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).filter {
+            $0.hasSuffix(".yml") || $0.hasSuffix(".yaml")
+        }.sorted()
         return files.compactMap { f in
             guard let text = try? String(contentsOf: dir.appendingPathComponent(f), encoding: .utf8) else { return nil }
             return parseWorkflow(text, file: f)
@@ -130,19 +170,28 @@ extension CIRuns {
     /// The `workflow_dispatch:` inputs of a workflow file. Limit: an indentation reader, not YAML; flow-style maps are missed.
     static func parseWorkflow(_ text: String, file: String) -> Workflow? {
         let lines = text.components(separatedBy: "\n")
-        guard let d = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("workflow_dispatch") }) else { return nil }
+        guard
+            let d = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("workflow_dispatch") })
+        else { return nil }
         let name = lines.first { $0.hasPrefix("name:") }.map { unquote(String($0.dropFirst(5))) } ?? file
         func indent(_ l: String) -> Int { l.prefix { $0 == " " }.count }
         let base = indent(lines[d])
         var inputs: [Workflow.Input] = [], i = d + 1, inputIndent: Int?
         while i < lines.count {
             let l = lines[i], t = l.trimmingCharacters(in: .whitespaces)
-            if t.isEmpty || t.hasPrefix("#") { i += 1; continue }
+            if t.isEmpty || t.hasPrefix("#") {
+                i += 1
+                continue
+            }
             if indent(l) <= base { break }
-            if t == "inputs:" { i += 1; continue }
+            if t == "inputs:" {
+                i += 1
+                continue
+            }
             if inputIndent == nil || indent(l) == inputIndent, t.hasSuffix(":"), !t.contains(" ") {
                 inputIndent = indent(l)
-                inputs.append(.init(name: String(t.dropLast()), description: "", defaultValue: "", options: [], required: false))
+                inputs.append(
+                    .init(name: String(t.dropLast()), description: "", defaultValue: "", options: [], required: false))
             } else if var last = inputs.popLast() {
                 if t.hasPrefix("description:") { last.description = unquote(String(t.dropFirst(12))) }
                 if t.hasPrefix("default:") { last.defaultValue = unquote(String(t.dropFirst(8))) }
@@ -155,7 +204,9 @@ extension CIRuns {
         return Workflow(file: file, name: name, inputs: inputs)
     }
 
-    static func unquote(_ s: String) -> String { s.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'")) }
+    static func unquote(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+    }
 
     // MARK: GitLab
 
@@ -165,21 +216,30 @@ extension CIRuns {
             var iid: Int?, sha: String?, updated_at: String?
         }
         let b = GitLab.queryValue(branch)
-        return try JSONDecoder().decode([RawPipeline].self, from: GitLab.api("projects/:id/pipelines?ref=\(b)&per_page=20", cwd: cwd)).map {
+        return try JSONDecoder().decode(
+            [RawPipeline].self, from: GitLab.api("projects/:id/pipelines?ref=\(b)&per_page=20", cwd: cwd)
+        ).map {
             let (s, c) = gitlabState($0.status)
-            return Run(id: $0.id, title: "Pipeline #\($0.id)", workflow: $0.ref, status: s, conclusion: c, event: $0.source ?? "",
-                       url: $0.web_url, createdAt: $0.created_at, number: $0.iid, sha: $0.sha, updatedAt: $0.updated_at)
+            return Run(
+                id: $0.id, title: "Pipeline #\($0.id)", workflow: $0.ref, status: s, conclusion: c,
+                event: $0.source ?? "",
+                url: $0.web_url, createdAt: $0.created_at, number: $0.iid, sha: $0.sha, updatedAt: $0.updated_at)
         }
     }
 
     static func gitlabJobs(cwd: String, pipeline: Int) throws -> [Job] {
         struct RawGitLabJob: Decodable {
-            var id: Int, name: String, status: String, web_url: String?, stage: String?, started_at: String?, finished_at: String?
+            var id: Int, name: String, status: String, web_url: String?, stage: String?, started_at: String?,
+                finished_at: String?
         }
-        return try JSONDecoder().decode([RawGitLabJob].self, from: GitLab.api("projects/:id/pipelines/\(pipeline)/jobs?per_page=100", cwd: cwd)).map {
+        return try JSONDecoder().decode(
+            [RawGitLabJob].self, from: GitLab.api("projects/:id/pipelines/\(pipeline)/jobs?per_page=100", cwd: cwd)
+        ).map {
             let (s, c) = gitlabState($0.status)
-            return Job(id: $0.id, name: [$0.stage, $0.name].compactMap { $0 }.joined(separator: " · "), status: s, conclusion: c, url: $0.web_url, steps: [],
-                       startedAt: $0.started_at, completedAt: $0.finished_at)
+            return Job(
+                id: $0.id, name: [$0.stage, $0.name].compactMap { $0 }.joined(separator: " · "), status: s,
+                conclusion: c, url: $0.web_url, steps: [],
+                startedAt: $0.started_at, completedAt: $0.finished_at)
         }
     }
 

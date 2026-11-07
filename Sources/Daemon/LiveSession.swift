@@ -1,8 +1,8 @@
-import Foundation
-import os
-import Core
 import Agents
+import Core
+import Foundation
 import GitKit
+import os
 
 /// A running PTY plus its history ring buffer, disk log and status detector.
 /// Everything that changes is in `state`, read and written only inside `state.withLock`; what it calls out to (the
@@ -51,14 +51,18 @@ final class LiveSession: Sendable {
     // "EADDRINUSE: address already in use :::3000", "Port 3000 is already in use", "… bind(2) for "127.0.0.1" port 3000".
     // swiftlint:disable:next force_try
     static let busyRegex = try! NSRegularExpression(
-        pattern: #"port (\d{2,5}) is (?:already )?in use|(?:EADDRINUSE|address already in use)[^\n]*?[: ](\d{4,5})\b"#, options: .caseInsensitive)
+        pattern: #"port (\d{2,5}) is (?:already )?in use|(?:EADDRINUSE|address already in use)[^\n]*?[: ](\d{4,5})\b"#,
+        options: .caseInsensitive)
     // swiftlint:disable:next force_try
-    static let urlRegex = try! NSRegularExpression(pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?[^\s\x1b'"]*"#)
+    static let urlRegex = try! NSRegularExpression(
+        pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?[^\s\x1b'"]*"#)
     /// What an agent prints once its turn was cut short: Claude Code's "Interrupted · What should Claude do instead?" (and
     /// "User declined to answer questions" for Esc on its question, which ends the turn with no hook), Codex's
     /// "■ Conversation interrupted - tell the model what to do differently." Words placed one by one come with odd spacing.
-    static let stoppedMarkers = ["Interrupted", "What should Claude do instead", "tell Claude what to do",
-                                 "declined to answer questions", "Conversation interrupted", "tell the model what to do"]
+    static let stoppedMarkers = [
+        "Interrupted", "What should Claude do instead", "tell Claude what to do",
+        "declined to answer questions", "Conversation interrupted", "tell the model what to do"
+    ]
     static func printedStopped(_ seen: String) -> Bool {
         let flat = seen.replacing(/\s+/, with: " ")
         return stoppedMarkers.contains(where: flat.contains)
@@ -69,13 +73,15 @@ final class LiveSession: Sendable {
         struct File: Codable, Sendable {
             var path: String, added: Int, removed: Int
         }
-        var files: [File]; var seconds: Double
+        var files: [File]
+        var seconds: Double
     }
 
     /// Esc or ⌃C, as one byte or as the kitty keyboard protocol sends them once the agent turns it on (Claude Code does):
     /// ESC[27u, ESC[99;5u — on a non-Latin layout the layout's own letter comes first (ESC[1089::99;5u).
     static func isStopKey(_ d: Data) -> Bool {
-        d == Data([0x1B]) || d.contains(0x03) || String(decoding: d, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
+        d == Data([0x1B]) || d.contains(0x03)
+            || String(decoding: d, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
     }
 
     /// Keys that pick an option in an agent's menu: Return, a digit, ⇧Tab (Claude Code's "allow all edits during this session").
@@ -96,16 +102,23 @@ final class LiveSession: Sendable {
     /// A key pressed as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u): its key on the Latin
     /// layout (`base`, when a non-Latin one is on) and its modifiers (⇧ 1, ⌥ 2, ⌃ 4, lock keys left out). nil for a release.
     static func kittyKey(_ s: String) -> (key: Int, mods: Int)? {
-        guard let m = s.wholeMatch(of: /\x1B\[([0-9]+)(?::[0-9]*)?(?::([0-9]+))?(?:;([0-9]+)(?::([0-9]+))?)?(?:;[0-9:]*)?u/),
-              m.4.map({ $0 != "3" }) ?? true, let key = Int(m.2 ?? m.1) else { return nil }
+        guard
+            let m = s.wholeMatch(
+                of: /\x1B\[([0-9]+)(?::[0-9]*)?(?::([0-9]+))?(?:;([0-9]+)(?::([0-9]+))?)?(?:;[0-9:]*)?u/),
+            m.4.map({ $0 != "3" }) ?? true, let key = Int(m.2 ?? m.1)
+        else { return nil }
         return (key, ((m.3.flatMap { Int($0) } ?? 1) - 1) & 0b111111)
     }
 
-    convenience init(record: Session, manifest: AgentManifest, argv: [String], env: [String: String], historyDir: URL, cols: UInt16,
-                     rows: UInt16, callbacks: Callbacks) throws {
+    convenience init(
+        record: Session, manifest: AgentManifest, argv: [String], env: [String: String], historyDir: URL, cols: UInt16,
+        rows: UInt16, callbacks: Callbacks
+    ) throws {
         try Paths.ensure(historyDir)
-        self.init(record: record, manifest: manifest, pty: try PTY(argv: argv, cwd: record.cwd, env: env, cols: cols, rows: rows),
-                  historyDir: historyDir, callbacks: callbacks)
+        self.init(
+            record: record, manifest: manifest,
+            pty: try PTY(argv: argv, cwd: record.cwd, env: env, cols: cols, rows: rows),
+            historyDir: historyDir, callbacks: callbacks)
     }
 
     /// `pty`: started for it, or taken over from the kelpd before this one (`Sessions.adopt`).
@@ -114,7 +127,9 @@ final class LiveSession: Sendable {
         // A woken session goes on in the same log: what it showed before the pause stays readable.
         logURL = historyDir.appendingPathComponent("\(record.id).log")
         trail = StatusTrail(history: historyDir, session: record.id)
-        if !FileManager.default.fileExists(atPath: logURL.path) { FileManager.default.createFile(atPath: logURL.path, contents: nil) }
+        if !FileManager.default.fileExists(atPath: logURL.path) {
+            FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        }
         do { log = try FileHandle(forWritingTo: logURL) } catch {
             log = nil   // it runs, unrecorded
             Log.session.error("no history for session \(record.id, privacy: .public): \(error)")
@@ -125,7 +140,8 @@ final class LiveSession: Sendable {
         resumable = Sessions.resumable(record, [manifest])
         rec.pid = pty.pid
         self.callbacks = callbacks
-        state = OSAllocatedUnfairLock(initialState: State(record: rec, manifest: manifest, logSize: logSize, callbacks: callbacks, trail: trail))
+        state = OSAllocatedUnfairLock(
+            initialState: State(record: rec, manifest: manifest, logSize: logSize, callbacks: callbacks, trail: trail))
         pty.onOutput = { [weak self] d in self?.handleOutput(d) }
         pty.onExit = { [weak self] code in self?.handleExit(code) }
     }
@@ -135,7 +151,10 @@ final class LiveSession: Sendable {
 
     /// Being deleted: it stops, and neither its exit nor anything else saves its record again.
     @discardableResult
-    func discard() -> [pid_t] { state.withLock { $0.final = true }; return pty.terminate() }
+    func discard() -> [pid_t] {
+        state.withLock { $0.final = true }
+        return pty.terminate()
+    }
     /// Its record says its last (a pause, an end): nothing it does saves it again.
     func finish() { state.withLock { $0.final = true } }
     var isFinal: Bool { state.withLock { $0.final } }
@@ -151,7 +170,8 @@ final class LiveSession: Sendable {
     /// by itself, such as Claude Code's "Checking for updates". For the others, output is all there is.
     var idleSeconds: TimeInterval {
         state.withLock { s in
-            let last = s.hooked ? max(s.record.statusAt ?? s.started, s.lastInputAt ?? s.started) : s.lastOutputAt ?? s.started
+            let last =
+                s.hooked ? max(s.record.statusAt ?? s.started, s.lastInputAt ?? s.started) : s.lastOutputAt ?? s.started
             return Date().timeIntervalSince(last)
         }
     }
@@ -203,7 +223,9 @@ final class LiveSession: Sendable {
         if let port = heard.busy { callbacks.busyPort?(port) }
         if let topic = heard.topic { callbacks.topic?(topic) }
         if let answer = heard.answer {
-            DispatchQueue.global().asyncAfter(deadline: .now() + answer.after) { [weak self] in self?.pressIfStillAsked(answer) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + answer.after) { [weak self] in
+                self?.pressIfStillAsked(answer)
+            }
         }
         callbacks.output(heard.id, d, heard.attached)
     }
@@ -214,14 +236,20 @@ final class LiveSession: Sendable {
         s.ring.append(d)
         // A copy, at twice the limit: removeFirst on Data only re-slices, and the storage kept every byte the session
         // ever printed (300 MB of output held 300 MB). The slack makes the copy rare.
-        if s.ring.count > 2 * Self.ringLimit { s.ringModes.read(s.ring.dropLast(Self.ringLimit)); s.ring = Data(s.ring.suffix(Self.ringLimit)) }
+        if s.ring.count > 2 * Self.ringLimit {
+            s.ringModes.read(s.ring.dropLast(Self.ringLimit))
+            s.ring = Data(s.ring.suffix(Self.ringLimit))
+        }
         s.logSize += d.count
         let said = (s.record.summary, s.record.progress, s.record.limitHit)
         var h = Heard(probe: s.readReports(text, d), topic: s.readTopic(text, d))
         // The chunk without escapes, once, for the two readers that want it.
         let plain = s.interruptArmed != nil || (!s.sawURL && s.wantsURL) ? StatusDetector.stripANSI(text) : ""
         if let arm = s.interruptArmed { s.interruptArmed = (arm.at, String((arm.seen + plain).suffix(4000))) }
-        if Date() > s.redrawUntil { s.detector.output(text); s.lastOutputAt = Date() }
+        if Date() > s.redrawUntil {
+            s.detector.output(text)
+            s.lastOutputAt = Date()
+        }
         s.notePasteMode(d)
         h.answer = s.autoAnswer()
         h.url = s.localURL(plain)
@@ -252,9 +280,12 @@ final class LiveSession: Sendable {
             if s.record.status == .paused { return }
             s.detector.exited()
             let exitCode = (code & 0x7f) == 0 ? (code >> 8) & 0xff : 0   // killed by a signal (closed, stopped) isn't a failure
-            if exitCode != 0, s.record.agent != "shell" { s.record.summary = "Ended with an error (exit code \(exitCode))" }
+            if exitCode != 0, s.record.agent != "shell" {
+                s.record.summary = "Ended with an error (exit code \(exitCode))"
+            }
             s.endCommands(at: Date())
-            s.record.progress = nil; s.record.exitCode = Int((code & 0x7f) == 0 ? (code >> 8) & 0xff : 128 + (code & 0x7f))
+            s.record.progress = nil
+            s.record.exitCode = Int((code & 0x7f) == 0 ? (code >> 8) & 0xff : 128 + (code & 0x7f))
             emit(s.sync())
         }
         if let log { Log.session.attempt("closing a history log") { try log.close() } }
@@ -302,7 +333,10 @@ final class LiveSession: Sendable {
                         try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: cwd, ok: [0, 1], remotes: remotes)
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                     }
-                    keep(SessionTurns.Mark(session: id, tree: tree, head: head?.isEmpty == false ? head : nil, folder: cwd, prompt: prompt))
+                    keep(
+                        SessionTurns.Mark(
+                            session: id, tree: tree, head: head?.isEmpty == false ? head : nil, folder: cwd,
+                            prompt: prompt))
                 }
             } else if let start, let base = self?.turnBase {
                 let files = ((try? Git.changesSince(tree: base, cwd: cwd, remotes: remotes)) ?? [])
@@ -320,13 +354,16 @@ final class LiveSession: Sendable {
             s.releaseStale()
             s.hooksSilent()
             if let arm = s.interruptArmed {
-                if s.lastHookAt > arm.at { s.interruptArmed = nil }
-                else if Self.printedStopped(arm.seen) {
+                if s.lastHookAt > arm.at {
+                    s.interruptArmed = nil
+                } else if Self.printedStopped(arm.seen) {
                     s.detector.interrupted()
                     s.nothingAsked()
                     s.record.summary = "Stopped by you"
                     s.interruptArmed = nil
-                } else if Date().timeIntervalSince(arm.at) > 10 { s.interruptArmed = nil }
+                } else if Date().timeIntervalSince(arm.at) > 10 {
+                    s.interruptArmed = nil
+                }
             }
             if s.noteQuiet() { emit(s.record) }
             emit(s.sync())
@@ -343,7 +380,9 @@ final class LiveSession: Sendable {
             if quiet, settled, !s.letGo, s.takesReport() {
                 // To a program that takes no pastes on one line: its newlines would submit a part of it each.
                 let report = s.reports.removeFirst()
-                type(s.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true, paste: false, &s)
+                type(
+                    s.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true, paste: false,
+                    &s)
             }
         }
     }
@@ -368,7 +407,9 @@ final class LiveSession: Sendable {
         guard !TerminalReplies.isReply(d) else { return }   // the terminal answering the agent, not the user typing
         let firstPrompt = state.withLock { s -> String? in
             // Keys that answer a question or menu on screen ("1", Return on an option) aren't a line being written.
-            let answering = s.trustQuestionOpen() || s.menuOpen() || (s.record.status == .waiting && d.count == 1 && (0x31...0x39).contains(d[0]))
+            let answering =
+                s.trustQuestionOpen() || s.menuOpen()
+                || (s.record.status == .waiting && d.count == 1 && (0x31...0x39).contains(d[0]))
             s.typedYet = true
             s.lastInputAt = Date()
             // Moving through "trust this folder?" doesn't answer it: a launch prompt typed then would land its Enter on
@@ -377,10 +418,14 @@ final class LiveSession: Sendable {
             s.draftWaiting = false
             s.detector.input(typing: !d.contains(0x0D))   // keys without Return: the prompt is still being written
             var read: Session?
-            if s.record.unread { s.record.unread = false; read = s.record }   // typing into it is having read it
+            if s.record.unread {
+                s.record.unread = false
+                read = s.record
+            }   // typing into it is having read it
             // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late: the screen decides.
             if Self.isStopKey(d), s.record.status == .working || (s.saysItself && s.record.status == .waiting) {
-                s.interruptArmed = (Date(), ""); s.stopKeyAt = Date()
+                s.interruptArmed = (Date(), "")
+                s.stopKeyAt = Date()
             }
             if s.saysItself {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
@@ -392,13 +437,24 @@ final class LiveSession: Sendable {
                 s.detector.answered()
             }
             emit(s.sync() ?? read)
-            if answering { s.typing = ""; return nil }
+            if answering {
+                s.typing = ""
+                return nil
+            }
             return s.noteTyping(d)
         }
-        if let line = firstPrompt { let cb = callbacks.firstPrompt; DispatchQueue.global().async { cb(line) } }
+        if let line = firstPrompt {
+            let cb = callbacks.firstPrompt
+            DispatchQueue.global().async { cb(line) }
+        }
     }
 
-    func update(_ f: @Sendable (inout Session) -> Void) -> Session { state.withLock { f(&$0.record); return $0.record } }
+    func update(_ f: @Sendable (inout Session) -> Void) -> Session {
+        state.withLock {
+            f(&$0.record)
+            return $0.record
+        }
+    }
 
     /// Attached again to a program that kept running (a remote agent in its tmux session): StatusDetector.attachedToRunning.
     func attachedToRunning() { state.withLock { $0.detector.attachedToRunning() } }
@@ -407,11 +463,17 @@ final class LiveSession: Sendable {
     func markHibernated() {
         state.withLock { s in
             s.trail.add("\(s.record.status.rawValue) → hibernated")
-            s.detector.override(.paused); s.record.status = .paused
+            s.detector.override(.paused)
+            s.record.status = .paused
         }
     }
 
-    func overrideStatus(_ status: AgentStatus) { state.withLock { s in s.detector.override(status); emit(s.sync()) } }
+    func overrideStatus(_ status: AgentStatus) {
+        state.withLock { s in
+            s.detector.override(status)
+            emit(s.sync())
+        }
+    }
 }
 
 extension LiveSession {
@@ -419,7 +481,8 @@ extension LiveSession {
     /// `kelp why`: the status, where it came from, and when the agent last spoke up by itself.
     var statusWhy: String {
         state.withLock { s in
-            let heard = s.lastHookAt == .distantPast ? "" : ", last heard \(Int(-s.lastHookAt.timeIntervalSinceNow)) s ago"
+            let heard =
+                s.lastHookAt == .distantPast ? "" : ", last heard \(Int(-s.lastHookAt.timeIntervalSinceNow)) s ago"
             return "\(s.detector.status.rawValue) (\(s.detector.source))\(heard)"
         }
     }
@@ -431,7 +494,8 @@ extension LiveSession {
         let w = real(dir) == real(snapshot.cwd) ? nil : dir   // the folder it started in never changes
         return state.withLock { s in
             guard w != s.record.workDir else { return nil }
-            s.record.workDir = w; return s.record
+            s.record.workDir = w
+            return s.record
         }
     }
 
@@ -439,7 +503,8 @@ extension LiveSession {
     func setUnread(_ unread: Bool) -> Session? {
         state.withLock { s in
             guard s.record.unread != unread else { return nil }
-            s.record.unread = unread; return s.record
+            s.record.unread = unread
+            return s.record
         }
     }
 
@@ -489,9 +554,11 @@ extension LiveSession {
     /// Candidates go one after another, up to 3 s each, so a later one may have moved on since it was picked.
     func letGoIdle(seen: Int) -> Bool {
         state.withLock { s in
-            guard s.attached.isEmpty, s.inputs == seen, s.inputsInFlight == 0, [.done, .idle].contains(s.record.status) else { return false }
+            guard s.attached.isEmpty, s.inputs == seen, s.inputsInFlight == 0, [.done, .idle].contains(s.record.status)
+            else { return false }
             guard s.typing.isEmpty, !s.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
-            s.letGo = true; return true
+            s.letGo = true
+            return true
         }
     }
 
@@ -499,12 +566,15 @@ extension LiveSession {
     /// show the same history. The log holds every byte the ring does by now (it's written as output is handled).
     func handedOver(fd: Int32) -> Handover.Session {
         state.withLock { s in
-            Handover.Session(id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
-                             bytes: min(s.ring.count, Self.ringLimit), pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
-                             status: .init(holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
-                                           questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript, boxEmpty: s.boxEmpty,
-                                           pasteMode: s.pasteMode, draftWaiting: s.draftWaiting, typing: s.typing, hooksSpoke: s.hooksSpoke),
-                             reports: s.reports)
+            Handover.Session(
+                id: s.record.id, pid: pty.pid, fd: fd, modes: String(decoding: s.historyModes.restore, as: UTF8.self),
+                bytes: min(s.ring.count, Self.ringLimit),
+                pending: s.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
+                status: .init(
+                    holding: s.holding, parked: s.parked, hooked: s.detector.hooked, asking: s.asking,
+                    questionOpen: s.questionOpen, turnEnd: s.turnEnd, transcript: s.transcript, boxEmpty: s.boxEmpty,
+                    pasteMode: s.pasteMode, draftWaiting: s.draftWaiting, typing: s.typing, hooksSpoke: s.hooksSpoke),
+                reports: s.reports)
         }
     }
 
@@ -512,23 +582,32 @@ extension LiveSession {
     /// long past starting up: no launch prompt, startup answer or title from its first prompt comes now.
     /// What was waiting to be typed (`pending`) is typed here once the agent is ready, as it would have been there.
     /// `status`: what its status rested on there; nil from a kelpd that didn't say.
-    func adopted(modes: String, bytes: Int, pending: [Handover.Prompt] = [], reports: [String] = [], status: Handover.Status? = nil) {
+    func adopted(
+        modes: String, bytes: Int, pending: [Handover.Prompt] = [], reports: [String] = [],
+        status: Handover.Status? = nil
+    ) {
         let history = bytes > 0 ? Data(tailOf: logURL, bytes: bytes) ?? Data() : Data()
         state.withLock { s in
             s.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
             s.reports = reports
-            s.ring = history; s.ringModes.read(Data(modes.utf8))
+            s.ring = history
+            s.ringModes.read(Data(modes.utf8))
             if let status {
-                s.holding = status.holding; s.parked = status.parked
-                s.asking = status.asking; s.questionOpen = status.questionOpen
-                s.turnEnd = status.turnEnd; s.transcript = status.transcript
+                s.holding = status.holding
+                s.parked = status.parked
+                s.asking = status.asking
+                s.questionOpen = status.questionOpen
+                s.turnEnd = status.turnEnd
+                s.transcript = status.transcript
                 s.boxEmpty = status.boxEmpty ?? false
                 s.draftWaiting = status.draftWaiting ?? false
                 s.typing = status.typing ?? ""
                 s.hooksSpoke = status.hooksSpoke ?? false
             }
             s.pasteMode = status?.pasteMode ?? modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
-            s.detector.adopted(s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked)
+            s.detector.adopted(
+                s.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self), hooked: status?.hooked
+            )
             s.trail.add("\(s.record.status.rawValue) → \(s.detector.status.rawValue)  \(s.detector.source)")
             // A question read again and found to be none: the turn ended long ago, so one already read stays read.
             if s.detector.status != s.record.status {

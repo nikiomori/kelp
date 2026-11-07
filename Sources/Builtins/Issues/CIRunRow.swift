@@ -102,15 +102,21 @@ final class CIRunMeta: NSView {
     private static func who(_ r: CIRuns.Run, _ extras: [String]) -> NSAttributedString {
         let one = NSMutableParagraphStyle()
         one.lineBreakMode = .byTruncatingTail
-        let look: [NSAttributedString.Key: Any] = [.font: NSFont.uiDigits(11), .foregroundColor: NSColor.secondaryLabelColor,
-                                                   .paragraphStyle: one]
+        let look: [NSAttributedString.Key: Any] = [
+            .font: NSFont.uiDigits(11), .foregroundColor: NSColor.secondaryLabelColor,
+            .paragraphStyle: one
+        ]
         let s = NSMutableAttributedString()
         if let n = r.number { s.append(NSAttributedString(string: "#\(n)", attributes: look)) }
         if let sha = r.shortSHA {
             s.append(NSAttributedString(string: s.length > 0 ? " " : "", attributes: look))
             s.append(NSAttributedString(string: sha, attributes: look.merging([.font: NSFont.uiMono(11)]) { $1 }))
         }
-        if !extras.isEmpty { s.append(NSAttributedString(string: (s.length > 0 ? " · " : "") + extras.joined(separator: " · "), attributes: look)) }
+        if !extras.isEmpty {
+            s.append(
+                NSAttributedString(
+                    string: (s.length > 0 ? " · " : "") + extras.joined(separator: " · "), attributes: look))
+        }
         return s
     }
 }
@@ -123,11 +129,17 @@ enum CIRow {
         let n = f.steps.count
         switch f {
         case .passed:
-            let seconds = f.steps.compactMap { $0.seconds() }.reduce(0, +), done = String(localized: "\(n) steps passed")
-            return line(CIRunLook.mark("completed", "success"), done, font: .ui(11), color: .secondaryLabelColor, right: ciSpan(seconds)).cell
+            let seconds = f.steps.compactMap { $0.seconds() }.reduce(0, +),
+                done = String(localized: "\(n) steps passed")
+            return line(
+                CIRunLook.mark("completed", "success"), done, font: .ui(11), color: .secondaryLabelColor,
+                right: ciSpan(seconds)
+            ).cell
         case .skipped:
             let skipped = String(localized: "\(n) steps skipped")
-            return line(CIRunLook.mark("completed", "skipped"), skipped, font: .ui(11), color: .tertiaryLabelColor, right: nil).cell
+            return line(
+                CIRunLook.mark("completed", "skipped"), skipped, font: .ui(11), color: .tertiaryLabelColor, right: nil
+            ).cell
         case .upcoming, .one:
             let left = String(localized: "\(n) steps to go")
             return line(CIRunLook.mark("queued", nil), left, font: .ui(11), color: .tertiaryLabelColor, right: nil).cell
@@ -135,7 +147,9 @@ enum CIRow {
     }
 
     /// Mark, name, and on the right a number, whose label comes back for what counts up.
-    static func line(_ mark: NSView, _ name: String, font: NSFont, color: NSColor, right: String?) -> (cell: NSView, time: NSTextField?) {
+    static func line(_ mark: NSView, _ name: String, font: NSFont, color: NSColor, right: String?) -> (
+        cell: NSView, time: NSTextField?
+    ) {
         let t = NSTextField(labelWithString: name)
         t.font = font
         t.textColor = color
@@ -155,9 +169,11 @@ enum CIRow {
         let cell = NSTableCellView()
         r.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(r)
-        NSLayoutConstraint.activate([r.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-                                     r.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
-                                     r.centerYAnchor.constraint(equalTo: cell.centerYAnchor)])
+        NSLayoutConstraint.activate([
+            r.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+            r.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            r.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+        ])
         return cell
     }
 }

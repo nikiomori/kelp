@@ -23,7 +23,10 @@ public enum MarkdownFormat {
             return (ns.replacingCharacters(in: r, with: "[](\(sel))"), NSRange(location: r.location + 1, length: 0))
         }
         let s = "[\(sel)](\(url))"
-        return (ns.replacingCharacters(in: r, with: s), NSRange(location: r.location + sel.utf16.count + 3, length: url.utf16.count))
+        return (
+            ns.replacingCharacters(in: r, with: s),
+            NSRange(location: r.location + sel.utf16.count + 3, length: url.utf16.count)
+        )
     }
 
     /// Sets `#`×level on the selected lines; same level again (or level 0) removes it.
@@ -47,10 +50,17 @@ public enum MarkdownFormat {
     /// Inserts an empty table on its own lines and selects the first header cell.
     public static func insertTable(_ t: String, _ r: NSRange, columns: Int = 2, rows: Int = 2) -> Edit {
         let ns = t as NSString
-        func row(_ s: String) -> String { "| " + Array(repeating: s, count: max(columns, 1)).joined(separator: " | ") + " |" }
-        let table = ([row("Column"), row("------")] + Array(repeating: row("      "), count: max(rows, 0))).joined(separator: "\n") + "\n"
+        func row(_ s: String) -> String {
+            "| " + Array(repeating: s, count: max(columns, 1)).joined(separator: " | ") + " |"
+        }
+        let table =
+            ([row("Column"), row("------")] + Array(repeating: row("      "), count: max(rows, 0))).joined(
+                separator: "\n") + "\n"
         let lead = r.location == 0 || ns.character(at: r.location - 1) == 10 ? "" : "\n"
-        return (ns.replacingCharacters(in: r, with: lead + table), NSRange(location: r.location + lead.utf16.count + 2, length: 6))
+        return (
+            ns.replacingCharacters(in: r, with: lead + table),
+            NSRange(location: r.location + lead.utf16.count + 2, length: 6)
+        )
     }
 
     // MARK: -
@@ -60,21 +70,28 @@ public enum MarkdownFormat {
         let o = open.utf16.count, c = close.utf16.count
         if sel.utf16.count >= o + c, sel.hasPrefix(open), sel.hasSuffix(close) {
             let inner = (sel as NSString).substring(with: NSRange(location: o, length: sel.utf16.count - o - c))
-            return (ns.replacingCharacters(in: r, with: inner), NSRange(location: r.location, length: inner.utf16.count))
+            return (
+                ns.replacingCharacters(in: r, with: inner), NSRange(location: r.location, length: inner.utf16.count)
+            )
         }
         if r.location >= o, NSMaxRange(r) + c <= ns.length,
-           ns.substring(with: NSRange(location: r.location - o, length: o)) == open,
-           ns.substring(with: NSRange(location: NSMaxRange(r), length: c)) == close {
+            ns.substring(with: NSRange(location: r.location - o, length: o)) == open,
+            ns.substring(with: NSRange(location: NSMaxRange(r), length: c)) == close
+        {
             let outer = NSRange(location: r.location - o, length: r.length + o + c)
             return (ns.replacingCharacters(in: outer, with: sel), NSRange(location: r.location - o, length: r.length))
         }
-        return (ns.replacingCharacters(in: r, with: open + sel + close), NSRange(location: r.location + o, length: r.length))
+        return (
+            ns.replacingCharacters(in: r, with: open + sel + close), NSRange(location: r.location + o, length: r.length)
+        )
     }
 
     private enum Kind { case none, bullet, numbered, task }
 
     private static func listParts(_ l: String) -> (indent: String, kind: Kind, body: String) {
-        guard let m = l.wholeMatch(of: /(\s*)(?:([-*+] \[[ xX]\](?: |$))|([-*+] )|(\d+[.)] ))?(.*)/) else { return ("", .none, l) }
+        guard let m = l.wholeMatch(of: /(\s*)(?:([-*+] \[[ xX]\](?: |$))|([-*+] )|(\d+[.)] ))?(.*)/) else {
+            return ("", .none, l)
+        }
         let kind: Kind = m.2 != nil ? .task : m.3 != nil ? .bullet : m.4 != nil ? .numbered : .none
         return (String(m.1), kind, String(m.5))
     }
@@ -89,14 +106,19 @@ public enum MarkdownFormat {
         ls.count == 1 ? [0] : ls.indices.filter { !ls[$0].allSatisfy(\.isWhitespace) }
     }
 
-    private static func toggleList(_ t: String, _ r: NSRange, _ kind: Kind, _ prefix: @escaping (Int) -> String) -> Edit {
+    private static func toggleList(_ t: String, _ r: NSRange, _ kind: Kind, _ prefix: @escaping (Int) -> String) -> Edit
+    {
         lines(t, r) { ls in
             let ts = targets(ls)
             let off = ts.allSatisfy { listParts(ls[$0]).kind == kind }
             var out = ls
             for (n, i) in ts.enumerated() {
                 let p = listParts(ls[i])
-                if off { out[i] = p.indent + p.body } else if p.kind != kind { out[i] = p.indent + prefix(n + 1) + p.body }
+                if off {
+                    out[i] = p.indent + p.body
+                } else if p.kind != kind {
+                    out[i] = p.indent + prefix(n + 1) + p.body
+                }
             }
             return out
         }

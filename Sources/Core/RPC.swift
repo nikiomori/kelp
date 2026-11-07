@@ -7,7 +7,9 @@ public struct RPCRequest: Codable, Sendable {
     public var method: String
     public var params: JSONValue?
     public init(id: Int?, method: String, params: JSONValue? = nil) {
-        self.id = id; self.method = method; self.params = params
+        self.id = id
+        self.method = method
+        self.params = params
     }
 }
 
@@ -16,7 +18,11 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public var message: String
     /// What a program reads where `message` is for people (JSON-RPC's `data`), e.g. an `Unopenable`.
     public var data: JSONValue?
-    public init(code: Int, message: String, data: JSONValue? = nil) { self.code = code; self.message = message; self.data = data }
+    public init(code: Int, message: String, data: JSONValue? = nil) {
+        self.code = code
+        self.message = message
+        self.data = data
+    }
     public static func invalidParams(_ m: String) -> RPCError { .init(code: -32602, message: m) }
     public static func internalError(_ m: String) -> RPCError { .init(code: -32603, message: m) }
     /// Not the caller's to do (`Daemon.allow`): told apart from a bad call by `data` "refused", for tests and tools.
@@ -27,7 +33,9 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public static let updating = internalError("Kelp's background service is updating; try again in a moment.")
     /// The connection ended with no reply, or was over already.
     public static let connectionClosed = internalError("connection closed")
-    public static func noReply(_ method: String, in seconds: TimeInterval) -> RPCError { internalError("no reply to \(method) in \(Int(seconds)) s") }
+    public static func noReply(_ method: String, in seconds: TimeInterval) -> RPCError {
+        internalError("no reply to \(method) in \(Int(seconds)) s")
+    }
     public var isNoReply: Bool { message.hasPrefix("no reply to ") }
 }
 
@@ -62,7 +70,10 @@ public protocol InternalMethod: RPCMethod {}
 public struct Done: Codable, Sendable {
     public init() {}
     public init(from decoder: Decoder) {}
-    public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encodeNil() }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encodeNil()
+    }
 }
 
 public enum Wire {
@@ -95,12 +106,18 @@ public struct LineBuffer: Sendable {
         guard !ends.isEmpty else { return [] }
         let s = buf.startIndex
         var out: [Data] = [], start = 0
-        for e in ends { out.append(buf[(s + start)..<(s + e)]); start = e + 1 }
+        for e in ends {
+            out.append(buf[(s + start)..<(s + e)])
+            start = e + 1
+        }
         buf = Data(buf[(s + start)...])
         return out
     }
     /// Bytes waiting for their line's end.
     public var pending: Int { buf.count }
     /// Bytes received after the last complete line (a connection switching to a raw stream keeps them).
-    public mutating func takeRemainder() -> Data { defer { buf = Data() }; return buf }
+    public mutating func takeRemainder() -> Data {
+        defer { buf = Data() }
+        return buf
+    }
 }

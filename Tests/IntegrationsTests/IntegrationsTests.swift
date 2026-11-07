@@ -1,46 +1,54 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Integrations
 
 private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func parsePullRequestsSummarizesChecks() throws {
     let json = """
-    [{"author":{"id":"U_1","is_bot":false,"login":"alice","name":"Alice"},"headRefName":"123-fix","isDraft":false,"number":7,
-      "reviewDecision":"REVIEW_REQUIRED","state":"OPEN","title":"Fix","url":"https://github.com/o/r/pull/7",
-      "statusCheckRollup":[
-        {"__typename":"CheckRun","conclusion":"FAILURE","name":"lint","startedAt":"2026-10-14T04:39:00Z","status":"COMPLETED","workflowName":"Lint"},
-        {"__typename":"CheckRun","conclusion":"SUCCESS","name":"lint","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"Lint"},
-        {"__typename":"CheckRun","conclusion":"FAILURE","name":"test","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"CI"},
-        {"__typename":"CheckRun","conclusion":"","name":"build","startedAt":"2026-10-15T04:39:00Z","status":"IN_PROGRESS","workflowName":"CI"},
-        {"__typename":"CheckRun","conclusion":"SKIPPED","name":"triage","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"T"},
-        {"__typename":"StatusContext","context":"ci/circle","state":"PENDING"}]},
-     {"author":{"login":"bob"},"headRefName":"b","isDraft":true,"number":8,"reviewDecision":"","state":"OPEN","title":"WIP",
-      "url":"https://github.com/o/r/pull/8","statusCheckRollup":[],"mergeStateStatus":"DRAFT"}]
-    """
+        [{"author":{"id":"U_1","is_bot":false,"login":"alice","name":"Alice"},"headRefName":"123-fix","isDraft":false,"number":7,
+          "reviewDecision":"REVIEW_REQUIRED","state":"OPEN","title":"Fix","url":"https://github.com/o/r/pull/7",
+          "statusCheckRollup":[
+            {"__typename":"CheckRun","conclusion":"FAILURE","name":"lint","startedAt":"2026-10-14T04:39:00Z","status":"COMPLETED","workflowName":"Lint"},
+            {"__typename":"CheckRun","conclusion":"SUCCESS","name":"lint","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"Lint"},
+            {"__typename":"CheckRun","conclusion":"FAILURE","name":"test","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"CI"},
+            {"__typename":"CheckRun","conclusion":"","name":"build","startedAt":"2026-10-15T04:39:00Z","status":"IN_PROGRESS","workflowName":"CI"},
+            {"__typename":"CheckRun","conclusion":"SKIPPED","name":"triage","startedAt":"2026-10-15T04:39:00Z","status":"COMPLETED","workflowName":"T"},
+            {"__typename":"StatusContext","context":"ci/circle","state":"PENDING"}]},
+         {"author":{"login":"bob"},"headRefName":"b","isDraft":true,"number":8,"reviewDecision":"","state":"OPEN","title":"WIP",
+          "url":"https://github.com/o/r/pull/8","statusCheckRollup":[],"mergeStateStatus":"DRAFT"}]
+        """
     let prs = try GitHub.parsePullRequests(d(json))
     #expect(prs.count == 2)
-    #expect(prs[0] == GitHub.PullRequest(number: 7, title: "Fix", url: "https://github.com/o/r/pull/7", author: "alice", headRefName: "123-fix",
-                                         isDraft: false, state: "OPEN", reviewDecision: "REVIEW_REQUIRED",
-                                         checks: .init(passed: 1, failed: 1, pending: 2)))
+    #expect(
+        prs[0]
+            == GitHub.PullRequest(
+                number: 7, title: "Fix", url: "https://github.com/o/r/pull/7", author: "alice", headRefName: "123-fix",
+                isDraft: false, state: "OPEN", reviewDecision: "REVIEW_REQUIRED",
+                checks: .init(passed: 1, failed: 1, pending: 2)))
     #expect(prs[1].reviewDecision == nil && prs[1].isDraft && prs[1].checks == .init() && prs[1].mergeState == "DRAFT")
 }
 
 @Test func parseIssuesFlattensLabelsAndAssignees() throws {
     let json = """
-    [{"assignees":[{"id":"U_1","login":"alice","name":"Alice"}],"body":"Steps","labels":[{"id":"L","name":"bug","description":"","color":"D6393F"}],
-      "number":12,"state":"OPEN","title":"Crash","url":"https://github.com/o/r/issues/12"}]
-    """
-    #expect(try GitHub.parseIssues(d(json)) == [GitHub.Issue(number: 12, title: "Crash", body: "Steps", url: "https://github.com/o/r/issues/12",
-                                                            labels: ["bug"], assignees: ["alice"], state: "OPEN")])
+        [{"assignees":[{"id":"U_1","login":"alice","name":"Alice"}],"body":"Steps","labels":[{"id":"L","name":"bug","description":"","color":"D6393F"}],
+          "number":12,"state":"OPEN","title":"Crash","url":"https://github.com/o/r/issues/12"}]
+        """
+    #expect(
+        try GitHub.parseIssues(d(json)) == [
+            GitHub.Issue(
+                number: 12, title: "Crash", body: "Steps", url: "https://github.com/o/r/issues/12",
+                labels: ["bug"], assignees: ["alice"], state: "OPEN")
+        ])
 }
 
 @Test func parseChecksExtractsRunId() throws {
     let json = """
-    [{"bucket":"fail","link":"https://github.com/cli/cli/actions/runs/39045086480/job/117432139361","name":"test","state":"FAILURE","workflow":"CI"},
-     {"bucket":"pass","link":"https://ci.example.com/x","name":"ext","state":"SUCCESS","workflow":""}]
-    """
+        [{"bucket":"fail","link":"https://github.com/cli/cli/actions/runs/39045086480/job/117432139361","name":"test","state":"FAILURE","workflow":"CI"},
+         {"bucket":"pass","link":"https://ci.example.com/x","name":"ext","state":"SUCCESS","workflow":""}]
+        """
     let c = try GitHub.parseChecks(d(json))
     #expect(c.map(\.runId) == [39045086480, nil])
     #expect(c[0].bucket == "fail" && c[0].workflow == "CI")
@@ -48,36 +56,44 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func parseReviewCommentsAndReviews() throws {
     let comments = """
-    [[{"path":"a.go","line":null,"original_line":10,"body":"nit","user":{"login":"bob","id":1},"html_url":"https://github.com/o/r/pull/1#discussion_r1"}],
-     [{"path":"b.go","line":3,"original_line":3,"body":"why?","user":{"login":"amy"},"html_url":"https://github.com/o/r/pull/1#discussion_r2"}]]
-    """
+        [[{"path":"a.go","line":null,"original_line":10,"body":"nit","user":{"login":"bob","id":1},"html_url":"https://github.com/o/r/pull/1#discussion_r1"}],
+         [{"path":"b.go","line":3,"original_line":3,"body":"why?","user":{"login":"amy"},"html_url":"https://github.com/o/r/pull/1#discussion_r2"}]]
+        """
     let c = try GitHub.parseReviewComments(d(comments))
     #expect(c.map(\.line) == [10, 3] && c[1].author == "amy" && c[0].path == "a.go")
 
     let reviews = """
-    {"reviews":[{"id":"PRR_1","author":{"login":"bob"},"body":"Please fix","state":"CHANGES_REQUESTED","submittedAt":"2026-10-16T21:22:40Z"},
-                {"id":"PRR_2","author":{"login":"amy"},"body":"","state":"APPROVED"}]}
-    """
-    #expect(try GitHub.parseReviews(d(reviews)) == [GitHub.ReviewComment(path: nil, line: nil, body: "Please fix", author: "bob", url: nil)])
+        {"reviews":[{"id":"PRR_1","author":{"login":"bob"},"body":"Please fix","state":"CHANGES_REQUESTED","submittedAt":"2026-10-16T21:22:40Z"},
+                    {"id":"PRR_2","author":{"login":"amy"},"body":"","state":"APPROVED"}]}
+        """
+    #expect(
+        try GitHub.parseReviews(d(reviews)) == [
+            GitHub.ReviewComment(path: nil, line: nil, body: "Please fix", author: "bob", url: nil)
+        ])
 }
 
 @Test func parseProjectsAndItems() throws {
     #expect(try GitHub.parseOwner(d(#"{"owner":{"id":"O_1","login":"acme"}}"#)) == "acme")
     let projects = """
-    {"projects":[{"closed":false,"fields":{"totalCount":9},"id":"PVT_1","items":{"totalCount":2},"number":3,
-      "owner":{"login":"acme","type":"Organization"},"public":false,"readme":"","shortDescription":"","title":"Roadmap",
-      "url":"https://github.com/orgs/acme/projects/3"}],"totalCount":1}
-    """
-    #expect(try GitHub.parseProjects(d(projects)) == [GitHub.Project(number: 3, title: "Roadmap", url: "https://github.com/orgs/acme/projects/3")])
+        {"projects":[{"closed":false,"fields":{"totalCount":9},"id":"PVT_1","items":{"totalCount":2},"number":3,
+          "owner":{"login":"acme","type":"Organization"},"public":false,"readme":"","shortDescription":"","title":"Roadmap",
+          "url":"https://github.com/orgs/acme/projects/3"}],"totalCount":1}
+        """
+    #expect(
+        try GitHub.parseProjects(d(projects)) == [
+            GitHub.Project(number: 3, title: "Roadmap", url: "https://github.com/orgs/acme/projects/3")
+        ])
     let items = """
-    {"items":[{"content":{"body":"","number":5,"repository":"acme/r","title":"Login","type":"Issue","url":"https://github.com/acme/r/issues/5"},
-               "id":"PVTI_1","repository":"https://github.com/acme/r","status":"In Progress","title":"Login"},
-              {"content":{"body":"","title":"Idea","type":"DraftIssue"},"id":"PVTI_2","title":"Idea"}],"totalCount":2}
-    """
-    #expect(try GitHub.parseProjectItems(d(items)) == [
-        GitHub.ProjectItem(title: "Login", type: "Issue", status: "In Progress", url: "https://github.com/acme/r/issues/5"),
-        GitHub.ProjectItem(title: "Idea", type: "DraftIssue", status: nil, url: nil)
-    ])
+        {"items":[{"content":{"body":"","number":5,"repository":"acme/r","title":"Login","type":"Issue","url":"https://github.com/acme/r/issues/5"},
+                   "id":"PVTI_1","repository":"https://github.com/acme/r","status":"In Progress","title":"Login"},
+                  {"content":{"body":"","title":"Idea","type":"DraftIssue"},"id":"PVTI_2","title":"Idea"}],"totalCount":2}
+        """
+    #expect(
+        try GitHub.parseProjectItems(d(items)) == [
+            GitHub.ProjectItem(
+                title: "Login", type: "Issue", status: "In Progress", url: "https://github.com/acme/r/issues/5"),
+            GitHub.ProjectItem(title: "Idea", type: "DraftIssue", status: nil, url: nil)
+        ])
 }
 
 @Test func tailKeepsLastBytesFromLineStart() {
@@ -89,29 +105,40 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func linearParseIssues() throws {
     let json = """
-    {"data":{"viewer":{"assignedIssues":{"nodes":[{"id":"uuid-1","identifier":"ENG-123","title":"Fix login","description":null,
-      "url":"https://linear.app/acme/issue/ENG-123/fix-login","branchName":"alice/eng-123-fix-login",
-      "state":{"id":"s1","name":"Todo","type":"unstarted"},"team":{"id":"t1","key":"ENG","name":"Engineering"}}]}}}}
-    """
+        {"data":{"viewer":{"assignedIssues":{"nodes":[{"id":"uuid-1","identifier":"ENG-123","title":"Fix login","description":null,
+          "url":"https://linear.app/acme/issue/ENG-123/fix-login","branchName":"alice/eng-123-fix-login",
+          "state":{"id":"s1","name":"Todo","type":"unstarted"},"team":{"id":"t1","key":"ENG","name":"Engineering"}}]}}}}
+        """
     let issues = try LinearClient.parse([LinearIssue].self, from: d(json), at: "viewer", "assignedIssues", "nodes")
-    #expect(issues == [LinearIssue(id: "uuid-1", identifier: "ENG-123", title: "Fix login", description: nil,
-                                   url: "https://linear.app/acme/issue/ENG-123/fix-login",
-                                   state: LinearState(id: "s1", name: "Todo", type: "unstarted"),
-                                   team: LinearTeam(id: "t1", key: "ENG", name: "Engineering"), branchName: "alice/eng-123-fix-login")])
-    #expect(try LinearClient.parse(Bool.self, from: d(#"{"data":{"issueUpdate":{"success":true}}}"#), at: "issueUpdate", "success"))
+    #expect(
+        issues == [
+            LinearIssue(
+                id: "uuid-1", identifier: "ENG-123", title: "Fix login", description: nil,
+                url: "https://linear.app/acme/issue/ENG-123/fix-login",
+                state: LinearState(id: "s1", name: "Todo", type: "unstarted"),
+                team: LinearTeam(id: "t1", key: "ENG", name: "Engineering"), branchName: "alice/eng-123-fix-login")
+        ])
+    #expect(
+        try LinearClient.parse(
+            Bool.self, from: d(#"{"data":{"issueUpdate":{"success":true}}}"#), at: "issueUpdate", "success"))
 }
 
 @Test func linearParseErrors() {
-    let err = #"{"errors":[{"message":"Authentication required","extensions":{"code":"AUTHENTICATION_ERROR"}}],"data":null}"#
-    #expect(throws: IntegrationError.self) { try LinearClient.parse([LinearTeam].self, from: d(err), at: "teams", "nodes") }
-    #expect(throws: IntegrationError.self) { try LinearClient.parse([LinearTeam].self, from: d(#"{"data":{"team":null}}"#), at: "team", "states") }
+    let err =
+        #"{"errors":[{"message":"Authentication required","extensions":{"code":"AUTHENTICATION_ERROR"}}],"data":null}"#
+    #expect(throws: IntegrationError.self) {
+        try LinearClient.parse([LinearTeam].self, from: d(err), at: "teams", "nodes")
+    }
+    #expect(throws: IntegrationError.self) {
+        try LinearClient.parse([LinearTeam].self, from: d(#"{"data":{"team":null}}"#), at: "team", "states")
+    }
 }
 
 @Test func linearStateFor() throws {
     let json = """
-    {"data":{"team":{"states":{"nodes":[{"id":"1","name":"Backlog","type":"backlog"},{"id":"2","name":"In Review","type":"started"},
-      {"id":"3","name":"In Progress","type":"started"},{"id":"4","name":"Canceled","type":"canceled"},{"id":"5","name":"Done","type":"completed"}]}}}}
-    """
+        {"data":{"team":{"states":{"nodes":[{"id":"1","name":"Backlog","type":"backlog"},{"id":"2","name":"In Review","type":"started"},
+          {"id":"3","name":"In Progress","type":"started"},{"id":"4","name":"Canceled","type":"canceled"},{"id":"5","name":"Done","type":"completed"}]}}}}
+        """
     let states = try LinearClient.parse([LinearState].self, from: d(json), at: "team", "states", "nodes")
     #expect(LinearClient.stateFor(kind: .inProgress, in: states)?.id == "3")
     #expect(LinearClient.stateFor(kind: .inReview, in: states)?.id == "2")
@@ -122,21 +149,27 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 }
 
 @Test func issueRefBranchNames() {
-    #expect(IssueRef.branchName("123", title: "Fix the login crash on macOS Sonoma 14.5!") == "123-fix-the-login-crash-on-macos")
+    #expect(
+        IssueRef.branchName("123", title: "Fix the login crash on macOS Sonoma 14.5!")
+            == "123-fix-the-login-crash-on-macos")
     #expect(IssueRef.branchName("#45", title: "Café résumé — naïve") == "45-cafe-resume-naive")
     #expect(IssueRef.branchName("ENG-9", title: "") == "eng-9")
 }
 
 @Test func jiraParsing() throws {
-    let search = #"{"issues":[{"key":"ENG-7","fields":{"summary":"Fix login","status":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},"#
+    let search =
+        #"{"issues":[{"key":"ENG-7","fields":{"summary":"Fix login","status":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},"#
         + #""issuetype":{"name":"Bug"},"project":{"key":"ENG"},"#
         + #""description":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Steps:"}]},"#
         + #"{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"open app"}]}]}]}]}}}]}"#
     let issues = try JiraClient.parseSearch(Data(search.utf8), site: "https://acme.atlassian.net/")
     #expect(issues.count == 1)
-    #expect(issues[0].key == "ENG-7" && issues[0].statusCategory == "indeterminate" && issues[0].url == "https://acme.atlassian.net/browse/ENG-7")
+    #expect(
+        issues[0].key == "ENG-7" && issues[0].statusCategory == "indeterminate"
+            && issues[0].url == "https://acme.atlassian.net/browse/ENG-7")
     #expect(issues[0].description.contains("Steps:") && issues[0].description.contains("- open app"))
-    let tr = #"{"transitions":[{"id":"31","name":"In Review","to":{"statusCategory":{"key":"indeterminate"}}},{"id":"41","name":"Done","to":{"statusCategory":{"key":"done"}}}]}"#
+    let tr =
+        #"{"transitions":[{"id":"31","name":"In Review","to":{"statusCategory":{"key":"indeterminate"}}},{"id":"41","name":"Done","to":{"statusCategory":{"key":"done"}}}]}"#
     let ts = try JiraClient.parseTransitions(Data(tr.utf8))
     #expect(ts.map(\.id) == ["31", "41"] && ts[1].toCategory == "done")
 }
@@ -150,37 +183,44 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     #expect(BitbucketClient.slug(remote: "git@github.com:me/bitbucket.org-mirror.git") == nil)
     #expect(BitbucketClient.slug(remote: "https://notbitbucket.org/team/repo") == nil)
     #expect(BitbucketClient.slug(remote: "ssh://git@bitbucket.org/team/repo.git")! == ("team", "repo"))
-    let prs = #"{"values":[{"id":12,"title":"Add API","state":"OPEN","draft":false,"author":{"display_name":"Ann"},"source":{"branch":{"name":"feat/api"}},"links":{"html":{"href":"https://bitbucket.org/team/repo/pull-requests/12"}}}]}"#
+    let prs =
+        #"{"values":[{"id":12,"title":"Add API","state":"OPEN","draft":false,"author":{"display_name":"Ann"},"source":{"branch":{"name":"feat/api"}},"links":{"html":{"href":"https://bitbucket.org/team/repo/pull-requests/12"}}}]}"#
     let p = try BitbucketClient.parsePullRequests(Data(prs.utf8))
     #expect(p.count == 1 && p[0].number == 12 && p[0].headRefName == "feat/api" && p[0].author == "Ann")
 }
 
 @Test func ghErrorsSayWhatToDo() {
-    #expect(GitHubError(args: ["pr", "list"], status: 1, stderr: "no git remotes found").description == "This project has no GitHub remote.")
-    #expect(GitHubError(args: [], status: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login").description.contains("gh auth login"))
-    #expect(!GitHubError(args: ["pr", "list", "--json", "number"], status: 1, stderr: "boom\nmore").description.contains("--json"))
+    #expect(
+        GitHubError(args: ["pr", "list"], status: 1, stderr: "no git remotes found").description
+            == "This project has no GitHub remote.")
+    #expect(
+        GitHubError(args: [], status: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login")
+            .description.contains("gh auth login"))
+    #expect(
+        !GitHubError(args: ["pr", "list", "--json", "number"], status: 1, stderr: "boom\nmore").description.contains(
+            "--json"))
 }
 
 @Test func workflowDispatchInputs() {
     let y = """
-    name: Deploy
-    on:
-      push:
-      workflow_dispatch:
-        inputs:
-          environment:
-            description: "Where to"
-            default: staging
-            type: choice
-            options:
-              - staging
-              - production
-          dry_run:
-            required: true
-    jobs:
-      x:
-        runs-on: ubuntu-latest
-    """
+        name: Deploy
+        on:
+          push:
+          workflow_dispatch:
+            inputs:
+              environment:
+                description: "Where to"
+                default: staging
+                type: choice
+                options:
+                  - staging
+                  - production
+              dry_run:
+                required: true
+        jobs:
+          x:
+            runs-on: ubuntu-latest
+        """
     let w = CIRuns.parseWorkflow(y, file: "deploy.yml")
     #expect(w?.name == "Deploy")
     #expect(w?.inputs.map(\.name) == ["environment", "dry_run"])
@@ -192,21 +232,24 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func ciLogReadsAsText() {
     let raw = """
-    Deploy\tSet up job\t\u{FEFF}2026-10-20T07:01:36.8612524Z ##[group]Run ssh-action
-    Deploy\tSet up job\t2026-10-20T07:01:36.86Z ##[endgroup]
-    Deploy\tRun deploy\t2026-10-20T07:03:31.02Z err: ^[[0m^[[4m>>>> compose\u{1B}[0m
-    Deploy\tRun deploy\t2026-10-20T07:03:33.08Z ##[error]Process completed with exit code 2.
-    """
-    #expect(CIRuns.readable(raw) == "▸ Set up job\nRun ssh-action\n\n▸ Run deploy\nerr: >>>> compose\nError: Process completed with exit code 2.")
+        Deploy\tSet up job\t\u{FEFF}2026-10-20T07:01:36.8612524Z ##[group]Run ssh-action
+        Deploy\tSet up job\t2026-10-20T07:01:36.86Z ##[endgroup]
+        Deploy\tRun deploy\t2026-10-20T07:03:31.02Z err: ^[[0m^[[4m>>>> compose\u{1B}[0m
+        Deploy\tRun deploy\t2026-10-20T07:03:33.08Z ##[error]Process completed with exit code 2.
+        """
+    #expect(
+        CIRuns.readable(raw)
+            == "▸ Set up job\nRun ssh-action\n\n▸ Run deploy\nerr: >>>> compose\nError: Process completed with exit code 2."
+    )
     #expect(CIRuns.readable("plain line\n") == "plain line\n")   // GitLab's trace has no columns
 }
 
 /// GitLab's merge request JSON reads as a pull request, its pipeline as checks.
 @Test func gitlabMergeRequestShape() throws {
     let json = #"""
-    [{"iid": 12, "title": "Fix login", "web_url": "https://gitlab.com/a/b/-/merge_requests/12", "author": {"username": "kim"},
-      "source_branch": "fix-login", "state": "opened", "draft": true, "head_pipeline": {"status": "failed"}}]
-    """#
+        [{"iid": 12, "title": "Fix login", "web_url": "https://gitlab.com/a/b/-/merge_requests/12", "author": {"username": "kim"},
+          "source_branch": "fix-login", "state": "opened", "draft": true, "head_pipeline": {"status": "failed"}}]
+        """#
     let pr = try #require(try JSONDecoder().decode([GitLab.RawMR].self, from: Data(json.utf8)).map(GitLab.pr).first)
     #expect(pr.number == 12 && pr.state == "OPEN" && pr.isDraft && pr.author == "kim" && pr.headRefName == "fix-login")
     #expect(pr.checks.failed == 1 && pr.checks.passed == 0)
@@ -215,7 +258,9 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func ciStateIsTheNewestRunOfEachWorkflowMostPressingFirst() {
     func run(_ workflow: String, _ status: String, _ conclusion: String? = nil) -> CIRuns.Run {
-        CIRuns.Run(id: 0, title: "", workflow: workflow, status: status, conclusion: conclusion, event: "push", url: "", createdAt: "")
+        CIRuns.Run(
+            id: 0, title: "", workflow: workflow, status: status, conclusion: conclusion, event: "push", url: "",
+            createdAt: "")
     }
     let ok = run("CI", "completed", "success"), broke = run("CI", "completed", "failure")
     #expect(CIRuns.state([]) == nil)
@@ -240,89 +285,120 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func glabAuthStatusNamesWhoIsSignedInOnEachHost() {
     let status = """
-    gitlab.com
-      ✓ Logged in to gitlab.com as ada (/Users/ada/.config/glab-cli/config.yml)
-      ✓ Git operations for gitlab.com configured to use ssh protocol.
-    git.acme.dev
-      ✓ Logged in to git.acme.dev as ada.l (/Users/ada/.config/glab-cli/config.yml)
-    """
+        gitlab.com
+          ✓ Logged in to gitlab.com as ada (/Users/ada/.config/glab-cli/config.yml)
+          ✓ Git operations for gitlab.com configured to use ssh protocol.
+        git.acme.dev
+          ✓ Logged in to git.acme.dev as ada.l (/Users/ada/.config/glab-cli/config.yml)
+        """
     #expect(GitLab.signedIn(status) == "ada on gitlab.com, ada.l on git.acme.dev")
-    #expect(GitLab.signedIn("x gitlab.com has not been authenticated with glab. Run `glab auth login gitlab.com`") == nil)
+    #expect(
+        GitLab.signedIn("x gitlab.com has not been authenticated with glab. Run `glab auth login gitlab.com`") == nil)
 }
 
 @Test func gitlabBranchNamesStayOneQueryValue() {
-    #expect(GitLab.queryValue("fix+x") == "fix%2Bx")          // "+" would read as a space
-    #expect(GitLab.queryValue("a&b=c") == "a%26b%3Dc")        // & and = would start another parameter
+    #expect(GitLab.queryValue("fix+x") == "fix%2Bx")   // "+" would read as a space
+    #expect(GitLab.queryValue("a&b=c") == "a%26b%3Dc")   // & and = would start another parameter
     #expect(GitLab.queryValue("feat/login") == "feat%2Flogin")
     #expect(GitLab.queryValue("plain-name_1.2~x") == "plain-name_1.2~x")
 }
 
 @Test func aNoreplyAddressNamesItsGitHubAccount() {
-    #expect(GitHub.noreplyAvatar("129620956+Ada@users.noreply.github.com")?.absoluteString == "https://avatars.githubusercontent.com/u/129620956?s=64")
-    #expect(GitHub.noreplyAvatar("ada@users.noreply.github.com")?.absoluteString == "https://github.com/ada.png?size=64")
+    #expect(
+        GitHub.noreplyAvatar("129620956+Ada@users.noreply.github.com")?.absoluteString
+            == "https://avatars.githubusercontent.com/u/129620956?s=64")
+    #expect(
+        GitHub.noreplyAvatar("ada@users.noreply.github.com")?.absoluteString == "https://github.com/ada.png?size=64")
     #expect(GitHub.noreplyAvatar("ada@example.com") == nil)
 }
 
 // The lines below are from real runs: Pretype's XCTest, Kelp's Swift Testing and compiler errors, a killed process.
 @Test func aFailedLogSaysWhatBrokeWhereverItSits() {
-    let noise = (0..<4000).map { "Test Case '-[App.A test\($0)]' started.\nTest Case '-[App.A test\($0)]' passed (0.001 seconds)." }
-    let log = ["▸ Test", "Test Case '-[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords]' started.",
-               #"/Users/runner/work/Pretype/Pretype/Tests/PretypeTests/TextShapingTests.swift:284: error: -[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords] : XCTAssertNil failed: "sept""#,
-               #"/Users/runner/work/Pretype/Pretype/Tests/PretypeTests/TextShapingTests.swift:285: error: -[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords] : XCTAssertNil failed: "rip" - a lookalike"#,
-               "Test Case '-[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords]' failed (7.741 seconds)."] + noise
+    let noise = (0..<4000).map {
+        "Test Case '-[App.A test\($0)]' started.\nTest Case '-[App.A test\($0)]' passed (0.001 seconds)."
+    }
+    let log =
+        [
+            "▸ Test", "Test Case '-[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords]' started.",
+            #"/Users/runner/work/Pretype/Pretype/Tests/PretypeTests/TextShapingTests.swift:284: error: -[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords] : XCTAssertNil failed: "sept""#,
+            #"/Users/runner/work/Pretype/Pretype/Tests/PretypeTests/TextShapingTests.swift:285: error: -[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords] : XCTAssertNil failed: "rip" - a lookalike"#,
+            "Test Case '-[PretypeTests.DanishSpellingTests testAFinishedPrefixOfRealWords]' failed (7.741 seconds)."
+        ] + noise
         + ["Error: Process completed with exit code 1."]
     let r = CIRuns.report(log: log.joined(separator: "\n"))
-    #expect(r.failures == [CIRuns.Failure(test: "testAFinishedPrefixOfRealWords", suite: "DanishSpellingTests", file: "Tests/PretypeTests/TextShapingTests.swift",
-                                          line: 284, messages: [#"XCTAssertNil failed: "sept""#, #":285 XCTAssertNil failed: "rip" - a lookalike"#])])
+    #expect(
+        r.failures == [
+            CIRuns.Failure(
+                test: "testAFinishedPrefixOfRealWords", suite: "DanishSpellingTests",
+                file: "Tests/PretypeTests/TextShapingTests.swift",
+                line: 284,
+                messages: [#"XCTAssertNil failed: "sept""#, #":285 XCTAssertNil failed: "rip" - a lookalike"#])
+        ])
     #expect(r.tests == 4001)
     #expect(!r.log.contains("testAFinishedPrefixOfRealWords"))   // the tail lost it: this is why the log is read whole
-    #expect(r.forAgent.hasPrefix("Tests/PretypeTests/TextShapingTests.swift:284 DanishSpellingTests.testAFinishedPrefixOfRealWords\n  XCTAssertNil"))
+    #expect(
+        r.forAgent.hasPrefix(
+            "Tests/PretypeTests/TextShapingTests.swift:284 DanishSpellingTests.testAFinishedPrefixOfRealWords\n  XCTAssertNil"
+        ))
     #expect(r.exitCode == nil && r.lastLines.isEmpty)
 }
 
 @Test func swiftTestingIssuesAreOneFailureEach() {
-    let r = CIRuns.report(log: """
-        ✔ Test passes() passed after 0.1 seconds.
-        ✘ Test hibernateAndWake() recorded an issue at DaemonTests.swift:244:5: Expectation failed: try await waitFor(30)
-        ✘ Test hibernateAndWake() recorded an issue at DaemonTests.swift:250:5: Expectation failed: done
-        ✘ Test hibernateAndWake() failed after 74.017 seconds with 2 issues.
-        ✘ Test run with 336 tests in 1 suite failed after 74.030 seconds with 2 issues.
-        """)
-    #expect(r.failures == [CIRuns.Failure(test: "hibernateAndWake()", file: "DaemonTests.swift", line: 244,
-                                          messages: ["Expectation failed: try await waitFor(30)", ":250 Expectation failed: done"])])
+    let r = CIRuns.report(
+        log: """
+            ✔ Test passes() passed after 0.1 seconds.
+            ✘ Test hibernateAndWake() recorded an issue at DaemonTests.swift:244:5: Expectation failed: try await waitFor(30)
+            ✘ Test hibernateAndWake() recorded an issue at DaemonTests.swift:250:5: Expectation failed: done
+            ✘ Test hibernateAndWake() failed after 74.017 seconds with 2 issues.
+            ✘ Test run with 336 tests in 1 suite failed after 74.030 seconds with 2 issues.
+            """)
+    #expect(
+        r.failures == [
+            CIRuns.Failure(
+                test: "hibernateAndWake()", file: "DaemonTests.swift", line: 244,
+                messages: ["Expectation failed: try await waitFor(30)", ":250 Expectation failed: done"])
+        ])
     #expect(r.tests == 336)
 }
 
 @Test func compilerErrorsAreOnePerLineAndTheBuildsEchoIsSkipped() {
     let error = "cannot convert value of type 'String' to expected element type"
-    let r = CIRuns.report(log: """
-        /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift:95:56: error: \(error)
-        /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift:95:70: error: \(error)
-        error: SwiftCompile normal arm64 /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift failed with a nonzero exit code
-        """)
+    let r = CIRuns.report(
+        log: """
+            /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift:95:56: error: \(error)
+            /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift:95:70: error: \(error)
+            error: SwiftCompile normal arm64 /Users/runner/work/kelp/kelp/Sources/kelp/AgentsCommand.swift failed with a nonzero exit code
+            """)
     #expect(r.failures == [CIRuns.Failure(file: "Sources/kelp/AgentsCommand.swift", line: 95, messages: [error])])
 }
 
 @Test func aTestThatDiesWithoutALineStillHasItsName() {
-    let r = CIRuns.report(log: "Test Case '-[App.Suite testCrash]' started.\nTest Case '-[App.Suite testCrash]' failed (1.0 seconds).")
+    let r = CIRuns.report(
+        log: "Test Case '-[App.Suite testCrash]' started.\nTest Case '-[App.Suite testCrash]' failed (1.0 seconds).")
     #expect(r.failures == [CIRuns.Failure(test: "testCrash", suite: "Suite")] && r.tests == 1)
 }
 
 @Test func aLogInNoKnownFormatEndsWithItsLastLines() {
-    let r = CIRuns.report(log: """
-        ▸ UI smoke
-        start: ok
-        file: ok
-        terminal: ok
-        terminal: the command didn't run
-        Error: Process completed with exit code 1.
-        """)
+    let r = CIRuns.report(
+        log: """
+            ▸ UI smoke
+            start: ok
+            file: ok
+            terminal: ok
+            terminal: the command didn't run
+            Error: Process completed with exit code 1.
+            """)
     #expect(r.failures.isEmpty && r.exitCode == 1)
     #expect(r.lastLines == ["file: ok", "terminal: ok", "terminal: the command didn't run"])
-    let killed = CIRuns.report(log: "✔ Test a() passed after 1 seconds.\n/tmp/x.sh: line 5: 10186 Killed: 9\nError: Process completed with exit code 137.\n")
+    let killed = CIRuns.report(
+        log:
+            "✔ Test a() passed after 1 seconds.\n/tmp/x.sh: line 5: 10186 Killed: 9\nError: Process completed with exit code 137.\n"
+    )
     #expect(killed.exitCode == 137 && killed.lastLines.last == "/tmp/x.sh: line 5: 10186 Killed: 9")
     #expect(CIRuns.report(log: "").lastLines.isEmpty)
-    #expect(CIRuns.repoPath("/builds/group/app/src/a.c") == "src/a.c" && CIRuns.repoPath("Tests/A.swift") == "Tests/A.swift")
+    #expect(
+        CIRuns.repoPath("/builds/group/app/src/a.c") == "src/a.c" && CIRuns.repoPath("Tests/A.swift") == "Tests/A.swift"
+    )
 }
 
 @Test func tooManyFailuresAreCounted() {
@@ -332,17 +408,25 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 }
 
 @Test func aRunsTimeIsThatOfItsLatestTry() {
-    var r = CIRuns.Run(id: 1, title: "", workflow: "CI", status: "completed", conclusion: "success", event: "push", url: "", createdAt: "2026-11-02T10:34:17Z",
-                       startedAt: "2026-11-02T10:45:38Z", updatedAt: "2026-11-02T10:52:28Z")
+    var r = CIRuns.Run(
+        id: 1, title: "", workflow: "CI", status: "completed", conclusion: "success", event: "push", url: "",
+        createdAt: "2026-11-02T10:34:17Z",
+        startedAt: "2026-11-02T10:45:38Z", updatedAt: "2026-11-02T10:52:28Z")
     #expect(r.began == "2026-11-02T10:45:38Z" && r.seconds() == 410)
-    r.status = "in_progress"; r.updatedAt = nil
+    r.status = "in_progress"
+    r.updatedAt = nil
     #expect(r.seconds(now: CIRuns.date("2026-11-02T10:46:38Z") ?? .distantPast) == 60)
     #expect(CIRuns.date("2026-11-02T10:45:38.123Z") != nil && CIRuns.seconds(from: nil, to: nil) == nil)
-    r.sha = "abc"; r.url = "https://github.com/o/a/actions/runs/1"
+    r.sha = "abc"
+    r.url = "https://github.com/o/a/actions/runs/1"
     #expect(r.commitURL == "https://github.com/o/a/commit/abc")
     r.url = "https://gitlab.com/o/a/-/pipelines/1"
     #expect(r.commitURL == "https://gitlab.com/o/a/-/commit/abc")
-    #expect(CIRuns.Run(id: 1, title: "", workflow: "", status: "", conclusion: nil, event: "", url: "", createdAt: "x", sha: "2f2111f0aa").shortSHA == "2f2111f")
+    #expect(
+        CIRuns.Run(
+            id: 1, title: "", workflow: "", status: "", conclusion: nil, event: "", url: "", createdAt: "x",
+            sha: "2f2111f0aa"
+        ).shortSHA == "2f2111f")
 }
 
 @Test func stepsLoseWhatGitHubAddsToTheirNames() {
@@ -354,11 +438,20 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 }
 
 @Test func aJobsStepsFoldAroundWhatMatters() {
-    func s(_ n: String, _ status: String = "completed", _ c: String? = "success") -> CIRuns.Step { .init(name: n, status: status, conclusion: c) }
-    let failedJob = [s("a"), s("b"), s("Test", "completed", "failure"), s("c", "completed", "skipped"), s("d", "completed", "skipped"), s("e")]
-    #expect(CIRuns.rows(failedJob) == [.passed([s("a"), s("b"), s("e")]), .one(failedJob[2]), .skipped([failedJob[3], failedJob[4]])])
+    func s(_ n: String, _ status: String = "completed", _ c: String? = "success") -> CIRuns.Step {
+        .init(name: n, status: status, conclusion: c)
+    }
+    let failedJob = [
+        s("a"), s("b"), s("Test", "completed", "failure"), s("c", "completed", "skipped"),
+        s("d", "completed", "skipped"), s("e")
+    ]
+    #expect(
+        CIRuns.rows(failedJob) == [
+            .passed([s("a"), s("b"), s("e")]), .one(failedJob[2]), .skipped([failedJob[3], failedJob[4]])
+        ])
     let running = [s("a"), s("b"), s("t", "in_progress", nil), s("x", "queued", nil), s("y", "pending", nil)]
-    #expect(CIRuns.rows(running) == [.passed([s("a"), s("b")]), .one(running[2]), .upcoming([running[3], running[4]])])
+    #expect(
+        CIRuns.rows(running) == [.passed([s("a"), s("b")]), .one(running[2]), .upcoming([running[3], running[4]])])
     #expect(CIRuns.rows([s("only")]) == [.one(s("only"))])   // one step folds nothing away
     #expect(CIRuns.rows([]) == [])
 }
@@ -369,15 +462,22 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 }
 
 private func run(_ n: Int, _ conclusion: String?, minutes: Int = 10, workflow: String = "CI") -> CIRuns.Run {
-    CIRuns.Run(id: n, title: "", workflow: workflow, status: conclusion == nil ? "in_progress" : "completed", conclusion: conclusion, event: "push", url: "",
-               createdAt: "", number: n, startedAt: "2026-11-02T10:00:00Z", updatedAt: "2026-11-02T10:\(String(format: "%02d", minutes)):00Z")
+    CIRuns.Run(
+        id: n, title: "", workflow: workflow, status: conclusion == nil ? "in_progress" : "completed",
+        conclusion: conclusion, event: "push", url: "",
+        createdAt: "", number: n, startedAt: "2026-11-02T10:00:00Z",
+        updatedAt: "2026-11-02T10:\(String(format: "%02d", minutes)):00Z")
 }
 
 @Test func aWorkflowsUsualTimeIsThatOfItsGreenRuns() {
-    let runs = [run(1, "success", minutes: 8), run(2, "success", minutes: 14), run(3, "failure", minutes: 1), run(4, "success", minutes: 30), run(5, "success", minutes: 16)]
+    let runs = [
+        run(1, "success", minutes: 8), run(2, "success", minutes: 14), run(3, "failure", minutes: 1),
+        run(4, "success", minutes: 30), run(5, "success", minutes: 16)
+    ]
     #expect(CIRuns.typicalSeconds(runs, workflow: "CI").map { Int($0) } == 15 * 60)
     #expect(CIRuns.typicalSeconds([run(1, "success"), run(2, "success"), run(3, "failure")], workflow: "CI") == nil)
-    #expect(CIRuns.typicalSeconds([run(1, "success"), run(2, "success"), run(3, "success")], workflow: "Deploy") == nil)
+    #expect(
+        CIRuns.typicalSeconds([run(1, "success"), run(2, "success"), run(3, "success")], workflow: "Deploy") == nil)
 }
 
 @Test func aBranchsHistorySaysWhenItWasLastGreen() {

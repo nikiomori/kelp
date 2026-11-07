@@ -17,32 +17,45 @@ package enum Banner {
     /// `action`: one button beside the text (e.g. "Open Settings"); the banner stays a little longer. `title`, `subtitle`
     /// and `icon`: what an agent's banner leads with (its name and what it did, where, its icon), the text under them.
     /// `lasts`: seconds on screen, when its action holds for a known time (an Undo the daemon keeps a minute).
-    package static func show(_ text: String, style: Style = .info, action: (title: String, run: @MainActor () -> Void)? = nil,
-                             title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil, lasts: TimeInterval? = nil) {
-        guard let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }), let stack = stack(in: window) else { return }
+    package static func show(
+        _ text: String, style: Style = .info, action: (title: String, run: @MainActor () -> Void)? = nil,
+        title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil, lasts: TimeInterval? = nil
+    ) {
+        guard let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }),
+            let stack = stack(in: window)
+        else { return }
         // A known error carries its fix: the command, and a button that copies it.
         let fix = style == .error ? FixRecipes.fix(for: text) : nil
         var text = text, action = action
         if let fix {
             text += "\n" + String(localized: "Fix: \(fix.command)")
             if action == nil {
-                action = (String(localized: "Copy Fix"), {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(fix.command, forType: .string)
-                })
+                action = (
+                    String(localized: "Copy Fix"),
+                    {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(fix.command, forType: .string)
+                    }
+                )
             }
         }
-        let card = BannerCard(text: text, style: style, title: title, subtitle: subtitle, icon: icon, action: action,
-                              stays: fix?.blocking == true)   // git can't run at all: stays until it's closed
+        let card = BannerCard(
+            text: text, style: style, title: title, subtitle: subtitle, icon: icon, action: action,
+            stays: fix?.blocking == true)   // git can't run at all: stays until it's closed
         stack.rearrange {
             stack.insertArrangedSubview(card, at: 0)
-            while stack.arrangedSubviews.count > most, let oldest = stack.arrangedSubviews.last { oldest.removeFromSuperview() }
+            while stack.arrangedSubviews.count > most, let oldest = stack.arrangedSubviews.last {
+                oldest.removeFromSuperview()
+            }
         }
         card.appear()
         // VoiceOver says it too: the banner is out of the keyboard's way, so it would go unheard.
-        NSAccessibility.post(element: window, notification: .announcementRequested,
-                             userInfo: [.announcement: [title, text].compactMap { $0 }.joined(separator: ". "),
-                                        .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue])
+        NSAccessibility.post(
+            element: window, notification: .announcementRequested,
+            userInfo: [
+                .announcement: [title, text].compactMap { $0 }.joined(separator: ". "),
+                .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue
+            ])
         if !card.stays { card.leave(after: lasts ?? (action != nil ? 10 : style == .error ? 6 : 4)) }
     }
 
@@ -60,8 +73,11 @@ package enum Banner {
         NSLayoutConstraint.activate([
             // Under the tab strip and the tab's bar (its Stage, Send to Agent…), clear of the card's edge; never wider than
             // the area leaves room for.
-            s.topAnchor.constraint(equalTo: card.topAnchor, constant: (card === content ? WindowBar.height
-                                                                       : TabStrip.height + TextSize.of(Metrics.contentBar)) + Metrics.gapWide),
+            s.topAnchor.constraint(
+                equalTo: card.topAnchor,
+                constant: (card === content
+                    ? WindowBar.height
+                    : TabStrip.height + TextSize.of(Metrics.contentBar)) + Metrics.gapWide),
             s.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -Metrics.inset),
             s.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -2 * Metrics.inset)
         ])
@@ -84,15 +100,20 @@ private final class BannerCard: NSView {
     private var leaveAt: Date?
     private let close = IconButton(.symbol("xmark", String(localized: "Close")), tip: String(localized: "Close")) {}
 
-    init(text: String, style: Banner.Style, title: String?, subtitle: String?, icon: NSImage?,
-         action: (title: String, run: @MainActor () -> Void)?, stays: Bool) {
+    init(
+        text: String, style: Banner.Style, title: String?, subtitle: String?, icon: NSImage?,
+        action: (title: String, run: @MainActor () -> Void)?, stays: Bool
+    ) {
         self.stays = stays
         super.init(frame: .zero)
-        let symbol = NSImageView(image: icon ?? .symbol(style == .error ? "exclamationmark.triangle.fill" : "info.circle.fill"))
+        let symbol = NSImageView(
+            image: icon ?? .symbol(style == .error ? "exclamationmark.triangle.fill" : "info.circle.fill"))
         symbol.contentTintColor = style == .error ? .systemOrange : .secondaryLabelColor
         symbol.imageScaling = .scaleProportionallyUpOrDown
-        NSLayoutConstraint.activate([symbol.widthAnchor.constraint(equalToConstant: icon == nil ? 16 : 24),
-                                     symbol.heightAnchor.constraint(equalToConstant: icon == nil ? 16 : 24)])
+        NSLayoutConstraint.activate([
+            symbol.widthAnchor.constraint(equalToConstant: icon == nil ? 16 : 24),
+            symbol.heightAnchor.constraint(equalToConstant: icon == nil ? 16 : 24)
+        ])
         var lines: [NSView] = []
         if let title {
             let t = NSTextField(wrappingLabelWithString: title)   // two lines: an agent's long name keeps the "finished" at its end
@@ -129,7 +150,10 @@ private final class BannerCard: NSView {
         var rows: [NSView] = [top]
         var buttons: NSStackView?
         if let action {
-            let b = ClosureButton(title: action.title) { [weak self] in action.run(); self?.dismiss() }
+            let b = ClosureButton(title: action.title) { [weak self] in
+                action.run()
+                self?.dismiss()
+            }
             b.bezelStyle = .push
             b.controlSize = .small
             let row = NSStackView(views: [NSView(), b])
@@ -150,7 +174,9 @@ private final class BannerCard: NSView {
         NSLayoutConstraint.activate([width, padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340)])
         buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // the button at the right edge
         Self.ground(padded, in: self)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -184,7 +210,10 @@ private final class BannerCard: NSView {
             slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
             layer?.add(slide, forKey: "in")
         }
-        NSAnimationContext.runAnimationGroup { $0.duration = Motion.duration(Motion.fast); animator().alphaValue = 1 }
+        NSAnimationContext.runAnimationGroup {
+            $0.duration = Motion.duration(Motion.fast)
+            animator().alphaValue = 1
+        }
     }
 
     /// Fades out after `seconds`, unless the pointer is on it then.
@@ -199,7 +228,10 @@ private final class BannerCard: NSView {
 
     func dismiss() {
         leaveAt = nil
-        NSAnimationContext.runAnimationGroup({ $0.duration = Motion.duration(Motion.slow); animator().alphaValue = 0 }) { [weak self] in
+        NSAnimationContext.runAnimationGroup({
+            $0.duration = Motion.duration(Motion.slow)
+            animator().alphaValue = 0
+        }) { [weak self] in
             MainActor.assumeIsolated {   // AppKit: on main
                 guard let self else { return }
                 guard let stack = self.superview as? NSStackView else { return self.removeFromSuperview() }

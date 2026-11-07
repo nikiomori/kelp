@@ -1,10 +1,10 @@
 import AppKit
-import Observation
-import SwiftUI
 import Core
 import DesignKit
-import TerminalKit
 import EditorKit
+import Observation
+import SwiftUI
+import TerminalKit
 
 /// A color theme: terminal and editor colors, optionally tied to light or dark appearance, and how the window around them
 /// is built (docs/extensions.md).
@@ -24,13 +24,13 @@ struct Theme: Codable, Identifiable, Equatable {
     /// The panels and the gap round the editor area ("surface"), the editor area ("card") and the chrome's accent and face.
     /// A theme without one gets a window in its own colours.
     struct Window: Codable, Equatable {
-        var surface: String?     // a colour, or "material": macOS's own, the desktop showing through
+        var surface: String?   // a colour, or "material": macOS's own, the desktop showing through
         var surfaceOpacity: Double?
         var card: String?, border: String?
         var borderWidth: Double?, radius: Double?
         var accent: String?
-        var font: String?        // "mono", "serif", "rounded"
-        var ambient: String?     // "aurora", "motes", "grid"
+        var font: String?   // "mono", "serif", "rounded"
+        var ambient: String?   // "aurora", "motes", "grid"
         var ambientColors: [String]?
     }
     /// A colour for the terminal's config file, which is read line by line. A theme is someone else's, and more than one word
@@ -41,7 +41,7 @@ struct Theme: Codable, Identifiable, Equatable {
 
     var id: String
     var name: String
-    var appearance: String?      // "light" / "dark" / nil (either)
+    var appearance: String?   // "light" / "dark" / nil (either)
     var terminal: TerminalColors?
     var editor: EditorColors?
     var window: Window?
@@ -79,23 +79,37 @@ package final class ThemeManager {
     private(set) package var chromeDesign = Font.Design.default
 
     static let builtin: [Theme] = [
-        Theme(id: "kelp.light", name: "Kelp Light", appearance: "light",
-              terminal: .init(background: "#ffffff", foreground: "#1d1d1f", cursor: nil, selection: "#b3d7ff",
-                              palette: ["#1d1d1f", "#c41a16", "#007400", "#826b28", "#0b4f79", "#9b2393", "#326d74", "#8e8e93",
-                                        "#636366", "#e0362e", "#28a745", "#b28600", "#0a84ff", "#bf5af2", "#3a9bae", "#1d1d1f"]),
-              editor: nil, window: .system),
-        Theme(id: "kelp.dark", name: "Kelp Dark", appearance: "dark",
-              terminal: .init(background: "#1e1e22", foreground: "#e5e5ea", cursor: nil, selection: "#3a4a63",
-                              palette: ["#2c2c30", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
-                                        "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"]),
-              editor: .init(background: "#1e1e22", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
-                            type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system),
-        Theme(id: "kelp.black", name: "Kelp Black", appearance: "dark",
-              terminal: .init(background: "#000000", foreground: "#e5e5ea", cursor: nil, selection: "#2a3a55",
-                              palette: ["#1c1c1e", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
-                                        "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"]),
-              editor: .init(background: "#000000", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
-                            type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system)
+        Theme(
+            id: "kelp.light", name: "Kelp Light", appearance: "light",
+            terminal: .init(
+                background: "#ffffff", foreground: "#1d1d1f", cursor: nil, selection: "#b3d7ff",
+                palette: [
+                    "#1d1d1f", "#c41a16", "#007400", "#826b28", "#0b4f79", "#9b2393", "#326d74", "#8e8e93",
+                    "#636366", "#e0362e", "#28a745", "#b28600", "#0a84ff", "#bf5af2", "#3a9bae", "#1d1d1f"
+                ]),
+            editor: nil, window: .system),
+        Theme(
+            id: "kelp.dark", name: "Kelp Dark", appearance: "dark",
+            terminal: .init(
+                background: "#1e1e22", foreground: "#e5e5ea", cursor: nil, selection: "#3a4a63",
+                palette: [
+                    "#2c2c30", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
+                    "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"
+                ]),
+            editor: .init(
+                background: "#1e1e22", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
+                type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system),
+        Theme(
+            id: "kelp.black", name: "Kelp Black", appearance: "dark",
+            terminal: .init(
+                background: "#000000", foreground: "#e5e5ea", cursor: nil, selection: "#2a3a55",
+                palette: [
+                    "#1c1c1e", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
+                    "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"
+                ]),
+            editor: .init(
+                background: "#000000", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
+                type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system)
     ]
 
     /// "auto" follows macOS light/dark; "ghostty" leaves the terminal to ~/.config/ghostty.
@@ -103,14 +117,17 @@ package final class ThemeManager {
 
     /// What terminals are painted with now (Ghostty's own config when the theme leaves it to Ghostty).
     var terminalBackground: NSColor {
-        let hex = lastTerminal?.background ?? (lastTerminal?.useGhosttyConfig != false ? GhosttyConfig.load()?.background : nil)
+        let hex =
+            lastTerminal?.background
+            ?? (lastTerminal?.useGhosttyConfig != false ? GhosttyConfig.load()?.background : nil)
         return hex.flatMap { NSColor(hex: $0) } ?? .textBackgroundColor
     }
 
     /// The theme painting the window now: Match System's light or dark one; nil for Ghostty's own colors.
     var shown: Theme? {
         let id = app.settings.string("workbench.theme") ?? "auto"
-        return id == "ghostty" ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
+        return id == "ghostty"
+            ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
     }
 
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
@@ -119,11 +136,12 @@ package final class ThemeManager {
         let s = app.settings
         // One choice, like VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's;
         // Match System and Ghostty follow macOS.
-        let want: NSAppearance.Name? = switch themes.first(where: { $0.id == s.string("workbench.theme") })?.appearance {
-        case "light": .aqua
-        case "dark": .darkAqua
-        default: nil
-        }
+        let want: NSAppearance.Name? =
+            switch themes.first(where: { $0.id == s.string("workbench.theme") })?.appearance {
+            case "light": .aqua
+            case "dark": .darkAqua
+            default: nil
+            }
         if NSApp.appearance?.name != want { NSApp.appearance = want.flatMap { NSAppearance(named: $0) } }
         if appearanceObserver == nil {
             // macOS switched light/dark: "auto" themes follow (colors only; setting the appearance here would loop).
@@ -163,24 +181,31 @@ package final class ThemeManager {
         }
 
         let e = theme?.editor
-        let palette = e.map { CodeEditor.Palette(background: $0.background + Self.alpha($0.opacity), text: $0.text,
-                                                 keyword: $0.keyword, string: $0.string, comment: $0.comment, type: $0.type,
-                                                 number: $0.number, function: $0.function, selection: $0.selection ?? theme?.terminal?.selection,
-                                                 lineHighlight: $0.lineHighlight) }
-        let size = CGFloat(s.number("editor.fontSize") ?? 13), font = s.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
+        let palette = e.map {
+            CodeEditor.Palette(
+                background: $0.background + Self.alpha($0.opacity), text: $0.text,
+                keyword: $0.keyword, string: $0.string, comment: $0.comment, type: $0.type,
+                number: $0.number, function: $0.function, selection: $0.selection ?? theme?.terminal?.selection,
+                lineHighlight: $0.lineHighlight)
+        }
+        let size = CGFloat(s.number("editor.fontSize") ?? 13),
+            font = s.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
         let wrap = s.bool("editor.wordWrap") ?? false
         let hang = s.string("editor.wrappingIndent").flatMap(CodeEditor.WrappingIndent.init) ?? .same
         TextSize.apply(s.string("workbench.textSize"))
         TextSize.apply(design: theme?.window?.font)
         chromeText = "\(s.string("workbench.textSize") ?? "") \(theme?.window?.font ?? "")"
-        chromeDesign = ["mono": .monospaced, "serif": .serif, "rounded": .rounded][theme?.window?.font ?? ""] ?? .default
+        chromeDesign =
+            ["mono": .monospaced, "serif": .serif, "rounded": .rounded][theme?.window?.font ?? ""] ?? .default
         NSColor.setThemeAccent(Self.accent(theme))
         look = Self.windowLook(theme, terminalOpacity: t.opacity ?? 1, forced: opacity)
         // Read by Foundation at launch, so a change shows the next time Kelp opens.
         let language = s.string("workbench.language").flatMap { $0 == "system" ? nil : [$0] }
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
-        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName || wrap != CodeEditor.wrapLines
-            || hang != CodeEditor.wrappingIndent {
+        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName
+            || wrap != CodeEditor.wrapLines
+            || hang != CodeEditor.wrappingIndent
+        {
             CodeEditor.palette = palette
             CodeEditor.fontSize = size
             CodeEditor.fontName = font
@@ -212,7 +237,8 @@ package final class ThemeManager {
             let surface = w.surface.flatMap { NSColor(hex: $0) } ?? background
             l.surface = surface.withAlphaComponent(w.surfaceOpacity ?? 1)
         }
-        l.card = l.seeThrough ? .clear : w.card.flatMap { NSColor(hex: $0) } ?? (w.surface == "material" ? nil : background)
+        l.card =
+            l.seeThrough ? .clear : w.card.flatMap { NSColor(hex: $0) } ?? (w.surface == "material" ? nil : background)
         l.border = w.border.flatMap { NSColor(hex: $0) }
         l.borderWidth = w.borderWidth ?? 1
         l.radius = w.radius ?? Metrics.radiusLG
@@ -227,7 +253,8 @@ extension Theme.Window {
     /// A window in the theme's colours: the card its background, the surface round it a shade further from its text.
     static func own(_ theme: Theme) -> Self {
         let dark = theme.appearance != "light"
-        let shade = (theme.terminal?.background).flatMap { NSColor(hex: $0) }?.blended(withFraction: dark ? 0.18 : 0.04, of: .black)
+        let shade = (theme.terminal?.background).flatMap { NSColor(hex: $0) }?.blended(
+            withFraction: dark ? 0.18 : 0.04, of: .black)
         return Self(surface: shade?.hexString, card: theme.terminal?.background)
     }
     /// macOS's own window: the Kelp themes'.

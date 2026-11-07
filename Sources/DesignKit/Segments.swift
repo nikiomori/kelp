@@ -16,7 +16,9 @@ public struct Segments: NSViewRepresentable {
     }
 
     public func makeNSView(context: Context) -> NSSegmentedControl {
-        let s = NSSegmentedControl(labels: labels, trackingMode: .selectOne, target: context.coordinator, action: #selector(Coordinator.changed))
+        let s = NSSegmentedControl(
+            labels: labels, trackingMode: .selectOne, target: context.coordinator,
+            action: #selector(Coordinator.changed))
         s.segmentDistribution = .fillProportionally
         return s
     }
@@ -30,7 +32,9 @@ public struct Segments: NSViewRepresentable {
         s.selectedSegment = selection
     }
     public func sizeThatFits(_ proposal: ProposedViewSize, nsView s: NSSegmentedControl, context: Context) -> CGSize? {
-        CGSize(width: min(proposal.width ?? .infinity, s.intrinsicContentSize.width), height: s.intrinsicContentSize.height)
+        CGSize(
+            width: min(proposal.width ?? .infinity, s.intrinsicContentSize.width), height: s.intrinsicContentSize.height
+        )
     }
     public func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
 

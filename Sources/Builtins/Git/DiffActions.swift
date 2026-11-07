@@ -18,7 +18,8 @@ extension DiffViewController {
         guard let wid = worktreeId, let (path, i, h) = hunk(b) else { return }
         let staged = hunksStaged(b.tag / 10000) == true
         Task {
-            await app.call(GitHunk(id: wid, file: path, hunk: i, reverse: staged, header: h.header, fingerprint: h.fingerprint))
+            await app.call(
+                GitHunk(id: wid, file: path, hunk: i, reverse: staged, header: h.header, fingerprint: h.fingerprint))
             await load()
             app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
         }
@@ -30,9 +31,14 @@ extension DiffViewController {
         Task {
             // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
             let undo = UUID().uuidString
-            let m = GitDiscardHunk(id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint, undo: undo)
-            if let e = await app.tryCall(m).error { Banner.show(e, style: .error) } else {
-                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) { await self.load() }
+            let m = GitDiscardHunk(
+                id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint, undo: undo)
+            if let e = await app.tryCall(m).error {
+                Banner.show(e, style: .error)
+            } else {
+                app.offerUndoDiscard(String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) {
+                    await self.load()
+                }
             }
             fadesNextLoad = true
             await load()
@@ -53,17 +59,29 @@ extension DiffViewController {
         guard live, let wid = worktreeId, diffs.indices.contains(row) else { return }
         let path = diffs[row].path
         guard let c = changes.first(where: { $0.path == path }) else { return }
-        if c.unstaged || !c.staged { m.add(String(localized: "Stage")) { [weak self] in self?.fileOp(GitStage(id: wid, files: [path])) } }
-        if c.staged { m.add(String(localized: "Unstage")) { [weak self] in self?.fileOp(GitUnstage(id: wid, files: [path])) } }
+        if c.unstaged || !c.staged {
+            m.add(String(localized: "Stage")) { [weak self] in self?.fileOp(GitStage(id: wid, files: [path])) }
+        }
+        if c.staged {
+            m.add(String(localized: "Unstage")) { [weak self] in self?.fileOp(GitUnstage(id: wid, files: [path])) }
+        }
         m.addItem(.separator())
         m.add(String(localized: "Open File")) { [weak self] in self?.openLine(path, nil) }
-        m.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(path, forType: .string) }
+        m.add(String(localized: "Copy Path")) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(path, forType: .string)
+        }
     }
     func openLine(_ path: String, _ line: Int?) {
         guard let root = app.worktree(worktreeId)?.path else { return }
         app.workbench.open(TabURI.file(root + "/" + path, line: line))
     }
-    private func fileOp<M: RPCMethod>(_ m: M) { Task { await app.call(m); await load() } }
+    private func fileOp<M: RPCMethod>(_ m: M) {
+        Task {
+            await app.call(m)
+            await load()
+        }
+    }
 
     /// A comment's next state; a line of the diff, what can be done with a line; the other rows have no menu.
     func lineMenu(_ m: NSMenu, row: Int) {
@@ -100,11 +118,17 @@ extension DiffViewController {
         if let n = line.newLine {
             m.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, n) }
         }
-        m.add(String(localized: "Copy Line")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(line.text, forType: .string) }
+        m.add(String(localized: "Copy Line")) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(line.text, forType: .string)
+        }
     }
     private func setComment(_ id: String, _ state: String) {
         let set = CommentSetState(id: id, state: state)
-        Task { await app.call(set); await load() }
+        Task {
+            await app.call(set)
+            await load()
+        }
     }
 
     /// The focused session if it is in this worktree, else ask.
@@ -117,25 +141,39 @@ extension DiffViewController {
         }
         if let cur = app.workbench.focusedSession, live.contains(where: { $0.id == cur }) { return cur }
         if live.count == 1 { return live[0].id }
-        guard !live.isEmpty else { status.stringValue = String(localized: "No running agent in this worktree"); return nil }
+        guard !live.isEmpty else {
+            status.stringValue = String(localized: "No running agent in this worktree")
+            return nil
+        }
         let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 240, height: 26))
-        for s in live { pop.addItem(withTitle: "\(s.agent ?? "shell") [\(s.id.prefix(6))]"); pop.lastItem?.representedObject = s.id }
+        for s in live {
+            pop.addItem(withTitle: "\(s.agent ?? "shell") [\(s.id.prefix(6))]")
+            pop.lastItem?.representedObject = s.id
+        }
         let a = NSAlert()
         a.messageText = String(localized: "Send to which agent?")
         a.accessoryView = pop
-        a.addButton(withTitle: String(localized: "Send")); a.addButton(withTitle: String(localized: "Cancel"))
+        a.addButton(withTitle: String(localized: "Send"))
+        a.addButton(withTitle: String(localized: "Cancel"))
         return await runSheet(a) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
     }
 }
 
 extension AppModel {
     /// After a discard: a banner whose Undo puts it back, on screen as long as the daemon keeps it (a minute).
-    func offerUndoDiscard(_ text: String, worktree wid: String, undo: String, then reload: @escaping @MainActor () async -> Void = {}) {
-        Banner.show(text, action: (String(localized: "Undo"), { [self] in
-            Task {
-                if await call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
-                watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
-            }
-        }), lasts: 60)
+    func offerUndoDiscard(
+        _ text: String, worktree wid: String, undo: String, then reload: @escaping @MainActor () async -> Void = {}
+    ) {
+        Banner.show(
+            text,
+            action: (
+                String(localized: "Undo"),
+                { [self] in
+                    Task {
+                        if await call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
+                        watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
+                    }
+                }
+            ), lasts: 60)
     }
 }

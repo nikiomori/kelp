@@ -1,36 +1,45 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 import KelpKit
+import WorkbenchKit
 
 /// Every past Claude / Codex conversation on this Mac: search, resume in place, or copy the resume command. The search
 /// and the buttons sit in the window's toolbar, as in Xcode's Organizer; the list shows a spinner while it's read and
 /// says so in its middle when there's nothing.
 @MainActor
-final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSToolbarDelegate {
+final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate,
+    NSToolbarDelegate
+{
     private var window: NSWindow?
     private let table = NSTableView()
     private let searchItem = NSSearchToolbarItem(itemIdentifier: .init("search"))
     private var search: NSSearchField { searchItem.searchField }
-    private let fullText = NSButton(checkboxWithTitle: String(localized: "Search inside conversations"), target: nil, action: nil)
+    private let fullText = NSButton(
+        checkboxWithTitle: String(localized: "Search inside conversations"), target: nil, action: nil)
     private let status = NSTextField(labelWithString: "")
     private let resumeB = NSButton(), copyB = NSButton()
     private let empty = EmptyStateView(), loading = LoadingView()
     private var rows: [AgentSessionInfo] = []
     /// The app whose conversations it lists and resumes.
     private let app: AppModel
-    init(app: AppModel) { self.app = app; super.init() }
+    init(app: AppModel) {
+        self.app = app
+        super.init()
+    }
     private let pending = Debounce()
 
     func show() {
         if window == nil { build() }
-        window?.makeKeyAndOrderFront(nil); load()
+        window?.makeKeyAndOrderFront(nil)
+        load()
     }
 
     private func build() {
-        for (id, title, w) in [("agent", String(localized: "Agent"), 100.0), ("title", String(localized: "Conversation"), 380),
-                               ("cwd", String(localized: "Folder"), 260), ("updated", String(localized: "Last active"), 130)] {
+        for (id, title, w) in [
+            ("agent", String(localized: "Agent"), 100.0), ("title", String(localized: "Conversation"), 380),
+            ("cwd", String(localized: "Folder"), 260), ("updated", String(localized: "Last active"), 130)
+        ] {
             let c = NSTableColumn(identifier: .init(id))
             c.title = title
             c.width = w
@@ -40,25 +49,33 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         table.delegate = self
         table.rowHeight = TextSize.of(Metrics.row)
         table.style = .inset
-        table.target = self; table.doubleAction = #selector(resume)
+        table.target = self
+        table.doubleAction = #selector(resume)
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
         let sv = NSScrollView()
         sv.documentView = table
         sv.hasVerticalScroller = true
-        search.placeholderString = String(localized: "Search titles and folders"); search.delegate = self
+        search.placeholderString = String(localized: "Search titles and folders")
+        search.delegate = self
         searchItem.preferredWidthForSearchField = 280
-        fullText.target = self; fullText.action = #selector(searchChanged)
+        fullText.target = self
+        fullText.action = #selector(searchChanged)
         resumeB.title = String(localized: "Resume")
-        resumeB.target = self; resumeB.action = #selector(resume)
+        resumeB.target = self
+        resumeB.action = #selector(resume)
         resumeB.bezelStyle = .push
         resumeB.keyEquivalent = "\r"
         copyB.title = String(localized: "Copy Resume Command")
-        copyB.target = self; copyB.action = #selector(copyCommand)
+        copyB.target = self
+        copyB.action = #selector(copyCommand)
         copyB.bezelStyle = .push
         selectionChanged()
-        status.textColor = .secondaryLabelColor; status.font = .uiDigits(11)
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 600), styleMask: [.titled, .closable, .resizable, .miniaturizable],
-                         backing: .buffered, defer: false)
+        status.textColor = .secondaryLabelColor
+        status.font = .uiDigits(11)
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered, defer: false)
         w.title = String(localized: "Session History")
         w.animationBehavior = .documentWindow   // the system's own open and close
         let toolbar = NSToolbar(identifier: "history")
@@ -79,11 +96,15 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
 
     // MARK: toolbar: the search and its option on the left, the count and the buttons on the right
 
-    private static let items: [NSToolbarItem.Identifier] = [.init("search"), .init("fullText"), .flexibleSpace,
-                                                            .init("status"), .init("copy"), .init("resume")]
+    private static let items: [NSToolbarItem.Identifier] = [
+        .init("search"), .init("fullText"), .flexibleSpace,
+        .init("status"), .init("copy"), .init("resume")
+    ]
     func toolbarDefaultItemIdentifiers(_ t: NSToolbar) -> [NSToolbarItem.Identifier] { Self.items }
     func toolbarAllowedItemIdentifiers(_ t: NSToolbar) -> [NSToolbarItem.Identifier] { Self.items }
-    func toolbar(_ t: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar: Bool) -> NSToolbarItem? {
+    func toolbar(_ t: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar: Bool)
+        -> NSToolbarItem?
+    {
         if id == searchItem.itemIdentifier { return searchItem }
         let views: [String: NSView] = ["fullText": fullText, "status": status, "copy": copyB, "resume": resumeB]
         guard let view = views[id.rawValue] else { return nil }
@@ -92,7 +113,10 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         return item
     }
 
-    private lazy var showAll = ClosureButton(title: String(localized: "Show All")) { [weak self] in self?.search.stringValue = ""; self?.load() }
+    private lazy var showAll = ClosureButton(title: String(localized: "Show All")) { [weak self] in
+        self?.search.stringValue = ""
+        self?.load()
+    }
 
     func controlTextDidChange(_ obj: Notification) { searchChanged() }
     @objc private func searchChanged() {
@@ -100,19 +124,29 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     private func load() {
-        let slow = whileSlow { [weak self] in self?.empty.show(nil); self?.loading.show(String(localized: "Loading…")) }
+        let slow = whileSlow { [weak self] in
+            self?.empty.show(nil)
+            self?.loading.show(String(localized: "Loading…"))
+        }
         Task {
-            defer { slow.cancel(); loading.show(nil) }
-            rows = await app.call(HistoryList(query: search.stringValue, fullText: fullText.state == .on ? true : nil)) ?? []
+            defer {
+                slow.cancel()
+                loading.show(nil)
+            }
+            rows =
+                await app.call(HistoryList(query: search.stringValue, fullText: fullText.state == .on ? true : nil))
+                ?? []
             let q = search.stringValue.trimmingCharacters(in: .whitespaces)
             showCount()
             if !rows.isEmpty {
                 empty.show(nil)
             } else if q.isEmpty {
-                empty.show(String(localized: "No conversations yet"), symbol: "clock.arrow.circlepath",
-                           text: String(localized: "Claude Code and Codex conversations on this Mac show here."))
+                empty.show(
+                    String(localized: "No conversations yet"), symbol: "clock.arrow.circlepath",
+                    text: String(localized: "Claude Code and Codex conversations on this Mac show here."))
             } else {
-                empty.show(String(localized: "No conversations match “\(q)”"), symbol: "magnifyingglass", buttons: [showAll])
+                empty.show(
+                    String(localized: "No conversations match “\(q)”"), symbol: "magnifyingglass", buttons: [showAll])
             }
             table.usesAlternatingRowBackgroundColors = !rows.isEmpty   // stripes with nothing on them read as a list still to come
             table.reloadData()
@@ -121,7 +155,9 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     /// The count, or nothing: an empty list says so in its middle.
-    private func showCount() { status.stringValue = rows.isEmpty ? "" : String(localized: "\(rows.count) conversations") }
+    private func showCount() {
+        status.stringValue = rows.isEmpty ? "" : String(localized: "\(rows.count) conversations")
+    }
 
     private func selectionChanged() { for b in [resumeB, copyB] { b.isEnabled = table.selectedRow >= 0 } }
     func tableViewSelectionDidChange(_ n: Notification) { selectionChanged() }
@@ -156,7 +192,9 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         return l
     }
     /// Drag a conversation onto a terminal pane: drops its resume command there.
-    func tableView(_ t: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? { command(rows[row]) as NSString }
+    func tableView(_ t: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+        command(rows[row]) as NSString
+    }
 
     private func command(_ r: AgentSessionInfo) -> String {
         let cwd = IDE.shellWord(r.cwd)
@@ -164,7 +202,8 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
     @objc private func copyCommand() {
         guard table.selectedRow >= 0 else { return }
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(command(rows[table.selectedRow]), forType: .string)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command(rows[table.selectedRow]), forType: .string)
         status.stringValue = String(localized: "Copied")
         DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in self?.showCount() }
     }

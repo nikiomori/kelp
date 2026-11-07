@@ -16,19 +16,58 @@ extension Pushed {
     package func replaces(_ old: Self?) -> Bool { old != self }
 }
 
-extension GitEvent: Pushed { package var key: String { worktree }; package static var forgottenWith: WatchTopic? { .git } }
-extension PortsEvent: Pushed { package var key: String { worktree }; package static var forgottenWith: WatchTopic? { .ports } }
-extension ActivityEvent: Pushed { package var key: String { "" }; package static var forgottenWith: WatchTopic? { .activity } }
-extension CIEvent: Pushed { package var key: String { worktree }; package static var forgottenWith: WatchTopic? { .ci } }
-extension PREvent: Pushed { package var key: String { worktree }; package static var forgottenWith: WatchTopic? { .pr } }
-extension LimitsEvent: Pushed { package var key: String { "" }; package static var forgottenWith: WatchTopic? { .limits } }
-extension FileEvent: Pushed { package var key: String { path }; package static var forgottenWith: WatchTopic? { .file } }
-extension FilesEvent: Pushed { package var key: String { worktree }; package static var forgottenWith: WatchTopic? { .files } }
-extension ArtifactsEvent: Pushed { package var key: String { worktree }; package static var forgottenWith: WatchTopic? { .artifacts } }
-extension CommandsEvent: Pushed { package var key: String { session }; package static var forgottenWith: WatchTopic? { .commands } }
-extension SubagentsEvent: Pushed { package var key: String { session }; package static var forgottenWith: WatchTopic? { .subagents } }
-extension RoutinesEvent: Pushed { package var key: String { "" }; package static var forgottenWith: WatchTopic? { nil } }   // always pushed
-extension HostEvent: Pushed { package var key: String { stats.host }; package static var forgottenWith: WatchTopic? { nil } }
+extension GitEvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .git }
+}
+extension PortsEvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .ports }
+}
+extension ActivityEvent: Pushed {
+    package var key: String { "" }
+    package static var forgottenWith: WatchTopic? { .activity }
+}
+extension CIEvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .ci }
+}
+extension PREvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .pr }
+}
+extension LimitsEvent: Pushed {
+    package var key: String { "" }
+    package static var forgottenWith: WatchTopic? { .limits }
+}
+extension FileEvent: Pushed {
+    package var key: String { path }
+    package static var forgottenWith: WatchTopic? { .file }
+}
+extension FilesEvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .files }
+}
+extension ArtifactsEvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .artifacts }
+}
+extension CommandsEvent: Pushed {
+    package var key: String { session }
+    package static var forgottenWith: WatchTopic? { .commands }
+}
+extension SubagentsEvent: Pushed {
+    package var key: String { session }
+    package static var forgottenWith: WatchTopic? { .subagents }
+}
+extension RoutinesEvent: Pushed {
+    package var key: String { "" }
+    package static var forgottenWith: WatchTopic? { nil }
+}   // always pushed
+extension HostEvent: Pushed {
+    package var key: String { stats.host }
+    package static var forgottenWith: WatchTopic? { nil }
+}
 extension ContextEvent: Pushed {
     package var key: String { session }
     package static var forgottenWith: WatchTopic? { .context }

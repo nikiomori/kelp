@@ -8,12 +8,19 @@ extension FileTab {
     func withTrustBar(_ crumbs: NSView) -> NSView {
         guard !remote else { return crumbs }   // a host's file: no language server here
         let app = self.app
-        let trust = TrustBar.make(project: (root as NSString).lastPathComponent,
-                             notNow: { [weak self] in self.map { app.lsp.notNow($0.root) } },
-                             trust: { [weak self] in guard let root = self?.root else { return }; Task { await app.lsp.trust(app, root) } })
+        let trust = TrustBar.make(
+            project: (root as NSString).lastPathComponent,
+            notNow: { [weak self] in self.map { app.lsp.notNow($0.root) } },
+            trust: { [weak self] in
+                guard let root = self?.root else { return }
+                Task { await app.lsp.trust(app, root) }
+            })
         trust.isHidden = true
-        track(owner: self) { [weak self] in self.map { app.lsp.asks(app, $0.root, $0.language) } ?? false }
-            changed: { [weak trust] in trust?.isHidden = !$0 }
+        track(owner: self) { [weak self] in
+            self.map { app.lsp.asks(app, $0.root, $0.language) } ?? false
+        } changed: { [weak trust] in
+            trust?.isHidden = !$0
+        }
         let column = NSStackView(views: [crumbs, trust])
         column.orientation = .vertical
         column.spacing = 0

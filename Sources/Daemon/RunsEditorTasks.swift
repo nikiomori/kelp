@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// The tasks an editor keeps in the project, VS Code's .vscode/tasks.json and Zed's .zed/tasks.json, in the Run menu
 /// beside package.json's scripts. Only what runs as a plain command. VS Code's npm tasks are package.json's own, listed
@@ -14,7 +14,9 @@ extension Runnables {
 
     static func vscode(_ f: Found, _ d: String, _ task: [String: Any]) -> RunOption? {
         let t = task.merging(task["osx"] as? [String: Any] ?? [:]) { $1 }   // its macOS variant
-        guard [nil, "shell", "process"].contains(t["type"] as? String), let program = t["command"] as? String else { return nil }
+        guard [nil, "shell", "process"].contains(t["type"] as? String), let program = t["command"] as? String else {
+            return nil
+        }
         let args = (t["args"] as? [Any] ?? []).compactMap { $0 as? String }.map(IDE.shellWord)
         let folder = ["${workspaceFolder}", "${workspaceRoot}"]
         guard var command = filled(([program] + args).joined(separator: " "), folder) else { return nil }
@@ -33,7 +35,8 @@ extension Runnables {
         let env = (t["env"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }.sorted { $0.key < $1.key }
             .map { "\($0.key)=\(IDE.shellWord($0.value))" }
         let root = ["$ZED_WORKTREE_ROOT", "${ZED_WORKTREE_ROOT}"]
-        guard var command = filled((env + [program] + args).joined(separator: " "), root), !command.contains("ZED_") else { return nil }
+        guard var command = filled((env + [program] + args).joined(separator: " "), root), !command.contains("ZED_")
+        else { return nil }
         if let cwd = t["cwd"] as? String {
             guard let dir = filled(cwd, root), !dir.contains("ZED_") else { return nil }
             if dir != "." { command = "cd \(IDE.shellWord(dir)) && \(command)" }

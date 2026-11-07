@@ -14,13 +14,17 @@ enum ProjectIcon {
     /// Projects being looked at, and the views showing their initial meanwhile.
     private static var looking: [String: [Weak]] = [:]
     /// `showing`: what it showed meanwhile; a view that shows something else by then (a reused row) keeps it.
-    private struct Weak { weak var view: NSImageView?; let showing: NSImage? }
+    private struct Weak {
+        weak var view: NSImageView?
+        let showing: NSImage?
+    }
 
     /// `view` shows the project's icon: its initial at once, the icon when found. `initial` false: what it shows now
     /// (the empty workspace's folder) stays until there's a real icon, the initial being too big a guess at 56 pt.
     static func show(_ repo: String, in view: NSImageView, app: AppModel, initial: Bool = true) {
         if NoProject.holds(path: repo) {   // chats with no project: Kelp's own folder, not a project's icon
-            view.image = .symbol("bubble.left"); view.shadow = nil
+            view.image = .symbol("bubble.left")
+            view.shadow = nil
             return
         }
         let image = image(for: repo, app: app)
@@ -59,12 +63,20 @@ enum ProjectIcon {
         let remote = RemoteHost.of(repo) != nil
         Task {
             let file: String?
-            if remote { file = await app.quiet(RepoIcon(path: repo)) ?? nil } else { file = await Task.detached { IconSearch.find(in: repo) }.value }
-            let found = await Task.detached { file.flatMap { p in FileManager.default.contents(atPath: p).map { (p, $0) } } }.value
+            if remote {
+                file = await app.quiet(RepoIcon(path: repo)) ?? nil
+            } else {
+                file = await Task.detached { IconSearch.find(in: repo) }.value
+            }
+            let found = await Task.detached {
+                file.flatMap { p in FileManager.default.contents(atPath: p).map { (p, $0) } }
+            }.value
             let views = looking.removeValue(forKey: repo) ?? []
             // The cell's image view scales it to fit; a wordmark (much wider than tall) would be a line, so it's the initial.
             // A Mac app's icon loses its margin and fills a tile, like the agents' icons.
-            guard let (file, data) = found, let img = NSImage(data: data), img.size.width <= img.size.height * 2 else { return }
+            guard let (file, data) = found, let img = NSImage(data: data), img.size.width <= img.size.height * 2 else {
+                return
+            }
             let icon = file.hasSuffix(".icns") ? IconTile.app(img) : img
             cache[repo] = icon
             for v in views where v.view?.image === v.showing { v.view?.image = icon }

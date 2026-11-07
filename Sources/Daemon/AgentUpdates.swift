@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Claude Code installs its updates itself, and a running one stays the version it started as until its /restart, which
 /// replaces the program in place: the same pid and terminal, the same conversation, flags and permission mode. Kelp types
@@ -9,11 +9,16 @@ extension Sessions {
     func restartOutdated() {
         let due = nextUpdateCheck.withLock { next -> Bool in
             guard Date() >= next else { return false }
-            next = Date().addingTimeInterval(15); return true
+            next = Date().addingTimeInterval(15)
+            return true
         }
         // Its native launcher, whatever comes first on PATH: that's what /restart runs.
-        guard due, settings["agents.updateIdle"]?.bool != false, let installed = Paths.real(NSHomeDirectory() + "/.local/bin/claude") else { return }
-        for ls in live.all where ls.snapshot.agent == "claude" && Self.outdated(running: Unix.executable(ls.pty.pid), installed: installed) {
+        guard due, settings["agents.updateIdle"]?.bool != false,
+            let installed = Paths.real(NSHomeDirectory() + "/.local/bin/claude")
+        else { return }
+        for ls in live.all
+        where ls.snapshot.agent == "claude" && Self.outdated(running: Unix.executable(ls.pty.pid), installed: installed)
+        {
             // A tab on screen is being read, and a restart redraws it.
             if ls.restartAgent(into: installed, quiet: ls.isAttached ? 300 : 30) { return }
         }
@@ -34,9 +39,11 @@ extension LiveSession {
     /// `version`: tried once for each, for a Claude Code without the command (it prints "Unknown command", no more).
     func restartAgent(into version: String, quiet: TimeInterval) -> Bool {
         state.withLock { s in
-            guard s.updatedTo != version, s.record.status == .done, !s.parked, s.boxEmpty, s.startedUp, s.pendingPrompts.isEmpty,
-                  s.inputsInFlight == 0, s.readyForText(submits: true),
-                  Date().timeIntervalSince(s.lastOutputAt ?? s.started) > quiet else { return false }
+            guard s.updatedTo != version, s.record.status == .done, !s.parked, s.boxEmpty, s.startedUp,
+                s.pendingPrompts.isEmpty,
+                s.inputsInFlight == 0, s.readyForText(submits: true),
+                Date().timeIntervalSince(s.lastOutputAt ?? s.started) > quiet
+            else { return false }
             s.updatedTo = version
             type("/restart", enter: true, paste: false, &s)
             return true

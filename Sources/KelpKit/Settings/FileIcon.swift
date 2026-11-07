@@ -17,13 +17,16 @@ package struct FileIcon {
     }
 
     /// Changes with the pick and with installed extensions: views showing icons reload when it does.
-    package var revision: String { "\(app.settings.string("workbench.iconTheme") ?? Self.standard)#\(app.extensions.revision)" }
+    package var revision: String {
+        "\(app.settings.string("workbench.iconTheme") ?? Self.standard)#\(app.extensions.revision)"
+    }
 
     package func image(_ name: String, folder: Bool = false, expanded: Bool = false) -> NSImage {
         switch app.settings.string("workbench.iconTheme") ?? Self.standard {
         case Self.system: Self.systemIcon(name, folder: folder)
         case Self.colorful: ColorfulIcons.image(name, folder: folder)
-        case let id: contributed(id)?.image(name, folder: folder, expanded: expanded) ?? Self.systemIcon(name, folder: folder)
+        case let id:
+            contributed(id)?.image(name, folder: folder, expanded: expanded) ?? Self.systemIcon(name, folder: folder)
         }
     }
 
@@ -33,7 +36,8 @@ package struct FileIcon {
         let ext = (name as NSString).pathExtension.lowercased()
         if let i = systemIcons[ext] { return i }
         let i = NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data).resized(16)
-        systemIcons[ext] = i; return i
+        systemIcons[ext] = i
+        return i
     }
 
     private static var loaded: (key: String, theme: IconTheme?)?
@@ -42,8 +46,11 @@ package struct FileIcon {
         if Self.loaded?.key != key {
             var theme: IconTheme?
             if let spec = app.extensions.all.iconThemes.first(where: { $0.id == id }) {
-                do { theme = try IconTheme(contentsOf: spec.file) }
-                catch { Banner.show(String(localized: "File icon theme “\(spec.label)”: \(error.localizedDescription)"), style: .error) }
+                do { theme = try IconTheme(contentsOf: spec.file) } catch {
+                    Banner.show(
+                        String(localized: "File icon theme “\(spec.label)”: \(error.localizedDescription)"),
+                        style: .error)
+                }
             }
             Self.loaded = (key, theme)
         }

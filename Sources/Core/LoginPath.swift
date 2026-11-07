@@ -34,21 +34,27 @@ public enum LoginPath {
 
     static func resolve(_ command: String, in path: String) throws -> String {
         if command.contains("/") {
-            guard FileManager.default.isExecutableFile(atPath: command) else { throw RPCError.invalidParams("\(command) doesn't exist or isn't executable.") }
+            guard FileManager.default.isExecutableFile(atPath: command) else {
+                throw RPCError.invalidParams("\(command) doesn't exist or isn't executable.")
+            }
             return command
         }
         for dir in path.split(separator: ":") where FileManager.default.isExecutableFile(atPath: "\(dir)/\(command)") {
             return "\(dir)/\(command)"
         }
-        throw RPCError.invalidParams("Couldn't find `\(command)`. Install it, or make sure your shell profile adds it to PATH.")
+        throw RPCError.invalidParams(
+            "Couldn't find `\(command)`. Install it, or make sure your shell profile adds it to PATH.")
     }
 
     /// The shell's PATH, then the daemon's own, then well-known folders that exist.
     static func path(_ shell: String) -> String {
         let home = NSHomeDirectory()
-        let known = ["/opt/homebrew/bin", "/usr/local/bin", "\(home)/.local/bin", "\(home)/.bun/bin", "\(home)/.npm-global/bin",
-                     "\(home)/.claude/local", "\(home)/.cargo/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
-        let dirs = shell.split(separator: ":").map(String.init)
+        let known = [
+            "/opt/homebrew/bin", "/usr/local/bin", "\(home)/.local/bin", "\(home)/.bun/bin", "\(home)/.npm-global/bin",
+            "\(home)/.claude/local", "\(home)/.cargo/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"
+        ]
+        let dirs =
+            shell.split(separator: ":").map(String.init)
             + (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
             + known.filter { FileManager.default.fileExists(atPath: $0) }
         var seen = Set<String>()
@@ -61,11 +67,14 @@ public enum LoginPath {
     static func shellPath(shell: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh") -> String? {
         let r: Subprocess.Output
         do {
-            r = try Subprocess.run([shell, "-ilc", "printf '__KELP__%s__KELP__' \"$PATH\""], cwd: NSHomeDirectory(),
-                                   env: ProcessInfo.processInfo.environment, timeLimit: 8)
+            r = try Subprocess.run(
+                [shell, "-ilc", "printf '__KELP__%s__KELP__' \"$PATH\""], cwd: NSHomeDirectory(),
+                env: ProcessInfo.processInfo.environment, timeLimit: 8)
         } catch is RPCError { return nil } catch { return "" }   // refused here; no such shell
         let s = String(decoding: r.stdout, as: UTF8.self)
-        guard !r.timedOut, let a = s.range(of: "__KELP__"), let b = s.range(of: "__KELP__", range: a.upperBound..<s.endIndex) else { return "" }
+        guard !r.timedOut, let a = s.range(of: "__KELP__"),
+            let b = s.range(of: "__KELP__", range: a.upperBound..<s.endIndex)
+        else { return "" }
         return String(s[a.upperBound..<b.lowerBound])
     }
 
@@ -83,7 +92,8 @@ public enum LoginPath {
 
         var value: String {
             if let v = ifRead { return v }
-            reading.lock(); defer { reading.unlock() }
+            reading.lock()
+            defer { reading.unlock() }
             if let v = ifRead { return v }   // read by the caller this one waited for
             guard let v = read() else { return LoginPath.path("") }
             known.withLock { $0 = v }

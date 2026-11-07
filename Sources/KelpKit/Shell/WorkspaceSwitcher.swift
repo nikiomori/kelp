@@ -38,7 +38,9 @@ final class WorkspaceSwitcher {
         let m = app, wb = app.workbench
         let live = app.workbench.workspacesInOrder
         // Ones not on screen since Kelp started keeping the order: by their agents' last stir, else when they were made.
-        let stirred = live.map { w in (w.id, m.sessions.filter { $0.worktreeId == w.id }.map { $0.statusAt ?? $0.createdAt }.max() ?? w.createdAt) }
+        let stirred = live.map { w in
+            (w.id, m.sessions.filter { $0.worktreeId == w.id }.map { $0.statusAt ?? $0.createdAt }.max() ?? w.createdAt)
+        }
         var order: [String] = []
         for id in wb.recentWorkspaces + stirred.sorted(by: { $0.1 > $1.1 }).map(\.0)
         where id != wb.workspaceId && !order.contains(id) && live.contains(where: { $0.id == id }) {
@@ -58,12 +60,16 @@ final class WorkspaceSwitcher {
         list.alignment = .leading
         list.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
         rows = items.map { row($0) }
-        rows.forEach { list.addArrangedSubview($0); $0.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -12).isActive = true }
+        rows.forEach {
+            list.addArrangedSubview($0)
+            $0.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -12).isActive = true
+        }
         list.widthAnchor.constraint(equalToConstant: 520).isActive = true
         let doc = FlippedView()
         doc.pin(list)
         // The pointer selects (its moves reach the monitor even though the panel never becomes key).
-        doc.addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: doc))
+        doc.addTrackingArea(
+            NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: doc))
         let scroll = NSScrollView()
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -72,10 +78,13 @@ final class WorkspaceSwitcher {
         scroll.documentView = doc
         doc.translatesAutoresizingMaskIntoConstraints = false
         // At most 440 pt (eight two-line rows) and never past the window; more scroll.
-        NSLayoutConstraint.activate([doc.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-                                     doc.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-                                     scroll.widthAnchor.constraint(equalToConstant: 520),
-                                     scroll.heightAnchor.constraint(equalToConstant: min(list.fittingSize.height, 440, max(window.frame.height - 80, 160)))])
+        NSLayoutConstraint.activate([
+            doc.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
+            doc.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
+            scroll.widthAnchor.constraint(equalToConstant: 520),
+            scroll.heightAnchor.constraint(
+                equalToConstant: min(list.fittingSize.height, 440, max(window.frame.height - 80, 160)))
+        ])
         let fx = NSVisualEffectView()
         fx.material = .popover   // as Quick Open's
         fx.state = .active
@@ -83,9 +92,12 @@ final class WorkspaceSwitcher {
         fx.layer?.cornerRadius = Metrics.radiusXL
         fx.layer?.cornerCurve = .continuous
         fx.layer?.borderWidth = 1   // an edge, as menus have, so it holds against a window of the same grey
-        fx.effectiveAppearance.performAsCurrentDrawingAppearance { fx.layer?.borderColor = NSColor.separatorColor.cgColor }
+        fx.effectiveAppearance.performAsCurrentDrawingAppearance {
+            fx.layer?.borderColor = NSColor.separatorColor.cgColor
+        }
         fx.pin(scroll)
-        let p = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let p = NSPanel(
+            contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
@@ -93,7 +105,9 @@ final class WorkspaceSwitcher {
         p.contentView = fx
         fx.layoutSubtreeIfNeeded()
         let size = fx.fittingSize, f = window.frame
-        var frame = NSRect(x: f.midX - size.width / 2, y: f.midY - size.height / 2 + f.height * 0.1, width: size.width, height: size.height)
+        var frame = NSRect(
+            x: f.midX - size.width / 2, y: f.midY - size.height / 2 + f.height * 0.1, width: size.width,
+            height: size.height)
         if let s = window.screen?.visibleFrame {   // a window partly off screen keeps it on screen
             frame.origin.x = min(max(frame.minX, s.minX), s.maxX - frame.width)
             frame.origin.y = min(max(frame.minY, s.minY), s.maxY - frame.height)
@@ -105,22 +119,29 @@ final class WorkspaceSwitcher {
             try await Task.sleep(for: .milliseconds(120))
             if self?.panel === p { window.addChildWindow(p, ordered: .above) }
         }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] e in self?.handle(e) ?? e }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) {
+            [weak self] e in self?.handle(e) ?? e
+        }
         // ⌘Tab away with ⌃ held: letting go of ⌃ never reaches Kelp, and the panel would keep every key.
-        resigned = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+        resigned = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }   // queue: .main
         }
     }
 
     private func handle(_ e: NSEvent) -> NSEvent? {
-        if e.type == .flagsChanged { if !e.modifierFlags.contains(.control) { commit() }; return e }
+        if e.type == .flagsChanged {
+            if !e.modifierFlags.contains(.control) { commit() }
+            return e
+        }
         if e.type != .keyDown { return mouse(e) }
         switch e.keyCode {
         case 48: move(e.modifierFlags.contains(.shift) ? -1 : 1)   // Tab
-        case 125: move(1)    // ↓
+        case 125: move(1)   // ↓
         case 126: move(-1)   // ↑
         case 36, 76: commit()
-        case 53: close()     // Esc
+        case 53: close()   // Esc
         default: break
         }
         return nil   // while it's open, keys belong to it
@@ -137,7 +158,9 @@ final class WorkspaceSwitcher {
             guard hypot(NSEvent.mouseLocation.x - from.x, NSEvent.mouseLocation.y - from.y) > 10 else { return nil }
             pointerFrom = nil
         }
-        guard let i = rows.firstIndex(where: { $0.bounds.contains($0.convert(e.locationInWindow, from: nil)) }) else { return nil }
+        guard let i = rows.firstIndex(where: { $0.bounds.contains($0.convert(e.locationInWindow, from: nil)) }) else {
+            return nil
+        }
         if e.type == .leftMouseDown {
             index = i
             commit()
@@ -159,8 +182,12 @@ final class WorkspaceSwitcher {
         monitor = nil
         if let resigned { NotificationCenter.default.removeObserver(resigned) }
         resigned = nil
-        if let p = panel { p.parent?.removeChildWindow(p); p.orderOut(nil) }
-        panel = nil; rows = []
+        if let p = panel {
+            p.parent?.removeChildWindow(p)
+            p.orderOut(nil)
+        }
+        panel = nil
+        rows = []
     }
 
     private func highlight() {
@@ -168,8 +195,11 @@ final class WorkspaceSwitcher {
             let r = rows[index]
             r.scrollToVisible(r.bounds.insetBy(dx: 0, dy: -8))   // in view, with the list's margin
             // VoiceOver says the row: the panel never takes focus, so moving through it would go unheard.
-            NSAccessibility.post(element: r, notification: .announcementRequested,
-                                 userInfo: [.announcement: r.accessibilityLabel() ?? "", .priority: NSAccessibilityPriorityLevel.high.rawValue])
+            NSAccessibility.post(
+                element: r, notification: .announcementRequested,
+                userInfo: [
+                    .announcement: r.accessibilityLabel() ?? "", .priority: NSAccessibilityPriorityLevel.high.rawValue
+                ])
         }
         // Grey, as ⌘Tab's: the status marks and the changes' colours stay readable on it. Faded, not switched.
         for (i, r) in rows.enumerated() { r.fadeBackground(to: i == index ? .fillSelected : nil) }
@@ -180,7 +210,9 @@ final class WorkspaceSwitcher {
         let m = app
         let agents = m.sessions.filter { $0.worktreeId == w.id && $0.isChat && $0.status != .exited }
         let top = AgentStatus.mostUrgent(agents.map(SidebarCell.shownStatus))
-        let lead = agents.filter { SidebarCell.shownStatus($0) == top }.max { ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt) }
+        let lead = agents.filter { SidebarCell.shownStatus($0) == top }.max {
+            ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)
+        }
         let mark = StatusMark(size: 14)
         mark.status = top
         mark.unread = agents.contains { SidebarCell.shownStatus($0) == top && $0.unread }
@@ -189,12 +221,15 @@ final class WorkspaceSwitcher {
 
         let icon = NSImageView(image: .symbol("folder"))
         if let r = m.repo(w.repoId) { ProjectIcon.show(r.path, in: icon, app: m) }
-        icon.widthAnchor.constraint(equalToConstant: 22).isActive = true; icon.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        icon.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 22).isActive = true
         let name = label(m.groupName(w) ?? m.projectName(w.repoId) ?? w.displayName, .ui(13, weight: .semibold))
         let repo = m.repo(w.repoId)
         // The branch even for the project's own folder: two projects' "Workspace 1" tell apart.
-        let place = label([m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(separator: " · "),
-                          .ui(12), secondary: true)
+        let place = label(
+            [m.projectName(repo?.id), w.branch == w.displayName ? nil : w.branch].compactMap { $0 }.joined(
+                separator: " · "),
+            .ui(12), secondary: true)
         let folder = app.rowBadges.folder(of: w.id)
         let changes = label("", .uiDigits(11)), pr = label("", .uiDigits(11))
         if let c = folder.flatMap({ RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) }) {
@@ -202,7 +237,11 @@ final class WorkspaceSwitcher {
         } else {
             changes.isHidden = true
         }
-        if let p = folder.flatMap({ RowBadges.pr(app.rowBadges.prs[$0.id]) }) { pr.attributedStringValue = p.0 } else { pr.isHidden = true }
+        if let p = folder.flatMap({ RowBadges.pr(app.rowBadges.prs[$0.id]) }) {
+            pr.attributedStringValue = p.0
+        } else {
+            pr.isHidden = true
+        }
         let when = label(shortAgo(lead.map { $0.statusAt ?? $0.createdAt }), .uiDigits(11), secondary: true)
         when.alignment = .right
         when.setContentCompressionResistancePriority(.required, for: .horizontal)   // a long name truncates, not the time
@@ -221,7 +260,8 @@ final class WorkspaceSwitcher {
         // "Claude Code · Needs your input — Which test runner?  +1 more": the agent the mark is for.
         let others = agents.count - 1
         let said = lead.map { s in
-            [app.catalog.displayName(s) + " · " + s.statusWords, s.summary].filter { !$0.isEmpty }.joined(separator: " — ")
+            [app.catalog.displayName(s) + " · " + s.statusWords, s.summary].filter { !$0.isEmpty }.joined(
+                separator: " — ")
                 + (others > 0 ? "  " + String(localized: "+\(others) more") : "")
         }
         let detail = label(said ?? "", .ui(12), secondary: true)
@@ -241,9 +281,12 @@ final class WorkspaceSwitcher {
         r.spacing = 10
         r.alignment = .centerY
         r.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
-        r.wantsLayer = true; r.layer?.cornerRadius = Metrics.radiusMD
+        r.wantsLayer = true
+        r.layer?.cornerRadius = Metrics.radiusMD
         r.setAccessibilityElement(true)
-        r.setAccessibilityLabel([w.displayName, place.stringValue, said, when.stringValue].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
+        r.setAccessibilityLabel(
+            [w.displayName, place.stringValue, said, when.stringValue].compactMap { $0 }.filter { !$0.isEmpty }.joined(
+                separator: ", "))
         return r
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import KelpKit
 
 private func note(_ used: Double, resets: String? = "3:40pm", read: Date? = nil) -> PlanNote? {
@@ -32,6 +33,6 @@ private func note(_ used: Double, resets: String? = "3:40pm", read: Date? = nil)
 @Test func theOtherAgentOfferedHasTheMostLeft() throws {
     let low = try #require(note(0.12)), mid = try #require(note(0.4)), high = try #require(note(0.6))
     #expect(PlanNote.roomiest(["a", "b"], notes: ["a": mid, "b": low]) == "b")
-    #expect(PlanNote.roomiest(["a"], notes: ["a": high]) == nil)    // not much better
-    #expect(PlanNote.roomiest(["c"], notes: [:]) == nil)            // no reading, no promise
+    #expect(PlanNote.roomiest(["a"], notes: ["a": high]) == nil)   // not much better
+    #expect(PlanNote.roomiest(["c"], notes: [:]) == nil)   // no reading, no promise
 }

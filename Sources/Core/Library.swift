@@ -1,6 +1,6 @@
 import CryptoKit
-import os
 import Foundation
+import os
 
 /// The extension library: github.com/nikiomori/kelp-extensions, a public repo of extensions reviewed before they're
 /// merged. Its CI writes index.json with each one's folder at the commit that was reviewed, and installing one downloads
@@ -19,7 +19,9 @@ extension IDE {
         while t.hasSuffix("/") { t.removeLast() }
         if t.hasSuffix(".git") { t.removeLast(4) }
         let parts = t.split(separator: "/").map(String.init)
-        guard parts.count >= 2, parts.allSatisfy({ $0.wholeMatch(of: /[A-Za-z0-9_.-]+/) != nil && $0 != "." && $0 != ".." }) else { return nil }
+        guard parts.count >= 2,
+            parts.allSatisfy({ $0.wholeMatch(of: /[A-Za-z0-9_.-]+/) != nil && $0 != "." && $0 != ".." })
+        else { return nil }
         let repo = parts[0] + "/" + parts[1]
         if parts.count == 2 { return (repo, "HEAD", "") }
         guard parts.count >= 4, parts[2] == "tree" else { return nil }
@@ -28,7 +30,8 @@ extension IDE {
 
     /// One spelling per source, for `sourceFile` and comparing with the library's.
     static func sourceURL(_ s: (repo: String, ref: String, path: String)) -> String {
-        "https://github.com/\(s.repo)" + (s.ref == "HEAD" && s.path.isEmpty ? "" : "/tree/\(s.ref)" + (s.path.isEmpty ? "" : "/\(s.path)"))
+        "https://github.com/\(s.repo)"
+            + (s.ref == "HEAD" && s.path.isEmpty ? "" : "/tree/\(s.ref)" + (s.path.isEmpty ? "" : "/\(s.path)"))
     }
 
     /// The library's index; `index` is an https URL, or a file URL for a local one.
@@ -37,9 +40,11 @@ extension IDE {
             throw RPCError.invalidParams("The library's index must be an https URL: \(index)")
         }
         let reviewed: [ExtensionLibrary.Entry]
-        do { reviewed = try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(index)) }
-        catch let e as RPCError { throw e }
-        catch { throw RPCError.internalError("The extension library's index isn't readable: \(error.localizedDescription)") }
+        do { reviewed = try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(index)) } catch let e
+            as RPCError
+        { throw e } catch {
+            throw RPCError.internalError("The extension library's index isn't readable: \(error.localizedDescription)")
+        }
         return reviewed + community(beside: index).filter { c in !reviewed.contains { $0.id == c.id } }
     }
 
@@ -49,7 +54,11 @@ extension IDE {
         guard index.hasSuffix("/index.json") else { return [] }
         let url = String(index.dropLast("index.json".count)) + "community.json"
         do {
-            return try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(url)).map { var e = $0; e.reviewed = false; return e }
+            return try JSONDecoder().decode([ExtensionLibrary.Entry].self, from: download(url)).map {
+                var e = $0
+                e.reviewed = false
+                return e
+            }
         } catch { return [] }
     }
 
@@ -57,9 +66,12 @@ extension IDE {
     /// `sourceFile` in it. Limit: the repo's whole archive comes down for one folder; fine while repos are small.
     public static func fetchExtension(_ source: String, files: [String: String]? = nil) throws -> URL {
         guard let s = librarySource(source) else {
-            throw RPCError.invalidParams("Not a GitHub folder: \(source). Use https://github.com/owner/repo or https://github.com/owner/repo/tree/<branch>/<folder>.")
+            throw RPCError.invalidParams(
+                "Not a GitHub folder: \(source). Use https://github.com/owner/repo or https://github.com/owner/repo/tree/<branch>/<folder>."
+            )
         }
-        let fm = FileManager.default, work = fm.temporaryDirectory.appendingPathComponent("kelp-dl-\(UUID().uuidString.prefix(8))")
+        let fm = FileManager.default,
+            work = fm.temporaryDirectory.appendingPathComponent("kelp-dl-\(UUID().uuidString.prefix(8))")
         try Paths.ensure(work)
         defer { try? fm.removeItem(at: work) }
         let archive = work.appendingPathComponent("archive.tar.gz")
@@ -67,7 +79,8 @@ extension IDE {
         let folder = try unpackExtension(archive, path: s.path, source: sourceURL(s), work: work)
         if let files, let wrong = differing(folder, from: files) {
             do { try fm.removeItem(at: folder.deletingLastPathComponent()) } catch {}   // a temporary folder: the system clears it anyway
-            throw RPCError.invalidParams("\(source): “\(wrong)” isn't the file the library reviewed, so nothing was installed.")
+            throw RPCError.invalidParams(
+                "\(source): “\(wrong)” isn't the file the library reviewed, so nothing was installed.")
         }
         return folder
     }
@@ -88,30 +101,42 @@ extension IDE {
         return files.keys.sorted().first { !seen.contains($0) }
     }
 
-    public static func sha256(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
+    public static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
 
     /// `archive` is a GitHub tarball (one top folder); the extension at `path` in it ends up in a temporary folder of its own.
     static func unpackExtension(_ archive: URL, path: String, source: String, work: URL) throws -> URL {
         let fm = FileManager.default, x = work.appendingPathComponent("x")
         try Paths.ensure(x)
         // bsdtar leaves out absolute paths and "..".
-        let r = try Subprocess.run(["/usr/bin/tar", "-xzf", archive.path, "-C", x.path], cwd: work.path, env: [:], timeLimit: 60)
-        guard r.status == 0 else { throw RPCError.internalError("Couldn't unpack \(source): \(String(decoding: r.stderr, as: UTF8.self))") }
-        let top = try fm.contentsOfDirectory(at: x, includingPropertiesForKeys: nil).filter { !$0.lastPathComponent.hasPrefix(".") }
+        let r = try Subprocess.run(
+            ["/usr/bin/tar", "-xzf", archive.path, "-C", x.path], cwd: work.path, env: [:], timeLimit: 60)
+        guard r.status == 0 else {
+            throw RPCError.internalError("Couldn't unpack \(source): \(String(decoding: r.stderr, as: UTF8.self))")
+        }
+        let top = try fm.contentsOfDirectory(at: x, includingPropertiesForKeys: nil).filter {
+            !$0.lastPathComponent.hasPrefix(".")
+        }
         guard top.count == 1 else { throw RPCError.internalError("\(source) didn't download as a GitHub archive.") }
         let folder = path.isEmpty ? top[0] : top[0].appendingPathComponent(path)
         // A symlink in the archive must not lead out of it.
         guard let real = Paths.real(folder.path), let inside = Paths.real(x.path), real.hasPrefix(inside + "/"),
-              let data = fm.contents(atPath: folder.appendingPathComponent("extension.json").path) else {
+            let data = fm.contents(atPath: folder.appendingPathComponent("extension.json").path)
+        else {
             throw RPCError.invalidParams("\(source) has no extension.json.")
         }
-        guard let id = (try? JSONDecoder().decode(JSONValue.self, from: data))?["id"]?.string, isValidExtensionID(id) else {
-            throw RPCError.invalidParams("\(source): extension.json needs an id of lowercase letters, digits, dots and dashes.")
+        guard let id = (try? JSONDecoder().decode(JSONValue.self, from: data))?["id"]?.string, isValidExtensionID(id)
+        else {
+            throw RPCError.invalidParams(
+                "\(source): extension.json needs an id of lowercase letters, digits, dots and dashes.")
         }
-        let dest = fm.temporaryDirectory.appendingPathComponent("kelp-ext-\(UUID().uuidString.prefix(8))").appendingPathComponent(id)
+        let dest = fm.temporaryDirectory.appendingPathComponent("kelp-ext-\(UUID().uuidString.prefix(8))")
+            .appendingPathComponent(id)
         try Paths.ensure(dest.deletingLastPathComponent())
         try fm.moveItem(at: folder, to: dest)
-        let e = JSONEncoder(); e.outputFormatting = .withoutEscapingSlashes
+        let e = JSONEncoder()
+        e.outputFormatting = .withoutEscapingSlashes
         // Replaced, not written through: an archive can ship this name as a symlink, and nothing has reviewed it yet.
         try e.encode(["source": source]).write(to: dest.appendingPathComponent(sourceFile), options: .atomic)
         return dest
@@ -119,18 +144,25 @@ extension IDE {
 
     /// curl, which every Mac has: redirects followed, an HTTP error is an error, two minutes at most. Into `file`, else returned.
     static func download(_ url: String, to file: URL? = nil) throws -> Data {
-        let r = try Subprocess.run(["/usr/bin/curl", "-fsSL", "--max-time", "120"] + (file.map { ["-o", $0.path] } ?? []) + [url],
-                                   cwd: NSTemporaryDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 130)
+        let r = try Subprocess.run(
+            ["/usr/bin/curl", "-fsSL", "--max-time", "120"] + (file.map { ["-o", $0.path] } ?? []) + [url],
+            cwd: NSTemporaryDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 130)
         guard r.status == 0 else {
-            throw RPCError.internalError("Couldn't download \(url): \(String(decoding: r.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))")
+            throw RPCError.internalError(
+                "Couldn't download \(url): \(String(decoding: r.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))"
+            )
         }
-        guard !r.truncated else { throw RPCError.internalError("Couldn't download \(url): it's larger than \(Subprocess.outputLimit >> 20) MB.") }
+        guard !r.truncated else {
+            throw RPCError.internalError(
+                "Couldn't download \(url): it's larger than \(Subprocess.outputLimit >> 20) MB.")
+        }
         return r.stdout
     }
 
     /// Where the extension in `folder` was installed from (`sourceFile`), when it came from GitHub.
     public static func extensionSource(_ folder: URL) -> String? {
-        (try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: folder.appendingPathComponent(sourceFile))))?["source"]
+        (try? JSONDecoder().decode(
+            [String: String].self, from: Data(contentsOf: folder.appendingPathComponent(sourceFile))))?["source"]
     }
 
     /// Puts an extension folder into `dir` as `name`; one already there goes to the Trash. `move`: a folder of ours
@@ -163,7 +195,8 @@ extension IDE {
         var files: [String: Data] = [:]
         for e in extensionEntries(folder) {
             let target = e.url.resolvingSymlinksInPath()
-            files[e.link ? e.name + " → " + target.path : e.name] = FileManager.default.contents(atPath: target.path) ?? Data()
+            files[e.link ? e.name + " → " + target.path : e.name] =
+                FileManager.default.contents(atPath: target.path) ?? Data()
         }
         return files
     }
@@ -172,10 +205,12 @@ extension IDE {
     public static func extensionDigest(_ files: [String: Data]) -> String {
         var h = SHA256()
         for (key, body) in files.sorted(by: { $0.key < $1.key }) {
-            let name = key.components(separatedBy: " → "), size = withUnsafeBytes(of: UInt64(body.count).littleEndian) { Data($0) }
+            let name = key.components(separatedBy: " → "),
+                size = withUnsafeBytes(of: UInt64(body.count).littleEndian) { Data($0) }
             // As digests were recorded before this read the files once: the name, a link's target, the size, the bytes.
             for part in [Data(name[0].utf8), Data((name.count > 1 ? name[1] : "").utf8), size, body] {
-                h.update(data: part); h.update(data: Data([0]))
+                h.update(data: part)
+                h.update(data: Data([0]))
             }
         }
         return h.finalize().map { String(format: "%02x", $0) }.joined()
@@ -188,7 +223,8 @@ extension IDE {
         let mark = entries.map { e -> String in
             var st = stat()
             _ = stat(e.url.path, &st)   // a link's target's
-            return "\(e.name)|\(st.st_size)|\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)|\(st.st_ctimespec.tv_sec).\(st.st_ctimespec.tv_nsec)|\(st.st_ino)"
+            return
+                "\(e.name)|\(st.st_size)|\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)|\(st.st_ctimespec.tv_sec).\(st.st_ctimespec.tv_nsec)|\(st.st_ino)"
                 + (e.link ? "|" + e.url.resolvingSymlinksInPath().path : "")
         }.joined(separator: "\n")
         if let known = digests.withLock({ $0[folder.path] }), known.mark == mark { return known.digest }
@@ -199,10 +235,14 @@ extension IDE {
     private static let digests = OSAllocatedUnfairLock<[String: (mark: String, digest: String)]>(initialState: [:])
 
     private static func extensionEntries(_ folder: URL) -> [(name: String, url: URL, link: Bool)] {
-        let root = folder.resolvingSymlinksInPath(), all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+        let root = folder.resolvingSymlinksInPath(),
+            all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
         var out: [(name: String, url: URL, link: Bool)] = []
         while let u = all?.nextObject() as? URL {
-            if u.lastPathComponent == ".git" { all?.skipDescendants(); continue }
+            if u.lastPathComponent == ".git" {
+                all?.skipDescendants()
+                continue
+            }
             var st = stat()
             guard lstat(u.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
             out.append((String(u.path.dropFirst(root.path.count)), u, st.st_mode & S_IFMT == S_IFLNK))
@@ -219,10 +259,15 @@ extension IDE {
             if let a = v.array { a.forEach(walk) }
             guard case .object(let o) = v else { return }
             for (k, x) in o.sorted(by: { $0.key < $1.key }) {
-                guard let s = x.string else { walk(x); continue }
+                guard let s = x.string else {
+                    walk(x)
+                    continue
+                }
                 var run: String?
                 if ["command", "terminal", "run", "test", "format", "install"].contains(k) { run = s }
-                if k == "command", let args = o["args"]?.array?.compactMap(\.string), !args.isEmpty { run = ([s] + args).joined(separator: " ") }
+                if k == "command", let args = o["args"]?.array?.compactMap(\.string), !args.isEmpty {
+                    run = ([s] + args).joined(separator: " ")
+                }
                 if k == "open", s.hasPrefix("terminal:") || s.hasPrefix("agent:") { run = s }
                 if let run, !commands.contains(run) { commands.append(run) }
                 if k == "web", !pages.contains(s) { pages.append(s) }

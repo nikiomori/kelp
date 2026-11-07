@@ -27,17 +27,24 @@ extension NSMenu {
 
     /// The last item: the section of Settings this part's settings are in, and the group in it.
     package func addSettingsLink(_ title: String, section: String, group: String? = nil, _ app: AppModel) {
-        add(title) { app.extensions.run("workbench.openSettings", ["section": .string(section), "group": group.map(JSONValue.string) ?? .null]) }
+        add(title) {
+            app.extensions.run(
+                "workbench.openSettings", ["section": .string(section), "group": group.map(JSONValue.string) ?? .null])
+        }
     }
 
     private func addChoiceItems(_ key: String, _ app: AppModel, tryOn: Bool) {
-        guard let spec = app.extensions.all.settings.lazy.flatMap(\.specs).first(where: { $0.key == key }) else { return }
+        guard let spec = app.extensions.all.settings.lazy.flatMap(\.specs).first(where: { $0.key == key }) else {
+            return
+        }
         let now = app.settings.string(key), preview = ChoicePreview(app.settings)
         if tryOn, delegate == nil { delegate = preview }
         for option in SettingRow.options(spec, app) {
             let keep = ClosureTarget { app.settings.set(key, .string(option)) }
-            let item = ChoiceItem(key: key, value: .string(option), preview: preview, title: SettingRow.label(key, option, app))
-            item.target = keep; item.representedObject = keep
+            let item = ChoiceItem(
+                key: key, value: .string(option), preview: preview, title: SettingRow.label(key, option, app))
+            item.target = keep
+            item.representedObject = keep
             item.action = #selector(ClosureTarget.fire)
             item.state = option == now ? .on : .off
             addItem(item)

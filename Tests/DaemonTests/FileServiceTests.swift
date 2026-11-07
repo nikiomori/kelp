@@ -1,18 +1,23 @@
+import Core
 import Foundation
 import Testing
-import Core
+
 @testable import Daemon
 
 /// A file is read with its stamp, and refused the way a tab refuses one: a pipe, past the size limit, not UTF-8, gone.
 @Test func aFileIsReadWithItsStampAndRefusedLikeATab() async throws {
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let dir = tmp().path
     try "hello\n".write(toFile: dir + "/a.txt", atomically: true, encoding: .utf8)
     let r = try await c.call(FilesRead(path: dir + "/a.txt"))
     #expect(r.text == "hello\n" && !r.stamp.isEmpty)
     #expect(try await c.call(FilesRead(path: dir + "/a.txt")).stamp == r.stamp)   // unchanged: the same stamp
     func refusal(_ name: String) async -> Unopenable? {
-        do { _ = try await c.call(FilesRead(path: dir + "/" + name)); return nil } catch { return Unopenable(error) }
+        do {
+            _ = try await c.call(FilesRead(path: dir + "/" + name))
+            return nil
+        } catch { return Unopenable(error) }
     }
     #expect(FileManager.default.createFile(atPath: dir + "/big.log", contents: nil))
     #expect(truncate(dir + "/big.log", 60 << 20) == 0)   // sparse
@@ -21,15 +26,18 @@ import Core
     #expect(await refusal("latin1.txt") == .binary)
     #expect(mkfifo(dir + "/pipe", 0o600) == 0)
     #expect(await refusal("pipe") == .special)
-    do { _ = try await c.call(FilesRead(path: dir + "/gone.txt")); Issue.record("read a file that isn't there") }
-    catch { #expect("\(error)".contains("moved or deleted")) }
+    do {
+        _ = try await c.call(FilesRead(path: dir + "/gone.txt"))
+        Issue.record("read a file that isn't there")
+    } catch { #expect("\(error)".contains("moved or deleted")) }
     await #expect(throws: (any Error).self) { _ = try await c.call(FilesRead(path: "a.txt")) }   // relative: whose folder?
 }
 
 /// A save goes in only over the version it was read as: an agent's edit meanwhile comes back to ask about, a file that's
 /// gone isn't brought back, and a symlink keeps pointing at the file it was written through.
 @Test func aWriteGoesInOnlyOverTheVersionItWasGiven() async throws {
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let dir = tmp().path, file = dir + "/a.txt"
     try "one\n".write(toFile: file, atomically: true, encoding: .utf8)
     let read = try await c.call(FilesRead(path: file))
@@ -63,15 +71,19 @@ import Core
     #expect(try String(contentsOfFile: dir + "/target.txt", encoding: .utf8) == "through\n")
 
     // Past the limit a tab opens: refused, nothing written (called here: 50 MB through the socket would only be slower).
-    do { _ = try FileService(remotes: .none).write(dir + "/huge.txt", String(repeating: "x", count: Unopenable.openLimit + 1), base: nil); Issue.record("wrote past the limit") }
-    catch { #expect(Unopenable(error) == .tooBig(Unopenable.openLimit + 1)) }
+    do {
+        _ = try FileService(remotes: .none).write(
+            dir + "/huge.txt", String(repeating: "x", count: Unopenable.openLimit + 1), base: nil)
+        Issue.record("wrote past the limit")
+    } catch { #expect(Unopenable(error) == .tooBig(Unopenable.openLimit + 1)) }
     #expect(!FileManager.default.fileExists(atPath: dir + "/huge.txt"))
 }
 
 /// The Files panel's operations: Finder's names for copies and new files, a move that stops at the first failure and
 /// says which went, and the Trash saying where each item went so ⌘Z can move it back.
 @Test func filesMoveTrashCopyAndCreateLikeTheFilesPanel() async throws {
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let dir = tmp().path
     let fm = FileManager.default
     func name(_ p: String) -> String { (p as NSString).lastPathComponent }
@@ -90,11 +102,15 @@ import Core
     #expect(try await c.call(FilesCopy(paths: [dir + "/a.txt"], into: dir)).made.map(name) == ["a copy 2.txt"])
 
     // Moved onto a taken name: "name copy", when asked to.
-    let moved = try await c.call(FilesMove(pairs: [FileMove(from: dir + "/a copy.txt", to: dir + "/a.txt")], unique: true))
+    let moved = try await c.call(
+        FilesMove(pairs: [FileMove(from: dir + "/a copy.txt", to: dir + "/a.txt")], unique: true))
     #expect(moved.done.map { name($0.to) } == ["a copy 3.txt"] && moved.error == nil)
     // The second's source is gone: the first is moved, the third isn't, and the reply says so.
-    let partly = try await c.call(FilesMove(pairs: [FileMove(from: dir + "/a.txt", to: dir + "/b.txt"), FileMove(from: dir + "/nope", to: dir + "/x"),
-                                                     FileMove(from: dir + "/untitled", to: dir + "/c")]))
+    let partly = try await c.call(
+        FilesMove(pairs: [
+            FileMove(from: dir + "/a.txt", to: dir + "/b.txt"), FileMove(from: dir + "/nope", to: dir + "/x"),
+            FileMove(from: dir + "/untitled", to: dir + "/c")
+        ]))
     #expect(partly.done.map { name($0.to) } == ["b.txt"] && partly.error != nil)
     #expect(fm.fileExists(atPath: dir + "/untitled") && !fm.fileExists(atPath: dir + "/c"))
 
@@ -111,7 +127,8 @@ import Core
 /// agent's edit there is asked about; moving or making files there is refused rather than done to the folder here.
 @Test func aRemoteFileIsWrittenOnlyOverTheVersionRead() async throws {
     _ = localSSH
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let there = try makeRepo()
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
     let file = repo.path + "/a.txt"
@@ -120,7 +137,8 @@ import Core
     let wrote = try await c.call(FilesWrite(path: file, text: "édité ✓\n", base: read.stamp))
     #expect(try String(contentsOfFile: there + "/a.txt", encoding: .utf8) == "édité ✓\n")
     try "an agent's\n".write(toFile: there + "/a.txt", atomically: true, encoding: .utf8)
-    #expect(try await c.call(FilesWrite(path: file, text: "mine\n", base: wrote.stamp)).conflict?.text == "an agent's\n")
+    #expect(
+        try await c.call(FilesWrite(path: file, text: "mine\n", base: wrote.stamp)).conflict?.text == "an agent's\n")
     try FileManager.default.removeItem(atPath: there + "/a.txt")
     #expect(try await c.call(FilesWrite(path: file, text: "mine\n", base: wrote.stamp)).missing == true)
     // The old method, as an older app calls it: a file that's gone is written again.
@@ -133,18 +151,22 @@ import Core
 /// An upload cut short (the connection dropped) looks finished to the host's `cat`: the file isn't written with half of it.
 @Test func aRemoteSaveCutShortLeavesTheFile() async throws {
     _ = localSSH
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let there = try makeRepo()
     try "kept\n".write(toFile: there + "/cut-short.txt", atomically: true, encoding: .utf8)
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
-    await #expect(throws: (any Error).self) { _ = try await c.call(FilesWrite(path: repo.path + "/cut-short.txt", text: "a longer text\n", base: nil)) }
+    await #expect(throws: (any Error).self) {
+        _ = try await c.call(FilesWrite(path: repo.path + "/cut-short.txt", text: "a longer text\n", base: nil))
+    }
     #expect(try String(contentsOfFile: there + "/cut-short.txt", encoding: .utf8) == "kept\n")
 }
 
 /// A file's round trip through the socket (read, then a save of the same size), as a tab makes it. Opt-in:
 /// KELP_BENCH=1 swift test --filter fileRoundTrip. Budgets: 200 KB ≤ 10 ms, 5 MB ≤ 150 ms.
 @Test(.enabled(if: ProcessInfo.processInfo.environment["KELP_BENCH"] != nil)) func fileRoundTrip() async throws {
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let dir = tmp().path
     for (size, budget) in [(200 << 10, 0.010), (5 << 20, 0.150)] {
         let line = "let value = compute(input, with: options) // a line of code\n"
@@ -157,14 +179,17 @@ import Core
             _ = try await c.call(FilesWrite(path: file, text: r.text, base: r.stamp))
             best = min(best, Date().timeIntervalSince(start))
         }
-        print("BENCH files.read + files.write \(size >> 10) KB: \(String(format: "%.1f", best * 1000)) ms (budget \(Int(budget * 1000)) ms)")
+        print(
+            "BENCH files.read + files.write \(size >> 10) KB: \(String(format: "%.1f", best * 1000)) ms (budget \(Int(budget * 1000)) ms)"
+        )
         #expect(best <= budget)
     }
 }
 
 /// A saved script stays executable (Foundation's atomic write keeps the old file's permissions: this holds it to that).
 @Test func aSaveKeepsTheFilesPermissions() async throws {
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let file = tmp().path + "/deploy.sh"
     try "#!/bin/sh\n".write(toFile: file, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file)

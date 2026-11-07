@@ -1,9 +1,9 @@
+import AgentData
+import Agents
+import Core
 import Foundation
 import GRDB
-import Core
 import GitKit
-import Agents
-import AgentData
 
 /// What goes into starting, pausing and waking a session: its environment and account, the trust answer, resuming its
 /// conversation, titles, and the agent manifests.
@@ -27,8 +27,11 @@ extension Sessions {
         // Not into tmux: its server keeps the first client's environment for every pane, whichever tab they're shown in.
         if Tmux.session(rec.argv) == nil { env["KELP_SESSION"] = rec.id }
         if let v = promptEditor(m, rec, given: env["VISUAL"]) { env["VISUAL"] = v }
-        env["KELP_SOCKET"] = socketPath; env["KELP_HOME"] = root.path
-        if env["KELP_PORT"] == nil, let port = Log.store.attempt("a folder's ports", { try portBlock(rec) }) { env["KELP_PORT"] = String(port) }
+        env["KELP_SOCKET"] = socketPath
+        env["KELP_HOME"] = root.path
+        if env["KELP_PORT"] == nil, let port = Log.store.attempt("a folder's ports", { try portBlock(rec) }) {
+            env["KELP_PORT"] = String(port)
+        }
         // Written at each start and wake, so a session woken after an update gets this kelpd's hooks.
         if remotes.of(rec.cwd) == nil, let t = m.hooks { wire(t, m, rec, &env) }
         return env
@@ -46,7 +49,8 @@ extension Sessions {
     private func promptEditor(_ m: AgentManifest, _ rec: Session, given: String?) -> String? {
         let mine = given ?? ProcessInfo.processInfo.environment["VISUAL"]
         guard mine == nil, m.id != "shell", remotes.of(rec.cwd) == nil, Tmux.session(rec.argv) == nil,
-              settings["agents.editInKelp"]?.bool != false else { return nil }
+            settings["agents.editInKelp"]?.bool != false
+        else { return nil }
         return "kelp edit --wait"
     }
 
@@ -61,18 +65,25 @@ extension Sessions {
         do {
             switch t {
             case .settingsFlag: break
-            case .pluginDir(let key): try Hooks.writePlugin(dir: dir); env[key] = dir.path
+            case .pluginDir(let key):
+                try Hooks.writePlugin(dir: dir)
+                env[key] = dir.path
             case .settingsFile(let key, let base):
-                try base.map { try Hooks.writeSettings(to: file, over: URL(fileURLWithPath: $0)) } ?? Hooks.writeSettings(to: file)
+                try base.map { try Hooks.writeSettings(to: file, over: URL(fileURLWithPath: $0)) }
+                    ?? Hooks.writeSettings(to: file)
                 env[key] = file.path
-            case .herdr: env["HERDR_SOCKET_PATH"] = socketPath; env["HERDR_PANE_ID"] = rec.id
+            case .herdr:
+                env["HERDR_SOCKET_PATH"] = socketPath
+                env["HERDR_PANE_ID"] = rec.id
             }
         } catch { Log.session.error("\(m.id, privacy: .public)'s hooks weren't written, its screen is read: \(error)") }
     }
 
     /// Where a session's Claude conversations are: under its profile's config dir when it has one.
     func claudeProjects(_ rec: Session) -> URL {
-        rec.profile.flatMap { profile($0, agent: "claude") }.map { URL(fileURLWithPath: $0.dir).appendingPathComponent("projects") }
+        rec.profile.flatMap { profile($0, agent: "claude") }.map {
+            URL(fileURLWithPath: $0.dir).appendingPathComponent("projects")
+        }
             ?? agentUsage.agentHomes.withLock { $0 }.claude
     }
 
@@ -80,9 +91,12 @@ extension Sessions {
     static let configDirEnv = ["claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"]
     func profile(_ name: String, agent: String) -> (key: String, dir: String)? {
         guard let key = Self.configDirEnv[agent] else { return nil }
-        for p in settings["accounts.profiles"]?.array ?? [] where p["name"]?.string == name && p["agent"]?.string == agent {
+        for p in settings["accounts.profiles"]?.array ?? []
+        where p["name"]?.string == name && p["agent"]?.string == agent {
             if let d = p["dir"]?.string {
-                Log.session.attempt("making profile \(name)'s folder") { try FileManager.default.createDirectory(atPath: d, withIntermediateDirectories: true) }
+                Log.session.attempt("making profile \(name)'s folder") {
+                    try FileManager.default.createDirectory(atPath: d, withIntermediateDirectories: true)
+                }
                 return (key, d)
             }
         }
@@ -96,7 +110,9 @@ extension Sessions {
     }
 
     /// The manifest its live session reads: with the hooks this launch wired, or none.
-    func liveManifest(_ m: AgentManifest, cwd: String, worktreeId: String?, env: [String: String], argv: [String]) -> AgentManifest {
+    func liveManifest(_ m: AgentManifest, cwd: String, worktreeId: String?, env: [String: String], argv: [String])
+        -> AgentManifest
+    {
         wiredHooks(trustAnswered(m, cwd: cwd, worktreeId: worktreeId, env: env), env: env, argv: argv)
     }
 
@@ -105,13 +121,14 @@ extension Sessions {
     /// Those have their screen read instead.
     func wiredHooks(_ m: AgentManifest, env: [String: String], argv: [String]) -> AgentManifest {
         let dir = hooksDir(m)
-        let wired = switch m.hooks {
-        case .settingsFlag(let flag)?: argv.contains { $0 == flag || $0.hasPrefix(flag + "=") }
-        case .pluginDir(let key)?: env[key] == dir.path
-        case .settingsFile(let key, _)?: env[key] == dir.appendingPathExtension("json").path
-        case .herdr?: env["HERDR_PANE_ID"] != nil
-        case nil: false
-        }
+        let wired =
+            switch m.hooks {
+            case .settingsFlag(let flag)?: argv.contains { $0 == flag || $0.hasPrefix(flag + "=") }
+            case .pluginDir(let key)?: env[key] == dir.path
+            case .settingsFile(let key, _)?: env[key] == dir.appendingPathExtension("json").path
+            case .herdr?: env["HERDR_PANE_ID"] != nil
+            case nil: false
+            }
         var out = m
         if !wired { out.hooks = nil }
         return out
@@ -126,14 +143,16 @@ extension Sessions {
         let parents = Set(live.all.compactMap(\.snapshot.parent))   // what their children say next would find nobody
         let candidates = live.all.filter { ls in
             // A pause stops what it left in the background too: a server someone uses isn't idle.
-            !parents.contains(ls.snapshot.id) && ls.resumable && [.done, .idle].contains(ls.snapshot.status) && ls.snapshot.continueAt == nil
+            !parents.contains(ls.snapshot.id) && ls.resumable && [.done, .idle].contains(ls.snapshot.status)
+                && ls.snapshot.continueAt == nil
                 && (ls.snapshot.background ?? []).isEmpty
                 && !ls.isAttached && ls.idleSeconds > minutes * 60
         }.map { ($0, $0.inputs) }
         // Off the ticker: waiting for programs to exit (up to 3 s each) must not hold up status for everyone else.
         let start = pausingIdle.withLock { busy -> Bool in
             guard !busy, !candidates.isEmpty else { return false }
-            busy = true; return true
+            busy = true
+            return true
         }
         guard start else { return }
         Thread.detachNewThread { [self] in
@@ -174,16 +193,20 @@ extension Sessions {
         // out in it.)
         var project: String?
         if let wid = worktreeId, let w = try? store.worktree(wid), let r = try? store.repo(w.repoId),
-           AgentTrust.normal(cwd) == AgentTrust.normal(w.path) || AgentTrust.normal(cwd).hasPrefix(AgentTrust.normal(w.path) + "/"),
-           !AgentConfig.changed(w.path, base: r.baseBranch, remotes: remotes) {
+            AgentTrust.normal(cwd) == AgentTrust.normal(w.path)
+                || AgentTrust.normal(cwd).hasPrefix(AgentTrust.normal(w.path) + "/"),
+            !AgentConfig.changed(w.path, base: r.baseBranch, remotes: remotes)
+        {
             project = r.path
         }
         // The config the agent will read: the session's variables over the daemon's own (a kelpd started from a shell
         // passes on that shell's CLAUDE_CONFIG_DIR), as PTY builds its environment.
         let env = ProcessInfo.processInfo.environment.merging(env) { $1 }
         // A chat's own empty folder that Kelp just made for it ("No Project") has nothing in it the question guards.
-        let expectedAndSettled = !AgentTrust.trusts(agent: m.id, folders: [cwd], env: env)
-            && (project.map { AgentTrust.trusts(agent: m.id, folders: [$0], env: env) } == true || ScratchChats(root: root).isFresh(cwd))
+        let expectedAndSettled =
+            !AgentTrust.trusts(agent: m.id, folders: [cwd], env: env)
+            && (project.map { AgentTrust.trusts(agent: m.id, folders: [$0], env: env) } == true
+                || ScratchChats(root: root).isFresh(cwd))
         return expectedAndSettled ? m : out
     }
 
@@ -193,15 +216,18 @@ extension Sessions {
     /// Bring a paused session back under the same id (layout and links stay), resuming its conversation.
     func wake(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
         wakeTries.withLock { $0 += 1 }
-        guard var rec = try store.session(id), isPaused(rec) else { throw RPCError.invalidParams("no live session \(id)") }
+        guard var rec = try store.session(id), isPaused(rec) else {
+            throw RPCError.invalidParams("no live session \(id)")
+        }
         let m = try manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
         let argv = resumeArgv(rec, m)
         rec.argv = argv   // the conversation it found is this session's from now on
         let env = launchEnv(m, rec)
         rec.status = .idle
-        let ls = try LiveSession(record: rec, manifest: liveManifest(m, cwd: rec.cwd, worktreeId: rec.worktreeId, env: env, argv: argv),
-                                 argv: try launchArgv(argv, cwd: rec.cwd, manifest: m, tmux: rec.tmux), env: env,
-                                 historyDir: root.appendingPathComponent("history"), cols: cols, rows: rows, callbacks: callbacks(for: rec))
+        let ls = try LiveSession(
+            record: rec, manifest: liveManifest(m, cwd: rec.cwd, worktreeId: rec.worktreeId, env: env, argv: argv),
+            argv: try launchArgv(argv, cwd: rec.cwd, manifest: m, tmux: rec.tmux), env: env,
+            historyDir: root.appendingPathComponent("history"), cols: cols, rows: rows, callbacks: callbacks(for: rec))
         if rec.tmux != nil { ls.attachedToRunning() }
         do { try live.add(ls) } catch {   // its record stays paused
             ls.discard()
@@ -217,18 +243,21 @@ extension Sessions {
     /// argv that brings back this session's own conversation. A remote one's conversations are on its host: the agent's
     /// own "latest in this folder" finds it there.
     func resumeArgv(_ rec: Session, _ m: AgentManifest) -> [String] {
-        guard rec.agent == "claude", remotes.of(rec.cwd) == nil, let flag = m.resumeIdFlag, let pin = m.sessionIdFlag else { return m.resuming(rec.argv) }
+        guard rec.agent == "claude", remotes.of(rec.cwd) == nil, let flag = m.resumeIdFlag, let pin = m.sessionIdFlag
+        else { return m.resuming(rec.argv) }
         if let i = rec.argv.firstIndex(of: flag) {
             // Nothing was typed in the session this forks (`HomeSeed`): no conversation to copy, a new one of its own.
             if rec.argv.contains("--fork-session"), let id = rec.argv.dropFirst(i + 1).first,
-               ClaudeHistory.session(id: id, cwd: rec.cwd, root: claudeProjects(rec)) == nil {
+                ClaudeHistory.session(id: id, cwd: rec.cwd, root: claudeProjects(rec)) == nil
+            {
                 return m.following(rec.argv, conversation: UUID().uuidString.lowercased())
             }
             return rec.argv
         }
         if let i = rec.argv.firstIndex(of: pin), i + 1 < rec.argv.count {
             // Pinned but nothing typed yet: no conversation to resume, start it under the same id.
-            return ClaudeHistory.session(id: rec.argv[i + 1], cwd: rec.cwd, root: claudeProjects(rec)) != nil ? m.resuming(rec.argv) : rec.argv
+            return ClaudeHistory.session(id: rec.argv[i + 1], cwd: rec.cwd, root: claudeProjects(rec)) != nil
+                ? m.resuming(rec.argv) : rec.argv
         }
         let conversations = ClaudeHistory.sessions(cwd: rec.cwd, root: claudeProjects(rec))
         // From before ids were pinned (or restarted with "latest in this folder", which hands it another agent's
@@ -236,12 +265,21 @@ extension Sessions {
         // session has it; none → start fresh. Limit: misses prompts typed out of order across sessions.
         let base = rec.argv.filter { !m.resumeArgs.contains($0) }
         let all = (try? store.sessions()) ?? []
-        let claimed = Set(all.filter { $0.id != rec.id }.flatMap { s in
-            s.argv.indices.dropLast().filter { [pin, flag].contains(s.argv[$0]) }.map { s.argv[$0 + 1].lowercased() }
-        })
-        let next = all.filter { $0.agent == "claude" && $0.cwd == rec.cwd && $0.createdAt > rec.createdAt }.map(\.createdAt).min() ?? .distantFuture
-        let own = conversations
-            .filter { $0.started >= rec.createdAt.addingTimeInterval(-2) && $0.started < next && !claimed.contains($0.id.lowercased()) }
+        let claimed = Set(
+            all.filter { $0.id != rec.id }.flatMap { s in
+                s.argv.indices.dropLast().filter { [pin, flag].contains(s.argv[$0]) }.map {
+                    s.argv[$0 + 1].lowercased()
+                }
+            })
+        let next =
+            all.filter { $0.agent == "claude" && $0.cwd == rec.cwd && $0.createdAt > rec.createdAt }.map(\.createdAt)
+            .min() ?? .distantFuture
+        let own =
+            conversations
+            .filter {
+                $0.started >= rec.createdAt.addingTimeInterval(-2) && $0.started < next
+                    && !claimed.contains($0.id.lowercased())
+            }
             .min { $0.started < $1.started }
         return own.map { base + [flag, $0.id] } ?? base
     }
@@ -252,8 +290,10 @@ extension Sessions {
         let conversation = URL(fileURLWithPath: transcript).deletingPathExtension().lastPathComponent
         let s = ls.snapshot
         // Only a conversation's own file (a subagent's is agent-….jsonl), and the manifest read only when it changed: hooks come every turn.
-        guard UUID(uuidString: conversation) != nil, !s.argv.contains(where: { $0.lowercased() == conversation.lowercased() }),
-              let m = try? manifest(s.agent, command: nil, fallbackArgv: s.argv) else { return }
+        guard UUID(uuidString: conversation) != nil,
+            !s.argv.contains(where: { $0.lowercased() == conversation.lowercased() }),
+            let m = try? manifest(s.agent, command: nil, fallbackArgv: s.argv)
+        else { return }
         let argv = m.following(s.argv, conversation: conversation)
         guard argv != s.argv else { return }
         _ = ls.update { $0.argv = argv }
@@ -314,7 +354,9 @@ extension Sessions {
             guard !(error is RecordError) else { return }
             Log.store.error("couldn't save session \(ls.snapshot.id, privacy: .public): \(error)")
             let unsaved = ls.snapshot
-            pausedUnsaved.withLock { if unsaved.status == .paused { $0.insert(unsaved.id) } else { $0.remove(unsaved.id) } }
+            pausedUnsaved.withLock {
+                if unsaved.status == .paused { $0.insert(unsaved.id) } else { $0.remove(unsaved.id) }
+            }
             said(unsaved)
             return
         }
@@ -352,7 +394,9 @@ extension Sessions {
             }
             if renamed?.note == title { notify(ChangedEvent.worktree) }
             try nameBranch(wid, prompt: prompt, title: title)
-        } catch { Log.session.error("couldn't name the workspace of \(id, privacy: .public) from its first prompt: \(error)") }
+        } catch {
+            Log.session.error("couldn't name the workspace of \(id, privacy: .public) from its first prompt: \(error)")
+        }
     }
 
     /// Settings › Git: what goes before the branches Kelp names.
@@ -361,17 +405,29 @@ extension Sessions {
     /// A placeholder branch (task-123, wip, new-worktree…) gets a real name from what the agent was asked to do. Folder
     /// and record agree after it either way: a record that couldn't be saved puts the folder's old name back.
     private func nameBranch(_ wid: String, prompt: String, title: String) throws {
-        guard let w = try store.worktree(wid), w.branch.range(of: #"^(task|wip|tmp|new|new-worktree|untitled|ws)(-\d+)?$"#, options: .regularExpression) != nil,
-              let r = try store.repo(w.repoId), w.path != r.path else { return }
+        guard let w = try store.worktree(wid),
+            w.branch.range(of: #"^(task|wip|tmp|new|new-worktree|untitled|ws)(-\d+)?$"#, options: .regularExpression)
+                != nil,
+            let r = try store.repo(w.repoId), w.path != r.path
+        else { return }
         let slug = Naming.slug(prompt)
         guard !slug.isEmpty else { return }
         let base = branchPrefix + slug
         var b = base, n = 2
-        while Git.branchExists(r.path, b, remotes: remotes) { b = "\(base)-\(n)"; n += 1 }
+        while Git.branchExists(r.path, b, remotes: remotes) {
+            b = "\(base)-\(n)"
+            n += 1
+        }
         try Git.renameBranch(w.path, from: w.branch, to: b, remotes: remotes)
-        do { try store.update(Worktree.self, w.id) { $0.branch = b; if $0.note.isEmpty { $0.note = title } } } catch {
+        do {
+            try store.update(Worktree.self, w.id) {
+                $0.branch = b
+                if $0.note.isEmpty { $0.note = title }
+            }
+        } catch {
             do { try Git.renameBranch(w.path, from: b, to: w.branch, remotes: remotes) } catch {
-                Log.session.error("branch \(b, privacy: .public) kept, its record says \(w.branch, privacy: .public): \(error)")
+                Log.session.error(
+                    "branch \(b, privacy: .public) kept, its record says \(w.branch, privacy: .public): \(error)")
             }
             throw error
         }
@@ -385,22 +441,33 @@ extension Sessions {
         let old = ls.snapshot.title
         let s = ls.update { if !$0.titleManual { $0.title = topic } }
         publish(ls)
-        let renamed = Log.store.attempt("naming the workspace after its first prompt") { try store.update(Worktree.self, s.worktreeId ?? "") { w in
-            if (!old.isEmpty && w.note == old) || w.note.range(of: Workspaces.placeholderName, options: .regularExpression) != nil { w.note = topic }
-        } } ?? nil
+        let renamed =
+            Log.store.attempt("naming the workspace after its first prompt") {
+                try store.update(Worktree.self, s.worktreeId ?? "") { w in
+                    if (!old.isEmpty && w.note == old)
+                        || w.note.range(of: Workspaces.placeholderName, options: .regularExpression) != nil
+                    {
+                        w.note = topic
+                    }
+                }
+            } ?? nil
         if renamed?.note == topic { notify(ChangedEvent.worktree) }
     }
 
     func manifest(_ id: String?, command: String?, fallbackArgv: [String]? = nil) throws -> AgentManifest {
         if let command { return .custom(command) }
-        if id == "custom", let a = fallbackArgv { return .init(id: "custom", name: "Custom", command: a.first ?? "/bin/zsh", args: Array(a.dropFirst())) }
+        if id == "custom", let a = fallbackArgv {
+            return .init(id: "custom", name: "Custom", command: a.first ?? "/bin/zsh", args: Array(a.dropFirst()))
+        }
         let id = id ?? "shell"
         // A plain shell has no meaningful "done": keep the heuristic quiet.
         if id == "shell" {
-            return .init(id: "shell", name: "Shell", command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
-                         args: ["-l"], quietSeconds: 1e9)
+            return .init(
+                id: "shell", name: "Shell", command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+                args: ["-l"], quietSeconds: 1e9)
         }
-        guard let m = AgentManifest.load(dir: root.appendingPathComponent("agents")).first(where: { $0.id == id }) else {
+        guard let m = AgentManifest.load(dir: root.appendingPathComponent("agents")).first(where: { $0.id == id })
+        else {
             throw RPCError.invalidParams("unknown agent \(id)")
         }
         return m
@@ -429,7 +496,9 @@ extension Sessions {
         let comesBack = Self.resumable(ls.snapshot, manifests)
         if comesBack { ls.markHibernated() } else { ls.overrideStatus(.exited) }
         publishLast(ls)
-        if comesBack { Log.session.attempt("keeping what \(ls.snapshot.id) hadn't typed") { try store.owe(ls.takeOwed()) } }
+        if comesBack {
+            Log.session.attempt("keeping what \(ls.snapshot.id) hadn't typed") { try store.owe(ls.takeOwed()) }
+        }
         return ls.pty.terminate()   // SIGKILL after 2 s for what ignores the hangup, so all is gone within waitGone's 3
     }
 

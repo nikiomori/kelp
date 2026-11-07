@@ -7,17 +7,31 @@ public struct ScriptsList: RPCMethod {
     public static let name = "scripts.list"
     public struct Script: Codable, Sendable, Equatable {
         public var name: String, command: String
-        public init(name: String, command: String) { self.name = name; self.command = command }
+        public init(name: String, command: String) {
+            self.name = name
+            self.command = command
+        }
     }
     public struct Result: Codable, Sendable, Equatable {
-        public var scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String], issueCommand: String?
+        public var scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String],
+            issueCommand: String?
         /// Of exactly the text read: `scripts.trust` trusts what was shown, not a later version.
         public var digest: String
         public var trusted: Bool, file: String
-        public init(scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String], issueCommand: String?,
-                    digest: String, trusted: Bool, file: String) {
-            self.scripts = scripts; self.setup = setup; self.tabs = tabs; self.shared = shared; self.recipes = recipes
-            self.issueCommand = issueCommand; self.digest = digest; self.trusted = trusted; self.file = file
+        public init(
+            scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String],
+            issueCommand: String?,
+            digest: String, trusted: Bool, file: String
+        ) {
+            self.scripts = scripts
+            self.setup = setup
+            self.tabs = tabs
+            self.shared = shared
+            self.recipes = recipes
+            self.issueCommand = issueCommand
+            self.digest = digest
+            self.trusted = trusted
+            self.file = file
         }
     }
     public var worktreeId: String
@@ -25,13 +39,23 @@ public struct ScriptsList: RPCMethod {
 }
 /// The project's .kelp.yaml as shown (`digest` from scripts.list) may run. Only from Kelp's window.
 public struct ScriptsTrust: RPCMethod {
-    public static let name = "scripts.trust"; public typealias Result = Done; public var worktreeId: String, digest: String?
-    public init(worktreeId: String, digest: String?) { self.worktreeId = worktreeId; self.digest = digest }
+    public static let name = "scripts.trust"
+    public typealias Result = Done
+    public var worktreeId: String, digest: String?
+    public init(worktreeId: String, digest: String?) {
+        self.worktreeId = worktreeId
+        self.digest = digest
+    }
 }
 /// Runs command `name` (or "setup") in the workspace's folder → the session.
 public struct ScriptsRun: RPCMethod {
-    public static let name = "scripts.run"; public typealias Result = Session; public var worktreeId: String, name: String
-    public init(worktreeId: String, name: String) { self.worktreeId = worktreeId; self.name = name }
+    public static let name = "scripts.run"
+    public typealias Result = Session
+    public var worktreeId: String, name: String
+    public init(worktreeId: String, name: String) {
+        self.worktreeId = worktreeId
+        self.name = name
+    }
 }
 
 /// Something the project's own files say can be run: a package.json script, a Makefile target, a compose service, a
@@ -50,9 +74,18 @@ public struct RunOption: Codable, Sendable, Equatable {
     public var detail: String?
     /// The program it needs that isn't on that machine's PATH.
     public var missing: String?
-    public init(id: String, name: String, command: String, folder: String, source: String, kind: String, detail: String? = nil, missing: String? = nil) {
-        self.id = id; self.name = name; self.command = command; self.folder = folder; self.source = source; self.kind = kind
-        self.detail = detail; self.missing = missing
+    public init(
+        id: String, name: String, command: String, folder: String, source: String, kind: String, detail: String? = nil,
+        missing: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.command = command
+        self.folder = folder
+        self.source = source
+        self.kind = kind
+        self.detail = detail
+        self.missing = missing
     }
 }
 /// What the workspace's project files offer to run (on the host, for a remote project), and the likeliest dev server.
@@ -60,7 +93,10 @@ public struct RunDetect: RPCMethod {
     public static let name = "run.detect"
     public struct Result: Codable, Sendable, Equatable {
         public var options: [RunOption], guess: String?
-        public init(options: [RunOption], guess: String?) { self.options = options; self.guess = guess }
+        public init(options: [RunOption], guess: String?) {
+            self.options = options
+            self.guess = guess
+        }
     }
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
@@ -68,21 +104,33 @@ public struct RunDetect: RPCMethod {
 /// Runs option `id` (as run.detect gives it, read again now) in the workspace → the session. The first local URL it prints
 /// comes as event.devserver; a remote project's runs go in tmux on the host, their port forwarded to this Mac.
 public struct RunStart: RPCMethod {
-    public static let name = "run.start"; public typealias Result = Session; public var worktreeId: String, id: String
-    public init(worktreeId: String, id: String) { self.worktreeId = worktreeId; self.id = id }
+    public static let name = "run.start"
+    public typealias Result = Session
+    public var worktreeId: String, id: String
+    public init(worktreeId: String, id: String) {
+        self.worktreeId = worktreeId
+        self.id = id
+    }
 }
 
 /// Whether a new Claude Code chat in this workspace gets Kelp's browser skill, and why: `agents.skills.browser`
 /// (auto / on / off), laid under the project's own choice (UI state `browser.choice.<repo>`: "on" / "off").
 public struct SkillsBrowser: InternalMethod {
-    public static let name = "skills.browser"; public typealias Result = BrowserSkill; public var worktreeId: String
+    public static let name = "skills.browser"
+    public typealias Result = BrowserSkill
+    public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 public struct BrowserSkill: Codable, Sendable, Equatable {
     /// `why`: "Vite in package.json", "no web app found"… `choice`: the project's own, nil when it follows Settings.
     /// `hint`: off, but the agent is told where the guide is (not when Settings says Never).
     public var on: Bool, why: String, choice: String?, hint: Bool
-    public init(on: Bool, why: String, choice: String? = nil, hint: Bool = false) { self.on = on; self.why = why; self.choice = choice; self.hint = hint }
+    public init(on: Bool, why: String, choice: String? = nil, hint: Bool = false) {
+        self.on = on
+        self.why = why
+        self.choice = choice
+        self.hint = hint
+    }
     /// The hover card's line.
     public var line: String { (on ? "on · " : "off · ") + why }
     /// The project's choice in UI state.
@@ -91,8 +139,14 @@ public struct BrowserSkill: Codable, Sendable, Equatable {
 
 /// A project on `host` at `path` (its local folder stands for the one there); `init` makes a plain folder a repository.
 public struct RepoAddRemote: RPCMethod {
-    public static let name = "repo.addRemote"; public typealias Result = Repo; public var host: String, path: String, `init`: Bool?
-    public init(host: String, path: String, `init`: Bool? = nil) { self.host = host; self.path = path; self.`init` = `init` }
+    public static let name = "repo.addRemote"
+    public typealias Result = Repo
+    public var host: String, path: String, `init`: Bool?
+    public init(host: String, path: String, `init`: Bool? = nil) {
+        self.host = host
+        self.path = path
+        self.`init` = `init`
+    }
 }
 /// Why a tab shows a reason instead of a file's text: one rule for a file on this Mac and one on a remote project's host
 /// (`files.readRemote` fails with it as its error's `data`).
@@ -107,11 +161,12 @@ public enum Unopenable: Codable, Sendable, Equatable {
     public static let openLimit = 50 << 20
 
     public var error: RPCError {
-        let message = switch self {
-        case .special: "Not a regular file (a pipe or a device)."
-        case .tooBig(let n): "Too big to open (\(n) bytes)."
-        case .binary: "Not UTF-8 text (binary, or another encoding)."
-        }
+        let message =
+            switch self {
+            case .special: "Not a regular file (a pipe or a device)."
+            case .tooBig(let n): "Too big to open (\(n) bytes)."
+            case .binary: "Not UTF-8 text (binary, or another encoding)."
+            }
         return RPCError(code: -32001, message: message, data: try? JSONValue.from(self))
     }
     /// The reason a daemon's error carries, when it's this kind of error.
@@ -124,7 +179,9 @@ public enum Unopenable: Codable, Sendable, Equatable {
 /// A file in a remote project's folder, read on the host. Fails with an `Unopenable` error where a tab here would refuse
 /// the file (a pipe, past the size limit, not UTF-8).
 public struct FilesReadRemote: InternalMethod {
-    public static let name = "files.readRemote"; public typealias Result = String; public var path: String
+    public static let name = "files.readRemote"
+    public typealias Result = String
+    public var path: String
     public init(path: String) { self.path = path }
 }
 /// Writes `text` to that file on the host → null; → {changed: its text there} instead, unwritten, when it's no longer `base`
@@ -137,22 +194,37 @@ public struct FilesWriteRemote: InternalMethod {
     }
     public typealias Result = Changed?
     public var path: String, text: String, base: String?
-    public init(path: String, text: String, base: String?) { self.path = path; self.text = text; self.base = base }
+    public init(path: String, text: String, base: String?) {
+        self.path = path
+        self.text = text
+        self.base = base
+    }
 }
 /// A remote project's own icon, looked for on its host where `IconSearch` looks → the path of its copy in the project's
 /// folder here (it shows without the host), or null when it has none. A copy kept from before is answered at once and
 /// looked for again in the background.
 public struct RepoIcon: InternalMethod {
-    public static let name = "repo.icon"; public typealias Result = String?; public var path: String
+    public static let name = "repo.icon"
+    public typealias Result = String?
+    public var path: String
     public init(path: String) { self.path = path }
 }
 
 /// All settings (settings.json's keys, flat and dotted).
-public struct SettingsGet: InternalMethod { public static let name = "settings.get"; public typealias Result = [String: JSONValue]; public init() {} }
+public struct SettingsGet: InternalMethod {
+    public static let name = "settings.get"
+    public typealias Result = [String: JSONValue]
+    public init() {}
+}
 /// A null `value` resets the key → all settings.
 public struct SettingsSet: InternalMethod {
-    public static let name = "settings.set"; public typealias Result = [String: JSONValue]; public var key: String, value: JSONValue?
-    public init(key: String, value: JSONValue?) { self.key = key; self.value = value }
+    public static let name = "settings.set"
+    public typealias Result = [String: JSONValue]
+    public var key: String, value: JSONValue?
+    public init(key: String, value: JSONValue?) {
+        self.key = key
+        self.value = value
+    }
 }
 
 /// Per account: Claude's 5-hour block, today and the week; Codex's limits (cached for a minute unless `force`); the plan
@@ -161,10 +233,20 @@ public struct UsageGet: InternalMethod {
     public static let name = "usage.get"
     /// Tokens and their API price over a span (dates as seconds since 1970).
     public struct Block: Codable, Sendable, Equatable {
-        public var start: Double, end: Double, input: Int, output: Int, cacheWrite: Int, cacheRead: Int, cost: Double, models: [String]
-        public init(start: Double, end: Double, input: Int, output: Int, cacheWrite: Int, cacheRead: Int, cost: Double, models: [String]) {
-            self.start = start; self.end = end; self.input = input; self.output = output
-            self.cacheWrite = cacheWrite; self.cacheRead = cacheRead; self.cost = cost; self.models = models
+        public var start: Double, end: Double, input: Int, output: Int, cacheWrite: Int, cacheRead: Int, cost: Double,
+            models: [String]
+        public init(
+            start: Double, end: Double, input: Int, output: Int, cacheWrite: Int, cacheRead: Int, cost: Double,
+            models: [String]
+        ) {
+            self.start = start
+            self.end = end
+            self.input = input
+            self.output = output
+            self.cacheWrite = cacheWrite
+            self.cacheRead = cacheRead
+            self.cost = cost
+            self.models = models
         }
     }
     public struct Claude: Codable, Sendable, Equatable {
@@ -172,19 +254,30 @@ public struct UsageGet: InternalMethod {
         /// The 5-hour block now, if one is running.
         public var block: Block?
         public init(account: String, today: Block, week: Block, block: Block?) {
-            self.account = account; self.today = today; self.week = week; self.block = block
+            self.account = account
+            self.today = today
+            self.week = week
+            self.block = block
         }
     }
     /// Codex's own limits from its latest log line (percent used, resets as seconds since 1970).
     public struct Codex: Codable, Sendable, Equatable {
-        public var observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?, secondaryResetsAt: Double?
+        public var observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?,
+            secondaryUsedPercent: Double?, secondaryResetsAt: Double?
         /// Each window's length as Codex says it (nil from an older Codex: then the first is 5 hours, the second a week).
         public var primaryWindowMinutes: Double?, secondaryWindowMinutes: Double?
-        public init(observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?, secondaryResetsAt: Double?,
-                    primaryWindowMinutes: Double? = nil, secondaryWindowMinutes: Double? = nil) {
-            self.observedAt = observedAt; self.primaryUsedPercent = primaryUsedPercent; self.primaryResetsAt = primaryResetsAt
-            self.secondaryUsedPercent = secondaryUsedPercent; self.secondaryResetsAt = secondaryResetsAt
-            self.primaryWindowMinutes = primaryWindowMinutes; self.secondaryWindowMinutes = secondaryWindowMinutes
+        public init(
+            observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?,
+            secondaryResetsAt: Double?,
+            primaryWindowMinutes: Double? = nil, secondaryWindowMinutes: Double? = nil
+        ) {
+            self.observedAt = observedAt
+            self.primaryUsedPercent = primaryUsedPercent
+            self.primaryResetsAt = primaryResetsAt
+            self.secondaryUsedPercent = secondaryUsedPercent
+            self.secondaryResetsAt = secondaryResetsAt
+            self.primaryWindowMinutes = primaryWindowMinutes
+            self.secondaryWindowMinutes = secondaryWindowMinutes
         }
         /// The kind of limit a window is, as the other agents name theirs: "session" (5 hours), "week" or "month" (the free plan's one window).
         public static func kind(minutes: Double?, primary: Bool) -> String {
@@ -198,7 +291,10 @@ public struct UsageGet: InternalMethod {
         /// When a session printed it (Claude's percentages from the last 12 hours); nil for a /usage reading.
         public var observedAt: Double?
         public init(kind: String, percent: Double, resets: String?, observedAt: Double? = nil) {
-            self.kind = kind; self.percent = percent; self.resets = resets; self.observedAt = observedAt
+            self.kind = kind
+            self.percent = percent
+            self.resets = resets
+            self.observedAt = observedAt
         }
     }
     public struct Result: Codable, Sendable, Equatable {
@@ -206,8 +302,15 @@ public struct UsageGet: InternalMethod {
         /// By agent id: the latest /usage readings, and when they were read.
         public var plans: [String: [Limit]]?, plansReadAt: [String: Double]?
         public var claudeLimits: [Limit]?
-        public init(claude: [Claude], codex: [Codex], plans: [String: [Limit]]? = nil, plansReadAt: [String: Double]? = nil, claudeLimits: [Limit]? = nil) {
-            self.claude = claude; self.codex = codex; self.plans = plans; self.plansReadAt = plansReadAt; self.claudeLimits = claudeLimits
+        public init(
+            claude: [Claude], codex: [Codex], plans: [String: [Limit]]? = nil, plansReadAt: [String: Double]? = nil,
+            claudeLimits: [Limit]? = nil
+        ) {
+            self.claude = claude
+            self.codex = codex
+            self.plans = plans
+            self.plansReadAt = plansReadAt
+            self.claudeLimits = claudeLimits
         }
     }
     public var force: Bool?
@@ -218,13 +321,20 @@ public struct UsageReport: InternalMethod {
     public static let name = "usage.report"
     public struct Group: Codable, Sendable, Equatable {
         public var name: String, cost: Double, tokens: Int
-        public init(name: String, cost: Double, tokens: Int) { self.name = name; self.cost = cost; self.tokens = tokens }
+        public init(name: String, cost: Double, tokens: Int) {
+            self.name = name
+            self.cost = cost
+            self.tokens = tokens
+        }
     }
     public struct Result: Codable, Sendable, Equatable {
         /// Most expensive first; `since` is the first day's start (seconds since 1970).
         public var days: [Group], models: [Group], projects: [Group], since: Double
         public init(days: [Group], models: [Group], projects: [Group], since: Double) {
-            self.days = days; self.models = models; self.projects = projects; self.since = since
+            self.days = days
+            self.models = models
+            self.projects = projects
+            self.since = since
         }
     }
     public var days: Int?
@@ -237,25 +347,45 @@ public struct UsageAgents: InternalMethod {
     public static let name = "usage.agents"
     public struct Day: Codable, Sendable, Hashable {
         public var day: String, agent: String, cost: Double, tokens: Int
-        public init(day: String, agent: String, cost: Double, tokens: Int) { self.day = day; self.agent = agent; self.cost = cost; self.tokens = tokens }
+        public init(day: String, agent: String, cost: Double, tokens: Int) {
+            self.day = day
+            self.agent = agent
+            self.cost = cost
+            self.tokens = tokens
+        }
     }
     /// One agent over the span: its tokens by kind (`input` leaves the cache out) and its own models and projects.
     public struct Agent: Codable, Sendable, Equatable {
         public var id: String, cost: Double, tokens: Int
         public var input: Int, output: Int, cacheWrite: Int, cacheRead: Int
         public var models: [UsageReport.Group], projects: [UsageReport.Group]
-        public init(id: String, cost: Double, tokens: Int, input: Int, output: Int, cacheWrite: Int, cacheRead: Int,
-                    models: [UsageReport.Group], projects: [UsageReport.Group]) {
-            self.id = id; self.cost = cost; self.tokens = tokens
-            self.input = input; self.output = output; self.cacheWrite = cacheWrite; self.cacheRead = cacheRead
-            self.models = models; self.projects = projects
+        public init(
+            id: String, cost: Double, tokens: Int, input: Int, output: Int, cacheWrite: Int, cacheRead: Int,
+            models: [UsageReport.Group], projects: [UsageReport.Group]
+        ) {
+            self.id = id
+            self.cost = cost
+            self.tokens = tokens
+            self.input = input
+            self.output = output
+            self.cacheWrite = cacheWrite
+            self.cacheRead = cacheRead
+            self.models = models
+            self.projects = projects
         }
     }
     public struct Result: Codable, Sendable, Equatable {
         /// `days` by day ("yyyy-MM-dd") and agent id; agents and groups most expensive first; `since` is the first day's start.
-        public var days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double
-        public init(days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double) {
-            self.days = days; self.agents = agents; self.models = models; self.projects = projects; self.since = since
+        public var days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group],
+            since: Double
+        public init(
+            days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double
+        ) {
+            self.days = days
+            self.agents = agents
+            self.models = models
+            self.projects = projects
+            self.since = since
         }
     }
     public var days: Int?
@@ -263,9 +393,13 @@ public struct UsageAgents: InternalMethod {
 }
 /// Past conversations, newest first; `query` (in `fullText` too), `cwd`, at most `limit`.
 public struct HistoryList: RPCMethod {
-    public static let name = "history.list"; public typealias Result = [AgentSessionInfo]
+    public static let name = "history.list"
+    public typealias Result = [AgentSessionInfo]
     public var query: String?, fullText: Bool?, cwd: String?, limit: Int?
     public init(query: String? = nil, fullText: Bool? = nil, cwd: String? = nil, limit: Int? = nil) {
-        self.query = query; self.fullText = fullText; self.cwd = cwd; self.limit = limit
+        self.query = query
+        self.fullText = fullText
+        self.cwd = cwd
+        self.limit = limit
     }
 }

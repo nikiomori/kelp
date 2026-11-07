@@ -1,9 +1,10 @@
-import Foundation
-import Testing
-import Core
 import Agents
+import Core
+import Foundation
 import GRDB
+import Testing
 import os
+
 @testable import Daemon
 
 private let fake = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"])
@@ -11,24 +12,34 @@ private let fake = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", 
 private struct Family {
     let w: World, parent: Session, child: Session
     func read(_ id: String) async throws -> String { try await w.c.call(SessionRead(id: id)) }
-    func status(_ id: String) async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == id }?.status }
+    func status(_ id: String) async throws -> AgentStatus? {
+        try await w.c.call(SessionList()).first { $0.id == id }?.status
+    }
 }
 
 private func family(parentAgent: String? = "fake", manifest: AgentManifest = fake) async throws -> Family {
     let w = try await world(agents: [manifest])
     let workspace = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
-    let parent = try await w.c.call(parentAgent == nil ? SessionCreate(worktreeId: workspace.id, command: "cat") : SessionCreate(worktreeId: workspace.id, agent: "fake"))
-    let child = try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "fake", title: "reviewer", parent: parent.id))
+    let parent = try await w.c.call(
+        parentAgent == nil
+            ? SessionCreate(worktreeId: workspace.id, command: "cat")
+            : SessionCreate(worktreeId: workspace.id, agent: "fake"))
+    let child = try await w.c.call(
+        SessionCreate(worktreeId: workspace.id, agent: "fake", title: "reviewer", parent: parent.id))
     return Family(w: w, parent: parent, child: child)
 }
 
 /// What a child says reaches the agent that started it as input, once, in a block that says who it's from.
 @Test func aChildsResultReachesItsParentOnce() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     #expect(f.child.parent == f.parent.id)
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     // `cat` takes no pastes, and each newline would have been a line submitted.
-    #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("<kelp from=\"reviewer \(f.child.id.prefix(8))\" status=\"done\"> ") })
+    #expect(
+        try await waitFor(10) {
+            try await f.read(f.parent.id).contains("<kelp from=\"reviewer \(f.child.id.prefix(8))\" status=\"done\"> ")
+        })
     try await Task.sleep(for: .seconds(1))   // what the terminal echoes has come
     let once = try await f.read(f.parent.id)
     _ = try await f.w.c.call(SessionRename(id: f.child.id, title: "reviewer two"))   // saved again, nothing new
@@ -39,9 +50,14 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// A report can't be said twice, so one that finds its parent paused waits for it, and one it hadn't typed yet goes with it.
 @Test func aPausedParentHearsWhatItMissedWhenItWakes() async throws {
-    let f = try await family(manifest: AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"], resumeArgs: ["--resume"]))
+    let f = try await family(
+        manifest: AgentManifest(
+            id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", "cat"], resumeArgs: ["--resume"]))
     defer { f.w.d.stop() }
-    let second = try await f.w.c.call(SessionCreate(worktreeId: try #require(f.parent.worktreeId) as String, agent: "fake", title: "tester", parent: f.parent.id))
+    let second = try await f.w.c.call(
+        SessionCreate(
+            worktreeId: try #require(f.parent.worktreeId) as String, agent: "fake", title: "tester", parent: f.parent.id
+        ))
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))   // the first waits for its turn to end
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     #expect(try await waitFor(10) { f.w.d.sessions.existing(f.parent.id)?.state.withLock { $0.reports.count } == 1 })
@@ -51,17 +67,19 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     _ = try await f.w.c.call(SessionReport(id: second.id, state: "done"))
     #expect(try await waitFor(10) { try await f.w.d.store.db.read { try OwedInput.fetchCount($0) } == 2 })
     _ = try f.w.d.sessions.liveSession(f.parent.id)
-    #expect(try await waitFor(40) {
-        let out = try await f.read(f.parent.id)
-        return out.contains("<kelp from=\"reviewer") && out.contains("<kelp from=\"tester")
-    })
+    #expect(
+        try await waitFor(40) {
+            let out = try await f.read(f.parent.id)
+            return out.contains("<kelp from=\"reviewer") && out.contains("<kelp from=\"tester")
+        })
     #expect(try await f.w.d.store.db.read { try OwedInput.fetchCount($0) } == 0)
 }
 
 /// A restart that can't start the new session did end the old one, which went unheard as it was only restarting: its
 /// children would run on under a parent nobody can reach.
 @Test func aFailedRestartEndsTheChildren() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     f.w.d.sessions.reports.restarting(f.parent.id, true)
     _ = try await f.w.c.call(SessionKill(id: f.parent.id))
     try await Task.sleep(for: .seconds(1))
@@ -72,7 +90,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// Idle pauses go one after another, up to 3 s each: one picked a while ago may be at work by its turn.
 @Test func anIdlePauseLeavesAnAgentThatMovedOn() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     let ls = try #require(f.w.d.sessions.existing(f.parent.id))
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))
     #expect(!ls.letGoIdle(seen: ls.inputs))
@@ -82,7 +101,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// A shell has no input for it: typed there, a report would run as a command.
 @Test func aShellIsNoParentAndACommandNoChild() async throws {
-    let f = try await family(parentAgent: nil); defer { f.w.d.stop() }
+    let f = try await family(parentAgent: nil)
+    defer { f.w.d.stop() }
     #expect(f.child.parent == nil)
     let w = f.w, workspace = try #require(f.parent.worktreeId)
     let agent = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake"))
@@ -91,7 +111,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// Its children end with an agent, and a restart isn't its end.
 @Test func childrenEndWithTheirParentNotWithItsRestart() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     let again = try await f.w.c.call(SessionRestart(id: f.parent.id, resume: false))
     try await Task.sleep(for: .seconds(1))
     #expect(try await f.status(f.child.id) != .exited)
@@ -113,7 +134,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// A report goes in when the agent rests: its Enter, typed in a turn, could land on a dialog that opened meanwhile.
 @Test func aReportWaitsForItsParentsTurnToEnd() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     _ = try await f.w.c.call(SessionReport(id: f.parent.id, state: "working"))
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     try await Task.sleep(for: .seconds(3))
@@ -124,7 +146,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// ↑ leaves an old prompt in the box with nothing typed: a report's Enter would send it too.
 @Test func aReportWaitsForAnEmptyBox() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     _ = try await f.w.c.call(SessionWrite(id: f.parent.id, text: "\u{1B}[A"))
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     try await Task.sleep(for: .seconds(3))
@@ -135,7 +158,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// Codex says "idle" for a second as a turn starts: a stop it went on from isn't one to report.
 @Test func aStopThatDidntLastReportsNothing() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "done"))
     _ = try await f.w.c.call(SessionReport(id: f.child.id, state: "working"))
     try await Task.sleep(for: .seconds(6))
@@ -147,7 +171,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 /// What a Stop hook says is the turn's last words: read from the transcript a turn that spoke before its last tool call
 /// would report those.
 @Test func aReportSaysWhatTheStopHookSaid() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     var stop = SessionHook(id: f.child.id, event: "done")
     stop.reply = "the final words"
     _ = try await f.w.c.call(stop)
@@ -156,10 +181,12 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// A workspace that's removed deletes its sessions, with no exit to save: what an exit does happens all the same.
 @Test func aClosedWorkspaceEndsItsChildrenAndTellsItsParent() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     let c = f.w.c, away = try await c.call(WorktreeCreate(repoId: f.w.repo.id, branch: "away", setup: false)).worktree
     let inner = try await c.call(SessionCreate(worktreeId: away.id, agent: "fake", title: "away", parent: f.parent.id))
-    let outer = try await c.call(SessionCreate(worktreeId: f.parent.worktreeId, agent: "fake", title: "grandchild", parent: inner.id))
+    let outer = try await c.call(
+        SessionCreate(worktreeId: f.parent.worktreeId, agent: "fake", title: "grandchild", parent: inner.id))
     _ = try await c.call(WorktreeRemove(id: away.id))
     #expect(try await waitFor(10) { try await f.read(f.parent.id).contains("status=\"exited\"") })
     #expect(try await waitFor(10) { try await f.status(outer.id) == .exited })
@@ -168,20 +195,25 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 /// A turn's reply is on disk after its status: the one read before it comes is the turn's before.
 @Test func aReplyIsNewOnce() {
     let r = ChildReports()
-    #expect(r.isNewReply("first", of: "a") && !r.isNewReply("first", of: "a") && r.isNewReply("second", of: "a") && r.isNewReply("first", of: "b"))
+    #expect(
+        r.isNewReply("first", of: "a") && !r.isNewReply("first", of: "a") && r.isNewReply("second", of: "a")
+            && r.isNewReply("first", of: "b"))
 }
 
 /// An agent's own subagents are on its record while they run: a hook says each start and end, and a turn that's over takes
 /// the rest along, as nothing says when one is cut short. A Stop that waits for one leaves it working, with them.
 @Test func anAgentsSubagentsAreOnItsRecordWhileTheyRun() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     let id = f.parent.id, c = f.w.c
     func hook(_ name: String, _ agent: String, kind: String?) async throws {
         var h = SessionHook(id: id, event: "subagent", hookName: name, agentId: agent)
         h.agentType = kind
         _ = try await c.call(h)
     }
-    func kinds() async throws -> [String] { try await c.call(SessionList()).first { $0.id == id }?.runningSubagents.map(\.kind) ?? [] }
+    func kinds() async throws -> [String] {
+        try await c.call(SessionList()).first { $0.id == id }?.runningSubagents.map(\.kind) ?? []
+    }
     _ = try await c.call(SessionHook(id: id, event: "working"))
     try await hook("SubagentStart", "a1", kind: "Explore")
     try await hook("SubagentStart", "a2", kind: "Plan")
@@ -201,7 +233,8 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 
 /// Only an app has a switch in Login Items: a kelpd outside one is never held back by it.
 @Test func aDaemonOutsideAnAppIsAllowedInTheBackground() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     #expect(try await w.c.call(DaemonBackgroundAllowed()))
 }
 
@@ -210,32 +243,41 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 @Test(arguments: [false, true]) func aSubagentsTaskComesFromItsReport(hooked: Bool) async throws {
     let task = Data("Counts files".utf8).base64EncodedString()
     func report(_ body: String) -> String { "printf '\\033]7501;\(body)\\007'; " }
-    let script = report("state=blocked:kind=permission") + report("state=working:id=a1:title=\(task)") + "sleep 2; " + report("state=clear:id=a1") + "cat"
-    let agent = AgentManifest(id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", script], hooks: hooked ? .settingsFlag("--settings") : nil)
-    let w = try await world(agents: [agent]); defer { w.d.stop() }
+    let script =
+        report("state=blocked:kind=permission") + report("state=working:id=a1:title=\(task)") + "sleep 2; "
+        + report("state=clear:id=a1") + "cat"
+    let agent = AgentManifest(
+        id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", script],
+        hooks: hooked ? .settingsFlag("--settings") : nil)
+    let w = try await world(agents: [agent])
+    defer { w.d.stop() }
     let s = try await w.c.call(SessionCreate(worktreeId: try await firstWorkspace(w).id, agent: "fake"))
     func now() async throws -> Session? { try await w.c.call(SessionList()).first { $0.id == s.id } }
     #expect(try await waitFor(5) { try await now()?.runningSubagents.first?.task == "Counts files" })
     var start = SessionHook(id: s.id, event: "subagent", hookName: "SubagentStart", agentId: "a1")
     start.agentType = "Explore"
     _ = try await w.c.call(start)
-    #expect(try await now()?.runningSubagents.map { [$0.id, $0.kind, $0.task] } == [["a1", "Explore", "Counts files"]])
+    #expect(
+        try await now()?.runningSubagents.map { [$0.id, $0.kind, $0.task] } == [["a1", "Explore", "Counts files"]])
     #expect(try await now()?.status == (hooked ? .idle : .waiting))
-    #expect(try await waitFor(5) {
-        let after = try await now()
-        return after?.subagents == nil && after?.subagentTasks == nil
-    })
+    #expect(
+        try await waitFor(5) {
+            let after = try await now()
+            return after?.subagents == nil && after?.subagentTasks == nil
+        })
 }
 
 /// A subagent's last step and journal come from its transcript beside the parent's, as long as the parent's is known.
 @Test func aSubagentsStepsAreReadFromItsTranscript() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     let id = f.parent.id, c = f.w.c
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let folder = dir.appendingPathComponent("0F/subagents")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    let line = #"{"type":"assistant","timestamp":"2026-11-02T06:25:15.000Z","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.swift"}}]}}"#
+    let line =
+        #"{"type":"assistant","timestamp":"2026-11-02T06:25:15.000Z","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.swift"}}]}}"#
     try Data((line + "\n").utf8).write(to: folder.appendingPathComponent("agent-a1.jsonl"))
     _ = try await c.call(SessionHook(id: id, event: "working", transcript: dir.appendingPathComponent("0F.jsonl").path))
     #expect(try await c.call(SessionSubagentSteps(id: id)).isEmpty)
@@ -250,12 +292,15 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 /// A command an agent starts belongs to it, unlike an agent it starts it's no child: it hears nothing of it, and it goes on
 /// when the agent ends. A terminal starts commands of its own.
 @Test func aCommandBelongsToTheAgentThatStartedItAndOutlivesIt() async throws {
-    let f = try await family(); defer { f.w.d.stop() }
+    let f = try await family()
+    defer { f.w.d.stop() }
     let workspace = try #require(f.parent.worktreeId)
-    let run = try await f.w.c.call(SessionCreate(worktreeId: workspace, command: "swift build; exec cat", parent: f.parent.id))
+    let run = try await f.w.c.call(
+        SessionCreate(worktreeId: workspace, command: "swift build; exec cat", parent: f.parent.id))
     #expect(run.startedBy == f.parent.id && run.parent == nil && run.title == "swift build")
     let shell = try await f.w.c.call(SessionCreate(worktreeId: workspace, agent: "shell"))
-    #expect(try await f.w.c.call(SessionCreate(worktreeId: workspace, command: "cat", parent: shell.id)).startedBy == nil)
+    #expect(
+        try await f.w.c.call(SessionCreate(worktreeId: workspace, command: "cat", parent: shell.id)).startedBy == nil)
     _ = try await f.w.c.call(SessionKill(id: f.parent.id))
     #expect(try await waitFor(10) { [.exited, nil].contains(try await f.status(f.parent.id)) })
     #expect(try await f.status(run.id) != .exited)
@@ -265,7 +310,10 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
 /// and a hand-over waits for the ones on their way: they're marked told, and the next kelpd wouldn't make them again.
 @Test func childReportsGoInOrderAndAHandOverWaitsForThem() {
     let r = ChildReports(), order = OSAllocatedUnfairLock(initialState: [Int]())
-    r.make { Thread.sleep(forTimeInterval: 0.3); order.withLock { $0.append(1) } }
+    r.make {
+        Thread.sleep(forTimeInterval: 0.3)
+        order.withLock { $0.append(1) }
+    }
     r.make { order.withLock { $0.append(2) } }
     r.settle(within: 5)
     #expect(order.withLock { $0 } == [1, 2])

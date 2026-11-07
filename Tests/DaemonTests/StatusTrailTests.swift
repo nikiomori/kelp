@@ -1,31 +1,36 @@
+import Agents
+import Core
 import Foundation
 import Testing
-import Core
-import Agents
+
 @testable import Daemon
 
 /// A running session is listed with the revision its last change went out with. With an older one the app keeps the copy it
 /// has, and a list read after a reconnect never brought back a change it had missed.
 @Test func aRunningSessionIsListedWithItsRevision() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let wt = try await workspace(w, "listed")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     _ = try await w.c.call(SessionHook(id: s.id, event: "waiting"))
-    #expect(try await waitFor(10) {
-        let saved = try w.d.sessions.store.session(s.id)
-        let listed = try await w.c.call(SessionList()).first { $0.id == s.id }
-        return saved?.status == .waiting && listed?.revision == saved?.revision
-    })
+    #expect(
+        try await waitFor(10) {
+            let saved = try w.d.sessions.store.session(s.id)
+            let listed = try await w.c.call(SessionList()).first { $0.id == s.id }
+            return saved?.status == .waiting && listed?.revision == saved?.revision
+        })
 }
 
 /// The trail says what a session's status went through and what it heard, a hook that changed nothing too. It outlives the
 /// program, hears the hook that comes too late, and goes with the session.
 @Test func theTrailSaysWhatASessionWentThrough() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let wt = try await workspace(w, "trail")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     func hook(_ event: String, _ type: String? = nil) async throws {
-        _ = try await w.c.call(SessionHook(id: s.id, event: event, notification: type.map { .obj(["notification_type": .string($0)]) }))
+        _ = try await w.c.call(
+            SessionHook(id: s.id, event: event, notification: type.map { .obj(["notification_type": .string($0)]) }))
     }
     try await hook("working")
     try await hook("waiting", "auth_success")
@@ -37,8 +42,12 @@ import Agents
     #expect(try await waitFor(5) { try await w.c.call(SessionTrail(id: s.id)).contains("nothing runs here") })
     let trail = try await w.c.call(SessionTrail(id: s.id))
     var rest = Substring(trail)
-    for line in ["hook working", "idle → working  hook: working", "hook waiting auth_success: asks nothing", "hook waiting permission_request",
-                 "working → waiting  hook: waiting", "hook done", "stop: done", "waiting → done  hook: done", "hook working: nothing runs here"] {
+    for line in [
+        "hook working", "idle → working  hook: working", "hook waiting auth_success: asks nothing",
+        "hook waiting permission_request",
+        "working → waiting  hook: waiting", "hook done", "stop: done", "waiting → done  hook: done",
+        "hook working: nothing runs here"
+    ] {
         let found = try #require(rest.range(of: line), "no \(line) in\n\(trail)")
         rest = rest[found.upperBound...]
     }
@@ -54,15 +63,17 @@ import Agents
 /// A program's own idle after work goes out as a finished turn, unread: a row that said Idle told nobody it had finished.
 /// The trail keeps what the program really said. After Esc it isn't one: a row that says done would tell them what they did.
 @Test func aProgramsIdleAfterWorkFinishesItsTurn() async throws {
-    let w = try await world(); defer { w.d.stop() }
+    let w = try await world()
+    defer { w.d.stop() }
     let wt = try await workspace(w, "idle")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "idle"))
-    #expect(try await waitFor(10) {
-        let listed = try await w.c.call(SessionList()).first { $0.id == s.id }
-        return listed?.status == .done && listed?.unread == true
-    })
+    #expect(
+        try await waitFor(10) {
+            let listed = try await w.c.call(SessionList()).first { $0.id == s.id }
+            return listed?.status == .done && listed?.unread == true
+        })
     #expect(try await w.c.call(SessionTrail(id: s.id)).contains("working → done  reported by the program: idle"))
 
     func status() async throws -> AgentStatus? { try await w.c.call(SessionList()).first { $0.id == s.id }?.status }
@@ -75,7 +86,8 @@ import Agents
 
 /// The id comes from outside and names a file: only a session Kelp has gets one, read or written.
 @Test func aTrailIsOnlyASessionsOwn() async throws {
-    let (d, c, root) = try daemon(); defer { d.stop() }
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
     let outside = root.appendingPathComponent("outside.trail")
     try Data("not a trail".utf8).write(to: outside)
     await #expect(throws: RPCError.self) { try await c.call(SessionTrail(id: "../outside")) }
@@ -85,7 +97,8 @@ import Agents
 
 /// Past its limit a trail keeps its newer half, in whole lines.
 @Test func aTrailKeepsItsNewerHalf() throws {
-    let dir = tmp(); try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let dir = tmp()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let t = StatusTrail(history: dir, session: "s"), filler = String(repeating: "x", count: 100)
     let lines = 2 * StatusTrail.limit / 100
     for i in 0..<lines { t.add("\(i) \(filler)") }

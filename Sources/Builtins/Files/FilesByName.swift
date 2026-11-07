@@ -38,7 +38,9 @@ extension FilesPanel {
     /// So many folders opening at once would hold up the keys: the rest is a word away.
     private static let mostShown = 2000
 
-    private var nameFilter: NameFilter? { byName ? Optional(NameFilter(search.stringValue)).flatMap { $0.isEmpty ? nil : $0 } : nil }
+    private var nameFilter: NameFilter? {
+        byName ? Optional(NameFilter(search.stringValue)).flatMap { $0.isEmpty ? nil : $0 } : nil
+    }
     var isNarrowed: Bool { nameFilter != nil }
 
     /// The tree as it's to show: only what the name filter keeps, folders keeping their shape.
@@ -46,7 +48,9 @@ extension FilesPanel {
         guard let filter = nameFilter else { return FileNode.tree(paths, ignored: ignored) }
         if lowered.of != paths { lowered = (paths, paths.map(NameFilter.folded)) }   // the same listing: one buffer, compared at once
         let low = lowered.paths
-        let kept = paths.indices.lazy.filter { filter.matches(low[$0], folded: true, changed: self.status[paths[$0]] != nil) }
+        let kept = paths.indices.lazy.filter {
+            filter.matches(low[$0], folded: true, changed: self.status[paths[$0]] != nil)
+        }
         return FileNode.tree(Array(kept.prefix(Self.mostShown).map { paths[$0] }))
     }
 
@@ -57,11 +61,15 @@ extension FilesPanel {
         if isNarrowed { outline.expandItem(nil, expandChildren: true) }
     }
 
-    var firstFileRow: Int? { (0..<outline.numberOfRows).first { (outline.item(atRow: $0) as? FileNode)?.children == nil } }
+    var firstFileRow: Int? {
+        (0..<outline.numberOfRows).first { (outline.item(atRow: $0) as? FileNode)?.children == nil }
+    }
 
     /// ↩ in the field opens the first file left; ⇧↩ beside.
     func openFirstOnReturn() {
-        guard isNarrowed, NSApp.currentEvent?.type == .keyDown, let row = firstFileRow, let n = outline.item(atRow: row) as? FileNode else { return }
+        guard isNarrowed, NSApp.currentEvent?.type == .keyDown, let row = firstFileRow,
+            let n = outline.item(atRow: row) as? FileNode
+        else { return }
         if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
             app.workbench.open(TabURI.file(root + "/" + n.path), split: .right)
         } else {
@@ -73,8 +81,12 @@ extension FilesPanel {
     func findInFiles() {
         guard let w = view.window else { return }
         searchBy(name: false)
-        if w.firstResponder === search.currentEditor() { app.workbench.editor?.focusSelected(); return }
-        w.makeFirstResponder(search); search.currentEditor()?.selectAll(nil)
+        if w.firstResponder === search.currentEditor() {
+            app.workbench.editor?.focusSelected()
+            return
+        }
+        w.makeFirstResponder(search)
+        search.currentEditor()?.selectAll(nil)
     }
 
     /// A language server's list where a search's goes.
@@ -116,7 +128,8 @@ extension FilesPanel {
             menu.add(title) { [weak self] in self?.searchBy(name: name) }.state = byName == name ? .on : .off
         }
         (search.cell as? NSSearchFieldCell)?.searchMenuTemplate = menu
-        search.placeholderString = byName ? String(localized: "Find File by Name") : String(localized: "Search in Files")
+        search.placeholderString =
+            byName ? String(localized: "Find File by Name") : String(localized: "Search in Files")
     }
 
     func searchBy(name: Bool) {

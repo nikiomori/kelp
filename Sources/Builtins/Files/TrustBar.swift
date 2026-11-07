@@ -10,15 +10,21 @@ enum TrustBar {
     static func make(project name: String, notNow: @escaping () -> Void, trust: @escaping () -> Void) -> Bar {
         let icon = NSImageView(image: NSImage.symbol("info.circle"))
         icon.contentTintColor = .secondaryLabelColor
-        let text = NSTextField(labelWithString: String(localized: "Language servers and formatters can run code from “\(name)” (its build scripts, plugins, toolchain). Trust this project?"))
+        let text = NSTextField(
+            labelWithString: String(
+                localized:
+                    "Language servers and formatters can run code from “\(name)” (its build scripts, plugins, toolchain). Trust this project?"
+            ))
         text.font = .ui(12)
         text.lineBreakMode = .byTruncatingTail
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         text.toolTip = text.stringValue
         let later = PointerButton(), yes = PointerButton()
         for (b, t) in [(later, String(localized: "Not Now")), (yes, String(localized: "Trust"))] {
-            b.title = t; b.font = .ui(12)
-            b.padding = Metrics.gap; b.restFill = .fillRest
+            b.title = t
+            b.font = .ui(12)
+            b.padding = Metrics.gap
+            b.restFill = .fillRest
         }
         later.onClick = notNow
         yes.onClick = trust

@@ -34,8 +34,10 @@ extension DiffViewController {
         c.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(c)
         let under: NSView = table.enclosingScrollView ?? table
-        NSLayoutConstraint.activate([c.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.gapWide),
-                                     c.trailingAnchor.constraint(equalTo: under.trailingAnchor, constant: -Metrics.gapWide * 2)])
+        NSLayoutConstraint.activate([
+            c.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.gapWide),
+            c.trailingAnchor.constraint(equalTo: under.trailingAnchor, constant: -Metrics.gapWide * 2)
+        ])
         find.card = c
         return c
     }
@@ -48,9 +50,14 @@ extension DiffViewController {
         find.searches += 1
         let n = find.searches, all = rows
         return Task {
-            let found = needle.isEmpty ? [] : await Task.detached {
-                all.indices.filter { i in Self.texts(all[i]).contains { $0.range(of: needle, options: .caseInsensitive) != nil } }
-            }.value
+            let found =
+                needle.isEmpty
+                ? []
+                : await Task.detached {
+                    all.indices.filter { i in
+                        Self.texts(all[i]).contains { $0.range(of: needle, options: .caseInsensitive) != nil }
+                    }
+                }.value
             guard n == find.searches else { return }
             show(found, step: step)
         }
@@ -68,11 +75,15 @@ extension DiffViewController {
 
     func stepFind(next: Bool) {
         let n = find.rows.count
-        guard n > 0 else { NSSound.beep(); return }
+        guard n > 0 else {
+            NSSound.beep()
+            return
+        }
         find.at = next ? (find.at + 1) % n : (max(find.at, 0) - 1 + n) % n
         let r = find.rows[find.at]
         table.selectRowIndexes([r], byExtendingSelection: false)
-        table.scrollRowToVisible(min(r + 4, rows.count - 1)); table.scrollRowToVisible(r)
+        table.scrollRowToVisible(min(r + 4, rows.count - 1))
+        table.scrollRowToVisible(r)
         find.card?.selected = find.at
     }
 
@@ -89,7 +100,8 @@ extension DiffViewController {
         guard !find.needle.isEmpty else { return }
         let text = s.string as NSString
         var rest = NSRange(location: from, length: text.length - from)
-        while case let f = text.range(of: find.needle, options: .caseInsensitive, range: rest), f.location != NSNotFound {
+        while case let f = text.range(of: find.needle, options: .caseInsensitive, range: rest), f.location != NSNotFound
+        {
             // Dark text on the find colour, as Xcode marks a match: grey comment text on yellow can't be read.
             s.addAttributes([.backgroundColor: NSColor.findHighlightColor, .foregroundColor: NSColor.black], range: f)
             rest = NSRange(location: NSMaxRange(f), length: text.length - NSMaxRange(f))

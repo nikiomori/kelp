@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// Rows told to keep quiet, each until a date: a project, a workspace or an agent. A session is muted by its own entry or
 /// by what holds it. Only its banners, their sound and the Dock's bounce stop: its row and the Dock's badge go on as ever.
@@ -10,9 +10,12 @@ enum Mutes {
 
     /// Mute Notifications ▸ …
     static func choices(now: Date = Date(), calendar: Calendar = .current) -> [(title: String, until: Date)] {
-        let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(86400)
-        return [(String(localized: "For 1 Hour"), now.addingTimeInterval(3600)), (String(localized: "For Today"), midnight),
-                (String(localized: "Until I Unmute"), forever)]
+        let midnight =
+            calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(86400)
+        return [
+            (String(localized: "For 1 Hour"), now.addingTimeInterval(3600)), (String(localized: "For Today"), midnight),
+            (String(localized: "Until I Unmute"), forever)
+        ]
     }
 
     static func covers(_ muted: [String: Date], _ ids: [String?], now: Date = Date()) -> Bool {
@@ -28,20 +31,25 @@ enum Mutes {
 
     /// The hover card's line.
     static func line(until: Date) -> String {
-        until == forever ? String(localized: "Notifications muted")
+        until == forever
+            ? String(localized: "Notifications muted")
             : String(localized: "Notifications muted until \(until.formatted(date: .omitted, time: .shortened))")
     }
 }
 
 extension AppModel {
-    func isMuted(_ s: Session) -> Bool { Mutes.covers(arrangement.mutes, [s.id, s.worktreeId, worktree(s.worktreeId)?.repoId]) }
+    func isMuted(_ s: Session) -> Bool {
+        Mutes.covers(arrangement.mutes, [s.id, s.worktreeId, worktree(s.worktreeId)?.repoId])
+    }
 
     /// When these rows' own mute ends; nil: they aren't.
     func mutedUntil(_ ids: [String]) -> Date? { ids.compactMap { arrangement.mutes[$0] }.filter { $0 > Date() }.max() }
 
     /// nil unmutes. What ran out, and rows that are gone (a closed workspace, an ended agent), leave with each change.
     func mute(_ ids: [String], until: Date?) {
-        var m = arrangement.mutes.filter { id, end in end > Date() && (session(id) != nil || worktree(id) != nil || repo(id) != nil) }
+        var m = arrangement.mutes.filter { id, end in
+            end > Date() && (session(id) != nil || worktree(id) != nil || repo(id) != nil)
+        }
         for id in ids { m[id] = until }
         arrangement.mutes = m
     }

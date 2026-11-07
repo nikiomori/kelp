@@ -34,8 +34,9 @@ final class ChangeBars {
         track(owner: self) { [app] in
             let git = app.latest(GitEvent.self, id)
             return Seen(changes: git?.changes?.filter { $0.path == mine } ?? [], branches: git?.branches)
+        } changed: { [weak self] _ in
+            self?.refresh()
         }
-            changed: { [weak self] _ in self?.refresh() }
         refresh()
     }
 
@@ -65,18 +66,21 @@ final class ChangeBars {
         let wid = worktree.id, file = file
         reading = Task { [weak self] in
             // Quiet: a folder outside git has no bars, and that's no failure.
-            guard let diff = await self?.app.quiet(GitDiff(id: wid, file: file)), !Task.isCancelled, let self else { return }
+            guard let diff = await self?.app.quiet(GitDiff(id: wid, file: file)), !Task.isCancelled, let self else {
+                return
+            }
             hunks = diff.first?.hunks ?? []
             editor.changeMarks = LineChange.of(hunks).map(Self.mark)
         }
     }
 
     private static func mark(_ c: LineChange) -> CodeEditor.ChangeMark {
-        let kind: CodeEditor.ChangeMark.Kind = switch c.kind {
-        case .added: .added
-        case .changed: .changed
-        case .removed: .removed
-        }
+        let kind: CodeEditor.ChangeMark.Kind =
+            switch c.kind {
+            case .added: .added
+            case .changed: .changed
+            case .removed: .removed
+            }
         return CodeEditor.ChangeMark(kind: kind, line: c.line, count: c.count, hunk: c.hunk)
     }
 
@@ -112,7 +116,10 @@ final class ChangeBars {
             b.title = title
             b.padding = Metrics.gap
             b.restFill = .fillRest
-            b.onClick = { [weak self] in self?.card?.close(); go() }
+            b.onClick = { [weak self] in
+                self?.card?.close()
+                go()
+            }
             out.append(b)
         }
         // With edits in the buffer the file isn't what was diffed.
@@ -138,9 +145,17 @@ final class ChangeBars {
         Task { [app] in
             guard await app.call(m) != nil else { return }
             app.watchAgain(.git, id)
-            Banner.show(String(localized: "Discarded a change in \(name)"), action: (String(localized: "Undo"), {
-                Task { await app.call(GitUndoDiscard(id: id, undo: undo)); app.watchAgain(.git, id) }   // the daemon keeps it a minute
-            }))
+            Banner.show(
+                String(localized: "Discarded a change in \(name)"),
+                action: (
+                    String(localized: "Undo"),
+                    {
+                        Task {
+                            await app.call(GitUndoDiscard(id: id, undo: undo))
+                            app.watchAgain(.git, id)
+                        }   // the daemon keeps it a minute
+                    }
+                ))
         }
     }
 }
@@ -167,22 +182,29 @@ final class ChangeCard: NSViewController {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gap
-        stack.edgeInsets = NSEdgeInsets(top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
+        stack.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
         view = stack
         preferredContentSize = stack.fittingSize   // what the popover opens at
     }
 
     private func lines() -> NSAttributedString {
-        let font = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular), out = NSMutableAttributedString()
+        let font = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular),
+            out = NSMutableAttributedString()
         let changed = shown.lines.filter { $0.kind != .context }
         for l in changed.prefix(Self.mostLines) {
             let (sign, color): (String, NSColor) = l.kind == .add ? ("+ ", .textGreen) : ("- ", .textRed)
-            out.append(NSAttributedString(string: sign + l.text + "\n", attributes: [.font: font, .foregroundColor: color]))
+            out.append(
+                NSAttributedString(string: sign + l.text + "\n", attributes: [.font: font, .foregroundColor: color]))
         }
         if changed.count > Self.mostLines {
             let more = String(localized: "and \(changed.count - Self.mostLines) more")
-            out.append(NSAttributedString(string: more, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
-        } else if out.length > 0 { out.deleteCharacters(in: NSRange(location: out.length - 1, length: 1)) }
+            out.append(
+                NSAttributedString(
+                    string: more, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]))
+        } else if out.length > 0 {
+            out.deleteCharacters(in: NSRange(location: out.length - 1, length: 1))
+        }
         return out
     }
 }

@@ -28,7 +28,9 @@ public enum EditorConfig {
                 inSection = matches(String(line.dropFirst().dropLast()), file)
                 continue
             }
-            let parts = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            let parts = line.split(separator: "=", maxSplits: 1).map {
+                $0.trimmingCharacters(in: .whitespaces).lowercased()
+            }
             guard parts.count == 2 else { continue }
             if !section, parts[0] == "root" { root = parts[1] == "true" }
             if inSection { apply(parts[0], parts[1], to: &rules) }
@@ -40,7 +42,8 @@ public enum EditorConfig {
         switch key {
         case "indent_style": r.insertSpaces = value == "space" ? true : value == "tab" ? false : nil
         case "indent_size", "tab_width": if let n = Int(value), n > 0 { r.tabSize = n }
-        case "trim_trailing_whitespace": r.trimTrailingWhitespace = value == "true" ? true : value == "false" ? false : nil
+        case "trim_trailing_whitespace":
+            r.trimTrailingWhitespace = value == "true" ? true : value == "false" ? false : nil
         case "insert_final_newline": r.insertFinalNewline = value == "true" ? true : value == "false" ? false : nil
         default: break
         }
@@ -60,11 +63,19 @@ public enum EditorConfig {
             let c = glob[i], next = glob.index(after: i)
             switch c {
             case "*":
-                if next < glob.endIndex, glob[next] == "*" { out += ".*"; i = glob.index(after: next); continue }
+                if next < glob.endIndex, glob[next] == "*" {
+                    out += ".*"
+                    i = glob.index(after: next)
+                    continue
+                }
                 out += "[^/]*"
             case "?": out += "[^/]"
-            case "{": braces += 1; out += "(?:"
-            case "}" where braces > 0: braces -= 1; out += ")"
+            case "{":
+                braces += 1
+                out += "(?:"
+            case "}" where braces > 0:
+                braces -= 1
+                out += ")"
             case "," where braces > 0: out += "|"
             default: out += NSRegularExpression.escapedPattern(for: String(c))
             }

@@ -62,7 +62,10 @@ final class AgentSummary: NSView {
         sheen.wantsLayer = true
         sheen.layer?.cornerRadius = Metrics.radiusXL
         sheen.layer?.cornerCurve = .continuous
-        for v in [glass, sheen, content] { v.translatesAutoresizingMaskIntoConstraints = false; capsule.addSubview(v) }
+        for v in [glass, sheen, content] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            capsule.addSubview(v)
+        }
         capsule.look = { [weak self] hovering, pressed in
             self?.sheen.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
         }
@@ -91,23 +94,40 @@ final class AgentSummary: NSView {
             row.leadingAnchor.constraint(equalTo: leadingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Metrics.gap),   // a gap short of Add Project
             capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
-            glass.topAnchor.constraint(equalTo: capsule.topAnchor), glass.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
-            glass.leadingAnchor.constraint(equalTo: capsule.leadingAnchor), glass.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
-            sheen.topAnchor.constraint(equalTo: glass.topAnchor), sheen.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
-            sheen.leadingAnchor.constraint(equalTo: glass.leadingAnchor), sheen.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+            glass.topAnchor.constraint(equalTo: capsule.topAnchor),
+            glass.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
+            glass.leadingAnchor.constraint(equalTo: capsule.leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
+            sheen.topAnchor.constraint(equalTo: glass.topAnchor),
+            sheen.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+            sheen.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
+            sheen.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
             content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
             content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
             content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
-        track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app] in
+            app.sessions
+        } changed: { [weak self] _ in
+            self?.update()
+        }
+        track(owner: self) { [app] in
+            app.repos
+        } changed: { [weak self] _ in
+            self?.update()
+        }
+        track(owner: self) { [app] in
+            app.workbench.focusedTab
+        } changed: { [weak self] _ in
+            self?.update()
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// A mark has no size of its own, only constraints.
     private static func width(_ views: [NSView], gap: CGFloat) -> CGFloat {
-        views.reduce(0) { $0 + ($1 is StatusMark ? 12 : $1.intrinsicContentSize.width) } + CGFloat(max(views.count - 1, 0)) * gap + 2
+        views.reduce(0) { $0 + ($1 is StatusMark ? 12 : $1.intrinsicContentSize.width) } + CGFloat(
+            max(views.count - 1, 0)) * gap + 2
     }
 
     /// The grey words go first when the row is short of room (a narrow sidebar, a large Text size), what finished before
@@ -130,9 +150,11 @@ final class AgentSummary: NSView {
     func update() {
         let inbox = Inbox.current(app)
         let shown = inbox.shown
-        settleTimer?.invalidate(); settleTimer = nil
+        settleTimer?.invalidate()
+        settleTimer = nil
         if let due = inbox.settlesAt {
-            settleTimer = Timer.scheduledTimer(withTimeInterval: due.timeIntervalSinceNow, repeats: false) { [weak self] _ in   // main run loop
+            settleTimer = Timer.scheduledTimer(withTimeInterval: due.timeIntervalSinceNow, repeats: false) {
+                [weak self] _ in   // main run loop
                 MainActor.assumeIsolated { self?.update() }
             }
         }
@@ -155,20 +177,26 @@ final class AgentSummary: NSView {
         asideMark.status = busy > 0 ? .working : nil
         asideMark.unread = true
         asideMark.isHidden = busy == 0
-        asideText.stringValue = busy > 0 ? String(localized: "\(busy) working") : asking || done > 0 ? "" : String(localized: "Projects")
+        asideText.stringValue =
+            busy > 0 ? String(localized: "\(busy) working") : asking || done > 0 ? "" : String(localized: "Projects")
         asideText.isHidden = asideText.stringValue.isEmpty
         doneText.stringValue = done > 0 ? String(localized: "\(done) done") : ""
         asideText.font = busy > 0 ? .ui(11) : .ui(11, weight: .semibold)
         aside.isHidden = busy == 0 && done == 0 && asking
         // The whole line, for when what finished (or works) had no room.
-        let counts = (asking ? [title.stringValue] : []) + [busy > 0 ? asideText.stringValue : "", doneText.stringValue].filter { !$0.isEmpty }
+        let counts =
+            (asking ? [title.stringValue] : [])
+            + [busy > 0 ? asideText.stringValue : "", doneText.stringValue].filter { !$0.isEmpty }
         toolTip = busy + done > 0 ? counts.joined(separator: " · ") : nil
         needsLayout = true
         capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(counted.count). Show the next one."))
         capsule.toolTip = String(localized: "Show the next agent that needs you (⇧⌘U)")
         if !new.isEmpty, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {   // a question came in: a brief glow
             capsule.alphaValue = 0.4
-            NSAnimationContext.runAnimationGroup { $0.duration = Motion.appear; capsule.animator().alphaValue = 1 }
+            NSAnimationContext.runAnimationGroup {
+                $0.duration = Motion.appear
+                capsule.animator().alphaValue = 1
+            }
         }
     }
 

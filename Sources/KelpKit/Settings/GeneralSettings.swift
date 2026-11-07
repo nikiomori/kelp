@@ -1,5 +1,5 @@
-import SwiftUI
 import DesignKit
+import SwiftUI
 
 /// Settings › General under Language: how Kelp updates itself, and whether its agents outlive a quit (the background
 /// service, which macOS allows in Login Items). What the Kelp menu and a banner said, kept where settings are.
@@ -19,14 +19,22 @@ struct GeneralSettings: View {
     var body: some View {
         Section("Updates") {
             if let c = app.updates.controller {
-                Toggle("Check for updates automatically", isOn: Binding(get: { checks }, set: {
-                    checks = $0
-                    c.updater.automaticallyChecksForUpdates = $0
-                }))
-                Toggle(isOn: Binding(get: { downloads }, set: {
-                    downloads = $0
-                    c.updater.automaticallyDownloadsUpdates = $0
-                })) {
+                Toggle(
+                    "Check for updates automatically",
+                    isOn: Binding(
+                        get: { checks },
+                        set: {
+                            checks = $0
+                            c.updater.automaticallyChecksForUpdates = $0
+                        }))
+                Toggle(
+                    isOn: Binding(
+                        get: { downloads },
+                        set: {
+                            downloads = $0
+                            c.updater.automaticallyDownloadsUpdates = $0
+                        })
+                ) {
                     Text("Download them in the background")
                     Text("A pill over the sidebar says when one is ready; a quit installs it.")
                 }
@@ -47,7 +55,9 @@ struct GeneralSettings: View {
                 } label: {
                     Text("Agents keep running when Kelp quits")
                     switch blocked {
-                    case true?: Text("Off in Login Items: quitting or updating Kelp ends them.").foregroundStyle(Color.textOrange)
+                    case true?:
+                        Text("Off in Login Items: quitting or updating Kelp ends them.").foregroundStyle(
+                            Color.textOrange)
                     case false?: Text("On: Kelp's background service is allowed in Login Items.")
                     case nil: Text("Checking…")
                     }

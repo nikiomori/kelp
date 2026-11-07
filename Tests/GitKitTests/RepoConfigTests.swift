@@ -1,8 +1,9 @@
-import Foundation
-import Testing
-import TestSupport
-@testable import GitKit
 import Core
+import Foundation
+import TestSupport
+import Testing
+
+@testable import GitKit
 
 /// A folder that came with its own .git/config (a download, not a clone): what Kelp runs by itself must not start its programs.
 @Test func aReposOwnConfigRunsNoProgramOnStatusOrDiff() throws {
@@ -19,7 +20,8 @@ import Core
     #expect(try Git.diff(repo, source: .unstaged).first?.hunks.isEmpty == false)
     #expect(!FileManager.default.fileExists(atPath: ran))
     // From a linked worktree too, whose config is the main repository's.
-    let wt = try Git.addWorktree(repo: repo, branch: "w", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
+    let wt = try Git.addWorktree(
+        repo: repo, branch: "w", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
     try "a\nB\nc\n".write(toFile: wt + "/f.txt", atomically: true, encoding: .utf8)
     try? FileManager.default.removeItem(atPath: ran)
     #expect(try Git.status(wt).contains { $0.path == "f.txt" })
@@ -41,14 +43,17 @@ import Core
     try "TOKEN=1\n".write(toFile: repo + "/conf/.env", atomically: true, encoding: .utf8)
     try "conf/.env\n.env\n".write(toFile: repo + "/.gitignore", atomically: true, encoding: .utf8)
     try ".env\n".write(toFile: repo + "/.worktreeinclude", atomically: true, encoding: .utf8)
-    try Git.run(["add", ".gitignore", ".worktreeinclude"], cwd: repo); try Git.run(["commit", "-qm", "include"], cwd: repo)
+    try Git.run(["add", ".gitignore", ".worktreeinclude"], cwd: repo)
+    try Git.run(["commit", "-qm", "include"], cwd: repo)
     try Git.run(["checkout", "-qb", "evil"], cwd: repo)
     try FileManager.default.moveItem(atPath: repo + "/conf", toPath: repo + "/conf-real")
     try FileManager.default.createSymbolicLink(atPath: repo + "/conf", withDestinationPath: outside)
-    try Git.run(["add", "conf"], cwd: repo); try Git.run(["commit", "-qm", "link"], cwd: repo)
+    try Git.run(["add", "conf"], cwd: repo)
+    try Git.run(["commit", "-qm", "link"], cwd: repo)
     try Git.run(["checkout", "-q", "main"], cwd: repo)   // takes the link away
     try FileManager.default.moveItem(atPath: repo + "/conf-real", toPath: repo + "/conf")
-    let p = try Git.addWorktree(repo: repo, branch: "w", base: "evil", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: ["conf/.env"])
+    let p = try Git.addWorktree(
+        repo: repo, branch: "w", base: "evil", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: ["conf/.env"])
     #expect(!FileManager.default.fileExists(atPath: outside + "/.env"))
     #expect(FileManager.default.fileExists(atPath: p + "/.env"))   // one inside still comes
 }
@@ -61,9 +66,11 @@ import Core
     try "#!/bin/sh\ntouch \(marker)\n".write(toFile: script, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script)
     let tree = try Git.run(["write-tree"], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines)
-    let signed = "tree \(tree)\nauthor a <a@a> 0 +0000\ncommitter a <a@a> 0 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n x\n -----END PGP SIGNATURE-----\n\nsigned\n"
+    let signed =
+        "tree \(tree)\nauthor a <a@a> 0 +0000\ncommitter a <a@a> 0 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n x\n -----END PGP SIGNATURE-----\n\nsigned\n"
     try signed.write(toFile: repo + "/commit.txt", atomically: true, encoding: .utf8)
-    let sha = try Git.run(["hash-object", "-t", "commit", "-w", "commit.txt"], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines)
+    let sha = try Git.run(["hash-object", "-t", "commit", "-w", "commit.txt"], cwd: repo).trimmingCharacters(
+        in: .whitespacesAndNewlines)
     try Git.run(["update-ref", "HEAD", sha], cwd: repo)
     try Git.run(["config", "log.showSignature", "true"], cwd: repo)
     try Git.run(["config", "gpg.program", script], cwd: repo)
@@ -79,8 +86,10 @@ import Core
     try Git.run(["config", "include.path", "extra.cfg"], cwd: repo)
     try "[filter \"x\"]\n\tclean = cat\n".write(toFile: repo + "/.git/extra.cfg", atomically: true, encoding: .utf8)
     #expect(RepoFilters.names(repo) == ["x"])
-    try "[filter \"x\"]\n\tclean = cat\n[filter \"y\"]\n\tsmudge = cat\n".write(toFile: repo + "/.git/extra.cfg", atomically: true, encoding: .utf8)
-    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: repo + "/.git/extra.cfg")
+    try "[filter \"x\"]\n\tclean = cat\n[filter \"y\"]\n\tsmudge = cat\n".write(
+        toFile: repo + "/.git/extra.cfg", atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: repo + "/.git/extra.cfg")
     #expect(RepoFilters.names(repo) == ["x", "y"])
 }
 
@@ -123,7 +132,8 @@ import Core
     let repo = try tempRepo()
     try FileManager.default.createDirectory(atPath: repo + "/sub/deep", withIntermediateDirectories: true)
     try "tracked\n".write(toFile: repo + "/sub/old.pem", atomically: true, encoding: .utf8)
-    try Git.run(["add", "sub/old.pem"], cwd: repo); try Git.run(["commit", "-qm", "a cert"], cwd: repo)
+    try Git.run(["add", "sub/old.pem"], cwd: repo)
+    try Git.run(["commit", "-qm", "a cert"], cwd: repo)
     for f in [".env", "sub/deep/id_rsa", "sub/server.pem", "sub/credentials.json"] {
         try "SECRET-\(f)\n".write(toFile: repo + "/" + f, atomically: true, encoding: .utf8)
     }
@@ -131,8 +141,12 @@ import Core
     let tree = try Git.snapshotTree(repo + "/sub")   // from a subfolder, as an agent working there
     let files = try Git.run(["ls-tree", "-r", "--name-only", tree], cwd: repo).split(separator: "\n").map(String.init)
     #expect(files.contains("sub/new.txt") && files.contains("sub/old.pem"), "\(files)")
-    #expect(!files.contains { ["id_rsa", "server.pem", "credentials.json", ".env"].contains(($0 as NSString).lastPathComponent) }, "\(files)")
-    let secret = try Git.run(["hash-object", "--stdin"], cwd: repo, stdin: "SECRET-.env\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    #expect(
+        !files.contains {
+            ["id_rsa", "server.pem", "credentials.json", ".env"].contains(($0 as NSString).lastPathComponent)
+        }, "\(files)")
+    let secret = try Git.run(["hash-object", "--stdin"], cwd: repo, stdin: "SECRET-.env\n").trimmingCharacters(
+        in: .whitespacesAndNewlines)
     #expect(try Git.run(["cat-file", "--batch-check"], cwd: repo, stdin: secret + "\n").contains("missing"))
 }
 
@@ -141,13 +155,16 @@ import Core
     let repo = try tempRepo()
     let modules = repo + "/.git/modules/sub"
     try FileManager.default.createDirectory(atPath: modules, withIntermediateDirectories: true)
-    try "[core]\n\tbare = false\n[filter \"evil\"]\n\tclean = touch ran\n".write(toFile: modules + "/config", atomically: true, encoding: .utf8)
+    try "[core]\n\tbare = false\n[filter \"evil\"]\n\tclean = touch ran\n".write(
+        toFile: modules + "/config", atomically: true, encoding: .utf8)
     #expect(RepoFilters.names(repo).contains("evil"))
 }
 
 /// gh and glab run git themselves: the git they run turns off a repo's fsmonitor as Kelp's own does.
 @Test func programsThatRunGitGetNoFsmonitor() throws {
     let repo = try tempRepo()
-    let out = try Git.run(["-c", "printf %s \"$GIT_CONFIG_COUNT $GIT_CONFIG_KEY_0=$GIT_CONFIG_VALUE_0\""], cwd: repo, executable: "/bin/sh")
+    let out = try Git.run(
+        ["-c", "printf %s \"$GIT_CONFIG_COUNT $GIT_CONFIG_KEY_0=$GIT_CONFIG_VALUE_0\""], cwd: repo,
+        executable: "/bin/sh")
     #expect(out == "2 core.fsmonitor=false")
 }

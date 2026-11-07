@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 extension Main {
     /// `edit [--wait] <file>`: an agent's external editor (VISUAL), a tab in Kelp. Ends when the tab closes; the agent then

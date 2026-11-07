@@ -8,7 +8,10 @@ import Core
 @MainActor
 final class NoProject: NSObject {
     let app: AppModel
-    init(app: AppModel) { self.app = app; super.init() }
+    init(app: AppModel) {
+        self.app = app
+        super.init()
+    }
     private var hotKey: EventHotKeyRef?
 
     /// Its project's path, so lists of projects can tell it apart.
@@ -35,7 +38,8 @@ final class NoProject: NSObject {
     /// One already working in a folder you pick (Downloads, a game, photos): the folder stays as it is, not a project.
     func newChat(inFolderOf r: Repo) {
         let p = NSOpenPanel()
-        p.canChooseDirectories = true; p.canChooseFiles = false
+        p.canChooseDirectories = true
+        p.canChooseFiles = false
         p.prompt = String(localized: "Start Chat")
         p.message = String(localized: "The agent works in this folder. It isn't added as a project.")
         Task {
@@ -48,13 +52,16 @@ final class NoProject: NSObject {
     func registerHotKey() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         // The handler is a C function: it finds this object through the pointer it's handed (the app keeps it).
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, me in
-            guard let me else { return noErr }
-            let np = Unmanaged<NoProject>.fromOpaque(me).takeUnretainedValue()
-            DispatchQueue.main.async { np.newChat() }
-            return noErr
-        }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, _, me in
+                guard let me else { return noErr }
+                let np = Unmanaged<NoProject>.fromOpaque(me).takeUnretainedValue()
+                DispatchQueue.main.async { np.newChat() }
+                return noErr
+            }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
         let id = EventHotKeyID(signature: OSType(0x4B524C4C), id: 1)   // 'KRLL'
-        RegisterEventHotKey(UInt32(kVK_ANSI_K), UInt32(controlKey | optionKey | cmdKey), id, GetApplicationEventTarget(), 0, &hotKey)
+        RegisterEventHotKey(
+            UInt32(kVK_ANSI_K), UInt32(controlKey | optionKey | cmdKey), id, GetApplicationEventTarget(), 0, &hotKey)
     }
 }

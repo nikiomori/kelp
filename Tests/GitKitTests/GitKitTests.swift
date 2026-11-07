@@ -1,9 +1,10 @@
 import Foundation
-import Testing
-@testable import GitKit
-@testable import Core
-import WorkbenchKit
 import TestSupport
+import Testing
+import WorkbenchKit
+
+@testable import Core
+@testable import GitKit
 
 /// This process's git and Kelp see none of the user's own (TestIsolation). Repos live under its folder.
 func tempRepo() throws -> String {
@@ -11,7 +12,8 @@ func tempRepo() throws -> String {
     try Git.run(["init", "-q", "-b", "main"], cwd: d)
     try "a\nb\nc\n".write(toFile: d + "/f.txt", atomically: true, encoding: .utf8)
     try "SECRET=1\n".write(toFile: d + "/.env", atomically: true, encoding: .utf8)
-    try Git.run(["add", "f.txt"], cwd: d); try Git.run(["commit", "-qm", "init"], cwd: d)
+    try Git.run(["add", "f.txt"], cwd: d)
+    try Git.run(["commit", "-qm", "init"], cwd: d)
     return d
 }
 
@@ -46,9 +48,11 @@ func tempRepo() throws -> String {
     let repo = try tempRepo()
     let big = (1...30).map(String.init).joined(separator: "\n") + "\n"
     try big.write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "g.txt"], cwd: repo); try Git.run(["commit", "-qm", "g"], cwd: repo)
+    try Git.run(["add", "g.txt"], cwd: repo)
+    try Git.run(["commit", "-qm", "g"], cwd: repo)
     var lines = big.split(separator: "\n").map(String.init)
-    lines[1] = "two"; lines[28] = "twenty-nine"
+    lines[1] = "two"
+    lines[28] = "twenty-nine"
     try (lines.joined(separator: "\n") + "\n").write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
 
     let d = try Git.diff(repo, source: .unstaged, file: "g.txt")
@@ -92,22 +96,28 @@ func tempRepo() throws -> String {
     try Git.commit(repo, message: "main", all: true)
     let r = try Git.merge(branch: "feat", into: repo)
     #expect(!r.merged && r.conflicts == ["f.txt"])
-    #expect(try Git.status(repo).filter(\.conflicted).isEmpty) // aborted cleanly
+    #expect(try Git.status(repo).filter(\.conflicted).isEmpty)   // aborted cleanly
 }
 
 @Test func branchDiff() throws {
     let repo = try tempRepo()
-    let p = try Git.addWorktree(repo: repo, branch: "b", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
+    let p = try Git.addWorktree(
+        repo: repo, branch: "b", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
     try "z\n".write(toFile: p + "/z.txt", atomically: true, encoding: .utf8)
-    try Git.stage(p, files: ["z.txt"]); try Git.commit(p, message: "z")
+    try Git.stage(p, files: ["z.txt"])
+    try Git.commit(p, message: "z")
     #expect(try Git.diff(p, source: .branch(base: "main")).map(\.path) == ["z.txt"])
     let c = try Git.log(p, base: "main")[0].hash
     #expect(try Git.diff(p, source: .commit(c)).map(\.path) == ["z.txt"])
 }
 
 @Test func sideBySidePairingAndGaps() {
-    func l(_ k: DiffLine.Kind, _ t: String, o: Int? = nil, n: Int? = nil) -> DiffLine { DiffLine(kind: k, text: t, oldLine: o, newLine: n) }
-    let h1 = Hunk(header: "@@ -1,3 +1,3 @@", oldStart: 1, newStart: 1, lines: [l(.context, "a", o: 1, n: 1), l(.del, "b", o: 2), l(.del, "c", o: 3), l(.add, "B", n: 2)])
+    func l(_ k: DiffLine.Kind, _ t: String, o: Int? = nil, n: Int? = nil) -> DiffLine {
+        DiffLine(kind: k, text: t, oldLine: o, newLine: n)
+    }
+    let h1 = Hunk(
+        header: "@@ -1,3 +1,3 @@", oldStart: 1, newStart: 1,
+        lines: [l(.context, "a", o: 1, n: 1), l(.del, "b", o: 2), l(.del, "c", o: 3), l(.add, "B", n: 2)])
     let p = DiffRows.pairs(h1.lines)
     #expect(p.count == 3)
     #expect(p[1].0?.text == "b" && p[1].1?.text == "B")
@@ -129,7 +139,9 @@ func tempRepo() throws -> String {
     #expect(m == [SearchMatch(path: "src/main.swift", line: 2, text: "find the needle")])
 }
 
-func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.init(path), ProjectFiles.fuzzyQuery(query)) }
+func fuzzy(_ path: String, _ query: String) -> Int? {
+    ProjectFiles.fuzzyScore(.init(path), ProjectFiles.fuzzyQuery(query))
+}
 
 @Test func fuzzyPrefersFileNames() {
     let a = fuzzy("Sources/KelpApp/AppDelegate.swift", "appdel")!
@@ -157,8 +169,10 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
         GraphCommit(hash: h, parents: p, author: "", date: 0, subject: "", refs: refs, lane: 0, top: [], bottom: [])
     }
     // main is two ahead of origin/main; "side" was never published and forks from a pushed commit.
-    let list = [c("L2", ["L1"], ["HEAD -> main"]), c("S", ["B"], ["side"]), c("L1", ["R"]),
-                c("R", ["B"], ["origin/main", "origin/HEAD"]), c("B", [])]
+    let list = [
+        c("L2", ["L1"], ["HEAD -> main"]), c("S", ["B"], ["side"]), c("L1", ["R"]),
+        c("R", ["B"], ["origin/main", "origin/HEAD"]), c("B", [])
+    ]
     #expect(Git.unpushed(list, remotes: ["origin/main"]) == ["L2", "L1", "S"])
     #expect(Git.unpushed(list, remotes: []).isEmpty)   // no remote at all: nothing to mark
 }
@@ -166,10 +180,19 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
 @Test func commitDetailsHaveTheBodyTheEmailAndTheSize() throws {
     let repo = try tempRepo()
     try "a\nB\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-    try Data([0, 1, 2, 0]).write(to: URL(fileURLWithPath: repo + "/blob.bin")); try Git.run(["add", "f.txt", "blob.bin"], cwd: repo)
-    try Git.run(["commit", "-q", "--author=Ada <ada@example.com>", "-m", "fix: b", "-m", "Why it changed,\nwrapped.\n\nSecond paragraph."], cwd: repo)
+    try Data([0, 1, 2, 0]).write(to: URL(fileURLWithPath: repo + "/blob.bin"))
+    try Git.run(["add", "f.txt", "blob.bin"], cwd: repo)
+    try Git.run(
+        [
+            "commit", "-q", "--author=Ada <ada@example.com>", "-m", "fix: b", "-m",
+            "Why it changed,\nwrapped.\n\nSecond paragraph."
+        ], cwd: repo)
     let d = try Git.commitDetails(repo, commit: "HEAD")
-    #expect(d == CommitDetails(body: "Why it changed,\nwrapped.\n\nSecond paragraph.", email: "ada@example.com", files: 2, added: 2, removed: 1))
+    #expect(
+        d
+            == CommitDetails(
+                body: "Why it changed,\nwrapped.\n\nSecond paragraph.", email: "ada@example.com", files: 2, added: 2,
+                removed: 1))
     #expect(try Git.commitDetails(repo, commit: "HEAD~1").body.isEmpty)
 }
 
@@ -177,7 +200,8 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     let repo = try tempRepo()
     try Git.run(["switch", "-q", "-c", "feature"], cwd: repo)
     try "g\n".write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "g.txt"], cwd: repo); try Git.run(["commit", "-qm", "feature work"], cwd: repo)
+    try Git.run(["add", "g.txt"], cwd: repo)
+    try Git.run(["commit", "-qm", "feature work"], cwd: repo)
     try Git.run(["switch", "-q", "main"], cwd: repo)
     try Git.run(["merge", "-q", "--no-ff", "-m", "merge feature", "feature"], cwd: repo)
     let (commits, more) = try Git.graph(repo, limit: 50)
@@ -188,14 +212,20 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     #expect(b.current == "main" && b.local.contains("feature") && !b.merging)
     // Pop keeps what was staged staged.
     try "x\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.stage(repo, files: ["f.txt"]); try Git.stash(repo, pop: false); try Git.stash(repo, pop: true)
+    try Git.stage(repo, files: ["f.txt"])
+    try Git.stash(repo, pop: false)
+    try Git.stash(repo, pop: true)
     #expect(try Git.status(repo).first { $0.path == "f.txt" }?.staged == true)
 }
 
 @Test func gitErrorsReadAsOneSentence() {
-    let e = GitError(args: ["push"], status: 128, stderr: "fatal: 'origin' does not appear to be a git repository\nfatal: Could not read from remote repository.")
+    let e = GitError(
+        args: ["push"], status: 128,
+        stderr: "fatal: 'origin' does not appear to be a git repository\nfatal: Could not read from remote repository.")
     #expect(e.message == "'origin' does not appear to be a git repository")
-    let c = GitError(args: ["switch"], status: 1, stderr: "error: Your local changes to the following files would be overwritten by checkout:\n\tf.txt\nAborting")
+    let c = GitError(
+        args: ["switch"], status: 1,
+        stderr: "error: Your local changes to the following files would be overwritten by checkout:\n\tf.txt\nAborting")
     #expect(c.message == "Your local changes to the following files would be overwritten by checkout: f.txt")
 }
 
@@ -204,9 +234,15 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     #expect(Git.webRepo("ssh://git@gitlab.example.com:2222/team/sub/r.git")! == ("gitlab.example.com", "team/sub/r"))
     #expect(Git.webRepo("https://me@bitbucket.org/ws/r.git")! == ("bitbucket.org", "ws/r"))
     #expect(Git.webRepo("/local/path") == nil)
-    #expect(Git.webURL(remote: "git@github.com:o/r.git", sha: "abc", file: "a b/c.swift", lines: 3...5) == "https://github.com/o/r/blob/abc/a%20b/c.swift#L3-L5")
-    #expect(Git.webURL(remote: "https://gitlab.com/o/r", sha: "abc", file: "c.swift", lines: 7...7) == "https://gitlab.com/o/r/-/blob/abc/c.swift#L7")
-    #expect(Git.webURL(remote: "git@bitbucket.org:o/r.git", sha: "abc", file: "c.swift", lines: 1...2) == "https://bitbucket.org/o/r/src/abc/c.swift#lines-1:2")
+    #expect(
+        Git.webURL(remote: "git@github.com:o/r.git", sha: "abc", file: "a b/c.swift", lines: 3...5)
+            == "https://github.com/o/r/blob/abc/a%20b/c.swift#L3-L5")
+    #expect(
+        Git.webURL(remote: "https://gitlab.com/o/r", sha: "abc", file: "c.swift", lines: 7...7)
+            == "https://gitlab.com/o/r/-/blob/abc/c.swift#L7")
+    #expect(
+        Git.webURL(remote: "git@bitbucket.org:o/r.git", sha: "abc", file: "c.swift", lines: 1...2)
+            == "https://bitbucket.org/o/r/src/abc/c.swift#lines-1:2")
 }
 
 @Test func lineKinds() {
@@ -223,7 +259,8 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     let d = tmp().path
     try Git.run(["init", "-q", "-b", "main"], cwd: d)
     try "a\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "."], cwd: d); try Git.run(["commit", "-qm", "init"], cwd: d)
+    try Git.run(["add", "."], cwd: d)
+    try Git.run(["commit", "-qm", "init"], cwd: d)
     try "a\nb\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)   // changed before the turn: not the agent's
     let base = try Git.snapshotTree(d)
     try "a\nb\nc\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)
@@ -238,7 +275,8 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
 @Test func hunksAtAFileEndWithoutNewlineStageAndDiscard() throws {
     let repo = try tempRepo()
     try "a\nb".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "n.txt"], cwd: repo); try Git.run(["commit", "-qm", "n"], cwd: repo)
+    try Git.run(["add", "n.txt"], cwd: repo)
+    try Git.run(["commit", "-qm", "n"], cwd: repo)
     try "a\nb\nc".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
     let d = try Git.diff(repo, source: .unstaged, file: "n.txt")
     #expect(d[0].hunks[0].lines.filter { $0.noNewline == true }.count == 2)   // the old "b" and the new "c"
@@ -257,7 +295,8 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     let repo = try tempRepo()
     func cp1251(_ s: String) -> Data { s.data(using: .windowsCP1251) ?? Data() }
     try cp1251("привет\nмир\n").write(to: URL(fileURLWithPath: repo + "/ru.txt"))
-    try Git.run(["add", "ru.txt"], cwd: repo); try Git.run(["commit", "-qm", "ru"], cwd: repo)
+    try Git.run(["add", "ru.txt"], cwd: repo)
+    try Git.run(["commit", "-qm", "ru"], cwd: repo)
     try cp1251("привет\nвсем\n").write(to: URL(fileURLWithPath: repo + "/ru.txt"))
     let d = try Git.diff(repo, source: .unstaged, file: "ru.txt")
     #expect(d[0].latin1 == true)
@@ -269,7 +308,8 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     let repo = try tempRepo()
     let names = ["файл.txt", "a b.txt", "q\"x.txt"]
     for n in names { try "1\n".write(toFile: repo + "/" + n, atomically: true, encoding: .utf8) }
-    try Git.stage(repo, files: names); try Git.commit(repo, message: "names")
+    try Git.stage(repo, files: names)
+    try Git.commit(repo, message: "names")
     for n in names { try "2\n".write(toFile: repo + "/" + n, atomically: true, encoding: .utf8) }
     #expect(Set(try Git.status(repo).map(\.path)) == Set(names + [".env"]))
     #expect(Set(try Git.diff(repo, source: .unstaged).map(\.path)) == Set(names + [".env"]))
@@ -299,7 +339,9 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     try "new\n".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
     let back = try Git.discard(repo, files: ["f.txt", "n.txt"])
-    #expect(try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == before && !FileManager.default.fileExists(atPath: repo + "/n.txt"))
+    #expect(
+        try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == before
+            && !FileManager.default.fileExists(atPath: repo + "/n.txt"))
     let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
     #expect(try FileManager.default.subpathsOfDirectory(atPath: trash).contains { $0.hasSuffix("/n.txt") })
     try Git.putBack(repo, patch: back, hunk: false)
@@ -315,9 +357,12 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     #expect(try Git.status(repo).isEmpty)
     #expect(Set(try Git.commitFiles(repo, commit: "HEAD").map(\.path)).isSuperset(of: ["f.txt", "new.txt"]))
 
-    let p = try Git.addWorktree(repo: repo, branch: "feat", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
-    try "feat\n".write(toFile: p + "/f.txt", atomically: true, encoding: .utf8); try Git.commit(p, message: "feat", all: true)
-    try "main\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8); try Git.commit(repo, message: "main", all: true)
+    let p = try Git.addWorktree(
+        repo: repo, branch: "feat", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
+    try "feat\n".write(toFile: p + "/f.txt", atomically: true, encoding: .utf8)
+    try Git.commit(p, message: "feat", all: true)
+    try "main\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
+    try Git.commit(repo, message: "main", all: true)
     _ = try Git.merge(branch: "feat", into: repo, keepConflicts: true)
     #expect(throws: GitError.self) { try Git.commit(repo, message: "markers", all: true) }
 }
@@ -329,8 +374,10 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     let repo = try tempRepo()
     let lock = (0..<40_000).map { "\"package-\($0)\": \"1.0.\($0)\"" }   // ~1.2 MB: its diff is past one file's share of a review
     try (lock.joined(separator: "\n") + "\n").write(toFile: repo + "/a.lock", atomically: true, encoding: .utf8)
-    try Git.run(["add", "a.lock"], cwd: repo); try Git.run(["commit", "-qm", "lock"], cwd: repo)
-    try (lock.map { $0 + "-2" }.joined(separator: "\n") + "\n").write(toFile: repo + "/a.lock", atomically: true, encoding: .utf8)
+    try Git.run(["add", "a.lock"], cwd: repo)
+    try Git.run(["commit", "-qm", "lock"], cwd: repo)
+    try (lock.map { $0 + "-2" }.joined(separator: "\n") + "\n").write(
+        toFile: repo + "/a.lock", atomically: true, encoding: .utf8)
     try "a\nB\nc\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
 
     let all = try Git.diff(repo, source: .unstaged)
@@ -342,7 +389,9 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
 
     // Twelve new files of 900 KB in 1000 lines, 940 KB each with the lines' share: what's left of 8 MB holds eight.
     let line = String(repeating: "x", count: 899) + "\n"
-    for i in 0..<12 { try String(repeating: line, count: 1000).write(toFile: repo + "/gen\(i).txt", atomically: true, encoding: .utf8) }
+    for i in 0..<12 {
+        try String(repeating: line, count: 1000).write(toFile: repo + "/gen\(i).txt", atomically: true, encoding: .utf8)
+    }
     let new = try Git.diff(repo, source: .unstaged).filter { $0.path.hasPrefix("gen") }
     #expect(new.count == 12)
     #expect(new.filter { $0.tooLarge == true }.count == 4 && new.filter { !$0.hunks.isEmpty }.count == 8)
@@ -370,11 +419,12 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
 }
 
 @Test func changesGroupLikeSourceControlListsThem() {
-    let parsed = Git.parseStatus("1 MM N... 100644 100644 100644 a b both.swift\0"
-                                 + "1 M. N... 100644 100644 100644 a b staged.swift\0"
-                                 + "1 .M N... 100644 100644 100644 a b edited.swift\0"
-                                 + "u UU N... 100644 100644 100644 100644 a b c conflict.swift\0"
-                                 + "? new.swift\0")
+    let parsed = Git.parseStatus(
+        "1 MM N... 100644 100644 100644 a b both.swift\0"
+            + "1 M. N... 100644 100644 100644 a b staged.swift\0"
+            + "1 .M N... 100644 100644 100644 a b edited.swift\0"
+            + "u UU N... 100644 100644 100644 100644 a b c conflict.swift\0"
+            + "? new.swift\0")
     let g = parsed.grouped
     #expect(g.merge.map(\.path) == ["conflict.swift"])
     #expect(g.staged.map(\.path) == ["both.swift", "staged.swift"])
@@ -382,10 +432,11 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
 }
 
 @Test func statusLettersFollowTheColumnTheListShows() {
-    let parsed = Git.parseStatus("1 AM N... 100644 100644 100644 a b added.swift\0"
-                                 + "1 .D N... 100644 100644 100644 a b gone.swift\0"
-                                 + "? new.swift\0"
-                                 + "u UU N... 100644 100644 100644 100644 a b c conflict.swift\0")
+    let parsed = Git.parseStatus(
+        "1 AM N... 100644 100644 100644 a b added.swift\0"
+            + "1 .D N... 100644 100644 100644 a b gone.swift\0"
+            + "? new.swift\0"
+            + "u UU N... 100644 100644 100644 100644 a b c conflict.swift\0")
     #expect(parsed[0].letter(inWorktree: false) == "A" && parsed[0].letter(inWorktree: true) == "M")
     #expect(parsed[1].letter(inWorktree: true) == "D")
     #expect(parsed[2].letter(inWorktree: true) == "U")
@@ -402,10 +453,16 @@ func fuzzy(_ path: String, _ query: String) -> Int? { ProjectFiles.fuzzyScore(.i
     #expect(r("aXa", "aa") == (NSRange(location: 1, length: 1), NSRange(location: 1, length: 0)))   // the common end can't overlap the common start
 }
 
-private func line(_ k: DiffLine.Kind, _ t: String, o: Int? = nil, n: Int? = nil) -> DiffLine { DiffLine(kind: k, text: t, oldLine: o, newLine: n) }
-private let sample = FileDiff(path: "f.swift", header: "", hunks: [
-    Hunk(header: "@@ -1,2 +1,2 @@", oldStart: 1, newStart: 1, lines: [line(.context, "a", o: 1, n: 1), line(.del, "x = 1", o: 2), line(.add, "x = 2", n: 2)])
-], binary: false)
+private func line(_ k: DiffLine.Kind, _ t: String, o: Int? = nil, n: Int? = nil) -> DiffLine {
+    DiffLine(kind: k, text: t, oldLine: o, newLine: n)
+}
+private let sample = FileDiff(
+    path: "f.swift", header: "",
+    hunks: [
+        Hunk(
+            header: "@@ -1,2 +1,2 @@", oldStart: 1, newStart: 1,
+            lines: [line(.context, "a", o: 1, n: 1), line(.del, "x = 1", o: 2), line(.add, "x = 2", n: 2)])
+    ], binary: false)
 
 @Test func changedWordsAreKeyedByFileAndLine() {
     let w = DiffRows.changedWords([sample])
@@ -415,14 +472,20 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
 
 @Test func commentsSitUnderTheirLastLineAndResolvedOnesLeave() {
     func c(_ line: Int, _ state: DiffComment.State, _ file: String = "f.swift") -> DiffComment {
-        DiffComment(worktreeId: "w", file: file, startLine: line, endLine: line, quote: "", text: "t\(line)", state: state)
+        DiffComment(
+            worktreeId: "w", file: file, startLine: line, endLine: line, quote: "", text: "t\(line)", state: state)
     }
     let open = c(2, .open), sent = c(2, .sent), done = c(2, .resolved), other = c(2, .open, "g.swift")
-    let rows = DiffRows.reviewRows([sample], comments: [open, sent, done, other], sideBySide: false, hideFileRows: false)
+    let rows = DiffRows.reviewRows(
+        [sample], comments: [open, sent, done, other], sideBySide: false, hideFileRows: false)
     let comments = rows.compactMap { if case .comment(let c) = $0 { c.id } else { nil } }
     #expect(comments == [open.id, sent.id])   // not the resolved one, not another file's
     let at = rows.firstIndex { if case .comment = $0 { true } else { false } } ?? 0
-    if case .diff(.line(_, let l)) = rows[at - 1] { #expect(l.newLine == 2 && l.kind == .add) } else { Issue.record("the comment isn't under its line") }
+    if case .diff(.line(_, let l)) = rows[at - 1] {
+        #expect(l.newLine == 2 && l.kind == .add)
+    } else {
+        Issue.record("the comment isn't under its line")
+    }
 }
 
 @Test func oneFileModeHidesTheFileRow() {
@@ -445,13 +508,17 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     let r = RemoteHost(host: "box", path: "/srv/app")
     #expect(r.command(nil) == "cd '/srv/app' && exec \"$SHELL\" -l")
     // A local absolute path means nothing on the host: only the program's name is sent. Arguments with spaces and quotes survive one more level of quoting.
-    #expect(r.command(["/Users/me/.local/bin/claude", "--resume", "a b"]) == "cd '/srv/app' && exec \"$SHELL\" -ilc " + IDE.shellWord("'claude' '--resume' 'a b'"))
+    #expect(
+        r.command(["/Users/me/.local/bin/claude", "--resume", "a b"]) == "cd '/srv/app' && exec \"$SHELL\" -ilc "
+            + IDE.shellWord("'claude' '--resume' 'a b'"))
     #expect(r.command([]) == r.command(nil))
 }
 
 @Test func onlyPlainHostNamesFollowSsh() {
     for ok in ["box", "me@box", "10.0.0.2", "box.example.com"] { #expect(RemoteHost.isHost(ok), "\(ok)") }
-    for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb"] { #expect(!RemoteHost.isHost(bad), "\(bad.debugDescription)") }
+    for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb"] {
+        #expect(!RemoteHost.isHost(bad), "\(bad.debugDescription)")
+    }
 }
 
 @Test func remoteAddressesBecomeAHostAndARepoPath() {
@@ -460,12 +527,14 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     #expect(r("https://github.com/o/r") == "github.com o/r")
     #expect(r("https://user@gitlab.com/group/sub/r.git") == "gitlab.com group/sub/r")
     #expect(r("ssh://git@host.example:22/o/r") == "host.example o/r")   // the port isn't part of the path
-    #expect(r("git@github.com:123/app.git") == "github.com 123/app")    // a number as the owner is an owner, not a port
+    #expect(r("git@github.com:123/app.git") == "github.com 123/app")   // a number as the owner is an owner, not a port
     #expect(r("/local/path/repo") == nil && r("nothing") == nil)
 }
 
 @Test func webLinksPointAtTheCommitAndLinesOnEachSite() {
-    func u(_ remote: String, _ lines: ClosedRange<Int>?) -> String? { Git.webURL(remote: remote, sha: "abc", file: "src/my file.swift", lines: lines) }
+    func u(_ remote: String, _ lines: ClosedRange<Int>?) -> String? {
+        Git.webURL(remote: remote, sha: "abc", file: "src/my file.swift", lines: lines)
+    }
     #expect(u("git@github.com:o/r.git", 3...3) == "https://github.com/o/r/blob/abc/src/my%20file.swift#L3")
     #expect(u("git@github.com:o/r.git", 3...9) == "https://github.com/o/r/blob/abc/src/my%20file.swift#L3-L9")
     #expect(u("https://gitlab.com/g/r", 3...9) == "https://gitlab.com/g/r/-/blob/abc/src/my%20file.swift#L3-9")
@@ -476,9 +545,13 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
 
 @Test func eachSiteHasItsOwnPathsForCIAndPullRequests() {
     let gh = Git.webPages(remote: "git@github.com:o/r.git")
-    #expect(gh?.forge == "github" && gh?.repo == "https://github.com/o/r" && gh?.ci == "https://github.com/o/r/actions" && gh?.pulls == "https://github.com/o/r/pulls")
+    #expect(
+        gh?.forge == "github" && gh?.repo == "https://github.com/o/r" && gh?.ci == "https://github.com/o/r/actions"
+            && gh?.pulls == "https://github.com/o/r/pulls")
     let gl = Git.webPages(remote: "ssh://git@gitlab.example.com:2222/team/sub/r.git")
-    #expect(gl?.forge == "gitlab" && gl?.ci == "https://gitlab.example.com/team/sub/r/-/pipelines" && gl?.pulls == "https://gitlab.example.com/team/sub/r/-/merge_requests")
+    #expect(
+        gl?.forge == "gitlab" && gl?.ci == "https://gitlab.example.com/team/sub/r/-/pipelines"
+            && gl?.pulls == "https://gitlab.example.com/team/sub/r/-/merge_requests")
     #expect(Git.webPages(remote: "https://bitbucket.org/w/r")?.pulls == "https://bitbucket.org/w/r/pull-requests")
     #expect(Git.webPages(remote: "/local/path/repo") == nil)
 }
@@ -487,10 +560,12 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     let repo = try tempRepo()
     let before = try Git.snapshotTree(repo)
     #expect(try Git.snapshotTree(repo) == before && Git.changesSince(tree: before, cwd: repo).isEmpty)   // nothing changed, same tree
-    try "a\nb\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)       // +1 line in a tracked file
-    try "x\ny\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)             // a new file counts too
+    try "a\nb\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // +1 line in a tracked file
+    try "x\ny\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)   // a new file counts too
     let changes = try Git.changesSince(tree: before, cwd: repo).sorted { $0.path < $1.path }
-    #expect(changes.map(\.path) == ["f.txt", "new.txt"] && changes.map(\.added) == [1, 2] && changes.map(\.removed) == [0, 0])
+    #expect(
+        changes.map(\.path) == ["f.txt", "new.txt"] && changes.map(\.added) == [1, 2]
+            && changes.map(\.removed) == [0, 0])
     #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: repo).isEmpty)   // the real index stayed as it was: nothing got staged
     #expect(try Git.status(repo).contains { $0.path == "new.txt" && $0.untracked })
 }
@@ -513,7 +588,9 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
 /// tree is kept as the safe way; this checks it doesn't hang.)
 @Test func aStuckRunStopsWithItsChildren() throws {
     let t = Date()
-    #expect(throws: (any Error).self) { try Git.runData(["-c", "sleep 30 & sleep 30; wait"], cwd: "/tmp", executable: "/bin/sh", timeLimit: 0.5) }
+    #expect(throws: (any Error).self) {
+        try Git.runData(["-c", "sleep 30 & sleep 30; wait"], cwd: "/tmp", executable: "/bin/sh", timeLimit: 0.5)
+    }
     #expect(Date().timeIntervalSince(t) < 5)
 }
 
@@ -537,7 +614,9 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     let repo = try tempRepo()
     let before = try Git.run(["rev-parse", "main"], cwd: repo)
     try Git.run(["switch", "-q", "-c", "other"], cwd: repo)
-    try "x\n".write(toFile: repo + "/x.txt", atomically: true, encoding: .utf8); try Git.run(["add", "."], cwd: repo); try Git.run(["commit", "-qm", "x"], cwd: repo)
+    try "x\n".write(toFile: repo + "/x.txt", atomically: true, encoding: .utf8)
+    try Git.run(["add", "."], cwd: repo)
+    try Git.run(["commit", "-qm", "x"], cwd: repo)
     #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "origin/-Cmain", remote: true) }
     #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "-Cmain") }
     #expect(try Git.run(["rev-parse", "main"], cwd: repo) == before)   // main wasn't reset onto this branch
@@ -546,7 +625,9 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
 /// A run past its time limit ends even if it ignores SIGTERM: the thread waiting on it is given back.
 @Test func aRunThatIgnoresSIGTERMStillEndsAtItsTimeLimit() throws {
     let start = Date()
-    #expect(throws: (any Error).self) { try Git.runData(["-c", "trap '' TERM; sleep 30"], cwd: "/tmp", executable: "/bin/sh", timeLimit: 0.5) }
+    #expect(throws: (any Error).self) {
+        try Git.runData(["-c", "trap '' TERM; sleep 30"], cwd: "/tmp", executable: "/bin/sh", timeLimit: 0.5)
+    }
     #expect(Date().timeIntervalSince(start) < 10)   // SIGKILL 2 s after the SIGTERM it ignored
 }
 
@@ -572,12 +653,18 @@ private let sample = FileDiff(path: "f.swift", header: "", hunks: [
     #expect(throws: GitError.self) { _ = try Git.commitFiles(repo, commit: evil) }
     #expect(throws: GitError.self) { try Git.renameBranch(repo, from: "main", to: evil) }
     let into = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wt-\(UUID().uuidString)")
-    #expect(throws: GitError.self) { _ = try Git.addWorktree(repo: repo, branch: "x", base: evil, into: into, copyFiles: []) }
+    #expect(throws: GitError.self) {
+        _ = try Git.addWorktree(repo: repo, branch: "x", base: evil, into: into, copyFiles: [])
+    }
     #expect(try String(contentsOfFile: victim, encoding: .utf8) == "keep\n")
 }
 
 /// An undone turn leaves the user's secrets alone, and puts back a committed template and direnv's file like any code.
 @Test func onlySecretEnvFilesStayOutOfAnUndo() {
-    for n in [".env", ".env.local", ".env.production", "id_rsa", "server.pem", "credentials.json"] { #expect(Git.holdsSecrets(n), "\(n)") }
-    for n in [".env.example", ".env.sample", ".envrc", "env.ts", ".environment", "id_rsa.pub", "keys.ts"] { #expect(!Git.holdsSecrets(n), "\(n)") }
+    for n in [".env", ".env.local", ".env.production", "id_rsa", "server.pem", "credentials.json"] {
+        #expect(Git.holdsSecrets(n), "\(n)")
+    }
+    for n in [".env.example", ".env.sample", ".envrc", "env.ts", ".environment", "id_rsa.pub", "keys.ts"] {
+        #expect(!Git.holdsSecrets(n), "\(n)")
+    }
 }

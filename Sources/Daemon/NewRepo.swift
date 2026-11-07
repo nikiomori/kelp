@@ -1,7 +1,7 @@
-import Foundation
-import os
 import Core
+import Foundation
 import GitKit
+import os
 
 /// Add Project's other two ways in: clone by URL (progress as `event.clone`; a half-made folder is removed when it fails
 /// or is cancelled) and a new empty project (`git init`, like the scratch project).
@@ -9,19 +9,23 @@ extension Forges {
     /// `parent/name`, checked: a real folder to go in, a plain name, nothing there yet.
     static func newFolder(_ name: String, in parent: String) throws -> String {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else { throw RPCError.invalidParams("Enter a name for the project folder.") }
+        guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else {
+            throw RPCError.invalidParams("Enter a name for the project folder.")
+        }
         var dir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: parent, isDirectory: &dir), dir.boolValue else {
             throw RPCError.invalidParams("Choose the folder it goes in.")
         }
         let dest = (parent as NSString).appendingPathComponent(name)
         guard !FileManager.default.fileExists(atPath: dest) else {
-            throw RPCError.invalidParams("“\(name)” already exists in \((parent as NSString).abbreviatingWithTildeInPath).")
+            throw RPCError.invalidParams(
+                "“\(name)” already exists in \((parent as NSString).abbreviatingWithTildeInPath).")
         }
         return dest
     }
 
-    func clone(_ url: String, into parent: String, folder: String? = nil, id: String, conn: Int) async throws -> String {
+    func clone(_ url: String, into parent: String, folder: String? = nil, id: String, conn: Int) async throws -> String
+    {
         let url = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !url.hasPrefix("-") else { throw RPCError.invalidParams("Enter the repository's URL.") }
         // Holds a slot, so an update waits for it (`Daemon.upgrade`).
@@ -31,7 +35,9 @@ extension Forges {
         // Made here, atomically: two clones that pick the same name can't both get past this, so the cleanup below only
         // ever removes this clone's own folder (git clones into an empty folder that exists).
         guard Workspaces.claim(dest) else {
-            throw RPCError.invalidParams("“\((dest as NSString).lastPathComponent)” already exists in \((parent as NSString).abbreviatingWithTildeInPath).")
+            throw RPCError.invalidParams(
+                "“\((dest as NSString).lastPathComponent)” already exists in \((parent as NSString).abbreviatingWithTildeInPath)."
+            )
         }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/git")
@@ -64,14 +70,21 @@ extension Forges {
             do { try proc.run() } catch {
                 proc.terminationHandler = nil
                 // Claimed above, nothing written: a retry finds the name free.
-                Log.store.attempt("removing an unstarted clone's folder") { try FileManager.default.removeItem(atPath: dest) }
+                Log.store.attempt("removing an unstarted clone's folder") {
+                    try FileManager.default.removeItem(atPath: dest)
+                }
                 c.resume(throwing: error)
             }
         }
         clones.set(id, nil)
         // git's last words ("fatal: …") can still be on their way when it has exited; a child holding the pipe can't
         // keep this waiting past 2 s.
-        await withCheckedContinuation { c in DispatchQueue.global().async { _ = eof.wait(timeout: .now() + 2); c.resume() } }
+        await withCheckedContinuation { c in
+            DispatchQueue.global().async {
+                _ = eof.wait(timeout: .now() + 2)
+                c.resume()
+            }
+        }
         err.fileHandleForReading.readabilityHandler = nil
         guard status.0 == 0 else {
             // This clone made it (mkdir above), nobody else wrote there.
@@ -95,14 +108,18 @@ final class CloneLog: Sendable {
             guard Date().timeIntervalSince(st.sent) > 0.2 else { return nil }
             let lines = st.text.split(whereSeparator: { $0 == "\r" || $0 == "\n" })
             guard let last = lines.last.map(String.init), !last.isEmpty else { return nil }
-            st.sent = Date(); return last.trimmingCharacters(in: .whitespaces)
+            st.sent = Date()
+            return last.trimmingCharacters(in: .whitespaces)
         }
     }
 
     /// "fatal: repository 'x' not found" → "Repository 'x' not found".
     var failure: String? {
         let lines = state.withLock { $0 }.text.split(whereSeparator: \.isNewline).map(String.init)
-        guard let f = lines.last(where: { $0.hasPrefix("fatal:") || $0.hasPrefix("error:") || $0.hasPrefix("ERROR:") }) ?? lines.last else { return nil }
+        guard
+            let f = lines.last(where: { $0.hasPrefix("fatal:") || $0.hasPrefix("error:") || $0.hasPrefix("ERROR:") })
+                ?? lines.last
+        else { return nil }
         var m = f.replacingOccurrences(of: #"^(fatal|error|ERROR): ?"#, with: "", options: .regularExpression)
         m = m.prefix(1).uppercased() + m.dropFirst()
         return m
@@ -112,8 +129,14 @@ final class CloneLog: Sendable {
 extension RepoClone: AsyncHandled {
     func handle(_ work: ForgeWork) async throws -> Repo { try await handle(work, conn: -1) }
     func handle(_ work: ForgeWork, conn: Int) async throws -> Repo {
-        let dest = try await work.forges.clone(url, into: parent, folder: folder, id: id ?? UUID().uuidString, conn: conn)
+        let dest = try await work.forges.clone(
+            url, into: parent, folder: folder, id: id ?? UUID().uuidString, conn: conn)
         return try await work.forges.offloads.run { try RepoAdd(path: dest).handle(work.workspaces) }   // runs git: off the cooperative pool
     }
 }
-extension RepoCloneCancel: AsyncHandled { func handle(_ forges: Forges) async throws -> Done { forges.clones.cancel(id); return Done() } }
+extension RepoCloneCancel: AsyncHandled {
+    func handle(_ forges: Forges) async throws -> Done {
+        forges.clones.cancel(id)
+        return Done()
+    }
+}

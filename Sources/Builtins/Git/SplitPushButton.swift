@@ -43,7 +43,12 @@ final class SplitPushButton: NSButton {
             tint()
         }
     }
-    override var isEnabled: Bool { didSet { arrow.isEnabled = isEnabled; tint() } }
+    override var isEnabled: Bool {
+        didSet {
+            arrow.isEnabled = isEnabled
+            tint()
+        }
+    }
     override static var cellClass: AnyClass? {
         get { SplitCell.self }
         set { _ = newValue }
@@ -59,14 +64,20 @@ final class SplitPushButton: NSButton {
         arrow.isBordered = false
         arrow.symbolConfiguration = .chrome()
         divider.wantsLayer = true
-        for v in [arrow, divider, ring] { v.translatesAutoresizingMaskIntoConstraints = false; addSubview(v) }
+        for v in [arrow, divider, ring] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
         addSubview(glow)
         NSLayoutConstraint.activate([
-            arrow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4), arrow.centerYAnchor.constraint(equalTo: centerYAnchor),
+            arrow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            arrow.centerYAnchor.constraint(equalTo: centerYAnchor),
             arrow.widthAnchor.constraint(equalToConstant: 26), arrow.heightAnchor.constraint(equalToConstant: 22),
-            divider.trailingAnchor.constraint(equalTo: arrow.leadingAnchor, constant: -2), divider.centerYAnchor.constraint(equalTo: centerYAnchor),
+            divider.trailingAnchor.constraint(equalTo: arrow.leadingAnchor, constant: -2),
+            divider.centerYAnchor.constraint(equalTo: centerYAnchor),
             divider.widthAnchor.constraint(equalToConstant: 1), divider.heightAnchor.constraint(equalToConstant: 16),
-            ring.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.inset), ring.centerYAnchor.constraint(equalTo: centerYAnchor)
+            ring.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.inset),
+            ring.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         tint()
     }
@@ -89,18 +100,27 @@ final class SplitPushButton: NSButton {
         glow.radius = glow.frame.height / 2
     }
 
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); tint() }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        tint()
+    }
     /// The accent fill goes grey while another window is in front: the arrow follows.
     override func viewWillMove(toWindow w: NSWindow?) {
         super.viewWillMove(toWindow: w)
         keyWatch.forEach(NotificationCenter.default.removeObserver)
-        keyWatch = w == nil ? [] : [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
-            NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.tint() }   // queue: .main
+        keyWatch =
+            w == nil
+            ? []
+            : [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
+                NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.tint() }   // queue: .main
+                }
             }
-        }
     }
-    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); tint() }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        tint()
+    }
 }
 
 /// The title centred in the part left of the arrow, not across the whole capsule (where it leaned into the arrow), and

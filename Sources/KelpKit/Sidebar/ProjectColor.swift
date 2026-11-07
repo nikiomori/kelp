@@ -52,7 +52,9 @@ enum ProjectColor: String, CaseIterable {
     }
 
     /// As `uiState` keeps them: id → name.
-    static func value(_ colors: [String: ProjectColor]) -> JSONValue { .object(colors.mapValues { .string($0.rawValue) }) }
+    static func value(_ colors: [String: ProjectColor]) -> JSONValue {
+        .object(colors.mapValues { .string($0.rawValue) })
+    }
     static func read(_ v: JSONValue?) -> [String: ProjectColor] {
         guard case .object(let o)? = v else { return [:] }
         return o.compactMapValues { $0.string.flatMap(ProjectColor.init) }
@@ -74,7 +76,9 @@ extension AppModel {
     var projectLook: ProjectLook {
         var colors = arrangement.projectColors
         if let p = arrangement.colorPreview { colors[p.project] = p.color }
-        return ProjectLook(style: ProjectColorStyle(rawValue: settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon, colors: colors)
+        return ProjectLook(
+            style: ProjectColorStyle(rawValue: settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon,
+            colors: colors)
     }
 
     /// The colour the icon of the project in this folder takes, wherever it shows: only in the Icon style.

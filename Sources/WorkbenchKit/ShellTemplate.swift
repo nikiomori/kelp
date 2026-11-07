@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// `${name}` placeholders in a shell command. `fill` never puts a value into the command's text: each one is assigned
 /// to a shell variable first (as one single-quoted word, at the top level where that is always right) and the
@@ -15,15 +15,21 @@ public enum ShellTemplate {
     public static func fill(_ template: String, named: [String: String] = [:], _ value: (String) -> String?) -> String {
         var assign: [String] = [], out = "", rest = Substring(template), quotes = ShellQuotes()
         while let open = rest.range(of: "${"), let close = rest[open.upperBound...].firstIndex(of: "}") {
-            out += rest[..<open.lowerBound]; quotes.read(rest[..<open.lowerBound])
-            if let v = value(String(rest[open.upperBound..<close])), let remote = quotes.remoteLiteral(v) ?? quotes.bareRemoteLiteral(v) {
-                out += remote; quotes.inserted()   // for a shell on another machine: the value, quoted for that shell
+            out += rest[..<open.lowerBound]
+            quotes.read(rest[..<open.lowerBound])
+            if let v = value(String(rest[open.upperBound..<close])),
+                let remote = quotes.remoteLiteral(v) ?? quotes.bareRemoteLiteral(v)
+            {
+                out += remote
+                quotes.inserted()   // for a shell on another machine: the value, quoted for that shell
             } else if let v = value(String(rest[open.upperBound..<close])) {
                 let name = "KELP_V\(assign.count + 1)"
                 assign.append("\(name)=\(IDE.shellWord(v))")
-                out += quotes.reference(name); quotes.inserted()
+                out += quotes.reference(name)
+                quotes.inserted()
             } else {
-                out += rest[open.lowerBound...close]; quotes.read(rest[open.lowerBound...close])
+                out += rest[open.lowerBound...close]
+                quotes.read(rest[open.lowerBound...close])
             }
             rest = rest[rest.index(after: close)...]
         }
@@ -65,34 +71,68 @@ struct ShellQuotes {
     mutating func read(_ s: Substring) {
         var escaped = false, i = s.startIndex
         while i < s.endIndex {
-            let c = s[i]; defer { last = c; i = s.index(after: i) }
+            let c = s[i]
+            defer {
+                last = c
+                i = s.index(after: i)
+            }
             if c == "\n" {
-                if let d = inDoc, line.trimmingCharacters(in: .whitespaces) == d.word { inDoc = nil }
-                else if inDoc == nil, let p = pendingDoc { inDoc = p; pendingDoc = nil }
-                inComment = false; line = ""; escaped = false; continue
+                if let d = inDoc, line.trimmingCharacters(in: .whitespaces) == d.word {
+                    inDoc = nil
+                } else if inDoc == nil, let p = pendingDoc {
+                    inDoc = p
+                    pendingDoc = nil
+                }
+                inComment = false
+                line = ""
+                escaped = false
+                continue
             }
             line.append(c)
             if inDoc != nil || inComment { continue }
-            if escaped { escaped = false; continue }
-            if c == "\\", !inSingle { escaped = true; continue }
-            if c == "#", !inSingle, !inDouble, last == " " || last == "\t" || last == "\n" || last == ";" { inComment = true; continue }
-            if c == "$", !inSingle, s[i...].dropFirst().first == "(" {   // $(…) starts unquoted, whatever is around it
-                outer.append((inSingle, inDouble)); inDouble = false; i = s.index(after: i); continue
+            if escaped {
+                escaped = false
+                continue
             }
-            if c == ")", !inSingle, !inDouble, let o = outer.popLast() { (inSingle, inDouble) = o; continue }
+            if c == "\\", !inSingle {
+                escaped = true
+                continue
+            }
+            if c == "#", !inSingle, !inDouble, last == " " || last == "\t" || last == "\n" || last == ";" {
+                inComment = true
+                continue
+            }
+            if c == "$", !inSingle, s[i...].dropFirst().first == "(" {   // $(…) starts unquoted, whatever is around it
+                outer.append((inSingle, inDouble))
+                inDouble = false
+                i = s.index(after: i)
+                continue
+            }
+            if c == ")", !inSingle, !inDouble, let o = outer.popLast() {
+                (inSingle, inDouble) = o
+                continue
+            }
             if c == "'", !inDouble {
                 inSingle.toggle()
-                if inSingle { codeQuote = Self.runsCode(line.dropLast()); remoteQuote = Self.runsRemotely(line.dropLast()) }
+                if inSingle {
+                    codeQuote = Self.runsCode(line.dropLast())
+                    remoteQuote = Self.runsRemotely(line.dropLast())
+                }
             } else if c == "\"", !inSingle {
                 inDouble.toggle()
-                if inDouble { codeQuote = Self.runsCode(line.dropLast()); remoteQuote = Self.runsRemotely(line.dropLast()) }
+                if inDouble {
+                    codeQuote = Self.runsCode(line.dropLast())
+                    remoteQuote = Self.runsRemotely(line.dropLast())
+                }
             }
             if c == "<", !inSingle, !inDouble, s[i...].hasPrefix("<<"), !s[i...].hasPrefix("<<<") {
                 var rest = s[s.index(i, offsetBy: 2)...].drop { $0 == "-" || $0 == " " }
                 let quoted = rest.first == "'" || rest.first == "\""
                 if quoted { rest = rest.dropFirst() }
                 let word = String(rest.prefix { !" \t\n'\";<>|&".contains($0) })
-                if !word.isEmpty { pendingDoc = (word, !quoted, Self.feedsShell(line + s[s.index(after: i)...].prefix { $0 != "\n" })) }
+                if !word.isEmpty {
+                    pendingDoc = (word, !quoted, Self.feedsShell(line + s[s.index(after: i)...].prefix { $0 != "\n" }))
+                }
                 i = s.index(after: i)   // the second <
             }
         }
@@ -116,7 +156,8 @@ struct ShellQuotes {
     static func runsCode(_ before: Substring) -> Bool {
         let shell = #"(eval|(ba|z|da|k)?sh(\s+-[A-Za-z]+)*\s+-[A-Za-z]*c[A-Za-z]*)"#
         let other = #"((python3?|perl|ruby|node|osascript)(\s+-[A-Za-z]+)*\s+-[A-Za-z]*[ce][A-Za-z]*)"#
-        return before.range(of: #"(^|[\s;|&(/])("# + shell + "|" + other + #")\s*$"#, options: .regularExpression) != nil
+        return before.range(of: #"(^|[\s;|&(/])("# + shell + "|" + other + #")\s*$"#, options: .regularExpression)
+            != nil
     }
 
     /// What comes before a quote hands it to ssh as a command for the host.
@@ -131,7 +172,10 @@ struct ShellQuotes {
         let word = IDE.shellWord(v)
         if inSingle { return "'" + IDE.shellWord(word) + "'" }
         if inDouble {
-            return word.reduce(into: "") { out, ch in if "\\\"$`".contains(ch) { out.append("\\") }; out.append(ch) }
+            return word.reduce(into: "") { out, ch in
+                if "\\\"$`".contains(ch) { out.append("\\") }
+                out.append(ch)
+            }
         }
         return nil
     }
@@ -140,7 +184,8 @@ struct ShellQuotes {
     /// so the value goes as a word quoted for that shell, quoted again for this one.
     func bareRemoteLiteral(_ v: String) -> String? {
         guard !inSingle, !inDouble, inDoc == nil, !inComment,
-              line.range(of: #"(^|[\s;|&(/])ssh\s(\\[;|&]|[^;|&])*$"#, options: .regularExpression) != nil else { return nil }
+            line.range(of: #"(^|[\s;|&(/])ssh\s(\\[;|&]|[^;|&])*$"#, options: .regularExpression) != nil
+        else { return nil }
         return IDE.shellWord(IDE.shellWord(v))
     }
 

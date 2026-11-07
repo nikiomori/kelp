@@ -10,14 +10,22 @@ public struct Glances: Sendable {
 
     /// `front`: the window is the key one, in the active app, on screen. `shown`: the sessions being looked at.
     /// `readable`: finished and unread (not a question, not a failure). `unread`: the record still says unread.
-    public mutating func tick(front: Bool, shown: [String], readable: (String) -> Bool, unread: (String) -> Bool, now: Date) -> [String] {
-        guard front else { since = [:]; return [] }
+    public mutating func tick(
+        front: Bool, shown: [String], readable: (String) -> Bool, unread: (String) -> Bool, now: Date
+    ) -> [String] {
+        guard front else {
+            since = [:]
+            return []
+        }
         asked = asked.filter(unread)   // heard back: it may finish unread again later
         let shown = Set(shown)
         since = since.filter { shown.contains($0.key) }
         var mark: [String] = []
         for id in shown.sorted() {
-            guard readable(id), !asked.contains(id) else { since[id] = nil; continue }
+            guard readable(id), !asked.contains(id) else {
+                since[id] = nil
+                continue
+            }
             let first = since[id] ?? now
             since[id] = first
             guard now.timeIntervalSince(first) >= 1 else { continue }

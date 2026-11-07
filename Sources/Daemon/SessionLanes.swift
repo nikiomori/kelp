@@ -1,12 +1,15 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// What an in-order handler mustn't do on the connection's reader thread: wake a paused session (git, files, a spawn
 /// can take seconds, and everything else that connection sends would wait behind it — the app's main thread too, once
 /// the socket fills). Each session has a serial lane: input for a paused one wakes it there, and input after it follows.
 final class SessionLanes: Sendable {
-    private struct Lane { let queue: DispatchQueue; var waiting = 0 }
+    private struct Lane {
+        let queue: DispatchQueue
+        var waiting = 0
+    }
     private let lanes = OSAllocatedUnfairLock<[String: Lane]>(initialState: [:])
 
     /// Nothing for `id` waits on its lane: new input may go straight to the running session.
@@ -18,7 +21,10 @@ final class SessionLanes: Sendable {
     /// `work` on `id`'s lane, after what's already there. A lane goes once nothing waits on it (the next input makes one).
     func run(_ id: String, _ work: @escaping @Sendable () -> Void) {
         let q = enter(id)
-        q.async { [self] in work(); leave(id) }
+        q.async { [self] in
+            work()
+            leave(id)
+        }
     }
 
     /// `work` on `id`'s lane after what's already there, this thread waiting for it (one that may block: not a reader).
@@ -31,7 +37,8 @@ final class SessionLanes: Sendable {
     private func enter(_ id: String) -> DispatchQueue {
         lanes.withLock { l in
             var lane = l[id] ?? Lane(queue: DispatchQueue(label: "kelp.session-lane"))
-            lane.waiting += 1; l[id] = lane
+            lane.waiting += 1
+            l[id] = lane
             return lane.queue
         }
     }
@@ -57,26 +64,39 @@ protocol SessionInput: Handled where Service == Sessions {
 extension SessionInput {
     /// Off the reader thread (another handler, a test): here, in order with the session's other input.
     func handle(_ sessions: Sessions) throws -> Result {
-        if sessions.lanes.isClear(id), let ls = sessions.existing(id), let r = try ls.input({ try apply(to: ls) }) { return r }
+        if sessions.lanes.isClear(id), let ls = sessions.existing(id), let r = try ls.input({ try apply(to: ls) }) {
+            return r
+        }
         try sessions.mustWake(id)
         return try sessions.lanes.runHere(id) { try sessions.withInput(id) { try apply(to: $0) } }
     }
 
     /// On the connection's reader thread: `done` with the reply's result, now or from the lane. `allowed` refuses a caller
     /// the method doesn't take (`Daemon.allow`), as for every other method, and again in the lane, once the session woke.
-    static func answerInOrder(_ p: JSONValue, _ sessions: Sessions, allowed: @escaping @Sendable (any Answered) throws -> Void,
-                              done: @escaping @Sendable (Swift.Result<Data, Error>) -> Void) {
+    static func answerInOrder(
+        _ p: JSONValue, _ sessions: Sessions, allowed: @escaping @Sendable (any Answered) throws -> Void,
+        done: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) {
         do {
             let m = try decoded(p)
             try allowed(m)
-            if sessions.lanes.isClear(m.id), let ls = sessions.existing(m.id), let r = try ls.input({ try m.apply(to: ls) }) {
-                done(.success(try JSONEncoder().encode(r))); return
+            if sessions.lanes.isClear(m.id), let ls = sessions.existing(m.id),
+                let r = try ls.input({ try m.apply(to: ls) })
+            {
+                done(.success(try JSONEncoder().encode(r)))
+                return
             }
             try sessions.mustWake(m.id)
-            guard !sessions.lanes.isFull(m.id) else { throw RPCError.internalError("Too much input waits for this session to wake.") }
+            guard !sessions.lanes.isFull(m.id) else {
+                throw RPCError.internalError("Too much input waits for this session to wake.")
+            }
             // Asked again once it's awake: what it shows by then (a question) may refuse what was let through (`typesInto`).
             sessions.lanes.run(m.id) {
-                done(Swift.Result { try allowed(m); return try JSONEncoder().encode(sessions.withInput(m.id) { try m.apply(to: $0) }) })
+                done(
+                    Swift.Result {
+                        try allowed(m)
+                        return try JSONEncoder().encode(sessions.withInput(m.id) { try m.apply(to: $0) })
+                    })
             }
         } catch { done(.failure(error)) }
     }

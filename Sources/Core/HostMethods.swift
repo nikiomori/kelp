@@ -4,14 +4,20 @@ import Foundation
 /// processes are Kelp's agents. `connect` false (the sidebar's look every few seconds) never dials: without an open
 /// connection the answer is only `connected` false and why the last try failed.
 public struct HostStatsRead: InternalMethod {
-    public static let name = "host.stats"; public typealias Result = HostStats
+    public static let name = "host.stats"
+    public typealias Result = HostStats
     public var host: String, connect: Bool?
-    public init(host: String, connect: Bool? = nil) { self.host = host; self.connect = connect }
+    public init(host: String, connect: Bool? = nil) {
+        self.host = host
+        self.connect = connect
+    }
 }
 
 /// Closes the host's shared connection (`ssh -O exit`): agents in tmux there go on.
 public struct HostDisconnect: InternalMethod {
-    public static let name = "host.disconnect"; public typealias Result = Done; public var host: String
+    public static let name = "host.disconnect"
+    public typealias Result = Done
+    public var host: String
     public init(host: String) { self.host = host }
 }
 
@@ -37,7 +43,11 @@ public struct HostStats: Codable, Sendable, Equatable {
     /// Kelp's tmux sessions there (`Tmux.isOwn`), with the Kelp session each belongs to, if one does.
     public var tmux: [TmuxSession]?
 
-    public init(host: String, connected: Bool, error: String? = nil) { self.host = host; self.connected = connected; self.error = error }
+    public init(host: String, connected: Bool, error: String? = nil) {
+        self.host = host
+        self.connected = connected
+        self.error = error
+    }
 
     public struct Process: Codable, Sendable, Equatable {
         public var pid: Int, user: String, cpu: Double
@@ -47,9 +57,18 @@ public struct HostStats: Codable, Sendable, Equatable {
         public var command: String, args: String
         /// The Kelp session it runs under (its tmux pane's), if any.
         public var session: String?
-        public init(pid: Int, user: String, cpu: Double, memory: Int, seconds: Int, command: String, args: String, session: String? = nil) {
-            self.pid = pid; self.user = user; self.cpu = cpu; self.memory = memory; self.seconds = seconds
-            self.command = command; self.args = args; self.session = session
+        public init(
+            pid: Int, user: String, cpu: Double, memory: Int, seconds: Int, command: String, args: String,
+            session: String? = nil
+        ) {
+            self.pid = pid
+            self.user = user
+            self.cpu = cpu
+            self.memory = memory
+            self.seconds = seconds
+            self.command = command
+            self.args = args
+            self.session = session
         }
     }
 
@@ -57,12 +76,18 @@ public struct HostStats: Codable, Sendable, Equatable {
         public var port: Int
         /// Reached only from the server itself (127.0.0.1, ::1): forward it to use it here.
         public var local: Bool
-        public init(port: Int, local: Bool) { self.port = port; self.local = local }
+        public init(port: Int, local: Bool) {
+            self.port = port
+            self.local = local
+        }
     }
 
     public struct TmuxSession: Codable, Sendable, Equatable {
         public var name: String, session: String?
-        public init(name: String, session: String? = nil) { self.name = name; self.session = session }
+        public init(name: String, session: String? = nil) {
+            self.name = name
+            self.session = session
+        }
     }
 
     public enum Strain: String, Sendable { case disk, memory, cpu }
@@ -71,7 +96,9 @@ public struct HostStats: Codable, Sendable, Equatable {
     public var alert: (Strain, percent: Int)? {
         if let d = Self.percent(disk, diskTotal), d >= 90 { return (.disk, d) }
         if let m = Self.percent(memory, memoryTotal), m >= 90 { return (.memory, m) }
-        if let c = cpu, c >= 90, let l = load?.first, let n = cores, l >= Double(n) * 0.9 { return (.cpu, Int(c.rounded())) }
+        if let c = cpu, c >= 90, let l = load?.first, let n = cores, l >= Double(n) * 0.9 {
+            return (.cpu, Int(c.rounded()))
+        }
         return nil
     }
     public static func percent(_ used: Int?, _ total: Int?) -> Int? {

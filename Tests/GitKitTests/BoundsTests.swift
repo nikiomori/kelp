@@ -1,7 +1,8 @@
 import Foundation
 import Testing
-@testable import GitKit
+
 @testable import Core
+@testable import GitKit
 
 /// git's output past twice the budget isn't kept: a diff that prints 17 MB comes back with the files read before the
 /// cut, and the rest named, header only, like files past the budget.
@@ -22,8 +23,9 @@ import Testing
 /// the file list its own limit; without a limit, git's whole answer.
 @Test func aStatusPastItsLimitListsTheFirst() throws {
     let repo = try tempRepo()
-    let made = try Subprocess.run(["/bin/sh", "-c", "mkdir n && cd n && seq 10005 | xargs touch"], cwd: repo,
-                                  env: ProcessInfo.processInfo.environment, timeLimit: 60)
+    let made = try Subprocess.run(
+        ["/bin/sh", "-c", "mkdir n && cd n && seq 10005 | xargs touch"], cwd: repo,
+        env: ProcessInfo.processInfo.environment, timeLimit: 60)
     #expect(made.status == 0)
     #expect(try Git.status(repo, limit: FileChange.limit).count == FileChange.limit)
     #expect(try Git.status(repo).count == 10_006)   // .env too

@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import GitKit
 import Integrations
 
@@ -14,13 +14,17 @@ func clientRef(_ v: String?) throws -> String? {
 extension Store {
     /// The project and folder a method names: its workspace's (`worktreeId`), else its project's (`repoId`).
     func repoPath(_ p: JSONValue) throws -> (Repo, String) {
-        if let wid = p["worktreeId"]?.string, let w = try worktree(wid), let r = try repo(w.repoId) { return (r, w.path) }
+        if let wid = p["worktreeId"]?.string, let w = try worktree(wid), let r = try repo(w.repoId) {
+            return (r, w.path)
+        }
         guard let r = try repo(p.req("repoId")) else { throw RPCError.invalidParams("no repo") }
         return (r, r.path)
     }
 
     func repoPath(worktreeId: String?, repoId: String?) throws -> (Repo, String) {
-        try repoPath(.obj(["worktreeId": worktreeId.map { .string($0) } ?? .null, "repoId": repoId.map { .string($0) } ?? .null]))
+        try repoPath(
+            .obj(["worktreeId": worktreeId.map { .string($0) } ?? .null, "repoId": repoId.map { .string($0) } ?? .null])
+        )
     }
 }
 

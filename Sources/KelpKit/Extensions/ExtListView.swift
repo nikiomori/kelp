@@ -1,9 +1,9 @@
+import Agents
 import AppKit
-import SwiftUI
-import WebKit
 import Core
 import DesignKit
-import Agents
+import SwiftUI
+import WebKit
 import WorkbenchKit
 
 // MARK: list views
@@ -30,33 +30,48 @@ struct ExtListView: View {
             // The bar every panel has (DesignKit's Bar): the first action in words, the others as icons, Refresh in ⋯.
             HStack(spacing: Metrics.gap) {
                 ForEach(Array((def.toolbar ?? []).enumerated()), id: \.offset) { i, a in
-                    Button { ExtActions(app).perform(a, item: nil, folder: folder) { reload() } } label: {
-                        if i == 0 { Label(a.title, systemImage: a.icon ?? "play") } else { Image(systemName: a.icon ?? "play").frame(width: 22, height: 22) }
+                    Button {
+                        ExtActions(app).perform(a, item: nil, folder: folder) { reload() }
+                    } label: {
+                        if i == 0 {
+                            Label(a.title, systemImage: a.icon ?? "play")
+                        } else {
+                            Image(systemName: a.icon ?? "play").frame(width: 22, height: 22)
+                        }
                     }
                     .buttonStyle(PointerButtonStyle()).help(a.title)
                     if i == 0 { Spacer() }
                 }
                 if def.toolbar?.isEmpty ?? true { Spacer() }
                 if loading { ProgressView().controlSize(.small) }
-                Menu { Button("Refresh") { reload() } } label: { Image(systemName: "ellipsis.circle") }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+                Menu {
+                    Button("Refresh") { reload() }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
             }
             .font(.system(size: Metrics.iconPoint))
             .foregroundStyle(.secondary)
-            .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(height: TextSize.of(Metrics.panelHeader))
+            .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(
+                height: TextSize.of(Metrics.panelHeader))
             Divider()
             if let error {
-                EmptyState(title: String(localized: "Couldn't load"), symbol: nil, output: error).frame(maxHeight: .infinity)
+                EmptyState(title: String(localized: "Couldn't load"), symbol: nil, output: error).frame(
+                    maxHeight: .infinity)
             } else if items.isEmpty, !running {
                 let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"   // a field's icon names no symbol here
-                EmptyState(title: def.empty ?? String(localized: "Nothing here"), symbol: symbol, output: nil).frame(maxHeight: .infinity)
+                EmptyState(title: def.empty ?? String(localized: "Nothing here"), symbol: symbol, output: nil).frame(
+                    maxHeight: .infinity)
             } else {
                 List(selection: $selection) {
                     ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                         row(item).tag(i)
                             .contextMenu {
                                 ForEach(Array((def.actions ?? []).enumerated()), id: \.offset) { _, a in
-                                    Button { ExtActions(app).perform(a, item: item, folder: folder) { reload() } } label: {
+                                    Button {
+                                        ExtActions(app).perform(a, item: item, folder: folder) { reload() }
+                                    } label: {
                                         Label(a.title, systemImage: a.icon ?? "circle")
                                     }
                                 }
@@ -64,7 +79,8 @@ struct ExtListView: View {
                     }
                 }
                 .listStyle(.sidebar)
-                .contextMenu(forSelectionType: Int.self) { _ in } primaryAction: { sel in
+                .contextMenu(forSelectionType: Int.self) { _ in
+                } primaryAction: { sel in
                     if let i = sel.first, items.indices.contains(i), let a = def.actions?.first {
                         ExtActions(app).perform(a, item: items[i], folder: folder) { reload() }
                     }
@@ -109,7 +125,9 @@ struct ExtListView: View {
     }
 
     private func status(_ item: JSONValue) -> AgentStatus? {
-        guard let s = def.status, let v = item[s.field].map(ExtActions.text), let mapped = s.map[v] ?? s.map[v.lowercased()] else { return nil }
+        guard let s = def.status, let v = item[s.field].map(ExtActions.text),
+            let mapped = s.map[v] ?? s.map[v.lowercased()]
+        else { return nil }
         switch mapped {
         case "working": return .working
         case "waiting": return .waiting
@@ -129,7 +147,10 @@ struct ExtListView: View {
             slow.cancel()
             loading = false
             running = false
-            if r.code != 0, r.stdout.isEmpty { error = r.stderr.isEmpty ? String(localized: "Exit code \(r.code)") : String(r.stderr.suffix(600)); return }
+            if r.code != 0, r.stdout.isEmpty {
+                error = r.stderr.isEmpty ? String(localized: "Exit code \(r.code)") : String(r.stderr.suffix(600))
+                return
+            }
             error = nil
             items = Self.parse(r.stdout)
         }
@@ -138,7 +159,11 @@ struct ExtListView: View {
     /// A JSON array, or one JSON object per line.
     static func parse(_ s: String) -> [JSONValue] {
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.hasPrefix("["), let d = t.data(using: .utf8), case .array(let a)? = try? JSONDecoder().decode(JSONValue.self, from: d) { return a }
+        if t.hasPrefix("["), let d = t.data(using: .utf8),
+            case .array(let a)? = try? JSONDecoder().decode(JSONValue.self, from: d)
+        {
+            return a
+        }
         return t.split(whereSeparator: \.isNewline).compactMap { line in
             line.data(using: .utf8).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
         }

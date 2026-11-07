@@ -8,7 +8,12 @@ public struct ClosedTab: Equatable, Sendable {
     public let group: String?, index: Int?
     public let at: Date
     public init(uri: String, title: String, workspace: String, group: String?, index: Int?, at: Date = Date()) {
-        self.uri = uri; self.title = title; self.workspace = workspace; self.group = group; self.index = index; self.at = at
+        self.uri = uri
+        self.title = title
+        self.workspace = workspace
+        self.group = group
+        self.index = index
+        self.at = at
     }
     /// A file is one tab at whatever line.
     fileprivate var key: String { TabURI.scheme(uri) == "file" ? TabURI.filePath(uri).path : uri }

@@ -1,6 +1,6 @@
-import SwiftUI
 import Core
 import DesignKit
+import SwiftUI
 
 /// Color themes by what they are: the ones that follow something, Kelp's own, the looks that rebuild the window, then the
 /// classics (folded: palettes people know, which differ least from one another) and what's installed. Each card is a small
@@ -31,9 +31,14 @@ struct ThemeGallery: View {
             first
             Text("Looks").padding(.top, Metrics.gap)   // a group of its own, not a caption of the row above
             grid(all.filter { looks.contains($0.id) }.map(card))
-            DisclosureGroup(isExpanded: Binding(get: { classics || classic.contains { $0.id == selection } }, set: { classics = $0 })) {
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { classics || classic.contains { $0.id == selection } }, set: { classics = $0 })
+            ) {
                 grid(classic.map(card)).padding(.top, Metrics.gapWide)
-            } label: { Text("Classics") }
+            } label: {
+                Text("Classics")
+            }
             let installed = all.filter { !kelp.contains($0.id) && !looks.contains($0.id) && !popular.contains($0.id) }
             if !installed.isEmpty {
                 Text("Installed").padding(.top, Metrics.gap)
@@ -56,9 +61,12 @@ struct ThemeGallery: View {
 
     /// Match System and Ghostty: the themes they stand for just now.
     private func following(_ all: [Theme]) -> [ThemeCard] {
-        guard let auto = all.first(where: { $0.id == (app.themes.isDark ? "kelp.dark" : "kelp.light") }) else { return [] }
+        guard let auto = all.first(where: { $0.id == (app.themes.isDark ? "kelp.dark" : "kelp.light") }) else {
+            return []
+        }
         var system = ThemeCard(auto)
-        system.id = "auto"; system.name = "Match System"
+        system.id = "auto"
+        system.name = "Match System"
         return [system, ghostty(base: ThemeCard(auto))]
     }
 
@@ -67,7 +75,8 @@ struct ThemeGallery: View {
     private func ghostty(base: ThemeCard) -> ThemeCard {
         let g = GhosttyConfig.load()
         var c = base
-        c.id = "ghostty"; c.name = "Ghostty"
+        c.id = "ghostty"
+        c.name = "Ghostty"
         c.background = g?.background.flatMap { Color(hex: $0) } ?? base.background
         c.foreground = g?.foreground.flatMap { Color(hex: $0) } ?? base.foreground
         c.lines = base.lines.enumerated().map { i, line in g?.palette[i + 1].flatMap { Color(hex: $0) } ?? line }
@@ -86,12 +95,14 @@ private struct ThemeCard: Identifiable {
     var opacity: Double
 
     init(_ t: Theme) {
-        id = t.id; name = t.name
+        id = t.id
+        name = t.name
         look = ThemeManager.windowLook(t, terminalOpacity: t.terminal?.opacity ?? 1, forced: nil)
         dark = t.appearance != "light"
         background = Color(hex: t.terminal?.background ?? "") ?? .black
         foreground = Color(hex: t.terminal?.foreground ?? "") ?? .white
-        accent = (t.window?.accent ?? t.terminal?.palette?.dropFirst(4).first).flatMap { Color(hex: $0) } ?? .accentColor
+        accent =
+            (t.window?.accent ?? t.terminal?.palette?.dropFirst(4).first).flatMap { Color(hex: $0) } ?? .accentColor
         lines = (t.terminal?.palette ?? []).dropFirst().prefix(6).compactMap { Color(hex: $0) }
         opacity = t.terminal?.opacity ?? 1
     }
@@ -109,7 +120,9 @@ private struct MiniWindow: View {
             HStack(spacing: 4) {
                 VStack(alignment: .leading, spacing: 4) {
                     Capsule().fill(card.accent).frame(width: 18, height: 3)
-                    ForEach(0..<3, id: \.self) { i in Capsule().fill(ink.opacity(0.28)).frame(width: 24 - CGFloat(i) * 5, height: 3) }
+                    ForEach(0..<3, id: \.self) { i in
+                        Capsule().fill(ink.opacity(0.28)).frame(width: 24 - CGFloat(i) * 5, height: 3)
+                    }
                     Spacer()
                 }
                 .padding(.top, 7).padding(.leading, 6)
@@ -142,7 +155,9 @@ private struct MiniWindow: View {
         if let s = card.look.surface {
             Color(nsColor: s.withAlphaComponent(1))
         } else if card.look.seeThrough {
-            LinearGradient(colors: card.dark ? [.indigo, .teal] : [.cyan.opacity(0.5), .pink.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(
+                colors: card.dark ? [.indigo, .teal] : [.cyan.opacity(0.5), .pink.opacity(0.35)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
         } else {
             Color(white: card.dark ? 0.2 : 0.9)
         }
@@ -156,21 +171,29 @@ private struct MiniWindow: View {
                 ZStack {
                     ForEach(Array(colors.enumerated()), id: \.offset) { i, color in
                         let corner = [UnitPoint.topLeading, .topTrailing, .bottom][i % 3]
-                        RadialGradient(colors: [color.opacity(0.65), .clear], center: corner, startRadius: 0, endRadius: 90)
+                        RadialGradient(
+                            colors: [color.opacity(0.65), .clear], center: corner, startRadius: 0, endRadius: 90)
                     }
                 }
             case .motes:
                 Canvas { ctx, size in
                     for i in 0..<14 {
-                        let x = CGFloat((i * 37) % 100) / 100 * size.width, y = CGFloat((i * 53) % 100) / 100 * size.height, d = CGFloat(i % 3) + 1.5
-                        ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: d, height: d)), with: .color((colors.first ?? .white).opacity(0.6)))
+                        let x = CGFloat((i * 37) % 100) / 100 * size.width,
+                            y = CGFloat((i * 53) % 100) / 100 * size.height, d = CGFloat(i % 3) + 1.5
+                        ctx.fill(
+                            Path(ellipseIn: CGRect(x: x, y: y, width: d, height: d)),
+                            with: .color((colors.first ?? .white).opacity(0.6)))
                     }
                 }
             case .grid:
                 Canvas { ctx, size in
                     var lines = Path()
-                    for x in stride(from: 0, to: size.width, by: 8) { lines.addRect(CGRect(x: x, y: 0, width: 0.5, height: size.height)) }
-                    for y in stride(from: 0, to: size.height, by: 8) { lines.addRect(CGRect(x: 0, y: y, width: size.width, height: 0.5)) }
+                    for x in stride(from: 0, to: size.width, by: 8) {
+                        lines.addRect(CGRect(x: x, y: 0, width: 0.5, height: size.height))
+                    }
+                    for y in stride(from: 0, to: size.height, by: 8) {
+                        lines.addRect(CGRect(x: 0, y: y, width: size.width, height: 0.5))
+                    }
                     ctx.fill(lines, with: .color((colors.first ?? .white).opacity(0.14)))
                 }
             }

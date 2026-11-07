@@ -15,7 +15,9 @@ enum FileBatch {
     }
 
     /// All or none: on the first refusal what was written goes back, and the file refused is the answer.
-    static func writeAll(_ files: [(path: String, old: String, new: String, base: FileStamp)], app: AppModel) async -> Result<[Done], Refused> {
+    static func writeAll(_ files: [(path: String, old: String, new: String, base: FileStamp)], app: AppModel) async
+        -> Result<[Done], Refused>
+    {
         var done: [Done] = []
         for f in files {
             guard let stamp = await write(f.path, f.new, over: f.base, app: app) else {
@@ -30,17 +32,23 @@ enum FileBatch {
     /// Puts each back over the version written → the files that changed again since, which keep what they have now.
     static func undo(_ done: [Done], app: AppModel) async -> [String] {
         var stuck: [String] = []
-        for d in done.reversed() where await write(d.path, d.old, over: d.stamp, app: app) == nil { stuck.append(d.path) }
+        for d in done.reversed() where await write(d.path, d.old, over: d.stamp, app: app) == nil {
+            stuck.append(d.path)
+        }
         return stuck
     }
 
     /// Undo, from a banner: what couldn't go back is said.
     static func undoSaying(_ done: [Done], app: AppModel) async {
         let stuck = await undo(done, app: app)
-        if !stuck.isEmpty { Banner.show(String(localized: "Changed again since, so kept as it is now: \(names(stuck))."), style: .error) }
+        if !stuck.isEmpty {
+            Banner.show(String(localized: "Changed again since, so kept as it is now: \(names(stuck))."), style: .error)
+        }
     }
 
     struct Refused: Error { let path: String, stuck: [String] }
 
-    static func names(_ paths: [String]) -> String { paths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ") }
+    static func names(_ paths: [String]) -> String {
+        paths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
+    }
 }

@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import os
-import Core
 
 /// Who is connected to the socket: each client, which of them are raw byte pipes (`kelp attach`), which is Kelp's window
 /// (and what it last said it shows). Under a lock of its own.
@@ -13,14 +13,17 @@ import Core
 final class Clients: Sendable {
     private struct State {
         var all: [Int: Connection] = [:], next = 1
-        var raw = Set<Int>()          // byte pipes, and new ones until their first request says they aren't: no JSON events go to them
-        var app = Set<Int>()          // Kelp's window (ui.publish): it gets event.ui
-        var muted = Set<Int>()        // asked for no broadcasts (client.events): kelp attach's control connection
+        var raw = Set<Int>()   // byte pipes, and new ones until their first request says they aren't: no JSON events go to them
+        var app = Set<Int>()   // Kelp's window (ui.publish): it gets event.ui
+        var muted = Set<Int>()   // asked for no broadcasts (client.events): kelp attach's control connection
         var uiState: JSONValue = .object([:])   // what the app last published; cleared when no app is connected
         var replies: [String: Waiting] = [:]   // ui.browser requests the app hasn't answered
     }
     /// A request to the app: who it went to (one that hangs up can't answer it), and its timeout.
-    private struct Waiting { let k: CheckedContinuation<JSONValue, Error>, to: Set<Int>; var timer: Task<Void, Never>? }
+    private struct Waiting {
+        let k: CheckedContinuation<JSONValue, Error>, to: Set<Int>
+        var timer: Task<Void, Never>?
+    }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     /// Raw until it asks for something (`kelp attach` sends `session.stream` first): an event broadcast before then would
@@ -73,7 +76,8 @@ final class Clients: Sendable {
     /// Who gets a JSON event: everyone but the raw pipes and those that asked for none, or only those in `only`.
     func targets(_ only: Set<Int>?) -> [Connection] {
         state.withLock { s in
-            s.all.filter { id, _ in !s.raw.contains(id) && (only.map { $0.contains(id) } ?? !s.muted.contains(id)) }.map(\.value)
+            s.all.filter { id, _ in !s.raw.contains(id) && (only.map { $0.contains(id) } ?? !s.muted.contains(id)) }
+                .map(\.value)
         }
     }
 
@@ -83,11 +87,15 @@ final class Clients: Sendable {
         targets(only).forEach { $0.send(d) }
     }
 
-    func setMuted(_ id: Int, _ muted: Bool) { state.withLock { if muted { $0.muted.insert(id) } else { $0.muted.remove(id) } } }
+    func setMuted(_ id: Int, _ muted: Bool) {
+        state.withLock { if muted { $0.muted.insert(id) } else { $0.muted.remove(id) } }
+    }
 
     /// The answer to `request` from one of the windows `apps` (`send` asks them); an error once `seconds` pass without one,
     /// or once they've all hung up.
-    func reply(to request: String, from apps: Set<Int>, within seconds: TimeInterval, send: () -> Void) async throws -> JSONValue {
+    func reply(to request: String, from apps: Set<Int>, within seconds: TimeInterval, send: () -> Void) async throws
+        -> JSONValue
+    {
         try await withCheckedThrowingContinuation { k in
             let timer = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
@@ -105,7 +113,12 @@ final class Clients: Sendable {
         w.k.resume(with: r)
     }
 
-    func publishUI(_ ui: JSONValue, from id: Int) { state.withLock { $0.uiState = ui; $0.app.insert(id) } }
+    func publishUI(_ ui: JSONValue, from id: Int) {
+        state.withLock {
+            $0.uiState = ui
+            $0.app.insert(id)
+        }
+    }
     var uiState: JSONValue { state.withLock { $0.uiState } }
     var apps: Set<Int> { state.withLock { $0.app.subtracting($0.raw) } }
 }
@@ -114,7 +127,9 @@ extension Clients {
     /// KelpApp beside this daemon (one bundle, or one build folder); KELP_APP_EXECUTABLE stands in for it in tests.
     static var appExecutable: String {
         #if DEBUG   // tests stand in for the app; a release build takes no word for it from whoever started kelpd
-        if let e = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"] { return URL(fileURLWithPath: e).resolvingSymlinksInPath().path }
+            if let e = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"] {
+                return URL(fileURLWithPath: e).resolvingSymlinksInPath().path
+            }
         #endif
         let me = Bundle.main.executableURL?.resolvingSymlinksInPath() ?? URL(fileURLWithPath: CommandLine.arguments[0])
         return me.deletingLastPathComponent().appendingPathComponent("KelpApp").resolvingSymlinksInPath().path
@@ -125,7 +140,9 @@ extension Clients {
     func requireApp(_ conn: Int, _ refusal: String) throws {
         let peer = peer(conn)
         guard peer != Self.appExecutable else { return }
-        Log.rpc.notice("refused \(refusal, privacy: .public): \(peer ?? "an unknown program", privacy: .public) isn't \(Self.appExecutable, privacy: .public)")
+        Log.rpc.notice(
+            "refused \(refusal, privacy: .public): \(peer ?? "an unknown program", privacy: .public) isn't \(Self.appExecutable, privacy: .public)"
+        )
         throw RPCError.refused(refusal)
     }
 }

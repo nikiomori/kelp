@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 extension Main {
     /// `artifact guide|new|list|open|add`: pages agents make for the user, kept in the project's `.kelp/artifacts`.
@@ -19,28 +19,44 @@ extension Main {
             guard args.count >= 2, let kind = Artifacts.Kind(rawValue: args[0]) else {
                 fail("artifact new <\(Artifacts.Kind.allCases.map(\.rawValue).joined(separator: "|"))> <title>")
             }
-            let file = try Artifacts.create(kind, title: args.dropFirst().joined(separator: " "), root: root, session: session)
+            let file = try Artifacts.create(
+                kind, title: args.dropFirst().joined(separator: " "), root: root, session: session)
             var opened = false
             if !quiet {
-                do { _ = try await IDE.open(file.path, split: nil, cwd: cwd, client: c); opened = true }
-                catch {   // the page is made all the same
-                    print("Not opened (\((error as? RPCError)?.message ?? error.localizedDescription)): the user finds it in Kelp's list later.")
+                do {
+                    _ = try await IDE.open(file.path, split: nil, cwd: cwd, client: c)
+                    opened = true
+                } catch {   // the page is made all the same
+                    print(
+                        "Not opened (\((error as? RPCError)?.message ?? error.localizedDescription)): the user finds it in Kelp's list later."
+                    )
                 }
             }
             print(file.path)
-            print(opened ? "Opened beside you. Write the page into that file; the tab updates as you save." : "Write the page into that file.")
+            print(
+                opened
+                    ? "Opened beside you. Write the page into that file; the tab updates as you save."
+                    : "Write the page into that file.")
             print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
         case "list":
-            for (slug, r) in Artifacts.list(root: root) { print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t")) }
+            for (slug, r) in Artifacts.list(root: root) {
+                print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t"))
+            }
         case "open":
             guard let name = args.first, let a = Artifacts.list(root: root).first(where: { $0.slug == name }) else {
                 fail("artifact open <name> (names: kelp artifact list)")
             }
-            if let url = a.record.url { openInBrowser(url) }   // Kelp's tabs aren't signed in to the service
-            else { _ = try await IDE.open(Artifacts.target(a.slug, a.record, root: root), split: nil, cwd: cwd, client: c) }
+            if let url = a.record.url {
+                openInBrowser(url)
+            }   // Kelp's tabs aren't signed in to the service
+            else {
+                _ = try await IDE.open(Artifacts.target(a.slug, a.record, root: root), split: nil, cwd: cwd, client: c)
+            }
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
-            guard let url = args.first, url.hasPrefix("https://") else { fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]") }
+            guard let url = args.first, url.hasPrefix("https://") else {
+                fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]")
+            }
             _ = try Artifacts.addNative(url: url, title: title ?? url, type: type, root: root, session: session)
         default: print(usage)
         }
@@ -67,7 +83,8 @@ extension Main {
     /// The user's default browser, which is signed in to the service the page is on.
     static func openInBrowser(_ url: String) {
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/open"); p.arguments = [url]
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        p.arguments = [url]
         do { try p.run() } catch { fail("couldn't open \(url): \(error.localizedDescription)") }
     }
 }

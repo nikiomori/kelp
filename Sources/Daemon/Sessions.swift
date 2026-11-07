@@ -1,8 +1,8 @@
-import Foundation
-import os
-import IOKit.pwr_mgt
-import Core
 import Agents
+import Core
+import Foundation
+import IOKit.pwr_mgt
+import os
 
 /// The sessions: which run now (`live`), starting, waking, pausing and deleting them, what they tell the clients, the
 /// Mac kept awake while agents work. Paused and ended ones are only in the store.
@@ -14,7 +14,8 @@ final class Sessions: Sendable {
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
     /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
-    let permissionWaits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
+    let permissionWaits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:]
+    )
     let pausing = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions an idle pause is stopping: input waits, then wakes them
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
@@ -40,10 +41,14 @@ final class Sessions: Sendable {
     /// Who calls, by the program on each connection (CallerLookup.swift).
     let callers: Callers
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
-    let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
+    let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:]
+    )
 
-    init(root: URL, socketPath: String, store: Store, remotes: Remotes, settings: SettingsStore, agentUsage: AgentUsage, clients: Clients,
-         watches: Watches, offloads: Slots) {
+    init(
+        root: URL, socketPath: String, store: Store, remotes: Remotes, settings: SettingsStore, agentUsage: AgentUsage,
+        clients: Clients,
+        watches: Watches, offloads: Slots
+    ) {
         self.root = root
         self.socketPath = socketPath
         self.store = store
@@ -59,7 +64,8 @@ final class Sessions: Sendable {
 
     /// `kelp` (hooks, the ctty trampoline) first, then the user's login-shell PATH.
     static var childPath: String {
-        [Bundle.main.executableURL?.deletingLastPathComponent().path ?? "", LoginPath.value].filter { !$0.isEmpty }.joined(separator: ":")
+        [Bundle.main.executableURL?.deletingLastPathComponent().path ?? "", LoginPath.value].filter { !$0.isEmpty }
+            .joined(separator: ":")
     }
 
     func notify(_ e: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(e, to: only) }
@@ -77,7 +83,9 @@ final class Sessions: Sendable {
 
     /// Not running: it has to be paused, to be woken for input.
     func mustWake(_ id: String) throws {
-        guard try existing(id) != nil || pausing.withLock({ $0.contains(id) }) || store.session(id).map(isPaused) == true else {
+        guard
+            try existing(id) != nil || pausing.withLock({ $0.contains(id) }) || store.session(id).map(isPaused) == true
+        else {
             throw RPCError.invalidParams("no live session \(id)")
         }
     }
@@ -97,7 +105,9 @@ final class Sessions: Sendable {
         let bytes = max(0, min(bytes, 16 << 20))
         if let ls = existing(id) { return ls.tail(bytes) }
         // Only a session Kelp has: the id names a file, and "../../x" would name any .log the user can read.
-        guard (try? store.session(id)) != nil, let d = Data(tailOf: root.appendingPathComponent("history/\(id).log"), bytes: bytes) else {
+        guard (try? store.session(id)) != nil,
+            let d = Data(tailOf: root.appendingPathComponent("history/\(id).log"), bytes: bytes)
+        else {
             throw RPCError.invalidParams("no history for \(id)")
         }
         return d
@@ -106,7 +116,8 @@ final class Sessions: Sendable {
     /// The trail of a session Kelp has: the id names a file, as in `liveSessionOrLog`.
     func trail(_ id: String) throws -> StatusTrail? {
         if let ls = existing(id) { return ls.trail }
-        return try store.session(id) == nil ? nil : StatusTrail(history: root.appendingPathComponent("history"), session: id)
+        return try store.session(id) == nil
+            ? nil : StatusTrail(history: root.appendingPathComponent("history"), session: id)
     }
 
     struct Launch {
@@ -137,8 +148,9 @@ final class Sessions: Sendable {
     @discardableResult
     func spawn(cwd: String, manifest: AgentManifest, worktreeId: String?, _ o: Launch = Launch()) throws -> Session {
         var argv = o.argv ?? manifest.argv(model: o.model, effort: o.effort, resume: o.resume)
-        var rec = Session(worktreeId: worktreeId, cwd: cwd, command: argv.joined(separator: " "), agent: manifest.id,
-                          title: o.title ?? "", titleManual: o.title != nil, argv: argv)
+        var rec = Session(
+            worktreeId: worktreeId, cwd: cwd, command: argv.joined(separator: " "), agent: manifest.id,
+            title: o.title ?? "", titleManual: o.title != nil, argv: argv)
         // A remote project's sessions run on its host (see `launchArgv`). Kelp's hooks and skills are files on this Mac,
         // so they stay out: status comes from what the agent reports, and from the screen.
         let local = remotes.of(cwd) == nil
@@ -156,7 +168,9 @@ final class Sessions: Sendable {
             rec.browser = skills.browser
         }
         // Its own id, unless it resumes one (a restart's argv carries none: see session.restart).
-        if local, let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) { argv += [flag, rec.id.lowercased()] }
+        if local, let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) {
+            argv += [flag, rec.id.lowercased()]
+        }
         rec.argv = argv
         rec.profile = o.profile
         rec.parent = o.parent
@@ -165,10 +179,11 @@ final class Sessions: Sendable {
         // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
         if !local, o.onHostInTmux || !["shell", "custom"].contains(manifest.id) { rec.tmux = o.tmux ?? Tmux.own() }
         let env = launchEnv(manifest, rec)
-        let ls = try LiveSession(record: rec, manifest: liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
-                                 argv: try launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
-                                 historyDir: root.appendingPathComponent("history"), cols: o.cols, rows: o.rows,
-                                 callbacks: callbacks(for: rec, devServerIn: o.openURLs ? worktreeId : nil))   // e.g. Jupyter Lab's URL
+        let ls = try LiveSession(
+            record: rec, manifest: liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
+            argv: try launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
+            historyDir: root.appendingPathComponent("history"), cols: o.cols, rows: o.rows,
+            callbacks: callbacks(for: rec, devServerIn: o.openURLs ? worktreeId : nil))   // e.g. Jupyter Lab's URL
         if o.tmux != nil { ls.attachedToRunning() }
         rec = ls.snapshot
         let sid = rec.id
@@ -186,7 +201,9 @@ final class Sessions: Sendable {
         }
         if let p = o.prompt {
             ls.queuePrompt(p, draft: o.draft)
-            if o.title == nil { DispatchQueue.global(qos: .utility).async { [weak self] in self?.autoTitle(session: sid, prompt: p) } }
+            if o.title == nil {
+                DispatchQueue.global(qos: .utility).async { [weak self] in self?.autoTitle(session: sid, prompt: p) }
+            }
         }
         ls.start()   // after the record is saved: its first status must not be overwritten
         publish(ls)
@@ -223,7 +240,8 @@ final class Sessions: Sendable {
             guard let self, !ls.isFinal else { return }
             // The record as it is now, not the snapshot from when this change was queued: a title set meanwhile stays.
             // The turn bookkeeping gets each change, in order.
-            publishHere(ls); ls.noteTurn(s.status, remotes: remotes)
+            publishHere(ls)
+            ls.noteTurn(s.status, remotes: remotes)
             // Answered in the terminal: its hook goes with no answer. The status now, not the queued one: a change queued
             // before a new question's hook registered its wait mustn't end that wait.
             if ls.snapshot.status != .waiting { answerPermission(sid, nil) }
@@ -231,7 +249,9 @@ final class Sessions: Sendable {
         }
         if rec.agent == "claude" { c.limits = { [weak self] r in self?.agentUsage.recordLimits(r) } }
         if rec.agent == "cursor" { c.limits = { [weak self] r in self?.agentUsage.recordPlanHit("cursor", r) } }
-        c.turnEnded = { [weak self] prompt in self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt) }
+        c.turnEnded = { [weak self] prompt in
+            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
+        }
         // Naming follows the session however it started (created, or woken from a pause).
         c.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
         c.turnStarted = { [weak self] t in self?.keepTurn(t) }
@@ -246,12 +266,19 @@ final class Sessions: Sendable {
             let remote = remotes.of(rec.cwd)
             c.localURL = { [weak self] url in
                 guard let self else { return }
-                guard let remote else { notify(DevServerEvent(worktree: worktree, url: url, session: sid)); return }
+                guard let remote else {
+                    notify(DevServerEvent(worktree: worktree, url: url, session: sid))
+                    return
+                }
                 DispatchQueue.global(qos: .utility).async {
-                    self.notify(DevServerEvent(worktree: worktree, url: self.forwards.forward(url: url, in: worktree, remote), session: sid))
+                    self.notify(
+                        DevServerEvent(
+                            worktree: worktree, url: self.forwards.forward(url: url, in: worktree, remote), session: sid
+                        ))
                 }
             }
-            c.busyPort = { [weak self] port in self?.notify(PortBusyEvent(worktree: worktree, port: port, session: sid)) }
+            c.busyPort = { [weak self] port in self?.notify(PortBusyEvent(worktree: worktree, port: port, session: sid))
+            }
         }
         return c
     }
@@ -279,7 +306,10 @@ final class Sessions: Sendable {
     func discard(_ all: [Session], keepTmux: Bool = false) {
         if !keepTmux { all.forEach(endOwnTmux) }
         wakeLocks.withLocks(all.map(\.id)) {
-            let pids = all.compactMap { live.remove($0.id) }.flatMap { ls in hangUpStreams(ls); return ls.discard() }
+            let pids = all.compactMap { live.remove($0.id) }.flatMap { ls in
+                hangUpStreams(ls)
+                return ls.discard()
+            }
             Self.waitGone(pids)   // gone before their project or folder goes (SIGKILL after 2 s)
             for s in all {
                 // Its turns as the delete took them: a turn kept meanwhile (`keepTurn`) is either among them or refused.
@@ -308,7 +338,12 @@ final class Sessions: Sendable {
     /// its last record saved. One ending right now isn't handed over: its record says what became of it. None starts or
     /// wakes from now on.
     func handOver() -> [Handover.Session] {
-        sleepAssertion.withLock { if $0.id != 0 { IOPMAssertionRelease($0.id); $0 = (0, nil) } }   // the next one takes its own
+        sleepAssertion.withLock {
+            if $0.id != 0 {
+                IOPMAssertionRelease($0.id)
+                $0 = (0, nil)
+            }
+        }   // the next one takes its own
         let all = live.close()
         reports.settle(within: 5)   // a child's report on its way: typed into its parent below, or owed
         // What was sent and isn't written yet goes in first (a send's Enter comes 0.3 s behind its text): the program has
@@ -330,15 +365,19 @@ final class Sessions: Sendable {
             var m = try manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
             // As `liveManifest`; past startup, nothing is answered for it.
             m = wiredHooks(m, env: hookedEnv(m, rec, secrets: false), argv: rec.argv)
-            let ls = LiveSession(record: rec, manifest: m, pty: pty, historyDir: root.appendingPathComponent("history"), callbacks: callbacks(for: rec))
-            ls.adopted(modes: h.modes, bytes: h.bytes, pending: h.pending ?? [], reports: h.reports ?? [], status: h.status)
+            let ls = LiveSession(
+                record: rec, manifest: m, pty: pty, historyDir: root.appendingPathComponent("history"),
+                callbacks: callbacks(for: rec))
+            ls.adopted(
+                modes: h.modes, bytes: h.bytes, pending: h.pending ?? [], reports: h.reports ?? [], status: h.status)
             try live.add(ls)
             giveBackOwed(ls)
             ls.start()
             SessionHook.waitAgain(ls)
         } catch {
             Log.session.error("\(h.id, privacy: .public) wasn't taken over: \(error)")
-            pty.terminate(); pty.start()   // start: its exit is reaped
+            pty.terminate()
+            pty.start()   // start: its exit is reaped
         }
     }
 
@@ -349,15 +388,22 @@ final class Sessions: Sendable {
     func applyKeepAwake() {
         let mode = settings["power.keepAwake"]?.string ?? "agents"
         let working = live.all.contains { $0.snapshot.status == .working && $0.snapshot.agent != "shell" }
-        let want = mode == "always" ? kIOPMAssertPreventUserIdleDisplaySleep
+        let want =
+            mode == "always"
+            ? kIOPMAssertPreventUserIdleDisplaySleep
             : mode == "agents" && working ? kIOPMAssertPreventUserIdleSystemSleep : nil
         sleepAssertion.withLock { held in   // the ticker and a settings change at once: one assertion
             guard held.type != want else { return }
-            if held.id != 0 { IOPMAssertionRelease(held.id); held = (0, nil) }
+            if held.id != 0 {
+                IOPMAssertionRelease(held.id)
+                held = (0, nil)
+            }
             guard let want else { return }
             var id: IOPMAssertionID = 0
             let name = mode == "always" ? "Keep Mac Awake is on in Kelp" : "Kelp agents are working"
-            if IOPMAssertionCreateWithName(want as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), name as CFString, &id) == kIOReturnSuccess {
+            if IOPMAssertionCreateWithName(
+                want as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), name as CFString, &id) == kIOReturnSuccess
+            {
                 held = (id, want)
             }
         }

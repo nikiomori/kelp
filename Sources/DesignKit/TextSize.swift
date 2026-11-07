@@ -30,17 +30,24 @@ extension NSFont {
         return NSFont(descriptor: d, size: 0) ?? font
     }
     public static func uiDigits(_ size: CGFloat, weight: Weight = .regular) -> NSFont {
-        TextSize.design == .default ? .monospacedDigitSystemFont(ofSize: TextSize.of(size), weight: weight) : .ui(size, weight: weight)
+        TextSize.design == .default
+            ? .monospacedDigitSystemFont(ofSize: TextSize.of(size), weight: weight) : .ui(size, weight: weight)
     }
     /// Monospaced, for short machine text in the chrome (a command to run, a hash): `code-xs`.
-    public static func uiMono(_ size: CGFloat, weight: Weight = .regular) -> NSFont { .monospacedSystemFont(ofSize: TextSize.of(size), weight: weight) }
+    public static func uiMono(_ size: CGFloat, weight: Weight = .regular) -> NSFont {
+        .monospacedSystemFont(ofSize: TextSize.of(size), weight: weight)
+    }
 }
 
 /// The same fonts for SwiftUI views, so they follow Text size and the look's font too.
 @MainActor
 extension Font {
-    public static func ui(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font { Font(NSFont.ui(size, weight: weight) as CTFont) }
-    public static func uiMono(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font { Font(NSFont.uiMono(size, weight: weight) as CTFont) }
+    public static func ui(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font {
+        Font(NSFont.ui(size, weight: weight) as CTFont)
+    }
+    public static func uiMono(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font {
+        Font(NSFont.uiMono(size, weight: weight) as CTFont)
+    }
     /// An `Image(systemName:)` beside chrome text: the symbols' one weight at a size from Metrics.
     public static func symbol(_ size: CGFloat = Metrics.iconPoint) -> Font { .ui(size, weight: Metrics.iconWeight) }
 }

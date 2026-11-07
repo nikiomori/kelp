@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 import KelpKit
 
 /// The CI of the workspace on screen, watched for as long as it's on screen (gh asks the forge once, then again only
@@ -11,12 +11,18 @@ final class FailedRuns {
 
     /// A dot keyed by the failed runs: a new failure shows it again after the panel was looked at.
     var badge: PanelBadge? {
-        let runs = CIRuns.latest(app.latest(CIEvent.self, app.workbench.workspaceId ?? "")?.result?.runs ?? []).filter(\.failed)
+        let runs = CIRuns.latest(app.latest(CIEvent.self, app.workbench.workspaceId ?? "")?.result?.runs ?? []).filter(
+            \.failed)
         return runs.isEmpty ? nil : PanelBadge(alert: true, key: runs.map { String($0.id) }.joined(separator: ","))
     }
 
     init(app: AppModel) {
-        self.app = app; watched = Watched(.ci, in: app)
-        track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.watched.key = $0 }
+        self.app = app
+        watched = Watched(.ci, in: app)
+        track(owner: self) { [app] in
+            app.workbench.workspaceId
+        } changed: { [weak self] in
+            self?.watched.key = $0
+        }
     }
 }

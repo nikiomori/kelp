@@ -1,9 +1,12 @@
 import AppKit
 import Core
 import Testing
+
 @testable import KelpKit
 
-private func session(_ status: AgentStatus, unread: Bool = false, parent: String? = nil, agent: String = "claude") -> Session {
+private func session(_ status: AgentStatus, unread: Bool = false, parent: String? = nil, agent: String = "claude")
+    -> Session
+{
     var s = Session(cwd: "/", command: "x", agent: agent, status: status, unread: unread)
     s.parent = parent
     return s

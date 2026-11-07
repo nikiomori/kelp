@@ -1,20 +1,24 @@
-import Foundation
 import Core
+import Foundation
 
 extension Main {
     static func ext(_ sub: String?, _ c: RPCClient) async throws {
         switch sub {
         case "list":
             for e in try await IDE.extensions(client: c, dir: Paths.extensions).array ?? [] {
-                let tags = [e["builtin"]?.bool == true ? "(built-in)" : nil, e["enabled"]?.bool == false ? "(disabled)" : nil,
-                            e["error"]?.string.map { "error: \($0)" }].compactMap { $0 }
+                let tags = [
+                    e["builtin"]?.bool == true ? "(built-in)" : nil, e["enabled"]?.bool == false ? "(disabled)" : nil,
+                    e["error"]?.string.map { "error: \($0)" }
+                ].compactMap { $0 }
                 print(([e["id"]?.string ?? "", e["name"]?.string ?? ""] + tags).joined(separator: "\t"))
             }
         case "new":
             let name = flag("--name"), description = flag("--description")
             guard let id = args.first else { fail("ext new <id> [--name N] [--description D]") }
             let folder = try IDE.scaffoldExtension(id: id, name: name, description: description, in: Paths.extensions)
-            print("created \(folder.path)\nguide:   \(folder.deletingLastPathComponent().appendingPathComponent("EXTENSIONS.md").path)")
+            print(
+                "created \(folder.path)\nguide:   \(folder.deletingLastPathComponent().appendingPathComponent("EXTENSIONS.md").path)"
+            )
         case "enable", "disable":
             guard let id = args.first else { fail("ext enable|disable <id>") }
             try await IDE.setExtension(id, enabled: sub == "enable", client: c)
@@ -33,26 +37,44 @@ extension Main {
             } else if what.contains("/") {
                 installed(try await fetch(what, as: nil, c, review: !args.contains("--yes")))
             } else {
-                guard let e = try await c.call(ExtensionLibrary()).first(where: { $0.id == what }) else { fail("no \(what) in the library (kelp ext search)") }
+                guard let e = try await c.call(ExtensionLibrary()).first(where: { $0.id == what }) else {
+                    fail("no \(what) in the library (kelp ext search)")
+                }
                 // Found by its topic, never reviewed: shown first, as any repository is.
-                installed(try await fetch(e.source, as: nil, c, review: e.reviewed == false && !args.contains("--yes"), files: e.files))
+                installed(
+                    try await fetch(
+                        e.source, as: nil, c, review: e.reviewed == false && !args.contains("--yes"), files: e.files))
             }
         case "update":
             let library = try await c.call(ExtensionLibrary())
             var found = false
-            for f in (try? FileManager.default.contentsOfDirectory(at: Paths.extensions, includingPropertiesForKeys: nil)) ?? [] {
-                guard let source = IDE.extensionSource(f), let id = manifest(f)["id"]?.string, args.first.map({ $0 == id }) ?? true else { continue }
+            for f
+                in (try? FileManager.default.contentsOfDirectory(at: Paths.extensions, includingPropertiesForKeys: nil))
+                ?? []
+            {
+                guard let source = IDE.extensionSource(f), let id = manifest(f)["id"]?.string,
+                    args.first.map({ $0 == id }) ?? true
+                else { continue }
                 found = true
                 // One from elsewhere on GitHub may have moved on its branch: it's fetched again.
                 let entry = library.first { $0.id == id }, latest = entry?.source
                 // A pinned commit (reviewed) says whether it changed; a repository found by its topic is a branch: fetched again.
-                if latest == source, entry?.reviewed != false { print("\(id) is up to date"); continue }
+                if latest == source, entry?.reviewed != false {
+                    print("\(id) is up to date")
+                    continue
+                }
                 // The library's pinned commit was reviewed; a branch elsewhere may hold anything its owner pushed since. Either
                 // way, commands it didn't run before are asked about.
-                installed(try await fetch(latest ?? source, as: f.lastPathComponent, c, review: (latest == nil || entry?.reviewed == false)
-                                          && !args.contains("--yes"), files: entry?.files, before: args.contains("--yes") ? nil : f))
+                installed(
+                    try await fetch(
+                        latest ?? source, as: f.lastPathComponent, c,
+                        review: (latest == nil || entry?.reviewed == false)
+                            && !args.contains("--yes"), files: entry?.files, before: args.contains("--yes") ? nil : f))
             }
-            if !found { print(args.first.map { "\($0) wasn't installed from GitHub" } ?? "nothing here was installed from GitHub") }
+            if !found {
+                print(
+                    args.first.map { "\($0) wasn't installed from GitHub" } ?? "nothing here was installed from GitHub")
+            }
         default: print(usage)
         }
     }
@@ -61,8 +83,10 @@ extension Main {
     /// first and asked about in a terminal; with no terminal to ask in, it's refused (`--yes` says yes).
     /// `files`: the library's SHA-256 of each, which the download must match. `before`: the version installed now; commands
     /// the new one runs that it didn't are asked about even when the rest needs no review.
-    static func fetch(_ source: String, as name: String?, _ c: RPCClient, review: Bool = false, files: [String: String]? = nil,
-                      before: URL? = nil) async throws -> URL {
+    static func fetch(
+        _ source: String, as name: String?, _ c: RPCClient, review: Bool = false, files: [String: String]? = nil,
+        before: URL? = nil
+    ) async throws -> URL {
         let folder = URL(fileURLWithPath: try await c.call(ExtensionFetch(source: source, files: files)).folder)
         let had = before.map { IDE.commandsIn(manifest($0)) }
         var (commands, pages) = IDE.commandsIn(manifest(folder))
@@ -75,7 +99,9 @@ extension Main {
                 print(had != nil && !review ? "\(source) now also runs:" : "\(source) can run:")
                 commands.forEach { print("  \($0)") }
                 pages.forEach { print("  \($0) (a web page, which can run any command)") }
-                guard isatty(STDIN_FILENO) == 1 else { fail("not installed: run it again with --yes to install it as it is") }
+                guard isatty(STDIN_FILENO) == 1 else {
+                    fail("not installed: run it again with --yes to install it as it is")
+                }
                 print("Install it? [y/N] ", terminator: "")
                 guard readLine()?.lowercased().hasPrefix("y") == true else { fail("not installed") }
             }
@@ -84,7 +110,8 @@ extension Main {
     }
 
     static func manifest(_ folder: URL) -> JSONValue {
-        (try? JSONDecoder().decode(JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))) ?? .null
+        (try? JSONDecoder().decode(
+            JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))) ?? .null
     }
 
     /// What was installed and what it can run: the CLI's version of the app's look before installing.

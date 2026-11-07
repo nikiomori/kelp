@@ -2,6 +2,7 @@ import Core
 import Darwin
 import Foundation
 import Testing
+
 @testable import Daemon
 
 /// A socket of this process, listening or only bound, on a port the system picks.
@@ -12,7 +13,9 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
     a.sin_addr.s_addr = inet_addr("127.0.0.1")
     var size = socklen_t(MemoryLayout<sockaddr_in>.size)
     let bound = withUnsafeMutablePointer(to: &a) { p in
-        p.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, size) == 0 && getsockname(fd, $0, &size) == 0 }
+        p.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            bind(fd, $0, size) == 0 && getsockname(fd, $0, &size) == 0
+        }
     }
     try #require(bound)
     if listening { try #require(listen(fd, 1) == 0) }
@@ -42,9 +45,17 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
     """.write(to: bin.appendingPathComponent("ss"), atomically: true, encoding: .utf8)
     chmod(bin.appendingPathComponent("ss").path, 0o755)
     let here = FileManager.default.currentDirectoryPath
-    let r = try Subprocess.run(["/bin/sh", "-c", HostPorts.script(here)], cwd: NSHomeDirectory(), env: ["PATH": bin.path + ":/usr/bin:/bin:/usr/sbin"], timeLimit: 10)
-    #expect(HostPorts.parse(String(decoding: r.stdout, as: UTF8.self)) == [HostPorts.Listener(port: 8000, pid: getpid(), command: "python3")])
-    #expect(HostPorts.parse("Welcome to the box\n\u{1E}8000 12 uvicorn worker\n") == [HostPorts.Listener(port: 8000, pid: 12, command: "uvicorn worker")])
+    let r = try Subprocess.run(
+        ["/bin/sh", "-c", HostPorts.script(here)], cwd: NSHomeDirectory(),
+        env: ["PATH": bin.path + ":/usr/bin:/bin:/usr/sbin"], timeLimit: 10)
+    #expect(
+        HostPorts.parse(String(decoding: r.stdout, as: UTF8.self)) == [
+            HostPorts.Listener(port: 8000, pid: getpid(), command: "python3")
+        ])
+    #expect(
+        HostPorts.parse("Welcome to the box\n\u{1E}8000 12 uvicorn worker\n") == [
+            HostPorts.Listener(port: 8000, pid: 12, command: "uvicorn worker")
+        ])
     #expect(HostPorts.parse("no ports here\n").isEmpty)
 }
 
@@ -58,7 +69,9 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
 
 @Test func aServerSaysItsPortIsTaken() {
     func port(_ s: String) -> Int? {
-        guard let m = LiveSession.busyRegex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) else { return nil }
+        guard let m = LiveSession.busyRegex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) else {
+            return nil
+        }
         return [1, 2].lazy.compactMap { Range(m.range(at: $0), in: s) }.first.flatMap { Int(s[$0]) }
     }
     #expect(port("Error: listen EADDRINUSE: address already in use :::3000") == 3000)
@@ -72,15 +85,20 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
 /// Against the ssh stand-in, which says every connection is alive and logs what the master is asked.
 @Test func aHostsPortComesHereOverTheSharedConnection() async throws {
     _ = localSSH
-    let (d, c, _) = try daemon(); defer { d.stop() }
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
     let there = try makeRepo()
     let repo: Repo = try await c.call("repo.addRemote", .obj(["host": "box", "path": .string(there)]), as: Repo.self)
     let w = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
     #expect(try await c.call(PortsForward(worktreeId: w.id, port: 18999)).port == 18999)
     #expect(try await c.call(PortsForward(worktreeId: w.id, target: "22")).port == 10022)   // only root binds :22 here
     await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: w.id)) }
-    await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: w.id, target: "-oProxyCommand=x:1")) }
-    let log = { try String(contentsOfFile: (localSSH as NSString).deletingLastPathComponent + "/ssh.log", encoding: .utf8) }
+    await #expect(throws: (any Error).self) {
+        try await c.call(PortsForward(worktreeId: w.id, target: "-oProxyCommand=x:1"))
+    }
+    let log = {
+        try String(contentsOfFile: (localSSH as NSString).deletingLastPathComponent + "/ssh.log", encoding: .utf8)
+    }
     #expect(try log().contains("forward -L 127.0.0.1:18999:localhost:18999"))
     // Asked for by hand, it's listed though nothing there listens, and has no process to stop.
     let ports = try await c.call(PortsList(worktreeId: w.id))
@@ -90,7 +108,9 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
     #expect(try await c.call(PortsList(worktreeId: w.id)).contains { $0.port == 22 } == false)
     // This Mac's own projects forward nothing.
     let local = try await c.call("worktree.list", as: [Worktree].self).filter { $0.repoId != repo.id }
-    if let l = local.first { await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: l.id, port: 1)) } }
+    if let l = local.first {
+        await #expect(throws: (any Error).self) { try await c.call(PortsForward(worktreeId: l.id, port: 1)) }
+    }
 }
 
 /// Forwardings changed from many threads at once (a prune beside a forward) are saved as they end up, not as an older copy.
@@ -98,7 +118,9 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
     for _ in 0..<12 {   // a lost save is a race: one round finds it about a third of the time
         let store = try Store(), forwards = Forwards(store: store)
         DispatchQueue.concurrentPerform(iterations: 400) { i in
-            forwards.change { $0.append(Forwards.Record(host: "box", target: "localhost:\(i)", here: i, worktree: "w", manual: true)) }
+            forwards.change {
+                $0.append(Forwards.Record(host: "box", target: "localhost:\(i)", here: i, worktree: "w", manual: true))
+            }
         }
         let text = try store.uiState(prefix: "ports.forwards")["ports.forwards"]?.string ?? ""
         #expect(try JSONDecoder().decode([Forwards.Record].self, from: Data(text.utf8)).count == 400)

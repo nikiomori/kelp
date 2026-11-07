@@ -14,23 +14,39 @@ extension SourceControlController {
             NSSound.beep()
             return
         }
-        begin(wid, syncing: op.map { op in
-            (op == "push" ? String(localized: "Pushing…") : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…"),
-             op == "push", op == "pull")
-        })
+        begin(
+            wid,
+            syncing: op.map { op in
+                (
+                    op == "push"
+                        ? String(localized: "Pushing…")
+                        : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…"),
+                    op == "push", op == "pull"
+                )
+            })
         Task {
             let r = await app.tryCall(m)
             end(wid, syncing: op != nil)
             if let e = r.error {
                 // A rejected push or a pull that stopped on conflicts is work for the agent; other failures just say why.
-                if op == "push" { GitFix(app).offer(e, recipe: "fixPush", worktree: wid) }
-                else if op == "pull", e.lowercased().contains("conflict") {
-                    GitFix(app).offer(e, recipe: "resolveConflicts", worktree: wid,
-                                      vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
-                } else { Banner.show(e, style: .error) }
+                if op == "push" {
+                    GitFix(app).offer(e, recipe: "fixPush", worktree: wid)
+                } else if op == "pull", e.lowercased().contains("conflict") {
+                    GitFix(app).offer(
+                        e, recipe: "resolveConflicts", worktree: wid,
+                        vars: [
+                            "base": String(localized: "the remote branch"),
+                            "files": String(localized: "see git status")
+                        ])
+                } else {
+                    Banner.show(e, style: .error)
+                }
             }
-            if op != nil { finish(done ?? String(localized: "Fetched"), ok: r.error == nil, quiet: done == nil, in: wid) }
-            else if r.error == nil, let done { Banner.show(done) }
+            if op != nil {
+                finish(done ?? String(localized: "Fetched"), ok: r.error == nil, quiet: done == nil, in: wid)
+            } else if r.error == nil, let done {
+                Banner.show(done)
+            }
             reloadAll()
         }
     }
@@ -43,18 +59,29 @@ extension SourceControlController {
 
     private func discard(_ files: [FileChange]) {
         guard !files.isEmpty else { return }
-        let a = NSAlert(); a.alertStyle = .warning
+        let a = NSAlert()
+        a.alertStyle = .warning
         let name = (files[0].path as NSString).lastPathComponent
         if files.count == 1, files[0].untracked {
             a.messageText = String(localized: "Delete “\(name)”?")
-            a.informativeText = String(localized: "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash.")
+            a.informativeText = String(
+                localized:
+                    "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash."
+            )
             a.addButton(withTitle: String(localized: "Delete File")).hasDestructiveAction = true
         } else {
-            a.messageText = files.count == 1 ? String(localized: "Discard changes in “\(name)”?") : String(localized: "Discard all \(files.count) changes?")
-            a.informativeText = String(localized: "You can undo it for a minute.")
+            a.messageText =
+                files.count == 1
+                ? String(localized: "Discard changes in “\(name)”?")
+                : String(localized: "Discard all \(files.count) changes?")
+            a.informativeText =
+                String(localized: "You can undo it for a minute.")
                 + (files.contains(where: \.untracked) ? String(localized: " Untracked files go to the Trash.") : "")
-            a.addButton(withTitle: files.count == 1 ? String(localized: "Discard Changes") : String(localized: "Discard \(files.count) Changes"))
-                .hasDestructiveAction = true
+            a.addButton(
+                withTitle: files.count == 1
+                    ? String(localized: "Discard Changes") : String(localized: "Discard \(files.count) Changes")
+            )
+            .hasDestructiveAction = true
         }
         a.addButton(withTitle: String(localized: "Cancel"))
         let wid = worktreeId   // the folder the files were picked in, whatever is shown once the sheet is answered
@@ -64,7 +91,10 @@ extension SourceControlController {
             fadeRows(Set(files.map(\.path)))
             let undo = UUID().uuidString
             if await app.call(GitDiscard(id: wid, files: files.map(\.path), undo: undo)) != nil {
-                let done = files.count == 1 ? String(localized: "Discarded changes in \(name)") : String(localized: "Discarded \(files.count) changes")
+                let done =
+                    files.count == 1
+                    ? String(localized: "Discarded changes in \(name)")
+                    : String(localized: "Discarded \(files.count) changes")
                 app.offerUndoDiscard(done, worktree: wid, undo: undo)
             }
             reloadAll()
@@ -76,9 +106,13 @@ extension SourceControlController {
         switch s {
         case .merge: return [RowAction("plus", "Stage All (Mark Resolved)") { [weak self] in self?.stage(files, true) }]
         case .staged: return [RowAction("minus", "Unstage All") { [weak self] in self?.stage(files, false) }]
-        case .changes: return [RowAction("arrow.uturn.backward", "Discard All Changes…") { [weak self] in self?.discard(files) },
-                               RowAction("plus", "Stage All Changes") { [weak self] in self?.stage(files, true) }]
-        case .graph: return [RowAction("arrow.clockwise", "Refresh") { [weak self] in Task { await self?.loadGraph() } }]
+        case .changes:
+            return [
+                RowAction("arrow.uturn.backward", "Discard All Changes…") { [weak self] in self?.discard(files) },
+                RowAction("plus", "Stage All Changes") { [weak self] in self?.stage(files, true) }
+            ]
+        case .graph:
+            return [RowAction("arrow.clockwise", "Refresh") { [weak self] in Task { await self?.loadGraph() } }]
         }
     }
 
@@ -134,25 +168,34 @@ extension SourceControlController {
 
     func commit(push: Bool, amend: Bool) {
         let text = message.string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let wid = worktreeId, !busy, !changes.isEmpty || amend else { NSSound.beep(); return }
+        guard let wid = worktreeId, !busy, !changes.isEmpty || amend else {
+            NSSound.beep()
+            return
+        }
         // No message yet: a page to write it on, as in VS Code (amending starts from the last commit's message).
         guard !text.isEmpty else {
             let last = amend ? commits.first { $0.hash.hasPrefix(info?.head ?? "\u{0}") }?.subject : nil
-            app.workbench.open(CommitMessageTab.uri(wid, push: push, amend: amend, message: last)); return
+            app.workbench.open(CommitMessageTab.uri(wid, push: push, amend: amend, message: last))
+            return
         }
         begin(wid, syncing: push ? (String(localized: "Pushing…"), true, false) : nil)
         Task {
             let r = await GitCommit.run(app, wid, message: text, push: push, amend: amend)
             if r.committed { sent(wid) }
             end(wid, syncing: push)
-            finish(push ? String(localized: "Pushed") : String(localized: "Committed"), ok: push ? r.pushed : r.committed, quiet: !push, in: wid)
+            finish(
+                push ? String(localized: "Pushed") : String(localized: "Committed"), ok: push ? r.pushed : r.committed,
+                quiet: !push, in: wid)
             reloadAll()
         }
     }
 
     @objc func sync() {
         guard let info, !busy else { return }
-        if info.upstream == nil { run(done: String(localized: "Published \(info.current ?? "HEAD")")) { GitRemoteOp(id: $0, op: "push") }; return }
+        if info.upstream == nil {
+            run(done: String(localized: "Published \(info.current ?? "HEAD")")) { GitRemoteOp(id: $0, op: "push") }
+            return
+        }
         guard let wid = worktreeId else { return }
         let ahead = (info.ahead ?? 0) > 0, title = String(localized: "Syncing…")
         begin(wid, syncing: (title, false, true))
@@ -172,7 +215,10 @@ extension SourceControlController {
     func fetchPressed() { run { GitRemoteOp(id: $0, op: "fetch") } }
     /// Push, or publish a branch with no upstream.
     func pushPressed() {
-        if info?.upstream == nil { sync(); return }
+        if info?.upstream == nil {
+            sync()
+            return
+        }
         run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") }
     }
 
@@ -185,16 +231,22 @@ extension SourceControlController {
         }
         if !info.remote.isEmpty {
             let sub = NSMenu()
-            for b in info.remote { sub.add(b) { [weak self] in self?.run { GitSwitch(id: $0, branch: b, remote: true) } } }
+            for b in info.remote {
+                sub.add(b) { [weak self] in self?.run { GitSwitch(id: $0, branch: b, remote: true) } }
+            }
             m.addItem(.separator())
-            let r = m.addItem(withTitle: String(localized: "Remote Branches"), action: nil, keyEquivalent: ""); r.submenu = sub
+            let r = m.addItem(withTitle: String(localized: "Remote Branches"), action: nil, keyEquivalent: "")
+            r.submenu = sub
         }
         m.addItem(.separator())
         m.add(String(localized: "Create Branch…")) { [weak self] in
             Task {
-                guard let name = await prompt(String(localized: "Create Branch"),
-                                              String(localized: "Starts from \(info.current ?? "HEAD") and switches to it.")),
-                    !name.isEmpty else { return }
+                guard
+                    let name = await prompt(
+                        String(localized: "Create Branch"),
+                        String(localized: "Starts from \(info.current ?? "HEAD") and switches to it.")),
+                    !name.isEmpty
+                else { return }
                 self?.run { GitSwitch(id: $0, branch: name, create: true) }
             }
         }
@@ -205,12 +257,18 @@ extension SourceControlController {
         let app = self.app
         guard let wid = worktreeId else { return }
         let m = NSMenu()
-        m.add(String(localized: "Pull")) { [weak self] in self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") } }
-        m.add(String(localized: "Push")) { [weak self] in self?.run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") } }
+        m.add(String(localized: "Pull")) { [weak self] in
+            self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") }
+        }
+        m.add(String(localized: "Push")) { [weak self] in
+            self?.run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") }
+        }
         m.add(String(localized: "Fetch")) { [weak self] in self?.run { GitRemoteOp(id: $0, op: "fetch") } }
         m.add(String(localized: "Refresh")) { [weak self] in self?.reloadAll() }
         m.addItem(.separator())
-        m.add(String(localized: "Stash Changes")) { [weak self] in self?.run(done: String(localized: "Changes stashed")) { GitStash(id: $0) } }
+        m.add(String(localized: "Stash Changes")) { [weak self] in
+            self?.run(done: String(localized: "Changes stashed")) { GitStash(id: $0) }
+        }
         m.add(String(localized: "Pop Stash")) { [weak self] in self?.run { GitStash(id: $0, pop: true) } }
         m.addItem(.separator())
         m.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) }
@@ -236,11 +294,14 @@ extension SourceControlController {
             let a = NSAlert()
             a.messageText = String(localized: "Merge Conflicts")
             a.alertStyle = .warning
-            a.informativeText = files.joined(separator: "\n") + String(localized: "\n\nThe merge was aborted; nothing changed.")
+            a.informativeText =
+                files.joined(separator: "\n") + String(localized: "\n\nThe merge was aborted; nothing changed.")
             a.addButton(withTitle: String(localized: "OK"))
             if FileActions(app).targetAgent != nil { a.addButton(withTitle: String(localized: "Ask Agent to Resolve")) }
             if await runSheet(a) == .alertSecondButtonReturn, let w = app.worktree(wid), let repo = app.repo(w.repoId) {
-                GitFix(app).send("resolveConflicts", worktree: wid, vars: ["base": repo.baseBranch, "files": files.joined(separator: ", ")])
+                GitFix(app).send(
+                    "resolveConflicts", worktree: wid,
+                    vars: ["base": repo.baseBranch, "files": files.joined(separator: ", ")])
             }
         }
     }
@@ -263,14 +324,19 @@ extension SourceControlController {
                 menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(root + "/" + f.path) }
             }
             menu.addItem(.separator())
-            menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(f.path, forType: .string) }
+            menu.add(String(localized: "Copy Path")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(f.path, forType: .string)
+            }
             if let discard {
                 menu.addItem(.separator())
                 menu.add(discard.title) { discard.run() }
             }
         case .section(let s) where s != .graph:
             // What its row's hover buttons do, with what throws work away last.
-            if s != .merge, let wid = worktreeId { menu.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) } }
+            if s != .merge, let wid = worktreeId {
+                menu.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) }
+            }
             let acts = Array(sectionActions(s, n).reversed())
             for (i, a) in acts.enumerated() {
                 if i == acts.count - 1, acts.count > 1 { menu.addItem(.separator()) }
@@ -281,23 +347,37 @@ extension SourceControlController {
             let wid = worktreeId
             menu.add(String(localized: "Open in Browser")) {
                 Task {
-                    guard let found = await app.call(GitWebPages(worktreeId: wid)), let url = (found?.commitURL(c.hash)).flatMap(URL.init) else { return }
+                    guard let found = await app.call(GitWebPages(worktreeId: wid)),
+                        let url = (found?.commitURL(c.hash)).flatMap(URL.init)
+                    else { return }
                     PreviewLinks.openOutside(url)
                 }
             }
-            menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(text: "commit \(c.hash.prefix(10)) (\(c.subject))") }
+            menu.add(String(localized: "Send to Agent")) {
+                FileActions(app).sendToAgent(text: "commit \(c.hash.prefix(10)) (\(c.subject))")
+            }
             menu.addItem(.separator())
             let copies = NSMenu()
-            copies.add(String(localized: "Hash")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.hash, forType: .string) }
-            copies.add(String(localized: "Message")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c.subject, forType: .string) }
-            menu.setSubmenu(copies, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
+            copies.add(String(localized: "Hash")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(c.hash, forType: .string)
+            }
+            copies.add(String(localized: "Message")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(c.subject, forType: .string)
+            }
+            menu.setSubmenu(
+                copies, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
         case .commitFile(let h, let f):
             menu.add(String(localized: "Open Changes")) { [weak self] in
                 if let w = self?.worktreeId { app.workbench.open(DiffTab.uri(w, file: f.path, commit: h)) }
             }
             menu.add(String(localized: "Open File")) { [weak self] in self?.openFile(f) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Copy Path")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(f.path, forType: .string) }
+            menu.add(String(localized: "Copy Path")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(f.path, forType: .string)
+            }
         default: break
         }
     }

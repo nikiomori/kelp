@@ -1,9 +1,9 @@
 import AppKit
-import SwiftUI
 import Charts
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 
 /// "usage:" — what the agents used, a row each: how full its plan is, its days over the span on its own scale, its tokens
 /// and what they'd cost at API prices (a subscription bills differently), from its own logs on this Mac. A click on a row
@@ -15,7 +15,9 @@ final class UsageTab: KelpKit.TabContent {   // not SwiftUI's
     var title: String { String(localized: "Usage") }
     var icon: NSImage? { .symbol("chart.bar") }
     init(app: AppModel) {
-        let host = NSHostingView(rootView: UsageReportView(app: app).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        let host = NSHostingView(
+            rootView: UsageReportView(app: app).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        )
         host.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
         view = host
     }
@@ -43,10 +45,14 @@ struct UsageReportView: View {
     @State private var year: [UsageAgents.Day] = []
 
     /// The agents whose tokens the daemon reads (`usage.agents`): one that reports a plan but isn't here keeps no counts.
-    static let counted: Set = ["claude", "codex", "grok", "antigravity", "kimi", "copilot", "opencode", "kilo", "pi", "omp", "qwen", "gemini"]
+    static let counted: Set = [
+        "claude", "codex", "grok", "antigravity", "kimi", "copilot", "opencode", "kilo", "pi", "omp", "qwen", "gemini"
+    ]
     /// Each agent's colour in the charts, the same in every span.
-    static let colors: [String: Color] = ["claude": .blue, "grok": .orange, "codex": .purple, "copilot": .teal, "antigravity": .indigo,
-                                          "opencode": .green, "kilo": .pink, "pi": .mint, "omp": .yellow, "kimi": .brown, "qwen": .cyan, "gemini": .red]
+    static let colors: [String: Color] = [
+        "claude": .blue, "grok": .orange, "codex": .purple, "copilot": .teal, "antigravity": .indigo,
+        "opencode": .green, "kilo": .pink, "pi": .mint, "omp": .yellow, "kimi": .brown, "qwen": .cyan, "gemini": .red
+    ]
     /// Agents whose own figure is the cost (the rest are priced from list prices).
     static let ownPrice: Set = ["grok", "pi", "omp", "opencode", "kilo"]
 
@@ -55,7 +61,8 @@ struct UsageReportView: View {
         // As wide as the pane up to 1000, and the table's own width at least: a narrower pane scrolls sideways, from the left.
         GeometryReader { pane in
             ScrollView([.vertical, .horizontal]) {
-                page(lines).padding([.horizontal, .bottom], 24).frame(width: min(max(pane.size.width, 700), 1000), alignment: .leading)
+                page(lines).padding([.horizontal, .bottom], 24).frame(
+                    width: min(max(pane.size.width, 700), 1000), alignment: .leading)
             }
             .defaultScrollAnchor(.topLeading)
         }
@@ -74,7 +81,8 @@ struct UsageReportView: View {
                 detail(usage)
                 HStack(alignment: .top, spacing: 28) {
                     groups(String(localized: "By Model"), (sel.flatMap(agent)?.models ?? usage.models), model: true)
-                    groups(String(localized: "By Project"), sel.flatMap(agent)?.projects ?? usage.projects, model: false)
+                    groups(
+                        String(localized: "By Project"), sel.flatMap(agent)?.projects ?? usage.projects, model: false)
                 }
             } else if !loading, failed == nil {
                 Text("No agent conversations in this time.").foregroundStyle(.secondary)
@@ -86,7 +94,8 @@ struct UsageReportView: View {
     /// What the tab's name doesn't say already: the span, where it's from, and whether the logs are still being read.
     private var header: some View {
         HStack(spacing: Metrics.gapWide) {
-            Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(11)).foregroundStyle(.secondary)
+            Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(11)).foregroundStyle(
+                .secondary)
             if loading { ProgressView().controlSize(.small) }
             Spacer()
             Picker("", selection: $range) {
@@ -94,7 +103,7 @@ struct UsageReportView: View {
                 Text("30 Days").tag(30)
                 Text("90 Days").tag(90)
             }
-                .pickerStyle(.segmented).controlSize(.small).fixedSize()
+            .pickerStyle(.segmented).controlSize(.small).fixedSize()
         }
         // The band other tabs give their bar: banners start under it, so they never cover the range.
         .frame(height: TextSize.of(Metrics.contentBar))
@@ -102,14 +111,16 @@ struct UsageReportView: View {
 
     /// Where the figures come from, under them.
     private var footnote: some View {
-        Text("""
+        Text(
+            """
                 Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
                 Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
                 disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost far \
                 less than fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
                 differently, and "—" is a model without one.
-            """)
-            .font(.ui(11)).foregroundStyle(.secondary)
+            """
+        )
+        .font(.ui(11)).foregroundStyle(.secondary)
     }
 
     // MARK: The agents
@@ -117,14 +128,19 @@ struct UsageReportView: View {
     /// The agents that used anything in the span, the most expensive first, then those that only report a plan.
     private func agentLines(_ plans: [String: Plan]) -> [Line] {
         let used = (usage?.agents ?? []).filter { $0.tokens > 0 }
-        let rest = app.catalog.installed(app.catalog.all).map(\.id).filter { id in plans[id] != nil && !used.contains { $0.id == id } }
-        return used.map { Line(id: $0.id, usage: $0, plan: plans[$0.id]) } + rest.map { Line(id: $0, usage: nil, plan: plans[$0]) }
+        let rest = app.catalog.installed(app.catalog.all).map(\.id).filter { id in
+            plans[id] != nil && !used.contains { $0.id == id }
+        }
+        return used.map { Line(id: $0.id, usage: $0, plan: plans[$0.id]) }
+            + rest.map { Line(id: $0, usage: nil, plan: plans[$0]) }
     }
 
     /// The chosen agent while it has anything in the span.
     private var sel: String? { selected.flatMap { s in agent(s) == nil ? nil : s } }
     private func agent(_ id: String) -> UsageAgents.Agent? { usage?.agents.first { $0.id == id && $0.tokens > 0 } }
-    private var series: [UsageAgents.Agent] { (usage?.agents ?? []).filter { $0.tokens > 0 && (sel == nil || $0.id == sel) } }
+    private var series: [UsageAgents.Agent] {
+        (usage?.agents ?? []).filter { $0.tokens > 0 && (sel == nil || $0.id == sel) }
+    }
     private func value(_ d: UsageAgents.Day) -> Double { byCost ? d.cost : Double(d.tokens) }
     private func color(_ id: String) -> Color { Self.colors[id] ?? .gray }
 
@@ -136,8 +152,13 @@ struct UsageReportView: View {
             stat(money(cost, tokens), String(localized: "at API prices"))
             stat(count(tokens), String(localized: "tokens · \(percent(cached, of: tokens)) from cache"))
             stat(money(cost / Double(max(1, active)), 0), String(localized: "per active day"))
-            if sel != nil { stat("\(active)", String(localized: "active days")) }
-            else { stat(String(localized: "\(lines.filter { $0.usage != nil }.count) of \(lines.count)"), String(localized: "agents used")) }
+            if sel != nil {
+                stat("\(active)", String(localized: "active days"))
+            } else {
+                stat(
+                    String(localized: "\(lines.filter { $0.usage != nil }.count) of \(lines.count)"),
+                    String(localized: "agents used"))
+            }
         }
     }
 
@@ -151,7 +172,9 @@ struct UsageReportView: View {
     }
 
     /// agent | plan | the span | tokens | cost, the same widths in every row.
-    private func columns(_ agent: some View, _ plan: some View, _ span: some View, _ tokens: some View, _ cost: some View) -> some View {
+    private func columns(
+        _ agent: some View, _ plan: some View, _ span: some View, _ tokens: some View, _ cost: some View
+    ) -> some View {
         HStack(spacing: 16) {
             agent.frame(minWidth: 150, maxWidth: .infinity, alignment: .leading)
             plan.frame(width: 170, alignment: .leading)
@@ -166,15 +189,22 @@ struct UsageReportView: View {
         let on = sel == l.id
         let content = cells(l)
             .padding(.horizontal, 10).padding(.vertical, 7).contentShape(Rectangle())
-        if l.usage == nil { content }
-        else {
-            Button { selected = on ? nil : l.id } label: { content }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
-                    .fill(Color(nsColor: on ? .fillSelected : hovered == l.id ? .fillHover : .clear)))
-                .onHover { hovered = $0 ? l.id : (hovered == l.id ? nil : hovered) }
-                .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
-                .accessibilityAddTraits(on ? .isSelected : [])
+        if l.usage == nil {
+            content
+        } else {
+            Button {
+                selected = on ? nil : l.id
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+            .background(
+                RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
+                    .fill(Color(nsColor: on ? .fillSelected : hovered == l.id ? .fillHover : .clear))
+            )
+            .onHover { hovered = $0 ? l.id : (hovered == l.id ? nil : hovered) }
+            .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
+            .accessibilityAddTraits(on ? .isSelected : [])
         }
     }
 
@@ -195,7 +225,9 @@ struct UsageReportView: View {
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(app.catalog.name(l.id)).lineLimit(1)
                 if let models = l.usage?.models.prefix(2), !models.isEmpty {
-                    Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.ui(11)).foregroundStyle(
+                        .secondary
+                    ).lineLimit(1)
                 }
             }
         }
@@ -205,25 +237,33 @@ struct UsageReportView: View {
     @ViewBuilder private func planCell(_ plan: Plan?) -> some View {
         if let plan, let top = plan.limits.first {
             let stale = plan.readAt.map { Date().timeIntervalSince($0) > 1800 } ?? false
-            let note = stale ? String(localized: "Read \(shortAgo(plan.readAt)) ago")
+            let note =
+                stale
+                ? String(localized: "Read \(shortAgo(plan.readAt)) ago")
                 : ([top.label + (top.resets.map { String(localized: " · resets \($0)") } ?? "")]
-                   + plan.limits.dropFirst().prefix(1).map { "\($0.label) \(percent($0.used))" }).joined(separator: " · ")
+                    + plan.limits.dropFirst().prefix(1).map { "\($0.label) \(percent($0.used))" }).joined(
+                        separator: " · ")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     GeometryReader { g in
                         ZStack(alignment: .leading) {
                             Capsule().fill(.quaternary)
-                            Capsule().fill(tint(top.used, quiet: .secondary)).frame(width: max(4, g.size.width * min(top.used, 1)))
+                            Capsule().fill(tint(top.used, quiet: .secondary)).frame(
+                                width: max(4, g.size.width * min(top.used, 1)))
                         }
                     }
                     .frame(height: 4)
-                    Text(percent(top.used)).monospacedDigit().foregroundStyle(top.used >= 0.9 ? Color.textRed : top.used >= 0.7 ? .textOrange : .primary)
+                    Text(percent(top.used)).monospacedDigit().foregroundStyle(
+                        top.used >= 0.9 ? Color.textRed : top.used >= 0.7 ? .textOrange : .primary)
                 }
                 Text(note).foregroundStyle(.secondary).lineLimit(1)
             }
             .font(.ui(11))
             .opacity(stale ? 0.55 : 1)
-            .help(plan.limits.map { l in "\(l.label): \(percent(l.used))" + (l.resets.map { String(localized: ", resets \($0)") } ?? "") }
+            .help(
+                plan.limits.map { l in
+                    "\(l.label): \(percent(l.used))" + (l.resets.map { String(localized: ", resets \($0)") } ?? "")
+                }
                 .joined(separator: "\n"))
         } else {
             Text("—").font(.ui(11)).foregroundStyle(.tertiary)
@@ -234,30 +274,42 @@ struct UsageReportView: View {
     @ViewBuilder private func spanCell(_ l: Line) -> some View {
         if let usage, let a = l.usage {
             Chart(usage.days.filter { $0.agent == l.id }, id: \.self) { d in
-                BarMark(x: .value("Day", Self.date(d.day), unit: .day), y: .value("Used", a.cost > 0 ? value(d) : Double(d.tokens)))
-                    .foregroundStyle(color(l.id))
+                BarMark(
+                    x: .value("Day", Self.date(d.day), unit: .day),
+                    y: .value("Used", a.cost > 0 ? value(d) : Double(d.tokens))
+                )
+                .foregroundStyle(color(l.id))
             }
             .chartXScale(domain: span(usage)).chartXAxis(.hidden).chartYAxis(.hidden).chartLegend(.hidden)
             .frame(height: 26)
             .overlay(alignment: .bottom) { Rectangle().fill(.quaternary).frame(height: 1) }
         } else {
-            Text(Self.counted.contains(l.id) ? String(localized: "Not used in this time") : String(localized: "Keeps no token counts on this Mac"))
-                .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+            Text(
+                Self.counted.contains(l.id)
+                    ? String(localized: "Not used in this time")
+                    : String(localized: "Keeps no token counts on this Mac")
+            )
+            .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
     private func tokensCell(_ a: UsageAgents.Agent?) -> some View {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
             Text(a.map { count($0.tokens) } ?? "—").monospacedDigit()
-            if let a, a.cacheRead > 0 { Text("\(percent(a.cacheRead, of: a.tokens)) from cache").font(.ui(11)).foregroundStyle(.secondary) }
+            if let a, a.cacheRead > 0 {
+                Text("\(percent(a.cacheRead, of: a.tokens)) from cache").font(.ui(11)).foregroundStyle(.secondary)
+            }
         }
     }
 
     private func costCell(_ a: UsageAgents.Agent?) -> some View {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
             Text(a.map { money($0.cost, $0.tokens) } ?? "—").monospacedDigit()
-            if let a, a.cost == 0 { Text("no list price").font(.ui(11)).foregroundStyle(.secondary) }
-            else if let a, Self.ownPrice.contains(a.id) { Text("as it reports").font(.ui(11)).foregroundStyle(.secondary) }
+            if let a, a.cost == 0 {
+                Text("no list price").font(.ui(11)).foregroundStyle(.secondary)
+            } else if let a, Self.ownPrice.contains(a.id) {
+                Text("as it reports").font(.ui(11)).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -268,18 +320,23 @@ struct UsageReportView: View {
         let ids = series.map(\.id)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(.ui(13, weight: .semibold))
+                Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(
+                    .ui(13, weight: .semibold))
                 if sel != nil { Button("Show All") { selected = nil }.controlSize(.small) }
                 Spacer()
                 Picker("", selection: $byCost) {
                     Text("Cost").tag(true)
                     Text("Tokens").tag(false)
                 }
-                    .pickerStyle(.segmented).controlSize(.small).fixedSize()
+                .pickerStyle(.segmented).controlSize(.small).fixedSize()
             }
             if !year.isEmpty { board }
-            Text(byCost ? String(localized: "Cost per day · last \(range) days") : String(localized: "Tokens per day · last \(range) days"))
-                .font(.ui(11)).foregroundStyle(.secondary).padding(.top, 8)
+            Text(
+                byCost
+                    ? String(localized: "Cost per day · last \(range) days")
+                    : String(localized: "Tokens per day · last \(range) days")
+            )
+            .font(.ui(11)).foregroundStyle(.secondary).padding(.top, 8)
             Chart(usage.days.filter { ids.contains($0.agent) }, id: \.self) { d in
                 BarMark(x: .value("Day", Self.date(d.day), unit: .day), y: .value(byCost ? "Cost" : "Tokens", value(d)))
                     .foregroundStyle(by: .value("Agent", app.catalog.name(d.agent)))
@@ -308,7 +365,9 @@ struct UsageReportView: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text("\(total) in the last year · \(days.count) active days").font(.ui(11)).foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {   // a year is wider than a narrow pane: this week stays in view
-                YearBoard(values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green) { day in
+                YearBoard(
+                    values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green
+                ) { day in
                     let when = day.formatted(.dateTime.month(.wide).day())
                     guard let d = days[day] else { return String(localized: "No usage on \(when)") }
                     return String(localized: "\(when): \(money(d.cost, d.tokens)) · \(count(d.tokens)) tokens")
@@ -321,7 +380,8 @@ struct UsageReportView: View {
     /// The span's days, the first to today's.
     private func span(_ usage: UsageAgents.Result) -> ClosedRange<Date> {
         let start = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: usage.since))
-        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
+        let end =
+            Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
         return start...max(start, end)
     }
 
@@ -362,8 +422,11 @@ struct UsageReportView: View {
         guard id.hasPrefix("claude-") else { return id }
         var words: [String] = []
         for p in id.dropFirst(7).split(separator: "-").map(String.init) where !(p.count == 8 && Int(p) != nil) {   // not a snapshot's date
-            if Int(p) != nil, let prev = words.last, prev.last?.isNumber == true { words[words.count - 1] += "." + p }
-            else { words.append(p.prefix(1).uppercased() + p.dropFirst()) }
+            if Int(p) != nil, let prev = words.last, prev.last?.isNumber == true {
+                words[words.count - 1] += "." + p
+            } else {
+                words.append(p.prefix(1).uppercased() + p.dropFirst())
+            }
         }
         return words.joined(separator: " ")
     }

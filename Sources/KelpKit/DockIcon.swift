@@ -10,7 +10,11 @@ final class DockIcon {
     init(app: AppModel) { self.app = app }
 
     func start() {
-        track(owner: self) { [app] in Self.face(app) } changed: { [weak self] in self?.show($0) }
+        track(owner: self) { [app] in
+            Self.face(app)
+        } changed: { [weak self] in
+            self?.show($0)
+        }
     }
 
     private func show(_ face: DockFace) {
@@ -27,12 +31,17 @@ final class DockIcon {
         let busy = Self.onSidebar(app).filter { $0.isChat && SidebarCell.shownStatus($0) == .working }.count
         if busy > 0 { m.addItem(withTitle: String(localized: "\(busy) working"), action: nil, keyEquivalent: "") }
         if !m.items.isEmpty { m.addItem(.separator()) }
-        m.add(String(localized: "New Chat")) { [app] in NSApp.activate(); app.workbench.newChat() }
+        m.add(String(localized: "New Chat")) { [app] in
+            NSApp.activate()
+            app.workbench.newChat()
+        }
         if let strip = app.agentStrip, !strip.isOff {
             if strip.hiddenUntil != nil {
                 m.add(String(localized: "Show Agents Above the Dock")) { strip.hide(until: nil) }
             } else {
-                m.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) { strip.hide(until: Date().addingTimeInterval(3600)) }
+                m.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) {
+                    strip.hide(until: Date().addingTimeInterval(3600))
+                }
             }
         }
         m.addChoiceMenu("agents.dockIcon", app, title: String(localized: "Dock Icon"), tryOn: false)
@@ -42,9 +51,14 @@ final class DockIcon {
     private func add(_ s: Session, to m: NSMenu) {
         let w = app.worktree(s.worktreeId), place = app.groupName(w) ?? app.projectName(w?.repoId) ?? ""
         let name = app.catalog.displayName(s), icon = app.catalog.icon(s.agent, size: 16)
-        let show: @MainActor @Sendable () -> Void = { [app] in NSApp.activate(); app.workbench.focus(session: s.id) }
+        let show: @MainActor @Sendable () -> Void = { [app] in
+            NSApp.activate()
+            app.workbench.focus(session: s.id)
+        }
         guard Notifier.asksPermission(s) else {
-            let state = s.status == .waiting ? String(localized: "needs you")
+            let state =
+                s.status == .waiting
+                ? String(localized: "needs you")
                 : s.status == .error ? String(localized: "failed") : String(localized: "finished")
             m.add("\(name) — \(state) · \(place)", show).show(icon)
             return
@@ -64,7 +78,9 @@ final class DockIcon {
     static func face(_ app: AppModel) -> DockFace {
         switch app.settings.string("agents.dockIcon") {
         case "usage":
-            guard let u = app.latest(LimitsEvent.self)?.usage, let fullest = LimitAlerts.readings(u).map(\.limit.percent).max() else { return .icon }
+            guard let u = app.latest(LimitsEvent.self)?.usage,
+                let fullest = LimitAlerts.readings(u).map(\.limit.percent).max()
+            else { return .icon }
             return usage(fullest, warnAt: app.settings.usageAlertAt)
         case "agents":
             let cells = cells(onSidebar(app))

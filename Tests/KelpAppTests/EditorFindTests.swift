@@ -1,10 +1,13 @@
 import AppKit
 import Foundation
 import Testing
+
 @testable import EditorKit
 @testable import KelpKit
 
-@MainActor private func editor(_ text: String) -> CodeEditor { CodeEditor(text: text, url: URL(fileURLWithPath: "/find.txt")) }
+@MainActor private func editor(_ text: String) -> CodeEditor {
+    CodeEditor(text: text, url: URL(fileURLWithPath: "/find.txt"))
+}
 
 @Test func aPlainSearchEscapesWhatARegexWouldTakeAndOptionsNarrowIt() throws {
     var o = FindOptions()
@@ -30,7 +33,9 @@ extension OneAtATime {
     @MainActor @Test func theBarFindsStepsAndReplacesWithGroupsInOneUndo() throws {
         _ = NSApplication.shared
         let e = editor("foo1 bar foo2 bar foo3\n")
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = e.view
         e.textView.setSelectedRange(NSRange(location: 0, length: 0))
         e.openFind(with: "foo(\\d)")
@@ -54,7 +59,9 @@ extension OneAtATime {
     @MainActor @Test func theBarsMatchesFollowAnEditOnceTypingPauses() async throws {
         _ = NSApplication.shared
         let e = editor("foo bar\n")
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = e.view
         e.openFind(with: "foo")
         #expect(e.textView.findMarks.count == 1)
@@ -71,7 +78,8 @@ extension OneAtATime {
 @MainActor @Test func cmdGStepsWithTheKeysInTheField() throws {
     _ = NSApplication.shared
     let e = CodeEditor(text: "aa b aa b aa", url: URL(fileURLWithPath: "/tmp/f.txt"))
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 800, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView = e.view
     e.view.layoutSubtreeIfNeeded()
     e.textView.setSelectedRange(NSRange(location: 0, length: 2))
@@ -79,8 +87,10 @@ extension OneAtATime {
     window.makeFirstResponder(e.findBar?.field)
     #expect(window.firstResponder is NSTextView)
     func press(_ mods: NSEvent.ModifierFlags) throws -> Bool {
-        let key = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: window.windowNumber,
-                                                context: nil, characters: "g", charactersIgnoringModifiers: "g", isARepeat: false, keyCode: 5))
+        let key = try #require(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: window.windowNumber,
+                context: nil, characters: "g", charactersIgnoringModifiers: "g", isARepeat: false, keyCode: 5))
         return window.performKeyEquivalent(with: key)
     }
     let start = e.textView.selectedRange().location

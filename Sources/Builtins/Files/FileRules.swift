@@ -21,17 +21,31 @@ final class FileRules {
         self.editor = editor
         self.bar = bar
         let language = editor.languageId
-        detected = app.settings.bool("editor.detectIndentation", language: language) != false ? Indentation.detect(editor.text) : nil
+        detected =
+            app.settings.bool("editor.detectIndentation", language: language) != false
+            ? Indentation.detect(editor.text) : nil
         bar.indentMenu = { [weak self] in self?.menu() ?? NSMenu() }
         editor.snippetSource = { await Snippets.load(app: app, language: language, root: root, path: path) }
         track(owner: self) { [settings = app.settings] in
-            [settings.number("editor.tabSize", language: language), settings.bool("editor.insertSpaces", language: language) == false ? 1 : 0]
-        } changed: { [weak self] _ in self?.apply() }
+            [
+                settings.number("editor.tabSize", language: language),
+                settings.bool("editor.insertSpaces", language: language) == false ? 1 : 0
+            ]
+        } changed: { [weak self] _ in
+            self?.apply()
+        }
         track(owner: self) { [settings = app.settings] in
-            [settings.string("editor.rulers", language: language) ?? "", settings.string("editor.renderWhitespace", language: language) ?? "",
-             "\(settings.number("editor.wordWrapColumn", language: language) ?? 0)", "\(settings.bool("editor.stickyScroll", language: language) != false)",
-             "\(settings.bool("editor.bracketColors", language: language) == true)", "\(settings.bool("editor.indentGuides", language: language) == true)"]
-        } changed: { [weak self] _ in self?.applyLooks() }
+            [
+                settings.string("editor.rulers", language: language) ?? "",
+                settings.string("editor.renderWhitespace", language: language) ?? "",
+                "\(settings.number("editor.wordWrapColumn", language: language) ?? 0)",
+                "\(settings.bool("editor.stickyScroll", language: language) != false)",
+                "\(settings.bool("editor.bracketColors", language: language) == true)",
+                "\(settings.bool("editor.indentGuides", language: language) == true)"
+            ]
+        } changed: { [weak self] _ in
+            self?.applyLooks()
+        }
         Task { [weak self] in await self?.readConfig() }
     }
 
@@ -44,7 +58,9 @@ final class FileRules {
         guard let e = editor else { return }
         let language = e.languageId, s = app.settings
         e.rulers = Self.columns(s.string("editor.rulers", language: language))
-        e.whitespace = EditorTextView.WhitespaceMarks(rawValue: s.string("editor.renderWhitespace", language: language) ?? "") ?? .selection
+        e.whitespace =
+            EditorTextView.WhitespaceMarks(rawValue: s.string("editor.renderWhitespace", language: language) ?? "")
+            ?? .selection
         let column = Int(s.number("editor.wordWrapColumn", language: language) ?? 0)
         e.wrapColumn = column > 0 ? column : nil
         e.stickyEnabled = s.bool("editor.stickyScroll", language: language) != false
@@ -56,13 +72,15 @@ final class FileRules {
         let language = editor?.languageId
         var fromFile: Int?
         if case .spaces(let n)? = detected { fromFile = n }
-        return chosen.tabSize ?? config.tabSize ?? fromFile ?? Int(app.settings.number("editor.tabSize", language: language) ?? 4)
+        return chosen.tabSize ?? config.tabSize ?? fromFile
+            ?? Int(app.settings.number("editor.tabSize", language: language) ?? 4)
     }
 
     private var spaces: Bool {
         var fromFile: Bool?
         if let detected { fromFile = detected != .tabs }
-        return chosen.spaces ?? config.insertSpaces ?? fromFile ?? (app.settings.bool("editor.insertSpaces", language: editor?.languageId) != false)
+        return chosen.spaces ?? config.insertSpaces ?? fromFile
+            ?? (app.settings.bool("editor.insertSpaces", language: editor?.languageId) != false)
     }
 
     private func apply() {
@@ -91,8 +109,11 @@ final class FileRules {
     func cleanUpForSave() {
         guard let e = editor else { return }
         let language = e.languageId
-        let trim = config.trimTrailingWhitespace ?? app.settings.bool("files.trimTrailingWhitespace", language: language) == true
-        let final = config.insertFinalNewline ?? app.settings.bool("files.insertFinalNewline", language: language) == true
+        let trim =
+            config.trimTrailingWhitespace ?? app.settings.bool("files.trimTrailingWhitespace", language: language)
+            == true
+        let final =
+            config.insertFinalNewline ?? app.settings.bool("files.insertFinalNewline", language: language) == true
         guard trim || final else { return }
         let text = e.text, clean = Indentation.cleaned(text, trim: trim, finalNewline: final)
         if clean != text { e.apply(text: clean, selection: e.selectedRange) }
@@ -100,11 +121,14 @@ final class FileRules {
 
     private func menu() -> NSMenu {
         let m = NSMenu(), spaces = spaces, size = max(tabSize, 1)
-        m.add(String(localized: "Indent Using Spaces")) { [weak self] in self?.choose(spaces: true) }.state = spaces ? .on : .off
-        m.add(String(localized: "Indent Using Tabs")) { [weak self] in self?.choose(spaces: false) }.state = spaces ? .off : .on
+        m.add(String(localized: "Indent Using Spaces")) { [weak self] in self?.choose(spaces: true) }.state =
+            spaces ? .on : .off
+        m.add(String(localized: "Indent Using Tabs")) { [weak self] in self?.choose(spaces: false) }.state =
+            spaces ? .off : .on
         m.addItem(.separator())
         for n in [2, 4, 8] {
-            m.add(String(localized: "Width: \(n)")) { [weak self] in self?.choose(tabSize: n) }.state = size == n ? .on : .off
+            m.add(String(localized: "Width: \(n)")) { [weak self] in self?.choose(tabSize: n) }.state =
+                size == n ? .on : .off
         }
         m.addItem(.separator())
         m.add(String(localized: "Convert File to Spaces")) { [weak self] in self?.convert(.spaces(size)) }

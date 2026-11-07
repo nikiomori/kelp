@@ -4,8 +4,10 @@ import Foundation
 /// It returns false when time runs out, so a test says `#expect(try await waitFor { … })` and a wait that never ends
 /// fails there, not at a later check that reads like another bug. In the caller's isolation (a main-actor test reads
 /// its views).
-public func waitFor(_ timeout: Double = 8, isolation: isolated (any Actor)? = #isolation,
-                    _ cond: () async throws -> Bool) async throws -> Bool {
+public func waitFor(
+    _ timeout: Double = 8, isolation: isolated (any Actor)? = #isolation,
+    _ cond: () async throws -> Bool
+) async throws -> Bool {
     let end = Date().addingTimeInterval(timeout)
     while Date() < end {
         if try await cond() { return true }

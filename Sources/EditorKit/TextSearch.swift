@@ -16,7 +16,9 @@ enum TextSearch {
         return try NSRegularExpression(pattern: p, options: o.matchCase ? [] : [.caseInsensitive])
     }
 
-    static func matches(_ regex: NSRegularExpression, in s: NSString, within scope: NSRange? = nil) -> [NSTextCheckingResult] {
+    static func matches(_ regex: NSRegularExpression, in s: NSString, within scope: NSRange? = nil)
+        -> [NSTextCheckingResult]
+    {
         var out: [NSTextCheckingResult] = []
         regex.enumerateMatches(in: s as String, range: scope ?? NSRange(location: 0, length: s.length)) { m, _, stop in
             guard let m, m.range.length > 0 else { return }
@@ -27,7 +29,9 @@ enum TextSearch {
     }
 
     /// What `m` becomes: `$1` and the like in a regex's template, `template` as it stands otherwise.
-    static func replacement(_ m: NSTextCheckingResult, _ regex: NSRegularExpression, in s: NSString, template: String, _ o: FindOptions) -> String {
+    static func replacement(
+        _ m: NSTextCheckingResult, _ regex: NSRegularExpression, in s: NSString, template: String, _ o: FindOptions
+    ) -> String {
         let text = o.regex ? regex.replacementString(for: m, in: s as String, offset: 0, template: template) : template
         return o.preserveCase ? likeIt(text, s.substring(with: m.range)) : text
     }
@@ -47,18 +51,23 @@ public struct ReplaceMatch: Equatable, Sendable {
 
 public enum ReplaceInText {
     /// Every match of `query` in `text` with what `template` makes of it. Throws on a pattern that isn't one.
-    public static func plan(_ text: String, query: String, options: FindOptions, template: String) throws -> [ReplaceMatch] {
+    public static func plan(_ text: String, query: String, options: FindOptions, template: String) throws
+        -> [ReplaceMatch]
+    {
         let regex = try TextSearch.pattern(query, options), s = text as NSString
         var line = 1, scanned = 0
         return TextSearch.matches(regex, in: s).map { m in
             for i in scanned..<m.range.location where s.character(at: i) == 10 { line += 1 }
             scanned = m.range.location
             let new = TextSearch.replacement(m, regex, in: s, template: template, options)
-            let whole = s.lineRange(for: m.range), head = NSRange(location: whole.location, length: m.range.location - whole.location)
+            let whole = s.lineRange(for: m.range),
+                head = NSRange(location: whole.location, length: m.range.location - whole.location)
             let tail = NSRange(location: NSMaxRange(m.range), length: NSMaxRange(whole) - NSMaxRange(m.range))
             let before = s.substring(with: whole), after = s.substring(with: head) + new + s.substring(with: tail)
-            return ReplaceMatch(range: m.range, text: new, line: line,
-                                before: before.trimmingCharacters(in: .whitespacesAndNewlines), after: after.trimmingCharacters(in: .whitespacesAndNewlines))
+            return ReplaceMatch(
+                range: m.range, text: new, line: line,
+                before: before.trimmingCharacters(in: .whitespacesAndNewlines),
+                after: after.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 

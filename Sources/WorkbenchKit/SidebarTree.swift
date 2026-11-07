@@ -1,5 +1,5 @@
-import Foundation
 import Core
+import Foundation
 
 /// What the sidebar lists, decided without a window: projects → their chats, then their groups → the chats in those. A
 /// project's chats are the agents on its own screen (`mainWorkspace`), with no heading; every other workspace is a group
@@ -8,7 +8,9 @@ import Core
 public struct SidebarItem: Equatable, Sendable {
     /// `host`: a server's header, its projects after it on the same card (not under it: they keep their place in the outline).
     /// `parked`: the heading over agents put out of the way, its children.
-    public enum Kind: Equatable, Sendable { case project(String), workspace(String), agent(String), host(String), parked }
+    public enum Kind: Equatable, Sendable {
+        case project(String), workspace(String), agent(String), host(String), parked
+    }
     public var kind: Kind
     public var children: [SidebarItem] = []
     /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
@@ -33,14 +35,18 @@ public struct SidebarTree {
     public var parked: Set<String> = []
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
-        self.projects = projects; self.workspaces = workspaces; self.sessions = sessions
+        self.projects = projects
+        self.workspaces = workspaces
+        self.sessions = sessions
     }
 
     public func build() -> [SidebarItem] {
         func workspace(_ w: Worktree) -> SidebarItem {
             // Agents only: terminals are tabs, not something to keep an eye on. One on another screen keeps a row there:
             // it's what that screen holds.
-            let agents = sessions.filter { $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" && !parked.contains($0.id) }
+            let agents = sessions.filter {
+                $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" && !parked.contains($0.id)
+            }
             let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
             return SidebarItem(kind: .workspace(w.id), children: rows.map { SidebarItem(kind: .agent($0.id)) })
         }
@@ -48,13 +54,19 @@ public struct SidebarTree {
         let listed = projects.map { r -> SidebarItem in
             let own = mainWorkspace(of: r, among: live)
             let groups = live.filter { $0.repoId == r.id && $0.id != own?.id }.map(workspace)
-            return SidebarItem(kind: .project(r.id), children: (own.map(workspace)?.children ?? []) + groups, workspace: own?.id)
+            return SidebarItem(
+                kind: .project(r.id), children: (own.map(workspace)?.children ?? []) + groups, workspace: own?.id)
         }
-        func busy(_ i: SidebarItem) -> Bool { i.children.contains { if case .agent = $0.kind { true } else { busy($0) } } }
+        func busy(_ i: SidebarItem) -> Bool {
+            i.children.contains { if case .agent = $0.kind { true } else { busy($0) } }
+        }
         let all = sections(activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed)
         func isPinned(_ i: SidebarItem) -> Bool { pinnedLast != nil && i.kind == .project(pinnedLast ?? "") }
-        let away = sessions.filter { parked.contains($0.id) && $0.status != .exited }.map { SidebarItem(kind: .agent($0.id)) }
-        return all.filter { !isPinned($0) } + (away.isEmpty ? [] : [SidebarItem(kind: .parked, children: away)]) + all.filter(isPinned)
+        let away = sessions.filter { parked.contains($0.id) && $0.status != .exited }.map {
+            SidebarItem(kind: .agent($0.id))
+        }
+        return all.filter { !isPinned($0) } + (away.isEmpty ? [] : [SidebarItem(kind: .parked, children: away)])
+            + all.filter(isPinned)
     }
 
     private func sections(_ listed: [SidebarItem]) -> [SidebarItem] {
@@ -85,6 +97,8 @@ public struct Inbox: Sendable {
     /// Who the count says needs you: the agent on screen too, as long as it asks (its row still says so).
     public var counted: [Session] { queue.filter { since($0) + settle <= now } }
     /// When the next one held back by `settle` is due: look again then.
-    public var settlesAt: Date? { queue.filter { !viewing.contains($0.id) }.map { since($0) + settle }.filter { $0 > now }.min() }
+    public var settlesAt: Date? {
+        queue.filter { !viewing.contains($0.id) }.map { since($0) + settle }.filter { $0 > now }.min()
+    }
     private func since(_ s: Session) -> Date { s.statusAt ?? s.createdAt }
 }

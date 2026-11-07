@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import Testing
+
 @testable import Daemon
 
 /// What `host.stats` reads off a host: niko_main's real answer (Ubuntu 24.04, 2026-11-04), cut short, with one Kelp agent.
@@ -50,7 +51,11 @@ import Testing
         #expect(s.swap == (1963004 - 1663716) * 1024 && s.diskTotal == 61806672 * 1024 && s.disk == 27830152 * 1024)
         // 11 ticks, 7 of them idle or waiting
         #expect(abs((s.cpu ?? 0) - 4.0 / 11 * 100) < 0.01)
-        #expect(s.ports == [.init(port: 22, local: false), .init(port: 53, local: true), .init(port: 80, local: false), .init(port: 5432, local: true)])
+        #expect(
+            s.ports == [
+                .init(port: 22, local: false), .init(port: 53, local: true), .init(port: 80, local: false),
+                .init(port: 5432, local: true)
+            ])
         #expect(s.tmux == [.init(name: "kelp-tab-3f2a9c01", session: "S1")])   // "work" is the user's own
         #expect(s.processCount == 7)
         let p = try #require(s.processes)
@@ -65,9 +70,13 @@ import Testing
 
     @Test func saysWhatStrainsIt() {
         var s = HostStats(host: "h", connected: true)
-        s.disk = 92; s.diskTotal = 100
+        s.disk = 92
+        s.diskTotal = 100
         #expect(s.alert?.0 == .disk && s.alert?.percent == 92)
-        s.disk = 10; s.cpu = 97; s.cores = 2; s.load = [0.5, 0.4, 0.3]
+        s.disk = 10
+        s.cpu = 97
+        s.cores = 2
+        s.load = [0.5, 0.4, 0.3]
         #expect(s.alert == nil)   // busy just now, not for a minute
         s.load = [2.1, 1, 1]
         #expect(s.alert?.0 == .cpu && s.alert?.percent == 97)
@@ -75,15 +84,19 @@ import Testing
 
     /// The script itself, here on macOS: what Linux has only is left out, the rest comes.
     @Test func runsOnMacOS() throws {
-        let out = try Subprocess.run(["/bin/sh", "-c", HostStatsReader.script], cwd: NSHomeDirectory(),
-                                     env: ProcessInfo.processInfo.environment, timeLimit: 20)
+        let out = try Subprocess.run(
+            ["/bin/sh", "-c", HostStatsReader.script], cwd: NSHomeDirectory(),
+            env: ProcessInfo.processInfo.environment, timeLimit: 20)
         let s = HostStatsReader.parse(String(decoding: out.stdout, as: UTF8.self), host: "mac", owner: [:])
         #expect(out.status == 0 && (s.cores ?? 0) > 0 && s.load?.count == 3 && (s.diskTotal ?? 0) > 0)
-        #expect((s.processCount ?? 0) > 10 && (1...30).contains(s.processes?.count ?? 0) && s.memory == nil && s.cpu == nil)
+        #expect(
+            (s.processCount ?? 0) > 10 && (1...30).contains(s.processes?.count ?? 0) && s.memory == nil && s.cpu == nil)
         #expect(s.os?.hasPrefix("Darwin") == true)
     }
 
     @Test func elapsedTimes() {
-        #expect(HostStatsReader.seconds("06:45") == 405 && HostStatsReader.seconds("01:02:03") == 3723 && HostStatsReader.seconds("2-00:00:01") == 172_801)
+        #expect(
+            HostStatsReader.seconds("06:45") == 405 && HostStatsReader.seconds("01:02:03") == 3723
+                && HostStatsReader.seconds("2-00:00:01") == 172_801)
     }
 }

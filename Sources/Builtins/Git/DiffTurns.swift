@@ -39,30 +39,48 @@ extension DiffViewController {
     /// What goes back first, in a sheet; then only if the folder is still as it was shown (`SessionTurnUndo`).
     private func undoTurn() {
         // The turn's own agent, not whichever has the focus now.
-        guard let mark = turnPop.selectedItem?.representedObject as? SessionTurns.Mark else { NSSound.beep(); return }
+        guard let mark = turnPop.selectedItem?.representedObject as? SessionTurns.Mark else {
+            NSSound.beep()
+            return
+        }
         let sid = mark.session, turn = mark.id
         Task { [self] in
             guard let plan = await app.call(SessionTurnUndo(id: sid, turn: turn)) else { return }   // the banner says why not
-            guard !plan.files.isEmpty else { status.stringValue = String(localized: "Nothing changed since that turn began"); return }
+            guard !plan.files.isEmpty else {
+                status.stringValue = String(localized: "Nothing changed since that turn began")
+                return
+            }
             let a = NSAlert()
             a.messageText = String(localized: "Put \(plan.files.count) files back as they were before this turn?")
             let shown = plan.files.prefix(12).joined(separator: "\n"), more = plan.files.count - 12
-            a.informativeText = shown + (more > 0 ? "\n" + String(localized: "and \(more) more") : "") + "\n\n"
-                + String(localized: "Files the turn made go to the Trash; .env files stay as they are. Later turns' changes and your own edits in these files go too; Redo brings them back.")
+            a.informativeText =
+                shown + (more > 0 ? "\n" + String(localized: "and \(more) more") : "") + "\n\n"
+                + String(
+                    localized:
+                        "Files the turn made go to the Trash; .env files stay as they are. Later turns' changes and your own edits in these files go too; Redo brings them back."
+                )
             a.addButton(withTitle: String(localized: "Put Back")).hasDestructiveAction = true
             a.addButton(withTitle: String(localized: "Cancel"))
             guard await runSheet(a) == .alertFirstButtonReturn,
-                  let after = await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state)) else { return }
+                let after = await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state))
+            else { return }
             status.stringValue = String(localized: "Put \(plan.files.count) files back")
             await load()
             let done = String(localized: "Put \(plan.files.count) files back as they were before the turn")
-            Banner.show(done, action: (String(localized: "Redo"), { [weak self] in
-                Task {
-                    guard let self, await self.app.call(SessionTurnRedo(id: sid, turn: turn, state: after.state)) != nil else { return }
-                    self.status.stringValue = ""
-                    await self.load()
-                }
-            }), lasts: 60)
+            Banner.show(
+                done,
+                action: (
+                    String(localized: "Redo"),
+                    { [weak self] in
+                        Task {
+                            guard let self,
+                                await self.app.call(SessionTurnRedo(id: sid, turn: turn, state: after.state)) != nil
+                            else { return }
+                            self.status.stringValue = ""
+                            await self.load()
+                        }
+                    }
+                ), lasts: 60)
         }
     }
 }

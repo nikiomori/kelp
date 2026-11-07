@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import Observation
-import Core
 
 /// ~/.kelp/settings.json, owned by the daemon so the CLI and agents can change it too.
 /// Reads are synchronous from the last copy; writes go through the daemon and come back as `event.settings`.
@@ -35,7 +35,9 @@ package final class SettingsStore {
         values = o
         app.themes.apply()
         if skillsChanged { AgentSkills.write(app) }
-        if !app.extensions.extensions.isEmpty, app.extensions.disabled(o["extensions.disabled"]) != app.extensions.disabledLoaded {
+        if !app.extensions.extensions.isEmpty,
+            app.extensions.disabled(o["extensions.disabled"]) != app.extensions.disabledLoaded
+        {
             app.extensions.reload()
         }
     }
@@ -55,7 +57,9 @@ package final class SettingsStore {
     func value(_ key: String, language: String? = nil) -> JSONValue? {
         if let language, let v = own(key, language) { return v }
         if let v = values[key] { return v }
-        for s in app.extensions.all.settings { if let spec = s.specs.first(where: { $0.key == key }) { return spec.default } }
+        for s in app.extensions.all.settings {
+            if let spec = s.specs.first(where: { $0.key == key }) { return spec.default }
+        }
         return nil
     }
     package func string(_ key: String, language: String? = nil) -> String? { value(key, language: language)?.string }
@@ -93,11 +97,14 @@ package final class SettingsStore {
     }
 
     /// The languages settings.json has a block for.
-    var languagesSet: [String] { values.keys.filter { $0.hasPrefix("[") && $0.hasSuffix("]") }.map { String($0.dropFirst().dropLast()) }.sorted() }
+    var languagesSet: [String] {
+        values.keys.filter { $0.hasPrefix("[") && $0.hasSuffix("]") }.map { String($0.dropFirst().dropLast()) }.sorted()
+    }
 
     /// Shows a value without saving it (the palette trying themes on); `set` keeps one, `preview(key, saved)` goes back.
     func preview(_ key: String, _ v: JSONValue?) {
-        var next = values; next[key] = v
+        var next = values
+        next[key] = v
         apply(next)
     }
 
@@ -109,7 +116,8 @@ package final class SettingsStore {
             block[key] = v
             return set("[\(language)]", .object(block))
         }
-        var next = values; next[key] = v
+        var next = values
+        next[key] = v
         apply(next)   // optimistic; the daemon's echo confirms
         inFlight[key, default: 0] += 1
         lastSet = Task { [lastSet] in

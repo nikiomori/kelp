@@ -2,7 +2,9 @@ import Foundation
 import Testing
 import WorkbenchKit
 
-private func tab(_ uri: String, on w: String = "w") -> ClosedTab { ClosedTab(uri: uri, title: uri, workspace: w, group: "g", index: 0) }
+private func tab(_ uri: String, on w: String = "w") -> ClosedTab {
+    ClosedTab(uri: uri, title: uri, workspace: w, group: "g", index: 0)
+}
 
 @Test func theLatestComesFirstAndTheListStaysShort() {
     var c = ClosedTabs()

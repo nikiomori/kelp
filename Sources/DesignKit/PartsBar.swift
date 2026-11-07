@@ -6,12 +6,20 @@ import SwiftUI
 public struct PartsBar: View {
     public struct Part: Identifiable, Equatable {
         public let id: String, value: Double, color: Color
-        public init(id: String, value: Double, color: Color) { self.id = id; self.value = value; self.color = color }
+        public init(id: String, value: Double, color: Color) {
+            self.id = id
+            self.value = value
+            self.color = color
+        }
     }
     public static let height: CGFloat = 8
     let parts: [Part], total: Double, end: Part?
 
-    public init(_ parts: [Part], total: Double, end: Part? = nil) { self.parts = parts; self.total = total; self.end = end }
+    public init(_ parts: [Part], total: Double, end: Part? = nil) {
+        self.parts = parts
+        self.total = total
+        self.end = end
+    }
 
     public var body: some View {
         GeometryReader { g in
@@ -34,7 +42,9 @@ public struct PartsBar: View {
             Canvas { c, size in
                 var p = Path(), x = -size.height
                 while x < size.width {
-                    p.move(to: CGPoint(x: x, y: size.height)); p.addLine(to: CGPoint(x: x + size.height, y: 0)); x += 4
+                    p.move(to: CGPoint(x: x, y: size.height))
+                    p.addLine(to: CGPoint(x: x + size.height, y: 0))
+                    x += 4
                 }
                 c.stroke(p, with: .color(.secondary.opacity(0.35)), lineWidth: 1)
             }

@@ -60,8 +60,10 @@ extension NSView {
         translatesAutoresizingMaskIntoConstraints = false
         area.addSubview(self)
         NSLayoutConstraint.activate([
-            topAnchor.constraint(equalTo: top?.bottomAnchor ?? area.topAnchor), bottomAnchor.constraint(equalTo: area.bottomAnchor),
-            leadingAnchor.constraint(equalTo: area.leadingAnchor), trailingAnchor.constraint(equalTo: area.trailingAnchor)
+            topAnchor.constraint(equalTo: top?.bottomAnchor ?? area.topAnchor),
+            bottomAnchor.constraint(equalTo: area.bottomAnchor),
+            leadingAnchor.constraint(equalTo: area.leadingAnchor),
+            trailingAnchor.constraint(equalTo: area.trailingAnchor)
         ])
     }
 }

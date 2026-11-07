@@ -107,7 +107,9 @@ public final class CodeEditor: NSObject {
     public var wrapsHere: Bool?
     /// The language as settings.json names it: "markdown", "swift", "plaintext".
     /// Every `languageId` there is, for a setting's "[language]" block.
-    public static var languageIds: [String] { (["plaintext"] + CodeLanguage.allLanguages.map(\.tsName)).filter { !$0.isEmpty } }
+    public static var languageIds: [String] {
+        (["plaintext"] + CodeLanguage.allLanguages.map(\.tsName)).filter { !$0.isEmpty }
+    }
     public var languageId: String { language.id == .plainText ? "plaintext" : language.tsName }
     /// Prose, whatever `wrapLines` says.
     public var alwaysWraps = false
@@ -141,7 +143,9 @@ public final class CodeEditor: NSObject {
     static let all = NSHashTable<CodeEditor>.weakObjects()
 
     /// The editor showing the file at `url`, if one is.
-    public static func showing(_ url: URL) -> CodeEditor? { all.allObjects.first { $0.url.standardizedFileURL == url.standardizedFileURL } }
+    public static func showing(_ url: URL) -> CodeEditor? {
+        all.allObjects.first { $0.url.standardizedFileURL == url.standardizedFileURL }
+    }
     public let url: URL
 
     public init(text: String, url: URL, editable: Bool = true) {
@@ -161,9 +165,15 @@ public final class CodeEditor: NSObject {
         scroll.hasVerticalRuler = true
         scroll.rulersVisible = true
         scroll.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
-        NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.frameDidChangeNotification, object: textView)
-        highlighter?.parsed = { [weak self] in self?.colored = nil; self?.colorVisible(); self?.markBrackets() }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(scrolled), name: NSView.frameDidChangeNotification, object: textView)
+        highlighter?.parsed = { [weak self] in
+            self?.colored = nil
+            self?.colorVisible()
+            self?.markBrackets()
+        }
         refreshAppearance()
         load(text)
         textView.setSelectedRange(NSRange(location: 0, length: 0))
@@ -180,9 +190,13 @@ public final class CodeEditor: NSObject {
         tv.allowsUndo = true
         tv.usesFindPanel = true   // the menu's Find items reach `performFindPanelAction`; what they open is Kelp's own bar
         tv.smartInsertDeleteEnabled = false
-        for off in [\NSTextView.isAutomaticQuoteSubstitutionEnabled, \.isAutomaticDashSubstitutionEnabled, \.isAutomaticTextReplacementEnabled,
-                    \.isAutomaticSpellingCorrectionEnabled, \.isAutomaticLinkDetectionEnabled, \.isContinuousSpellCheckingEnabled,
-                    \.isGrammarCheckingEnabled, \.isAutomaticTextCompletionEnabled, \.displaysLinkToolTips] { tv[keyPath: off] = false }
+        for off in [
+            \NSTextView.isAutomaticQuoteSubstitutionEnabled, \.isAutomaticDashSubstitutionEnabled,
+            \.isAutomaticTextReplacementEnabled,
+            \.isAutomaticSpellingCorrectionEnabled, \.isAutomaticLinkDetectionEnabled,
+            \.isContinuousSpellCheckingEnabled,
+            \.isGrammarCheckingEnabled, \.isAutomaticTextCompletionEnabled, \.displaysLinkToolTips
+        ] { tv[keyPath: off] = false }
         tv.inlinePredictionType = .no
         if #available(macOS 15.0, *) { tv.writingToolsBehavior = .none }   // code, not prose
         tv.textContainerInset = NSSize(width: 4, height: 6)
@@ -227,7 +241,10 @@ public final class CodeEditor: NSObject {
             guard var p = b.baseAddress else { return 0 }
             let end = p + b.count
             var n = 0
-            while let hit = memchr(p, 10, end - p) { n += 1; p = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1 }
+            while let hit = memchr(p, 10, end - p) {
+                n += 1
+                p = UnsafePointer(hit.assumingMemoryBound(to: UInt8.self)) + 1
+            }
             return n
         }
     }
@@ -249,15 +266,19 @@ public final class CodeEditor: NSObject {
         let t = (s as NSString).substring(with: fresh)
         loading = true
         if textView.shouldChangeText(in: old, replacementString: t) {
-            textView.textStorage?.replaceCharacters(in: old, with: NSAttributedString(string: t, attributes: textView.typingAttributes))
+            textView.textStorage?.replaceCharacters(
+                in: old, with: NSAttributedString(string: t, attributes: textView.typingAttributes))
             textView.didChangeText()
         }
         loading = false
         undo.removeAllActions()
         gutter?.fit(lines: lineCount)
-        textView.setCursors(cursors.map { c in
-            NSRange(location: c.location >= NSMaxRange(old) ? c.location + fresh.length - old.length : min(c.location, NSMaxRange(fresh)), length: 0)
-        })
+        textView.setCursors(
+            cursors.map { c in
+                NSRange(
+                    location: c.location >= NSMaxRange(old)
+                        ? c.location + fresh.length - old.length : min(c.location, NSMaxRange(fresh)), length: 0)
+            })
     }
 
     /// The middle two texts don't share: what's in `a`, what's in `b`. Never between a surrogate pair's halves.
@@ -271,7 +292,10 @@ public final class CodeEditor: NSObject {
         while tail < n - head, x[x.count - 1 - tail] == y[y.count - 1 - tail] { tail += 1 }
         if head > 0, UTF16.isLeadSurrogate(x[head - 1]) { head -= 1 }
         if tail > 0, UTF16.isTrailSurrogate(x[x.count - tail]) { tail -= 1 }
-        return (NSRange(location: head, length: x.count - head - tail), NSRange(location: head, length: y.count - head - tail))
+        return (
+            NSRange(location: head, length: x.count - head - tail),
+            NSRange(location: head, length: y.count - head - tail)
+        )
     }
 
     public var selectedText: String? {
@@ -301,10 +325,13 @@ public final class CodeEditor: NSObject {
     /// one scrolled out of sight.
     public var selectionRect: NSRect? {
         let r = textView.selectedRange(), s = textView.string as NSString
-        guard textView.cursors.count == 1, r.length > 0, let lm = textView.layoutManager, let tc = textView.textContainer else { return nil }
+        guard textView.cursors.count == 1, r.length > 0, let lm = textView.layoutManager,
+            let tc = textView.textContainer
+        else { return nil }
         let line = NSIntersectionRange(r, s.lineRange(for: NSRange(location: r.location, length: 0)))
         let glyphs = lm.glyphRange(forCharacterRange: line.length > 0 ? line : r, actualCharacterRange: nil)
-        let box = lm.boundingRect(forGlyphRange: glyphs, in: tc).offsetBy(dx: textView.textContainerOrigin.x, dy: textView.textContainerOrigin.y)
+        let box = lm.boundingRect(forGlyphRange: glyphs, in: tc).offsetBy(
+            dx: textView.textContainerOrigin.x, dy: textView.textContainerOrigin.y)
         let shown = textView.visibleRect.intersection(box)
         return shown.isEmpty ? nil : view.convert(shown, from: textView)
     }
@@ -337,7 +364,9 @@ public final class CodeEditor: NSObject {
     /// `line` (1-based) at the top of what's on screen; the cursor stays.
     public func scroll(toLine line: Int) {
         let s = textView.string as NSString
-        guard let lm = textView.layoutManager, s.length > 0, let start = lineIndex.start(ofLine: max(0, line - 1), in: s), start < s.length else { return }
+        guard let lm = textView.layoutManager, s.length > 0,
+            let start = lineIndex.start(ofLine: max(0, line - 1), in: s), start < s.length
+        else { return }
         let y = lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil).minY
         scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: y))
         scroll.reflectScrolledClipView(scroll.contentView)
@@ -366,7 +395,9 @@ public final class CodeEditor: NSObject {
     func colorVisible() {
         guard let highlighter, let lm = textView.layoutManager, let tc = textView.textContainer else { return }
         let screen = textView.visibleRect
-        func characters(in rect: NSRect) -> NSRange { lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil) }
+        func characters(in rect: NSRect) -> NSRange {
+            lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
+        }
         let shown = characters(in: screen)
         if let colored, NSIntersectionRange(colored, shown).length == shown.length { return }
         let around = characters(in: screen.insetBy(dx: 0, dy: -screen.height))
@@ -379,7 +410,11 @@ public final class CodeEditor: NSObject {
     static func indentUnit(of text: String) -> String {
         var tabs = 0, spaces: [Int] = []
         for line in text.prefix(64_000).split(separator: "\n").prefix(500) {   // the start of a big file is enough
-            if line.hasPrefix("\t") { tabs += 1 } else if line.hasPrefix(" ") { spaces.append(line.prefix { $0 == " " }.count) }
+            if line.hasPrefix("\t") {
+                tabs += 1
+            } else if line.hasPrefix(" ") {
+                spaces.append(line.prefix { $0 == " " }.count)
+            }
         }
         if tabs > spaces.count { return "\t" }
         return spaces.min() == 2 ? "  " : "    "
@@ -411,14 +446,17 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         let s = textView.string as NSString
         for (r, t) in zip(ranges, texts).reversed() {   // from the bottom: each edit's offsets still hold for the next
             highlighter?.willReplace(r, with: t, in: s, lines: &lineIndex)
-            lineCount += t.utf16.lazy.filter { $0 == 10 }.count - s.substring(with: r).utf16.lazy.filter { $0 == 10 }.count
+            lineCount +=
+                t.utf16.lazy.filter { $0 == 10 }.count - s.substring(with: r).utf16.lazy.filter { $0 == 10 }.count
             marked = marked.compactMap { Self.moved($0, by: r, to: (t as NSString).length) }
         }
         described = true
     }
 
-    public nonisolated func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions,
-                                        range editedRange: NSRange, changeInLength delta: Int) {
+    public nonisolated func textStorage(
+        _ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions,
+        range editedRange: NSRange, changeInLength delta: Int
+    ) {
         guard editedMask.contains(.editedCharacters) else { return }
         MainActor.assumeIsolated {   // the text view's and load's edits, both on the main thread
             lineIndex.invalidate(from: editedRange.location)

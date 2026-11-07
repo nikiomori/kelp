@@ -13,7 +13,8 @@ public enum SocketError: Error, CustomStringConvertible {
 
 public enum Unix {
     static func addr(_ path: String) throws -> sockaddr_un {
-        var a = sockaddr_un(); a.sun_family = sa_family_t(AF_UNIX)
+        var a = sockaddr_un()
+        a.sun_family = sa_family_t(AF_UNIX)
         let cap = MemoryLayout.size(ofValue: a.sun_path)
         guard path.utf8.count < cap else { throw SocketError.path }
         withUnsafeMutableBytes(of: &a.sun_path) { b in
@@ -27,7 +28,9 @@ public enum Unix {
     public static func connect(_ path: String, patience: TimeInterval) throws -> Int32 {
         let end = Date().addingTimeInterval(patience)
         while true {
-            do { return try connect(path) } catch SocketError.connect(let e) where (e == ECONNREFUSED || e == EAGAIN) && Date() < end {
+            do { return try connect(path) } catch SocketError.connect(let e)
+                where (e == ECONNREFUSED || e == EAGAIN) && Date() < end
+            {
                 usleep(50_000)
             }
         }
@@ -38,9 +41,15 @@ public enum Unix {
         guard fd >= 0 else { throw SocketError.socket(errno) }
         var a = try addr(path)
         let r = withUnsafePointer(to: &a) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
         }
-        guard r == 0 else { let e = errno; close(fd); throw SocketError.connect(e) }
+        guard r == 0 else {
+            let e = errno
+            close(fd)
+            throw SocketError.connect(e)
+        }
         noSigPipe(fd)
         return fd
     }
@@ -54,16 +63,25 @@ public enum Unix {
 
     /// A socket file someone still answers on is theirs: only a stale one (its owner gone) is replaced.
     public static func listen(_ path: String) throws -> Int32 {
-        if let other = try? connect(path) { close(other); throw SocketError.inUse }
+        if let other = try? connect(path) {
+            close(other)
+            throw SocketError.inUse
+        }
         unlink(path)
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SocketError.socket(errno) }
         var a = try addr(path)
         closeOffDirectory((path as NSString).deletingLastPathComponent)
         let r = withUnsafePointer(to: &a) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
         }
-        guard r == 0, Darwin.listen(fd, SOMAXCONN) == 0 else { let e = errno; close(fd); throw SocketError.bind(e) }
+        guard r == 0, Darwin.listen(fd, SOMAXCONN) == 0 else {
+            let e = errno
+            close(fd)
+            throw SocketError.bind(e)
+        }
         chmod(path, 0o600)   // the socket is the auth boundary locally
         return fd
     }

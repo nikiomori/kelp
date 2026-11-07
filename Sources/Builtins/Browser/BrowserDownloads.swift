@@ -1,6 +1,6 @@
 import AppKit
-import WebKit
 import KelpKit
+import WebKit
 import WorkbenchKit
 
 /// Files a page hands over instead of showing: a link with `download`, an attachment, a type WebKit can't show. Without
@@ -10,7 +10,8 @@ import WorkbenchKit
 /// web (quarantine), so Gatekeeper looks at it before it opens.
 extension BrowserTab: WKDownloadDelegate {
     func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences) async
-        -> (WKNavigationActionPolicy, WKWebpagePreferences) {
+        -> (WKNavigationActionPolicy, WKWebpagePreferences)
+    {
         if let u = a.request.url, leavesSharedSite(u, mainFrame: a.targetFrame?.isMainFrame != false) {
             noteLog("[blocked] \(u.absoluteString): another site than the one the user let the agent use")
             return (.cancel, preferences)
@@ -21,7 +22,9 @@ extension BrowserTab: WKDownloadDelegate {
     /// The user let the agent into their logged-in browser for one site (`open --shared`): while the agent drives the page,
     /// it stays on that site; another one is asked for again.
     func leavesSharedSite(_ u: URL, mainFrame: Bool) -> Bool {
-        guard agentAnswers, !agent, mainFrame, u.scheme != "about", let allowed = URL(string: start).flatMap(PageOrigin.of) else { return false }
+        guard agentAnswers, !agent, mainFrame, u.scheme != "about",
+            let allowed = URL(string: start).flatMap(PageOrigin.of)
+        else { return false }
         return PageOrigin.of(u) != allowed
     }
 
@@ -32,7 +35,8 @@ extension BrowserTab: WKDownloadDelegate {
         let a = NSAlert()
         a.messageText = String(localized: "Allow downloads from \(host)?")
         a.informativeText = String(localized: "Its files go to your Downloads folder.")
-        a.addButton(withTitle: String(localized: "Allow")); a.addButton(withTitle: String(localized: "Don't Allow"))
+        a.addButton(withTitle: String(localized: "Allow"))
+        a.addButton(withTitle: String(localized: "Don't Allow"))
         return await runSheet(a) == .alertFirstButtonReturn
     }
 
@@ -43,18 +47,24 @@ extension BrowserTab: WKDownloadDelegate {
     }
 
     func webView(_ w: WKWebView, navigationAction a: WKNavigationAction, didBecome d: WKDownload) { d.delegate = self }
-    func webView(_ w: WKWebView, navigationResponse r: WKNavigationResponse, didBecome d: WKDownload) { d.delegate = self }
+    func webView(_ w: WKWebView, navigationResponse r: WKNavigationResponse, didBecome d: WKDownload) {
+        d.delegate = self
+    }
 
-    func download(_ d: WKDownload, decideDestinationUsing r: URLResponse, suggestedFilename name: String) async -> URL? {
+    func download(_ d: WKDownload, decideDestinationUsing r: URLResponse, suggestedFilename name: String) async -> URL?
+    {
         // The user's pages ask once per site, as Safari does: a page can't fill ~/Downloads unasked.
         if !agentAnswers, let host = r.url?.host ?? web.url?.host, !Self.downloadsAllowed.contains(host) {
             guard await Self.allowDownloads(from: host) else { return nil }
             Self.downloadsAllowed.insert(host)
         }
-        let dir = agentAnswers ? FileManager.default.temporaryDirectory.appendingPathComponent("kelp-downloads", isDirectory: true)
+        let dir =
+            agentAnswers
+            ? FileManager.default.temporaryDirectory.appendingPathComponent("kelp-downloads", isDirectory: true)
             : FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) } catch {
-            failed(name, error); return nil
+            failed(name, error)
+            return nil
         }
         let safe = (name as NSString).lastPathComponent.isEmpty ? "download" : (name as NSString).lastPathComponent
         // Taken: on disk, or the path of a download still coming (two "report.pdf" at once).
@@ -67,29 +77,43 @@ extension BrowserTab: WKDownloadDelegate {
 
     func downloadDidFinish(_ d: WKDownload) {
         guard let (to, source, page) = downloading.removeValue(forKey: ObjectIdentifier(d)) else { return }
-        var props: [String: Any] = [kLSQuarantineTypeKey as String: kLSQuarantineTypeWebDownload, kLSQuarantineAgentNameKey as String: "Kelp"]
+        var props: [String: Any] = [
+            kLSQuarantineTypeKey as String: kLSQuarantineTypeWebDownload, kLSQuarantineAgentNameKey as String: "Kelp"
+        ]
         props[kLSQuarantineDataURLKey as String] = source
         props[kLSQuarantineOriginURLKey as String] = page
         var values = URLResourceValues(), file = to
         values.quarantineProperties = props
-        do { try file.setResourceValues(values) } catch { failed(to.lastPathComponent, error); return }
+        do { try file.setResourceValues(values) } catch {
+            failed(to.lastPathComponent, error)
+            return
+        }
         if agentAnswers {
             noteDownload("\(to.path) (done, \(d.progress.completedUnitCount) bytes)")
             return
         }
         DistributedNotificationCenter.default().post(name: .init("com.apple.DownloadFileFinished"), object: to.path)
-        Banner.show(String(localized: "Downloaded \(to.lastPathComponent)"), action: (String(localized: "Show in Finder"), {
-            NSWorkspace.shared.activateFileViewerSelecting([to])
-        }))
+        Banner.show(
+            String(localized: "Downloaded \(to.lastPathComponent)"),
+            action: (
+                String(localized: "Show in Finder"),
+                {
+                    NSWorkspace.shared.activateFileViewerSelecting([to])
+                }
+            ))
     }
 
     func download(_ d: WKDownload, didFailWithError e: Error, resumeData: Data?) {
-        let name = downloading.removeValue(forKey: ObjectIdentifier(d))?.to.lastPathComponent ?? String(localized: "a file")
+        let name =
+            downloading.removeValue(forKey: ObjectIdentifier(d))?.to.lastPathComponent ?? String(localized: "a file")
         failed(name, e)
     }
 
     private func failed(_ name: String, _ e: Error) {
-        if agentAnswers { noteDownload("\(name) failed: \(e.localizedDescription)"); return }
+        if agentAnswers {
+            noteDownload("\(name) failed: \(e.localizedDescription)")
+            return
+        }
         Banner.show(String(localized: "Couldn't download \(name): \(e.localizedDescription)"), style: .error)
     }
 

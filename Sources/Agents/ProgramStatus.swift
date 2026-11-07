@@ -6,7 +6,8 @@ import Foundation
 public enum ProgramStatus {
     public static let prefix = "\u{1B}]7501;"
     /// The only bytes a terminal that understands the protocol writes back to the `?` probe.
-    public static let queryReply = "\u{1B}]7501;?:states=idle,working,done,blocked,error:kinds=permission,question,auth\u{1B}\\"
+    public static let queryReply =
+        "\u{1B}]7501;?:states=idle,working,done,blocked,error:kinds=permission,question,auth\u{1B}\\"
     /// Pi and Droid count the protocol as there only if that reply comes before the terminal's answer to the device
     /// attributes query they send with the probe (`ESC [ c`), and wait for that answer only 150 ms. With no terminal
     /// attached nobody else answers it, so Kelp does (as a VT220, which is all they read from it).
@@ -23,8 +24,16 @@ public enum ProgramStatus {
         public var title: String?
         /// 0–100, while it works.
         public var progress: Int?
-        public init(id: String? = nil, state: String, kind: String? = nil, msg: String? = nil, title: String? = nil, progress: Int? = nil) {
-            self.id = id; self.state = state; self.kind = kind; self.msg = msg; self.title = title; self.progress = progress
+        public init(
+            id: String? = nil, state: String, kind: String? = nil, msg: String? = nil, title: String? = nil,
+            progress: Int? = nil
+        ) {
+            self.id = id
+            self.state = state
+            self.kind = kind
+            self.msg = msg
+            self.title = title
+            self.progress = progress
         }
     }
     public enum Message: Equatable, Sendable { case query, report(Report) }
@@ -41,7 +50,8 @@ public enum ProgramStatus {
         var pairs: [String: String] = [:]
         for pair in body.split(separator: ":") {
             guard let eq = pair.firstIndex(of: "=") else { continue }
-            let k = pair[..<eq].trimmingCharacters(in: .whitespaces), v = pair[pair.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+            let k = pair[..<eq].trimmingCharacters(in: .whitespaces),
+                v = pair[pair.index(after: eq)...].trimmingCharacters(in: .whitespaces)
             guard k.count <= 16, k.allSatisfy({ $0.isLowercase && $0.isASCII }) else { continue }
             pairs[k] = v
         }
@@ -49,11 +59,15 @@ public enum ProgramStatus {
         func text(_ key: String) -> String? {
             pairs[key].flatMap { $0.count <= 2732 ? Data(base64Encoded: padded($0)) : nil }
                 .flatMap { String(data: $0, encoding: .utf8) }
-                .flatMap { $0.unicodeScalars.contains { $0.value < 0x20 || (0x7F...0x9F).contains($0.value) } ? nil : $0 }
+                .flatMap {
+                    $0.unicodeScalars.contains { $0.value < 0x20 || (0x7F...0x9F).contains($0.value) } ? nil : $0
+                }
         }
         let progress = state == "working" ? pairs["progress"].flatMap { Int($0) }.map { min(100, max(0, $0)) } : nil
         let kind = state == "blocked" ? pairs["kind"] : nil
-        return .report(Report(id: pairs["id"], state: state, kind: kind, msg: text("msg"), title: text("title"), progress: progress))
+        return .report(
+            Report(
+                id: pairs["id"], state: state, kind: kind, msg: text("msg"), title: text("title"), progress: progress))
     }
 
     public static let conEmuPrefix = "\u{1B}]9;4;"

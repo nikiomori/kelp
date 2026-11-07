@@ -19,12 +19,16 @@ struct SettingsSearch: Identifiable {
         func hit(_ words: String...) -> Bool { words.contains { ($0 + " " + loc($0)).lowercased().contains(q) } }
         return sections.flatMap { s -> [SettingsSearch] in
             var found = s.groups.compactMap { group, specs -> SettingsSearch? in
-                let rows = specs.filter { hit($0.title, $0.key, $0.description ?? "", $0.help ?? "", group ?? "", s.title) }
+                let rows = specs.filter {
+                    hit($0.title, $0.key, $0.description ?? "", $0.help ?? "", group ?? "", s.title)
+                }
                 return rows.isEmpty ? nil : SettingsSearch(section: s, group: group, specs: rows)
             }
             var screens = s.keywords.filter { hit($0) }
             if screens.isEmpty, s.specs.isEmpty, hit(s.title) { screens = [s.title] }
-            if !screens.isEmpty { found.append(SettingsSearch(section: s, group: nil, specs: [], screens: screens.map(loc))) }
+            if !screens.isEmpty {
+                found.append(SettingsSearch(section: s, group: nil, specs: [], screens: screens.map(loc)))
+            }
             return found
         }
     }

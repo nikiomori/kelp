@@ -1,7 +1,8 @@
 import AppKit
+import EditorKit
 import Foundation
 import Testing
-import EditorKit
+
 @testable import KelpKit
 
 /// Settings › Editor › Wrap long lines: new editors start with it, and open ones follow when it changes.
@@ -26,11 +27,17 @@ extension OneAtATime {
     @Test func wrappedRowsKeepTheLinesIndentation() throws {
         _ = NSApplication.shared
         CodeEditor.wrapLines = true
-        defer { CodeEditor.wrapLines = false; CodeEditor.wrappingIndent = .same }
+        defer {
+            CodeEditor.wrapLines = false
+            CodeEditor.wrappingIndent = .same
+        }
         func secondRow(_ hang: CodeEditor.WrappingIndent) throws -> CGFloat {
             CodeEditor.wrappingIndent = hang
-            let e = CodeEditor(text: "        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
+            let e = CodeEditor(
+                text: "        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
+                defer: true)
             window.contentView = e.view
             e.view.layoutSubtreeIfNeeded()
             let lm = try #require(e.textView.layoutManager), tc = try #require(e.textView.textContainer)
@@ -51,8 +58,11 @@ extension OneAtATime {
         _ = NSApplication.shared
         CodeEditor.wrapLines = true
         defer { CodeEditor.wrapLines = false }
-        let e = CodeEditor(text: "xx\n        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
+        let e = CodeEditor(
+            text: "xx\n        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
+            defer: true)
         window.contentView = e.view
         e.view.layoutSubtreeIfNeeded()
         let lm = try #require(e.textView.layoutManager), tc = try #require(e.textView.textContainer)
@@ -60,12 +70,15 @@ extension OneAtATime {
             lm.ensureLayout(for: tc)
             let start = (e.textView.string as NSString).range(of: "        ").location
             let first = lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: start), effectiveRange: nil)
-            return lm.lineFragmentRect(forGlyphAt: lm.glyphIndex(for: NSPoint(x: 5, y: first.maxY + 2), in: tc), effectiveRange: nil).minX
+            return lm.lineFragmentRect(
+                forGlyphAt: lm.glyphIndex(for: NSPoint(x: 5, y: first.maxY + 2), in: tc), effectiveRange: nil
+            ).minX
         }
         #expect(secondRowOfLine2() > 20)
         e.textView.textStorage?.replaceCharacters(in: NSRange(location: 0, length: 0), with: "abc")
         // Then a key in that line, which lays it out again (the edit above only moved it).
-        e.textView.textStorage?.replaceCharacters(in: NSRange(location: e.textView.string.utf16.count, length: 0), with: " more")
+        e.textView.textStorage?.replaceCharacters(
+            in: NSRange(location: e.textView.string.utf16.count, length: 0), with: " more")
         lm.ensureLayout(for: tc)
         let end = e.textView.string.utf16.count - 1   // the row laid out again
         #expect(lm.lineFragmentRect(forGlyphAt: lm.glyphIndexForCharacter(at: end), effectiveRange: nil).minX > 20)

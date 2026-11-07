@@ -17,15 +17,24 @@ final class UpdatePill: PointerButton {
         isHidden = true
         heightAnchor.constraint(equalToConstant: 22).isActive = true
         onClick = { Task { await app.updates.install(app) } }
-        track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in self?.showWords() }
-        track(owner: self) { app.updates.ready } changed: { [weak self] in self?.show($0) }
+        track(owner: self) {
+            app.themes.chromeText
+        } changed: { [weak self] _ in
+            self?.showWords()
+        }
+        track(owner: self) {
+            app.updates.ready
+        } changed: { [weak self] in
+            self?.show($0)
+        }
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// Medium, in the accent: what has something to do, as the ↑3 on the branch chip.
     private func showWords() {
-        attributedTitle = NSAttributedString(string: String(localized: "Update Kelp"),
-                                             attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.emphasis])
+        attributedTitle = NSAttributedString(
+            string: String(localized: "Update Kelp"),
+            attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.emphasis])
     }
 
     private func show(_ update: Updates.Ready?) {

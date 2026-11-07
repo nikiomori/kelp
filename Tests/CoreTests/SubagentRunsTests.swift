@@ -1,6 +1,6 @@
+import Core
 import Foundation
 import Testing
-import Core
 
 private func session() -> Session {
     var s = Session(cwd: "/", command: "claude")

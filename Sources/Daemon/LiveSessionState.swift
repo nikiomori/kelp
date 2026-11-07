@@ -1,16 +1,16 @@
-import Foundation
-import os
-import Core
 import Agents
+import Core
+import Foundation
 import GitKit
+import os
 
 extension LiveSession {
     /// What changes, all of it: only ever read or written inside `state.withLock`. The `let`s are fixed at launch.
     struct State {
         var record: Session
         var detector: StatusDetector
-        let hooked: Bool                 // agents with hooks report their state themselves; others may through OSC 7501
-        let selfNames: [String]          // what a title that only names the program or its folder contains (TerminalTitle.topic)
+        let hooked: Bool   // agents with hooks report their state themselves; others may through OSC 7501
+        let selfNames: [String]   // what a title that only names the program or its folder contains (TerminalTitle.topic)
         let trail: StatusTrail
         let started = Date()
         let wantsTopic: Bool, wantsURL: Bool, wantsLimits: Bool
@@ -18,19 +18,19 @@ extension LiveSession {
         // Output: the last `ringLimit` bytes, the modes in effect where they start (what the ring dropped had set them), the log.
         var ring = Data(), ringModes = TerminalModes()
         var logSize: Int
-        var attached = Set<Int>()        // connection ids receiving raw output
+        var attached = Set<Int>()   // connection ids receiving raw output
         var lastOutputAt: Date?
-        var lastInputAt: Date?           // keys from a UI, not the terminal's replies
+        var lastInputAt: Date?   // keys from a UI, not the terminal's replies
         /// TUIs redraw everything after a resize; that output isn't the agent working.
         var redrawUntil = Date.distantPast
-        var final = false                // deleted, or its last record saved: nothing it does may save its record again
-        var letGo = false                // out of `live`, its program stopping: no new attach (`letGo()`)
+        var final = false   // deleted, or its last record saved: nothing it does may save its record again
+        var letGo = false   // out of `live`, its program stopping: no new attach (`letGo()`)
         var inputs = 0, inputsInFlight = 0   // client input taken (`input`)
         var ended = false
 
         // What the output says.
         var oscCarry = "", titleCarry = "", lastTopic: String?
-        var utf8Carry = Data()           // the start of a character the last chunk was cut in (`UTF8Chunks`)
+        var utf8Carry = Data()   // the start of a character the last chunk was cut in (`UTF8Chunks`)
         /// The program turned on bracketed paste (ESC[?2004h): it tells a paste from typing.
         var pasteMode = false, pasteCarry = Data()
         var sawURL = false, sawBusy = false, lastLimits: [ClaudeLimits.Reading] = []
@@ -113,7 +113,9 @@ extension LiveSession {
             hooked = manifest.hooks != nil
             selfNames = [manifest.id, manifest.name, (record.cwd as NSString).lastPathComponent]
             autoAnswers = manifest.autoAnswers.compactMap { a in
-                Log.session.attempt("\(manifest.id)'s auto-answer pattern") { try NSRegularExpression(pattern: a.pattern) }.map { ($0, a) }
+                Log.session.attempt("\(manifest.id)'s auto-answer pattern") {
+                    try NSRegularExpression(pattern: a.pattern)
+                }.map { ($0, a) }
             }
             self.logSize = logSize
             wantsTopic = callbacks.topic != nil
@@ -122,7 +124,9 @@ extension LiveSession {
         }
 
         /// The last `bytes` of what it printed, without escapes: what's on screen, near enough.
-        func screen(_ bytes: Int) -> String { StatusDetector.stripANSI(String(decoding: ring.suffix(bytes), as: UTF8.self)) }
+        func screen(_ bytes: Int) -> String {
+            StatusDetector.stripANSI(String(decoding: ring.suffix(bytes), as: UTF8.self))
+        }
 
         /// The modes in effect where the history (the ring's last `ringLimit` bytes) starts.
         var historyModes: TerminalModes {
@@ -148,7 +152,11 @@ extension LiveSession {
                     }
                 }
             }
-            if d.range(of: Data(ProgramStatus.conEmuPrefix.utf8)) != nil, let p = ProgramStatus.conEmuProgress(text).last { record.progress = p }
+            if d.range(of: Data(ProgramStatus.conEmuPrefix.utf8)) != nil,
+                let p = ProgramStatus.conEmuProgress(text).last
+            {
+                record.progress = p
+            }
             return probe
         }
 
@@ -170,7 +178,10 @@ extension LiveSession {
         /// A new topic from the terminal title the agent sets.
         mutating func readTopic(_ text: String, _ d: Data) -> String? {
             guard wantsTopic, d.range(of: Data("\u{1B}]".utf8)) != nil || !titleCarry.isEmpty,
-                  let t = TerminalTitle.scan(text, carry: &titleCarry).last.flatMap({ TerminalTitle.topic($0, names: selfNames) }), t != lastTopic else {
+                let t = TerminalTitle.scan(text, carry: &titleCarry).last.flatMap({
+                    TerminalTitle.topic($0, names: selfNames)
+                }), t != lastTopic
+            else {
                 return nil
             }
             lastTopic = t
@@ -180,7 +191,9 @@ extension LiveSession {
         /// Bracketed paste switched on or off (the sequence can be split across two reads).
         mutating func notePasteMode(_ d: Data) {
             let scan = pasteCarry + d
-            if let on = scan.range(of: Data("\u{1B}[?2004".utf8), options: .backwards), on.upperBound < scan.endIndex { pasteMode = scan[on.upperBound] == UInt8(ascii: "h") }
+            if let on = scan.range(of: Data("\u{1B}[?2004".utf8), options: .backwards), on.upperBound < scan.endIndex {
+                pasteMode = scan[on.upperBound] == UInt8(ascii: "h")
+            }
             pasteCarry = Data(d.suffix(7))
         }
 
@@ -189,28 +202,39 @@ extension LiveSession {
             guard !autoAnswers.isEmpty, !typedYet, Date().timeIntervalSince(started) < 90 else { return nil }
             let tail = screen(4000)
             let r = NSRange(tail.startIndex..., in: tail)
-            guard let i = autoAnswers.firstIndex(where: { $0.0.firstMatch(in: tail, range: r) != nil }) else { return nil }
-            let a = autoAnswers[i].1
-            if let choose = a.choose, let re = Log.session.attempt("an auto-answer's choice pattern", { try NSRegularExpression(pattern: choose) }) {
-                steering = (re, Date(), .distantPast, autoAnswers[i].0); autoAnswers.remove(at: i)   // closed loop, see steer()
+            guard let i = autoAnswers.firstIndex(where: { $0.0.firstMatch(in: tail, range: r) != nil }) else {
                 return nil
             }
-            let asked = autoAnswers.remove(at: i).0; dialogSettled = true
+            let a = autoAnswers[i].1
+            if let choose = a.choose,
+                let re = Log.session.attempt(
+                    "an auto-answer's choice pattern", { try NSRegularExpression(pattern: choose) })
+            {
+                steering = (re, Date(), .distantPast, autoAnswers[i].0)
+                autoAnswers.remove(at: i)   // closed loop, see steer()
+                return nil
+            }
+            let asked = autoAnswers.remove(at: i).0
+            dialogSettled = true
             return (a.input, asked, a.after ?? 0.4)
         }
 
         /// The first local URL it prints (a dev server), with 0.0.0.0 and [::] as localhost.
         mutating func localURL(_ plain: String) -> String? {
-            guard !sawURL, wantsURL, let m = LiveSession.urlRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)),
-                  let r = Range(m.range, in: plain) else { return nil }
+            guard !sawURL, wantsURL,
+                let m = LiveSession.urlRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)),
+                let r = Range(m.range, in: plain)
+            else { return nil }
             sawURL = true
-            return String(plain[r]).replacingOccurrences(of: "0.0.0.0", with: "localhost").replacingOccurrences(of: "[::]", with: "localhost")
+            return String(plain[r]).replacingOccurrences(of: "0.0.0.0", with: "localhost").replacingOccurrences(
+                of: "[::]", with: "localhost")
         }
 
         /// The port a server couldn't get, once: a run that printed its page got one.
         mutating func busyPort(_ plain: String) -> Int? {
             guard !sawURL, !sawBusy, wantsURL else { return nil }
-            guard let m = LiveSession.busyRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)) else { return nil }
+            guard let m = LiveSession.busyRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain))
+            else { return nil }
             let r = [1, 2].lazy.compactMap { Range(m.range(at: $0), in: plain) }.first
             sawBusy = true
             return r.flatMap { Int(plain[$0]) }
@@ -219,9 +243,12 @@ extension LiveSession {
         /// Plan limits Claude Code (or Cursor Agent or Codex, once it ran out) printed, when they changed.
         mutating func newLimits(_ d: Data) -> [ClaudeLimits.Reading] {
             guard wantsLimits, d.range(of: Data("limit".utf8)) != nil else { return [] }
-            let found = record.agent == "cursor" ? ClaudeLimits.parseCursorLimitHit(screen(1200)).map { [$0] } ?? []
-                : record.agent == "codex" ? ClaudeLimits.parseCodexLimitHit(screen(1200)).map { [$0] } ?? []
-                : ClaudeLimits.parse(screen(1200))
+            let found =
+                record.agent == "cursor"
+                ? ClaudeLimits.parseCursorLimitHit(screen(1200)).map { [$0] } ?? []
+                : record.agent == "codex"
+                    ? ClaudeLimits.parseCodexLimitHit(screen(1200)).map { [$0] } ?? []
+                    : ClaudeLimits.parse(screen(1200))
             if !hooked, let r = found.first(where: { $0.percent >= 100 }) {
                 limitSeen = (LimitHit(kind: r.kind, resets: r.resets), Date())
                 settleLimit()
@@ -236,7 +263,8 @@ extension LiveSession {
         /// reason count too.
         mutating func settleLimit() {
             guard let seen = limitSeen, [.done, .error].contains(record.status), let at = record.statusAt,
-                  abs(seen.at.timeIntervalSince(at)) < 30 else { return }
+                abs(seen.at.timeIntervalSince(at)) < 30
+            else { return }
             record.limitHit = seen.hit
             limitSeen = nil
         }
@@ -244,7 +272,8 @@ extension LiveSession {
         /// What the program says about itself (OSC 7501 or `kelp report`): its state, a message for its row, how far it got.
         mutating func apply(_ r: ProgramStatus.Report) {
             spoke()
-            detector.program(r.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10); lastHookAt = Date()
+            detector.program(r.state, cutShort: Date().timeIntervalSince(stopKeyAt) < 10)
+            lastHookAt = Date()
             // Hooks on a host say nothing of a turn but its state, so a new one has to clear what the last one left.
             let fresh = r.state == "idle" || r.state == "clear" || (r.state == "working" && record.tmux != nil)
             if let msg = r.msg, !msg.isEmpty { record.summary = msg } else if fresh { record.summary = "" }
@@ -254,8 +283,11 @@ extension LiveSession {
         /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
         /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash"); `asker`: whose
         /// permission dialog it is, for `tool`; `question`: AskUserQuestion opened; `goal`: what the prompt set as a /goal.
-        mutating func hook(_ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
-                           goal: String? = nil) {
+        mutating func hook(
+            _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil,
+            question: Bool = false,
+            goal: String? = nil
+        ) {
             heard()
             // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
             // isn't waiting for it. The next Stop says again.
@@ -302,7 +334,9 @@ extension LiveSession {
                 guard agent == nil, [.done, .idle, .error].contains(detector.status) else { return }
                 detector.override(.working, because: "a tool started after its turn ended")
             case "PostToolBatch":
-                guard asking.removeValue(forKey: agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else { return }
+                guard asking.removeValue(forKey: agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else {
+                    return
+                }
                 detector.override(.working, because: "the tools it asked about ran")
             default: break
             }
@@ -347,10 +381,16 @@ extension LiveSession {
         }
 
         /// A sign of life from the agent: a hook, or what it printed.
-        mutating func heard(at now: Date = Date()) { lastHookAt = now; lastLifeUp = ProcessInfo.processInfo.systemUptime }
+        mutating func heard(at now: Date = Date()) {
+            lastHookAt = now
+            lastLifeUp = ProcessInfo.processInfo.systemUptime
+        }
 
         /// One more change to its commands, for the watchers (`Watches.touched`).
-        mutating func newCommands() -> Int { commandChanges += 1; return commandChanges }
+        mutating func newCommands() -> Int {
+            commandChanges += 1
+            return commandChanges
+        }
 
         /// The row's running command: the last one started that hasn't ended (one moved to the background has). Whether
         /// that changed.
@@ -372,7 +412,10 @@ extension LiveSession {
         /// Its turn or its program ended: a command whose end wasn't told (a denied permission, an interrupt) runs no more.
         mutating func endCommands(at now: Date) {
             let open = commands.indices.filter { commands[$0].outcome == nil }
-            for i in open { commands[i].outcome = .stopped; commands[i].ended = now }
+            for i in open {
+                commands[i].outcome = .stopped
+                commands[i].ended = now
+            }
             if !open.isEmpty { _ = newCommands() }
             _ = showRunning()
         }
@@ -402,13 +445,16 @@ extension LiveSession {
             guard saysItself, status == .working || status == .waiting, up - lastLifeUp > limit else { return }
             lastLifeUp = up   // looked at; again after as long
             if menuOpen() {
-                if status == .working { detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen") }
+                if status == .working {
+                    detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen")
+                }
                 return
             }
             if LiveSession.printedStopped(screen(1500)) {
                 nothingAsked()
                 release()
-                detector.override(.idle, because: "no sign of life for \(Int(limit)) s, and it says its turn was cut short")
+                detector.override(
+                    .idle, because: "no sign of life for \(Int(limit)) s, and it says its turn was cut short")
                 return
             }
             guard status == .working else { return }
@@ -435,7 +481,12 @@ extension LiveSession {
             let src = detector.source
             record.guessed = src.hasPrefix("screen") || src.hasPrefix("no hook") ? true : nil
             if s == .done || s == .waiting || s == .exited || s == .error { record.unread = true }
-            if s == .done || s == .error { settleLimit() } else { record.limitHit = nil; record.continueAt = nil }   // it moved on
+            if s == .done || s == .error {
+                settleLimit()
+            } else {
+                record.limitHit = nil
+                record.continueAt = nil
+            }   // it moved on
             return record
         }
 
@@ -456,8 +507,10 @@ extension LiveSession {
             // Esc puts nothing in the box: a report waiting for it to be empty would wait on the next Return.
             if s != "\u{1B}", LiveSession.kittyKey(s)?.key != 27 { boxEmpty = false }
             if s.hasPrefix("\u{1B}[200~") {   // a paste: its newlines are text, not Return
-                typing += s.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(of: "\u{1B}[201~", with: "")
-                    .replacingOccurrences(of: "\r", with: "\n")
+                typing += s.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(
+                    of: "\u{1B}[201~", with: ""
+                )
+                .replacingOccurrences(of: "\r", with: "\n")
                 return nil
             }
             if let k = LiveSession.kittyKey(s) {
@@ -469,7 +522,10 @@ extension LiveSession {
                 }
                 return nil
             }
-            if s == "\u{1B}\u{7F}" { dropWord(); return nil }   // ⌥⌫
+            if s == "\u{1B}\u{7F}" {
+                dropWord()
+                return nil
+            }   // ⌥⌫
             if s.hasPrefix("\u{1B}") { return nil }   // arrows, function keys
             var sent: String?
             for ch in s {
@@ -478,7 +534,10 @@ extension LiveSession {
                 case "\u{03}", "\u{15}": typing = ""   // ⌃C, ⌃U: the line is dropped
                 case "\u{7F}", "\u{08}": if !typing.isEmpty { typing.removeLast() }
                 case "\u{17}": dropWord()   // ⌃W
-                default: if !ch.isASCII || ch.isLetter || ch.isNumber || ch.isPunctuation || ch.isSymbol || ch == " " { typing.append(ch) }
+                default:
+                    if !ch.isASCII || ch.isLetter || ch.isNumber || ch.isPunctuation || ch.isSymbol || ch == " " {
+                        typing.append(ch)
+                    }
                 }
             }
             return sent
@@ -487,8 +546,12 @@ extension LiveSession {
         /// Return: the line is sent. The first one of 8 characters or more, once.
         private mutating func sendLine() -> String? {
             let line = typing.trimmingCharacters(in: .whitespacesAndNewlines)
-            typing = ""; boxEmpty = true
-            if !line.isEmpty { expectHook(); lastSent = line }
+            typing = ""
+            boxEmpty = true
+            if !line.isEmpty {
+                expectHook()
+                lastSent = line
+            }
             guard !sawFirstPrompt, line.count >= 8 else { return nil }
             sawFirstPrompt = true
             return line
