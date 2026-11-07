@@ -10,7 +10,7 @@ struct NameFilter: Equatable {
     private(set) var wanted: [String] = [], left: [String] = [], changedOnly = false
 
     init(_ query: String) {
-        for word in query.lowercased().split(separator: " ").map(String.init) {
+        for word in Self.folded(query).split(separator: " ").map(String.init) {
             if word == ":changed" {
                 changedOnly = true
             } else if word.hasPrefix("!"), word.count > 1 {
@@ -23,9 +23,14 @@ struct NameFilter: Equatable {
 
     var isEmpty: Bool { wanted.isEmpty && left.isEmpty && !changedOnly }
 
-    func matches(_ path: String, changed: Bool) -> Bool {
-        let p = path.lowercased()
-        return (!changedOnly || changed) && wanted.allSatisfy { p.contains($0) } && !left.contains { p.contains($0) }
+    /// Lower case and composed (a name on disk may have й as и + ˘, typed it's one): compared code unit by code unit then.
+    static func folded(_ s: String) -> String { s.lowercased().precomposedStringWithCanonicalMapping }
+
+    /// `folded`: the path went through `folded` already. `.literal`: a key in 200k paths took 360 ms, Character by Character.
+    func matches(_ path: String, folded done: Bool = false, changed: @autoclosure () -> Bool) -> Bool {
+        let p = done ? path : Self.folded(path)
+        func has(_ w: String) -> Bool { p.range(of: w, options: .literal) != nil }
+        return wanted.allSatisfy(has) && !left.contains(where: has) && (!changedOnly || changed())
     }
 }
 
@@ -39,7 +44,10 @@ extension FilesPanel {
     /// The tree as it's to show: only what the name filter keeps, folders keeping their shape.
     func treeShown(_ paths: [String], ignored: [String]) -> [FileNode] {
         guard let filter = nameFilter else { return FileNode.tree(paths, ignored: ignored) }
-        return FileNode.tree(Array(paths.lazy.filter { filter.matches($0, changed: self.status[$0] != nil) }.prefix(Self.mostShown)))
+        if lowered.of != paths { lowered = (paths, paths.map(NameFilter.folded)) }   // the same listing: one buffer, compared at once
+        let low = lowered.paths
+        let kept = paths.indices.lazy.filter { filter.matches(low[$0], folded: true, changed: self.status[paths[$0]] != nil) }
+        return FileNode.tree(Array(kept.prefix(Self.mostShown).map { paths[$0] }))
     }
 
     func narrowTree() {

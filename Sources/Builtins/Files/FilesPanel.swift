@@ -27,6 +27,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     private var changedFolders = Set<String>()
     /// The paths the tree was built from (listed, ignored): an edit that adds or removes none only changes badges.
     var shownPaths: ([String], [String]?)?
+    /// Those paths in lower case, for the name filter: made once per listing, not for every path on every key.
+    var lowered: (of: [String], paths: [String]) = ([], [])
     /// What the open ignored folders hold, by folder: kept when the tree is built again, read again after an operation.
     private var opened: [String: [String]] = [:]
     var matches: [SearchMatch] = []

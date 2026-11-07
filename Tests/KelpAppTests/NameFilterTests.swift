@@ -10,6 +10,9 @@ import Testing
     #expect(!f.matches("Tests/DaemonTests/x.swift", changed: false))    // left out
     #expect(!f.matches("Sources/Daemon/README.md", changed: false))     // not every word
     #expect(NameFilter("Sources/Daemon/").matches("sources/daemon/a", changed: false))
+    // A name on disk with й decomposed (и + combining breve) is found by the й typed, upper case too.
+    #expect(NameFilter("Й").matches("docs/\u{0438}\u{0306}ога.md", changed: false))
+    #expect(NameFilter("\u{0438}\u{0306}").matches("docs/йога.md", changed: false))
 }
 
 @Test func changedKeepsWhatGitTouched() {
