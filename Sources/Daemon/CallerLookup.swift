@@ -59,9 +59,9 @@ final class Callers: Sendable {
         }
         let ttys = Set(chain.compactMap(Subprocess.terminal))
         if let s = all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) {
-            // Left its line (`&`, `nohup`) with the terminal still its own: while an agent holds that terminal's foreground,
-            // it's that agent's leftover as likely as not, and held to its rules.
-            if !underAgent, let fg = s.pty.foregroundGroup, Self.runsAnAgent(fg) { underAgent = true }
+            // Left its line (`&`, `nohup`: launchd its parent now) with the terminal still its own: who left it there, the
+            // user or an agent typed in (gone by now, perhaps), can't be told, so it's held to an agent's rules.
+            if !underAgent, chain.last.flatMap(Subprocess.parent) == 1 { underAgent = true }
             return of(s.snapshot.id)
         }
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
@@ -90,9 +90,9 @@ final class Callers: Sendable {
         func interpreter(_ n: String) -> Bool { ["node", "bun", "deno", "ruby"].contains(n) || n.hasPrefix("python") }
         guard let argv = Subprocess.arguments(pid), let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent }) else { return false }
         guard interpreter(first) else { return agents.contains(first) }
-        // The script is the first argument that is a file (`node --require x …/codex` runs codex, not x).
-        let script = argv.dropFirst().first { !$0.hasPrefix("-") && FileManager.default.fileExists(atPath: $0) }
-        return script.map { agents.contains(URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent) } == true
+        // Any of its words naming one (`node --require x …/codex`, `python -m aider`): which is the script can't be told
+        // from here (a path is the caller's, relative to its folder), and one more refusal is the safer miss.
+        return argv.dropFirst().contains { !$0.hasPrefix("-") && agents.contains(URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent) }
     }
 
     /// An ancestor that only the user's own login or an app starts: Kelp's window (its terminals' `kelp attach`), one of

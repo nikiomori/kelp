@@ -255,7 +255,10 @@ an agent's rules: what left its terminal and every such ancestor behind (a doubl
 background, `tmux new -d`, a launchd job), and a terminal Kelp can't trace to the user (`mosh-server`, a `screen`
 reattached, a tmux server on a socket folder of its own). Whatever runs under a known agent's program (by the name it
 was run as, or the script an interpreter runs: `node …/codex`) is that agent's, in any terminal: one the user typed in by
-hand is held to an agent's rules as its terminal's session (`Caller.typedAgent`), and so is what it starts (`typed:`). Agents, `kelpd`, `unknown` and
+hand is held to an agent's rules as its terminal's session (`Caller.typedAgent`), reaching only what it starts there
+(`typed:` on its line) and never typing into that terminal itself; and a job left in a Kelp terminal (its line cut at
+launchd) is held so too, as who left it can't be told. Agents are known by name only (Kelp's presets): one run under
+another name, or by a wrapper that doesn't keep it in its command line, is taken for what runs it. Agents, `kelpd`, `unknown` and
 `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,

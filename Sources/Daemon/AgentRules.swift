@@ -59,11 +59,17 @@ extension Sessions {
 
     /// Whether `w` is the workspace of `own` or of one that started it, one they made, or one a session it started works
     /// in (which it could start there only for one of those): an agent works there only.
-    func works(_ own: String, in w: String) throws -> Bool {
+    /// `typed`: an agent typed into `own`, the user's terminal: its workspace (it runs there), and the ones it made or
+    /// started a session in, not those the user made or worked in from that terminal.
+    func works(_ own: String, in w: String, typed: Bool = false) throws -> Bool {
         let line = try lineage(own)
         if line.contains(where: { $0.worktreeId == w }) { return true }
-        if let maker = Caller.session(of: try store.worktree(w)?.madeBy), line.contains(where: { $0.id == maker }) { return true }
-        return try store.sessions().contains { s in try s.worktreeId == w && lineage(s.id).contains { $0.id == own } }
+        let maker = try store.worktree(w)?.madeBy
+        if typed { if Caller.started(maker, byAgentTypedInto: own) { return true } }
+        else if let m = Caller.session(of: maker), line.contains(where: { $0.id == m }) { return true }
+        return try store.sessions().contains { s in
+            try s.worktreeId == w && lineage(s.id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
+        }
     }
 
     /// The sessions removing `e` ends: those of the workspace, or of every workspace of the project.

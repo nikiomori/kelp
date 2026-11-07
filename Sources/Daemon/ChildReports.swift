@@ -88,7 +88,7 @@ extension Sessions {
     func forAnAgent(_ id: String) throws -> Bool {
         let line = try lineage(id)
         let cameFrom = line.last.flatMap { $0.parent ?? $0.startedBy ?? $0.origin }
-        let typed = line.contains { $0.origin?.hasPrefix(Caller.typed) == true }   // started by an agent the user typed in
+        let typed = line.contains { Caller.typedOrigin($0.origin) }   // started by an agent the user typed in
         return line.contains(where: \.isAgent) || cameFrom != nil || typed
     }
 
@@ -201,7 +201,7 @@ extension Sessions {
     /// and what it hadn't typed is the new one's to type. `owed`: what was taken from the old one as it stopped.
     func passChildren(of old: String, to new: String, owed: [OwedInput]) throws {
         // What an agent typed into it started (`typed:`) and the workspaces it or one made, too.
-        let typedOld = Caller.typed + old, typedNew = Caller.typed + new
+        let typedOld = Caller.typedAgent(old).origin, typedNew = Caller.typedAgent(new).origin
         let pass: @Sendable (inout Session) -> Void = { s in
             if s.parent == old { s.parent = new }
             if s.startedBy == old { s.startedBy = new }
@@ -210,9 +210,9 @@ extension Sessions {
         for c in try store.sessions() where [c.parent, c.startedBy, c.origin].contains(old) || c.origin == typedOld {
             if let ls = existing(c.id) { _ = ls.update(pass); publish(ls) } else { try change(c.id, pass) }
         }
-        for var w in try store.worktrees() where w.madeBy == old || w.madeBy == typedOld {
-            w.madeBy = w.madeBy == old ? new : typedNew
-            try store.save(w)
+        for w in try store.worktrees() where w.madeBy == old || w.madeBy == typedOld {
+            // In one write: a copy saved back would undo a rename or an archive meanwhile, or bring a removed one back.
+            try store.update(Worktree.self, w.id) { $0.madeBy = $0.madeBy == old ? new : $0.madeBy == typedOld ? typedNew : $0.madeBy }
         }
         existing(new)?.giveBack(owed + (existing(old)?.takeOwed() ?? []) + (try store.takeOwed(old)))
     }

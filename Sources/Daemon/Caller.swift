@@ -24,6 +24,11 @@ enum Caller: Hashable, Sendable {
     /// goes on to that terminal's session (`lineage`), and is held to an agent's rules (`forAnAgent`).
     static let typed = "typed:"
 
+    /// Whether `origin` (or a `madeBy`) is what an agent typed into `terminal` started.
+    static func started(_ origin: String?, byAgentTypedInto terminal: String) -> Bool { origin == typed + terminal }
+    /// Whether `origin` is what an agent typed into some terminal started.
+    static func typedOrigin(_ origin: String?) -> Bool { origin?.hasPrefix(typed) == true }
+
     /// The session an origin (or a `madeBy`) names: a session's id, or the terminal's of a `typed:` one; nil for a mark.
     static func session(of origin: String?) -> String? {
         guard let origin, !marks.contains(origin) else { return nil }

@@ -204,7 +204,7 @@ extension Daemon {
     /// (`typed:` on its line), not everything the user started from that terminal.
     private func allowAgent(_ m: any Answered, own: String, typed: Bool = false) throws {
         func reaches(_ id: String) throws -> Bool {
-            try sessions.lineage(id).contains { typed ? $0.origin == Caller.typed + own : $0.id == own }
+            try sessions.lineage(id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
         }
         if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
         if m.answersQuestion {
@@ -217,15 +217,16 @@ extension Daemon {
         if let id = m.typesInto, sessions.existing(id)?.snapshot.status == .waiting {
             throw RPCError.invalidParams("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
         }
-        for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where id != own {
+        // A typed agent's own session is the user's terminal it was typed into, not its own: it reaches only what it started.
+        for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where typed || id != own {
             guard try reaches(id) else {
                 throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
             }
         }
-        if let w = m.inWorkspace, try !sessions.works(own, in: w) {
+        if let w = m.inWorkspace, try !sessions.works(own, in: w, typed: typed) {
             throw RPCError.invalidParams("An agent works only in its own workspace.")
         }
-        if let e = m.ends, try sessions.ending(e).contains(where: { s in try s != own && !reaches(s) }) {
+        if let e = m.ends, try sessions.ending(e).contains(where: { s in try (typed || s != own) && !reaches(s) }) {
             throw RPCError.invalidParams("An agent ends only its own sessions and the ones it started.")
         }
     }
