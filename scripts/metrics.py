@@ -25,6 +25,40 @@ def code_lines(p):
     return [l for l in lines(p) if l.strip() and not l.strip().startswith("//")]
 
 
+def swift_code(p):
+    """Each line's Swift, strings' contents and comments taken out: what a statement count or a name count reads.
+    Multi-line string literals (\"\"\") are skipped whole."""
+    out, in_block = [], False
+    for l in lines(p):
+        if in_block:
+            if '"""' in l:
+                in_block = False
+            continue
+        if l.count('"""') == 1:
+            in_block = True
+            l = l.split('"""')[0]
+        l = re.sub(r'#"(?:[^"]|"(?!#))*"#', '""', l)       # raw strings
+        l = re.sub(r'"(?:[^"\\]|\\.)*"', '""', l)        # strings
+        l = l.split("//")[0]
+        if l.strip():
+            out.append(l)
+    return out
+
+
+def one_letter_names(code):
+    """Names of one letter that a reader carries past their line: a constant or variable, a function's parameter, a
+    closure's parameter when the closure runs on past the line. A one-line closure's (`{ s in s.id }`) isn't counted:
+    its whole life is in view."""
+    n = 0
+    for l in code:
+        n += len(re.findall(r"\b(?:let|var)\s+[a-z]\b(?!\w)|\(\s*[a-z]\s*:", l))
+        for c in re.finditer(r"\{\s*\[?[a-z](?:,\s*[a-z])*\]?\s+in\b", l):
+            rest = l[c.end():]
+            if rest.count("}") <= rest.count("{"):
+                n += 1
+    return n
+
+
 def count_loc(*dirs):
     return sum(len(code_lines(p)) for p in swift_files(*dirs))
 
@@ -60,10 +94,12 @@ def main():
     workspaces_handlers = len(re.findall(r"workspaces: Workspaces\)", "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))))
     sessions_handlers = len(re.findall(r"sessions: Sessions\)", "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))))
     settings_literals = grep_count(r"""settings(?:\[|\.(?:string|bool|int|double|value)\()\s*"[a-z]+\.[\w.]+""", sources)
-    long120 = sum(1 for p in sources for l in code_lines(p) if len(l) > 120)
+    # As ArchitectureTests' `linesStayShort` counts them: a line that is one long string (UI text, a script) aside.
+    long_string = re.compile(r'"[^"]{100,}"|#".{100,}"#|\'[^\']{100,}\'')
+    long120 = sum(1 for p in sources for l in code_lines(p) if len(l) > 120 and not long_string.search(l))
     long160 = sum(1 for p in sources for l in code_lines(p) if len(l) > 160)
-    one_letter = grep_count(r"\b(?:let|var)\s+[a-z]\b(?!\w)|\{\s*\[?[a-z](?:,\s*[a-z])*\]?\s+in\b|\(\s*[a-z]\s*:", sources)
-    joined = sum(1 for p in sources for l in code_lines(p) if re.search(r";\s*\S", l) and "for (" not in l)
+    one_letter = sum(one_letter_names(swift_code(p)) for p in sources)
+    joined = sum(1 for p in sources for l in swift_code(p) if re.search(r";\s*\S", l))
     big_files = sorted((len(lines(p)), str(p)) for p in sources if len(lines(p)) > 400)
     flaky = [l for l in Path("Tests/flaky.txt").read_text().splitlines() if l.strip() and not l.startswith("#")]
     sleeps = grep_count(r"Task\.sleep|usleep\(|Thread\.sleep|sleep\(for:", swift_files("Tests"))
