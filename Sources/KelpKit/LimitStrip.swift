@@ -16,8 +16,8 @@ enum LimitStop {
         let open = agents.filter { $0.id != except && (used[$0.id] ?? 0) < 100 }.map {
             Taker(id: $0.id, name: $0.name, used: used[$0.id])
         }
-        return open.enumerated().sorted { a, b in
-            (a.element.used ?? 101, a.offset) < (b.element.used ?? 101, b.offset)
+        return open.enumerated().sorted { lhs, rhs in
+            (lhs.element.used ?? 101, lhs.offset) < (rhs.element.used ?? 101, rhs.offset)
         }.map(\.element)
     }
 
@@ -152,22 +152,22 @@ final class LimitStrip: NSView {
 
     private func update() {
         let now = Date()
-        guard window != nil, let s = app.session(id), let hit = s.limitHit, hit.at != dismissed else {
+        guard window != nil, let session = app.session(id), let hit = session.limitHit, hit.at != dismissed else {
             isHidden = true
             showing(false)
             return
         }
         isHidden = false
         showing(true)
-        title.stringValue = LimitStop.title(app.catalog.displayName(s), s, now: now)
-        detail.stringValue = LimitStop.detail(s, now: now)
-        let reset = hit.resetAt, waiting = s.continueAt != nil, passed = reset.map { $0 <= now } ?? false
+        title.stringValue = LimitStop.title(app.catalog.displayName(session), session, now: now)
+        detail.stringValue = LimitStop.detail(session, now: now)
+        let reset = hit.resetAt, waiting = session.continueAt != nil, passed = reset.map { $0 <= now } ?? false
         let takers =
-            waiting || RemoteHost.of(s.cwd) != nil
+            waiting || RemoteHost.of(session.cwd) != nil
             ? []
             : LimitStop.takers(
                 app.catalog.installed(app.catalog.all).map { ($0.id, $0.name) },
-                except: s.agent, used: planUse())
+                except: session.agent, used: planUse())
         let first = LimitStop.pick(takers)
         taker = first?.id
         handOff.isHidden = first == nil
@@ -183,18 +183,20 @@ final class LimitStrip: NSView {
 
     /// How full each agent's fullest plan limit is.
     private func planUse() -> [String: Double] {
-        guard let u = app.latest(LimitsEvent.self)?.usage else { return [:] }
-        return LimitAlerts.readings(u).reduce(into: [:]) { $0[$1.agent] = max($0[$1.agent] ?? 0, $1.limit.percent) }
+        guard let limits = app.latest(LimitsEvent.self)?.usage else { return [:] }
+        return LimitAlerts.readings(limits).reduce(into: [:]) {
+            $0[$1.agent] = max($0[$1.agent] ?? 0, $1.limit.percent)
+        }
     }
 
     private func menu(_ takers: [LimitStop.Taker]) -> NSMenu {
-        let m = NSMenu()
+        let menu = NSMenu()
         for t in takers {
-            let i = m.add(t.name) { [weak self] in self?.hand(to: t.id) }
-            i.image = app.catalog.icon(t.id)
-            if let used = t.used { i.badge = NSMenuItemBadge(string: "\(Int(used.rounded())) %") }
+            let item = menu.add(t.name) { [weak self] in self?.hand(to: t.id) }
+            item.image = app.catalog.icon(t.id)
+            if let used = t.used { item.badge = NSMenuItemBadge(string: "\(Int(used.rounded())) %") }
         }
-        return m
+        return menu
     }
 
     /// While it's up: the plans' numbers stay fresh, and "in 38 min" counts down to the reset, which nothing announces.

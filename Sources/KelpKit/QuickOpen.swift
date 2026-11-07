@@ -103,21 +103,23 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         } else {
             panel.alphaValue = 1
         }
-        guard let w = anchor?.window ?? NSApp.mainWindow else { return show() }
-        let size = panel.frame.size, f = w.frame
-        guard let pill = anchor, pill.window === w, !pill.isHiddenOrHasHiddenAncestor else {
+        guard let window = anchor?.window ?? NSApp.mainWindow else { return show() }
+        let size = panel.frame.size, f = window.frame
+        guard let pill = anchor, pill.window === window, !pill.isHiddenOrHasHiddenAncestor else {
             panel.setFrameOrigin(NSPoint(x: f.midX - size.width / 2, y: f.maxY - size.height - 120))
             return show()
         }
-        let p = w.convertToScreen(pill.convert(pill.bounds, to: nil))
-        let x = min(max(p.midX - size.width / 2, f.minX + 8), f.maxX - size.width - 8)
-        let end = NSRect(x: x, y: p.maxY + 6 - size.height, width: size.width, height: size.height)
+        let pillFrame = window.convertToScreen(pill.convert(pill.bounds, to: nil))
+        let x = min(max(pillFrame.midX - size.width / 2, f.minX + 8), f.maxX - size.width - 8)
+        let end = NSRect(x: x, y: pillFrame.maxY + 6 - size.height, width: size.width, height: size.height)
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             panel.setFrame(end, display: false)
             return show()
         }
         // From the pill's place and width, as tall as the field and a row, faint; to its full size in 0.2 s.
-        panel.setFrame(NSRect(x: p.minX, y: p.maxY + 6 - 120, width: max(p.width, 200), height: 120), display: false)
+        panel.setFrame(
+            NSRect(x: pillFrame.minX, y: pillFrame.maxY + 6 - 120, width: max(pillFrame.width, 200), height: 120),
+            display: false)
         panel.alphaValue = 0
         show()
         NSAnimationContext.runAnimationGroup { ctx in
@@ -179,16 +181,16 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     /// Leaves a setting's choices with the value it had: what was tried on goes away.
     func stopChoosing() {
-        if let c = choosing { app.settings.preview(c.key, c.saved) }
+        if let setting = choosing { app.settings.preview(setting.key, setting.saved) }
         choosing = nil
     }
 
     /// The selected choice, on screen while it's selected (looks only).
     private func tryOn() {
-        guard let c = choosing, c.tries, rows.indices.contains(table.selectedRow),
+        guard let setting = choosing, setting.tries, rows.indices.contains(table.selectedRow),
             case .item(let it) = rows[table.selectedRow]
         else { return }
-        app.settings.preview(c.key, it.choice)
+        app.settings.preview(setting.key, it.choice)
     }
 
     func build() {
@@ -281,9 +283,9 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 
     /// An uppercase key equivalent means ⇧ too.
     static func shortcut(_ i: NSMenuItem) -> String {
-        var m = KeySpec.Modifiers(i.keyEquivalentModifierMask)
-        if i.keyEquivalent != i.keyEquivalent.lowercased() { m.insert(.shift) }
-        return KeyBindings.display(KeySpec(key: i.keyEquivalent, mods: m))
+        var mods = KeySpec.Modifiers(i.keyEquivalentModifierMask)
+        if i.keyEquivalent != i.keyEquivalent.lowercased() { mods.insert(.shift) }
+        return KeyBindings.display(KeySpec(key: i.keyEquivalent, mods: mods))
     }
 
     @objc private func filterAction() { filter() }
@@ -300,8 +302,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     func filter() {
         scoring?.cancel()
         let typed = field.stringValue
-        if let t = tmux {
-            setRows(tmuxItems(t, typed), grouped: false)
+        if let sessions = tmux {
+            setRows(tmuxItems(sessions, typed), grouped: false)
             return
         }
         let prefix = commandsOnly || choosing != nil ? nil : Prefix(typed)
@@ -311,21 +313,21 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         }
         var filesOnly: String?
         if case .files(let name)? = prefix { filesOnly = name }
-        let q = filesOnly ?? typed
+        let query = filesOnly ?? typed
         let pool =
             filesOnly != nil
             ? all.filter { $0.kind == "File" }
             : commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
-        if filesOnly != nil, q.isEmpty {
+        if filesOnly != nil, query.isEmpty {
             setRows(Array(pool.prefix(200)), grouped: false)
             return
         }
-        if !commandsOnly, choosing == nil, q.hasPrefix("#") {
+        if !commandsOnly, choosing == nil, query.hasPrefix("#") {
             setRows([], grouped: false)
-            searchPullRequests(q)
+            searchPullRequests(query)
             return
         }
-        if q.isEmpty {
+        if query.isEmpty {
             showingRecents = !commandsOnly && choosing == nil && !recents.isEmpty
             let used = commandsOnly && choosing == nil ? Self.recentlyUsed(pool) : []
             let ids = Set(used.map(Self.usedID))
@@ -342,7 +344,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             let grouped = !commandsOnly && choosing == nil,
                 keys = pool.map { Match(fuzzy: $0.fuzzy, title: $0.title, command: $0.kind == "Command") }
             scoring = Task { [weak self] in
-                let best = await Task.detached { Self.best(keys, q) }.value
+                let best = await Task.detached { Self.best(keys, query) }.value
                 guard let self, !Task.isCancelled else { return }
                 setRows(best.map { pool[$0] }, grouped: grouped)
             }
@@ -355,7 +357,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     nonisolated static func best(_ items: [Match], _ q: String) -> [Int] {
         let fq = ProjectFiles.fuzzyQuery(q)
         return items.indices.compactMap { i -> (Int, Int)? in
-            if let f = items[i].fuzzy { return ProjectFiles.fuzzyScore(f, fq).map { (i, $0) } }
+            if let fuzzy = items[i].fuzzy { return ProjectFiles.fuzzyScore(fuzzy, fq).map { (i, $0) } }
             return wordScore(items[i].title, q).map { (i, $0 + (items[i].command ? 2 : 0)) }
         }.sorted { $0.1 > $1.1 }.prefix(200).map(\.0)
     }
@@ -365,9 +367,9 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         if grouped {
             var order: [String] = [], byGroup: [String: [Item]] = [:]
             for it in items {
-                let g = Self.group(it)
-                if byGroup[g] == nil { order.append(g) }
-                byGroup[g, default: []].append(it)
+                let group = Self.group(it)
+                if byGroup[group] == nil { order.append(group) }
+                byGroup[group, default: []].append(it)
             }
             rows = order.flatMap { g in [Row.heading(g)] + (byGroup[g] ?? []).map(Row.item) }
         } else {
@@ -409,8 +411,10 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
     static func remember(_ it: Item) {
         guard it.kind == "Command" || it.kind == "Setting" else { return }
-        let d = UserDefaults.standard, id = usedID(it)
-        d.set(Array(([id] + (d.stringArray(forKey: usedKey) ?? []).filter { $0 != id }).prefix(5)), forKey: usedKey)
+        let defaults = UserDefaults.standard, id = usedID(it)
+        defaults.set(
+            Array(([id] + (defaults.stringArray(forKey: usedKey) ?? []).filter { $0 != id }).prefix(5)), forKey: usedKey
+        )
     }
 
     package func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
@@ -424,9 +428,9 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         case #selector(NSResponder.insertNewline(_:)):
             let split = NSApp.currentEvent?.modifierFlags.contains(.shift) == true
             // ↩ right after typing picks from what was typed, once it's scored.
-            if let s = scoring {
+            if let pending = scoring {
                 Task {
-                    await s.value
+                    await pending.value
                     choose(split: split)
                 }
             } else {
@@ -439,8 +443,8 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             list(query: "")
             return true
         case #selector(NSResponder.cancelOperation(_:)):
-            if let c = choosing {
-                list(query: c.query)
+            if let setting = choosing {
+                list(query: setting.query)
                 return true
             }   // a setting's choices: back to the list, the old value back
             hide()
@@ -451,16 +455,16 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
     /// Up and down skip the groups' headings.
     private func move(_ d: Int) {
-        var r = table.selectedRow + d
-        while rows.indices.contains(r), case .heading = rows[r] { r += d }
-        guard rows.indices.contains(r) else { return }
-        table.selectRowIndexes([r], byExtendingSelection: false)
-        table.scrollRowToVisible(r)
+        var row = table.selectedRow + d
+        while rows.indices.contains(row), case .heading = rows[row] { row += d }
+        guard rows.indices.contains(row) else { return }
+        table.selectRowIndexes([row], byExtendingSelection: false)
+        table.scrollRowToVisible(row)
     }
     @objc private func activate() { choose(split: false) }
     private func choose(split: Bool) {
-        let r = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
-        guard rows.indices.contains(r), case .item(let it) = rows[r] else { return }
+        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
+        guard rows.indices.contains(row), case .item(let it) = rows[row] else { return }
         Self.remember(it)
         if it.value != nil {
             it.action()
@@ -469,7 +473,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         choosing = nil   // the choice is kept: closing mustn't put the old value back
         hide()
         NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-        if split, let s = it.split { s() } else { it.action() }
+        if split, let openSplit = it.split { openSplit() } else { it.action() }
     }
     @objc private func panelResignedKey(_ n: Notification) {
         stopChoosing()
@@ -485,35 +489,37 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
     package func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
         guard case .item(let it) = rows[row] else {
-            guard case .heading(let g) = rows[row] else { return nil }
-            let h = NSTextField(labelWithString: loc(g))
-            h.font = .ui(11, weight: .semibold)
-            h.textColor = .secondaryLabelColor
-            let v = NSStackView(views: [h])
-            v.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
-            return v
+            guard case .heading(let group) = rows[row] else { return nil }
+            let heading = NSTextField(labelWithString: loc(group))
+            heading.font = .ui(11, weight: .semibold)
+            heading.textColor = .secondaryLabelColor
+            let header = NSStackView(views: [heading])
+            header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
+            return header
         }
         let img = NSImageView(
             image: it.image ?? (it.kind == "File" ? app.fileIcons.image(it.title) : NSImage.symbol(it.icon, it.kind)))
         img.contentTintColor = .secondaryLabelColor
         // An agent: its state while there's something to see (as on its tab), else its own icon.
         let lead: NSView
-        if let s = it.session, [.working, .waiting, .error].contains(s.status) || (s.status == .done && s.unread) {
-            let m = StatusMark(size: 14)
-            m.status = s.status
-            m.unread = s.unread
-            m.waitsForCommand = s.waitsForCommand
+        if let session = it.session,
+            [.working, .waiting, .error].contains(session.status) || (session.status == .done && session.unread)
+        {
+            let mark = StatusMark(size: 14)
+            mark.status = session.status
+            mark.unread = session.unread
+            mark.waitsForCommand = session.waitsForCommand
             let box = NSView()
-            m.translatesAutoresizingMaskIntoConstraints = false
-            box.addSubview(m)
+            mark.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(mark)
             NSLayoutConstraint.activate([
-                m.centerXAnchor.constraint(equalTo: box.centerXAnchor),
-                m.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+                mark.centerXAnchor.constraint(equalTo: box.centerXAnchor),
+                mark.centerYAnchor.constraint(equalTo: box.centerYAnchor),
                 box.heightAnchor.constraint(equalToConstant: 18)
             ])
             lead = box
         } else {
-            if let s = it.session, let i = app.catalog.icon(s.agent, size: 18) { img.image = i }
+            if let session = it.session, let icon = app.catalog.icon(session.agent, size: 18) { img.image = icon }
             lead = img
         }
         let t1 = NSTextField(labelWithString: "")
@@ -525,8 +531,9 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
         // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
         let index = rows[..<row].filter { if case .item = $0 { true } else { false } }.count
-        let n = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
-        let kind = NSTextField(labelWithString: n + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? ""))
+        let shortcut = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
+        let kind = NSTextField(
+            labelWithString: shortcut + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? ""))
         kind.font = .ui(11)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.
@@ -561,12 +568,14 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
 extension QuickOpen {
     /// The title with what was typed in bold: each word of the query where it first occurs.
     static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
-        let s = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(13)])
+        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(13)])
         for word in query.split(separator: " ") where !word.isEmpty {
-            let r = (title as NSString).range(of: String(word), options: .caseInsensitive)
-            if r.location != NSNotFound { s.addAttribute(.font, value: NSFont.ui(13, weight: .bold), range: r) }
+            let range = (title as NSString).range(of: String(word), options: .caseInsensitive)
+            if range.location != NSNotFound {
+                text.addAttribute(.font, value: NSFont.ui(13, weight: .bold), range: range)
+            }
         }
-        return s
+        return text
     }
 }
 

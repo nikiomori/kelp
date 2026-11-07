@@ -41,7 +41,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         view = web
-        if let u = pages.url(of: page) { web.load(URLRequest(url: u)) }
+        if let url = pages.url(of: page) { web.load(URLRequest(url: url)) }
         track(owner: self) {
             app.workbench.workspaceId
         } changed: { [weak self] _ in
@@ -64,15 +64,15 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
 
     /// The agents, as `kelp.sessions` and to `kelp.on("sessions")`: id, title, agent, status, workspace, unread.
     private func pushSessions(again: Bool = false) {
-        guard let u = web.url, Self.isOwn(u, folder) else { return }
+        guard let url = web.url, Self.isOwn(url, folder) else { return }
         let list = ExtBridge.json(
             JSONValue.array(
-                app.sessions.filter(\.isChat).map { s in
+                app.sessions.filter(\.isChat).map { session in
                     .obj([
-                        "id": .string(s.id), "title": .string(app.catalog.displayName(s)),
-                        "agent": .string(s.agent ?? "shell"),
-                        "status": .string(s.status.rawValue), "workspace": .string(s.worktreeId ?? ""),
-                        "unread": .bool(s.unread)
+                        "id": .string(session.id), "title": .string(app.catalog.displayName(session)),
+                        "agent": .string(session.agent ?? "shell"),
+                        "status": .string(session.status.rawValue), "workspace": .string(session.worktreeId ?? ""),
+                        "unread": .bool(session.unread)
                     ])
                 }))
         // A session's other fields change all the time (output, meters); the page hears only of these.
@@ -89,16 +89,16 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         _ w: WKWebView, decidePolicyFor a: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
-        if let f = a.targetFrame, !f.isMainFrame {
+        if let frame = a.targetFrame, !frame.isMainFrame {
             decisionHandler(.allow)
             return
         }
-        guard let u = a.request.url, !Self.isOwn(u, folder) else {
+        guard let url = a.request.url, !Self.isOwn(url, folder) else {
             decisionHandler(.allow)
             return
         }
         decisionHandler(.cancel)
-        if a.navigationType == .linkActivated { PreviewLinks.open(u, in: app) }
+        if a.navigationType == .linkActivated { PreviewLinks.open(url, in: app) }
     }
 
     /// A page in the extension's folder (served from it: `ExtPages`, which serves this web view's folder only); nothing else
@@ -109,42 +109,49 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     }
 
     private func push() {
-        guard let u = web.url, Self.isOwn(u, folder) else { return }
+        guard let url = web.url, Self.isOwn(url, folder) else { return }
         let ctx = IDEContext.of(app)
         let ws: JSONValue = .obj([
             "name": .string(ctx.workspace?.displayName ?? ""), "path": .string(ctx.workspace?.path ?? ""),
             "branch": .string(ctx.workspace?.branch ?? ""), "project": .string(ctx.project?.name ?? "")
         ])
         let settings = JSONValue.object(app.settings.values)
-        guard let w = try? String(data: JSONEncoder().encode(ws), encoding: .utf8),
-            let s = try? String(data: JSONEncoder().encode(settings), encoding: .utf8)
+        guard let workspaceJSON = try? String(data: JSONEncoder().encode(ws), encoding: .utf8),
+            let settingsJSON = try? String(data: JSONEncoder().encode(settings), encoding: .utf8)
         else { return }
-        web.evaluateJavaScript("window.kelp && window.kelp.__update(\(w), \(s))")
+        web.evaluateJavaScript("window.kelp && window.kelp.__update(\(workspaceJSON), \(settingsJSON))")
     }
 
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
         // The handler is visible to every frame, whatever it loaded: only the extension's own page may run commands.
-        guard m.frameInfo.isMainFrame, let u = m.frameInfo.request.url, Self.isOwn(u, folder) else { return }
-        guard let d = m.body as? [String: Any], let op = d["op"] as? String else { return }
-        let id = d["id"] as? Int ?? 0, arg = d["arg"] as? String ?? ""
+        guard m.frameInfo.isMainFrame, let url = m.frameInfo.request.url, Self.isOwn(url, folder) else { return }
+        guard let body = m.body as? [String: Any], let op = body["op"] as? String else { return }
+        let id = body["id"] as? Int ?? 0, arg = body["arg"] as? String ?? ""
         let ctx = IDEContext.of(app)
         switch op {
         case "exec":
             // An array is one program and its words, each passed as it is (no shell reads them): `kelp.exec(["git", "log"])`.
-            let argv = ExtBridge.decode(d["argv"], as: [String].self)
+            let argv = ExtBridge.decode(body["argv"], as: [String].self)
             let line = argv.map { $0.map(IDE.shellWord).joined(separator: " ") } ?? arg
             Task {
-                let r = await Shell.run(
+                let result = await Shell.run(
                     app, line, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)
-                reply(id, .obj(["code": .int(Int(r.code)), "stdout": .string(r.stdout), "stderr": .string(r.stderr)]))
+                reply(
+                    id,
+                    .obj([
+                        "code": .int(Int(result.code)), "stdout": .string(result.stdout),
+                        "stderr": .string(result.stderr)
+                    ]))
             }
         case "terminal":
-            app.workbench.editorForNewTab?.run(command: arg, title: d["title"] as? String)
+            app.workbench.editorForNewTab?.run(command: arg, title: body["title"] as? String)
             reply(id, .null)
         // What a page opens or hands an agent is often data it shows (an issue's link, its body): `open` doesn't run
         // commands or agents (kelp.terminal / kelp.agent do, by name), and an agent's prompt is typed for the user to send.
         case "open":
-            if let u = ExtActions.openableURI(TabURI.normalize(arg, cwd: ctx.workspace?.path)) { app.workbench.open(u) }
+            if let uri = ExtActions.openableURI(TabURI.normalize(arg, cwd: ctx.workspace?.path)) {
+                app.workbench.open(uri)
+            }
             reply(id, .null)
         case "agent":
             app.workbench.editorForNewTab?.newAgent(nil, prompt: arg, draft: true)
@@ -154,7 +161,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             reply(id, .null)
         // A Kelp command by its id (the menus', the palette's, an extension's), as `kelp run` does.
         case "run":
-            let args = ExtBridge.decode(d["args"], as: [String: JSONValue].self)
+            let args = ExtBridge.decode(body["args"], as: [String: JSONValue].self)
             app.extensions.run(arg, args ?? [:])
             reply(id, .null)
         case "notify":
@@ -162,10 +169,10 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             reply(id, .null)
         case "settings.get": reply(id, app.settings.value(arg) ?? .null)
         case "settings.set":
-            let v = (d["value"] as? String).flatMap { $0.data(using: .utf8) }.flatMap {
+            let value = (body["value"] as? String).flatMap { $0.data(using: .utf8) }.flatMap {
                 try? JSONDecoder().decode(JSONValue.self, from: $0)
             }
-            app.settings.set(arg, v)
+            app.settings.set(arg, value)
             reply(id, .null)
         default: reply(id, .null)
         }
@@ -176,10 +183,10 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     }
 
     private func reply(_ id: Int, _ v: JSONValue) {
-        guard let u = web.url, Self.isOwn(u, folder),
-            let s = try? String(data: JSONEncoder().encode(v), encoding: .utf8)
+        guard let url = web.url, Self.isOwn(url, folder),
+            let json = try? String(data: JSONEncoder().encode(v), encoding: .utf8)
         else { return }
-        web.evaluateJavaScript("window.kelp.__resolve(\(id), \(s))")
+        web.evaluateJavaScript("window.kelp.__resolve(\(id), \(json))")
     }
 
 }

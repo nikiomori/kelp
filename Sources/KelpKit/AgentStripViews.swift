@@ -16,8 +16,8 @@ final class StripPanel: NSPanel {
     func drag(from down: NSEvent) -> Bool {
         let start = frame.origin, from = Self.onScreen(down)
         var moved = false
-        while let e = nextEvent(matching: [.leftMouseUp, .leftMouseDragged]), e.type == .leftMouseDragged {
-            let at = Self.onScreen(e), dx = at.x - from.x, dy = at.y - from.y
+        while let event = nextEvent(matching: [.leftMouseUp, .leftMouseDragged]), event.type == .leftMouseDragged {
+            let at = Self.onScreen(event), dx = at.x - from.x, dy = at.y - from.y
             moved = moved || hypot(dx, dy) >= Self.dragFrom
             if moved { setFrameOrigin(NSPoint(x: start.x + dx, y: start.y - dy)) }
         }
@@ -29,18 +29,18 @@ final class StripPanel: NSPanel {
     private static func onScreen(_ e: NSEvent) -> CGPoint { e.cgEvent?.location ?? .zero }
 
     static func floating(_ content: NSView, radius: CGFloat, fullScreen: Bool) -> StripPanel {
-        let p = StripPanel(
+        let panel = StripPanel(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        p.isOpaque = false
-        p.backgroundColor = .clear
-        p.hasShadow = true
-        p.level = .floating
-        p.hidesOnDeactivate = false
-        p.isReleasedWhenClosed = false
-        p.becomesKeyOnlyIfNeeded = true
-        p.apply(fullScreen: fullScreen)
-        p.contentView = ground(content, radius: radius)
-        return p
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.becomesKeyOnlyIfNeeded = true
+        panel.apply(fullScreen: fullScreen)
+        panel.contentView = ground(content, radius: radius)
+        return panel
     }
 
     /// Off: it stays out of a full-screen app's Space (a talk, a film).
@@ -175,15 +175,15 @@ final class StripButton: PointerControl {
         func text(_ s: String, _ font: NSFont, _ color: NSColor) -> NSAttributedString {
             NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
         }
-        let t = NSMutableAttributedString(attributedString: text(item.name, .ui(12, weight: .medium), .labelColor))
+        let title = NSMutableAttributedString(attributedString: text(item.name, .ui(12, weight: .medium), .labelColor))
         let color: NSColor =
             switch item.cell {
             case .asks: .textOrange
             case .failed: .textRed
             case .working, .done: .secondaryLabelColor
             }
-        t.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), color))
-        return t
+        title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), color))
+        return title
     }
 
     override func clicked() { onClick?() }
@@ -274,18 +274,19 @@ final class StripCard {
     }
 
     private lazy var reply: NSTextField = {
-        let f = NSTextField()
-        f.placeholderString = String(localized: "Message to the agent")
-        f.font = .ui(12)
-        f.target = self
-        f.action = #selector(send)
-        return f
+        let field = NSTextField()
+        field.placeholderString = String(localized: "Message to the agent")
+        field.font = .ui(12)
+        field.target = self
+        field.action = #selector(send)
+        return field
     }()
 
     private func replyField() -> NSView { reply }
 
     private func header(_ s: Session) -> NSView {
-        let w = app.worktree(s.worktreeId), place = app.groupName(w) ?? app.projectName(w?.repoId) ?? ""
+        let worktree = app.worktree(s.worktreeId),
+            place = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? ""
         let icon = NSImageView(image: app.catalog.icon(s.agent, size: 16) ?? NSImage())
         let name = NSTextField(labelWithString: "\(app.catalog.displayName(s)) · \(place)")
         name.font = .ui(11)
@@ -360,7 +361,7 @@ final class StripCard {
 
     /// Over the strip, or under it at the top of a screen; lined up with the strip's corner.
     func show(by strip: NSRect, in area: NSRect?, at corner: StripCorner) {
-        guard let p = panel, let content = p.contentView else { return }
+        guard let shown = panel, let content = shown.contentView else { return }
         content.layoutSubtreeIfNeeded()
         let size = content.fittingSize
         let x = corner.isLeft ? strip.minX : corner.isRight ? strip.maxX - size.width : strip.midX - size.width / 2
@@ -369,13 +370,13 @@ final class StripCard {
         if let area {
             frame.origin.x = min(max(frame.minX, area.minX + Metrics.gapWide), area.maxX - size.width - Metrics.gapWide)
         }
-        p.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : -8), display: false)
-        p.alphaValue = 0
-        p.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { c in
-            c.duration = Motion.duration(Motion.appear)
-            p.animator().setFrame(frame, display: true)
-            p.animator().alphaValue = 1
+        shown.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : -8), display: false)
+        shown.alphaValue = 0
+        shown.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.appear)
+            shown.animator().setFrame(frame, display: true)
+            shown.animator().alphaValue = 1
         }
     }
 
@@ -408,9 +409,9 @@ final class StripTip {
         stack.spacing = 2
         stack.edgeInsets = NSEdgeInsets(
             top: Metrics.gap, left: Metrics.gapWide + 2, bottom: Metrics.gap, right: Metrics.gapWide + 2)
-        let p = StripPanel.floating(stack, radius: Metrics.radiusMD, fullScreen: true)
-        p.ignoresMouseEvents = true
-        return p
+        let made = StripPanel.floating(stack, radius: Metrics.radiusMD, fullScreen: true)
+        made.ignoresMouseEvents = true
+        return made
     }()
 
     var isShowing: Bool { panel.isVisible }

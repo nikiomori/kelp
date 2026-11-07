@@ -94,27 +94,28 @@ enum DeclarativeExtension {
         do {
             let own = folder.appendingPathComponent("extension.json"),
                 vscode = folder.appendingPathComponent("package.json")
-            let m: ExtManifest, problem: String?
+            let manifest: ExtManifest, problem: String?
             do {
-                m =
+                manifest =
                     !FileManager.default.fileExists(atPath: own.path)
                         && FileManager.default.fileExists(atPath: vscode.path)
                     ? try JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: vscode)).manifest
                     : try JSONDecoder().decode(ExtManifest.self, from: Data(contentsOf: own))
-                lastGood[folder.path] = m
+                lastGood[folder.path] = manifest
                 problem = nil
             } catch {
                 guard let kept = lastGood[folder.path] else { throw error }   // nothing worked before: the error alone
-                m = kept
+                manifest = kept
                 problem = (error as? DecodingError).map(describe) ?? error.localizedDescription
             }
             var info = ExtensionInfo(
-                id: m.id, name: m.name, description: m.description ?? "", version: m.version ?? "",
-                icon: m.icon ?? "puzzlepiece.extension",
+                id: manifest.id, name: manifest.name, description: manifest.description ?? "",
+                version: manifest.version ?? "",
+                icon: manifest.icon ?? "puzzlepiece.extension",
                 builtin: false, path: folder, enabled: true)
             info.source = IDE.extensionSource(folder)
             info.error = problem.map { String(localized: "\($0) Still running the version from before the change.") }
-            info.requires = m.requires ?? []
+            info.requires = manifest.requires ?? []
             if let missing = info.requires.first(where: { tools[$0] == false }) {
                 info.unavailable = String(localized: "Needs `\(missing)` — not found on this Mac.")
                 return (info, Contributions())
@@ -123,7 +124,7 @@ enum DeclarativeExtension {
                 info.waitsToBeAllowed = true
                 return (info, Contributions())
             }
-            return (info, contributions(m, folder, app))
+            return (info, contributions(manifest, folder, app))
         } catch {
             let msg = (error as? DecodingError).map(describe) ?? error.localizedDescription
             return (
@@ -136,14 +137,14 @@ enum DeclarativeExtension {
     }
 
     private static func contributions(_ m: ExtManifest, _ folder: URL, _ app: AppModel) -> Contributions {
-        var c = Contributions()
-        let x = m.contributes
-        for v in x?.panels ?? [] {
+        var result = Contributions()
+        let contributes = m.contributes
+        for v in contributes?.panels ?? [] {
             views["\(m.id)/\(v.id)"] = (m, v, folder)
             let badge = ExtBadge()
             var poll: (@MainActor () async -> Void)?
             if let def = v.badge { poll = { await badge.poll(def, folder: folder, app: app) } }
-            c.panels.append(
+            result.panels.append(
                 PanelSpec(
                     id: "\(m.id).\(v.id)", title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
                     extensionId: m.id,
@@ -152,31 +153,31 @@ enum DeclarativeExtension {
                     viewController(m, v, folder, app, badge: badge)
                 })
         }
-        for v in x?.editors ?? [] {
+        for v in contributes?.editors ?? [] {
             views["\(m.id)/\(v.id)"] = (m, v, folder)
-            c.editors.append(
+            result.editors.append(
                 EditorSpec(
                     id: "\(m.id).\(v.id)", title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
                     uri: { _ in "ext:\(m.id)/\(v.id)" }))
         }
-        for a in x?.commands ?? [] {
-            c.commands.append(
+        for a in contributes?.commands ?? [] {
+            result.commands.append(
                 CommandSpec(id: a.id ?? "\(m.id).\(a.title)", title: a.title, key: a.key, menu: a.menu) { _ in
                     ExtActions(app).perform(a, item: nil, folder: folder)
                 })
         }
-        if let s = x?.settings, !s.isEmpty {
-            c.settings.append(
-                SettingsSection(id: m.id, title: m.name, icon: m.icon ?? "puzzlepiece.extension", specs: s))
+        if let specs = contributes?.settings, !specs.isEmpty {
+            result.settings.append(
+                SettingsSection(id: m.id, title: m.name, icon: m.icon ?? "puzzlepiece.extension", specs: specs))
         }
-        c.themes = x?.themes ?? []
-        c.iconThemes = (x?.iconThemes ?? []).map {
+        result.themes = contributes?.themes ?? []
+        result.iconThemes = (contributes?.iconThemes ?? []).map {
             IconThemeSpec(
                 id: $0.id, label: $0.label ?? $0.id, file: folder.appendingPathComponent($0.path).standardizedFileURL)
         }
-        c.agents = x?.agents ?? []
-        c.languages = x?.languages ?? []
-        return c
+        result.agents = contributes?.agents ?? []
+        result.languages = contributes?.languages ?? []
+        return result
     }
 
     static func viewInfo(_ uri: String) -> (title: String, icon: String)? {
@@ -212,9 +213,11 @@ enum DeclarativeExtension {
 
     private static func describe(_ e: DecodingError) -> String {
         switch e {
-        case .keyNotFound(let k, let c): "Missing “\(k.stringValue)” at \(path(c))"
-        case .typeMismatch(_, let c), .valueNotFound(_, let c): "Wrong type at \(path(c)): \(c.debugDescription)"
-        case .dataCorrupted(let c): "Invalid JSON: \(c.underlyingError?.localizedDescription ?? c.debugDescription)"
+        case .keyNotFound(let key, let context): "Missing “\(key.stringValue)” at \(path(context))"
+        case .typeMismatch(_, let context), .valueNotFound(_, let context):
+            "Wrong type at \(path(context)): \(context.debugDescription)"
+        case .dataCorrupted(let context):
+            "Invalid JSON: \(context.underlyingError?.localizedDescription ?? context.debugDescription)"
         @unknown default: "\(e)"
         }
     }
@@ -297,8 +300,8 @@ struct ExtActions {
         if rest.hasPrefix("//") { rest = rest.dropFirst(2) }
         let target = String(rest.prefix { $0 != "?" }).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         var query: [String: String] = [:]
-        if let q = rest.firstIndex(of: "?") {
-            for pair in rest[rest.index(after: q)...].split(separator: "&") {
+        if let questionMark = rest.firstIndex(of: "?") {
+            for pair in rest[rest.index(after: questionMark)...].split(separator: "&") {
                 let kv = pair.split(separator: "=", maxSplits: 1).map {
                     String($0).removingPercentEncoding ?? String($0)
                 }
@@ -320,22 +323,22 @@ struct ExtActions {
 
     static func text(_ v: JSONValue) -> String {
         switch v {
-        case .string(let s): s
-        case .int(let i): String(i)
-        case .double(let d): String(format: d == d.rounded() ? "%.0f" : "%g", d)
-        case .bool(let b): b ? "true" : "false"
+        case .string(let text): text
+        case .int(let number): String(number)
+        case .double(let number): String(format: number == number.rounded() ? "%.0f" : "%g", number)
+        case .bool(let flag): flag ? "true" : "false"
         case .null: ""
         default: (try? String(data: JSONEncoder().encode(v), encoding: .utf8)) ?? ""
         }
     }
 
     func perform(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)? = nil) {
-        guard let q = a.confirm else {
+        guard let question = a.confirm else {
             act(a, item: item, folder: folder, after: after)
             return
         }
         let alert = NSAlert()
-        alert.messageText = expand(q, item: item, quote: false)
+        alert.messageText = expand(question, item: item, quote: false)
         alert.addButton(withTitle: a.title)
         alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
@@ -344,9 +347,9 @@ struct ExtActions {
     }
 
     private func act(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
-        if let t = a.terminal {
-            app.workbench.editorForNewTab?.run(command: expand(t, item: item, quote: true), title: a.title)
-        } else if let o = a.open, let run = runAction(o, item: item) {
+        if let command = a.terminal {
+            app.workbench.editorForNewTab?.run(command: expand(command, item: item, quote: true), title: a.title)
+        } else if let uri = a.open, let run = runAction(uri, item: item) {
             switch run {
             case .agent(let agent, let prompt):
                 app.workbench.editorForNewTab?.newAgent(agent, prompt: prompt, draft: true)
@@ -356,9 +359,9 @@ struct ExtActions {
                 app.workbench.runURI(
                     "terminal:?tmux=" + (name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name))
             }
-        } else if let o = a.open {
-            if let u = openURI(o, item: item) {
-                app.workbench.open(u)
+        } else if let uri = a.open {
+            if let target = openURI(uri, item: item) {
+                app.workbench.open(target)
             } else {
                 Banner.show(
                     String(
@@ -368,10 +371,10 @@ struct ExtActions {
             }
         }
         // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), someone else's words.
-        else if let p = a.agent {
-            app.workbench.editorForNewTab?.newAgent(nil, prompt: expand(p, item: item, quote: false), draft: true)
-        } else if let r = a.run {
-            let cmd = expand(r, item: item, quote: true)
+        else if let prompt = a.agent {
+            app.workbench.editorForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
+        } else if let script = a.run {
+            let cmd = expand(script, item: item, quote: true)
             Task {
                 let res = await Shell.run(
                     app, cmd, cwd: IDEContext.of(app).workspace?.path ?? folder.path,
@@ -411,9 +414,9 @@ package enum Shell {
         extension id: String? = nil
     ) async -> Result {
         do {
-            let r = try await app.get(
+            let result = try await app.get(
                 ProcessRun(argv: argv, cwd: cwd, stdin: input, timeLimit: timeout, extensionId: id))
-            return Result(code: r.code, stdout: r.stdout, stderr: r.stderr)
+            return Result(code: result.code, stdout: result.stdout, stderr: result.stderr)
         } catch {
             return Result(code: -1, stdout: "", stderr: (error as? RPCError)?.message ?? error.localizedDescription)
         }
@@ -428,10 +431,12 @@ final class ExtBadge {
     func poll(_ def: ExtManifest.BadgeDef, folder: URL, app: AppModel) async {
         while !Task.isCancelled {
             let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
-            let r = await Shell.run(
+            let result = await Shell.run(
                 app, cmd, cwd: IDEContext.of(app).workspace?.path ?? folder.path, extension: folder.lastPathComponent)
             // A command that fails is a red dot, its error the key: looked at once, it stays quiet until the error changes.
-            let next = r.code == 0 ? PanelBadge(r.stdout) : PanelBadge(alert: true, key: String(r.stderr.prefix(200)))
+            let next =
+                result.code == 0
+                ? PanelBadge(result.stdout) : PanelBadge(alert: true, key: String(result.stderr.prefix(200)))
             if next != value { value = next }
             try? await Task.sleep(for: .seconds(max(def.refresh ?? 60, 5)))
         }

@@ -30,27 +30,30 @@ extension QuickOpen {
             )
         case "ghostty": return (String(localized: "The terminal keeps your Ghostty colors"), nil)
         default:
-            guard let t = themes.first(where: { $0.id == id }) else { return ("", nil) }
-            return (t.appearance == "light" ? String(localized: "Light") : String(localized: "Dark"), Self.swatch([t]))
+            guard let theme = themes.first(where: { $0.id == id }) else { return ("", nil) }
+            return (
+                theme.appearance == "light" ? String(localized: "Light") : String(localized: "Dark"),
+                Self.swatch([theme])
+            )
         }
     }
 
     /// Themes side by side in an 18 pt tile: each its background with two lines of "text" in its foreground and blue.
     static func swatch(_ themes: [Theme]) -> NSImage {
         func color(_ hex: String?) -> NSColor { hex.flatMap { NSColor(hex: $0) } ?? .gray }
-        return NSImage(size: NSSize(width: 18, height: 18), flipped: true) { r in
-            let tile = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 4, yRadius: 4)
+        return NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
+            let tile = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 4, yRadius: 4)
             NSGraphicsContext.saveGraphicsState()
             tile.addClip()
-            let w = r.width / CGFloat(max(themes.count, 1))
+            let stripe = rect.width / CGFloat(max(themes.count, 1))
             for (i, t) in themes.enumerated() {
-                let x = CGFloat(i) * w, c = t.terminal
-                color(c?.background).setFill()
-                NSRect(x: x, y: 0, width: w, height: r.height).fill()
-                color(c?.foreground).setFill()
-                NSRect(x: x + 3, y: 5, width: (w - 6) * 0.9, height: 2).fill()
-                color(c?.palette?.dropFirst(4).first).setFill()
-                NSRect(x: x + 3, y: 10, width: (w - 6) * 0.6, height: 2).fill()
+                let x = CGFloat(i) * stripe, terminal = t.terminal
+                color(terminal?.background).setFill()
+                NSRect(x: x, y: 0, width: stripe, height: rect.height).fill()
+                color(terminal?.foreground).setFill()
+                NSRect(x: x + 3, y: 5, width: (stripe - 6) * 0.9, height: 2).fill()
+                color(terminal?.palette?.dropFirst(4).first).setFill()
+                NSRect(x: x + 3, y: 10, width: (stripe - 6) * 0.6, height: 2).fill()
             }
             NSGraphicsContext.restoreGraphicsState()
             NSColor.separatorColor.setStroke()

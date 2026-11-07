@@ -56,14 +56,14 @@ final class Updates: NSObject {
     }
 
     private func agentsMayEnd() async -> Bool {
-        let a = NSAlert()
-        a.messageText = String(localized: "Updating ends running agents")
-        a.informativeText = String(
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Updating ends running agents")
+        alert.informativeText = String(
             localized: "Kelp isn't allowed to run in the background, so macOS ends its agents when it quits.")
-        a.addButton(withTitle: String(localized: "Later"))   // Return keeps the agents running
-        a.addButton(withTitle: String(localized: "Open Login Items"))
-        a.addButton(withTitle: String(localized: "Update Anyway")).hasDestructiveAction = true
-        switch await runSheet(a) {
+        alert.addButton(withTitle: String(localized: "Later"))   // Return keeps the agents running
+        alert.addButton(withTitle: String(localized: "Open Login Items"))
+        alert.addButton(withTitle: String(localized: "Update Anyway")).hasDestructiveAction = true
+        switch await runSheet(alert) {
         case .alertSecondButtonReturn:
             BackgroundItem.openSettings()
             return false

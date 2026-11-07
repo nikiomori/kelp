@@ -30,8 +30,10 @@ struct LimitResets {
     /// (`Session.continueAt`) needs no asking. The limit is read from the screen a moment after the turn stopped: two minutes
     /// of slack.
     static func stopped(_ sessions: [Session], agent: String, _ f: Full) -> [Session] {
-        sessions.filter { s in
-            guard s.agent == agent, [.done, .error].contains(s.status), s.continueAt == nil, let at = s.statusAt else {
+        sessions.filter { session in
+            guard session.agent == agent, [.done, .error].contains(session.status), session.continueAt == nil,
+                let at = session.statusAt
+            else {
                 return false
             }
             return at >= f.since.addingTimeInterval(-120) && at < f.until

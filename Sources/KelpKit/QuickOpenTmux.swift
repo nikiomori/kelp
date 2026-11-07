@@ -38,10 +38,10 @@ extension QuickOpen {
     func tmuxItems(_ sessions: [Tmux.Session], _ q: String) -> [Item] {
         func item(_ name: String, icon: String, detail: String) -> Item {
             let app = self.app
-            var c = URLComponents()
-            c.scheme = "terminal"
-            c.queryItems = [URLQueryItem(name: "tmux", value: name)]
-            let uri = c.string ?? "terminal:"
+            var components = URLComponents()
+            components.scheme = "terminal"
+            components.queryItems = [URLQueryItem(name: "tmux", value: name)]
+            let uri = components.string ?? "terminal:"
             return Item(
                 kind: "tmux", icon: icon, title: name, detail: detail, action: { app.workbench.runURI(uri) },
                 split: { app.workbench.runURI(uri, split: .right) })
@@ -57,14 +57,14 @@ extension QuickOpen {
         }.sorted { $0.1 > $1.1 }.map(\.0)
         var new = Tmux.name(q)
         if new.isEmpty {   // the project's name, numbered while tmux has a session by it
-            let w = app.worktree(app.workbench.workspaceId)
-            let base = Tmux.name(app.repo(w?.repoId)?.name ?? "kelp").lowercased().replacingOccurrences(
+            let worktree = app.worktree(app.workbench.workspaceId)
+            let base = Tmux.name(app.repo(worktree?.repoId)?.name ?? "kelp").lowercased().replacingOccurrences(
                 of: " ", with: "-")
             new = base
-            var n = 2
+            var number = 2
             while sessions.contains(where: { $0.name == new }) {
-                new = "\(base)-\(n)"
-                n += 1
+                new = "\(base)-\(number)"
+                number += 1
             }
         }
         guard !sessions.contains(where: { $0.name == new }) else { return found }
@@ -77,8 +77,8 @@ final class QuickPanel: NSPanel {
     var onNumber: ((Int) -> Bool)?
     override func performKeyEquivalent(with e: NSEvent) -> Bool {
         if e.modifierFlags.intersection([.command, .shift, .option, .control]) == .command,
-            let n = Int(e.charactersIgnoringModifiers ?? ""),
-            (1...6).contains(n), onNumber?(n) == true
+            let number = Int(e.charactersIgnoringModifiers ?? ""),
+            (1...6).contains(number), onNumber?(number) == true
         {
             return true
         }

@@ -62,7 +62,7 @@ final class AgentIcons {
             }
         }
         let cached = folder.appendingPathComponent("\(id).icon")
-        if let d = try? Data(contentsOf: cached), let img = Self.tile(d) {
+        if let data = try? Data(contentsOf: cached), let img = Self.tile(data) {
             images[id] = img
             return
         }
@@ -79,11 +79,12 @@ final class AgentIcons {
     // MARK: fetching
 
     nonisolated private static func get(_ url: URL) async -> Data? {
-        var r = URLRequest(url: url, timeoutInterval: 6)
-        r.setValue("Kelp", forHTTPHeaderField: "User-Agent")
-        guard let (d, resp) = try? await URLSession.shared.data(for: r), (resp as? HTTPURLResponse)?.statusCode == 200
+        var request = URLRequest(url: url, timeoutInterval: 6)
+        request.setValue("Kelp", forHTTPHeaderField: "User-Agent")
+        guard let (data, resp) = try? await URLSession.shared.data(for: request),
+            (resp as? HTTPURLResponse)?.statusCode == 200
         else { return nil }
-        return d
+        return data
     }
 
     /// An image, not the HTML page some sites send for any path.
@@ -97,7 +98,7 @@ final class AgentIcons {
     nonisolated static func fetchIcon(_ site: String) async -> Data? {
         guard let base = URL(string: "https://\(site)/") else { return nil }
         for path in ["apple-touch-icon.png", "favicon.ico"] {
-            if let u = URL(string: path, relativeTo: base), let d = await get(u), isImage(d) { return d }
+            if let url = URL(string: path, relativeTo: base), let data = await get(url), isImage(data) { return data }
         }
         guard let page = await get(base), let html = String(data: page, encoding: .utf8) else { return nil }
         let links = html.matches(of: #/<link[^>]*>/#).map { String($0.output) }.filter {
@@ -107,9 +108,9 @@ final class AgentIcons {
         for tag in ordered {
             // Quoted or not: charm.land writes href=/touchicon_180w.png.
             guard let href = tag.firstMatch(of: #/href=["']?([^"'\s>]+)/#)?.output.1,
-                let u = URL(string: String(href).replacingOccurrences(of: "&amp;", with: "&"), relativeTo: base)
+                let url = URL(string: String(href).replacingOccurrences(of: "&amp;", with: "&"), relativeTo: base)
             else { continue }
-            if let d = await get(u), isImage(d) { return d }
+            if let data = await get(url), isImage(data) { return data }
         }
         return nil
     }
@@ -121,11 +122,11 @@ final class AgentIcons {
     static func logo(_ id: String) -> NSImage? {
         let mono = Bundle.module.image(forResource: "\(id)-mono")
         guard let svg = mono ?? Bundle.module.image(forResource: id) else { return nil }
-        let img = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { r in
-            svg.draw(in: r.insetBy(dx: 2, dy: 2))   // the marks fill their square; a tile's art doesn't
+        let img = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
+            svg.draw(in: rect.insetBy(dx: 2, dy: 2))   // the marks fill their square; a tile's art doesn't
             if mono != nil {
                 NSColor.labelColor.set()
-                r.fill(using: .sourceAtop)
+                rect.fill(using: .sourceAtop)
             }
             return true
         }
@@ -139,20 +140,20 @@ final class AgentIcons {
         guard let logo = NSImage(data: data) else { return nil }
         let side: CGFloat = 32
         let tone = luminance(logo), clear = transparent(logo)
-        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
-            let path = NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7)
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            let path = NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7)
             if tone != nil || clear {
                 (tone.map { $0 < 0.5 } ?? true ? NSColor(white: 0.96, alpha: 1) : NSColor(white: 0.14, alpha: 1))
                     .setFill()
                 path.fill()
-                logo.draw(in: r.insetBy(dx: 6, dy: 6))
+                logo.draw(in: rect.insetBy(dx: 6, dy: 6))
             } else {
                 NSGraphicsContext.saveGraphicsState()
                 path.addClip()
-                logo.draw(in: r)   // a full-colour icon fills its square
+                logo.draw(in: rect)   // a full-colour icon fills its square
                 NSGraphicsContext.restoreGraphicsState()
             }
-            IconTile.edge(r)
+            IconTile.edge(rect)
             return true
         }
         img.cacheMode = .never   // its edge is drawn for each appearance
@@ -185,17 +186,17 @@ final class AgentIcons {
 
     /// The logo drawn 16×16, pixel by pixel.
     private static func pixels(_ img: NSImage) -> [NSColor] {
-        let n = 16
+        let side = 16
         guard
             let rep = NSBitmapImageRep(
-                bitmapDataPlanes: nil, pixelsWide: n, pixelsHigh: n, bitsPerSample: 8, samplesPerPixel: 4,
+                bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side, bitsPerSample: 8, samplesPerPixel: 4,
                 hasAlpha: true,
                 isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
         else { return [] }
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-        img.draw(in: NSRect(x: 0, y: 0, width: n, height: n))
+        img.draw(in: NSRect(x: 0, y: 0, width: side, height: side))
         NSGraphicsContext.restoreGraphicsState()
-        return (0..<n).flatMap { x in (0..<n).compactMap { rep.colorAt(x: x, y: $0) } }
+        return (0..<side).flatMap { column in (0..<side).compactMap { rep.colorAt(x: column, y: $0) } }
     }
 }

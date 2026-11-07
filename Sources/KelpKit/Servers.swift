@@ -13,8 +13,8 @@ extension AppModel {
 
     /// The screen the server's terminal and htop open on: its first project's own.
     package func serverWorkspace(_ host: String) -> String? {
-        guard let r = repos.first(where: { RemoteHost.of($0.path)?.host == host }) else { return nil }
-        return mainWorkspace(of: r, among: worktrees)?.id
+        guard let project = repos.first(where: { RemoteHost.of($0.path)?.host == host }) else { return nil }
+        return mainWorkspace(of: project, among: worktrees)?.id
     }
 
     /// The server's page, a place of its own like a project's screen (its header in the sidebar stands for it).
@@ -43,13 +43,13 @@ extension AppModel {
 
     /// What a server's heading says, and in what colour: nothing while it's fine, and what's wrong otherwise.
     func serverWord(_ host: String) -> (text: String, color: NSColor)? {
-        guard let s = latest(HostEvent.self, host)?.stats else { return nil }
-        if !s.connected {
-            return s.error == nil
+        guard let stats = latest(HostEvent.self, host)?.stats else { return nil }
+        if !stats.connected {
+            return stats.error == nil
                 ? (String(localized: "Not connected"), .secondaryLabelColor)
                 : (String(localized: "Can't reach"), .textRed)
         }
-        guard let (what, p) = s.alert else { return nil }
+        guard let (what, p) = stats.alert else { return nil }
         switch what {
         case .disk: return (String(localized: "Disk \(p)%"), .textOrange)
         case .memory: return (String(localized: "Memory \(p)%"), .textOrange)
@@ -70,8 +70,8 @@ package func serverBytes(_ n: Int) -> String {
 
 /// "3 d 10 h", "18 m", "40 s".
 package func serverDuration(_ seconds: Double) -> String {
-    let s = Int(seconds), d = s / 86400, h = s % 86400 / 3600, m = s % 3600 / 60
-    if d > 0 { return h > 0 ? "\(d) d \(h) h" : "\(d) d" }
-    if h > 0 { return m > 0 ? "\(h) h \(m) m" : "\(h) h" }
-    return m > 0 ? "\(m) m" : "\(s) s"
+    let total = Int(seconds), days = total / 86400, hours = total % 86400 / 3600, minutes = total % 3600 / 60
+    if days > 0 { return hours > 0 ? "\(days) d \(hours) h" : "\(days) d" }
+    if hours > 0 { return minutes > 0 ? "\(hours) h \(minutes) m" : "\(hours) h" }
+    return minutes > 0 ? "\(minutes) m" : "\(total) s"
 }

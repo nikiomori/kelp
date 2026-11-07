@@ -21,7 +21,9 @@ package struct AgentCatalog {
     /// The agent "New Agent" starts: the setting if it's installed, else the first installed one.
     package var defaultAgent: String {
         let installed = installed(all)
-        if let d = app.settings.string("agents.default"), installed.contains(where: { $0.id == d }) { return d }
+        if let agentId = app.settings.string("agents.default"), installed.contains(where: { $0.id == agentId }) {
+            return agentId
+        }
         return installed.first?.id ?? "claude"
     }
     /// Whether to offer tmux sessions in a workspace: tmux is on this Mac, or the project is on a host (which usually has
@@ -46,8 +48,8 @@ package struct AgentCatalog {
         }
         .sorted { $0.createdAt < $1.createdAt }
         let base = name(s.agent)
-        guard same.count > 1, let i = same.firstIndex(where: { $0.id == s.id }), i > 0 else { return base }
-        return "\(base) \(i + 1)"
+        guard same.count > 1, let index = same.firstIndex(where: { $0.id == s.id }), index > 0 else { return base }
+        return "\(base) \(index + 1)"
     }
 
     /// What an agent is, in a few words: the empty workspace and Settings › Agents say it beside the name.
@@ -101,8 +103,8 @@ package struct AgentCatalog {
                     style: .error)
                 return
             }
-            e.run(command: cmd, title: String(localized: "Install \(m.name)")) { s in
-                app.availability.watchInstall(s.id, agent: m.id)
+            e.run(command: cmd, title: String(localized: "Install \(m.name)")) { session in
+                app.availability.watchInstall(session.id, agent: m.id)
             }
         }
     }
@@ -196,14 +198,14 @@ package final class AgentAvailability {
                 await self.finish(nil, expecting: expecting)
                 return
             }
-            let found = await withTaskGroup(of: (id: String, binary: String)?.self) { g in
+            let found = await withTaskGroup(of: (id: String, binary: String)?.self) { group in
                 for (id, command) in commands {
                     if let path = paths[command] {
-                        g.addTask { await Self.runs(path, ran: ran, app: app).map { (id, $0) } }
+                        group.addTask { await Self.runs(path, ran: ran, app: app).map { (id, $0) } }
                     }
                 }
                 var all: [(id: String, binary: String)] = []
-                for await r in g { if let r { all.append(r) } }
+                for await result in group { if let result { all.append(result) } }
                 return all
             }
             // Not an agent: "tmux" among the ids only says there's a tmux here to attach to (AgentCatalog.hasTmux).
@@ -227,9 +229,9 @@ package final class AgentAvailability {
             for (id, p) in phases where ok.contains(id) && p != .done { phases[id] = .done }
         }
         for id in expecting { if case .running(let tab)? = phases[id] { phases[id] = .notFound(tab: tab) } }
-        if let q = queued {
+        if let next = queued {
             queued = nil
-            refresh(force: true, rereadPath: q.rereadPath, expecting: q.expecting)
+            refresh(force: true, rereadPath: next.rereadPath, expecting: next.expecting)
         }
     }
 

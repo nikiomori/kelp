@@ -25,12 +25,12 @@ extension StripModel {
 
     /// A side with another screen past it isn't an edge: what hides would show there.
     static func outer(_ edge: StripEdge, of screen: NSRect, among others: [NSRect]) -> Bool {
-        !others.contains { o in
+        !others.contains { other in
             let beside =
                 edge == .right
-                ? o.minX >= screen.maxX - 1 && o.minX <= screen.maxX + 1
-                : o.maxX <= screen.minX + 1 && o.maxX >= screen.minX - 1
-            return beside && o.maxY > screen.minY && o.minY < screen.maxY
+                ? other.minX >= screen.maxX - 1 && other.minX <= screen.maxX + 1
+                : other.maxX <= screen.minX + 1 && other.maxX >= screen.minX - 1
+            return beside && other.maxY > screen.minY && other.minY < screen.maxY
         }
     }
 
@@ -47,12 +47,12 @@ extension StripModel {
 
     /// Between a strip that's out and the edge it came from: a pointer pushed against the edge, still on it in all but name.
     static func inGap(_ p: NSPoint, beside strip: NSRect, edge: StripEdge) -> Bool {
-        let x =
+        let withinX =
             switch edge {
             case .right: p.x >= strip.maxX && p.x <= strip.maxX + margin + 1
             case .left: p.x <= strip.minX && p.x >= strip.minX - margin - 1
             }
-        return x && p.y >= strip.minY && p.y <= strip.maxY
+        return withinX && p.y >= strip.minY && p.y <= strip.maxY
     }
 
     /// What comes out of the edge as a line: a question or a failure not told yet, the oldest question first. Finished work
@@ -88,14 +88,14 @@ final class StripGlint: NSView {
 
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
-        let s = Self.size, dot = cell == .done
+        let size = Self.size, dot = cell == .done
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         mark.frame =
             dot
-            ? CGRect(x: 0, y: (s.height - s.width) / 2, width: s.width, height: s.width)
-            : CGRect(x: 1, y: 0, width: s.width - 2, height: s.height)
-        mark.cornerRadius = dot ? s.width / 2 : (s.width - 2) / 2
+            ? CGRect(x: 0, y: (size.height - size.width) / 2, width: size.width, height: size.width)
+            : CGRect(x: 1, y: 0, width: size.width - 2, height: size.height)
+        mark.cornerRadius = dot ? size.width / 2 : (size.width - 2) / 2
         let color: NSColor =
             switch cell {
             case .asks: .systemOrange
@@ -157,8 +157,8 @@ final class StripLine {
         panel.setFrame(frame.offsetBy(dx: from, dy: 0), display: false)
         panel.alphaValue = 0
         panel.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { c in
-            c.duration = Motion.duration(Motion.appear)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.appear)
             panel.animator().setFrame(frame, display: true)
             panel.animator().alphaValue = 1
         }
@@ -174,12 +174,13 @@ final class StripLine {
     func hide() {
         ends?.invalidate()
         guard panel.isVisible else { return }
-        let p = panel
-        NSAnimationContext.runAnimationGroup { c in
-            c.duration = Motion.duration(Motion.fast)
-            p.animator().alphaValue = 0
+        let shown = panel
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.fast)
+            shown.animator().alphaValue = 0
         } completionHandler: {
-            MainActor.assumeIsolated { if p.alphaValue == 0 { p.orderOut(nil) } }   // AppKit runs it on the main thread
+            // AppKit runs it on the main thread
+            MainActor.assumeIsolated { if shown.alphaValue == 0 { shown.orderOut(nil) } }
         }
     }
 
@@ -218,15 +219,15 @@ final class StripLine {
             effectiveAppearance.performAsCurrentDrawingAppearance {
                 icon.layer?.backgroundColor = NSColor.fillHover.cgColor
             }
-            let t = NSMutableAttributedString(
+            let line = NSMutableAttributedString(
                 string: item.name,
                 attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.labelColor])
             let color: NSColor = item.cell == .asks ? .textOrange : .textRed
-            t.append(
+            line.append(
                 NSAttributedString(
                     string: "  " + StripModel.brief(item.words ?? ""),
                     attributes: [.font: NSFont.ui(12), .foregroundColor: color]))
-            words.attributedStringValue = t
+            words.attributedStringValue = line
             let says = [item.name, item.words].compactMap { $0 }.joined(separator: ", ")
             setAccessibilityElement(true)
             setAccessibilityRole(.button)

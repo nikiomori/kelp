@@ -15,10 +15,10 @@ class SheetController: NSWindowController {
 
     /// False when there's no window to put it on. `ended` runs once it's gone.
     func begin(ended: @escaping () -> Void) -> Bool {
-        guard let w = app.workbench.window?.window ?? NSApp.mainWindow, let sheet = window else { return false }
-        w.beginSheet(sheet) { _ in ended() }
+        guard let parent = app.workbench.window?.window ?? NSApp.mainWindow, let sheet = window else { return false }
+        parent.beginSheet(sheet) { _ in ended() }
         return true
     }
 
-    package override func close() { if let w = window { w.sheetParent?.endSheet(w) } }
+    package override func close() { if let window { window.sheetParent?.endSheet(window) } }
 }

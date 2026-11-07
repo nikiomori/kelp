@@ -5,34 +5,36 @@ import Core
 /// and after the last. What it pushes lands in one store per kind (`latest(CIEvent.self, key)`), which views `track`.
 extension AppModel {
     package func watch(_ topic: WatchTopic, _ key: String = "") {
-        let w = WatchStart(topic, key)
-        watching[w, default: 0] += 1
-        if watching[w] == 1 { client?.notify(w) }
+        let start = WatchStart(topic, key)
+        watching[start, default: 0] += 1
+        if watching[start] == 1 { client?.notify(start) }
     }
 
     package func unwatch(_ topic: WatchTopic, _ key: String = "") {
-        let w = WatchStart(topic, key)
-        guard let n = watching[w] else { return }
-        if n > 1 {
-            watching[w] = n - 1
+        let start = WatchStart(topic, key)
+        guard let count = watching[start] else { return }
+        if count > 1 {
+            watching[start] = count - 1
             return
         }
-        watching[w] = nil
+        watching[start] = nil
         client?.notify(WatchStop(topic, key))
         forget(topic, key)   // not shown anywhere now: no stale value when it's watched again
     }
 
     /// Read it again now, and (CI) keep looking for a while: after a push, its run shows up within seconds.
     package func watchAgain(_ topic: WatchTopic, _ key: String = "") {
-        let w = WatchStart(topic, key)
-        if watching[w] != nil { client?.notify(w) }
+        let start = WatchStart(topic, key)
+        if watching[start] != nil { client?.notify(start) }
     }
 
     /// The latest pushed `E` by key (`Pushed`): one observable box per kind, so a view reading CI re-renders for CI only.
     package func latest<E: Pushed>(_: E.Type) -> Latest<E> {
         part {
             let box = Latest<E>()
-            if let t = E.forgottenWith { forgetters[t, default: []].append { [weak box] key in box?.byKey[key] = nil } }
+            if let topic = E.forgottenWith {
+                forgetters[topic, default: []].append { [weak box] key in box?.byKey[key] = nil }
+            }
             return box
         }
     }
@@ -54,24 +56,24 @@ extension AppModel {
 
     /// What the daemon pushed for a watched topic.
     func watched(_ event: any RPCEvent) {
-        guard let e = event as? any Pushed else { return }
-        func open<E: Pushed>(_ e: E) { land(e) }
-        open(e)
+        guard let pushed = event as? any Pushed else { return }
+        func open<E: Pushed>(_ pushed: E) { land(pushed) }
+        open(pushed)
     }
 
     /// A project or workspace as it is now: the lists follow the daemon's records without reading them again.
     func record(_ r: Repo) {
         recordEvents[r.id, default: 0] += 1
-        if let i = repos.firstIndex(where: { $0.id == r.id }) {
-            if repos[i] != r, !r.isOlder(than: repos[i]) { repos[i] = r }
+        if let index = repos.firstIndex(where: { $0.id == r.id }) {
+            if repos[index] != r, !r.isOlder(than: repos[index]) { repos[index] = r }
         } else {
             repos.append(r)
         }
     }
     func record(_ w: Worktree) {
         recordEvents[w.id, default: 0] += 1
-        if let i = worktrees.firstIndex(where: { $0.id == w.id }) {
-            if worktrees[i] != w, !w.isOlder(than: worktrees[i]) { worktrees[i] = w }
+        if let index = worktrees.firstIndex(where: { $0.id == w.id }) {
+            if worktrees[index] != w, !w.isOlder(than: worktrees[index]) { worktrees[index] = w }
         } else {
             worktrees.append(w)
         }
@@ -115,13 +117,13 @@ package final class Watched {
     package var key: String? {
         didSet {
             guard key != oldValue else { return }
-            if let o = oldValue { app.unwatch(topic, o) }
-            if let k = key { app.watch(topic, k) }
+            if let old = oldValue { app.unwatch(topic, old) }
+            if let key { app.watch(topic, key) }
         }
     }
     package init(_ topic: WatchTopic, in app: AppModel) {
         self.topic = topic
         self.app = app
     }
-    isolated deinit { if let k = key { app.unwatch(topic, k) } }
+    isolated deinit { if let key { app.unwatch(topic, key) } }
 }

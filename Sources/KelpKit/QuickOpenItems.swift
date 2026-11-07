@@ -9,9 +9,9 @@ extension QuickOpen {
         var items: [Item] = []
         if !commandsOnly {
             collectRecents()
-            if let e = app.workbench.editor {
+            if let editor = app.workbench.editor {
                 let root = app.worktree(app.workbench.workspaceId)?.path
-                for (uri, title) in e.openTabs where TabURI.scheme(uri) != "session" {
+                for (uri, title) in editor.openTabs where TabURI.scheme(uri) != "session" {
                     let (icon, detail) = Self.place(uri, root: root)
                     items.append(
                         Item(
@@ -57,11 +57,12 @@ extension QuickOpen {
                     let fuzzy = await Task.detached { files.map(ProjectFiles.FuzzyPath.init) }.value
                     // Listed again meanwhile (its own load adds them), or a setting's choices are on screen.
                     guard !Task.isCancelled, choosing == nil else { return }
-                    all += zip(files, fuzzy).map { f, z in
+                    all += zip(files, fuzzy).map { path, fuzzyPath in
                         Item(
-                            kind: "File", icon: "doc", title: (f as NSString).lastPathComponent, detail: f,
-                            action: { app.workbench.open(TabURI.file(root + "/" + f)) },
-                            split: { app.workbench.open(TabURI.file(root + "/" + f), split: .right) }, fuzzy: z)
+                            kind: "File", icon: "doc", title: (path as NSString).lastPathComponent, detail: path,
+                            action: { app.workbench.open(TabURI.file(root + "/" + path)) },
+                            split: { app.workbench.open(TabURI.file(root + "/" + path), split: .right) },
+                            fuzzy: fuzzyPath)
                     }
                     filter()
                 }
@@ -72,27 +73,27 @@ extension QuickOpen {
         let appMenu = NSApp.mainMenu?.items.first?.submenu
         func walk(_ m: NSMenu, path: String) {
             for i in m.items {
-                if let s = i.submenu {
+                if let submenu = i.submenu {
                     // Not the system's Services ("Convert Text to Chinese"…): other apps' actions, not Kelp's commands.
-                    if s !== NSApp.servicesMenu {
-                        walk(s, path: s === appMenu ? "" : path.isEmpty ? i.title : path + " › " + i.title)
+                    if submenu !== NSApp.servicesMenu {
+                        walk(submenu, path: submenu === appMenu ? "" : path.isEmpty ? i.title : path + " › " + i.title)
                     }
                     continue
                 }
-                guard let a = i.action, !i.isSeparatorItem, !i.isHidden, !i.title.isEmpty else { continue }
+                guard let action = i.action, !i.isSeparatorItem, !i.isHidden, !i.title.isEmpty else { continue }
                 // Only what the menu would offer now: someone handles it and it's enabled (Run File needs a file…).
-                guard let t = NSApp.target(forAction: a, to: i.target, from: i),
-                    (t as? NSMenuItemValidation)?.validateMenuItem(i) ?? true
+                guard let target = NSApp.target(forAction: action, to: i.target, from: i),
+                    (target as? NSMenuItemValidation)?.validateMenuItem(i) ?? true
                 else { continue }
                 // No icon unless the menu item has one: the same ⌘ on every row said nothing.
                 items.append(
                     Item(
                         kind: "Command", icon: "", title: i.title, detail: path,
-                        action: { NSApp.sendAction(a, to: i.target, from: i) },
+                        action: { NSApp.sendAction(action, to: i.target, from: i) },
                         image: i.image, key: i.keyEquivalent.isEmpty ? "" : Self.shortcut(i)))
             }
         }
-        if let m = NSApp.mainMenu { walk(m, path: "") }   // extension commands are in the menus (Tools) already
+        if let menu = NSApp.mainMenu { walk(menu, path: "") }   // extension commands are in the menus (Tools) already
         // Every setting: one with choices (Color Theme…) lists them here, the others open their page.
         for section in app.extensions.all.settings {
             for spec in section.specs {
@@ -133,15 +134,16 @@ extension QuickOpen {
     /// workspaces visited last. The first six get ⌘1–⌘6.
     func collectRecents() {
         let app = self.app
-        let m = app
+        let model = app
         let queue = AttentionQueue(app).sessions
-        let rest = m.sessions.filter { s in s.isChat && s.status != .exited && !queue.contains { $0.id == s.id } }
+        let rest = model.sessions.filter { s in s.isChat && s.status != .exited && !queue.contains { $0.id == s.id } }
             .sorted { ($0.statusAt ?? $0.createdAt) > ($1.statusAt ?? $1.createdAt) }
         var out = (queue + rest).prefix(6).map { s -> Item in
-            let w = m.worktree(s.worktreeId)
+            let worktree = model.worktree(s.worktreeId)
             return Item(
                 kind: s.status.words, icon: "terminal", title: app.catalog.displayName(s),
-                detail: [m.groupName(w), m.projectName(w?.repoId)].compactMap { $0 }.joined(separator: " · "),
+                detail: [model.groupName(worktree), model.projectName(worktree?.repoId)].compactMap { $0 }.joined(
+                    separator: " · "),
                 action: { app.workbench.focus(session: s.id) },
                 split: { app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId) },
                 session: s)
@@ -149,12 +151,13 @@ extension QuickOpen {
         var seen: Set<String> = []   // each workspace once, at its last visit
         for id in app.workbench.history.visits.reversed()
         where id != app.workbench.workspaceId && seen.insert(id).inserted {
-            guard let w = m.worktree(id) else { continue }
+            guard let worktree = model.worktree(id) else { continue }
             out.append(
                 Item(
                     kind: "Group", icon: "arrow.triangle.branch",
-                    title: m.groupName(w) ?? m.projectName(w.repoId) ?? w.displayName,
-                    detail: m.projectName(w.repoId) ?? "", action: { app.workbench.show(workspace: w.id) }))
+                    title: model.groupName(worktree) ?? model.projectName(worktree.repoId) ?? worktree.displayName,
+                    detail: model.projectName(worktree.repoId) ?? "",
+                    action: { app.workbench.show(workspace: worktree.id) }))
             if out.count >= 10 { break }
         }
         recents = out

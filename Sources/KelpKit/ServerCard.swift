@@ -8,7 +8,7 @@ struct ServerSection: View {
     let close: () -> Void
 
     var body: some View {
-        let s = app.latest(HostEvent.self, host)?.stats
+        let stats = app.latest(HostEvent.self, host)?.stats
         VStack(alignment: .leading, spacing: 8) {
             Divider()
             HStack(spacing: 6) {
@@ -18,8 +18,8 @@ struct ServerSection: View {
                     Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
                 }
             }
-            Text(serverLine(s)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(2)
-            if let s, s.connected { ServerMeters(stats: s) }
+            Text(serverLine(stats)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(2)
+            if let stats, stats.connected { ServerMeters(stats: stats) }
             HStack(spacing: Metrics.gapWide) {
                 Button(String(localized: "Open Server")) {
                     close()
@@ -36,15 +36,16 @@ struct ServerSection: View {
 }
 
 /// "Ubuntu 24.04.5 LTS · 2 cores · up 3 d 10 h", or why there's nothing to say.
-package func serverLine(_ s: HostStats?) -> String {
-    guard let s else { return String(localized: "Reading…") }
-    guard s.connected else {
-        return s.error.map { String(localized: "Can't reach: \($0)") }
+package func serverLine(_ stats: HostStats?) -> String {
+    guard let stats else { return String(localized: "Reading…") }
+    guard stats.connected else {
+        return stats.error.map { String(localized: "Can't reach: \($0)") }
             ?? String(localized: "Not connected. Opening it connects.")
     }
-    let cores = s.cores.map { String(localized: "\($0) cores") }
-    return [s.os, cores, s.uptime.map { String(localized: "up \(serverDuration($0))") }].compactMap { $0 }.joined(
-        separator: " · ")
+    let cores = stats.cores.map { String(localized: "\($0) cores") }
+    return [stats.os, cores, stats.uptime.map { String(localized: "up \(serverDuration($0))") }].compactMap { $0 }
+        .joined(
+            separator: " · ")
 }
 
 /// CPU, memory, swap and disk as bars with their numbers; orange past 90 %.
@@ -52,8 +53,8 @@ struct ServerMeters: View {
     let stats: HostStats
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
-            if let c = stats.cpu {
-                row("CPU", c / 100, String(localized: "\(Int(c.rounded()))% · load \(load)"))
+            if let cpu = stats.cpu {
+                row("CPU", cpu / 100, String(localized: "\(Int(cpu.rounded()))% · load \(load)"))
             }
             meter("Memory", stats.memory, stats.memoryTotal)
             meter("Swap", stats.swap, stats.swapTotal)
@@ -82,11 +83,11 @@ struct ServerMeters: View {
 struct ServerBar: View {
     let share: Double
     var body: some View {
-        GeometryReader { g in
+        GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color(nsColor: .quaternaryLabelColor))
                 Capsule().fill(share >= 0.9 ? Color.orange : Color.secondary)
-                    .frame(width: max(2, g.size.width * min(1, max(0, share))))
+                    .frame(width: max(2, geometry.size.width * min(1, max(0, share))))
             }
         }
     }

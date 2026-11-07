@@ -19,9 +19,9 @@ final class MenuBuilder {
 
     func sub(_ title: String) -> NSMenu {
         let mi = bar.addItem(withTitle: title, action: nil, keyEquivalent: "")
-        let m = NSMenu(title: title)
-        bar.setSubmenu(m, for: mi)
-        return m
+        let menu = NSMenu(title: title)
+        bar.setSubmenu(menu, for: mi)
+        return menu
     }
 
     /// These commands, in order ("-" is a separator); one whose extension is off is left out.
@@ -31,11 +31,11 @@ final class MenuBuilder {
                 m.addItem(.separator())
                 return nil
             }
-            guard let c = reg.command(id) else { return nil }
+            guard let command = reg.command(id) else { return nil }
             placed.insert(id)
-            let i = item(c)
-            m.addItem(i)
-            return i
+            let menuItem = item(command)
+            m.addItem(menuItem)
+            return menuItem
         }
     }
 
@@ -49,9 +49,9 @@ final class MenuBuilder {
     func placeTheRest(in tools: NSMenu) {
         var extended: Set<NSMenu> = []
         for c in reg.all.commands where !placed.contains(c.id) {
-            let m = c.menu.flatMap { bar.item(withTitle: $0)?.submenu } ?? tools
-            if m !== tools, extended.insert(m).inserted { m.addItem(.separator()) }
-            m.addItem(item(c))
+            let menu = c.menu.flatMap { bar.item(withTitle: $0)?.submenu } ?? tools
+            if menu !== tools, extended.insert(menu).inserted { menu.addItem(.separator()) }
+            menu.addItem(item(c))
         }
         if tools.items.isEmpty { bar.removeItem(at: bar.indexOfItem(withSubmenu: tools)) }
     }
@@ -61,20 +61,20 @@ extension AppDelegate {
     /// The menu bar is laid out here by command id, like Zed's app menus; titles, keys and actions come from the
     /// registry. Commands it doesn't place (extensions', the other built-ins') go in the menu they name, Tools by default.
     func buildMenu() {
-        let b = MenuBuilder(reg: app.extensions, item: item)
-        appMenu(b)
-        fileMenu(b)
-        editMenu(b)
-        viewMenu(b)
-        selectionMenu(b)
-        let tools = b.sub("Tools")   // filled last, with what nothing else placed
-        runMenu(b)
-        windowMenu(b)
-        helpMenu(b)
-        b.placeTheRest(in: tools)
-        KeyBindings.apply(to: b.bar, app.settings)   // Settings › Keyboard's changes over the defaults (on the English titles)
-        Localize.menu(b.bar)   // shown in the user's language
-        NSApp.mainMenu = b.bar
+        let builder = MenuBuilder(reg: app.extensions, item: item)
+        appMenu(builder)
+        fileMenu(builder)
+        editMenu(builder)
+        viewMenu(builder)
+        selectionMenu(builder)
+        let tools = builder.sub("Tools")   // filled last, with what nothing else placed
+        runMenu(builder)
+        windowMenu(builder)
+        helpMenu(builder)
+        builder.placeTheRest(in: tools)
+        KeyBindings.apply(to: builder.bar, app.settings)   // Settings › Keyboard's changes over the defaults (on the English titles)
+        Localize.menu(builder.bar)   // shown in the user's language
+        NSApp.mainMenu = builder.bar
     }
 
     /// Kelp: About, updates, settings, and the standard Services / Hide / Quit.
@@ -88,11 +88,11 @@ extension AppDelegate {
             app.add(String(localized: "Update Kelp to \(ready.version)")) {
                 Task { await model.updates.install(model) }
             }
-        } else if let u = updater {
+        } else if let controller = updater {
             app.addItem(
                 withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
                 keyEquivalent: ""
-            ).target = u
+            ).target = controller
         }
         b.add(app, "-", "workbench.openSettings", "workbench.openExtensions", "workbench.restartService", "-")
         // The standard application menu: Services, Hide / Hide Others / Show All, Quit.
@@ -160,10 +160,10 @@ extension AppDelegate {
             ("Find Next", "g", [.command], .next), ("Find Previous", "G", [.command, .shift], .previous),
             ("Use Selection for Find", "e", [.command], .setFindString)
         ] {
-            let i = find.addItem(
+            let menuItem = find.addItem(
                 withTitle: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
-            i.keyEquivalentModifierMask = mods
-            i.tag = Int(action.rawValue)
+            menuItem.keyEquivalentModifierMask = mods
+            menuItem.tag = Int(action.rawValue)
         }
         b.add(find, "files.findInWorkspace", "files.findByName")
         b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
@@ -202,10 +202,10 @@ extension AppDelegate {
         let view = b.sub("View")
         b.add(view, "workbench.toggleSidebar", "workbench.toggleInspector", "workbench.toggleFocusMode")
         for (i, p) in b.reg.all.panels.prefix(9).enumerated() {
-            let m = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") {
+            let menuItem = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") {
                 app.extensions.run("workbench.showPanel", ["panel": .string(p.id)])
             }
-            m.keyEquivalentModifierMask = [.command, .option]
+            menuItem.keyEquivalentModifierMask = [.command, .option]
         }
         b.placed.insert("workbench.showPanel")
         b.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")

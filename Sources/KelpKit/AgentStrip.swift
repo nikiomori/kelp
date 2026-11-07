@@ -35,23 +35,23 @@ struct StripPlace: Equatable {
 
     private static let key = "agents.dockStrip.place"
     static func load() -> StripPlace? {
-        guard let d = UserDefaults.standard.dictionary(forKey: key),
-            let c = (d["corner"] as? String).flatMap(StripCorner.init)
+        guard let saved = UserDefaults.standard.dictionary(forKey: key),
+            let corner = (saved["corner"] as? String).flatMap(StripCorner.init)
         else { return nil }
         return StripPlace(
-            corner: c, display: (d["display"] as? NSNumber)?.uint32Value,
-            edge: (d["edge"] as? String).flatMap(StripEdge.init),
-            y: (d["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
+            corner: corner, display: (saved["display"] as? NSNumber)?.uint32Value,
+            edge: (saved["edge"] as? String).flatMap(StripEdge.init),
+            y: (saved["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
     }
     static func save(_ place: StripPlace?) {
         guard let place else {
             UserDefaults.standard.removeObject(forKey: key)
             return
         }
-        var d: [String: Any] = ["corner": place.corner.rawValue, "y": Double(place.y)]
-        d["display"] = place.display
-        d["edge"] = place.edge?.rawValue
-        UserDefaults.standard.set(d, forKey: key)
+        var saved: [String: Any] = ["corner": place.corner.rawValue, "y": Double(place.y)]
+        saved["display"] = place.display
+        saved["edge"] = place.edge?.rawValue
+        UserDefaults.standard.set(saved, forKey: key)
     }
 }
 
@@ -63,7 +63,7 @@ enum StripModel {
 
     /// What an agent says on the strip: as on the Dock's icon, but finished work stays a while once read.
     static func cell(_ s: Session, now: Date) -> DockFace.Cell? {
-        if let c = DockIcon.cell(s) { return c }
+        if let dockCell = DockIcon.cell(s) { return dockCell }
         let finished = s.isChat && s.parent == nil && SidebarCell.shownStatus(s) == .done
         return finished && now.timeIntervalSince(s.statusAt ?? .distantPast) < recent ? .done : nil
     }
@@ -84,12 +84,14 @@ enum StripModel {
     static func items(
         _ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()
     ) -> [StripItem] {
-        workspaces.compactMap { w in
+        workspaces.compactMap { workspace in
             func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) {
                 (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt)
             }
-            let own = sessions.filter { $0.worktreeId == w.id }.compactMap { s in cell(s, now: now).map { (s, $0) } }
-                .sorted { rank($0) < rank($1) }
+            let own = sessions.filter { $0.worktreeId == workspace.id }.compactMap { session in
+                cell(session, now: now).map { (session, $0) }
+            }
+            .sorted { rank($0) < rank($1) }
             guard let (lead, worst) = own.first else { return nil }
             let says = lead.summary.isEmpty ? nil : lead.summary, busy = own.count { $0.1 == .working }
             let words =
@@ -105,7 +107,8 @@ enum StripModel {
                 ["\(said) · \(lead.displayTitle)"]
                 + own.dropFirst().map { "\(status($0.1).words) · \($0.0.displayTitle)" }
             return StripItem(
-                workspace: w.id, name: w.name, repo: w.repo, cell: worst, session: lead.id, agents: agents,
+                workspace: workspace.id, name: workspace.name, repo: workspace.repo, cell: worst, session: lead.id,
+                agents: agents,
                 words: words,
                 since: lead.statusAt ?? lead.createdAt)
         }
@@ -234,10 +237,11 @@ final class AgentStrip {
 
     /// A row muted is quiet here as on a banner, and so is what was put off.
     private static func state(_ app: AppModel, putOff: Set<String>) -> State {
-        let shown = app.worktrees.filter { !$0.archived }.map { w in
+        let shown = app.worktrees.filter { !$0.archived }.map { worktree in
             (
-                id: w.id, name: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName,
-                repo: app.repo(w.repoId)?.path
+                id: worktree.id,
+                name: app.groupName(worktree) ?? app.projectName(worktree.repoId) ?? worktree.displayName,
+                repo: app.repo(worktree.repoId)?.path
             )
         }
         let loud = app.sessions.filter { !app.isMuted($0) && !putOff.contains(StripModel.key($0)) }
@@ -269,7 +273,7 @@ final class AgentStrip {
 
     /// This agent stops calling until its state changes.
     func later(_ session: String) {
-        if let s = app.session(session) { putOff.insert(StripModel.key(s)) }
+        if let found = app.session(session) { putOff.insert(StripModel.key(found)) }
         closeCard()
         refresh()
     }
@@ -288,15 +292,15 @@ final class AgentStrip {
         let hidden = place?.edge != nil && !peeking
         let opened = hidden ? nil : StripModel.opened(state.items)
         let shownNow = state.items.map { item in
-            let b = buttons[item.workspace] ?? StripButton()
-            buttons[item.workspace] = b
-            b.update(item, open: item.workspace == opened, app: app)
-            b.onClick = { [weak self] in self?.clicked(item) }
-            b.onMenu = { [weak self] in self?.menu() ?? NSMenu() }
-            b.onHover = { [weak self, weak b] on in
-                if let b { self?.hover(item, on: on, over: b, open: item.workspace == opened) }
+            let button = buttons[item.workspace] ?? StripButton()
+            buttons[item.workspace] = button
+            button.update(item, open: item.workspace == opened, app: app)
+            button.onClick = { [weak self] in self?.clicked(item) }
+            button.onMenu = { [weak self] in self?.menu() ?? NSMenu() }
+            button.onHover = { [weak self, weak button] on in
+                if let button { self?.hover(item, on: on, over: button, open: item.workspace == opened) }
             }
-            return b
+            return button
         }
         row.setViews(shownNow, in: .leading)
         buttons = buttons.filter { key, _ in state.items.contains { $0.workspace == key } }
@@ -406,7 +410,7 @@ final class AgentStrip {
 
     /// What a tile says under the pointer, in words of its own over the strip: the strip doesn't change size, so the tile
     /// stays under the pointer. A moment's rest brings it, as a hover card; moving to the next tile, at once.
-    private func hover(_ item: StripItem, on: Bool, over b: NSView, open: Bool) {
+    private func hover(_ item: StripItem, on: Bool, over button: NSView, open: Bool) {
         tipTimer?.invalidate()
         // The open pill says its own; it has a tip for what its words leave out: the other agents, or what one at work does.
         guard on, !open || item.agents.count > 1 || item.cell == .working else {
@@ -416,12 +420,14 @@ final class AgentStrip {
             return
         }
         let wait = tip?.isShowing == true ? Motion.hoverOpenWarm : Motion.hoverOpen
-        tipTimer = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { [weak self, weak b] _ in
+        tipTimer = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { [weak self, weak button] _ in
             MainActor.assumeIsolated {   // the main run loop's timer
-                guard let self, let b, let window = b.window else { return }
-                let t = self.tip ?? StripTip()
-                self.tip = t
-                t.show(item, over: window.convertToScreen(b.convert(b.bounds, to: nil)), below: self.corner.isTop)
+                guard let self, let button, let window = button.window else { return }
+                let tip = self.tip ?? StripTip()
+                self.tip = tip
+                tip.show(
+                    item, over: window.convertToScreen(button.convert(button.bounds, to: nil)), below: self.corner.isTop
+                )
             }
         }
     }
@@ -450,8 +456,8 @@ final class AgentStrip {
 
     private func open(_ item: StripItem) {
         closeCard()
-        guard let s = app.session(item.session), let panel else { return }
-        let c = StripCard(s, app: app, fullScreen: state.fullScreen) { [weak self] end in
+        guard let session = app.session(item.session), let panel else { return }
+        let newCard = StripCard(session, app: app, fullScreen: state.fullScreen) { [weak self] end in
             switch end {
             case .later: self?.later(item.session)
             case .answered:
@@ -460,8 +466,8 @@ final class AgentStrip {
             case .left: self?.closeCard()
             }
         }
-        c.show(by: panel.frame, in: panel.screen?.visibleFrame, at: corner)
-        card = c
+        newCard.show(by: panel.frame, in: panel.screen?.visibleFrame, at: corner)
+        card = newCard
     }
 
     private func closeCard() {
@@ -471,19 +477,21 @@ final class AgentStrip {
     }
 
     private func menu() -> NSMenu {
-        let m = NSMenu(), hide = NSMenu()
+        let menu = NSMenu(), hide = NSMenu()
         for c in Mutes.choices() where c.until != Mutes.forever {
             hide.add(c.title) { [weak self] in self?.hide(until: c.until) }
         }
-        m.setSubmenu(hide, for: m.addItem(withTitle: String(localized: "Hide"), action: nil, keyEquivalent: ""))
-        m.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
-        m.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
-        m.addItem(.separator())
-        if place?.edge == nil { m.add(String(localized: "Hide Behind the Edge")) { [weak self] in self?.tuck() } }
-        if place != nil { m.add(String(localized: "Move Back Above the Dock")) { [weak self] in self?.moved(to: nil) } }
-        m.add(String(localized: "Turn Off")) { [app] in app.settings.set("agents.dockStrip", .string("off")) }
-        m.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
-        return m
+        menu.setSubmenu(hide, for: menu.addItem(withTitle: String(localized: "Hide"), action: nil, keyEquivalent: ""))
+        menu.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
+        menu.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
+        menu.addItem(.separator())
+        if place?.edge == nil { menu.add(String(localized: "Hide Behind the Edge")) { [weak self] in self?.tuck() } }
+        if place != nil {
+            menu.add(String(localized: "Move Back Above the Dock")) { [weak self] in self?.moved(to: nil) }
+        }
+        menu.add(String(localized: "Turn Off")) { [app] in app.settings.set("agents.dockStrip", .string("off")) }
+        menu.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
+        return menu
     }
 
     private func goAway() {
@@ -491,8 +499,8 @@ final class AgentStrip {
         tip?.hide()
         line.hide()
         guard let panel, panel.isVisible else { return }
-        NSAnimationContext.runAnimationGroup { c in
-            c.duration = Motion.duration(Motion.fast)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.fast)
             panel.animator().alphaValue = 0
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs it on the main thread
@@ -573,28 +581,31 @@ final class AgentStrip {
     }
 
     private func put(appearing: Bool) {
-        let p = panel ?? makePanel()
-        guard let area = screen(appearing: appearing, of: p)?.visibleFrame, let content = p.contentView else { return }
+        let window = panel ?? makePanel()
+        guard let area = screen(appearing: appearing, of: window)?.visibleFrame, let content = window.contentView else {
+            return
+        }
         content.layoutSubtreeIfNeeded()
         let size = NSSize(width: content.fittingSize.width, height: StripButton.stripHeight)
         let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
         let frame = behind ?? StripModel.frame(size, in: area, at: corner)
         guard appearing else {
-            guard p.frame != frame || p.alphaValue != 1 else { return }   // nothing moved: no animation to run
-            NSAnimationContext.runAnimationGroup { c in
-                c.duration = Motion.duration(Motion.appear)
-                p.animator().setFrame(frame, display: true)
-                p.animator().alphaValue = 1
+            // nothing moved: no animation to run
+            guard window.frame != frame || window.alphaValue != 1 else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.duration(Motion.appear)
+                window.animator().setFrame(frame, display: true)
+                window.animator().alphaValue = 1
             }
             return
         }
-        p.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8), display: false)
-        p.alphaValue = 0
-        p.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { c in
-            c.duration = Motion.duration(Motion.appear)
-            p.animator().setFrame(frame, display: true)
-            p.animator().alphaValue = 1
+        window.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8), display: false)
+        window.alphaValue = 0
+        window.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.appear)
+            window.animator().setFrame(frame, display: true)
+            window.animator().alphaValue = 1
         }
     }
 
@@ -603,9 +614,9 @@ final class AgentStrip {
         showEdge(hidden: place?.edge != nil)
         row.onHover = { [weak self] on in self?.hoverStrip(on) }
         row.onClick = { [weak self] in self?.peek(true) }
-        let p = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
-        p.onDropped = { [weak self] in self?.dropped() }
-        panel = p
-        return p
+        let made = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
+        made.onDropped = { [weak self] in self?.dropped() }
+        panel = made
+        return made
     }
 }

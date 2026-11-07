@@ -32,10 +32,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
     lazy var updater: SPUStandardUpdaterController? = {
         guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return nil }
-        let u = SPUStandardUpdaterController(
+        let controller = SPUStandardUpdaterController(
             startingUpdater: true, updaterDelegate: app.updates, userDriverDelegate: nil)
-        app.updates.controller = u   // Settings › General reads and sets its schedule
-        return u
+        app.updates.controller = controller   // Settings › General reads and sets its schedule
+        return controller
     }()
 
     func applicationDidFinishLaunching(_ n: Notification) {
@@ -85,8 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await app.noProject.ensure()   // connecting reloaded the extensions: settings (disabled ones) and what was allowed are known
             app.availability.refresh(force: true)
             #if DEBUG
-                let pick = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WORKTREE"].flatMap { b in
-                    app.worktrees.first { $0.id == b || $0.branch == b || $0.note == b }
+                let pick = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WORKTREE"].flatMap { name in
+                    app.worktrees.first { $0.id == name || $0.branch == name || $0.note == name }
                 }
             #else
                 let pick: Worktree? = nil
@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? await Task.sleep(for: .milliseconds(30))
             // The first run's Welcome, not the No Project screen, when there's nothing to go back to.
             let first = app.worktrees.first { !$0.archived && !NoProject.holds(app.repo($0.repoId)) }
-            if let w = pick ?? last ?? first { app.workbench.show(workspace: w.id) }
+            if let workspace = pick ?? last ?? first { app.workbench.show(workspace: workspace.id) }
             await UnsavedBackups.reopen(app, in: app.workbench.window?.editors)
             app.updates.sayInstalled()
             let early = pendingOpens ?? []
@@ -140,8 +140,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // which the main actor's tasks don't run, so the question could never be asked.
         guard system else { return .terminateCancel }   // ⌘Q: asked in a sheet, then quit again
         while answered == nil {
-            if let e = NSApp.nextEvent(matching: .any, until: .now + 0.1, inMode: .default, dequeue: true) {
-                NSApp.sendEvent(e)
+            if let event = NSApp.nextEvent(matching: .any, until: .now + 0.1, inMode: .default, dequeue: true) {
+                NSApp.sendEvent(event)
             }
         }
         return answered == true ? .terminateNow : .terminateCancel
@@ -207,14 +207,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     private func trackGlances() {
-        let w = main?.window, e = app.workbench.editor
+        let window = main?.window, editor = app.workbench.editor
         // And someone is there: a front window in an empty room reads nothing (`Presence`).
         let front =
-            NSApp.isActive && w?.isKeyWindow == true && w?.occlusionState.contains(.visible) == true && e != nil
+            NSApp.isActive && window?.isKeyWindow == true && window?.occlusionState.contains(.visible) == true
+            && editor != nil
             && Presence.here()
         let app = app
         let mark = glances.tick(
-            front: front, shown: e?.attendedSessions ?? [],
+            front: front, shown: editor?.attendedSessions ?? [],
             readable: { app.session($0).map(Self.readOnSight) ?? false },
             unread: { app.session($0)?.unread == true }, now: Date())
         for sid in mark {
@@ -235,14 +236,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The command's menu item: its identifier is the command id (Settings › Keyboard, `validateMenuItem`).
     func item(_ c: CommandSpec) -> NSMenuItem {
-        let i = NSMenuItem(title: c.title, action: #selector(runCommand(_:)), keyEquivalent: "")
-        i.target = self
-        i.identifier = NSUserInterfaceItemIdentifier(c.id)
-        if let k = c.key.flatMap(KeySpec.init) {
-            i.keyEquivalent = k.key
-            i.keyEquivalentModifierMask = k.mods.flags
+        let menuItem = NSMenuItem(title: c.title, action: #selector(runCommand(_:)), keyEquivalent: "")
+        menuItem.target = self
+        menuItem.identifier = NSUserInterfaceItemIdentifier(c.id)
+        if let spec = c.key.flatMap(KeySpec.init) {
+            menuItem.keyEquivalent = spec.key
+            menuItem.keyEquivalentModifierMask = spec.mods.flags
         }
-        return i
+        return menuItem
     }
 }
 
@@ -305,9 +306,9 @@ final class ArchivedMenu: NSObject, NSMenuDelegate {
         }
     }
     private func reload() async {
-        let r = await app.tryCall(WorktreeList(archived: true))
-        archived = (r.value ?? []).filter(\.archived)
-        failed = r.error
+        let result = await app.tryCall(WorktreeList(archived: true))
+        archived = (result.value ?? []).filter(\.archived)
+        failed = result.error
     }
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()

@@ -25,8 +25,8 @@ enum Mutes {
     /// As `uiState` keeps them: seconds since 1970.
     static func value(_ m: [String: Date]) -> JSONValue { .object(m.mapValues { .double($0.timeIntervalSince1970) }) }
     static func read(_ v: JSONValue?) -> [String: Date] {
-        guard case .object(let o)? = v else { return [:] }
-        return o.compactMapValues { $0.number.map(Date.init(timeIntervalSince1970:)) }
+        guard case .object(let saved)? = v else { return [:] }
+        return saved.compactMapValues { $0.number.map(Date.init(timeIntervalSince1970:)) }
     }
 
     /// The hover card's line.
@@ -47,10 +47,10 @@ extension AppModel {
 
     /// nil unmutes. What ran out, and rows that are gone (a closed workspace, an ended agent), leave with each change.
     func mute(_ ids: [String], until: Date?) {
-        var m = arrangement.mutes.filter { id, end in
+        var mutes = arrangement.mutes.filter { id, end in
             end > Date() && (session(id) != nil || worktree(id) != nil || repo(id) != nil)
         }
-        for id in ids { m[id] = until }
-        arrangement.mutes = m
+        for id in ids { mutes[id] = until }
+        arrangement.mutes = mutes
     }
 }

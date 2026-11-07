@@ -18,13 +18,13 @@ enum BackgroundItem {
         guard bundled else { return }
         Task {
             let waiting = await Task.detached(priority: .utility) { () -> Bool in
-                let s = service
-                if [.notRegistered, .notFound].contains(s.status) {
-                    do { try s.register() } catch {
+                let item = service
+                if [.notRegistered, .notFound].contains(item.status) {
+                    do { try item.register() } catch {
                         NSLog("Kelp: the background service couldn't be added to Login Items: \(error)")
                     }
                 }
-                return s.status == .requiresApproval
+                return item.status == .requiresApproval
             }.value
             guard waiting, !told else { return }
             told = true

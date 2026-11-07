@@ -56,10 +56,10 @@ package enum Builtins {
         "kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",
         icon: "paintpalette", essential: true
     ) { _ in
-        var c = Contributions()
+        var contributions = Contributions()
         // Everything you see in one place: the theme and text first, then how the sidebar, the inspector and the window
         // look. General has what's about the app itself: its language, updates, the background service.
-        c.settings = [
+        contributions.settings = [
             SettingsSection(
                 id: "appearance", title: "Appearance", icon: "paintpalette",
                 specs: [
@@ -112,7 +112,7 @@ package enum Builtins {
                 id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
                 custom: { AnyView(KeyboardSettings()) }, order: 95)
         ]
-        return c
+        return contributions
     }
 
     /// Appearance › Inspector: its panels and where their icons sit, here and in the icons' own right-click menu.

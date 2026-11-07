@@ -38,13 +38,13 @@ package final class UIState {
     /// Not read: a banner says why, once; read again quietly 10, 30 and 90 s later while the same daemon is there, and
     /// extensions that waited for it (they run commands) load then. A new connection reads it anyway.
     func load(again: Int = 0) async {
-        let c = app.client
+        let connection = app.client
         let read = again == 0 ? await app.call(StateGet(prefix: "")) : await app.quiet(StateGet(prefix: ""))
         guard case .object(let all)? = read else {
             guard again < 3 else { return }
             Task { [weak self] in
                 do { try await Task.sleep(for: .seconds([10, 30, 90][again])) } catch { return }
-                guard let self, !loaded, let c, app.client === c else { return }
+                guard let self, !loaded, let connection, app.client === connection else { return }
                 await load(again: again + 1)
                 if loaded { app.extensions.reload() }
             }

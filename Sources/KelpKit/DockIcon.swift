@@ -26,30 +26,31 @@ final class DockIcon {
     /// Right-click on the icon: the agents waiting for you, like Mail's dock menu offers what's new. A permission is
     /// answered from here without Kelp coming forward, as from its banner.
     func menu() -> NSMenu {
-        let m = NSMenu()
-        for s in AttentionQueue(app).sessions { add(s, to: m) }
+        let menu = NSMenu()
+        for s in AttentionQueue(app).sessions { add(s, to: menu) }
         let busy = Self.onSidebar(app).filter { $0.isChat && SidebarCell.shownStatus($0) == .working }.count
-        if busy > 0 { m.addItem(withTitle: String(localized: "\(busy) working"), action: nil, keyEquivalent: "") }
-        if !m.items.isEmpty { m.addItem(.separator()) }
-        m.add(String(localized: "New Chat")) { [app] in
+        if busy > 0 { menu.addItem(withTitle: String(localized: "\(busy) working"), action: nil, keyEquivalent: "") }
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
+        menu.add(String(localized: "New Chat")) { [app] in
             NSApp.activate()
             app.workbench.newChat()
         }
         if let strip = app.agentStrip, !strip.isOff {
             if strip.hiddenUntil != nil {
-                m.add(String(localized: "Show Agents Above the Dock")) { strip.hide(until: nil) }
+                menu.add(String(localized: "Show Agents Above the Dock")) { strip.hide(until: nil) }
             } else {
-                m.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) {
+                menu.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) {
                     strip.hide(until: Date().addingTimeInterval(3600))
                 }
             }
         }
-        m.addChoiceMenu("agents.dockIcon", app, title: String(localized: "Dock Icon"), tryOn: false)
-        return m
+        menu.addChoiceMenu("agents.dockIcon", app, title: String(localized: "Dock Icon"), tryOn: false)
+        return menu
     }
 
     private func add(_ s: Session, to m: NSMenu) {
-        let w = app.worktree(s.worktreeId), place = app.groupName(w) ?? app.projectName(w?.repoId) ?? ""
+        let worktree = app.worktree(s.worktreeId),
+            place = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? ""
         let name = app.catalog.displayName(s), icon = app.catalog.icon(s.agent, size: 16)
         let show: @MainActor @Sendable () -> Void = { [app] in
             NSApp.activate()
@@ -78,8 +79,8 @@ final class DockIcon {
     static func face(_ app: AppModel) -> DockFace {
         switch app.settings.string("agents.dockIcon") {
         case "usage":
-            guard let u = app.latest(LimitsEvent.self)?.usage,
-                let fullest = LimitAlerts.readings(u).map(\.limit.percent).max()
+            guard let limits = app.latest(LimitsEvent.self)?.usage,
+                let fullest = LimitAlerts.readings(limits).map(\.limit.percent).max()
             else { return .icon }
             return usage(fullest, warnAt: app.settings.usageAlertAt)
         case "agents":

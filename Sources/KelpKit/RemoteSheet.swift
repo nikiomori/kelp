@@ -34,13 +34,13 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     /// `start`: "host" or "host:/path", connected to at once (the snapshot dev aid; a background app's sheet gets no keys).
     static func show(_ app: AppModel, start text: String? = nil) {
-        let s = RemoteSheet(app: app)
-        guard s.begin(ended: { shown = nil }) else { return }
-        shown = s
+        let sheet = RemoteSheet(app: app)
+        guard sheet.begin(ended: { shown = nil }) else { return }
+        shown = sheet
         if let text {
             let hp = text.split(separator: ":", maxSplits: 1).map(String.init)
-            s.host.stringValue = hp[0]
-            s.list(hp[0], hp.count > 1 ? hp[1] : "~")
+            sheet.host.stringValue = hp[0]
+            sheet.list(hp[0], hp.count > 1 ? hp[1] : "~")
         }
     }
 
@@ -116,10 +116,10 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     /// What Open opens: the selected folder, else the one listed.
     private var target: (path: String, repo: Bool)? {
-        guard let l = listed else { return nil }
-        let r = table.selectedRow
-        guard rows.indices.contains(r), rows[r].name != ".." else { return (l.path, l.repo) }
-        return (Self.join(l.path, rows[r].name), l.repo || rows[r].git)
+        guard let current = listed else { return nil }
+        let row = table.selectedRow
+        guard rows.indices.contains(row), rows[row].name != ".." else { return (current.path, current.repo) }
+        return (Self.join(current.path, rows[row].name), current.repo || rows[row].git)
     }
 
     func tableViewSelectionDidChange(_ n: Notification) { update() }
@@ -135,64 +135,67 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     }
 
     @objc private func goPressed() {
-        let h = host.stringValue.trimmingCharacters(in: .whitespaces)
-        guard !h.isEmpty else {
+        let hostName = host.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !hostName.isEmpty else {
             NSSound.beep()
             return
         }
-        guard let l = listed, l.host == h else {
-            list(h, "~")
+        guard let current = listed, current.host == hostName else {
+            list(hostName, "~")
             return
         }
         let typed = path.stringValue.trimmingCharacters(in: .whitespaces)
-        if !typed.isEmpty, typed != l.path {
-            list(h, typed)
+        if !typed.isEmpty, typed != current.path {
+            list(hostName, typed)
             return
         }   // a path typed: go there first
-        if let t = target { open(h, t.path, init: !t.repo) }
+        if let chosen = target { open(hostName, chosen.path, init: !chosen.repo) }
     }
 
     @objc private func enter() {
-        guard let l = listed, rows.indices.contains(table.clickedRow) else { return }
-        let f = rows[table.clickedRow]
-        list(l.host, f.name == ".." ? (l.path as NSString).deletingLastPathComponent : Self.join(l.path, f.name))
+        guard let current = listed, rows.indices.contains(table.clickedRow) else { return }
+        let folder = rows[table.clickedRow]
+        list(
+            current.host,
+            folder.name == ".."
+                ? (current.path as NSString).deletingLastPathComponent : Self.join(current.path, folder.name))
     }
 
-    private func list(_ h: String, _ p: String) {
+    private func list(_ hostName: String, _ folderPath: String) {
         busy(true)
         say(listed == nil ? String(localized: "Connecting…") : nil)
         Task {
-            let r = await app.tryCall(RemoteListFolders(host: h, path: p))
+            let result = await app.tryCall(RemoteListFolders(host: hostName, path: folderPath))
             busy(false)
-            guard let v = r.value else {
-                say(r.error, error: true)
+            guard let listing = result.value else {
+                say(result.error, error: true)
                 return
             }
-            listed = (h, v.path, v.repo)
-            path.stringValue = v.path
+            listed = (hostName, listing.path, listing.repo)
+            path.stringValue = listing.path
             say(nil)
-            rows = (v.path == "/" ? [] : [.init(name: "..", git: false)]) + v.folders
+            rows = (listing.path == "/" ? [] : [.init(name: "..", git: false)]) + listing.folders
             table.reloadData()
             update()
             window?.makeFirstResponder(table)
         }
     }
 
-    private func open(_ h: String, _ p: String, init: Bool) {
+    private func open(_ hostName: String, _ folderPath: String, init: Bool) {
         busy(true)
         say(String(localized: "Opening…"))
         Task {
-            let r = await app.tryCall(RepoAddRemote(host: h, path: p, init: `init`))
+            let result = await app.tryCall(RepoAddRemote(host: hostName, path: folderPath, init: `init`))
             busy(false)
-            if let e = r.error {
-                say(e, error: true)
+            if let error = result.error {
+                say(error, error: true)
                 return
             }
-            UserDefaults.standard.set(h, forKey: "remote.host")
+            UserDefaults.standard.set(hostName, forKey: "remote.host")
             close()
             await app.refresh()
-            if let rid = r.value?.id, let repo = app.repo(rid), let w = app.workspaces(of: repo).first {
-                app.workbench.show(workspace: w.id)
+            if let rid = result.value?.id, let repo = app.repo(rid), let workspace = app.workspaces(of: repo).first {
+                app.workbench.show(workspace: workspace.id)
             }
         }
     }
@@ -216,9 +219,9 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     static func sshHosts() -> [String] {
         let text = (try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? ""
         return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
-            let w = line.split(whereSeparator: \.isWhitespace).map(String.init)
-            guard w.first?.lowercased() == "host" else { return [] }
-            return w.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
+            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard words.first?.lowercased() == "host" else { return [] }
+            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
         }
     }
 
@@ -227,10 +230,11 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
 
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let f = rows[row], up = f.name == ".."
-        let icon = NSImageView(image: .symbol(up ? "arrow.turn.left.up" : f.git ? "arrow.triangle.branch" : "folder"))
-        icon.contentTintColor = f.git ? .controlAccentColor : .secondaryLabelColor
-        let name = NSTextField(labelWithString: up ? String(localized: "Enclosing Folder") : f.name)
+        let folder = rows[row], up = folder.name == ".."
+        let icon = NSImageView(
+            image: .symbol(up ? "arrow.turn.left.up" : folder.git ? "arrow.triangle.branch" : "folder"))
+        icon.contentTintColor = folder.git ? .controlAccentColor : .secondaryLabelColor
+        let name = NSTextField(labelWithString: up ? String(localized: "Enclosing Folder") : folder.name)
         name.lineBreakMode = .byTruncatingMiddle
         if up { name.textColor = .secondaryLabelColor }
         let cell = NSStackView(views: [icon, name])

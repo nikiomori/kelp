@@ -14,12 +14,12 @@ enum TypingHold {
 
     /// "2 agents finished while you typed", a line each ("docs — Updated README", "perf — Failed: missing module"), up to 4.
     static func summary(_ lines: [(who: String, failed: Bool, text: String)]) -> (title: String, body: String) {
-        let shown = lines.prefix(4).map { l in
+        let shown = lines.prefix(4).map { line in
             let text =
-                l.text.isEmpty
-                ? (l.failed ? String(localized: "ran into an error") : String(localized: "Ready for review"))
-                : l.failed ? String(localized: "Failed: \(l.text)") : l.text
-            return "\(l.who) — \(text)"
+                line.text.isEmpty
+                ? (line.failed ? String(localized: "ran into an error") : String(localized: "Ready for review"))
+                : line.failed ? String(localized: "Failed: \(line.text)") : line.text
+            return "\(line.who) — \(text)"
         }
         let more = lines.count > 4 ? [String(localized: "and \(lines.count - 4) more")] : []
         return (

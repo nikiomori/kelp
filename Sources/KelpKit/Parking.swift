@@ -79,10 +79,10 @@ final class ParkedHeader: NSView {
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: String(localized: "Parked"))
         title.font = .ui(11, weight: .semibold)
-        let n = NSTextField(labelWithString: "\(count)")
-        n.font = .uiDigits(11)
-        n.textColor = .secondaryLabelColor
-        let row = NSStackView(views: [title, n])
+        let number = NSTextField(labelWithString: "\(count)")
+        number.font = .uiDigits(11)
+        number.textColor = .secondaryLabelColor
+        let row = NSStackView(views: [title, number])
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         pin(row)

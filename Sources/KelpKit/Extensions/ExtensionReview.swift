@@ -10,19 +10,19 @@ enum ExtensionReview {
         let (commands, pages) = IDE.commandsIn(manifest)
         let lines = commands + pages.map { String(localized: "\($0) — a web page, which can run any command") }
         let name = manifest["name"]?.string ?? folder.lastPathComponent
-        let a = NSAlert()
-        a.messageText =
+        let alert = NSAlert()
+        alert.messageText =
             allowing ? String(localized: "Allow “\(name)” to run commands?") : String(localized: "Install “\(name)”?")
-        a.informativeText =
+        alert.informativeText =
             lines.isEmpty
             ? String(localized: "It runs no commands.")
             : allowing
                 ? String(localized: "It's new or changed since it was allowed. It can run these commands on this Mac:")
                 : String(localized: "It can run these commands on this Mac:")
-        a.addButton(withTitle: allowing ? String(localized: "Allow") : String(localized: "Install"))
-        a.addButton(withTitle: allowing ? String(localized: "Not Now") : String(localized: "Cancel"))
-        if !lines.isEmpty { a.accessoryView = list(lines) }
-        return await runSheet(a) == .alertFirstButtonReturn
+        alert.addButton(withTitle: allowing ? String(localized: "Allow") : String(localized: "Install"))
+        alert.addButton(withTitle: allowing ? String(localized: "Not Now") : String(localized: "Cancel"))
+        if !lines.isEmpty { alert.accessoryView = list(lines) }
+        return await runSheet(alert) == .alertFirstButtonReturn
     }
 
     private static func list(_ lines: [String]) -> NSView {

@@ -12,18 +12,18 @@ struct LimitForecast {
 
     mutating func record(_ u: UsageGet.Result, now: Date = Date()) {
         for (agent, l, _) in LimitAlerts.readings(u, now: now) {
-            let k = Self.key(agent, l.kind)
-            var s = samples[k] ?? []
-            if let last = s.last {
+            let key = Self.key(agent, l.kind)
+            var series = samples[key] ?? []
+            if let last = series.last {
                 if l.percent < last.percent {
-                    s = []
+                    series = []
                 }   // its window reset
                 else if now.timeIntervalSince(last.at) < 120 {
                     continue
                 }   // one push per read is enough
             }
-            s.append((now, l.percent))
-            samples[k] = s.filter { now.timeIntervalSince($0.at) <= Self.span }
+            series.append((now, l.percent))
+            samples[key] = series.filter { now.timeIntervalSince($0.at) <= Self.span }
         }
     }
 
@@ -31,7 +31,7 @@ struct LimitForecast {
     private func pace(_ key: String, resetAt: Date?, window: TimeInterval?, now: Date) -> (
         last: (at: Date, percent: Double), rate: Double
     )? {
-        guard let s = samples[key], let first = s.first, let last = s.last else { return nil }
+        guard let series = samples[key], let first = series.first, let last = series.last else { return nil }
         if last.at.timeIntervalSince(first.at) >= 480 {
             return (last, (last.percent - first.percent) / now.timeIntervalSince(first.at))   // idle time since counted
         }
@@ -46,16 +46,18 @@ struct LimitForecast {
     func untilFull(_ key: String, resetAt: Date? = nil, window: TimeInterval? = nil, now: Date = Date())
         -> TimeInterval?
     {
-        guard let p = pace(key, resetAt: resetAt, window: window, now: now), p.rate > 0, p.last.percent < 100 else {
+        guard let trend = pace(key, resetAt: resetAt, window: window, now: now), trend.rate > 0,
+            trend.last.percent < 100
+        else {
             return nil
         }
-        return (100 - p.last.percent) / p.rate - now.timeIntervalSince(p.last.at)
+        return (100 - trend.last.percent) / trend.rate - now.timeIntervalSince(trend.last.at)
     }
 
     /// Where it ends up at its pace when it resets, in percent; nil when that can't be told.
     func atReset(_ key: String, resetAt: Date?, window: TimeInterval?, now: Date = Date()) -> Double? {
-        guard let resetAt, let p = pace(key, resetAt: resetAt, window: window, now: now) else { return nil }
-        return p.last.percent + max(0, p.rate) * resetAt.timeIntervalSince(p.last.at)
+        guard let resetAt, let trend = pace(key, resetAt: resetAt, window: window, now: now) else { return nil }
+        return trend.last.percent + max(0, trend.rate) * resetAt.timeIntervalSince(trend.last.at)
     }
 
     /// The time to say "full in …" for: it fills before it resets (at `resetAt`), within a day.
@@ -76,9 +78,11 @@ struct LimitForecast {
     }
 
     static func duration(_ t: TimeInterval) -> String {
-        let m = Int((t / 60).rounded(.up))
-        return m < 60
-            ? String(localized: "\(m) min")
-            : m < 36 * 60 ? String(localized: "\(m / 60) h \(m % 60) min") : String(localized: "\(m / 1440) days")
+        let minutes = Int((t / 60).rounded(.up))
+        return minutes < 60
+            ? String(localized: "\(minutes) min")
+            : minutes < 36 * 60
+                ? String(localized: "\(minutes / 60) h \(minutes % 60) min")
+                : String(localized: "\(minutes / 1440) days")
     }
 }

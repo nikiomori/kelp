@@ -31,17 +31,17 @@ extension QuickOpen {
     func filterPrefix(_ prefix: Prefix) -> Bool {
         switch prefix {
         case .files: return false
-        case .line(let n, let column): listLine(n, column: column)
-        case .symbols(let q): listSymbols(q)
-        case .everywhere(let q): listEverywhere(q)
+        case .line(let line, let column): listLine(line, column: column)
+        case .symbols(let query): listSymbols(query)
+        case .everywhere(let query): listEverywhere(query)
         }
         return true
     }
 
     /// The editor goes there as you type, as it would on ↩.
-    private func listLine(_ n: Int?, column: Int?) {
+    private func listLine(_ line: Int?, column: Int?) {
         let tab = app.workbench.editor?.focusedContent
-        guard let n, n > 0, tab?.fileURL != nil else {
+        guard let line, line > 0, tab?.fileURL != nil else {
             setRows(
                 [], grouped: false,
                 heading: String(localized: tab?.fileURL == nil ? "No file on screen" : "Type a line number"))
@@ -49,13 +49,14 @@ extension QuickOpen {
         }
         let url = tab?.fileURL
         let go = { [weak tab] in
-            tab?.goTo(line: n)
-            if let column, let url { CodeEditor.showing(url)?.goTo(line: n, column: column) }
+            tab?.goTo(line: line)
+            if let column, let url { CodeEditor.showing(url)?.goTo(line: line, column: column) }
         }
         go()
         field.window?.makeFirstResponder(field)
         let title =
-            column.map { String(localized: "Go to Line \(n), Column \($0)") } ?? String(localized: "Go to Line \(n)")
+            column.map { String(localized: "Go to Line \(line), Column \($0)") }
+            ?? String(localized: "Go to Line \(line)")
         let item = Item(kind: "Line", icon: "arrow.right.to.line", title: title, detail: "", action: go)
         setRows([item], grouped: false)
     }
@@ -85,10 +86,10 @@ extension QuickOpen {
             let tab = app.workbench.editor?.focusedContent
             symbols = (
                 path,
-                found.map { s in
+                found.map { symbol in
                     Item(
-                        kind: "Symbol", icon: "number", title: s.name, detail: s.kind,
-                        action: { [weak tab] in tab?.goTo(line: s.line) })
+                        kind: "Symbol", icon: "number", title: symbol.name, detail: symbol.kind,
+                        action: { [weak tab] in tab?.goTo(line: symbol.line) })
                 }
             )
             if case .symbols(let now)? = Prefix(field.stringValue), let items = symbols?.items {
@@ -115,12 +116,12 @@ extension QuickOpen {
             guard let self, !Task.isCancelled, case .everywhere(let now)? = Prefix(field.stringValue), now == q else {
                 return
             }
-            let items = found.prefix(200).map { s in
-                let file = s.path ?? path
+            let items = found.prefix(200).map { symbol in
+                let file = symbol.path ?? path
                 return Item(
-                    kind: "Symbol", icon: "number", title: s.name,
-                    detail: s.kind + " · " + String(file.dropFirst(root.count + 1)),
-                    action: { app.workbench.open(TabURI.file(file, line: s.line)) })
+                    kind: "Symbol", icon: "number", title: symbol.name,
+                    detail: symbol.kind + " · " + String(file.dropFirst(root.count + 1)),
+                    action: { app.workbench.open(TabURI.file(file, line: symbol.line)) })
             }
             setRows(
                 Array(items), grouped: false,
@@ -156,24 +157,26 @@ extension QuickOpen {
             guard let self, !Task.isCancelled, field.stringValue == q else { return }
             let term = String(q.dropFirst()).lowercased()
             setRows(
-                prs.filter { p in term.isEmpty || "\(p.number)".hasPrefix(term) || p.title.lowercased().contains(term) }
-                    .map { p in
-                        Item(
-                            kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(p.number) \(p.title)",
-                            detail: "\(p.author) · \(p.headRefName)", action: { app.workbench.open(p.url) })
-                    }, grouped: false)
+                prs.filter { pr in
+                    term.isEmpty || "\(pr.number)".hasPrefix(term) || pr.title.lowercased().contains(term)
+                }
+                .map { pr in
+                    Item(
+                        kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(pr.number) \(pr.title)",
+                        detail: "\(pr.author) · \(pr.headRefName)", action: { app.workbench.open(pr.url) })
+                }, grouped: false)
         }
     }
 
     /// A title matches when it contains the query, or each query word starts a word of the title.
     nonisolated static func wordScore(_ title: String, _ query: String) -> Int? {
-        let t = title.lowercased(), q = query.lowercased().trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return 0 }
-        if t.hasPrefix(q) { return 100 }
-        let words = t.split { !$0.isLetter && !$0.isNumber }.map(String.init)
-        if words.contains(where: { $0.hasPrefix(q) }) { return 80 }
-        if t.contains(q) { return 60 }
-        let parts = q.split(separator: " ").map(String.init)
+        let name = title.lowercased(), typed = query.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !typed.isEmpty else { return 0 }
+        if name.hasPrefix(typed) { return 100 }
+        let words = name.split { !$0.isLetter && !$0.isNumber }.map(String.init)
+        if words.contains(where: { $0.hasPrefix(typed) }) { return 80 }
+        if name.contains(typed) { return 60 }
+        let parts = typed.split(separator: " ").map(String.init)
         return parts.count > 1 && parts.allSatisfy({ p in words.contains { $0.hasPrefix(p) } }) ? 40 : nil
     }
 }

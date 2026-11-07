@@ -13,8 +13,9 @@ package struct IDEContext {
 
     /// What's on screen in `app`.
     package static func of(_ app: AppModel) -> IDEContext {
-        let w = app.worktree(app.workbench.workspaceId)
-        return IDEContext(workspace: w, project: app.repo(w?.repoId), focusedFile: app.workbench.focusedFile)
+        let worktree = app.worktree(app.workbench.workspaceId)
+        return IDEContext(
+            workspace: worktree, project: app.repo(worktree?.repoId), focusedFile: app.workbench.focusedFile)
     }
 }
 
@@ -56,15 +57,15 @@ package struct PanelBadge: Equatable {
     /// What an extension's badge command prints (or a page's `kelp.badge`): a number, any other text for a dot (the
     /// text is its key), "!" first for red; nothing or 0: no badge.
     package init?(_ text: String) {
-        var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        alert = t.hasPrefix("!")
-        if alert { t = String(t.dropFirst()).trimmingCharacters(in: .whitespaces) }
-        if let n = Int(t) {
-            guard n > 0 else { return nil }
-            count = n
+        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        alert = trimmed.hasPrefix("!")
+        if alert { trimmed = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces) }
+        if let number = Int(trimmed) {
+            guard number > 0 else { return nil }
+            count = number
         } else {
-            guard alert || !t.isEmpty else { return nil }
-            key = t
+            guard alert || !trimmed.isEmpty else { return nil }
+            key = trimmed
         }
     }
     package init(count: Int = 0, alert: Bool = false, key: String = "") {
@@ -93,7 +94,9 @@ package struct EditorSpec: Identifiable {
     /// The tab it opens (nil: none here, as for a workspace that has no changes to review).
     let uri: @MainActor (IDEContext) -> String?
 
-    @MainActor package func open(_ ctx: IDEContext, in app: AppModel) { if let u = uri(ctx) { app.workbench.open(u) } }
+    @MainActor package func open(_ ctx: IDEContext, in app: AppModel) {
+        if let target = uri(ctx) { app.workbench.open(target) }
+    }
 }
 
 /// An action with a stable id, the one thing the menu bar, key bindings (settings.json `keys`), the command palette
@@ -180,8 +183,12 @@ package struct SettingsSection: Identifiable {
     var order: Int
     /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
     var groups: [(String?, [SettingSpec])] {
-        specs.filter { $0.hidden != true }.reduce(into: []) { g, s in
-            if let last = g.indices.last, g[last].0 == s.group { g[last].1.append(s) } else { g.append((s.group, [s])) }
+        specs.filter { $0.hidden != true }.reduce(into: []) { runs, spec in
+            if let last = runs.indices.last, runs[last].0 == spec.group {
+                runs[last].1.append(spec)
+            } else {
+                runs.append((spec.group, [spec]))
+            }
         }
     }
     /// Sections of its own under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).
@@ -392,7 +399,7 @@ package final class ExtensionRegistry {
 
     /// Allowed in Settings › Extensions, after the same look.
     func allow(_ e: ExtensionInfo) async {
-        guard let f = e.path, await ExtensionTrust.review(f, app) else { return }
+        guard let folder = e.path, await ExtensionTrust.review(folder, app) else { return }
         reload()
     }
 
@@ -487,7 +494,7 @@ package final class ExtensionRegistry {
     }
 
     func uninstall(_ id: String) {
-        guard let e = extensions.first(where: { $0.id == id }), let path = e.path, !e.builtin else { return }
+        guard let ext = extensions.first(where: { $0.id == id }), let path = ext.path, !ext.builtin else { return }
         try? FileManager.default.trashItem(at: path, resultingItemURL: nil)
         reload()
     }

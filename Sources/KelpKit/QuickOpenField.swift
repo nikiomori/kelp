@@ -40,8 +40,8 @@ final class PaletteField: NSSearchField {
 
     override func layout() {
         super.layout()
-        guard let c = cell as? Cell else { return }
-        let after = c.searchButtonRect(forBounds: bounds).maxX + 2, size = token.intrinsicContentSize
+        guard let searchCell = cell as? Cell else { return }
+        let after = searchCell.searchButtonRect(forBounds: bounds).maxX + 2, size = token.intrinsicContentSize
         token.frame = NSRect(
             x: after, y: ((bounds.height - size.height) / 2).rounded(), width: size.width, height: size.height)
     }
@@ -50,10 +50,10 @@ final class PaletteField: NSSearchField {
     final class Cell: NSSearchFieldCell {
         var leading: CGFloat = 0
         override func drawingRect(forBounds r: NSRect) -> NSRect {   // the placeholder's and the editor's frame
-            var t = super.drawingRect(forBounds: r)
-            t.origin.x += leading
-            t.size.width -= leading
-            return t
+            var rect = super.drawingRect(forBounds: r)
+            rect.origin.x += leading
+            rect.size.width -= leading
+            return rect
         }
     }
 
@@ -73,8 +73,8 @@ final class PaletteField: NSSearchField {
         override func draw(_ r: NSRect) {
             NSColor.systemPurple.withAlphaComponent(0.18).setFill()
             NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
-            let s = words.size()
-            words.draw(at: NSPoint(x: 10, y: ((bounds.height - s.height) / 2).rounded()))
+            let size = words.size()
+            words.draw(at: NSPoint(x: 10, y: ((bounds.height - size.height) / 2).rounded()))
         }
     }
 }
@@ -145,8 +145,9 @@ final class PaletteCell: NSTableCellView {
     private func apply(_ style: NSView.BackgroundStyle, in v: NSView) {
         for sub in v.subviews {
             (sub as? NSControl)?.cell?.backgroundStyle = style
-            if let i = sub as? NSImageView, i.image?.isTemplate == true {
-                i.contentTintColor = style == .emphasized ? .alternateSelectedControlTextColor : .secondaryLabelColor
+            if let image = sub as? NSImageView, image.image?.isTemplate == true {
+                image.contentTintColor =
+                    style == .emphasized ? .alternateSelectedControlTextColor : .secondaryLabelColor
             }
             apply(style, in: sub)
         }

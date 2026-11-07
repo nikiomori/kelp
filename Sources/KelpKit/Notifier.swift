@@ -85,20 +85,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// The ones already there when Kelp opened aren't news.
     private var missedTold: Set<String>?
     private func missedRuns() {
-        guard let e = app.latest(RoutinesEvent.self) else { return }
-        let missed = e.runs.filter { $0.outcome == .missed }
+        guard let event = app.latest(RoutinesEvent.self) else { return }
+        let missed = event.runs.filter { $0.outcome == .missed }
         defer { missedTold = (missedTold ?? []).union(missed.map(\.id)) }
         guard let told = missedTold else { return }
         for run in missed where !told.contains(run.id) {
-            guard let r = e.routines.first(where: { $0.id == run.routineId }) else { continue }
-            let c = UNMutableNotificationContent()
-            c.title = String(
-                localized: "\(r.name) didn't run at \(run.due.formatted(date: .omitted, time: .shortened))")
-            c.body = String(localized: "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.")
-            c.userInfo = ["uri": "routines:\(r.repoId)"]
+            guard let routine = event.routines.first(where: { $0.id == run.routineId }) else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = String(
+                localized: "\(routine.name) didn't run at \(run.due.formatted(date: .omitted, time: .shortened))")
+            content.body = String(
+                localized: "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.")
+            content.userInfo = ["uri": "routines:\(routine.repoId)"]
             alert { [self] in
-                center?.add(UNNotificationRequest(identifier: "missed-\(run.id)", content: c, trigger: nil))
-                if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+                center?.add(UNNotificationRequest(identifier: "missed-\(run.id)", content: content, trigger: nil))
+                if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
             }
         }
     }
@@ -143,9 +144,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         heldAlerts = []
         alerts.forEach { $0() }
         // As each is now: one looked at, or that moved on (answered, at work again), has nothing left to say.
-        let ready = held.filter { h in
-            app.session(h.id)?.status == h.status && !(NSApp.isActive && app.workbench.isViewing(session: h.id))
-                && !app.isMuted(h)
+        let ready = held.filter { session in
+            app.session(session.id)?.status == session.status
+                && !(NSApp.isActive && app.workbench.isViewing(session: session.id))
+                && !app.isMuted(session)
         }
         held = []
         if ready.count == 1 { post(ready[0], holding: false) } else if ready.count > 1 { postHeld(ready) }
@@ -155,44 +157,48 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private func postHeld(_ ss: [Session]) {
         let app = self.app
         let (title, body) = TypingHold.summary(
-            ss.map { s in
-                (app.worktree(s.worktreeId)?.displayName ?? app.catalog.displayName(s), s.status == .error, s.summary)
+            ss.map { session in
+                (
+                    app.worktree(session.worktreeId)?.displayName ?? app.catalog.displayName(session),
+                    session.status == .error, session.summary
+                )
             })
-        let c = UNMutableNotificationContent()
-        c.title = title
-        c.body = body
-        c.subtitle = ss.compactMap { app.projectName(app.worktree($0.worktreeId)?.repoId) }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.subtitle = ss.compactMap { app.projectName(app.worktree($0.worktreeId)?.repoId) }
             .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", ")
-        c.sound = sound(ss.contains { $0.status == .error } ? .error : .done)   // the failure's, if one failed
-        c.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
+        content.sound = sound(ss.contains { $0.status == .error } ? .error : .done)   // the failure's, if one failed
+        content.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
         if !allowed, NSApp.isActive {
             Banner.show(
                 body, action: (String(localized: "Show"), { app.workbench.focus(session: ss[0].id) }), title: title,
-                subtitle: c.subtitle)
+                subtitle: content.subtitle)
         }
-        center?.add(UNNotificationRequest(identifier: "held-\(ss[0].id)", content: c, trigger: nil))
+        center?.add(UNNotificationRequest(identifier: "held-\(ss[0].id)", content: content, trigger: nil))
         NSApp.requestUserAttention(.informationalRequest)
     }
 
     private var limitAlerts = LimitAlerts()
     private var forecastTold = Set<String>()   // limits already warned about, until they stop filling faster than they reset
-    private func limitsChanged(_ u: UsageGet.Result?) {
-        guard let u else { return }
-        for a in limitAlerts.update(u, first: app.settings.usageAlertAt) {
+    private func limitsChanged(_ usage: UsageGet.Result?) {
+        guard let usage else { return }
+        for a in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
             let name = app.catalog.all.first { $0.id == a.agent }?.name ?? a.agent
-            let c = UNMutableNotificationContent()
-            c.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
-            c.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
-            c.sound = a.level >= 95 ? .default : nil
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
+            content.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
+            content.sound = a.level >= 95 ? .default : nil
             alert { [self] in
                 center?.add(
-                    UNNotificationRequest(identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: c, trigger: nil)
+                    UNNotificationRequest(
+                        identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: content, trigger: nil)
                 )
-                if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+                if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
             }
         }
-        forecastChanged(u)
-        resetsChanged(u)
+        forecastChanged(usage)
+        resetsChanged(usage)
     }
 
     private var resets = LimitResets()
@@ -214,22 +220,25 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// A limit that stopped sessions reset: a banner whose Continue tells them to go on.
     private func limitReset(_ agent: String) {
         resetWaits[agent] = nil
-        guard let f = resets.end(agent) else { return }
+        guard let full = resets.end(agent) else { return }
         let app = self.app
-        let stopped = LimitResets.stopped(app.sessions, agent: agent, f).filter { !app.isMuted($0) }
+        let stopped = LimitResets.stopped(app.sessions, agent: agent, full).filter { !app.isMuted($0) }
         guard let first = stopped.first else { return }
         let ids = stopped.map(\.id)
-        let c = UNMutableNotificationContent()
+        let content = UNMutableNotificationContent()
         let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
-        c.title = String(localized: "\(name): the limit has reset")
-        c.body = String(localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
-        c.sound = .default
-        c.categoryIdentifier = "limitReset"
-        c.userInfo = ["session": first.id, "sessions": ids]
+        content.title = String(localized: "\(name): the limit has reset")
+        content.body = String(
+            localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
+        content.sound = .default
+        content.categoryIdentifier = "limitReset"
+        content.userInfo = ["session": first.id, "sessions": ids]
         alert { [self] in
-            center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: c, trigger: nil))
+            center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: content, trigger: nil))
             if !allowed, NSApp.isActive {
-                Banner.show(c.body, action: (String(localized: "Continue"), { Self.goOn(app, ids) }), title: c.title)
+                Banner.show(
+                    content.body, action: (String(localized: "Continue"), { Self.goOn(app, ids) }), title: content.title
+                )
             }
         }
     }
@@ -254,12 +263,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             guard let eta = app.forecast.warning(key, resetAt: resetAt, window: window) else { continue }
             guard forecastTold.insert(key).inserted else { continue }
             let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
-            let c = UNMutableNotificationContent()
-            c.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
-            c.body = String(localized: "At this pace it fills before it resets.")
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
+            content.body = String(localized: "At this pace it fills before it resets.")
             alert { [self] in
-                center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: c, trigger: nil))
-                if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+                center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: content, trigger: nil))
+                if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
             }
         }
         forecastTold.formIntersection(read)
@@ -271,36 +280,36 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard LimitForecast.unusedNearReset(percent: l.percent, resetAt: resetAt, window: window), let resetAt else {
             return
         }
-        let d = UserDefaults.standard, saved = "notifications.unusedTold", key = LimitForecast.key(agent, l.kind)
-        var told = d.dictionary(forKey: saved) as? [String: Double] ?? [:]
+        let defaults = UserDefaults.standard, saved = "notifications.unusedTold", key = LimitForecast.key(agent, l.kind)
+        var told = defaults.dictionary(forKey: saved) as? [String: Double] ?? [:]
         let now = Date().timeIntervalSince1970
         guard (told[key].map { now - $0 > 86400 }) ?? true else { return }
         told[key] = now
-        d.set(told.filter { now - $0.value <= 86400 }, forKey: saved)
+        defaults.set(told.filter { now - $0.value <= 86400 }, forKey: saved)
         let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
-        let c = UNMutableNotificationContent()
-        c.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
-        c.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
+        content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
         alert { [self] in
-            center?.add(UNNotificationRequest(identifier: "unused-\(key)", content: c, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show(c.body, title: c.title) }
+            center?.add(UNNotificationRequest(identifier: "unused-\(key)", content: content, trigger: nil))
+            if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
         }
     }
 
     /// macOS can switch Kelp's banners off (System Settings › Notifications): say so once, instead of failing silently.
     /// Called at launch and when Kelp comes to the front.
     func checkAllowed() {
-        center?.getNotificationSettings { s in
-            let off = s.authorizationStatus == .denied || s.alertSetting == .disabled
+        center?.getNotificationSettings { settings in
+            let off = settings.authorizationStatus == .denied || settings.alertSetting == .disabled
             Task { @MainActor in
                 self.allowed = !off
-                let d = UserDefaults.standard
+                let defaults = UserDefaults.standard
                 guard off else {
-                    d.removeObject(forKey: "notifications.warnedOff")
+                    defaults.removeObject(forKey: "notifications.warnedOff")
                     return
                 }
-                guard !d.bool(forKey: "notifications.warnedOff") else { return }
-                d.set(true, forKey: "notifications.warnedOff")
+                guard !defaults.bool(forKey: "notifications.warnedOff") else { return }
+                defaults.set(true, forKey: "notifications.warnedOff")
                 Banner.show(
                     String(
                         localized:
@@ -310,10 +319,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                         String(localized: "Open Settings"),
                         {
                             let id = Bundle.main.bundleIdentifier ?? ""
-                            if let u = URL(
+                            if let url = URL(
                                 string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")
                             {
-                                PreviewLinks.openOutside(u)
+                                PreviewLinks.openOutside(url)
                             }
                         }
                     ))
@@ -328,14 +337,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             return
         }
         Task {
-            let s = await center.notificationSettings()
-            let off = s.authorizationStatus == .denied || s.alertSetting == .disabled
+            let settings = await center.notificationSettings()
+            let off = settings.authorizationStatus == .denied || settings.alertSetting == .disabled
             if !off {
-                let c = UNMutableNotificationContent()
-                c.title = String(localized: "Kelp can reach you")
-                c.body = String(localized: "This is how you'll hear that an agent finished or needs you.")
-                c.sound = .default
-                try? await center.add(UNNotificationRequest(identifier: "kelp-test", content: c, trigger: nil))
+                let content = UNMutableNotificationContent()
+                content.title = String(localized: "Kelp can reach you")
+                content.body = String(localized: "This is how you'll hear that an agent finished or needs you.")
+                content.sound = .default
+                try? await center.add(UNNotificationRequest(identifier: "kelp-test", content: content, trigger: nil))
             }
             done(!off)
         }
@@ -343,8 +352,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func updateBadge() {
         // Who waits for an answer, as Needs You's marks say: finished work you haven't opened is no question.
-        let n = app.sessions.filter { SidebarCell.wantsYou($0) && SidebarCell.shownStatus($0) != .done }.count
-        let label = n > 0 ? "\(n)" : nil
+        let count = app.sessions.filter { SidebarCell.wantsYou($0) && SidebarCell.shownStatus($0) != .done }.count
+        let label = count > 0 ? "\(count)" : nil
         if NSApp.dockTile.badgeLabel != label { NSApp.dockTile.badgeLabel = label }
         clearSeen()
     }
@@ -368,10 +377,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     private func reminderDue(_ asked: Session) {
         reminders[asked.id] = nil
-        guard QuestionReminder.stillStands(asked, now: app.session(asked.id)), let s = app.session(asked.id),
-            !app.isMuted(s)
+        guard QuestionReminder.stillStands(asked, now: app.session(asked.id)), let current = app.session(asked.id),
+            !app.isMuted(current)
         else { return }
-        post(s, holding: false, again: true)
+        post(current, holding: false, again: true)
     }
 
     /// Seen with Kelp in front, it needs no reminder: what the question asks stays marked on its row.
@@ -386,8 +395,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private var posted: [String: String] = [:]   // session → request id
     private func clearSeen() {
         let stale = posted.filter { sid, rid in
-            guard let s = app.session(sid) else { return true }
-            return !s.unread || !rid.hasSuffix(s.status.rawValue)
+            guard let session = app.session(sid) else { return true }
+            return !session.unread || !rid.hasSuffix(session.status.rawValue)
         }
         guard !stale.isEmpty else { return }
         center?.removeDeliveredNotifications(withIdentifiers: Array(stale.values))
@@ -441,26 +450,27 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// One-line summary for the banner and sidebar from the agent's own last reply, then the notification.
-    private func summarizeThenNotify(_ s: Session, turn: TimeInterval?) async {
-        var s = s
+    private func summarizeThenNotify(_ session: Session, turn: TimeInterval?) async {
+        var session = session
         // Claude Code: its own last reply (the terminal around it — spinners, mode lines — reads as nonsense when summarized).
         // The Stop hook can come a moment before the transcript has the final message.
         try? await Task.sleep(for: .milliseconds(1200))
         // Nobody at the Mac: a recap from a fork of its conversation (what it did, what's left) waits for whoever comes back.
         // Only for a banner that will show: a recap is a run of Claude, not worth it for a muted row or a short turn.
-        if s.status == .done, s.agent == "claude", app.settings.bool("agents.recap") != false, !Presence.here(),
-            tells(s, turn: turn),
-            let line = await app.quiet(SessionRecap(id: s.id)) ?? nil
+        if session.status == .done, session.agent == "claude", app.settings.bool("agents.recap") != false,
+            !Presence.here(),
+            tells(session, turn: turn),
+            let line = await app.quiet(SessionRecap(id: session.id)) ?? nil
         {
             // Up to a minute and a half later: a turn begun meanwhile isn't done, and gets no "Done" banner.
-            guard app.session(s.id)?.status == .done else { return }
-            s.summary = line
-        } else if let reply = await app.quiet(SessionLastReply(id: s.id)) ?? nil {
+            guard app.session(session.id)?.status == .done else { return }
+            session.summary = line
+        } else if let reply = await app.quiet(SessionLastReply(id: session.id)) ?? nil {
             let line = Self.firstSentence(reply)
-            s.summary = line
-            _ = await app.quiet(SessionAnnotate(id: s.id, summary: line, ifStatus: s.status.rawValue))
+            session.summary = line
+            _ = await app.quiet(SessionAnnotate(id: session.id, summary: line, ifStatus: session.status.rawValue))
         }
-        tell(s, turn: turn)   // other agents: no summary; the state says enough
+        tell(session, turn: turn)   // other agents: no summary; the state says enough
     }
 
     /// "I added `mul(a, b)` to `calc.py`. It returns…" → "Added mul(a, b) to calc.py".
@@ -469,18 +479,18 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let line = plain.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
         // A sentence ends at . ! or ? followed by a space or the end: the dot in "calc.py" doesn't end it.
         let end =
-            line.indices.first { i in
-                let next = line.index(after: i)
-                return ".!?".contains(line[i]) && (next == line.endIndex || line[next].isWhitespace)
+            line.indices.first { index in
+                let next = line.index(after: index)
+                return ".!?".contains(line[index]) && (next == line.endIndex || line[next].isWhitespace)
             }.map { line.index(after: $0) } ?? line.endIndex
-        var s = String(line[..<end]).trimmingCharacters(in: .whitespaces)
-        if s.hasSuffix(".") { s.removeLast() }
-        for lead in ["I've ", "I have ", "I "] where s.hasPrefix(lead) {
-            s = String(s.dropFirst(lead.count))
-            s = s.prefix(1).uppercased() + s.dropFirst()
+        var sentence = String(line[..<end]).trimmingCharacters(in: .whitespaces)
+        if sentence.hasSuffix(".") { sentence.removeLast() }
+        for lead in ["I've ", "I have ", "I "] where sentence.hasPrefix(lead) {
+            sentence = String(sentence.dropFirst(lead.count))
+            sentence = sentence.prefix(1).uppercased() + sentence.dropFirst()
             break
         }
-        return s.count > 90 ? String(s.prefix(89)) + "…" : s
+        return sentence.count > 90 ? String(sentence.prefix(89)) + "…" : sentence
     }
 
     /// `again`: the one reminder of a question, in place of its banner.
@@ -494,9 +504,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             waitForQuiet()
             return
         }
-        let m = app, wt = m.worktree(s.worktreeId)
-        let c = UNMutableNotificationContent()
-        c.title =
+        let model = app, wt = model.worktree(s.worktreeId)
+        let content = UNMutableNotificationContent()
+        content.title =
             app.catalog.displayName(s)
             + (s.limitHit != nil
                 ? String(localized: " hit its limit")
@@ -505,25 +515,26 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                     : s.status == .waiting
                         ? String(localized: " needs you")
                         : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
-        c.subtitle = [m.groupName(wt), m.projectName(wt?.repoId)].compactMap { $0 }.joined(separator: " · ")   // as its Needs You row
-        c.body =
+        content.subtitle = [model.groupName(wt), model.projectName(wt?.repoId)].compactMap { $0 }.joined(
+            separator: " · ")   // as its Needs You row
+        content.body =
             s.limitHit.map(LimitStop.banner)
             ?? (s.summary.isEmpty
                 ? (s.status == .waiting
                     ? String(localized: "Waiting for your answer")
                     : String(localized: "Ready for review")) : s.summary)
-        c.sound = sound(s.limitHit == nil ? s.status : .waiting)
-        c.userInfo = ["session": s.id, "question": s.summary]
-        if let cat = Self.category(s) { c.categoryIdentifier = cat }
+        content.sound = sound(s.limitHit == nil ? s.status : .waiting)
+        content.userInfo = ["session": s.id, "question": s.summary]
+        if let cat = Self.category(s) { content.categoryIdentifier = cat }
         if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
             Banner.show(
-                c.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
-                title: c.title, subtitle: c.subtitle, icon: app.catalog.icon(s.agent, size: 24))
+                content.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
+                title: content.title, subtitle: content.subtitle, icon: app.catalog.icon(s.agent, size: 24))
         }
         // Under an id of its own: macOS may show one added again under the same id silently.
         let rid = again ? "\(s.id)-again-\(s.status.rawValue)" : "\(s.id)-\(s.status.rawValue)"
         if again, let first = posted[s.id] { center?.removeDeliveredNotifications(withIdentifiers: [first]) }
-        center?.add(UNNotificationRequest(identifier: rid, content: c, trigger: nil))
+        center?.add(UNNotificationRequest(identifier: rid, content: content, trigger: nil))
         posted[s.id] = rid
         NSApp.requestUserAttention(.informationalRequest)
         if !again { remind(of: s) }
@@ -538,8 +549,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
     /// Only one whose question shows all of it gets Allow / Deny where it's shown (`Hooks.shownWhole`).
     static func asksPermission(_ s: Session) -> Bool {
-        let t = s.summary.lowercased()
-        return s.status == .waiting && ["permission", "approve", "allow"].contains { t.contains($0) }
+        let summary = s.summary.lowercased()
+        return s.status == .waiting && ["permission", "approve", "allow"].contains { summary.contains($0) }
             && Hooks.shownWhole(s.summary)
     }
 

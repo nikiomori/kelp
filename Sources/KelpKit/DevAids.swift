@@ -19,11 +19,11 @@ extension AppDelegate {
                 if sem.wait(timeout: .now() + 1) == .timedOut {   // stuck: record where the main thread is
                     let out = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-hang-\(getpid()).txt")
                         .path
-                    let p = Process()
-                    p.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
-                    p.arguments = ["\(getpid())", "1", "-file", out]
-                    try? p.run()
-                    p.waitUntilExit()
+                    let sampler = Process()
+                    sampler.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
+                    sampler.arguments = ["\(getpid())", "1", "-file", out]
+                    try? sampler.run()
+                    sampler.waitUntilExit()
                     print("HANG-SAMPLE " + out)
                     sem.wait()
                 }
@@ -44,31 +44,35 @@ extension AppDelegate {
                 main.window?.setFrame(NSRect(x: 80, y: 80, width: 1440, height: 900), display: true)
                 main.window?.contentView?.layoutSubtreeIfNeeded()
                 print("FRAME", main.window?.frame ?? .zero, main.window?.contentView?.superview?.bounds ?? .zero)
-                if let p = env["KELP_SNAPSHOT_INSPECTOR"] { main.showInspector(panel: p) }
-                if let v = env["KELP_SNAPSHOT_UPDATE"] { app.updates.arrived(.init(version: v, notes: nil)) {} }
-                // KELP_SNAPSHOT_SIZE=1000x760: the window's content size (people's windows are rarely 1440 wide).
-                if let s = env["KELP_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), s.count == 2 {
-                    main.window?.setContentSize(NSSize(width: s[0], height: s[1]))
+                if let panel = env["KELP_SNAPSHOT_INSPECTOR"] { main.showInspector(panel: panel) }
+                if let version = env["KELP_SNAPSHOT_UPDATE"] {
+                    app.updates.arrived(.init(version: version, notes: nil)) {}
                 }
-                if let u = env["KELP_SNAPSHOT_OPEN"] {
-                    for x in u.split(separator: "|").map(String.init) {
+                // KELP_SNAPSHOT_SIZE=1000x760: the window's content size (people's windows are rarely 1440 wide).
+                if let size = env["KELP_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }),
+                    size.count == 2
+                {
+                    main.window?.setContentSize(NSSize(width: size[0], height: size[1]))
+                }
+                if let uris = env["KELP_SNAPSHOT_OPEN"] {
+                    for x in uris.split(separator: "|").map(String.init) {
                         if TabURI.runs(x) { app.workbench.runURI(x) } else { app.workbench.open(x) }
                     }
                 }
                 // KELP_SNAPSHOT_SHEET=clone|remote[=text]: the clone and SSH sheets (the open panel itself is another process),
                 // with text: filled in and started. extension=<GitHub folder>: downloaded, and what it runs asked about.
                 // project=<folder>: added as Add Project does (one without git asks first).
-                if let s = env["KELP_SNAPSHOT_SHEET"] {
-                    let p = s.split(separator: "=", maxSplits: 1).map(String.init)
-                    if p[0] == "remote" {
-                        RemoteSheet.show(app, start: p.count > 1 ? p[1] : nil)
-                    } else if p[0] == "extension", p.count > 1 {
-                        Task { await app.extensions.install(source: p[1]) }
+                if let spec = env["KELP_SNAPSHOT_SHEET"] {
+                    let parts = spec.split(separator: "=", maxSplits: 1).map(String.init)
+                    if parts[0] == "remote" {
+                        RemoteSheet.show(app, start: parts.count > 1 ? parts[1] : nil)
+                    } else if parts[0] == "extension", parts.count > 1 {
+                        Task { await app.extensions.install(source: parts[1]) }
                     }   // the look before installing
-                    else if p[0] == "project", p.count > 1 {
-                        app.workbench.addProject(path: p[1])
+                    else if parts[0] == "project", parts.count > 1 {
+                        app.workbench.addProject(path: parts[1])
                     } else {
-                        CloneSheet.show(app, start: p.count > 1 ? p[1] : nil)
+                        CloneSheet.show(app, start: parts.count > 1 ? parts[1] : nil)
                     }
                 }
                 driveInput(env)
@@ -105,12 +109,13 @@ extension AppDelegate {
             if let names = env["KELP_SWITCH"]?.split(separator: ",") {
                 for (i, n) in names.enumerated() {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2 + Double(i) * 0.7) {
-                        guard let w = app.worktrees.first(where: { $0.displayName == n || $0.branch == n }) else {
+                        guard let worktree = app.worktrees.first(where: { $0.displayName == n || $0.branch == n })
+                        else {
                             print("SWITCH no \(n)")
                             return
                         }
                         let t0 = Date()
-                        app.workbench.show(workspace: w.id)
+                        app.workbench.show(workspace: worktree.id)
                         self.main.window?.contentView?.layoutSubtreeIfNeeded()
                         self.main.window?.displayIfNeeded()
                         print(String(format: "SWITCH %@ %.0f ms", String(n), Date().timeIntervalSince(t0) * 1000))
@@ -129,15 +134,15 @@ extension AppDelegate {
                 env["KELP_SNAPSHOT_WINDOW"] == "settings"
                 ? SettingsWindow.window
                 : NSApp.windows.filter(\.isVisible).last { want != nil && $0.title.hasPrefix(want ?? "") }
-            guard let w = picked ?? main.window,
-                let v = w.contentView?.superview ?? w.contentView
+            guard let window = picked ?? main.window,
+                let root = window.contentView?.superview ?? window.contentView
             else { exit(2) }
             // KELP_HOVER="calc.py|Changes": a mouse-entered event for the views showing these texts (hover states can't be
             // reached otherwise without moving the user's pointer). The picture is taken a moment later: a hover card opens
             // after a pause (a commit's waits half a second).
             if !Self.hovered, let texts = env["KELP_HOVER"] {
                 Self.hovered = true
-                for text in texts.split(separator: "|").map(String.init) { Self.hover(text, in: v, window: w) }
+                for text in texts.split(separator: "|").map(String.init) { Self.hover(text, in: root, window: window) }
                 // main run loop
                 RunLoop.main.add(
                     Timer(timeInterval: 1.2, repeats: false) { [self] _ in
@@ -145,19 +150,21 @@ extension AppDelegate {
                     }, forMode: .common)
                 return
             }
-            print("WINDOW", w.title, w.frame)
+            print("WINDOW", window.title, window.frame)
             print(
                 "WINDOWS",
                 NSApp.windows.filter(\.isVisible).map { "\($0.title.isEmpty ? "-" : $0.title)(\(type(of: $0)))" }
                     .joined(separator: ", "))
-            if let s = w.attachedSheet {
+            if let sheet = window.attachedSheet {
                 print(
-                    "SHEET", s.className,
-                    (s.contentView?.allSubviews(of: NSTextField.self) ?? []).map(\.stringValue).filter { !$0.isEmpty })
+                    "SHEET", sheet.className,
+                    (sheet.contentView?.allSubviews(of: NSTextField.self) ?? []).map(\.stringValue).filter {
+                        !$0.isEmpty
+                    })
                 // Its own window: drawn next to the snapshot as "<name>-sheet.png".
-                Self.snap(s, to: path.replacingOccurrences(of: ".png", with: "-sheet.png"))
+                Self.snap(sheet, to: path.replacingOccurrences(of: ".png", with: "-sheet.png"))
             }
-            Self.snap(w, to: path)
+            Self.snap(window, to: path)
             // A popover (limits details…) is its own window: next to the snapshot, as "<name>-popover.png".
             // An alert shown on its own (a background app has no window to put the sheet on): "<name>-alert.png".
             for a in NSApp.windows where a.isVisible && a.className.contains("AlertPanel") {
@@ -173,8 +180,8 @@ extension AppDelegate {
             if Bundle.main.preferredLocalizations.first != "en" {
                 func walk(_ m: NSMenu) {
                     for i in m.items where !i.isSeparatorItem {
-                        if let s = i.submenu {
-                            if s !== NSApp.servicesMenu { walk(s) }
+                        if let submenu = i.submenu {
+                            if submenu !== NSApp.servicesMenu { walk(submenu) }
                             continue
                         }
                         if i.title.range(of: "[А-яЁё]", options: .regularExpression) == nil,
@@ -187,7 +194,7 @@ extension AppDelegate {
                 NSApp.mainMenu.map(walk)
             }
             for t in main.editors.current?.contents.values.map({ $0 }) ?? []
-            where TabURI.scheme(t.uri) == "session" && t.view.window === w {
+            where TabURI.scheme(t.uri) == "session" && t.view.window === window {
                 guard let term = t.view.allSubviews(of: GhosttyTerminalView.self).first else { continue }
                 print(
                     "PANE", TabURI.body(t.uri).prefix(8),
@@ -195,8 +202,8 @@ extension AppDelegate {
             }
             // Web content is drawn out of process and may be missing from the PNG: report what the page really shows
             // (not under a sheet: its run loop may not deliver the script's answer).
-            let webs = v.allSubviews(of: WKWebView.self)
-            guard !webs.isEmpty, w.attachedSheet == nil else {
+            let webs = root.allSubviews(of: WKWebView.self)
+            guard !webs.isEmpty, window.attachedSheet == nil else {
                 finishSnapshot()
                 return
             }
@@ -205,11 +212,11 @@ extension AppDelegate {
                 web.evaluateJavaScript(
                     "document.body ? [document.body.innerText.length, document.querySelectorAll('svg').length] : [-1, 0]"
                 ) { r, _ in
-                    let n = (r as? [Int]) ?? []
+                    let counts = (r as? [Int]) ?? []
                     let visible = web.window != nil && !web.isHiddenOrHasHiddenAncestor
                     print(
                         "WEB", web.url?.absoluteString ?? "-", "frame", web.frame.size, "visible", visible, "text",
-                        n.first ?? -1, "svg", n.last ?? 0)
+                        counts.first ?? -1, "svg", counts.last ?? 0)
                     // What the page draws, as "<name>-web<i>.png" (it's out of process, so not in the window's PNG).
                     guard visible else {
                         left -= 1
@@ -217,8 +224,8 @@ extension AppDelegate {
                         return
                     }
                     web.takeSnapshot(with: nil) { img, _ in
-                        if let t = img?.tiffRepresentation,
-                            let png = NSBitmapImageRep(data: t)?.representation(using: .png, properties: [:])
+                        if let tiff = img?.tiffRepresentation,
+                            let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
                         {
                             try? png.write(
                                 to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-web\(i).png")))
@@ -255,17 +262,17 @@ extension AppDelegate {
                 print("HOVER no", text)
                 return
             }
-            var v: NSView? = label
-            while let x = v, x.trackingAreas.isEmpty { v = x.superview }
-            guard let target = v,
-                let e = NSEvent.enterExitEvent(
+            var candidate: NSView? = label
+            while let view = candidate, view.trackingAreas.isEmpty { candidate = view.superview }
+            guard let target = candidate,
+                let event = NSEvent.enterExitEvent(
                     with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0,
                     windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil)
             else {
                 print("HOVER nothing tracks", text)
                 return
             }
-            target.mouseEntered(with: e)
+            target.mouseEntered(with: event)
             print("HOVER", text, "→", type(of: target))
         }
 
@@ -287,8 +294,8 @@ extension AppDelegate {
             ]
             var events: [(String, NSEvent.ModifierFlags)] = []
             var rest = Substring(spec.replacingOccurrences(of: "\\r", with: "\r"))
-            while let c = rest.first {
-                if c == "{", let end = rest.firstIndex(of: "}") {
+            while let char = rest.first {
+                if char == "{", let end = rest.firstIndex(of: "}") {
                     let combo = rest[rest.index(after: rest.startIndex)..<end].split(separator: "+")
                     var mods: NSEvent.ModifierFlags = []
                     for m in combo.dropLast() {
@@ -305,7 +312,7 @@ extension AppDelegate {
                     events.append((mods.contains(.shift) ? key.uppercased() : key, mods))
                     rest = rest[rest.index(after: end)...]
                 } else {
-                    events.append((String(c), []))
+                    events.append((String(char), []))
                     rest = rest.dropFirst()
                 }
             }
@@ -349,8 +356,8 @@ extension AppDelegate {
                     // In the background (launched from a shell) there's no key window, so menu items that go to the
                     // responder chain (Find…, Copy) are disabled: send their action along the window's chain instead.
                     if !NSApp.isActive, mods.contains(.command), let item = Self.menuItem(ch, mods), item.target == nil,
-                        let a = item.action,
-                        main.window?.firstResponder?.tryToPerform(a, with: item) == true
+                        let action = item.action,
+                        main.window?.firstResponder?.tryToPerform(action, with: item) == true
                     {
                         return
                     }
@@ -360,7 +367,7 @@ extension AppDelegate {
                         ? mods.union([.numericPad, .function]) : function != nil ? mods.union(.function) : mods
                     for type in [NSEvent.EventType.keyDown, .keyUp] {
                         guard
-                            let e = NSEvent.keyEvent(
+                            let event = NSEvent.keyEvent(
                                 with: type, location: .zero, modifierFlags: flags,
                                 timestamp: ProcessInfo.processInfo.systemUptime,
                                 windowNumber: (NSApp.keyWindow ?? main.window)?.windowNumber ?? 0, context: nil,
@@ -369,11 +376,11 @@ extension AppDelegate {
                         else { continue }
                         // Without a key window AppKit offers a shortcut to the menu only; a user's goes to the window's views first.
                         if type == .keyDown, !mods.isEmpty, NSApp.keyWindow == nil,
-                            main.window?.performKeyEquivalent(with: e) == true
+                            main.window?.performKeyEquivalent(with: event) == true
                         {
                             continue
                         }
-                        NSApp.sendEvent(e)
+                        NSApp.sendEvent(event)
                     }
                 }
             }
@@ -387,9 +394,10 @@ extension AppDelegate {
     {
         for i in menu?.items ?? [] {
             if let found = menuItem(key, mods, in: i.submenu) { return found }
-            let m = i.keyEquivalentModifierMask.union(i.keyEquivalent != i.keyEquivalent.lowercased() ? .shift : [])
+            let modifiers = i.keyEquivalentModifierMask.union(
+                i.keyEquivalent != i.keyEquivalent.lowercased() ? .shift : [])
             if i.keyEquivalent.lowercased() == key.lowercased(),
-                m.intersection([.command, .shift, .option, .control]) == mods
+                modifiers.intersection([.command, .shift, .option, .control]) == mods
             {
                 return i
             }
@@ -402,8 +410,8 @@ extension AppDelegate {
     /// screen-recording permission. The call is unavailable to Swift since macOS 15, hence dlsym; the layer render
     /// stays as the fallback.
     static func snap(_ w: NSWindow, to path: String) {
-        guard !composited(w, to: path), let v = w.contentView?.superview ?? w.contentView else { return }
-        render(v, scale: w.backingScaleFactor, to: path)
+        guard !composited(w, to: path), let view = w.contentView?.superview ?? w.contentView else { return }
+        render(view, scale: w.backingScaleFactor, to: path)
     }
     private static func composited(_ w: NSWindow, to path: String) -> Bool {
         typealias Capture = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
@@ -449,8 +457,8 @@ extension AppDelegate {
         /// A visible label's text, or "@x,y": a point in the window, from its top-left corner (SwiftUI content has no labels).
         /// "2:" first double-clicks (a row's rename in place).
         func click(text spec: String) {
-            guard let w = main.window, let root = w.contentView?.superview else { return }
-            let p: NSPoint
+            guard let window = main.window, let root = window.contentView?.superview else { return }
+            let point: NSPoint
             let double = spec.hasPrefix("2:")
             var text = double ? String(spec.dropFirst(2)) : spec
             let right = text.hasPrefix("r@")   // "r@x,y": a right click (context menus)
@@ -458,28 +466,30 @@ extension AppDelegate {
             if text.hasPrefix("@"), case let xy = text.dropFirst().split(separator: ",").compactMap({ Double($0) }),
                 xy.count == 2
             {
-                p = NSPoint(x: xy[0], y: w.frame.height - xy[1])
+                point = NSPoint(x: xy[0], y: window.frame.height - xy[1])
             } else if let field = root.allSubviews(of: NSTextField.self)
                 .first(where: { $0.stringValue == text && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor })
             {
-                p = field.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), to: nil)
+                point = field.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), to: nil)
             } else {
                 print("CLICK no \(text)")
                 return
             }
             // A real click makes what it hits first responder; a window in the background (launched from a shell) doesn't.
-            var hit = root.hitTest(root.convert(p, from: nil))
-            while let v = hit, !v.acceptsFirstResponder { hit = v.superview }
-            if let hit { w.makeFirstResponder(hit) }
+            var hit = root.hitTest(root.convert(point, from: nil))
+            while let view = hit, !view.acceptsFirstResponder { hit = view.superview }
+            if let hit { window.makeFirstResponder(hit) }
             for count in double ? [1, 2] : [1] {
                 for type in right ? [NSEvent.EventType.rightMouseDown, .rightMouseUp] : [.leftMouseDown, .leftMouseUp] {
                     guard
-                        let e = NSEvent.mouseEvent(
-                            with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                            windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1)
+                        let event = NSEvent.mouseEvent(
+                            with: type, location: point, modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count,
+                            pressure: 1)
                     else { continue }
                     // Queued, so a table's mouse-down tracking finds its mouse-up instead of waiting for a real one.
-                    if double { NSApp.postEvent(e, atStart: false) } else { NSApp.sendEvent(e) }
+                    if double { NSApp.postEvent(event, atStart: false) } else { NSApp.sendEvent(event) }
                 }
             }
             print("CLICK \(text) → workspace \(app.worktree(app.workbench.workspaceId)?.displayName ?? "-")")
