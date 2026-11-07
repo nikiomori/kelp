@@ -135,6 +135,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         return declaration.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil
     }
     #expect(requirements.count <= 14, "\(requirements)")
+    #expect(requirements.count >= 14, "fewer now: lower the ceiling")
 }
 
 /// A Swift file's code without its comments and string literals (their words could be any name); lines stay where they were.
@@ -397,6 +398,7 @@ private func codeOnly(_ s: String) -> String {
         #"^(?:private |fileprivate |public )?(?:let|var) \w+|^\s+(?:private |public )?static let \w+ = (?!Logger\()[A-Z]\w*(?:<[^\n]*>)?\("#,
         in: ["Sources/Daemon"])
     #expect(stored <= 14, "Daemon's stored properties: \(stored)")
+    #expect(stored >= 14, "fewer now: lower the ceiling")
     // Nor does it go into `Sessions` instead, the service the most comes near: what isn't a session's goes in a type of
     // its own (`Callers`, `ChildReports`, `SessionLanes`…), which `Sessions` holds as one.
     let sessions = try #require(sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions.swift" })
@@ -405,10 +407,13 @@ private func codeOnly(_ s: String) -> String {
     )
     .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
     #expect(held <= 26, "Sessions' stored properties: \(held)")
+    #expect(held >= 26, "fewer now: lower the ceiling")
     // Nor its methods: a feature gets a type of its own that's handed what it uses, not one more `extension Sessions`.
     let grown = try matches(#"^extension Sessions\b"#, in: ["Sources/Daemon"])
     #expect(grown.count <= 22, "extensions of Sessions: \(grown.count)")
+    #expect(grown.count >= 22, "fewer now: lower the ceiling")
     #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
+    #expect(extensions.count >= 2, "fewer now: lower the ceiling")
     #expect(shared.count <= 0, "state outside an instance: \(shared)")
 }
 
@@ -450,9 +455,11 @@ private func codeOnly(_ s: String) -> String {
 /// `NSImage.symbol` itself with the colourful icons that need a weight.
 @Test func chromeTakesItsSizesFromDesignKit() throws {
     let chrome = ["Sources/KelpKit", "Sources/Builtins"]
-    #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 2)
+    #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 1)
+    #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 2)
+    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 2, "fewer now: lower the ceiling")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
     let styles = try matches(
         #"\.font\(\.(headline|subheadline|caption|footnote|title|body|callout)"#, in: chrome + ["Sources/EditorKit"])
@@ -485,9 +492,11 @@ private func codeOnly(_ s: String) -> String {
 /// the backdrop's drift, and a duration of 0.
 @Test func looksComeFromTheDesignSystem() throws {
     let typed = try matches(#"(cornerRadius|[dD]uration) = \d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
-    #expect(typed.count <= 3, "\(typed)")
+    #expect(typed.count <= 2, "\(typed)")
+    #expect(typed.count >= 2, "fewer now: lower the ceiling")
     let delays = try matches(#"\.now\(\) \+ 0\.\d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
     #expect(delays.count <= 2, "\(delays)")   // a dev aid's, and key bindings read back: neither is motion
+    #expect(delays.count >= 2, "fewer now: lower the ceiling")
 }
 
 /// Who may call a method is the method's to say (`onlyFromKelp`), checked in one place for every call: a handler that
@@ -697,6 +706,17 @@ private func codeOnly(_ s: String) -> String {
 /// conformance (in KelpKit, or in the built-in whose kind it is): a new kind touches no file of the shell (no property, no case in a switch), so a
 /// feature's data needn't live in KelpKit. And the model's own observed state stays what every part reads: the
 /// connection, projects, workspaces, sessions and the sidebar's arrangement.
+/// AppModel mirrors the daemon; what a feature does is its own type's. The files that add to it outside AppModel.swift
+/// only read the daemon's records (the watch, a workspace's git folder, the projects by server).
+@Test func appModelIsTheDaemonsMirror() {
+    let names = sources(["Sources/KelpKit", "Sources/Builtins"]).filter { file in
+        !file.path.hasSuffix("/AppModel.swift")
+            && file.text.range(of: #"(?m)^extension AppModel\b"#, options: .regularExpression) != nil
+    }.map(\.path).sorted()
+    #expect(names.count <= 3, "files extending AppModel: \(names)")
+    #expect(names.count >= 3, "fewer now (\(names)): lower the ceiling")
+}
+
 @Test func pushedStateLandsInOneStore() throws {
     let watching = try String(
         contentsOf: root.appendingPathComponent("Sources/KelpKit/Watching.swift"), encoding: .utf8)
