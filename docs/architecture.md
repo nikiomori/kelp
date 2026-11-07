@@ -1,9 +1,12 @@
 # Kelp architecture
 
-Kelp is a thin native shell around two things: a **daemon** that owns everything stateful
-(agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute almost
-everything you see. The app itself only provides the window, the layout, a registry of
-contributions, the command palette and settings.
+Kelp is a native shell around two things: a **daemon** that owns everything stateful
+(agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
+what you see. The app itself provides the window, the layout, a registry of contributions, the
+command palette and settings — and, until they move into built-ins of their own, a few features
+that still live in the shell (KelpKit): the branch's sync popover, the plan limits and usage, the
+CI marks on rows, the server cards and the agent strip. The review rubric (`docs/review-rubric.md`,
+Architecture 5) counts them.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐

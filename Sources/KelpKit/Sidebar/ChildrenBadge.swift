@@ -193,14 +193,6 @@ extension SidebarCell {
     }
 }
 
-extension AppModel {
-    /// "Fix login › reviewer" for a child, whose row is its parent's.
-    func familyName(_ child: Session) -> String {
-        let name = catalog.displayName(child)
-        return child.parent.flatMap(session).map { catalog.displayName($0) + " › " + name } ?? name
-    }
-}
-
 /// What an agent's row says of its state, for the sidebar and everyone who counts like it.
 extension SidebarCell {
     /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
