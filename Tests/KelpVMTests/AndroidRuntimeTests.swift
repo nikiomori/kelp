@@ -42,16 +42,17 @@ import Testing
 
 /// A machine's commands count as its use whoever runs them: a program of those named, naming the machine. bash stands
 /// in for adb (a copy of a system program is killed as it starts, a link takes its target's name).
-@MainActor @Test func aMachinesClientsAreTheProgramsNamingIt() throws {
+@MainActor @Test func aMachinesClientsAreTheProgramsNamingIt() async throws {
     let serial = "emulator-\(Int.random(in: 6000...6998) / 2 * 2)"
+    let wait = #"sleep 30 & trap "kill $!" TERM; wait"#   // a TERM to bash ends its sleep too: nothing left behind
     #expect(Usage.clients(of: serial, programs: ["bash"]) == 0)
-    let own = try Process.run(URL(fileURLWithPath: "/bin/bash"), arguments: ["-c", "sleep 30; true", "-s", serial])
+    let own = try Process.run(URL(fileURLWithPath: "/bin/bash"), arguments: ["-c", wait, "-s", serial])
     defer { own.terminate() }
     #expect(Usage.clients(of: serial, programs: ["bash"]) == 0, "kelp-vm's own (its child) isn't a client")
     // Another's: started from a shell that's gone at once (launchd its parent then), its pid printed.
     let out = Pipe(), sh = Process()
     sh.executableURL = URL(fileURLWithPath: "/bin/sh")
-    sh.arguments = ["-c", "/bin/bash -c 'sleep 30; true' -s \(serial) </dev/null >/dev/null 2>&1 & echo $!"]
+    sh.arguments = ["-c", "/bin/bash -c '\(wait)' -s \(serial) </dev/null >/dev/null 2>&1 & echo $!"]
     sh.standardOutput = out
     try sh.run()
     sh.waitUntilExit()
@@ -61,7 +62,7 @@ import Testing
     var seen = 0   // once it has started
     for _ in 0..<40 where seen == 0 {
         seen = Usage.clients(of: serial, programs: ["bash"])
-        if seen == 0 { usleep(50_000) }
+        if seen == 0 { try await Task.sleep(nanoseconds: 50_000_000) }
     }
     #expect(seen == 1)
     #expect(Usage.clients(of: serial + "0", programs: ["bash"]) == 0 && Usage.clients(of: serial, programs: ["adb"]) == 0)

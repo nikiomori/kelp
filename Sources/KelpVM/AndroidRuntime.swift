@@ -64,7 +64,7 @@ final class AndroidRuntime {
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
         case .start where r.begins:
             lastUse = Date()
-            if r.beginsShown { windowed = true; showAsked = emulator == nil }   // for a boot to come, not one up already
+            if r.beginsShown { windowed = true; showAsked = emulator == nil || saving }   // for a boot to come, not one up already
             wake { _ in }; done(nil)
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
@@ -74,8 +74,9 @@ final class AndroidRuntime {
         case .show:
             lastUse = Date()
             windowed = true
-            if emulator != nil, shown { return wake(done) }   // has its window: up, or coming up (no boot to ask it of)
-            showAsked = true   // has its window: up, or coming up
+            // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
+            if emulator != nil, shown, !saving { return wake(done) }
+            showAsked = true   // a boot is to come (off, headless, or being slept): it has the window
             if emulator == nil { return wake(done) }   // down: it boots with its window
             // Started headless (an agent's run): once it's up, slept and woken again with its window.
             if state == .starting { return ready.append { _ in self.sleep { _ in self.wake(done) } } }
@@ -210,7 +211,7 @@ final class AndroidRuntime {
                 if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter { state = .paused; log("paused") } else {
                     do { _ = try await adb(["emu", "avd", "start"]) } catch {
                         log("couldn't go on after a start: \(error)")
-                        state = .paused   // stopped it is: the next wake tries again, not a start answered running
+                        if state == .running { state = .paused }   // stopped it is: the next wake tries again (not a later state)
                     }
                 }
             }
