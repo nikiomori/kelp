@@ -74,7 +74,7 @@ let package = Package(
         .target(name: "TestSupport", dependencies: ["TestSupportC"], path: "Tests/TestSupport"),
         .testTarget(name: "CoreTests", dependencies: ["Core", "TestSupport"]),
         .testTarget(name: "GitKitTests", dependencies: ["GitKit", "WorkbenchKit", "TestSupport"]),   // diffs as parsed, then as rows
-        .testTarget(name: "KelpVMTests", dependencies: ["KelpVM"]),   // kelp-vm's decisions, apart from Virtualization
+        .testTarget(name: "KelpVMTests", dependencies: ["KelpVM", "TestSupport"]),   // kelp-vm's decisions, apart from Virtualization
         .testTarget(name: "AgentsTests", dependencies: ["Agents", "TestSupport"]),
         .testTarget(name: "AgentDataTests", dependencies: ["AgentData", "TestSupport"]),
         .testTarget(name: "DaemonTests", dependencies: ["Daemon", "Agents", "TestSupport"]),

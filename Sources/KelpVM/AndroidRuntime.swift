@@ -14,9 +14,13 @@ final class AndroidRuntime {
     /// boot gets one (Show asked; whatever ends the emulator before, its own sleep included, leaves that asked).
     private var shown = false, nextBootShown = false
     /// The user has the emulator's window: in use, never paused for idling.
-    private var hasWindow: Bool { emulator != nil && shown }
+    private var hasWindow: Bool { emulator != nil && shown && state != .error }   // not one that failed and is ending
     private var port = 0
     private var pausing = false, bootWhenGone = false
+    /// SIGTERM came: what's under way ends, nothing new starts (a start meanwhile would leave an emulator nobody ends).
+    private var leaving = false, whenSaved: [() -> Void] = []
+    /// How it ends once it has left: the process's exit; a test's own.
+    var exitProcess: () -> Void = { exit(0) }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// A sleep under way, and what wakes it once it has (a wake meanwhile would start a second emulator).
@@ -37,7 +41,7 @@ final class AndroidRuntime {
     func listen() {
         // Its lock is held already (main.swift).
         sources.append(Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
-        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })
+        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })   // SIGTERM
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
 
@@ -88,18 +92,17 @@ final class AndroidRuntime {
 
     /// SIGTERM (a logout, an install): asleep, then gone; never with an emulator left booting or saving, which would hold
     /// its AVD with nobody to end it. One booting is slept once it's up; one being saved, once it's saved.
-    private func leave() {
+    func leave() {   // internal: the tests drive it
+        leaving = true
         if state == .starting { return ready.append { [weak self] _ in self?.leave() } }
-        if saving {
-            Task { while saving { try await Task.sleep(nanoseconds: 250_000_000) }; leave() }
-            return
-        }
-        sleep { _ in exit(0) }
+        if saving { return whenSaved.append { [weak self] in self?.leave() } }
+        sleep { [weak self] _ in self?.exitProcess() }
     }
 
     // MARK: the emulator
 
     private func wake(_ done: @escaping (String?) -> Void) {
+        if leaving { return done("Kelp's machine helper is stopping: start it again in a moment.") }
         if saving { return afterSave.append(done) }
         switch state {
         case .running: done(nil)
@@ -120,7 +123,10 @@ final class AndroidRuntime {
     }
 
     private func boot() {
-        guard let exe = AndroidSDK.emulator else { return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME.")) }
+        guard let exe = AndroidSDK.emulator else {
+            nextBootShown = false   // no boot to have it: a later one isn't asked of by a Show that was told this failed
+            return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME."))
+        }
         state = .starting
         port = Self.freePort()
         let p = Process()
@@ -145,7 +151,10 @@ final class AndroidRuntime {
                 }
             }
         }
-        do { try p.run() } catch { return started(error) }
+        do { try p.run() } catch {
+            nextBootShown = false
+            return started(error)
+        }
         emulator = p
         shown = nextBootShown
         nextBootShown = false
@@ -169,7 +178,8 @@ final class AndroidRuntime {
         if let error {
             log("start failed: \(error.localizedDescription)")
             emulator?.terminate()
-            nextBootShown = false   // asked of this boot: an agent's retry later is headless, as any boot Show didn't ask
+            // One wedged (why it didn't finish booting) may not heed SIGTERM: killed after a while, so a retry can boot.
+            if let pid = emulator?.processIdentifier { Subprocess.killLater([pid], after: 10) }
         }
         state = error == nil ? .running : .error
         lastUse = Date()
@@ -191,7 +201,9 @@ final class AndroidRuntime {
             saving = false
             log("asleep")
             let wanted = afterSave; afterSave = []
-            if !wanted.isEmpty { wake { e in wanted.forEach { $0(e) } } }
+            if !wanted.isEmpty { wake { e in wanted.forEach { $0(e) } } }   // told it's stopping, when it's leaving
+            let saved = whenSaved; whenSaved = []
+            saved.forEach { $0() }
             done(nil)
         }
     }
