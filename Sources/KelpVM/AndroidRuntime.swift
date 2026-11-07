@@ -53,7 +53,7 @@ final class AndroidRuntime {
         close(fd)
     }
 
-    private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+    func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it
         switch r.op {
         case .status: done(nil)
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
@@ -119,7 +119,9 @@ final class AndroidRuntime {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
                     self.emulator = nil
-                    self.windowed = false   // its window went with it (closed, or quit): the next start is headless again
+                    // Its window went with it (closed, or quit): the next start is headless again. Not so a sleep's (Show's
+                    // own, from a headless boot to a windowed one), which wakes it as it was asked.
+                    if !self.saving { self.windowed = false }
                     if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
                     if self.state != .sleeping { self.state = .off }
                 }
@@ -193,7 +195,13 @@ final class AndroidRuntime {
     private func tick() {
         let idle = Date().timeIntervalSince(lastUse)
         if state == .running, !windowed, idle > Runtime.pauseAfter {
-            Task { if (try? await adb(["emu", "avd", "stop"])) != nil, state == .running { state = .paused; log("paused") } }
+            Task {
+                guard (try? await adb(["emu", "avd", "stop"])) != nil else { return }
+                // A start while it stopped is answered running: it goes on, not paused under that caller's command.
+                if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter { state = .paused; log("paused") } else {
+                    do { _ = try await adb(["emu", "avd", "start"]) } catch { log("couldn't go on after a start: \(error)") }
+                }
+            }
         } else if state == .paused, idle > Runtime.sleepAfter {
             sleep { _ in }
         }
