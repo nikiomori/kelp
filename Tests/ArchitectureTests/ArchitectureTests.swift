@@ -1,8 +1,9 @@
 import Foundation
 import Testing
 
-// The rules in docs/architecture.md, read from the sources. Each number is a ceiling that only goes down: when a change brings a
-// count under it, lower it to the new count in the same commit, so nothing creeps back.
+// The rules in docs/architecture.md, read from the sources. Each number is a ceiling: when a change brings a count under it,
+// lower it to the new count in the same commit, so nothing creeps back. The `try?` ones are exact (lowered or the test fails).
+// KelpKit's `package` count is a budget, not a ratchet: it rises with a feature that needs more of the shell, said beside it.
 
 private let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
