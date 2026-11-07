@@ -39,12 +39,17 @@ extension ScriptsMenu {
     /// Runs whose tab was put away in the Run menu: they keep running, the menu shows them (`run.hidden` in UIState, so a
     /// restarted Kelp doesn't bring their tabs back).
     /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
-    var shown: [Session] { app.sessions.filter { !isHidden($0.id) } }
+    var shown: [Session] {
+        let hidden = state.hidden.union(app.uiState.strings("run.hidden")), inTab = Set(app.uiState.strings(Session.inTabKey))
+        return app.sessions.filter { !hidden.contains($0.id) && !isOnLine($0, inTab: inTab) }
+    }
     func isHidden(_ sid: String) -> Bool {
-        state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid) || app.session(sid).map(isOnLine) == true
+        state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid) || app.session(sid).map { isOnLine($0) } == true
     }
     /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
-    func isOnLine(_ s: Session) -> Bool { app.sessions.owner(of: s) != nil && !app.uiState.strings(Session.inTabKey).contains(s.id) }
+    func isOnLine(_ s: Session, inTab: Set<String>? = nil) -> Bool {
+        app.sessions.owner(of: s) != nil && !(inTab ?? Set(app.uiState.strings(Session.inTabKey))).contains(s.id)
+    }
     /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).
     package func openInTab(_ sid: String) {
         let live = app.uiState.strings(Session.inTabKey).filter { app.session($0).map { $0.status != .exited } ?? false }
@@ -338,10 +343,13 @@ extension ScriptsMenu {
     /// A symbol in colour (a menu draws a template image in its text colour); a circled one white on a disc of it — one
     /// colour would paint its mark into the disc.
     static func tinted(_ name: String, _ color: NSColor) -> NSImage? {
+        let key = "\(name)\u{0}\(color)" as NSString   // the same image each time, as NSImage.symbol
+        if let known = symbolCache.object(forKey: key) { return known }
         let colors = name.hasSuffix(".circle.fill") ? [.white, color] : [color]
         let look = NSImage.SymbolConfiguration.chrome().applying(.init(paletteColors: colors))
         let i = NSImage.symbol(name, "").withSymbolConfiguration(look)
         i?.isTemplate = false
+        if let i { symbolCache.setObject(i, forKey: key) }
         return i
     }
 

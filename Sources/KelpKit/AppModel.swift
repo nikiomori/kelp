@@ -47,7 +47,10 @@ package final class AppModel {
     private(set) package var connections = 0
     package var repos: [Repo] = []
     package var worktrees: [Worktree] = []
-    package var sessions: [Session] = []
+    package var sessions: [Session] = [] { didSet { sessionAt = nil } }
+    /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
+    /// and tab on every session event, and a scan per lookup (copying each 45-field record) took half the main thread.
+    @ObservationIgnored private var sessionAt: [String: Int]?
     /// How full each agent's conversation is, pushed when its status changes and while it works (`WatchTopic.context`).
     package var contextUsage: [String: SessionContextWindow.Usage] = [:]
     /// The commands each watched agent ran (`WatchTopic.commands`), by session id.
@@ -504,7 +507,11 @@ package final class AppModel {
 
     package func worktree(_ id: String?) -> Worktree? { worktrees.first { $0.id == id } }
     package func repo(_ id: String?) -> Repo? { repos.first { $0.id == id } }
-    package func session(_ id: String) -> Session? { sessions.first { $0.id == id } }
+    package func session(_ id: String) -> Session? {
+        let all = sessions   // read through the observed property: a `track` that asks follows `sessions`
+        if sessionAt == nil { sessionAt = Dictionary(all.indices.map { (all[$0].id, $0) }) { first, _ in first } }
+        return sessionAt?[id].map { all[$0] }
+    }
 
     /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same
     /// name ("infra · beet"), so the two tell apart; the one on this Mac and every unique name stay as they are.

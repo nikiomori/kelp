@@ -81,3 +81,18 @@ extension OneAtATime {
     #expect(CommandRow.status(exit: 143) == .exited)
     #expect(CommandRow.status(exit: 1) == .error && CommandRow.status(exit: nil) == .error)
 }
+
+/// `session(_:)` answers from an index made after each change of `sessions`: a record replaced, added or removed is
+/// what the next lookup finds, never the one before it.
+@MainActor @Test func aSessionLookupFollowsEveryChange() {
+    let m = AppModel(builtins: [])
+    var a = Session(id: "a", cwd: "/", command: "x"), b = Session(id: "b", cwd: "/", command: "y")
+    m.sessions = [a, b]
+    #expect(m.session("b")?.command == "y" && m.session("zz") == nil)
+    a.title = "renamed"; m.sessions[0] = a
+    #expect(m.session("a")?.title == "renamed")
+    m.sessions.remove(at: 0)
+    #expect(m.session("a") == nil && m.session("b")?.command == "y")
+    b.command = "z"; m.sessions.append(Session(id: "c", cwd: "/", command: "c")); m.upsert(b)
+    #expect(m.session("b")?.command == "z" && m.session("c")?.command == "c")
+}
