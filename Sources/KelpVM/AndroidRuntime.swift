@@ -16,7 +16,7 @@ final class AndroidRuntime {
     /// The user has the emulator's window: in use, never paused for idling.
     private var hasWindow: Bool { emulator != nil && shown }
     private var port = 0
-    private var pausing = false
+    private var pausing = false, bootWhenGone = false
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// A sleep under way, and what wakes it once it has (a wake meanwhile would start a second emulator).
@@ -37,7 +37,7 @@ final class AndroidRuntime {
     func listen() {
         // Its lock is held already (main.swift).
         sources.append(Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
-        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.sleep { _ in exit(0) } })
+        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
 
@@ -86,6 +86,17 @@ final class AndroidRuntime {
         }
     }
 
+    /// SIGTERM (a logout, an install): asleep, then gone; never with an emulator left booting or saving, which would hold
+    /// its AVD with nobody to end it. One booting is slept once it's up; one being saved, once it's saved.
+    private func leave() {
+        if state == .starting { return ready.append { [weak self] _ in self?.leave() } }
+        if saving {
+            Task { while saving { try await Task.sleep(nanoseconds: 250_000_000) }; leave() }
+            return
+        }
+        sleep { _ in exit(0) }
+    }
+
     // MARK: the emulator
 
     private func wake(_ done: @escaping (String?) -> Void) {
@@ -103,7 +114,8 @@ final class AndroidRuntime {
             }
         case .off, .sleeping, .error, .creating:
             ready.append(done)
-            boot()
+            // One that failed may still be ending (`started` terminated it): a second on its AVD would fail on the lock.
+            if emulator != nil { bootWhenGone = true } else { boot() }
         }
     }
 
@@ -127,6 +139,7 @@ final class AndroidRuntime {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
                     self.emulator = nil   // its window went with it (closed, slept, quit): the next boot has one only if Show asks
+                    if self.bootWhenGone { self.bootWhenGone = false; self.state = .off; return self.boot() }
                     if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
                     if self.state != .sleeping { self.state = .off }
                 }
@@ -156,6 +169,7 @@ final class AndroidRuntime {
         if let error {
             log("start failed: \(error.localizedDescription)")
             emulator?.terminate()
+            nextBootShown = false   // asked of this boot: an agent's retry later is headless, as any boot Show didn't ask
         }
         state = error == nil ? .running : .error
         lastUse = Date()
