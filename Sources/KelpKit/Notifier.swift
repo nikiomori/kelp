@@ -47,13 +47,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         } changed: { [weak self] _ in
             self?.updateBadge()
         }
-        // For as long as Kelp runs: what shows the limits comes and goes (a hidden sidebar), and their warnings mustn't.
+        // For as long as Kelp runs: what shows the limits comes and goes (a hidden sidebar), and their warnings mustn't
+        // (the built-in that gives them hears each reading, `Contributions.pushed`), nor the Dock's usage face.
         app.watch(.limits)
-        track(owner: self) { [app] in
-            app.latest(LimitsEvent.self)?.usage
-        } changed: { [weak self] u in
-            self?.limitsChanged(u)
-        }
         // Typing: a key in one of Kelp's windows while it is the key one (a bare modifier isn't a keyDown).
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             if e.window?.isKeyWindow == true { self?.lastKey = Date() }
@@ -179,121 +175,20 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         NSApp.requestUserAttention(.informationalRequest)
     }
 
-    private var limitAlerts = LimitAlerts()
-    private var forecastTold = Set<String>()   // limits already warned about, until they stop filling faster than they reset
-    private func limitsChanged(_ usage: UsageGet.Result?) {
-        guard let usage else { return }
-        for a in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
-            let name = app.catalog.all.first { $0.id == a.agent }?.name ?? a.agent
-            let content = UNMutableNotificationContent()
-            content.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
-            content.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
-            content.sound = a.level >= 95 ? .default : nil
-            alert { [self] in
-                center?.add(
-                    UNNotificationRequest(
-                        identifier: "limit-\(a.agent)-\(a.kind)-\(a.level)", content: content, trigger: nil)
-                )
-                if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
-            }
-        }
-        forecastChanged(usage)
-        resetsChanged(usage)
-    }
-
-    private var resets = LimitResets()
-    private var resetWaits: [String: Task<Void, Never>] = [:]
-    private func resetsChanged(_ u: UsageGet.Result) {
-        for agent in resets.update(LimitAlerts.readings(u)) {
-            guard let until = resets.full[agent]?.until else { continue }
-            resetWaits[agent]?.cancel()
-            resetWaits[agent] = Task { [weak self] in
-                // A minute past it: a turn that goes on by itself at the reset has started by then. The clock counts sleep.
-                do {
-                    try await Task.sleep(until: .now + .seconds(until.timeIntervalSinceNow + 60), clock: .continuous)
-                } catch { return }
-                self?.limitReset(agent)
-            }
-        }
-    }
-
-    /// A limit that stopped sessions reset: a banner whose Continue tells them to go on.
-    private func limitReset(_ agent: String) {
-        resetWaits[agent] = nil
-        guard let full = resets.end(agent) else { return }
-        let app = self.app
-        let stopped = LimitResets.stopped(app.sessions, agent: agent, full).filter { !app.isMuted($0) }
-        guard let first = stopped.first else { return }
-        let ids = stopped.map(\.id)
-        let content = UNMutableNotificationContent()
-        let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
-        content.title = String(localized: "\(name): the limit has reset")
-        content.body = String(
-            localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
-        content.sound = .default
-        content.categoryIdentifier = "limitReset"
-        content.userInfo = ["session": first.id, "sessions": ids]
+    /// A built-in's notification (`AppModel.notifyUser`): now, or once typing stops; a banner in Kelp when they're off.
+    func postAlert(
+        _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)?
+    ) {
         alert { [self] in
-            center?.add(UNNotificationRequest(identifier: "reset-\(agent)", content: content, trigger: nil))
-            if !allowed, NSApp.isActive {
-                Banner.show(
-                    content.body, action: (String(localized: "Continue"), { Self.goOn(app, ids) }), title: content.title
-                )
-            }
+            center?.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+            if !allowed, NSApp.isActive { Banner.show(content.body, action: action, title: content.title) }
         }
     }
 
     /// "continue" to each that still stands where the limit left it (one the user went on with meanwhile isn't told twice).
-    private static func goOn(_ app: AppModel, _ ids: [String]) {
+    static func goOn(_ app: AppModel, _ ids: [String]) {
         let still = ids.filter { id in app.session(id).map { [.done, .error].contains($0.status) } ?? false }
         Task { for id in still { _ = await app.call(SessionSend(id: id, text: "continue", enter: true)) } }
-    }
-
-    private func forecastChanged(_ u: UsageGet.Result) {
-        guard app.settings.usageAlertAt != nil else { return }
-        var read = Set<String>()
-        for (agent, l, resetAt) in LimitAlerts.readings(u) {
-            let key = LimitForecast.key(agent, l.kind), window = UsageView.window(l.kind)
-            read.insert(key)
-            // Told again only once its pace eases to 90 % at the reset: a pace that wobbles around full isn't news each read.
-            if app.forecast.atReset(key, resetAt: resetAt, window: window).map({ $0 <= 90 }) ?? true {
-                forecastTold.remove(key)
-            }
-            unusedNearReset(agent, l, resetAt: resetAt, window: window)
-            guard let eta = app.forecast.warning(key, resetAt: resetAt, window: window) else { continue }
-            guard forecastTold.insert(key).inserted else { continue }
-            let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
-            let content = UNMutableNotificationContent()
-            content.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
-            content.body = String(localized: "At this pace it fills before it resets.")
-            alert { [self] in
-                center?.add(UNNotificationRequest(identifier: "forecast-\(key)", content: content, trigger: nil))
-                if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
-            }
-        }
-        forecastTold.formIntersection(read)
-    }
-
-    /// A week (or month) that resets within a day with over half left, once per window: kept across launches, since the
-    /// day it holds is long enough to see Kelp quit and open again.
-    private func unusedNearReset(_ agent: String, _ l: UsageGet.Limit, resetAt: Date?, window: TimeInterval?) {
-        guard LimitForecast.unusedNearReset(percent: l.percent, resetAt: resetAt, window: window), let resetAt else {
-            return
-        }
-        let defaults = UserDefaults.standard, saved = "notifications.unusedTold", key = LimitForecast.key(agent, l.kind)
-        var told = defaults.dictionary(forKey: saved) as? [String: Double] ?? [:]
-        let now = Date().timeIntervalSince1970
-        guard (told[key].map { now - $0 > 86400 }) ?? true else { return }
-        told[key] = now
-        defaults.set(told.filter { now - $0.value <= 86400 }, forKey: saved)
-        let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
-        content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
-        alert { [self] in
-            center?.add(UNNotificationRequest(identifier: "unused-\(key)", content: content, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
-        }
     }
 
     /// macOS can switch Kelp's banners off (System Settings › Notifications): say so once, instead of failing silently.
@@ -605,4 +500,17 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     {
         [.banner, .sound]
     }
+}
+
+extension AppModel {
+    /// A built-in's notification, under the shell's rules: held while you type, and a banner in Kelp (with `action` as
+    /// its button) when macOS has them turned off. `id` is its own: one added again under the same id may show silently.
+    package func notifyUser(
+        _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)? = nil
+    ) {
+        notifier?.postAlert(id, content, action: action)
+    }
+
+    /// The Continue of a "limitReset" notification: "continue" to each of `ids` that still stands where the limit left it.
+    package func goOn(_ ids: [String]) { Notifier.goOn(self, ids) }
 }

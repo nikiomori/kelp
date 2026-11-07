@@ -13,7 +13,7 @@ extension NSMenu {
     }
 
     /// The choices in a submenu of their own.
-    func addChoiceMenu(_ key: String, _ app: AppModel, title: String, tryOn: Bool = true) {
+    package func addChoiceMenu(_ key: String, _ app: AppModel, title: String, tryOn: Bool = true) {
         let list = NSMenu()
         list.addChoiceItems(key, app, tryOn: tryOn)
         setSubmenu(list, for: addItem(withTitle: title, action: nil, keyEquivalent: ""))

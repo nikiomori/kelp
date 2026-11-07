@@ -80,7 +80,7 @@ final class DockIcon {
         switch app.settings.string("agents.dockIcon") {
         case "usage":
             guard let limits = app.latest(LimitsEvent.self)?.usage,
-                let fullest = LimitAlerts.readings(limits).map(\.limit.percent).max()
+                let fullest = limits.fresh().map(\.limit.percent).max()
             else { return .icon }
             return usage(fullest, warnAt: app.settings.usageAlertAt)
         case "agents":

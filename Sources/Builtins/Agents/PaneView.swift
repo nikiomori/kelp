@@ -259,7 +259,7 @@ final class PaneView: NSView {
     func update(_ s: Session) {
         settle()
         guard limitStrip == nil, s.limitHit != nil else { return }
-        let strip = AgentActions(app).limitStrip(s.id)
+        let strip = LimitStrip(app: app, session: s.id)   // it shows and hides itself
         limitStrip = strip
         strip.translatesAutoresizingMaskIntoConstraints = false
         addSubview(strip)

@@ -162,7 +162,8 @@ package struct SettingsSection: Identifiable {
         custom: (@MainActor () -> AnyView)? = nil,
         keywords: [String] = [],
         fillsPane: Bool = false,
-        order: Int = 100
+        order: Int = 100,
+        previews: [String: @MainActor () -> AnyView] = [:]
     ) {
         self.id = id
         self.title = title
@@ -172,6 +173,7 @@ package struct SettingsSection: Identifiable {
         self.keywords = keywords
         self.fillsPane = fillsPane
         self.order = order
+        self.previews = previews
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
@@ -193,6 +195,8 @@ package struct SettingsSection: Identifiable {
     }
     /// Sections of its own under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).
     var custom: (@MainActor () -> AnyView)?
+    /// Over a group of rows (by its heading), what they change, as it is now (`SettingPreview`).
+    var previews: [String: @MainActor () -> AnyView]
 }
 
 /// A file icon theme in VS Code's format (see IconTheme).
@@ -293,11 +297,14 @@ package struct SessionMark: Equatable {
 }
 
 /// A block of a built-in's own in the sidebar, under the projects (Machines): its view, made when the sidebar is.
+/// `foot`: at the very bottom, under every other block (the plan limits).
 package struct SidebarSection {
     package let id: String
+    let foot: Bool
     package let make: @MainActor () -> NSView
-    package init(id: String, make: @escaping @MainActor () -> NSView) {
+    package init(id: String, foot: Bool = false, make: @escaping @MainActor () -> NSView) {
         self.id = id
+        self.foot = foot
         self.make = make
     }
 }
@@ -321,6 +328,10 @@ package struct Contributions {
     package var branch: BranchActions?
     /// The CI mark on folders' rows and the branch chip: one built-in's (the first that has it); none, and no CI shows.
     package var ci: FolderCI?
+    /// Each reading the daemon pushes, as it lands (not only the latest: a limit's pace takes every one).
+    package var pushed: [@MainActor (any Pushed) -> Void] = []
+    /// What's said beside each agent where agents are chosen, by agent id (its plan's fullest limit): one built-in's.
+    package var planNotes: (@MainActor () -> [String: PlanNote])?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -405,6 +416,8 @@ package final class ExtensionRegistry {
             merged.sessionMarks += c.sessionMarks
             merged.branch = merged.branch ?? c.branch
             merged.ci = merged.ci ?? c.ci
+            merged.pushed += c.pushed
+            merged.planNotes = merged.planNotes ?? c.planNotes
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))

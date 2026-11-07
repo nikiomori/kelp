@@ -12,13 +12,11 @@ struct LimitAlerts {
     private var seeded = false
 
     /// Every limit the agents report now, as the sidebar's rings show them, with when it resets if that can be told.
-    /// Not the ones the sidebar dims: a reading from more than half an hour ago says nothing about now.
+    /// Not the ones the sidebar dims (`fresh`): a reading from more than half an hour ago says nothing about now.
     static func readings(_ u: UsageGet.Result, now: Date = Date()) -> [(
         agent: String, limit: UsageGet.Limit, resetAt: Date?
     )] {
-        u.readings(now: now).filter { $0.readAt.map { now.timeIntervalSince($0) <= 1800 } ?? true }.map {
-            ($0.agent, $0.limit, $0.resetAt)
-        }
+        u.fresh(now: now).map { ($0.agent, $0.limit, $0.resetAt) }
     }
 
     /// The first reading only sets the baseline: what was already full when Kelp opened isn't news.

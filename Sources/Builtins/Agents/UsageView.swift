@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import SwiftUI
 
 /// How much of the agents' plans is used: the fullest limit of all (or each agent's fullest, by setting) with the agent's
@@ -138,7 +139,7 @@ struct UsageView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(cards) { card in
                             if card.id != cards.first?.id { Divider() }
-                            Details(row: card, forecast: app.forecast, pace: pace)
+                            Details(row: card, forecast: LimitWatch.of(app).forecast, pace: pace)
                         }
                     }
                 }
@@ -345,13 +346,13 @@ struct UsageView: View {
 extension AppModel {
     /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read: the Usage tab's
     /// Plan column (kept coming with `watchingPlans`).
-    package var plans:
+    var plans:
         [String: (
             limits: [(label: String, used: Double, resets: String?)], readAt: Date?,
             note: (text: String, color: NSColor)?
         )]
     {
-        let notes = planNotes
+        let notes = UsageView.notes(self)
         return Dictionary(
             UsageView.rows(self).map { row in
                 let limits = row.lines.sorted { $0.used > $1.used }.map {
@@ -360,12 +361,15 @@ extension AppModel {
                 return (row.id, (limits, row.readAt, notes[row.id].map { ($0.text, $0.color) }))
             }, uniquingKeysWith: { a, _ in a })
     }
+}
 
-    /// What's said beside an agent where agents are chosen; nothing once plan limits are turned off.
-    var planNotes: [String: PlanNote] {
-        guard settings.bool("usage.readPlans") != false else { return [:] }
+extension UsageView {
+    /// What's said beside an agent where agents are chosen (`Contributions.planNotes`); nothing once plan limits are
+    /// turned off.
+    static func notes(_ app: AppModel) -> [String: PlanNote] {
+        guard app.settings.bool("usage.readPlans") != false else { return [:] }
         return Dictionary(
-            UsageView.rows(self).compactMap { row in
+            rows(app).compactMap { row in
                 PlanNote(
                     fullest: row.main.map { (label: $0.label, used: $0.used, resets: $0.resets) }, readAt: row.readAt
                 )
@@ -376,7 +380,7 @@ extension AppModel {
 
 extension View {
     /// Keeps the agents' plan limits coming while this is shown (`AppModel.plans`).
-    package func watchingPlans(_ app: AppModel) -> some View {
+    func watchingPlans(_ app: AppModel) -> some View {
         onAppear { app.watch(.limits) }.onDisappear { app.unwatch(.limits) }
     }
 }
@@ -406,5 +410,15 @@ final class UsageFooter: NSHostingView<UsageView> {
         }
         menu.addSettingsLink(String(localized: "Limits Settings…"), section: "agents", group: "Plan limits", app)
         return menu
+    }
+}
+
+/// The sidebar's foot as it is, with this Mac's real readings: the rows below change it as they're switched. Without the
+/// line over it, which is the sidebar's edge, not the foot's; as wide as the row, and on the card as its rows are: a grey
+/// plate of its own read as a box inside the box.
+struct LimitsSample: View {
+    @Environment(AppModel.self) private var app
+    var body: some View {
+        UsageView(app: app, ruled: false).frame(maxWidth: .infinity)
     }
 }

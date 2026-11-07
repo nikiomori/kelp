@@ -38,7 +38,7 @@ enum Mutes {
 }
 
 extension AppModel {
-    func isMuted(_ s: Session) -> Bool {
+    package func isMuted(_ s: Session) -> Bool {
         Mutes.covers(arrangement.mutes, [s.id, s.worktreeId, worktree(s.worktreeId)?.repoId])
     }
 

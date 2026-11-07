@@ -42,7 +42,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     let outline = SidebarOutline()
     private let scroll = SidebarScrollView()
-    private var addTrailing = NSLayoutConstraint(), footerTrailing = NSLayoutConstraint()
+    private var addTrailing = NSLayoutConstraint(), sectionsTrailing = NSLayoutConstraint()
     /// Where the built-ins' blocks go (`Contributions.sidebarSections`).
     private weak var sections: NSStackView?
     /// Room at the right that is the sidebar's own: the floater's margin inside its border (8 pt); docked, 0 (the gap
@@ -54,7 +54,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             scroll.contentInsets.right = gutter
             scroll.scrollerInsets.right = -gutter
             addTrailing.constant = -6 - gutter
-            footerTrailing.constant = -gutter
+            sectionsTrailing.constant = -gutter
         }
     }
     /// Rows on their way to folded (SidebarFolding): the rows under them have no height and the card ends at them, while
@@ -122,8 +122,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             MainActor.assumeIsolated { self?.keepOpenInView() }   // queue: .main
         }
 
-        let footer = UsageFooter.make(app)   // agent limits, when any agent reports them
-        // The built-ins' own blocks (Machines), under the projects; made again when one is turned on or off.
+        // The built-ins' own blocks (Machines, the plan limits at the foot), under the projects; made again when one is
+        // turned on or off.
         let machines = NSStackView()
         machines.orientation = .vertical
         machines.spacing = 0
@@ -140,12 +140,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             tip: String(localized: "Add a project: a folder, a clone or one over SSH"))
         add.target = self
         add.action = #selector(addMenu(_:))
-        for part in [add, scroll, machines, footer] as [NSView] {
+        for part in [add, scroll, machines] as [NSView] {
             part.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(part)
         }
         addTrailing = add.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6)
-        footerTrailing = footer.trailingAnchor.constraint(equalTo: root.trailingAnchor)
+        sectionsTrailing = machines.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         NSLayoutConstraint.activate([
             // Under the traffic lights, in the window's second row: level with the tab strips and the inspector's panel icons.
             add.centerYAnchor.constraint(equalTo: root.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
@@ -154,11 +154,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: machines.topAnchor),
-            machines.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            machines.trailingAnchor.constraint(equalTo: footer.trailingAnchor),
-            machines.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            footer.leadingAnchor.constraint(equalTo: root.leadingAnchor), footerTrailing,
-            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor)
+            machines.leadingAnchor.constraint(equalTo: root.leadingAnchor), sectionsTrailing,
+            machines.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ])
         view = root
         placeSummary(over: scroll, beside: add)
@@ -441,11 +438,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         ])
     }
 
-    /// The built-ins' sidebar blocks as the registry has them now: each made afresh, in their order.
+    /// The built-ins' sidebar blocks as the registry has them now: each made afresh, in their order, the feet last.
     private func makeSections() {
         guard let sections else { return }
         sections.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for section in app.extensions.all.sidebarSections {
+        let all = app.extensions.all.sidebarSections
+        for section in all.filter({ !$0.foot }) + all.filter(\.foot) {
             let block = section.make()
             sections.addArrangedSubview(block)
             block.widthAnchor.constraint(equalTo: sections.widthAnchor).isActive = true

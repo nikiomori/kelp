@@ -2,7 +2,7 @@ import Core
 import Foundation
 import Testing
 
-@testable import KelpKit
+@testable import BuiltinAgents
 
 @Test func codexWindowsAreNamedByTheirLength() {
     #expect(UsageGet.Codex.kind(minutes: 300, primary: true) == "session")

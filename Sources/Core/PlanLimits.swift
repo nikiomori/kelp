@@ -119,4 +119,9 @@ extension UsageGet.Result {
         }
         return out
     }
+
+    /// The readings that say something about now: not the ones the sidebar dims, read more than half an hour ago.
+    public func fresh(now: Date = Date()) -> [Reading] {
+        readings(now: now).filter { $0.readAt.map { now.timeIntervalSince($0) <= 1800 } ?? true }
+    }
 }

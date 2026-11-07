@@ -4,9 +4,8 @@ Kelp is a native shell around two things: a **daemon** that owns everything stat
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
 command palette and settings — and, until they move into built-ins of their own, a few features
-that still live in the shell (KelpKit): the plan limits and usage, the server
-cards and the agent strip. The review rubric (`docs/review-rubric.md`,
-Architecture 5) counts them.
+that still live in the shell (KelpKit): the server cards, the run menu and the agent strip. The
+review rubric (`docs/review-rubric.md`, Architecture 5) counts them.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
@@ -76,10 +75,12 @@ Architecture 5) counts them.
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
 | tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`) |
-| sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on |
+| sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on; a `foot` one under all the rest (the plan limits) |
 | sessionMarks (built-ins only) | a mark on an agent's row for where it runs something of the built-in's (a machine) |
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
 | ci (built-ins only) | a folder's CI mark beside its sidebar row, in ⌃Tab and on the branch chip: what it says, where a click goes, the chip menu's CI items (Git's) |
+| pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |
+| planNotes (built-ins only) | the note beside each agent where agents are chosen ("92 % · 3:40pm"), in the "+" menu and the empty workspace |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
 or "the checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
@@ -160,8 +161,8 @@ daemon reads a topic once for all its watchers, only while someone watches, and 
 only when it changed; the app counts its watchers (`AppModel.watch`, `Watched`) and keeps the latest of each kind in a
 store of its own (`app.latest(CIEvent.self, workspace)`, by the event's `Pushed` conformance in KelpKit: its key, the
 topic that forgets it), so a reader re-renders for its kind only and a new kind touches no file of the shell; what the
-shell does with each new one beside showing it (the limits forecast, a parked agent's failed run) is `AppModel.landed`,
-for that one reading. Watching what's watched again (`watchAgain`) reads it now: after a commit, a push, a machine made or started — the one source, not a copy patched.
+shell does with each new one beside showing it (a parked agent's failed run) is `AppModel.landed`, for that one
+reading, and a built-in hears each one there too (`Contributions.pushed`: the Agents built-in's limits forecast). Watching what's watched again (`watchAgain`) reads it now: after a commit, a push, a machine made or started — the one source, not a copy patched.
 Clocks left in the app are its own (relative times, "still loading" hints, reconnecting) — ArchitectureTests lists them.
 A project's files are the daemon's too: the Files panel's tree is the pushed list, and its moves, trashes, copies and
 new files are `files.*` calls (a remote project's refused there, with why). What the app still reads or checks itself

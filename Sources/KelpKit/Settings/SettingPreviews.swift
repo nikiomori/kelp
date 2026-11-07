@@ -3,8 +3,9 @@ import DesignKit
 import EditorKit
 import SwiftUI
 
-/// Over a group of rows, what they change, drawn with the settings as they are: the terminal, the editor, the sidebar's
-/// plan limits. It follows each change at once, so a row is tried by looking up.
+/// Over a group of rows, what they change, drawn with the settings as they are: the terminal, the editor (a built-in's own,
+/// the sidebar's plan limits, come from its section: `SettingsSection.previews`). It follows each change at once, so a
+/// row is tried by looking up.
 struct SettingPreview: View {
     let section: String
     let group: String?
@@ -19,7 +20,6 @@ struct SettingPreview: View {
             .overlay(
                 RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(
                     Color.primary.opacity(0.12)))
-        case ("agents", "Plan limits"): LimitsSample()
         default: EmptyView()
         }
     }
@@ -104,15 +104,5 @@ private struct EditorSample: NSViewRepresentable {
         editor.indentGuides = settings.bool("editor.indentGuides") == true
         // A moment later: ThemeManager applies a settings change after the views that read it are told.
         DispatchQueue.main.async { editor.refreshAppearance() }
-    }
-}
-
-/// The sidebar's foot as it is, with this Mac's real readings: the rows below change it as they're switched. Without the
-/// line over it, which is the sidebar's edge, not the foot's; as wide as the row, and on the card as its rows are: a grey
-/// plate of its own read as a box inside the box.
-private struct LimitsSample: View {
-    @Environment(AppModel.self) private var app
-    var body: some View {
-        UsageView(app: app, ruled: false).frame(maxWidth: .infinity)
     }
 }

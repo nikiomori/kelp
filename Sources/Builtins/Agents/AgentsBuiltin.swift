@@ -120,7 +120,8 @@ extension Builtins {
                         help:
                             "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.",
                         options: ["auto", "on", "off"], group: "Claude Code skills")
-                ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30),
+                ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30,
+                previews: ["Plan limits": { AnyView(LimitsSample()) }]),
             SettingsSection(
                 id: "notifications", title: "Notifications", icon: "bell",
                 specs: [
@@ -199,6 +200,11 @@ extension Builtins {
                     )
                 ], order: 60)
         ]
+        // The plan limits: the sidebar's foot, each reading as it lands (their pace, their notifications), and the note
+        // beside each agent where agents are chosen.
+        contributions.sidebarSections = [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }]
+        contributions.pushed = [{ LimitWatch.of(app).landed($0) }]
+        contributions.planNotes = { UsageView.notes(app) }
         contributions.commands = [
             CommandSpec(id: "agents.new", title: "New Agent", key: "opt+cmd+t") { args in
                 editor(app)?.newAgent(args["agent"]?.string, prompt: args["prompt"]?.string)

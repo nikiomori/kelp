@@ -83,7 +83,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         #expect(!modules.contains { $0 != own && line.contains("\"\($0)\"") }, "depends on a built-in: \(line)")
     }
     // The window's own parts stay the shell's: nothing in them is declared for a built-in to reach.
-    let shared = ["UsageView.swift", "RowBadges.swift"]   // the sidebar's, shown by the Agents built-in too
+    let shared = ["RowBadges.swift"]   // the sidebar's, shown by the Agents built-in too
     let windowParts =
         sources(["Sources/KelpKit/Sidebar", "Sources/KelpKit/Inspector"]).filter {
             !shared.contains(($0.path as NSString).lastPathComponent)
@@ -106,9 +106,11 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // Counted whole since 2026-11-08 (334; the line-start count said 286). Raised only with a reason beside it: +8 for
     // the branch chip's actions (`BranchActions`) and the folder and CI a workspace shows, so Git's sync popover is Git's.
     // +11 for the CI mark on rows and the chip (`FolderCI`, the folders, a page, a panel's role, the menu's choices), so
-    // the CI marks are Git's.
-    #expect(declared <= 353, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 353, "fewer now (\(declared)): lower the ceiling")
+    // the CI marks are Git's. +13 so the plan limits are the Agents built-in's: each landed reading and the plan notes
+    // (`pushed`, `planNotes`), a notification under the shell's rules and its Continue, and what the foot, the strip and
+    // the warnings read of the shell (`PlanNote`, `LimitStop`, mutes, the warning level, the foot's menu, a hand-off).
+    #expect(declared <= 366, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 366, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -342,7 +344,9 @@ private func codeOnly(_ s: String) -> String {
             "connecting: waiting for the socket, retries and backoff; a look every 30 s for a daemon that hung, which can't push that",
         "KelpKit/Notifier.swift":
             "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later",
-        "KelpKit/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
+        "Builtins/Agents/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
+        "Builtins/Agents/LimitWatch.swift":
+            "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset",
         "KelpKit/Parking.swift": "a park for an hour ends when its hour is up, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
         "KelpKit/AgentStripViews.swift":
@@ -747,6 +751,6 @@ private func codeOnly(_ s: String) -> String {
             named += use.matches(in: code, range: NSRange(code.startIndex..., in: code)).map { _ in "\(f.path): \(n)" }
         }
     }
-    #expect(named.count <= 6, "the shell names built-ins: \(named.sorted())")
-    #expect(named.count >= 6, "fewer now (\(named.count)): lower the ceiling")
+    #expect(named.count <= 5, "the shell names built-ins: \(named.sorted())")
+    #expect(named.count >= 5, "fewer now (\(named.count)): lower the ceiling")
 }

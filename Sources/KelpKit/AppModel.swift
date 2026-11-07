@@ -14,11 +14,11 @@ package final class AppModel {
     @ObservationIgnored let builtins: [Builtin]
     init(builtins: [Builtin] = []) { self.builtins = builtins }
 
-    /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a forecast
-    /// takes every one; a parked agent comes back on its own workspace's failed run, not on every run stored).
+    /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a parked
+    /// agent comes back on its own workspace's failed run, not on every run stored), and the built-ins hear it too.
     func landed(_ e: any Pushed) {
-        if let limits = e as? LimitsEvent { forecast.record(limits.usage) }
         if let ci = e as? CIEvent { followParked(ci) }
+        for hear in extensions.all.pushed { hear(e) }
     }
 
     @ObservationIgnored private(set) package lazy var workbench = Workbench(app: self)
@@ -59,7 +59,6 @@ package final class AppModel {
     /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
     /// and tab on every session event, and a scan per lookup (copying each 45-field record) took half the main thread.
     @ObservationIgnored private var sessionAt: [String: Int]?
-    @ObservationIgnored var forecast = LimitForecast()   // the pace of each limit, from the readings pushed so far
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
     /// What lets go of each topic's latest values once nothing watches a key (`latest`, `Pushed.forgottenWith`).

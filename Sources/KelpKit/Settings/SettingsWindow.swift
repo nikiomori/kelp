@@ -160,6 +160,7 @@ private struct SectionForm: View {
                     } else if let title = groups[index].0 {
                         Section(loc(title)) {
                             SettingPreview(section: section.id, group: title)
+                            section.previews[title]?()
                             ForEach(rows) { row($0) }
                         }.id(title)
                     } else {
