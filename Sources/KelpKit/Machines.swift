@@ -6,9 +6,14 @@ import WorkbenchKit
 
 /// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 extension AppModel {
-    /// Any Xcode in /Applications, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it).
+    /// Any Xcode in /Applications, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it): an app with a developer
+    /// folder, not Xcodes.app (which installs them).
     private static var xcodeInstalled: Bool {
-        do { return try FileManager.default.contentsOfDirectory(atPath: "/Applications").contains { $0.hasPrefix("Xcode") && $0.hasSuffix(".app") } } catch {
+        do {
+            return try FileManager.default.contentsOfDirectory(atPath: "/Applications").contains {
+                $0.hasPrefix("Xcode") && $0.hasSuffix(".app") && FileManager.default.fileExists(atPath: "/Applications/\($0)/Contents/Developer")
+            }
+        } catch {
             return false   // no /Applications to read: no Xcode there
         }
     }

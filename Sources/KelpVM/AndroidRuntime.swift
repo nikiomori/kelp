@@ -97,6 +97,8 @@ final class AndroidRuntime {
         case .paused:
             Task {
                 do { _ = try await adb(["emu", "avd", "start"]) } catch { return done("It didn't go on after its pause: \(error.localizedDescription)") }
+                // Slept meanwhile (kelpd's budget, `kelp vm sleep`): woken from where that left it, not taken for running.
+                guard state == .paused, !saving else { return wake(done) }
                 state = .running
                 done(nil)
             }

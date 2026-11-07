@@ -228,7 +228,9 @@ private func codeOnly(_ s: String) -> String {
     let acts = #/SessionSend\(|\.submit\(|\.userInput\(|\.write\(data\)|\.continueAt\(|answerPermission\(|\.terminate\(|\bkill\(/#
     let ends = #/pauseSessions\(|sessions\.discard\(|\.archive\(|removeWorkspace\(/#
     let says = #/var (actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp)\b/#
-    var unsaid: [String] = []
+    // What types text in (a send, raw input) names that session as `typesInto` too: a question there refuses an agent's.
+    let types = #/SessionSend\(|\.submit\(|\.userInput\(/#
+    var unsaid: [String] = [], untyped: [String] = []
     for f in sources(["Sources/Daemon"]) {
         for piece in f.text.components(separatedBy: "\nextension ").dropFirst() {
             let head = String(piece.prefix { $0 != "\n" })
@@ -236,9 +238,11 @@ private func codeOnly(_ s: String) -> String {
             let oneLine = head.hasSuffix("}") && head.filter { $0 == "{" }.count == head.filter { $0 == "}" }.count
             let body = oneLine ? head : piece.components(separatedBy: "\n}").first ?? piece
             if body.contains(acts) || body.contains(ends), !body.contains(says) { unsaid.append("\(f.path): \(head.prefix { $0 != ":" })") }
+            if body.contains(types), !body.contains(#/var typesInto\b/#) { untyped.append("\(f.path): \(head.prefix { $0 != ":" })") }
         }
     }
     #expect(unsaid == [])
+    #expect(untyped == [], "types into a session without saying which (`typesInto`)")
 }
 
 /// A URL goes to another app through `PreviewLinks.openOutside` only, which lets web pages, mail and System Settings
@@ -355,7 +359,11 @@ private func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = ["Daemon": 102, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 12,
-                    "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 32, "KelpGuest": 4, "EditorKit": 6]
+                    "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 32, "KelpGuest": 4, "EditorKit": 6, "WorkbenchKit": 1, "DesignKit": 0]
+    // Every module is in it: a new one gets its count here, not none.
+    let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)
+        .filter { !["kelpd", "KelpApp", "KelpVMRunner"].contains($0) && !$0.hasPrefix(".") }
+    #expect(Set(modules).subtracting(ceilings.keys).isEmpty, "modules with no try? ceiling: \(Set(modules).subtracting(ceilings.keys).sorted())")
     for (module, ceiling) in ceilings {
         let n = try matches(#"\btry\?"#, in: ["Sources/" + module]).count
         #expect(n <= ceiling, "try? in \(module): \(n), over its ceiling")
@@ -392,8 +400,8 @@ private func codeOnly(_ s: String) -> String {
 @Test func gatePropertiesHaveTheirRequirementsTypes() throws {
     let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto|shows"
     var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
-    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|ends)\b"#, in: ["Sources/Daemon"])
-    wrong += try matches(#"\bvar (?:answersQuestion)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|signs|ends)\b"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\bvar (?:answersQuestion|signs)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) (?:inOrder|quick)\b(?!: Bool \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) timeout\b(?!: TimeInterval\? \{)"#, in: ["Sources/Core", "Sources/Daemon"])
     #expect(wrong.isEmpty, "spelled unlike their requirements: \(wrong)")
@@ -402,7 +410,7 @@ private func codeOnly(_ s: String) -> String {
 /// A gate misspelled (`var inWorkpace`) is a property of its own, and the protocol's default answers in its place: no
 /// property in the daemon is named one or two letters off a gate's name.
 @Test func noPropertyIsNamedNearlyLikeAGate() throws {
-    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto", "shows",
+    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto", "shows", "signs",
                  "inOrder", "quick", "timeout"]
     func distance(_ a: String, _ b: String) -> Int {
         let a = Array(a.lowercased()), b = Array(b.lowercased())
@@ -497,7 +505,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Sidebar/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
         "KelpKit/Sidebar/SidebarCell.swift": (1, "a project folder that's gone"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
-        "KelpKit/Machines.swift": (1, "whether this Mac has Xcode, for the Add menu's iOS machine"),
+        "KelpKit/Machines.swift": (2, "whether this Mac has Xcode (the apps in /Applications, and each one's developer folder), for the Add menu's iOS machine"),
         "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (2, "a local page, shown: it reloads as its folder changes; a page's screenshot"),
         "Builtins/Browser/BrowserDownloads.swift": (2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"),
