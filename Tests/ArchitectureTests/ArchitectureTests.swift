@@ -304,6 +304,9 @@ private func codeOnly(_ s: String) -> String {
     let held = try NSRegularExpression(pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines])
         .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
     #expect(held <= 26, "Sessions' stored properties: \(held)")
+    // Nor its methods: a feature gets a type of its own that's handed what it uses, not one more `extension Sessions`.
+    let grown = try matches(#"^extension Sessions\b"#, in: ["Sources/Daemon"])
+    #expect(grown.count <= 22, "extensions of Sessions: \(grown.count)")
     #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
     #expect(shared.count <= 0, "state outside an instance: \(shared)")
 }
@@ -386,7 +389,7 @@ private func codeOnly(_ s: String) -> String {
 /// `RPCMethod`): one spelled with another type (`static let timeout: TimeInterval` for `TimeInterval?`) compiles as a
 /// property of its own, and the default answers instead, quietly. Each is spelled as its requirement is.
 @Test func gatePropertiesHaveTheirRequirementsTypes() throws {
-    let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto"
+    let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto|shows"
     var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|ends)\b"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bvar (?:answersQuestion)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
@@ -398,7 +401,7 @@ private func codeOnly(_ s: String) -> String {
 /// A gate misspelled (`var inWorkpace`) is a property of its own, and the protocol's default answers in its place: no
 /// property in the daemon is named one or two letters off a gate's name.
 @Test func noPropertyIsNamedNearlyLikeAGate() throws {
-    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto",
+    let gates = ["onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto", "shows",
                  "inOrder", "quick", "timeout"]
     func distance(_ a: String, _ b: String) -> Int {
         let a = Array(a.lowercased()), b = Array(b.lowercased())

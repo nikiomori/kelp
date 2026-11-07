@@ -31,7 +31,7 @@ enum AgentRules {
         SessionAttach.self, SessionDetach.self, SessionResize.self, SessionCreate.self, SessionSend.self,
         SessionWrite.self, SessionKill.self, SessionRestart.self, SessionRename.self, SessionMarkRead.self,
         SessionMarkUnread.self, SessionRecap.self, SessionHandoff.self, SessionContinueAt.self, SessionTurn.self,
-        SessionTurnUndo.self, SessionTurnRedo.self, SessionHook.self, SessionReport.self, SessionPermissionWait.self,
+        SessionHook.self, SessionReport.self, SessionPermissionWait.self,
         PaneReportAgent.self, UsageReport.self, CommentAdd.self, CommentSend.self,
         // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces
         // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do

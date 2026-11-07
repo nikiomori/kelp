@@ -60,6 +60,7 @@ extension SessionMove: Handled {
 }
 
 extension SessionRename: Handled {
+    var actsOn: String? { id }   // its title on the user's row: an agent names only its own and those it started
     func handle(_ sessions: Sessions) throws -> Done {
         // Under its wake lock: a paused record read here and saved back must not land over a wake that started meanwhile.
         try sessions.wakeLocks.withLock(id) {

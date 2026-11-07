@@ -19,6 +19,9 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public init(code: Int, message: String, data: JSONValue? = nil) { self.code = code; self.message = message; self.data = data }
     public static func invalidParams(_ m: String) -> RPCError { .init(code: -32602, message: m) }
     public static func internalError(_ m: String) -> RPCError { .init(code: -32603, message: m) }
+    /// Not the caller's to do (`Daemon.allow`): told apart from a bad call by `data` "refused", for tests and tools.
+    public static func refused(_ m: String) -> RPCError { .init(code: -32602, message: m, data: .string("refused")) }
+    public var isRefusal: Bool { data == .string("refused") }
     public static let methodNotFound = RPCError(code: -32601, message: "method not found")
     /// From a kelpd that is being replaced: the next one will answer.
     public static let updating = internalError("Kelp's background service is updating; try again in a moment.")

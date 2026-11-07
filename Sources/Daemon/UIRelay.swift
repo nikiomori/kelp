@@ -27,7 +27,7 @@ extension UIOpen: Handled {
     }
     /// A session's tab shows its screen, a subagent's its journal: an agent's own, or one it started (`named(by:)` sees
     /// bare ids only).
-    var actsOn: String? {
+    var shows: String? {
         guard ["session", "subagent"].contains(scheme) else { return nil }
         return String(uri.drop { $0 != ":" }.dropFirst().prefix { $0.isHexDigit || $0 == "-" })
     }

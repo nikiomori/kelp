@@ -305,7 +305,8 @@ struct KelpLinks {
             FileManager.default.fileExists(atPath: path, isDirectory: &dir)
             if !dir.boolValue {
                 openFile(path, line: q.first { $0.name == "line" }?.value.flatMap(Int.init))
-            } else if app.repos.contains(where: { path == $0.path || path.hasPrefix($0.path + "/") }) {
+            } else if case let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path,
+                      app.repos.contains(where: { real == $0.path || real.hasPrefix($0.path + "/") }) {   // a link out of a project isn't in it
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
                 let a = NSAlert(); a.messageText = String(localized: "Add “\((path as NSString).lastPathComponent)” to Kelp?")

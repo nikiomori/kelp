@@ -299,7 +299,7 @@ public final class Daemon: Sendable {
         if !running.withLock({ $0.accept != nil }) { client.hangUp() }
         Thread.detachNewThread { [self] in
             // Who it is, looked up before anything it sent is read, while its program is surely there: here, not on the
-            // accept queue, as a tmux pane's asks tmux (`Callers.tmuxCaller`).
+            // accept queue, as a tmux pane's asks tmux (`Callers.tmuxPane`).
             _ = sessions.callers.caller(client.id)
             var received = LineBuffer()
             var buf = [UInt8](repeating: 0, count: 65536)

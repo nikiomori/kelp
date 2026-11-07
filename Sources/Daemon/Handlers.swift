@@ -44,6 +44,8 @@ protocol Answered: RPCMethod {
     var notForAgents: String? { get }
     /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
     var typesInto: String? { get }
+    /// A session it shows (a tab of it), checked as any session a call names: a typed agent's own terminal included.
+    var shows: String? { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -57,6 +59,7 @@ extension Answered {
     var ends: Ending? { nil }
     var notForAgents: String? { nil }
     var typesInto: String? { nil }
+    var shows: String? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -170,11 +173,11 @@ extension Daemon {
         switch caller {
         case .user: return
         case .session(let own):
-            if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
+            if let id = m.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
             guard try sessions.forAnAgent(own) else { return }
             try allowAgent(m, own: own)
         case .typedAgent(let own):
-            if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
+            if let id = m.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
             try allowAgent(m, own: own, typed: true)
         case .unknown:
             // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
@@ -193,9 +196,9 @@ extension Daemon {
     /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules. Refused in `why`'s
     /// words, then the rule's own (`SessionCreate`'s tmux…); anything else (the store) as it is.
     private func allowAgent(_ m: any Answered, own: String, or why: String) throws {
-        if m.reportsFor != nil { throw RPCError.invalidParams(why) }
-        do { try allowAgent(m, own: own) } catch let e as RPCError where e.code == RPCError.invalidParams("").code {
-            throw RPCError.invalidParams(why + " " + e.message)
+        if m.reportsFor != nil { throw RPCError.refused(why) }
+        do { try allowAgent(m, own: own) } catch let e as RPCError where e.isRefusal {
+            throw RPCError.refused(why + " " + e.message)
         }
     }
 
@@ -206,30 +209,30 @@ extension Daemon {
         func reaches(_ id: String) throws -> Bool {
             try sessions.lineage(id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
         }
-        if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
+        if let refusal = m.notForAgents { throw RPCError.refused(refusal) }
         if m.answersQuestion {
-            throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
+            throw RPCError.refused("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
         }
         let name = type(of: m).name
         guard AgentRules.methods.contains(name) else {
-            throw RPCError.invalidParams("“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
+            throw RPCError.refused("“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
         }
         if let id = m.typesInto, sessions.existing(id)?.snapshot.status == .waiting {
-            throw RPCError.invalidParams("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
+            throw RPCError.refused("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
         }
         // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
         // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
-        let mine: (String) -> Bool = { id in id == own && !(typed && (id == m.typesInto || id == m.actsOn)) }
-        for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where !mine(id) {
+        func itsOwn(_ id: String) -> Bool { id == own && !(typed && (id == m.typesInto || id == m.actsOn)) }
+        for id in Set([m.actsOn, m.shows].compactMap { $0 } + (try sessions.named(by: m))) where !itsOwn(id) {
             guard try reaches(id) else {
-                throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
+                throw RPCError.refused("An agent acts only on its own session and the sessions it started.")
             }
         }
         if let w = m.inWorkspace, try !sessions.works(own, in: w, typed: typed) {
-            throw RPCError.invalidParams("An agent works only in its own workspace.")
+            throw RPCError.refused("An agent works only in its own workspace.")
         }
         if let e = m.ends, try sessions.ending(e).contains(where: { s in try (typed || s != own) && !reaches(s) }) {
-            throw RPCError.invalidParams("An agent ends only its own sessions and the ones it started.")
+            throw RPCError.refused("An agent ends only its own sessions and the ones it started.")
         }
     }
 

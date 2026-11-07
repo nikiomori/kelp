@@ -25,14 +25,15 @@ final class Callers: Sendable {
     /// Whether a caller has to be known for the user's to count as theirs: kelpd says so as it starts (`Daemon.strict`).
     /// A test's in-process daemon doesn't, and its test process calls as the user.
     let strict = OSAllocatedUnfairLock(initialState: false)
-    /// Who a tmux pane's caller is, by the pane's terminal, for 10 s (`tmuxCaller`).
-    private let tmuxAnswers = OSAllocatedUnfairLock<[String: (caller: Caller?, at: Date)]>(initialState: [:])
+    /// Who is attached to a tmux pane's session, by the pane's terminal, for 10 s (`tmuxPane`).
+    private let tmuxAnswers = OSAllocatedUnfairLock<[String: (pane: TmuxPane?, at: Date)]>(initialState: [:])
+    struct TmuxPane: Sendable { let attached: [Caller], shown: Bool }
 
     init(live: SessionTable, clients: Clients) { self.live = live; self.clients = clients }
 
     /// The live session whose program `pid` is, or runs under (its own child, a shell's job…), or whose terminal it or
     /// one of its parents has (a double fork, `nohup`, `script`); `kelpd` for one this daemon started (kelpd leads its
-    /// own process session: kelpd/main.swift); one in a tmux pane is whoever is attached there (`tmuxCaller`).
+    /// own process session: kelpd/main.swift); one in a tmux pane is whoever is attached there (`tmuxPane`).
     func session(running pid: pid_t, throughTmux: Bool = true) -> Caller {
         guard pid == getpid() || Subprocess.parent(pid) != nil else { return .unknown }
         guard pid != getpid() else { return .user }
@@ -67,7 +68,8 @@ final class Callers: Sendable {
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
         if throughTmux, let server = chain.last, Unix.executable(server).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux" {
-            switch tmuxCaller(pid, server: server, pane: chain.dropLast().last ?? pid) {
+            let pane = tmuxPane(pid, server: server, pane: chain.dropLast().last ?? pid)
+            switch pane.flatMap({ Self.tmuxDecision($0.attached, shown: $0.shown, underAgent: underAgent, isAgent: heldAsAgent) }) {
             case .session(let id): return of(id)
             case .user: return underAgent ? .detached : .user
             case let c?: return c
@@ -127,16 +129,15 @@ final class Callers: Sendable {
         return URL(fileURLWithPath: me).deletingLastPathComponent().path + "/"
     }()
 
-    /// Who is attached to the tmux session and window whose pane `pid` runs in: a terminal of Kelp's (that session, with
-    /// its agent rules, outweighing any other client), else the user's own (theirs only for the pane they look at: the
-    /// active one of the window shown, not one an agent added out of sight); nil for nobody, or no tmux to ask. Asked
-    /// once a pane and 10 s (`tmuxAnswers`): a hook comes from the same pane many times a turn.
-    private func tmuxCaller(_ pid: pid_t, server: pid_t, pane: pid_t) -> Caller? {
+    /// The clients attached to the tmux session whose pane `pid` runs in (as callers), and whether that pane is the one
+    /// shown (the active pane of the active window); nil for no tmux to ask. Asked once a pane and 10 s (`tmuxAnswers`):
+    /// a hook comes from the same pane many times a turn.
+    private func tmuxPane(_ pid: pid_t, server: pid_t, pane: pid_t) -> TmuxPane? {
         guard let dev = Subprocess.terminal(pid), let tty = devname(dev_t(dev), S_IFCHR).map({ "/dev/" + String(cString: $0) }) else { return nil }
         // Kept for the pane it was asked for: one whose first program (the tmux server's child) was there before the
         // answer; a terminal's name is given to the next pane once one closes.
         if let kept = tmuxAnswers.withLock({ $0[tty] }), kept.at.timeIntervalSinceNow > -10,
-           let born = Subprocess.started(pane), Double(born) / 1e6 < kept.at.timeIntervalSince1970 { return kept.caller }
+           let born = Subprocess.started(pane), Double(born) / 1e6 < kept.at.timeIntervalSince1970 { return kept.pane }
         let socket = Self.tmuxSocket(Subprocess.arguments(server) ?? [])
         func lines(_ args: [String]) -> [[Substring]] {
             // The server that pane is on: its socket as it was started with (-L, -S), else the default one (TMUX_TMPDIR).
@@ -153,23 +154,31 @@ final class Callers: Sendable {
             }
         }
         let format = "#{pane_tty} #{pane_active} #{window_active} #{session_name}"
-        guard let pane = lines(["list-panes", "-a", "-F", format]).first(where: { $0.first.map(String.init) == tty }), pane.count == 4 else {
+        guard let row = lines(["list-panes", "-a", "-F", format]).first(where: { $0.first.map(String.init) == tty }), row.count == 4 else {
             return nil
         }
-        let shown = pane[1] == "1" && pane[2] == "1"
-        let clients = lines(["list-clients", "-t", "=" + pane[3], "-F", "#{client_pid}"]).compactMap { $0.first.flatMap { pid_t($0) } }
-        let agents = Set(live.all.filter { $0.snapshot.isAgent }.map(\.snapshot.id))
-        let found = Self.tmuxDecision(clients.map { session(running: $0, throughTmux: false) }, shown: shown) { agents.contains($0) }
+        let clients = lines(["list-clients", "-t", "=" + row[3], "-F", "#{client_pid}"]).compactMap { $0.first.flatMap { pid_t($0) } }
+        let found = TmuxPane(attached: clients.map { session(running: $0, throughTmux: false) }, shown: row[1] == "1" && row[2] == "1")
         tmuxAnswers.withLock { $0[tty] = (found, Date()) }
         return found
     }
 
-    /// A pane's caller from who's attached: an agent's Kelp session (its rules and all) outweighs any other client, any
-    /// pane; a terminal of the user's, Kelp's or another app's, counts for the pane shown there only (not a window an
-    /// agent added out of sight); else nobody's.
-    static func tmuxDecision(_ attached: [Caller], shown: Bool, isAgent: (String) -> Bool = { _ in false }) -> Caller? {
+    /// A session held to an agent's rules whatever it runs: an agent's, or one an agent or Kelp's program started (its
+    /// origin, parent or starter), not a terminal the user opened.
+    private func heldAsAgent(_ id: String) -> Bool {
+        live.all.first { $0.snapshot.id == id }.map { s in
+            s.snapshot.isAgent || s.snapshot.origin != nil || s.snapshot.parent != nil || s.snapshot.startedBy != nil
+        } ?? false
+    }
+
+    /// A pane's caller from who's attached: an agent's session (or a typed agent) outweighs any other client, any pane; a
+    /// caller under an agent typed in is that agent's in the user's terminal attached, shown or not; else a terminal of the
+    /// user's, Kelp's or another app's, counts for the pane shown there only (not a window an agent added out of sight).
+    static func tmuxDecision(_ attached: [Caller], shown: Bool, underAgent: Bool = false, isAgent: (String) -> Bool = { _ in false }) -> Caller? {
+        if let typed = attached.first(where: { if case .typedAgent = $0 { true } else { false } }) { return typed }
         let sessions = attached.compactMap { if case .session(let id) = $0 { id } else { nil } }
         if let agent = sessions.first(where: isAgent) { return .session(agent) }
+        if underAgent, let terminal = sessions.first { return .session(terminal) }
         guard shown else { return nil }
         return sessions.first.map(Caller.session) ?? (attached.contains(.user) ? .user : nil)
     }

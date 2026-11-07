@@ -327,6 +327,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     #expect(Callers.tmuxDecision([.user, .session("A")], shown: true) == .session("A"))
     #expect(Callers.tmuxDecision([.session("T")], shown: false) == nil)   // the user's terminal: the shown pane only
     #expect(Callers.tmuxDecision([.session("T"), .session("A")], shown: false) { $0 == "A" } == .session("A"))   // an agent's: any
+    #expect(Callers.tmuxDecision([.session("T")], shown: false, underAgent: true) == .session("T"))   // a typed agent there, shown or not
+    #expect(Callers.tmuxDecision([.user, .typedAgent("T")], shown: true) == .typedAgent("T"))   // a typed agent attached outweighs the user
     #expect(Callers.tmuxDecision([.user], shown: true) == .user)
     #expect(Callers.tmuxDecision([.user], shown: false) == nil)
     #expect(Callers.tmuxDecision([], shown: true) == nil)
@@ -444,12 +446,16 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (typed, child, true, "a typed agent starts a session from its terminal"),
         (typed, SessionReport(id: term.id, state: "working"), true, "a typed agent reports for its terminal"),
         (typed, SessionRead(id: term.id), true, "a typed agent reads its terminal"),
+        (typed, UIOpen(uri: "session:" + term.id), true, "and opens its tab"),
+        (typed, UIOpen(uri: "session:" + theirs.id), false, "not another's the user started"),
+        (typed, SessionTurnUndo(id: mine.id, turn: "t"), false, "nor undoes a turn (the user's edits since go too)"),
         (typed, SessionWrite(id: term.id, text: "1\r"), false, "a typed agent doesn't type into its terminal"),
         (typed, SessionSend(id: term.id, text: "1"), false, "nor send into it"),
         (typed, SessionKill(id: term.id), false, "nor end it"),
         (typed, SessionWrite(id: mine.id, text: "x"), true, "a typed agent drives what it started"),
         (typed, SessionKill(id: theirs.id), false, "not what the user started from that terminal"),
         (typed, phone, false, "nor the user's settings"),
+        (typed, SessionRename(id: term.id, title: "x"), false, "nor rename the user's terminal"),
         (typed, font, true, "a look it may set"),
         (typed, WorktreeNote(id: made.id, note: "x"), true, "a typed agent works in a workspace it made"),
         (typed, WorktreeNote(id: userMade.id, note: "x"), false, "not in one the user made from its terminal"),
@@ -460,8 +466,11 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (.unknown, SessionReport(id: term.id, state: "done"), false, "nor does one gone as it connected")
     ]
     for (caller, m, allowed, why) in table {
-        var ok = true
-        do { try r.d.allow(m, conn: 0, caller: caller) } catch { ok = false }
-        #expect(ok == allowed, "\(why): \(caller), \(type(of: m).name)")
+        // A refusal is the rules' (`RPCError.refused`), not any error: a missing record or a store's would pass for one.
+        var refused = false
+        do { try r.d.allow(m, conn: 0, caller: caller) } catch let e as RPCError where e.isRefusal { refused = true } catch {
+            Issue.record("\(why): not a refusal but \(error)")
+        }
+        #expect(refused != allowed, "\(why): \(caller), \(type(of: m).name)")
     }
 }
