@@ -64,8 +64,8 @@ final class Breadcrumbs: NSView {
     static func children(of folder: String, in paths: [String]) -> [(name: String, isFolder: Bool)] {
         let prefix = folder.isEmpty ? "" : folder + "/"
         var files = Set<String>(), folders = Set<String>()
-        for p in paths where p.hasPrefix(prefix) {
-            let rest = p.dropFirst(prefix.count)
+        for path in paths where path.hasPrefix(prefix) {
+            let rest = path.dropFirst(prefix.count)
             if let slash = rest.firstIndex(of: "/") {
                 folders.insert(String(rest[..<slash]))
             } else {
@@ -85,64 +85,65 @@ final class Breadcrumbs: NSView {
         scopes = editor?.scopesAtCursor ?? []
         let parts = Self.parts(path, root: root)
         var views: [NSView] = []
-        for (k, name) in (parts + scopes.map { Self.name($0.text) }).enumerated() {
-            if k > 0 { views.append(Self.separator()) }
-            let b = PointerButton(title: name, target: self, action: #selector(partClicked))
-            b.tag = k
-            b.isBordered = false
-            b.font = .ui(11)
-            b.lineBreakMode = .byTruncatingTail
-            b.contentTintColor = .secondaryLabelColor
-            b.setContentCompressionResistancePriority(.init(100), for: .horizontal)   // a long chain shortens, the row stays
-            views.append(b)
+        for (index, name) in (parts + scopes.map { Self.name($0.text) }).enumerated() {
+            if index > 0 { views.append(Self.separator()) }
+            let button = PointerButton(title: name, target: self, action: #selector(partClicked))
+            button.tag = index
+            button.isBordered = false
+            button.font = .ui(11)
+            button.lineBreakMode = .byTruncatingTail
+            button.contentTintColor = .secondaryLabelColor
+            button.setContentCompressionResistancePriority(.init(100), for: .horizontal)   // a long chain shortens, the row stays
+            views.append(button)
         }
         row.setViews(views, in: .leading)
     }
 
     private static func separator() -> NSView {
-        let l = NSTextField(labelWithString: "›")
-        l.font = .ui(11)
-        l.textColor = .tertiaryLabelColor
-        return l
+        let label = NSTextField(labelWithString: "›")
+        label.font = .ui(11)
+        label.textColor = .tertiaryLabelColor
+        return label
     }
 
     /// A scope's line without what opens it.
     private static func name(_ text: String) -> String {
-        var t = text.trimmingCharacters(in: .whitespaces)
-        if t.hasSuffix("{") { t = String(t.dropLast()).trimmingCharacters(in: .whitespaces) }
-        return t
+        var trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasSuffix("{") { trimmed = String(trimmed.dropLast()).trimmingCharacters(in: .whitespaces) }
+        return trimmed
     }
 
-    @objc private func partClicked(_ b: NSButton) {
+    @objc private func partClicked(_ button: NSButton) {
         let parts = Self.parts(path, root: root)
-        guard b.tag < parts.count else {
-            let k = b.tag - parts.count
-            if scopes.indices.contains(k) { showSiblings(of: scopes[k].line, under: b) }
+        guard button.tag < parts.count else {
+            let index = button.tag - parts.count
+            if scopes.indices.contains(index) { showSiblings(of: scopes[index].line, under: button) }
             return
         }
-        let folder = parts[..<b.tag].joined(separator: "/")
-        Task { await showSiblings(in: folder, under: b) }
+        let folder = parts[..<button.tag].joined(separator: "/")
+        Task { await showSiblings(in: folder, under: button) }
     }
 
     /// The scopes beside it, from the code; the one the cursor is in ticked.
-    private func showSiblings(of line: Int, under b: NSButton) {
-        guard let e = editor else { return }
+    private func showSiblings(of line: Int, under button: NSButton) {
+        guard let editor else { return }
         let menu = NSMenu()
-        for scope in e.siblingScopes(ofLine: line) {
-            let item = menu.add(Self.name(scope.text)) { [weak e] in e?.goTo(line: scope.line + 1) }
+        for scope in editor.siblingScopes(ofLine: line) {
+            let item = menu.add(Self.name(scope.text)) { [weak editor] in editor?.goTo(line: scope.line + 1) }
             item.state = scope.line == line ? .on : .off
         }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
     }
 
-    private func showSiblings(in folder: String, under b: NSButton) async {
-        guard let w = app.worktrees.first(where: { $0.path == root }), let paths = await app.call(FilesList(id: w.id))
+    private func showSiblings(in folder: String, under button: NSButton) async {
+        guard let worktree = app.worktrees.first(where: { $0.path == root }),
+            let paths = await app.call(FilesList(id: worktree.id))
         else { return }
         let menu = NSMenu(), filler = FolderMenu(folder, paths, root: root, app: app)
         menu.delegate = filler
         filler.menuNeedsUpdate(menu)
         withExtendedLifetime(filler) {   // a menu's delegate is weak
-            _ = menu.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
+            _ = menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
         }
     }
 }
@@ -162,13 +163,14 @@ private final class FolderMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let prefix = folder.isEmpty ? "" : folder + "/"
-        for c in Breadcrumbs.children(of: folder, in: paths) {
-            guard c.isFolder else {
-                menu.add(c.name) { [app, root] in app.workbench.open(TabURI.file(root + "/" + prefix + c.name)) }
+        for child in Breadcrumbs.children(of: folder, in: paths) {
+            guard child.isFolder else {
+                menu.add(child.name) { [app, root] in app.workbench.open(TabURI.file(root + "/" + prefix + child.name))
+                }
                 continue
             }
-            let item = NSMenuItem(title: c.name, action: nil, keyEquivalent: ""), sub = NSMenu()
-            let filler = FolderMenu(prefix + c.name, paths, root: root, app: app)
+            let item = NSMenuItem(title: child.name, action: nil, keyEquivalent: ""), sub = NSMenu()
+            let filler = FolderMenu(prefix + child.name, paths, root: root, app: app)
             sub.delegate = filler
             item.representedObject = filler
             item.submenu = sub

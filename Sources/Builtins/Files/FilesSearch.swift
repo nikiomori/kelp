@@ -24,26 +24,27 @@ extension FilesPanel {
         leftScroll.isHidden = message != nil || !resultsScroll.isHidden
     }
     /// Results follow the typing (a pause of a quarter second), like Xcode's Find navigator.
-    func controlTextDidChange(_ n: Notification) {
-        guard n.object as? NSSearchField === search else { return }
+    func controlTextDidChange(_ note: Notification) {
+        guard note.object as? NSSearchField === search else { return }
         showSearchOptions()
         typing.after(byName ? 0.1 : 0.25) { [weak self] in
             if self?.byName == true { self?.narrowTree() } else { self?.runSearch() }
         }
     }
     /// ↓ from the field goes into the results; ↩ there opens the line.
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
-        if let r = renaming, c === r.field, sel == #selector(NSResponder.cancelOperation(_:)) {   // Esc keeps the old name
-            r.field.stringValue = r.url.lastPathComponent
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+        if let edit = renaming, control === edit.field, sel == #selector(NSResponder.cancelOperation(_:)) {   // Esc keeps the old name
+            edit.field.stringValue = edit.url.lastPathComponent
             view.window?.makeFirstResponder(outline)
             return true
         }
-        if c === search, sel == #selector(NSResponder.moveDown(_:)), byName, outline.numberOfRows > 0 {
+        if control === search, sel == #selector(NSResponder.moveDown(_:)), byName, outline.numberOfRows > 0 {
             view.window?.makeFirstResponder(outline)
             outline.selectRowIndexes([firstFileRow ?? 0], byExtendingSelection: false)
             return true
         }
-        guard c === search, sel == #selector(NSResponder.moveDown(_:)), !matches.isEmpty, !resultsScroll.isHidden else {
+        guard control === search, sel == #selector(NSResponder.moveDown(_:)), !matches.isEmpty, !resultsScroll.isHidden
+        else {
             return false
         }
         view.window?.makeFirstResponder(results)
@@ -56,32 +57,35 @@ extension FilesPanel {
             openFirstOnReturn()
             return
         }
-        guard let w = worktree else { return }
-        let q = search.stringValue.trimmingCharacters(in: .whitespaces)
-        showResults(!q.isEmpty)
+        guard let current = worktree else { return }
+        let query = search.stringValue.trimmingCharacters(in: .whitespaces)
+        showResults(!query.isEmpty)
         showPatternError(nil)
-        if q.isEmpty { showReplace() }
-        guard !q.isEmpty else { return }
-        let o = searchOptions
+        if query.isEmpty { showReplace() }
+        guard !query.isEmpty else { return }
+        let options = searchOptions
         Task {
             let found = await app.tryCall(
-                FilesSearch(id: w.id, query: q, regex: o.regex, case: o.matchCase, word: o.wholeWord))
+                FilesSearch(
+                    id: current.id, query: query, regex: options.regex, case: options.matchCase, word: options.wholeWord
+                ))
             // A newer search, options or workspace.
-            guard worktree?.id == w.id, searchOptions == o, search.stringValue.trimmingCharacters(in: .whitespaces) == q
+            guard worktree?.id == current.id, searchOptions == options,
+                search.stringValue.trimmingCharacters(in: .whitespaces) == query
             else { return }
             // Half typed, a pattern often isn't one yet: what it found last stays.
-            if o.regex, let e = found.error, !matches.isEmpty {
-                showPatternError(e)
+            if options.regex, let error = found.error, !matches.isEmpty {
+                showPatternError(error)
                 return
             }
             matches = found.value ?? []
             results.reloadData()
             showReplace()
-            if let e = found.error {
-                noResults.showError(String(localized: "Couldn't search"), text: e, buttons: [clearButton()])
+            if let error = found.error {
+                noResults.showError(String(localized: "Couldn't search"), text: error, buttons: [clearButton()])
             } else {
                 noResults.show(
-                    matches.isEmpty ? String(localized: "No matches for “\(q)”") : nil, symbol: "magnifyingglass",
+                    matches.isEmpty ? String(localized: "No matches for “\(query)”") : nil, symbol: "magnifyingglass",
                     buttons: [clearButton()])
             }
         }
@@ -132,43 +136,43 @@ extension FilesPanel {
             view.window?.makeFirstResponder(outline)
         }
     }
-    func numberOfRows(in t: NSTableView) -> Int { matches.count }
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let m = matches[row]
-        let top = NSTextField(labelWithString: "\(m.path):\(m.line)")
+    func numberOfRows(in tableView: NSTableView) -> Int { matches.count }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+        let match = matches[row]
+        let top = NSTextField(labelWithString: "\(match.path):\(match.line)")
         top.font = .uiDigits(11)
         top.textColor = .secondaryLabelColor
-        let txt = NSTextField(labelWithString: m.text)
+        let txt = NSTextField(labelWithString: match.text)
         txt.font = .uiMono(11)
         txt.lineBreakMode = .byTruncatingTail
-        let s = NSStackView(views: [top, txt])
-        s.orientation = .vertical
-        s.alignment = .leading
-        s.spacing = Metrics.lineGap
-        s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        return s
+        let stack = NSStackView(views: [top, txt])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = Metrics.lineGap
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        return stack
     }
     @objc func openResult() {
-        let r = results.clickedRow >= 0 ? results.clickedRow : results.selectedRow
-        if matches.indices.contains(r) {
-            let m = matches[r]
-            openFile(m.path, line: m.line)
+        let row = results.clickedRow >= 0 ? results.clickedRow : results.selectedRow
+        if matches.indices.contains(row) {
+            let match = matches[row]
+            openFile(match.path, line: match.line)
         }
     }
 
     /// A line the search found: what the editor offers for a line.
-    func fillResult(_ m: NSMenu, row: Int) {
-        m.removeAllItems()
+    func fillResult(_ menu: NSMenu, row: Int) {
+        menu.removeAllItems()
         guard matches.indices.contains(row) else { return }
         let app = app, hit = matches[row], path = root + "/" + hit.path
-        m.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
-        m.add(String(localized: "Open to the Side")) {
+        menu.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
+        menu.add(String(localized: "Open to the Side")) {
             app.workbench.open(TabURI.file(path, line: hit.line), split: .right)
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
-        m.add(String(localized: "Copy Path and Line")) {
+        menu.addItem(.separator())
+        menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
+        menu.add(String(localized: "Copy Path and Line")) {
             FileActions(app).copyReference(path, lines: hit.line...hit.line)
         }
     }

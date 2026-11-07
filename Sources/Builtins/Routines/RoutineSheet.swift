@@ -29,7 +29,7 @@ enum RoutineSheet {
 @Observable
 final class RoutineForm {
     var routine: Routine
-    init(_ r: Routine) { routine = r }
+    init(_ routine: Routine) { self.routine = routine }
     var valid: Bool {
         !routine.name.trimmingCharacters(in: .whitespaces).isEmpty
             && !routine.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -119,8 +119,8 @@ struct RepeatFields: View {
     static func date(_ minutes: Int) -> Date {
         Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
     }
-    static func minutes(_ d: Date) -> Int {
-        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
-        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    static func minutes(_ date: Date) -> Int {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
     }
 }

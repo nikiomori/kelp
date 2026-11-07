@@ -36,16 +36,18 @@ struct IntegrationsSettings: View {
         }
         .sheet(item: $connecting) { a in ConnectSheet(account: a) { await connect(a, $0) } }
         .task {
-            let s = await app.call(LinearStatus())
+            let linearStatus = await app.call(LinearStatus())
             linear = Connection(
-                status: s?.connected == true ? String(localized: "Connected as \(s?.name ?? "")") : off,
-                on: s?.connected == true)
-            let j = await app.call(JiraStatus())
-            let inJira = String(localized: "Connected to \(j?.site ?? "") as \(j?.name ?? "")")
-            jira = Connection(status: j?.connected == true ? inJira : off, on: j?.connected == true)
-            let b = await app.call(BitbucketStatus())
+                status: linearStatus?.connected == true
+                    ? String(localized: "Connected as \(linearStatus?.name ?? "")") : off,
+                on: linearStatus?.connected == true)
+            let jiraStatus = await app.call(JiraStatus())
+            let inJira = String(localized: "Connected to \(jiraStatus?.site ?? "") as \(jiraStatus?.name ?? "")")
+            jira = Connection(status: jiraStatus?.connected == true ? inJira : off, on: jiraStatus?.connected == true)
+            let bitbucketStatus = await app.call(BitbucketStatus())
             bitbucket = Connection(
-                status: b?.connected == true ? String(localized: "Credentials saved") : off, on: b?.connected == true)
+                status: bitbucketStatus?.connected == true ? String(localized: "Credentials saved") : off,
+                on: bitbucketStatus?.connected == true)
             await check()
         }
     }
@@ -72,27 +74,27 @@ struct IntegrationsSettings: View {
         }
     }
 
-    private func cliRow(_ name: String, _ c: CLIState, _ about: LocalizedStringKey) -> some View {
-        row(name, on: c.on, status: c.status, about: about) {
-            if let s = c.setup {
-                Button(s.title) { Forge.run(s, in: app) }.help(s.command)
+    private func cliRow(_ name: String, _ cli: CLIState, _ about: LocalizedStringKey) -> some View {
+        row(name, on: cli.on, status: cli.status, about: about) {
+            if let setup = cli.setup {
+                Button(setup.title) { Forge.run(setup, in: app) }.help(setup.command)
                 Button("Check Again") { Task { await check() } }
             }
         }
     }
 
-    private func linkRow(_ a: Account, _ l: Connection, _ about: LocalizedStringKey) -> some View {
-        row(a.title, on: l.on, status: l.status, about: about) {
-            if l.on {
-                Button("Disconnect") { Task { await disconnect(a) } }
+    private func linkRow(_ account: Account, _ connection: Connection, _ about: LocalizedStringKey) -> some View {
+        row(account.title, on: connection.on, status: connection.status, about: about) {
+            if connection.on {
+                Button("Disconnect") { Task { await disconnect(account) } }
             } else {
-                Button("Connect…") { connecting = a }
+                Button("Connect…") { connecting = account }
             }
         }
     }
 
-    private func disconnect(_ a: Account) async {
-        switch a {
+    private func disconnect(_ account: Account) async {
+        switch account {
         case .jira:
             if await app.call(JiraSetCredentials(site: "", email: "", token: "")) != nil {
                 jira = Connection(status: off)
@@ -106,26 +108,31 @@ struct IntegrationsSettings: View {
     }
 
     /// The sheet's values, in its fields' order. False keeps it open: `call` has said what went wrong.
-    private func connect(_ a: Account, _ v: [String]) async -> Bool {
-        switch a {
+    private func connect(_ account: Account, _ values: [String]) async -> Bool {
+        switch account {
         case .jira:
-            guard let r = await app.call(JiraSetCredentials(site: v[0], email: v[1], token: v[2])) else { return false }
-            jira = Connection(status: String(localized: "Connected as \(r?.name ?? "")"), on: true)
+            guard let me = await app.call(JiraSetCredentials(site: values[0], email: values[1], token: values[2]))
+            else { return false }
+            jira = Connection(status: String(localized: "Connected as \(me?.name ?? "")"), on: true)
         case .bitbucket:
-            guard await app.call(BitbucketSetCredentials(user: v[0], token: v[1])) != nil else { return false }
+            guard await app.call(BitbucketSetCredentials(user: values[0], token: values[1])) != nil else {
+                return false
+            }
             bitbucket = Connection(status: String(localized: "Credentials saved"), on: true)
         case .linear:
-            guard let me = await app.call(LinearSetKey(key: v[0])) else { return false }
+            guard let me = await app.call(LinearSetKey(key: values[0])) else { return false }
             linear = Connection(status: String(localized: "Connected as \(me?.name ?? "")"), on: true)
         }
         return true
     }
 
     private func check() async {
-        func state(_ r: GitHubStatus.Result?, _ cli: String) -> CLIState {
-            guard let r else { return CLIState(status: String(localized: "Couldn't check")) }
-            if !r.installed { return CLIState(status: String(localized: "Not installed"), setup: Forge.install(cli)) }
-            if let u = r.user { return CLIState(status: String(localized: "Signed in as \(u)"), on: true) }
+        func state(_ status: GitHubStatus.Result?, _ cli: String) -> CLIState {
+            guard let status else { return CLIState(status: String(localized: "Couldn't check")) }
+            if !status.installed {
+                return CLIState(status: String(localized: "Not installed"), setup: Forge.install(cli))
+            }
+            if let user = status.user { return CLIState(status: String(localized: "Signed in as \(user)"), on: true) }
             return CLIState(status: String(localized: "Not signed in"), setup: Forge.signIn(cli))
         }
         gh = state(await app.call(GitHubStatus()), "gh")
@@ -176,12 +183,12 @@ private struct ConnectSheet: View {
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
             Text("Connect \(account.title)").font(.ui(13, weight: .semibold))
             Form {
-                ForEach(values.indices, id: \.self) { i in
-                    let f = account.fields[i]
-                    if f.secret {
-                        SecureField(f.title, text: $values[i], prompt: Text(f.prompt))
+                ForEach(values.indices, id: \.self) { index in
+                    let field = account.fields[index]
+                    if field.secret {
+                        SecureField(field.title, text: $values[index], prompt: Text(field.prompt))
                     } else {
-                        TextField(f.title, text: $values[i], prompt: Text(f.prompt))
+                        TextField(field.title, text: $values[index], prompt: Text(field.prompt))
                     }
                 }
             }

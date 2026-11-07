@@ -22,11 +22,12 @@ final class ServerTab: KelpKit.TabContent {   // not SwiftUI's
         host = TabURI.body(uri)
         watched = Watched(.hostDetail, in: app)
         watched.key = host
-        let v = NSHostingView(
+        let hosting = NSHostingView(
             rootView: ServerView(app: app, host: host).frame(
                 maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
-        v.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
-        view = v
+        // A tab fills the space it's given; it must never resize the window to its ideal size.
+        hosting.sizingOptions = []
+        view = hosting
     }
     func focus() {}
 }
@@ -43,8 +44,8 @@ struct ServerView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            if let s = stats, s.connected {
-                ServerDetail(app: app, host: host, stats: s, history: history)
+            if let stats, stats.connected {
+                ServerDetail(app: app, host: host, stats: stats, history: history)
             } else if stats == nil || dialing {
                 LoadingLine(String(localized: "Connecting…")).offset(y: -Metrics.emptyLift).frame(
                     maxWidth: .infinity, maxHeight: .infinity)
@@ -117,9 +118,9 @@ struct ServerView: View {
         }
     }
 
-    private func remember(_ s: HostStats?) {
-        guard let s, s.connected, let cpu = s.cpu else { return }
-        let memory = HostStats.percent(s.memory, s.memoryTotal).map { Double($0) / 100 } ?? 0
+    private func remember(_ stats: HostStats?) {
+        guard let stats, stats.connected, let cpu = stats.cpu else { return }
+        let memory = HostStats.percent(stats.memory, stats.memoryTotal).map { Double($0) / 100 } ?? 0
         history = Array((history + [(cpu / 100, memory)]).suffix(60))
     }
 }

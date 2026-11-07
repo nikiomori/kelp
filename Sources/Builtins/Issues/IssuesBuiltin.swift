@@ -12,37 +12,37 @@ extension Builtins {
         "GitHub, Linear, Jira and Bitbucket: start work from an issue, review PRs.",
         icon: "checklist"
     ) { app in
-        var c = Contributions()
+        var contributions = Contributions()
         let failed = FailedRuns(app: app)
-        c.panels = [
+        contributions.panels = [
             PanelSpec(id: "issues", title: "Issues & Pull Requests", icon: "checklist", extensionId: "kelp.issues") {
-                let t = TasksViewController(app: app)
-                track(owner: t) {
+                let tasks = TasksViewController(app: app)
+                track(owner: tasks) {
                     app.workbench.workspaceId
-                } changed: { [weak t] in
-                    t?.show(worktree: $0)
+                } changed: { [weak tasks] in
+                    tasks?.show(worktree: $0)
                 }
-                return t
+                return tasks
             },
             PanelSpec(
                 id: "ci", title: "CI Runs", icon: "checkmark.seal", extensionId: "kelp.issues", role: .checks,
                 badge: { failed.badge }
             ) { CIRunsController(app: app) }
         ]
-        c.tabs = [TabProvider(schemes: ["cilog"]) { CILogTab(uri: $0, app: app) }]
-        c.settings = [
+        contributions.tabs = [TabProvider(schemes: ["cilog"]) { CILogTab(uri: $0, app: app) }]
+        contributions.settings = [
             SettingsSection(
                 id: "integrations", title: "Integrations", icon: "link", specs: [],
                 custom: { AnyView(IntegrationsSettings(app: app)) },
                 keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"], order: 90)
         ]
         // The workspace's project on GitHub / GitLab / Bitbucket, in the default browser.
-        c.commands = [
+        contributions.commands = [
             cmd("forge.openRepo", "Open Repository in Browser") { Forge.open(app, \.repo) },
             cmd("forge.openCI", "Open CI/CD in Browser") { Forge.open(app, \.ci) },
             cmd("forge.openPulls", "Open Pull Requests in Browser") { Forge.open(app, \.pulls) },
             cmd("forge.openIssues", "Open Issues in Browser") { Forge.open(app, \.issues) }
         ]
-        return c
+        return contributions
     }
 }

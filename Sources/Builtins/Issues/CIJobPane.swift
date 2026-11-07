@@ -38,12 +38,12 @@ final class CIJobPane: NSObject {
     }
     private lazy var stopButton = IconButton(.symbol("stop.circle"), tip: String(localized: "Cancel Run…")) {
         [weak self] in
-        if let self, let j = shown, let run = runOf?(j.run) { actions?.cancel(run) }
+        if let self, let shown, let run = runOf?(shown.run) { actions?.cancel(run) }
     }
     private lazy var fullLogButton = IconButton(
         .symbol("arrow.up.forward.square"), tip: String(localized: "Open Full Log")
     ) { [weak self] in
-        if let self, let j = shown, let worktree { CILogTab.open(app, worktree: worktree, job: j.job) }
+        if let self, let shown, let worktree { CILogTab.open(app, worktree: worktree, job: shown.job) }
     }
     private var actions: CIActions? {
         worktree.map { CIActions(app: app, worktree: $0) { [weak self] in self?.onChange?() } }
@@ -79,7 +79,7 @@ final class CIJobPane: NSObject {
                 Bar.content([mode, title], [copyButton, askButton, rerunButton, stopButton, fullLogButton]), logScroll,
                 failures
             ], in: .top)
-        for v in [logScroll, failures] { v.widthAnchor.constraint(equalTo: view.widthAnchor).isActive = true }
+        for pane in [logScroll, failures] { pane.widthAnchor.constraint(equalTo: view.widthAnchor).isActive = true }
     }
 
     func clear() {
@@ -106,10 +106,10 @@ final class CIJobPane: NSObject {
         }
         Task {
             defer { slow.cancel() }
-            let r = await app.tryCall(CIFailures(worktreeId: worktree, job: job.id))
+            let result = await app.tryCall(CIFailures(worktreeId: worktree, job: job.id))
             guard shown?.job.id == job.id else { return }
-            report = r.value
-            log.string = r.value?.log ?? r.error ?? ""
+            report = result.value
+            log.string = result.value?.log ?? result.error ?? ""
             log.scrollToEndOfDocument(nil)
             arrange()
             await compareWithEarlierTry(job, run: run, in: worktree)
@@ -163,23 +163,24 @@ final class CIJobPane: NSObject {
     }
 
     private func askAgent() {
-        guard let j = shown, let worktree, actions?.hasAgent == true else { return }
+        guard let shown, let worktree, actions?.hasAgent == true else { return }
         GitFix(app).send(
-            "fixCI", worktree: worktree, vars: ["check": j.job.name, "error": report?.forAgent ?? log.string])
+            "fixCI", worktree: worktree, vars: ["check": shown.job.name, "error": report?.forAgent ?? log.string])
     }
 
-    private func fix(_ f: CIRuns.Failure) {
-        guard let j = shown, let worktree, actions?.hasAgent == true else { return }
+    private func fix(_ failure: CIRuns.Failure) {
+        guard let shown, let worktree, actions?.hasAgent == true else { return }
         GitFix(app).send(
-            "fixCI", worktree: worktree, vars: ["check": j.job.name, "error": CIRuns.Report.text(of: [f])])
+            "fixCI", worktree: worktree, vars: ["check": shown.job.name, "error": CIRuns.Report.text(of: [failure])])
     }
 
-    private func rerun() { if let j = shown { actions?.rerunFailed(j.run) } }
+    private func rerun() { if let shown { actions?.rerunFailed(shown.run) } }
 
     /// The project's copy of the file, which can differ from the commit the run tested: the line is the run's.
-    private func open(_ f: CIRuns.Failure) {
-        guard let file = f.file, let root = app.worktree(worktree)?.path else { return }
+    private func open(_ failure: CIRuns.Failure) {
+        guard let file = failure.file, let root = app.worktree(worktree)?.path else { return }
         app.workbench.open(
-            TabURI.file(file.hasPrefix("/") ? file : (root as NSString).appendingPathComponent(file), line: f.line))
+            TabURI.file(
+                file.hasPrefix("/") ? file : (root as NSString).appendingPathComponent(file), line: failure.line))
     }
 }

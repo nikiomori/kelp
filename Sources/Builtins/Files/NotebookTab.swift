@@ -27,21 +27,21 @@ final class NotebookTab: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        func b(_ t: String, _ sym: String, _ sel: Selector) -> NSButton {
-            let x = NSButton(title: t, target: self, action: sel)
-            x.image = .symbol(sym)
-            x.imagePosition = .imageLeading
-            x.bezelStyle = .push
-            x.controlSize = .small
-            return x
+        func actionButton(_ title: String, _ sym: String, _ sel: Selector) -> NSButton {
+            let button = NSButton(title: title, target: self, action: sel)
+            button.image = .symbol(sym)
+            button.imagePosition = .imageLeading
+            button.bezelStyle = .push
+            button.controlSize = .small
+            return button
         }
         status.textColor = .secondaryLabelColor
         status.font = .ui(11)
         let bar = Bar.content(
             [
-                b(String(localized: "Run All"), "play.fill", #selector(runAll)),
-                b(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
-                b(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent))
+                actionButton(String(localized: "Run All"), "play.fill", #selector(runAll)),
+                actionButton(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
+                actionButton(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent))
             ], [status])
         web.navigationDelegate = links
         view = stacked(bar, web)
@@ -51,8 +51,8 @@ final class NotebookTab: NSViewController {
     /// Read by the daemon (off the main thread, refused like any file tab's past the size limit), then rendered.
     func reload() {
         Task {
-            let d = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
-            guard let d, let body = NotebookHTML.render(d) else {
+            let data = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
+            guard let data, let body = NotebookHTML.render(data) else {
                 let why = String(localized: "This notebook can't be read (is it valid nbformat 4 JSON?).")
                 links.load(
                     EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil, in: web
@@ -67,8 +67,8 @@ final class NotebookTab: NSViewController {
             links.load(
                 MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
                 baseURL: url.deletingLastPathComponent(), in: web)
-            if let s = NotebookHTML.summary(d) {
-                status.stringValue = String(localized: "\(s.cells) cells · \(s.language)")
+            if let summary = NotebookHTML.summary(data) {
+                status.stringValue = String(localized: "\(summary.cells) cells · \(summary.language)")
             }
         }
     }
@@ -79,7 +79,7 @@ final class NotebookTab: NSViewController {
     }
 
     @objc private func runAll() {
-        guard let j = Self.jupyter() else {
+        guard let jupyter = Self.jupyter() else {
             status.stringValue = String(localized: "Jupyter not found — pip install jupyter")
             return
         }
@@ -87,11 +87,12 @@ final class NotebookTab: NSViewController {
         let file = url
         Task {
             // A notebook may compute for hours: the timeout is only for one that never ends.
-            let r = await Shell.exec(
-                app, [j, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
+            let result = await Shell.exec(
+                app, [jupyter, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
                 cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
-            let msg = r.stderr.split(separator: "\n").last.map(String.init) ?? ""
-            status.stringValue = r.code == 0 ? String(localized: "Ran all cells") : String(localized: "Failed: \(msg)")
+            let msg = result.stderr.split(separator: "\n").last.map(String.init) ?? ""
+            status.stringValue =
+                result.code == 0 ? String(localized: "Ran all cells") : String(localized: "Failed: \(msg)")
             reload()
         }
     }
@@ -104,12 +105,12 @@ final class NotebookTab: NSViewController {
         }
         Task {
             guard
-                let s = await app.call(
+                let session = await app.call(
                     SessionCreate(
                         worktreeId: wid, command: "jupyter lab --no-browser " + IDE.shellWord(path),
                         title: "Jupyter", openURLs: true))
             else { return }
-            app.sessions.append(s)
+            app.sessions.append(session)
             // Jupyter's URL arrives as a dev-server URL and opens in a browser tab
             status.stringValue = String(localized: "Starting Jupyter Lab… it opens in the Browser tab")
         }

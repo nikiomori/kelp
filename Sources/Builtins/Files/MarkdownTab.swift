@@ -55,9 +55,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// What goes over the tab: a page an agent made has its bar (what it is, its versions, its chat) where the path would be.
     func header(else crumbs: NSView) -> NSView {
         guard ArtifactBar.isPage(url.path) else { return crumbs }
-        let a = ArtifactBar(app: app, path: url.path, markdown: self)
-        artifactBar = a
-        return a.view
+        let bar = ArtifactBar(app: app, path: url.path, markdown: self)
+        artifactBar = bar
+        return bar.view
     }
 
     /// 0 edit, 1 split, 2 preview, as the bar's segments.
@@ -119,7 +119,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     override func loadView() {
-        func b(_ sym: String, _ tip: String, _ sel: Selector) -> NSButton {
+        func tool(_ sym: String, _ tip: String, _ sel: Selector) -> NSButton {
             Self.toolButton(sym, tip, sel, target: self)
         }
         func gap() -> NSView {
@@ -144,14 +144,14 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         heading.action = #selector(headingPicked(_:))
         formatting.setViews(
             [
-                heading, gap(), b("bold", String(localized: "Bold (⌘B)"), #selector(bold)),
-                b("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
-                b("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
-                b("link", String(localized: "Link (⌘K)"), #selector(link)), gap(),
-                b("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
-                b("list.number", String(localized: "Numbered list"), #selector(numbered)),
-                b("checklist", String(localized: "Task list"), #selector(tasks)),
-                b("tablecells", String(localized: "Table"), #selector(table))
+                heading, gap(), tool("bold", String(localized: "Bold (⌘B)"), #selector(bold)),
+                tool("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
+                tool("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
+                tool("link", String(localized: "Link (⌘K)"), #selector(link)), gap(),
+                tool("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
+                tool("list.number", String(localized: "Numbered list"), #selector(numbered)),
+                tool("checklist", String(localized: "Task list"), #selector(tasks)),
+                tool("tablecells", String(localized: "Table"), #selector(table))
             ], in: .leading)
         formatting.spacing = Metrics.iconGap
         let bar = Bar.content([formatting])
@@ -173,7 +173,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             column.distribution = .fill
             column.detachesHiddenViews = true
             split.setContentHuggingPriority(.init(1), for: .vertical)
-            for v in [bar, split] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+            for subview in [bar, split] { subview.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
             view = column
         } else {
             view = stacked(split)
@@ -209,10 +209,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// Over the selection once it's made (not while the mouse is still dragging it); gone without one.
     private func placeSelectionBar() {
-        guard NSEvent.pressedMouseButtons == 0, !isHTML, !editor.view.isHidden, let r = editor.selectionRect else {
+        guard NSEvent.pressedMouseButtons == 0, !isHTML, !editor.view.isHidden, let selection = editor.selectionRect
+        else {
             return selectionBar.isHidden = true
         }
-        selectionBar.show(over: view.convert(r, from: editor.view), in: view)
+        selectionBar.show(over: view.convert(selection, from: editor.view), in: view)
     }
 
     /// Script for the page whose answer nobody waits for (the async evaluateJavaScript traps on an undefined result).
@@ -226,12 +227,12 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// From Kelp's scripts beside the preview's page (`world`; the page's own don't run): scrolled to a line
     /// (the source follows), or double-clicked on one (the cursor goes there).
-    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
-        guard m.frameInfo.isMainFrame, m.frameInfo.request.url?.isFileURL != false else { return }
-        if artifactBar != nil, let body = m.body as? [String: Any], body["kind"] as? String == "ask" {
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL != false else { return }
+        if artifactBar != nil, let body = message.body as? [String: Any], body["kind"] as? String == "ask" {
             return ask(about: body["text"] as? String ?? "")
         }
-        if isReview, let body = m.body as? [String: Any], let kind = body["kind"] as? String,
+        if isReview, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             ["pick", "note", "send"].contains(kind)
         {
             guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
@@ -239,7 +240,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 kind, point: body["point"] as? String ?? "",
                 value: body[kind == "pick" ? "key" : "text"] as? String ?? "")
         }
-        guard let body = m.body as? [String: Any], let line = (body["line"] as? NSNumber)?.intValue else { return }
+        guard let body = message.body as? [String: Any], let line = (body["line"] as? NSNumber)?.intValue else {
+            return
+        }
         if body["kind"] as? String == "open" {
             if currentMode == "preview" { selectMode(1) }
             editor.goTo(line: line)
@@ -263,10 +266,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             split.setPosition(split.bounds.width / 2, ofDividerAt: 0)
         }
         // Split in a narrow pane squeezes the preview to a word per line: show the source until there's room.
-        let n = split.bounds.width > 0 && split.bounds.width < 760
-        if n != narrow {
-            narrow = n
-            mode.setToolTip(n ? String(localized: "Split (needs a wider pane)") : nil, forSegment: 1)
+        let isNarrow = split.bounds.width > 0 && split.bounds.width < 760
+        if isNarrow != narrow {
+            narrow = isNarrow
+            mode.setToolTip(isNarrow ? String(localized: "Split (needs a wider pane)") : nil, forSegment: 1)
             applyMode()
         }
     }
@@ -291,8 +294,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
-                let p = CodeEditor.page
-                page = (p.background.hexString, p.text.hexString)
+                let colors = CodeEditor.page
+                page = (colors.background.hexString, colors.text.hexString)
             }
             let review = isReview, slides = isSlides, raw = isHTML, sendTo = pageAuthor?.title
             // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
@@ -319,12 +322,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             }.value
             guard !Task.isCancelled else { return }
             // Keep the reader's place across re-renders (scrollY is always a number, so the async call can't trap on nil).
-            let y = (try? await web.evaluateJavaScript("window.scrollY", contentWorld: Self.world)) as? Double ?? 0
+            let scrollY =
+                (try? await web.evaluateJavaScript("window.scrollY", contentWorld: Self.world)) as? Double ?? 0
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
             let place =
                 currentMode == "split" && !review && !raw
-                ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(y))"
+                ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(scrollY))"
             links.load(html, baseURL: base, scripts: scripts + ask + [place], world: Self.world, in: web)
         }
     }
@@ -365,46 +369,47 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// Text selected on the page, quoted into the chat that made it (else the agent on screen), not sent: the user asks.
     private func ask(about quote: String) {
-        let q = quote.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.joined(
+        let quoted = quote.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.joined(
             separator: " ")
-        guard !q.isEmpty else { return }
-        let line = "About “\(q.count > 400 ? String(q.prefix(399)) + "…" : q)” in \(Artifacts.projectPath(url.path)):"
+        guard !quoted.isEmpty else { return }
+        let shown = quoted.count > 400 ? String(quoted.prefix(399)) + "…" : quoted
+        let line = "About “\(shown)” in \(Artifacts.projectPath(url.path)):"
         guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
         Task { await app.call(SessionSend(id: author.id, text: line + " ", enter: false)) }
         app.workbench.focus(session: author.id)
     }
 
     /// A JavaScript string literal.
-    private static func jsString(_ s: String) -> String {
+    private static func jsString(_ text: String) -> String {
         "\""
-            + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: "\\n") + "\""
     }
 
     /// ⇧⌘V: source → split → preview → source (split is skipped while the pane is too narrow for it).
     func cycleMode() {
-        var m = (mode.selectedSegment + 1) % 3
-        if m == 1, narrow { m = 2 }
-        mode.selectedSegment = m
+        var segment = (mode.selectedSegment + 1) % 3
+        if segment == 1, narrow { segment = 2 }
+        mode.selectedSegment = segment
         applyMode()
-        if m != 2 { editor.focus() }
+        if segment != 2 { editor.focus() }
     }
 
     private func applyMode() {
-        let m = mode.selectedSegment
-        editor.view.isHidden = m == 2
-        web.isHidden = m == 0 || (m == 1 && narrow)
-        formattingBar?.isHidden = m == 2   // nothing to format in the preview
-        onEditing?(m != 2)
+        let segment = mode.selectedSegment
+        editor.view.isHidden = segment == 2
+        web.isHidden = segment == 0 || (segment == 1 && narrow)
+        formattingBar?.isHidden = segment == 2   // nothing to format in the preview
+        onEditing?(segment != 2)
         placeSelectionBar()
         split.adjustSubviews()
-        if m == 1, !narrow { split.setPosition(split.bounds.width / 2, ofDividerAt: 0) }
+        if segment == 1, !narrow { split.setPosition(split.bounds.width / 2, ofDividerAt: 0) }
         if dirty, !web.isHidden { rerender() }
     }
 
-    private func edit(_ f: (String, NSRange) -> (text: String, selection: NSRange)) {
-        let r = f(editor.text, editor.selectedRange)
-        editor.apply(text: r.text, selection: r.selection)
+    private func edit(_ format: (String, NSRange) -> (text: String, selection: NSRange)) {
+        let result = format(editor.text, editor.selectedRange)
+        editor.apply(text: result.text, selection: result.selection)
         editor.focus()
     }
     @objc func bold() { edit(MarkdownFormat.toggleBold) }
@@ -414,15 +419,17 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     @objc func numbered() { edit(MarkdownFormat.toggleNumbered) }
     @objc func tasks() { edit(MarkdownFormat.toggleTask) }
     @objc private func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
-    @objc private func headingPicked(_ p: NSPopUpButton) {
-        let l = p.indexOfSelectedItem - 1   // past the button's face: Text, Heading 1…3
-        guard l >= 0 else { return }
-        edit { MarkdownFormat.heading($0, $1, level: l) }
+    @objc private func headingPicked(_ popUp: NSPopUpButton) {
+        let level = popUp.indexOfSelectedItem - 1   // past the button's face: Text, Heading 1…3
+        guard level >= 0 else { return }
+        edit { MarkdownFormat.heading($0, $1, level: level) }
     }
     @objc func link() {
         Task {
-            guard let u = await prompt(String(localized: "Insert link"), "URL", initial: "https://") else { return }
-            edit { MarkdownFormat.makeLink($0, $1, url: u) }
+            guard let address = await prompt(String(localized: "Insert link"), "URL", initial: "https://") else {
+                return
+            }
+            edit { MarkdownFormat.makeLink($0, $1, url: address) }
         }
     }
 }

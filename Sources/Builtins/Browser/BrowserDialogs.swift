@@ -12,7 +12,7 @@ extension BrowserTab: WKUIDelegate {
     var agentAnswers: Bool { watching && !takenOver && (agent || Date().timeIntervalSince(drivenAt) < 600) }
 
     func webView(
-        _ w: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
+        _ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
     ) async {
         if agentAnswers {
             _ = agentAnswer("alert", message, fallback: true)
@@ -22,7 +22,7 @@ extension BrowserTab: WKUIDelegate {
     }
 
     func webView(
-        _ w: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
+        _ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
     ) async -> Bool {
         if agentAnswers { return agentAnswer("confirm", message, fallback: false).accept }
         return await ask(message, from: frame, buttons: [String(localized: "OK"), String(localized: "Cancel")])
@@ -30,21 +30,23 @@ extension BrowserTab: WKUIDelegate {
     }
 
     func webView(
-        _ w: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
+        _ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
         initiatedByFrame frame: WKFrameInfo
     ) async -> String? {
         if agentAnswers {
-            let a = agentAnswer("prompt", prompt, fallback: false)
-            return a.accept ? a.text ?? defaultText ?? "" : nil
+            let answer = agentAnswer("prompt", prompt, fallback: false)
+            return answer.accept ? answer.text ?? defaultText ?? "" : nil
         }
         let field = NSTextField(string: defaultText ?? "")
         field.frame.size.width = 260
-        let r = await ask(
+        let response = await ask(
             prompt, from: frame, buttons: [String(localized: "OK"), String(localized: "Cancel")], field: field)
-        return r == .alertFirstButtonReturn ? field.stringValue : nil
+        return response == .alertFirstButtonReturn ? field.stringValue : nil
     }
 
-    func webView(_ w: WKWebView, runOpenPanelWith p: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo) async
+    func webView(
+        _ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo
+    ) async
         -> [URL]?
     {
         if agentAnswers {
@@ -52,30 +54,30 @@ extension BrowserTab: WKUIDelegate {
             return nil
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = p.allowsMultipleSelection
-        panel.canChooseDirectories = p.allowsDirectories
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = parameters.allowsDirectories
         return await runSheet(panel) == .OK ? panel.urls : nil
     }
 
     /// The answer `kelp browser dialog` left (used once), else `fallback`; noted where the agent reads.
     private func agentAnswer(_ kind: String, _ message: String, fallback: Bool) -> (accept: Bool, text: String?) {
-        let told = dialogAnswer != nil, a = dialogAnswer ?? (fallback, nil)
+        let told = dialogAnswer != nil, answer = dialogAnswer ?? (fallback, nil)
         dialogAnswer = nil
         let shown = String(message.prefix(300)).replacingOccurrences(of: "\n", with: " ")
         let how =
             kind == "alert"
             ? "OK"
-            : a.accept
-                ? "accepted" + (a.text.map { " with \"\($0)\"" } ?? "")
+            : answer.accept
+                ? "accepted" + (answer.text.map { " with \"\($0)\"" } ?? "")
                 : "dismissed" + (told ? "" : " (kelp browser dialog accept answers the next one)")
         noteDialog("\(kind) \"\(shown)\" → \(how)")
-        return a
+        return answer
     }
 
     /// A dialog the agent's page answered: in its console, and in the answer of the action that brought it up.
-    func noteDialog(_ s: String) {
-        noteLog("[dialog] " + s)
-        dialogs.append(s)
+    func noteDialog(_ line: String) {
+        noteLog("[dialog] " + line)
+        dialogs.append(line)
         if dialogs.count > Self.keep { dialogs.removeFirst(dialogs.count - Self.keep) }   // `while (true) alert()` stays bounded
     }
 
@@ -83,13 +85,13 @@ extension BrowserTab: WKUIDelegate {
     private func ask(_ message: String, from frame: WKFrameInfo, buttons: [String], field: NSTextField? = nil) async
         -> NSApplication.ModalResponse
     {
-        let a = NSAlert()
+        let alert = NSAlert()
         let host = frame.securityOrigin.host
-        a.messageText = host.isEmpty ? String(localized: "This page says") : String(localized: "\(host) says")
-        a.informativeText = message
-        for b in buttons { a.addButton(withTitle: b) }
-        a.accessoryView = field
-        if let field { a.window.initialFirstResponder = field }
-        return await runSheet(a)
+        alert.messageText = host.isEmpty ? String(localized: "This page says") : String(localized: "\(host) says")
+        alert.informativeText = message
+        for title in buttons { alert.addButton(withTitle: title) }
+        alert.accessoryView = field
+        if let field { alert.window.initialFirstResponder = field }
+        return await runSheet(alert)
     }
 }

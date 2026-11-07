@@ -57,7 +57,7 @@ struct RoutineDetail: View {
         .font(.ui(11)).foregroundStyle(.secondary)
     }
 
-    private func save(_ r: Routine) { Task { await app.call(RoutineSet(routine: r)) } }
+    private func save(_ routine: Routine) { Task { await app.call(RoutineSet(routine: routine)) } }
 }
 
 /// Edit and Delete, from a routine's page and from its row's right-click.
@@ -65,24 +65,24 @@ struct RoutineDetail: View {
 struct RoutineActions {
     let app: AppModel
 
-    func edit(_ r: Routine) {
+    func edit(_ routine: Routine) {
         let app = self.app
         Task {
-            if let changed = await RoutineSheet.run(app, repoId: r.repoId, editing: r) {
+            if let changed = await RoutineSheet.run(app, repoId: routine.repoId, editing: routine) {
                 await app.call(RoutineSet(routine: changed))
             }
         }
     }
 
-    func delete(_ r: Routine) {
+    func delete(_ routine: Routine) {
         let app = self.app
         Task {
-            let a = NSAlert()
-            a.messageText = String(localized: "Delete “\(r.name)”?")
-            a.informativeText = String(localized: "It stops running. Its group and the tabs of its runs stay.")
-            a.addButton(withTitle: String(localized: "Delete")).hasDestructiveAction = true
-            a.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(a) == .alertFirstButtonReturn { await app.call(RoutineDelete(id: r.id)) }
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Delete “\(routine.name)”?")
+            alert.informativeText = String(localized: "It stops running. Its group and the tabs of its runs stay.")
+            alert.addButton(withTitle: String(localized: "Delete")).hasDestructiveAction = true
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            if await runSheet(alert) == .alertFirstButtonReturn { await app.call(RoutineDelete(id: routine.id)) }
         }
     }
 }
@@ -97,9 +97,9 @@ struct RunResult: View {
                 RunMark(mark: .init(id: run.id, at: run.due, kind: .run(run.outcome), run: run), picked: false)
                 Text(headline).font(.ui(12, weight: .medium))
                 Spacer()
-                if let s = run.sessionId, app.session(s) != nil {
+                if let sessionId = run.sessionId, app.session(sessionId) != nil {
                     Button(run.outcome == .asked ? String(localized: "Answer") : String(localized: "Open Run")) {
-                        app.workbench.focus(session: s)
+                        app.workbench.focus(session: sessionId)
                     }
                 }
             }

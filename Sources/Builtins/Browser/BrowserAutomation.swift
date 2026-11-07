@@ -11,9 +11,11 @@ extension BrowserTab {
     static let world = WKContentWorld.world(name: "kelp.browser")
 
     func browse(_ action: String, _ args: JSONValue) async throws -> JSONValue {
-        func need(_ k: String) throws -> String {
-            guard let v = args[k]?.string, !v.isEmpty else { throw RPCError.invalidParams("\(action) needs \(k)") }
-            return v
+        func need(_ key: String) throws -> String {
+            guard let value = args[key]?.string, !value.isEmpty else {
+                throw RPCError.invalidParams("\(action) needs \(key)")
+            }
+            return value
         }
         // The user's logged-in tab is the agent's on the one site the user allowed: taken elsewhere since (by the user, once
         // the agent left it), it's theirs.
@@ -55,8 +57,8 @@ extension BrowserTab {
             return .string("The page's next question gets OK" + (text.map { " and \"\($0)\"" } ?? ""))
         case "upload":
             // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
-            let files = (args["files"]?.array ?? []).compactMap { f -> [String: String]? in
-                if case .object(let o) = f { return o.compactMapValues(\.string) } else { return nil }
+            let files = (args["files"]?.array ?? []).compactMap { file -> [String: String]? in
+                if case .object(let fields) = file { return fields.compactMapValues(\.string) } else { return nil }
             }
             guard !files.isEmpty else { throw RPCError.invalidParams("upload needs a file") }
             _ = try await run(
@@ -94,8 +96,9 @@ extension BrowserTab {
                 + "no(new Error('No answer from the script in \(limit / 1000) s')), \(limit)))]);\n"
                 + "return v === undefined ? 'null' : (JSON.stringify(v) ?? 'null');"
             let text = try await run(body, page: true) as? String ?? "null"
-            let v = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
-            return v == .null ? .string("null") : v   // the CLI prints nothing for null: the agent couldn't tell it ran
+            let value = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
+            // The CLI prints nothing for null: the agent couldn't tell it ran.
+            return value == .null ? .string("null") : value
         case "screenshot":
             _ = try await run(Self.calmJS)   // what an action started has played out and been drawn
             let image: NSImage
@@ -127,8 +130,8 @@ extension BrowserTab {
     /// out: no text to read, nothing to click. It gets the agent's viewport, else a laptop window's size, until a pane shows it.
     private func sized() {
         guard web.window == nil else { return }
-        if let v = viewport {
-            web.frame = CGRect(origin: .zero, size: v)
+        if let viewport {
+            web.frame = CGRect(origin: .zero, size: viewport)
             return
         }
         guard web.frame.width < 200 || web.frame.height < 200 else { return }
@@ -161,14 +164,14 @@ extension BrowserTab {
         let lines = snapshot.components(separatedBy: "\n")
         guard let head = lines.first else { return "" }
         var keep = IndexSet()
-        for (i, l) in lines.enumerated().dropFirst() where l.localizedCaseInsensitiveContains(text) {
-            keep.insert(i)
-            var depth = l.prefix { $0 == " " }.count
-            for j in stride(from: i - 1, to: 0, by: -1) where depth > 0 {
-                let d = lines[j].prefix { $0 == " " }.count
-                if d < depth {
-                    keep.insert(j)
-                    depth = d
+        for (index, line) in lines.enumerated().dropFirst() where line.localizedCaseInsensitiveContains(text) {
+            keep.insert(index)
+            var depth = line.prefix { $0 == " " }.count
+            for above in stride(from: index - 1, to: 0, by: -1) where depth > 0 {
+                let indent = lines[above].prefix { $0 == " " }.count
+                if indent < depth {
+                    keep.insert(above)
+                    depth = indent
                 }
             }
         }
@@ -178,9 +181,9 @@ extension BrowserTab {
     }
 
     /// Two spellings of one address: `http://localhost:3000` and `http://localhost:3000/`.
-    static func same(_ a: String, _ b: String) -> Bool {
-        func bare(_ s: String) -> String { s.hasSuffix("/") ? String(s.dropLast()) : s }
-        return bare(a) == bare(b)
+    static func same(_ first: String, _ second: String) -> Bool {
+        func bare(_ address: String) -> String { address.hasSuffix("/") ? String(address.dropLast()) : address }
+        return bare(first) == bare(second)
     }
 
     /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.
@@ -189,24 +192,26 @@ extension BrowserTab {
         let end = Date().addingTimeInterval(within)
         // A download the action started is waited for too, so its answer says where the file is.
         while web.isLoading || !downloading.isEmpty, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
-        var o = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) { $1 }
-        if web.isLoading { o["loading"] = .bool(true) }
+        var answer = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) {
+            $1
+        }
+        if web.isLoading { answer["loading"] = .bool(true) }
         if !dialogs.isEmpty {
-            o["dialogs"] = .array(dialogs.map(JSONValue.string))
+            answer["dialogs"] = .array(dialogs.map(JSONValue.string))
             dialogs = []
         }
         if !downloads.isEmpty {
-            o["downloads"] = .array(downloads.map(JSONValue.string))
+            answer["downloads"] = .array(downloads.map(JSONValue.string))
             downloads = []
         }
-        if let e = loadError { o["error"] = .string(e) }
-        return .object(o)
+        if let loadError { answer["error"] = .string(loadError) }
+        return .object(answer)
     }
 
     /// The arguments of an action the user sees done: the element's glow, in the accent colour and Kelp's motion (ms).
     /// The wait before the action, the typing pace and how long the pointer stays aren't motion: Reduce Motion keeps them.
     private func shown(_ args: [String: Any]) -> [String: Any] {
-        let ms = { (d: TimeInterval) in Int(d * 1000) }
+        let ms = { (seconds: TimeInterval) in Int(seconds * 1000) }
         let motion = [
             "appear": ms(Motion.duration(Motion.appear)), "disappear": ms(Motion.duration(Motion.disappear)),
             "flash": ms(Motion.flash), "lead": ms(Motion.appear + Motion.fast), "idle": ms(Motion.wait),
@@ -220,8 +225,8 @@ extension BrowserTab {
         do {
             return try await web.callAsyncJavaScript(
                 body, arguments: args, in: nil, contentWorld: page ? .page : Self.world)
-        } catch let e as NSError where e.userInfo["WKJavaScriptExceptionMessage"] != nil {
-            let message = e.userInfo["WKJavaScriptExceptionMessage"] as? String ?? ""
+        } catch let error as NSError where error.userInfo["WKJavaScriptExceptionMessage"] != nil {
+            let message = error.userInfo["WKJavaScriptExceptionMessage"] as? String ?? ""
             throw RPCError.internalError(message.hasPrefix("Error: ") ? String(message.dropFirst(7)) : message)
         }
     }

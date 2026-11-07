@@ -43,16 +43,16 @@ final class EditorStatusBar: NSView {
         indentButton.font = .ui(11)
         indentButton.padding = Metrics.gap
         indentButton.onClick = { [weak self] in
-            guard let self, let b = Optional(indentButton), let m = indentMenu?() else { return }
-            m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 2), in: b)
+            guard let self, let button = Optional(indentButton), let menu = indentMenu?() else { return }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
         }
         let kind = NSTextField(
             labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription
                 ?? url.pathExtension.uppercased())
-        for l in [kind, place] {
-            l.font = .ui(11)
-            l.textColor = .secondaryLabelColor
-            l.lineBreakMode = .byTruncatingTail
+        for label in [kind, place] {
+            label.font = .ui(11)
+            label.textColor = .secondaryLabelColor
+            label.lineBreakMode = .byTruncatingTail
         }
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wrap.title = String(localized: "Wrap")
@@ -107,16 +107,16 @@ final class EditorStatusBar: NSView {
     }
 
     private func offerTrust() {
-        let m = NSMenu()
-        m.add(String(localized: "Trust This Project")) { [weak self] in self?.onTrust?() }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: restricted.bounds.height + 2), in: restricted)
+        let menu = NSMenu()
+        menu.add(String(localized: "Trust This Project")) { [weak self] in self?.onTrust?() }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: restricted.bounds.height + 2), in: restricted)
     }
 
     func show(indent: Indentation) {
         indentButton.title =
             switch indent {
             case .tabs: String(localized: "Tab Indentation")
-            case .spaces(let n): String(localized: "Spaces: \(n)")
+            case .spaces(let width): String(localized: "Spaces: \(width)")
             }
     }
 
@@ -137,13 +137,13 @@ final class EditorStatusBar: NSView {
 extension EditorStatusBar {
     /// How the editor behaves.
     static func menu(_ app: AppModel, language: String?) -> NSMenu {
-        let m = NSMenu()
-        m.add(String(localized: "Wrap Long Lines")) { app.extensions.run("editor.toggleWordWrap") }.state =
+        let menu = NSMenu()
+        menu.add(String(localized: "Wrap Long Lines")) { app.extensions.run("editor.toggleWordWrap") }.state =
             app.settings.bool("editor.wordWrap", language: language) == true ? .on : .off
-        m.addToggle("editor.autoSave", app, title: String(localized: "Save Automatically"))
-        m.addToggle("editor.formatOnSave", app, title: String(localized: "Format on Save"))
-        m.addItem(.separator())
-        m.addSettingsLink(String(localized: "Editor Settings…"), section: "editor", app)
-        return m
+        menu.addToggle("editor.autoSave", app, title: String(localized: "Save Automatically"))
+        menu.addToggle("editor.formatOnSave", app, title: String(localized: "Format on Save"))
+        menu.addItem(.separator())
+        menu.addSettingsLink(String(localized: "Editor Settings…"), section: "editor", app)
+        return menu
     }
 }

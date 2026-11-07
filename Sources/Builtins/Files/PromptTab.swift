@@ -37,11 +37,11 @@ final class PromptTab: TabContent {
     }
 
     private func show(_ text: String) {
-        let e = CodeEditor(text: text, url: URL(fileURLWithPath: path))
-        e.view.clipsToBounds = true
-        e.alwaysWraps = true
-        e.refreshAppearance()
-        editor = e
+        let codeEditor = CodeEditor(text: text, url: URL(fileURLWithPath: path))
+        codeEditor.view.clipsToBounds = true
+        codeEditor.alwaysWraps = true
+        codeEditor.refreshAppearance()
+        editor = codeEditor
         let cancel = PointerButton()
         cancel.title = String(localized: "Cancel")
         cancel.padding = Metrics.gap
@@ -56,7 +56,7 @@ final class PromptTab: TabContent {
         label.font = .ui(12)
         label.textColor = .secondaryLabelColor
         let bar = Bar.content([label], [cancel, done])
-        view.pin(stacked(bar, e.view))
+        view.pin(stacked(bar, codeEditor.view))
         focus()
     }
 

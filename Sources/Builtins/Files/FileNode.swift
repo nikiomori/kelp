@@ -23,21 +23,22 @@ final class FileNode: NSObject {
     static func tree(_ paths: [String], ignored: [String] = []) -> [FileNode] {
         let root = FileNode(name: "", path: "", dir: true)
         var dirs: [String: FileNode] = ["": root]
-        for (p, isIgnored) in paths.lazy.map({ ($0, false) }) + ignored.lazy.map({ ($0, true) }) {
-            let parts = p.split(separator: "/").map(String.init), dir = p.hasSuffix("/")
+        for (path, isIgnored) in paths.lazy.map({ ($0, false) }) + ignored.lazy.map({ ($0, true) }) {
+            let parts = path.split(separator: "/").map(String.init), dir = path.hasSuffix("/")
             var parent = root, acc = ""
-            for (i, part) in parts.enumerated() {
+            for (index, part) in parts.enumerated() {
                 acc = acc.isEmpty ? part : acc + "/" + part
-                if let d = dirs[acc] {
-                    parent = d
+                if let folder = dirs[acc] {
+                    parent = folder
                     continue
                 }   // an ignored folder with tracked files in it: those show
-                let n = FileNode(
-                    name: part, path: acc, dir: dir || i < parts.count - 1, ignored: isIgnored && i == parts.count - 1)
-                parent.children?.append(n)
-                if n.children != nil {
-                    dirs[acc] = n
-                    parent = n
+                let node = FileNode(
+                    name: part, path: acc, dir: dir || index < parts.count - 1,
+                    ignored: isIgnored && index == parts.count - 1)
+                parent.children?.append(node)
+                if node.children != nil {
+                    dirs[acc] = node
+                    parent = node
                 }
             }
         }
@@ -48,10 +49,10 @@ final class FileNode: NSObject {
     /// An ignored folder's files as `files.ignored` lists them (each path from the root).
     func read(_ entries: [String]) {
         unread = false
-        children = entries.map { e in
+        children = entries.map { entry in
             FileNode(
-                name: (e as NSString).lastPathComponent, path: String(e.dropLast(e.hasSuffix("/") ? 1 : 0)),
-                dir: e.hasSuffix("/"), ignored: true)
+                name: (entry as NSString).lastPathComponent, path: String(entry.dropLast(entry.hasSuffix("/") ? 1 : 0)),
+                dir: entry.hasSuffix("/"), ignored: true)
         }
         Self.sort(self)
     }
@@ -60,18 +61,18 @@ final class FileNode: NSObject {
     static func find(_ rel: String, in nodes: [FileNode]) -> FileNode? {
         var list = nodes, found: FileNode?
         for part in rel.split(separator: "/") {
-            guard let f = list.first(where: { $0.name == part }) else { return nil }
-            found = f
-            list = f.children ?? []
+            guard let child = list.first(where: { $0.name == part }) else { return nil }
+            found = child
+            list = child.children ?? []
         }
         return found
     }
 
     // Keys made once per node: lowercasing inside the comparator did it n log n times (100k files in a big repo).
-    private static func sort(_ n: FileNode) {
-        n.children = n.children?.map { ($0.children != nil ? 0 : 1, $0.name.lowercased(), $0) }.sorted {
+    private static func sort(_ node: FileNode) {
+        node.children = node.children?.map { ($0.children != nil ? 0 : 1, $0.name.lowercased(), $0) }.sorted {
             ($0.0, $0.1) < ($1.0, $1.1)
         }.map(\.2)
-        n.children?.forEach(sort)
+        node.children?.forEach(sort)
     }
 }

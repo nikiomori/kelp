@@ -15,8 +15,8 @@ struct ServerDetail: View {
             meters
             // Too narrow for both side by side (a process row needs `ProcessRow.least`): the side column goes under the
             // processes, which SwiftUI otherwise centres past the left edge.
-            GeometryReader { g in
-                if g.size.width >= ProcessRow.least + 20 + 240 {
+            GeometryReader { geometry in
+                if geometry.size.width >= ProcessRow.least + 20 + 240 {
                     HStack(alignment: .top, spacing: 20) {
                         ServerProcesses(app: app, stats: stats).frame(minWidth: ProcessRow.least, maxWidth: .infinity)
                         side.frame(minWidth: 240, idealWidth: 300, maxWidth: 340)
@@ -24,7 +24,7 @@ struct ServerDetail: View {
                 } else {
                     VStack(alignment: .leading, spacing: 16) {
                         ServerProcesses(app: app, stats: stats)
-                        side.frame(maxHeight: g.size.height * 0.4)
+                        side.frame(maxHeight: geometry.size.height * 0.4)
                     }
                 }
             }
@@ -37,24 +37,24 @@ struct ServerDetail: View {
     }
 
     private var meters: some View {
-        let s = stats
-        return Grid(horizontalSpacing: 12) {
+        Grid(horizontalSpacing: 12) {
             GridRow {
                 Tile(
-                    label: "CPU", value: s.cpu.map { "\(Int($0.rounded()))%" } ?? "–",
-                    detail: s.load.map {
+                    label: "CPU", value: stats.cpu.map { "\(Int($0.rounded()))%" } ?? "–",
+                    detail: stats.load.map {
                         String(localized: "load \($0.map { String(format: "%.2f", $0) }.joined(separator: " · "))")
                     } ?? "",
-                    share: s.cpu.map { $0 / 100 }, trend: history.map(\.cpu))
+                    share: stats.cpu.map { $0 / 100 }, trend: history.map(\.cpu))
                 Tile(
-                    label: "Memory", value: s.memory.map(serverBytes) ?? "–", detail: of(s.memory, s.memoryTotal),
-                    share: share(s.memory, s.memoryTotal), trend: history.map(\.memory))
+                    label: "Memory", value: stats.memory.map(serverBytes) ?? "–",
+                    detail: of(stats.memory, stats.memoryTotal),
+                    share: share(stats.memory, stats.memoryTotal), trend: history.map(\.memory))
                 Tile(
-                    label: "Swap", value: s.swap.map(serverBytes) ?? "–", detail: of(s.swap, s.swapTotal),
-                    share: share(s.swap, s.swapTotal))
+                    label: "Swap", value: stats.swap.map(serverBytes) ?? "–", detail: of(stats.swap, stats.swapTotal),
+                    share: share(stats.swap, stats.swapTotal))
                 Tile(
-                    label: "Disk /", value: s.disk.map(serverBytes) ?? "–", detail: of(s.disk, s.diskTotal),
-                    share: share(s.disk, s.diskTotal))
+                    label: "Disk /", value: stats.disk.map(serverBytes) ?? "–", detail: of(stats.disk, stats.diskTotal),
+                    share: share(stats.disk, stats.diskTotal))
             }
         }
     }
@@ -63,8 +63,8 @@ struct ServerDetail: View {
         HostStats.percent(used, total).map { Double($0) / 100 }
     }
     private func of(_ used: Int?, _ total: Int?) -> String {
-        guard let total, let p = HostStats.percent(used, total) else { return String(localized: "Linux only") }
-        return String(localized: "of \(serverBytes(total)) · \(p)%")
+        guard let total, let percent = HostStats.percent(used, total) else { return String(localized: "Linux only") }
+        return String(localized: "of \(serverBytes(total)) · \(percent)%")
     }
 }
 
@@ -99,20 +99,20 @@ private struct Tile: View {
 private struct Sparkline: View {
     let values: [Double]
     var body: some View {
-        GeometryReader { g in
-            let pts = values.enumerated().map { i, v in
+        GeometryReader { geometry in
+            let pts = values.enumerated().map { index, value in
                 CGPoint(
-                    x: g.size.width * CGFloat(i) / CGFloat(max(1, values.count - 1)),
-                    y: g.size.height * (1 - CGFloat(min(1, max(0, v)))))
+                    x: geometry.size.width * CGFloat(index) / CGFloat(max(1, values.count - 1)),
+                    y: geometry.size.height * (1 - CGFloat(min(1, max(0, value)))))
             }
-            let line = Path { p in p.addLines(pts) }
+            let line = Path { path in path.addLines(pts) }
             let color = (values.last ?? 0) >= 0.9 ? Color.orange : Color.secondary
             ZStack {
-                Path { p in
-                    p.addLines(pts)
-                    p.addLine(to: CGPoint(x: g.size.width, y: g.size.height))
-                    p.addLine(to: CGPoint(x: 0, y: g.size.height))
-                    p.closeSubpath()
+                Path { path in
+                    path.addLines(pts)
+                    path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height))
+                    path.addLine(to: CGPoint(x: 0, y: geometry.size.height))
+                    path.closeSubpath()
                 }.fill(Color.primary.opacity(0.06))
                 line.stroke(color, lineWidth: 1.3)
                 if let last = pts.last { Circle().fill(color).frame(width: 4, height: 4).position(last) }

@@ -18,29 +18,29 @@ extension FilesPanel {
     /// Replace All: read what the search found, show what would change, write what's chosen. A file with unsaved edits is
     /// left out, as what's on disk isn't what's in its tab.
     func replaceAll() {
-        let template = replaceField.stringValue, query = search.stringValue.trimmingCharacters(in: .whitespaces),
-            o = searchOptions
+        let template = replaceField.stringValue, query = search.stringValue.trimmingCharacters(in: .whitespaces)
         let names = Array(Set(matches.map(\.path))).sorted(), root = root, app = app
         var options = FindOptions()
-        options.matchCase = o.matchCase
-        options.wholeWord = o.wholeWord
-        options.regex = o.regex
+        options.matchCase = searchOptions.matchCase
+        options.wholeWord = searchOptions.wholeWord
+        options.regex = searchOptions.regex
         // By real path: a tab may name its file through a link (/tmp, /private/tmp).
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
         let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL.map { real($0.path) } })
         Task { @MainActor in
             var files: [ReplaceFile] = []
             for name in names where !edited.contains(real(root + "/" + name)) {
-                guard let r = await app.quiet(FilesRead(path: root + "/" + name)) else { continue }
+                guard let contents = await app.quiet(FilesRead(path: root + "/" + name)) else { continue }
                 do {
-                    let text = r.text   // the regex over a big file is off the main thread
+                    let text = contents.text   // the regex over a big file is off the main thread
                     let plan = try await Task.detached { [options] in
                         try ReplaceInText.plan(text, query: query, options: options, template: template)
                     }.value
                     if plan.isEmpty { continue }
                     files.append(
                         ReplaceFile(
-                            path: root + "/" + name, name: name, text: r.text, stamp: r.stamp, matches: plan,
+                            path: root + "/" + name, name: name, text: contents.text, stamp: contents.stamp,
+                            matches: plan,
                             chosen: Set(plan.indices)))
                 } catch {
                     return Banner.show(String(localized: "Not a valid pattern"), style: .error)
@@ -48,7 +48,7 @@ extension FilesPanel {
             }
             guard !files.isEmpty else { return Banner.show(String(localized: "Nothing to replace.")) }
             let sheet = ReplaceSheet(files, leftOut: names.count - files.count)
-            guard let w = sheet.window, await runSheet(w) == .OK else { return }
+            guard let window = sheet.window, await runSheet(window) == .OK else { return }
             await Self.write(sheet.files, app: app)
             self.runSearch()   // what it found has changed
         }
@@ -57,11 +57,11 @@ extension FilesPanel {
     /// Over the versions read. One Undo puts every file back, over the versions written.
     static func write(_ files: [ReplaceFile], app: AppModel) async {
         var undo: [FileBatch.Done] = [], refused: [String] = []
-        for f in files where !f.chosen.isEmpty {
-            if let stamp = await FileBatch.write(f.path, f.result, over: f.stamp, app: app) {
-                undo.append(FileBatch.Done(path: f.path, old: f.text, stamp: stamp))
+        for file in files where !file.chosen.isEmpty {
+            if let stamp = await FileBatch.write(file.path, file.result, over: file.stamp, app: app) {
+                undo.append(FileBatch.Done(path: file.path, old: file.text, stamp: stamp))
             } else {
-                refused.append(f.name)
+                refused.append(file.name)
             }
         }
         let note =
@@ -92,7 +92,9 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
 
     init(_ files: [ReplaceFile], leftOut: Int) {
         self.files = files
-        rows = files.indices.flatMap { f in [(f, nil)] + files[f].matches.indices.map { (f, Optional($0)) } }
+        rows = files.indices.flatMap { index in
+            [(index, nil)] + files[index].matches.indices.map { (index, Optional($0)) }
+        }
         window = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 460), styleMask: [.titled], backing: .buffered,
             defer: true)
@@ -126,37 +128,39 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     }
 
     private func count() {
-        let n = files.reduce(0) { $0 + $1.chosen.count }
-        go.title = String(localized: "Replace \(n)")
-        go.isEnabled = n > 0
+        let total = files.reduce(0) { $0 + $1.chosen.count }
+        go.title = String(localized: "Replace \(total)")
+        go.isEnabled = total > 0
     }
 
     @objc private func cancelled() { finish(.cancel) }
     @objc private func confirmed() { finish(.OK) }
-    private func finish(_ r: NSApplication.ModalResponse) {
-        if let window { window.sheetParent?.endSheet(window, returnCode: r) }
+    private func finish(_ response: NSApplication.ModalResponse) {
+        if let window { window.sheetParent?.endSheet(window, returnCode: response) }
     }
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
 
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let (f, m) = rows[row]
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+        let (fileIndex, matchIndex) = rows[row]
         let box = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggled(_:)))
         box.tag = row
-        guard let m else {
-            box.title = files[f].name
-            box.state = files[f].chosen.isEmpty ? .off : files[f].chosen.count == files[f].matches.count ? .on : .mixed
+        guard let matchIndex else {
+            box.title = files[fileIndex].name
+            box.state =
+                files[fileIndex].chosen.isEmpty
+                ? .off : files[fileIndex].chosen.count == files[fileIndex].matches.count ? .on : .mixed
             box.font = .ui(12, weight: .semibold)
             return box
         }
-        let match = files[f].matches[m]
-        box.state = files[f].chosen.contains(m) ? .on : .off
+        let match = files[fileIndex].matches[matchIndex]
+        box.state = files[fileIndex].chosen.contains(matchIndex) ? .on : .off
         func line(_ sign: String, _ text: String, _ color: NSColor) -> NSTextField {
-            let l = NSTextField(labelWithString: sign + text)
-            l.font = .uiMono(11)
-            l.textColor = color
-            l.lineBreakMode = .byTruncatingTail
-            return l
+            let label = NSTextField(labelWithString: sign + text)
+            label.font = .uiMono(11)
+            label.textColor = color
+            label.lineBreakMode = .byTruncatingTail
+            return label
         }
         let lines = NSStackView(views: [
             line("\(match.line) − ", match.before, .textRed), line("\(match.line) + ", match.after, .textGreen)
@@ -170,12 +174,12 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         return out
     }
 
-    @objc private func toggled(_ b: NSButton) {
-        let (f, m) = rows[b.tag]
-        if let m {
-            if files[f].chosen.remove(m) == nil { files[f].chosen.insert(m) }
+    @objc private func toggled(_ box: NSButton) {
+        let (fileIndex, matchIndex) = rows[box.tag]
+        if let matchIndex {
+            if files[fileIndex].chosen.remove(matchIndex) == nil { files[fileIndex].chosen.insert(matchIndex) }
         } else {
-            files[f].chosen = files[f].chosen.isEmpty ? Set(files[f].matches.indices) : []
+            files[fileIndex].chosen = files[fileIndex].chosen.isEmpty ? Set(files[fileIndex].matches.indices) : []
         }
         table.reloadData()
         count()

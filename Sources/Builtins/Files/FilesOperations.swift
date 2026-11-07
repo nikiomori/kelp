@@ -14,47 +14,49 @@ extension FilesPanel {
     func move(_ pairs: @escaping @MainActor () async -> [FileMove], unique: Bool = false, undo name: String) -> Task<
         [FileMove], Never
     > {
-        let t = Task {
-            let p = await pairs()
-            guard !p.isEmpty, let r = await app.call(FilesMove(pairs: p, unique: unique)) else { return [FileMove]() }
-            return done(r)
+        let task = Task {
+            let moves = await pairs()
+            guard !moves.isEmpty, let result = await app.call(FilesMove(pairs: moves, unique: unique)) else {
+                return [FileMove]()
+            }
+            return done(result)
         }
-        undoable(name, t) { $0.move({ await t.value.reversed().map(\.back) }, undo: name) }
-        return t
+        undoable(name, task) { $0.move({ await task.value.reversed().map(\.back) }, undo: name) }
+        return task
     }
 
     /// Moves each to the Trash; ⌘Z moves them back from where they went.
     @discardableResult
     func trash(_ paths: @escaping @MainActor () async -> [String], undo name: String) -> Task<[FileMove], Never> {
-        let t = Task {
-            let p = await paths()
-            fadeRows(Set(p))
-            guard !p.isEmpty, let r = await app.call(FilesTrash(paths: p)) else {
+        let task = Task {
+            let targets = await paths()
+            fadeRows(Set(targets))
+            guard !targets.isEmpty, let result = await app.call(FilesTrash(paths: targets)) else {
                 showFadedRows()
                 return [FileMove]()
             }
-            return done(r)
+            return done(result)
         }
-        undoable(name, t) { $0.move({ await t.value.reversed().map(\.back) }, undo: name) }
-        return t
+        undoable(name, task) { $0.move({ await task.value.reversed().map(\.back) }, undo: name) }
+        return task
     }
 
     /// Copies into `dir` (Finder's "name copy" when the name is taken); ⌘Z puts the copies in the Trash.
     func copy(_ paths: [String], into dir: String, undo name: String) {
-        let t = Task {
-            guard let r = await app.call(FilesCopy(paths: paths, into: dir)) else { return [String]() }
-            if let e = r.error { Banner.show(e, style: .error) }
+        let task = Task {
+            guard let result = await app.call(FilesCopy(paths: paths, into: dir)) else { return [String]() }
+            if let error = result.error { Banner.show(error, style: .error) }
             reloadTree()
-            return r.made
+            return result.made
         }
-        undoable(name, t) { $0.trash({ await t.value }, undo: name) }
+        undoable(name, task) { $0.trash({ await task.value }, undo: name) }
     }
 
     /// A new file in `dir` ("untitled", "untitled 2"…); ⌘Z puts it in the Trash.
     func create(in dir: String, undo name: String) -> Task<String?, Never> {
-        let t = Task { await app.call(FilesCreate(path: dir + "/untitled", unique: true)).map { [$0] } ?? [] }
-        undoable(name, t) { $0.trash({ await t.value }, undo: name) }
-        return Task { await t.value.first }
+        let task = Task { await app.call(FilesCreate(path: dir + "/untitled", unique: true)).map { [$0] } ?? [] }
+        undoable(name, task) { $0.trash({ await task.value }, undo: name) }
+        return Task { await task.value.first }
     }
 
     /// A row's key across a reload.
@@ -63,13 +65,13 @@ extension FilesPanel {
     /// On their way to the Trash: the rows fade where they stand, and the reload closes the gap.
     private func fadeRows(_ paths: Set<String>) {
         guard !Motion.reduced else { return }
-        outline.enumerateAvailableRowViews { v, row in
+        outline.enumerateAvailableRowViews { rowView, row in
             guard let key = rowKey(row), paths.contains(URL(fileURLWithPath: root).appendingPathComponent(key).path)
             else { return }
-            fadedRows.append(v)
+            fadedRows.append(rowView)
             NSAnimationContext.runAnimationGroup {
                 $0.duration = Motion.fast
-                v.animator().alphaValue = 0
+                rowView.animator().alphaValue = 0
             }
         }
     }
@@ -81,16 +83,16 @@ extension FilesPanel {
     }
 
     /// What moved; why the rest didn't, said.
-    private func done(_ r: FilesMove.Result) -> [FileMove] {
-        if let e = r.error { Banner.show(e, style: .error) }
+    private func done(_ result: FilesMove.Result) -> [FileMove] {
+        if let error = result.error { Banner.show(error, style: .error) }
         reloadTree()
-        return r.done
+        return result.done
     }
 
-    /// ⌘Z for what `t` does, registered now: `inverse` runs on undo (and registers the redo). One that did nothing
+    /// ⌘Z for what `task` does, registered now: `inverse` runs on undo (and registers the redo). One that did nothing
     /// takes its entry back off, so ⌘Z doesn't skip a step.
     private func undoable<T: Collection>(
-        _ name: String, _ t: Task<T, Never>, _ inverse: @escaping @MainActor (FilesPanel) -> Void
+        _ name: String, _ task: Task<T, Never>, _ inverse: @escaping @MainActor (FilesPanel) -> Void
     ) {
         guard let um = undoManager else { return }
         let entry = UndoEntry()   // its own target, to be taken off alone
@@ -110,17 +112,17 @@ extension FilesPanel {
             um.endUndoGrouping()
             um.groupsByEvent = true
         }
-        Task { if await t.value.isEmpty { um.removeAllActions(withTarget: entry) } }
+        Task { if await task.value.isEmpty { um.removeAllActions(withTarget: entry) } }
     }
 
     /// ⌘C: the file itself, for pasting here, in Finder, or into a terminal (its path).
     @objc func copy(_ sender: Any?) {
-        guard let n = selectedNode else {
+        guard let node = selectedNode else {
             NSSound.beep()
             return
         }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([URL(fileURLWithPath: root).appendingPathComponent(n.path) as NSURL])
+        NSPasteboard.general.writeObjects([URL(fileURLWithPath: root).appendingPathComponent(node.path) as NSURL])
     }
     /// ⌘V: files copied here or in Finder, into the selected folder.
     @objc func paste(_ sender: Any?) {

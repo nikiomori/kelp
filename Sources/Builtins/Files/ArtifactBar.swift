@@ -38,13 +38,13 @@ final class ArtifactBar: NSObject {
     /// What's on screen: a version's number, which a new version or one dropped doesn't move; nil for the file as it is.
     private var shownN: Int?
     /// Where that version is in `entries` now.
-    private var shown: Int? { shownN.flatMap { n in entries.firstIndex { $0.version?.n == n } } }
+    private var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
         kind.font = .ui(12, weight: .medium)
         kind.textColor = .labelColor   // what this is: not a path, so not quiet like one
         status.textColor = .secondaryLabelColor
-        for t in [kind, status] { t.lineBreakMode = .byTruncatingTail }
+        for field in [kind, status] { field.lineBreakMode = .byTruncatingTail }
         status.font = .ui(12)
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ring.style = .spinning
@@ -52,11 +52,11 @@ final class ArtifactBar: NSObject {
         count.font = .uiDigits(12)
         count.padding = Metrics.gap
         count.onClick = { [weak self] in self?.showVersions() }
-        for (b, t) in [(latest, String(localized: "Show Latest")), (restore, String(localized: "Restore"))] {
-            b.title = t
-            b.font = .ui(12)
-            b.padding = Metrics.gap
-            b.restFill = .fillRest
+        for (button, title) in [(latest, String(localized: "Show Latest")), (restore, String(localized: "Restore"))] {
+            button.title = title
+            button.font = .ui(12)
+            button.padding = Metrics.gap
+            button.restFill = .fillRest
         }
         latest.onClick = { [weak self] in self?.show(nil) }
         restore.onClick = { [weak self] in self?.restoreShown() }
@@ -98,8 +98,8 @@ final class ArtifactBar: NSObject {
 
     /// Whether `path` is a page Kelp made (`.kelp/artifacts/<name>/<kind>.md`), not one of its kept versions.
     static func isPage(_ path: String) -> Bool {
-        guard let r = path.range(of: "/\(Artifacts.folder)/") else { return false }
-        let rest = path[r.upperBound...].split(separator: "/")
+        guard let range = path.range(of: "/\(Artifacts.folder)/") else { return false }
+        let rest = path[range.upperBound...].split(separator: "/")
         return rest.count == 2 && Artifacts.Kind.allCases.contains { $0.file == rest[1] }
     }
 
@@ -107,10 +107,10 @@ final class ArtifactBar: NSObject {
         item = app.latest(ArtifactsEvent.self, workspace ?? "")?.items.first {
             (Paths.real($0.target) ?? $0.target) == real
         }
-        let s = item?.session.flatMap(app.session)
+        let session = item?.session.flatMap(app.session)
         let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
         kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")
-        if let t = item?.title, !t.isEmpty { markdown.onPageTitle?(t) }
+        if let title = item?.title, !title.isEmpty { markdown.onPageTitle?(title) }
         // The file as it is goes last; a last version it hasn't changed from is the same page, named by its turn.
         let versions = item?.versions ?? []
         let live = item?.changed != false || versions.isEmpty
@@ -125,31 +125,32 @@ final class ArtifactBar: NSObject {
             shownN = nil
             markdown.showVersion(nil)
         }   // gone, or now the latest
-        let writing = s?.status == .working && (item?.modified).map { Date().timeIntervalSince1970 - $0 < 120 } == true
+        let writing =
+            session?.status == .working && (item?.modified).map { Date().timeIntervalSince1970 - $0 < 120 } == true
         if shown != nil {
             status.stringValue = String(localized: "An older version, from \(Self.time(entries[shown ?? 0].at))")
         } else {
-            status.stringValue = writing ? String(localized: "\(app.catalog.name(s?.agent)) is writing") : ""
+            status.stringValue = writing ? String(localized: "\(app.catalog.name(session?.agent)) is writing") : ""
         }
         ring.isHidden = !writing || shown != nil
         if ring.isHidden { ring.stopAnimation(nil) } else { ring.startAnimation(nil) }
         let index = shown ?? entries.count - 1
         count.title = String(localized: "\(index + 1) of \(entries.count)")
-        for v in [back, forward, count] as [NSView] { v.isHidden = entries.count < 2 }
+        for control in [back, forward, count] as [NSView] { control.isHidden = entries.count < 2 }
         back.isEnabled = index > 0
         forward.isEnabled = index < entries.count - 1
         latest.isHidden = shown == nil
         restore.isHidden = shown == nil
-        author.isHidden = s == nil
-        if let s {
+        author.isHidden = session == nil
+        if let session {
             // The agent, not the chat's title, which reads as the page's own name; the chat is in the tip.
-            author.title = app.catalog.name(s.agent)   // displayName is the chat's title once it has one
-            author.image = s.agent.flatMap { app.catalog.icon($0, size: 14) }
+            author.title = app.catalog.name(session.agent)   // displayName is the chat's title once it has one
+            author.image = session.agent.flatMap { app.catalog.icon($0, size: 14) }
             let tip =
-                s.status == .exited
+                session.status == .exited
                 ? String(localized: "The chat that made it has ended") : String(localized: "Show the Chat That Made It")
-            author.toolTip = s.title.isEmpty ? tip : "\(tip): \(s.title)"
-            author.isEnabled = s.status != .exited
+            author.toolTip = session.title.isEmpty ? tip : "\(tip): \(session.title)"
+            author.isEnabled = session.status != .exited
         }
     }
 
@@ -159,22 +160,24 @@ final class ArtifactBar: NSObject {
     ]
 
     private func step(_ by: Int) {
-        let i = (shown ?? entries.count - 1) + by
-        guard entries.indices.contains(i) else { return }
-        show(i == entries.count - 1 ? nil : i)
+        let index = (shown ?? entries.count - 1) + by
+        guard entries.indices.contains(index) else { return }
+        show(index == entries.count - 1 ? nil : index)
     }
 
     /// Entry `i` in the preview (nil: the file as it is).
-    private func show(_ i: Int?) {
-        guard let i, let v = entries[i].version else {
+    private func show(_ index: Int?) {
+        guard let index, let version = entries[index].version else {
             shownN = nil
             markdown.showVersion(nil)
             return update()
         }
         Task {
-            guard let r = await app.call(FilesRead(path: Artifacts.versionPath(target: path, v.n))) else { return }
-            shownN = v.n
-            markdown.showVersion(r.text)
+            guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else {
+                return
+            }
+            shownN = version.n
+            markdown.showVersion(file.text)
             update()
         }
     }
@@ -186,68 +189,69 @@ final class ArtifactBar: NSObject {
     }
 
     private func showVersions() {
-        let m = NSMenu()
-        for (i, e) in entries.enumerated().reversed() {
+        let menu = NSMenu()
+        for (index, entry) in entries.enumerated().reversed() {
             let when = [
-                Self.time(e.at),
-                e.version == nil && i == entries.count - 1 && !status.stringValue.isEmpty && shown == nil
+                Self.time(entry.at),
+                entry.version == nil && index == entries.count - 1 && !status.stringValue.isEmpty && shown == nil
                     ? String(localized: "now writing") : nil
             ].compactMap { $0 }.joined(separator: " · ")
-            let item = m.add("\(i + 1)  \(e.label)") { [weak self] in
-                self?.show(i == (self?.entries.count ?? 0) - 1 ? nil : i)
+            let item = menu.add("\(index + 1)  \(entry.label)") { [weak self] in
+                self?.show(index == (self?.entries.count ?? 0) - 1 ? nil : index)
             }
-            item.state = i == (shown ?? entries.count - 1) ? .on : .off
+            item.state = index == (shown ?? entries.count - 1) ? .on : .off
             item.toolTip = when
-            item.attributedTitle = Self.menuTitle("\(i + 1)  \(e.label)", when)
+            item.attributedTitle = Self.menuTitle("\(index + 1)  \(entry.label)", when)
         }
-        m.addItem(.separator())
-        m.addItem(
+        menu.addItem(.separator())
+        menu.addItem(
             withTitle: String(localized: "Kelp keeps the last \(Artifacts.keptVersions) turns"), action: nil,
             keyEquivalent: ""
         ).isEnabled = false
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
     }
 
     private func showMore() {
-        let m = NSMenu(), app = self.app, path = self.path, md = markdown
-        for (i, t) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")].enumerated()
+        let menu = NSMenu(), app = self.app, path = self.path, md = markdown
+        for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
+            .enumerated()
         {
-            let item = m.add(t) { md.modeSegment = i }
-            item.state = md.modeSegment == i ? .on : .off
+            let item = menu.add(title) { md.modeSegment = mode }
+            item.state = md.modeSegment == mode ? .on : .off
             item.isEnabled = md.shownVersion == nil   // an older version is only read
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
-        m.addItem(.separator())
-        m.add(String(localized: "Show in Finder")) {
+        menu.addItem(.separator())
+        menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Show in Finder")) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
-        m.add(String(localized: "Copy Path")) {
+        menu.add(String(localized: "Copy Path")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(Artifacts.projectPath(path), forType: .string)
         }
         if let id = item?.session, app.session(id)?.status != .exited {
-            m.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }
+            menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }
         }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + 4), in: more)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + 4), in: more)
     }
 
     private func goToChat() { if let id = item?.session { app.workbench.focus(session: id) } }
 
-    private static func time(_ t: Double?) -> String {
-        guard let t else { return "" }
-        let d = Date(timeIntervalSince1970: t)
-        return Calendar.current.isDateInToday(d)
-            ? d.formatted(date: .omitted, time: .shortened) : d.formatted(date: .abbreviated, time: .shortened)
+    private static func time(_ seconds: Double?) -> String {
+        guard let seconds else { return "" }
+        let date = Date(timeIntervalSince1970: seconds)
+        return Calendar.current.isDateInToday(date)
+            ? date.formatted(date: .omitted, time: .shortened) : date.formatted(date: .abbreviated, time: .shortened)
     }
 
     private static func menuTitle(_ title: String, _ detail: String) -> NSAttributedString {
-        let s = NSMutableAttributedString(string: title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
-        guard !detail.isEmpty else { return s }
-        s.append(
+        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
+        guard !detail.isEmpty else { return text }
+        text.append(
             NSAttributedString(
                 string: "\n" + detail,
                 attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
-        return s
+        return text
     }
 }

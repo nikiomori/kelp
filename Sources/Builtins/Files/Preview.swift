@@ -15,27 +15,27 @@ enum Preview {
     ]
 
     static func canPreview(_ url: URL) -> Bool {
-        let e = url.pathExtension.lowercased()
-        return pdf.contains(e) || quickLook.contains(e)
+        let pathExtension = url.pathExtension.lowercased()
+        return pdf.contains(pathExtension) || quickLook.contains(pathExtension)
     }
 
     static func view(for url: URL, app: AppModel) -> NSView {
         if pdf.contains(url.pathExtension.lowercased()), let doc = PDFDocument(url: url) {
-            let v = LinkedPDFView(app: app)
-            v.document = doc
-            v.autoScales = true
-            v.displayMode = .singlePageContinuous
-            return v
+            let pdfView = LinkedPDFView(app: app)
+            pdfView.document = doc
+            pdfView.autoScales = true
+            pdfView.displayMode = .singlePageContinuous
+            return pdfView
         }
         if UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true,
             let image = NSImage(contentsOf: url)
         {
             return ImagePreview(image: image, url: url)
         }
-        let q = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
-        q.previewItem = url as NSURL
-        q.shouldCloseWithWindow = false
-        return q
+        let quickLookView = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
+        quickLookView.previewItem = url as NSURL
+        quickLookView.shouldCloseWithWindow = false
+        return quickLookView
     }
 }
 
@@ -57,8 +57,8 @@ final class ImagePreview: NSImageView {
         animates = true
         focusRingType = .none
         // Its size is the image's: at the default priority a big one would push the window past the screen.
-        for o in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
-            setContentCompressionResistancePriority(.defaultLow, for: o)
+        for orientation in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
+            setContentCompressionResistancePriority(.defaultLow, for: orientation)
         }
         menu = NSMenu()
         menu?.add(String(localized: "Copy Image")) { [weak self] in self?.copy(nil) }

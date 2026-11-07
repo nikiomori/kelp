@@ -9,52 +9,59 @@ import WorkbenchKit
 /// Kelp's in the temporary directory, said in the action's answer and console. Each is marked as downloaded from the
 /// web (quarantine), so Gatekeeper looks at it before it opens.
 extension BrowserTab: WKDownloadDelegate {
-    func webView(_ w: WKWebView, decidePolicyFor a: WKNavigationAction, preferences: WKWebpagePreferences) async
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences)
+        async
         -> (WKNavigationActionPolicy, WKWebpagePreferences)
     {
-        if let u = a.request.url, leavesSharedSite(u, mainFrame: a.targetFrame?.isMainFrame != false) {
-            noteLog("[blocked] \(u.absoluteString): another site than the one the user let the agent use")
+        if let url = action.request.url, leavesSharedSite(url, mainFrame: action.targetFrame?.isMainFrame != false) {
+            noteLog("[blocked] \(url.absoluteString): another site than the one the user let the agent use")
             return (.cancel, preferences)
         }
-        return (a.shouldPerformDownload ? .download : .allow, preferences)
+        return (action.shouldPerformDownload ? .download : .allow, preferences)
     }
 
     /// The user let the agent into their logged-in browser for one site (`open --shared`): while the agent drives the page,
     /// it stays on that site; another one is asked for again.
-    func leavesSharedSite(_ u: URL, mainFrame: Bool) -> Bool {
-        guard agentAnswers, !agent, mainFrame, u.scheme != "about",
+    func leavesSharedSite(_ url: URL, mainFrame: Bool) -> Bool {
+        guard agentAnswers, !agent, mainFrame, url.scheme != "about",
             let allowed = URL(string: start).flatMap(PageOrigin.of)
         else { return false }
-        return PageOrigin.of(u) != allowed
+        return PageOrigin.of(url) != allowed
     }
 
     /// Sites the user let download this run.
     static var downloadsAllowed: Set<String> = []
 
     private static func allowDownloads(from host: String) async -> Bool {
-        let a = NSAlert()
-        a.messageText = String(localized: "Allow downloads from \(host)?")
-        a.informativeText = String(localized: "Its files go to your Downloads folder.")
-        a.addButton(withTitle: String(localized: "Allow"))
-        a.addButton(withTitle: String(localized: "Don't Allow"))
-        return await runSheet(a) == .alertFirstButtonReturn
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Allow downloads from \(host)?")
+        alert.informativeText = String(localized: "Its files go to your Downloads folder.")
+        alert.addButton(withTitle: String(localized: "Allow"))
+        alert.addButton(withTitle: String(localized: "Don't Allow"))
+        return await runSheet(alert) == .alertFirstButtonReturn
     }
 
     /// What the page answered is a file to keep: not a type WebKit shows, or sent as an attachment.
-    static func downloads(_ r: WKNavigationResponse) -> Bool {
-        let disposition = (r.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
-        return !r.canShowMIMEType || disposition.lowercased().hasPrefix("attachment")
+    static func downloads(_ navigationResponse: WKNavigationResponse) -> Bool {
+        let disposition =
+            (navigationResponse.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+        return !navigationResponse.canShowMIMEType || disposition.lowercased().hasPrefix("attachment")
     }
 
-    func webView(_ w: WKWebView, navigationAction a: WKNavigationAction, didBecome d: WKDownload) { d.delegate = self }
-    func webView(_ w: WKWebView, navigationResponse r: WKNavigationResponse, didBecome d: WKDownload) {
-        d.delegate = self
+    func webView(_ webView: WKWebView, navigationAction action: WKNavigationAction, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+    func webView(
+        _ webView: WKWebView, navigationResponse response: WKNavigationResponse, didBecome download: WKDownload
+    ) {
+        download.delegate = self
     }
 
-    func download(_ d: WKDownload, decideDestinationUsing r: URLResponse, suggestedFilename name: String) async -> URL?
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename name: String)
+        async -> URL?
     {
         // The user's pages ask once per site, as Safari does: a page can't fill ~/Downloads unasked.
-        if !agentAnswers, let host = r.url?.host ?? web.url?.host, !Self.downloadsAllowed.contains(host) {
+        if !agentAnswers, let host = response.url?.host ?? web.url?.host, !Self.downloadsAllowed.contains(host) {
             guard await Self.allowDownloads(from: host) else { return nil }
             Self.downloadsAllowed.insert(host)
         }
@@ -70,13 +77,13 @@ extension BrowserTab: WKDownloadDelegate {
         // Taken: on disk, or the path of a download still coming (two "report.pdf" at once).
         let coming = Set(downloading.values.map(\.0))
         let to = Self.free(safe, in: dir) { coming.contains($0) || FileManager.default.fileExists(atPath: $0.path) }
-        downloading[ObjectIdentifier(d)] = (to, r.url, web.url)
+        downloading[ObjectIdentifier(download)] = (to, response.url, web.url)
         if agentAnswers { noteDownload("\(safe) → \(to.path) (started)") }
         return to
     }
 
-    func downloadDidFinish(_ d: WKDownload) {
-        guard let (to, source, page) = downloading.removeValue(forKey: ObjectIdentifier(d)) else { return }
+    func downloadDidFinish(_ download: WKDownload) {
+        guard let (to, source, page) = downloading.removeValue(forKey: ObjectIdentifier(download)) else { return }
         var props: [String: Any] = [
             kLSQuarantineTypeKey as String: kLSQuarantineTypeWebDownload, kLSQuarantineAgentNameKey as String: "Kelp"
         ]
@@ -89,7 +96,7 @@ extension BrowserTab: WKDownloadDelegate {
             return
         }
         if agentAnswers {
-            noteDownload("\(to.path) (done, \(d.progress.completedUnitCount) bytes)")
+            noteDownload("\(to.path) (done, \(download.progress.completedUnitCount) bytes)")
             return
         }
         DistributedNotificationCenter.default().post(name: .init("com.apple.DownloadFileFinished"), object: to.path)
@@ -103,35 +110,36 @@ extension BrowserTab: WKDownloadDelegate {
             ))
     }
 
-    func download(_ d: WKDownload, didFailWithError e: Error, resumeData: Data?) {
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
         let name =
-            downloading.removeValue(forKey: ObjectIdentifier(d))?.to.lastPathComponent ?? String(localized: "a file")
-        failed(name, e)
+            downloading.removeValue(forKey: ObjectIdentifier(download))?.to.lastPathComponent
+            ?? String(localized: "a file")
+        failed(name, error)
     }
 
-    private func failed(_ name: String, _ e: Error) {
+    private func failed(_ name: String, _ error: Error) {
         if agentAnswers {
-            noteDownload("\(name) failed: \(e.localizedDescription)")
+            noteDownload("\(name) failed: \(error.localizedDescription)")
             return
         }
-        Banner.show(String(localized: "Couldn't download \(name): \(e.localizedDescription)"), style: .error)
+        Banner.show(String(localized: "Couldn't download \(name): \(error.localizedDescription)"), style: .error)
     }
 
     /// A download the agent's page made: in its console, and in the answer of the action that started it.
-    private func noteDownload(_ s: String) {
-        noteLog("[download] " + s)
-        downloads.append(s)
+    private func noteDownload(_ line: String) {
+        noteLog("[download] " + line)
+        downloads.append(line)
         if downloads.count > Self.keep { downloads.removeFirst(downloads.count - Self.keep) }
     }
 
     /// `name` in `dir`, or as Safari names the next one when it's taken: `report-2.pdf`, `report-3.pdf`…
     nonisolated static func free(_ name: String, in dir: URL, taken: (URL) -> Bool) -> URL {
         let base = (name as NSString).deletingPathExtension, ext = (name as NSString).pathExtension
-        var u = dir.appendingPathComponent(name), n = 1
-        while taken(u) {
-            n += 1
-            u = dir.appendingPathComponent(ext.isEmpty ? "\(base)-\(n)" : "\(base)-\(n).\(ext)")
+        var url = dir.appendingPathComponent(name), number = 1
+        while taken(url) {
+            number += 1
+            url = dir.appendingPathComponent(ext.isEmpty ? "\(base)-\(number)" : "\(base)-\(number).\(ext)")
         }
-        return u
+        return url
     }
 }

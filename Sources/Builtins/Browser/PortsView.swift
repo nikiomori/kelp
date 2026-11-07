@@ -80,59 +80,58 @@ final class PortsView: NSView {
         guard let wid = ports.key, let found, found != shown else { return }
         shown = found
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for p in found { list.addArrangedSubview(row(p, workspace: wid)) }
+        for page in found { list.addArrangedSubview(row(page, workspace: wid)) }
         showEmpty(found.isEmpty)
     }
 
-    private static func copy(_ p: ServedPage) {
+    private static func copy(_ page: ServedPage) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(p.address, forType: .string)
+        NSPasteboard.general.setString(page.address, forType: .string)
     }
 
-    private func row(_ p: ServedPage, workspace wid: String) -> NSView {
+    private func row(_ page: ServedPage, workspace wid: String) -> NSView {
         let app = app
-        let link = PointerButton(title: p.host == nil ? p.address : p.place) { [weak self] in
+        let link = PointerButton(title: page.host == nil ? page.address : page.place) { [weak self] in
             Task {
-                guard let here = await p.reached(in: wid, call: { await app.call($0) }) else { return }
-                if p.isWeb { self?.onOpen?(here.url) } else { Self.copy(here) }
+                guard let here = await page.reached(in: wid, call: { await app.call($0) }) else { return }
+                if page.isWeb { self?.onOpen?(here.url) } else { Self.copy(here) }
             }
         }
         link.contentTintColor = .linkColor
         link.font = .uiDigits(13, weight: .medium)
         link.underlinesOnHover = true
-        let what = NSTextField(labelWithString: p.command)
+        let what = NSTextField(labelWithString: page.command)
         what.textColor = .secondaryLabelColor
         what.font = .ui(12)
         let copy = ClosureButton(title: String(localized: "Copy")) {
-            Task { if let here = await p.reached(in: wid, call: { await app.call($0) }) { Self.copy(here) } }
+            Task { if let here = await page.reached(in: wid, call: { await app.call($0) }) { Self.copy(here) } }
         }
         let stop = ClosureButton(title: String(localized: "Stop")) {
             Task {
-                if await app.call(PortsStop(worktreeId: wid, pid: p.pid.map(Int.init))) != nil {
+                if await app.call(PortsStop(worktreeId: wid, pid: page.pid.map(Int.init))) != nil {
                     app.watchAgain(.ports, wid)
                 }
             }
         }
-        stop.isHidden = p.pid == nil
-        for b in [copy, stop] {
-            b.bezelStyle = .push
-            b.controlSize = .small
+        stop.isHidden = page.pid == nil
+        for button in [copy, stop] {
+            button.bezelStyle = .push
+            button.controlSize = .small
         }
-        stop.toolTip = String(
-            localized:
-                "Stops \(p.command.isEmpty ? String(localized: "the process") : p.command) (PID \(Int(p.pid ?? 0)))")
-        let r = PortRow(views: [link, what, NSView(), copy, stop])
-        r.spacing = 8
-        r.items = { m in
-            if p.isWeb { m.add(String(localized: "Open")) { link.performClick(nil) } }
-            m.add(String(localized: "Copy Address")) { copy.performClick(nil) }
-            if p.pid != nil {
-                m.addItem(.separator())
-                m.add(String(localized: "Stop")) { stop.performClick(nil) }
+        let command = page.command.isEmpty ? String(localized: "the process") : page.command
+        stop.toolTip = String(localized: "Stops \(command) (PID \(Int(page.pid ?? 0)))")
+        let row = PortRow(views: [link, what, NSView(), copy, stop])
+        row.spacing = 8
+        row.items = { menu in
+            if page.isWeb { menu.add(String(localized: "Open")) { link.performClick(nil) } }
+            menu.add(String(localized: "Copy Address")) { copy.performClick(nil) }
+            if page.pid != nil {
+                menu.addItem(.separator())
+                menu.add(String(localized: "Stop")) { stop.performClick(nil) }
             }
         }
-        r.widthAnchor.constraint(equalToConstant: 460).isActive = true
-        return r
+        row.widthAnchor.constraint(equalToConstant: 460).isActive = true
+        return row
     }
 }
 
@@ -140,8 +139,8 @@ final class PortsView: NSView {
 private final class PortRow: NSStackView {
     var items: ((NSMenu) -> Void)?
     override func menu(for event: NSEvent) -> NSMenu? {
-        let m = NSMenu()
-        items?(m)
-        return m
+        let menu = NSMenu()
+        items?(menu)
+        return menu
     }
 }

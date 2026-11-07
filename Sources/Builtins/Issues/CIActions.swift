@@ -20,24 +20,24 @@ struct CIActions {
     }
 
     /// A cancelled run can't be taken back, only started again.
-    func cancel(_ r: CIRuns.Run) {
-        let a = NSAlert(
-            question: String(localized: "Cancel “\(r.title)”?"),
+    func cancel(_ run: CIRuns.Run) {
+        let alert = NSAlert(
+            question: String(localized: "Cancel “\(run.title)”?"),
             detail: String(localized: "What's running stops now. You can start the run again."),
             action: String(localized: "Cancel Run"))
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
-            act(CIRunCancel(worktreeId: worktree, run: r.id), said: String(localized: "Cancelling the run"))
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            act(CIRunCancel(worktreeId: worktree, run: run.id), said: String(localized: "Cancelling the run"))
         }
     }
 
     /// The commit's changes here; on the forge's site if this clone hasn't fetched it.
-    func showCommit(_ r: CIRuns.Run) {
-        guard let sha = r.sha else { return }
+    func showCommit(_ run: CIRuns.Run) {
+        guard let sha = run.sha else { return }
         Task {
             if await app.tryCall(GitCommitDetails(id: worktree, commit: sha)).value != nil {
                 app.workbench.open(TabURI.diff(worktree, commit: sha))
-            } else if let page = r.commitURL {
+            } else if let page = run.commitURL {
                 Forge.open(page)
             }
         }
@@ -47,8 +47,9 @@ struct CIActions {
     func fix(_ job: CIRuns.Job) {
         guard hasAgent else { return }
         Task {
-            guard let r = await app.call(CIFailures(worktreeId: worktree, job: job.id)) else { return }   // the banner says why
-            GitFix(app).send("fixCI", worktree: worktree, vars: ["check": job.name, "error": r.forAgent])
+            // the banner says why
+            guard let report = await app.call(CIFailures(worktreeId: worktree, job: job.id)) else { return }
+            GitFix(app).send("fixCI", worktree: worktree, vars: ["check": job.name, "error": report.forAgent])
         }
     }
 
@@ -59,9 +60,9 @@ struct CIActions {
         return false
     }
 
-    private func act<M: RPCMethod>(_ m: M, said: String) {
+    private func act<M: RPCMethod>(_ method: M, said: String) {
         Task {
-            guard await app.call(m) != nil else { return }
+            guard await app.call(method) != nil else { return }
             Banner.show(said)
             changed()
         }

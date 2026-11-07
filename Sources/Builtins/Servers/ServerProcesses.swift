@@ -40,7 +40,7 @@ struct ServerProcesses: View {
             Divider()
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(rows, id: \.pid) { p in ProcessRow(app: app, p: p) }
+                    ForEach(rows, id: \.pid) { process in ProcessRow(app: app, process: process) }
                 }
             }
             Text("The \(stats.processes?.count ?? 0) busiest of \(stats.processCount ?? 0). htop shows the rest.")
@@ -80,21 +80,21 @@ struct ProcessRow: View {
     static let kelp: CGFloat = 110, user: CGFloat = 64, number: CGFloat = 64
     /// The narrowest a row is whole: its fixed columns, the gaps and padding, and a little of the command.
     static let least: CGFloat = kelp + user + 3 * number + 5 * 8 + 2 * 8 + 80
-    let app: AppModel, p: HostStats.Process
+    let app: AppModel, process: HostStats.Process
     @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
-                Text(p.command).lineLimit(1)
-                Text(verbatim: "\(p.pid)").font(.ui(11).monospacedDigit()).foregroundStyle(.tertiary)
+                Text(process.command).lineLimit(1)
+                Text(verbatim: "\(process.pid)").font(.ui(11).monospacedDigit()).foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             agent.frame(width: Self.kelp, alignment: .leading)
-            Text(p.user).foregroundStyle(.secondary).lineLimit(1).frame(width: Self.user, alignment: .leading)
-            Text(String(format: "%.1f%%", p.cpu)).frame(width: Self.number, alignment: .trailing)
-            Text(p.memory > 0 ? serverBytes(p.memory) : "–").frame(width: Self.number, alignment: .trailing)
-            Text(serverDuration(Double(p.seconds))).foregroundStyle(.secondary).frame(
+            Text(process.user).foregroundStyle(.secondary).lineLimit(1).frame(width: Self.user, alignment: .leading)
+            Text(String(format: "%.1f%%", process.cpu)).frame(width: Self.number, alignment: .trailing)
+            Text(process.memory > 0 ? serverBytes(process.memory) : "–").frame(width: Self.number, alignment: .trailing)
+            Text(serverDuration(Double(process.seconds))).foregroundStyle(.secondary).frame(
                 width: Self.number, alignment: .trailing)
         }
         .font(.ui(12).monospacedDigit())
@@ -105,22 +105,25 @@ struct ProcessRow: View {
         )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .help(p.args)
-        .onTapGesture(count: 2) { if let sid = p.session { app.workbench.focus(session: sid) } }
+        .help(process.args)
+        .onTapGesture(count: 2) { if let sid = process.session { app.workbench.focus(session: sid) } }
         .contextMenu {
-            if let sid = p.session { Button(String(localized: "Show Agent")) { app.workbench.focus(session: sid) } }
-            Button(String(localized: "Copy Command Line")) { copy(p.args) }
-            Button(String(localized: "Copy PID")) { copy("\(p.pid)") }
+            if let sid = process.session {
+                Button(String(localized: "Show Agent")) { app.workbench.focus(session: sid) }
+            }
+            Button(String(localized: "Copy Command Line")) { copy(process.args) }
+            Button(String(localized: "Copy PID")) { copy("\(process.pid)") }
         }
     }
 
     @ViewBuilder private var agent: some View {
-        if let sid = p.session, let s = app.session(sid) {
+        if let sid = process.session, let session = app.session(sid) {
             HStack(spacing: 4) {
-                StatusIcon(status: s.markStatus, waitsForCommand: s.waitsForCommand).frame(width: 12, height: 12)
-                Text(app.catalog.displayName(s)).lineLimit(1)
+                StatusIcon(status: session.markStatus, waitsForCommand: session.waitsForCommand).frame(
+                    width: 12, height: 12)
+                Text(app.catalog.displayName(session)).lineLimit(1)
             }
-        } else if p.session != nil {
+        } else if process.session != nil {
             Text("Kelp").foregroundStyle(.secondary)
         }
     }

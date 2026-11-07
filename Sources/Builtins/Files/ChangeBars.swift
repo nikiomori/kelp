@@ -19,16 +19,16 @@ final class ChangeBars {
     private struct Seen: Equatable { let changes: [FileChange], branches: BranchInfo? }
 
     /// `file`: its path inside `worktree` (`project`).
-    init(app: AppModel, worktree w: Worktree, file: String, editor: CodeEditor, isEdited: @escaping () -> Bool) {
+    init(app: AppModel, worktree: Worktree, file: String, editor: CodeEditor, isEdited: @escaping () -> Bool) {
         self.app = app
         self.editor = editor
         self.isEdited = isEdited
-        worktree = w
+        self.worktree = worktree
         self.file = file
         git = Watched(.git, in: app)
-        git.key = w.id
+        git.key = worktree.id
         editor.onChangeMark = { [weak self] m, at, view in self?.show(m, at: at, in: view) }
-        let id = w.id, mine = file
+        let id = worktree.id, mine = file
         // This file's line in the status and the branch: a change to other files says nothing about its bars (the disk's
         // changes to it come through `refresh` from its tab).
         track(owner: self) { [app] in
@@ -46,9 +46,10 @@ final class ChangeBars {
     static func project(of path: String, in worktrees: [Worktree]) -> (worktree: Worktree, file: String)? {
         let url = URL(fileURLWithPath: path), folder = url.deletingLastPathComponent().path
         let real = (Paths.real(folder) ?? folder) + "/" + url.lastPathComponent
-        let found = worktrees.compactMap { w -> (Worktree, String)? in
-            for (p, base) in [(path, w.path), (real, Paths.real(w.path) ?? w.path)] where p.hasPrefix(base + "/") {
-                return (w, String(p.dropFirst(base.count + 1)))
+        let found = worktrees.compactMap { worktree -> (Worktree, String)? in
+            for (candidate, base) in [(path, worktree.path), (real, Paths.real(worktree.path) ?? worktree.path)]
+            where candidate.hasPrefix(base + "/") {
+                return (worktree, String(candidate.dropFirst(base.count + 1)))
             }
             return nil
         }
@@ -74,53 +75,53 @@ final class ChangeBars {
         }
     }
 
-    private static func mark(_ c: LineChange) -> CodeEditor.ChangeMark {
+    private static func mark(_ change: LineChange) -> CodeEditor.ChangeMark {
         let kind: CodeEditor.ChangeMark.Kind =
-            switch c.kind {
+            switch change.kind {
             case .added: .added
             case .changed: .changed
             case .removed: .removed
             }
-        return CodeEditor.ChangeMark(kind: kind, line: c.line, count: c.count, hunk: c.hunk)
+        return CodeEditor.ChangeMark(kind: kind, line: change.line, count: change.count, hunk: change.hunk)
     }
 
     // MARK: the card
 
-    private func show(_ m: CodeEditor.ChangeMark, at: NSRect, in view: NSView) {
-        guard hunks.indices.contains(m.hunk) else { return }
-        let shown = hunks[m.hunk], wid = worktree.id, file = file
+    private func show(_ mark: CodeEditor.ChangeMark, at: NSRect, in view: NSView) {
+        guard hunks.indices.contains(mark.hunk) else { return }
+        let shown = hunks[mark.hunk], wid = worktree.id, file = file
         Task { [weak self] in
             // Stage and Revert work on what isn't staged yet, as `git.hunk` finds it: the same lines of the unstaged diff.
             let unstaged = await self?.app.quiet(GitDiff(id: wid, source: "unstaged", file: file))?.first?.hunks ?? []
             guard let self else { return }
             let hunk = Self.counterpart(of: shown, in: unstaged)
-            let p = NSPopover()
-            p.behavior = .transient
-            p.contentViewController = ChangeCard(shown: shown, actions: buttons(hunk))
-            card = p
-            p.show(relativeTo: at, of: view, preferredEdge: .maxX)
+            let popover = NSPopover()
+            popover.behavior = .transient
+            popover.contentViewController = ChangeCard(shown: shown, actions: buttons(hunk))
+            card = popover
+            popover.show(relativeTo: at, of: view, preferredEdge: .maxX)
         }
     }
 
     /// The hunk over the same new lines.
-    static func counterpart(of h: Hunk, in others: [Hunk]) -> Hunk? {
-        let lines = Set(h.lines.compactMap(\.newLine))
+    static func counterpart(of hunk: Hunk, in others: [Hunk]) -> Hunk? {
+        let lines = Set(hunk.lines.compactMap(\.newLine))
         return others.first { o in o.lines.contains { $0.kind != .context && $0.newLine.map(lines.contains) == true } }
-            ?? others.first { $0.newStart == h.newStart }
+            ?? others.first { $0.newStart == hunk.newStart }
     }
 
     private func buttons(_ hunk: Hunk?) -> [NSView] {
         var out: [NSView] = []
         func add(_ title: String, _ go: @escaping () -> Void) {
-            let b = PointerButton()
-            b.title = title
-            b.padding = Metrics.gap
-            b.restFill = .fillRest
-            b.onClick = { [weak self] in
+            let button = PointerButton()
+            button.title = title
+            button.padding = Metrics.gap
+            button.restFill = .fillRest
+            button.onClick = { [weak self] in
                 self?.card?.close()
                 go()
             }
-            out.append(b)
+            out.append(button)
         }
         // With edits in the buffer the file isn't what was diffed.
         if let hunk, !isEdited() {
@@ -132,18 +133,20 @@ final class ChangeBars {
         return out
     }
 
-    private func stage(_ h: Hunk) {
-        let m = GitHunk(id: worktree.id, file: file, header: h.header, fingerprint: h.fingerprint), id = worktree.id
-        Task { [app] in if await app.call(m) != nil { app.watchAgain(.git, id) } }
+    private func stage(_ hunk: Hunk) {
+        let request = GitHunk(id: worktree.id, file: file, header: hunk.header, fingerprint: hunk.fingerprint),
+            id = worktree.id
+        Task { [app] in if await app.call(request) != nil { app.watchAgain(.git, id) } }
     }
 
     /// The change goes at once: the banner's Undo brings it back.
-    private func revert(_ h: Hunk) {
+    private func revert(_ hunk: Hunk) {
         let name = (file as NSString).lastPathComponent
         let undo = UUID().uuidString, id = worktree.id
-        let m = GitDiscardHunk(id: id, file: file, hunk: 0, header: h.header, fingerprint: h.fingerprint, undo: undo)
+        let request = GitDiscardHunk(
+            id: id, file: file, hunk: 0, header: hunk.header, fingerprint: hunk.fingerprint, undo: undo)
         Task { [app] in
-            guard await app.call(m) != nil else { return }
+            guard await app.call(request) != nil else { return }
             app.watchAgain(.git, id)
             Banner.show(
                 String(localized: "Discarded a change in \(name)"),
@@ -192,10 +195,10 @@ final class ChangeCard: NSViewController {
         let font = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular),
             out = NSMutableAttributedString()
         let changed = shown.lines.filter { $0.kind != .context }
-        for l in changed.prefix(Self.mostLines) {
-            let (sign, color): (String, NSColor) = l.kind == .add ? ("+ ", .textGreen) : ("- ", .textRed)
+        for line in changed.prefix(Self.mostLines) {
+            let (sign, color): (String, NSColor) = line.kind == .add ? ("+ ", .textGreen) : ("- ", .textRed)
             out.append(
-                NSAttributedString(string: sign + l.text + "\n", attributes: [.font: font, .foregroundColor: color]))
+                NSAttributedString(string: sign + line.text + "\n", attributes: [.font: font, .foregroundColor: color]))
         }
         if changed.count > Self.mostLines {
             let more = String(localized: "and \(changed.count - Self.mostLines) more")

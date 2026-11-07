@@ -81,12 +81,13 @@ final class FileTab: SavableTab {
     init(uri: String, app: AppModel) {
         self.app = app
         version = Watched(.file, in: app)
-        let (p, line) = TabURI.filePath(uri)
-        path = p
-        url = URL(fileURLWithPath: p)
+        let (filePath, line) = TabURI.filePath(uri)
+        path = filePath
+        url = URL(fileURLWithPath: filePath)
         pendingLine = line
-        root = ChangeBars.project(of: p, in: app.worktrees)?.worktree.path ?? url.deletingLastPathComponent().path
-        let host = RemoteHost.containing(p)?.remote.host
+        root =
+            ChangeBars.project(of: filePath, in: app.worktrees)?.worktree.path ?? url.deletingLastPathComponent().path
+        let host = RemoteHost.containing(filePath)?.remote.host
         remote = host != nil
         if !remote, Preview.canPreview(url) {
             view = Preview.view(for: url, app: app)
@@ -94,7 +95,8 @@ final class FileTab: SavableTab {
         }
         if !remote, url.pathExtension.lowercased() == "ipynb" {
             let nb = NotebookTab(
-                app: app, url: url, path: p, worktreeId: ChangeBars.project(of: p, in: app.worktrees)?.worktree.id)
+                app: app, url: url, path: filePath,
+                worktreeId: ChangeBars.project(of: filePath, in: app.worktrees)?.worktree.id)
             notebook = nb
             view = nb.view
             return
@@ -111,65 +113,67 @@ final class FileTab: SavableTab {
             let read: Result<FilesRead.Result, Error>
             do {
                 if copied {
-                    let copy = URL(fileURLWithPath: try await app.get(FilesFetch(path: p)))
+                    let copy = URL(fileURLWithPath: try await app.get(FilesFetch(path: filePath)))
                     guard let self else { return }
                     wait?.removeFromSuperview()
-                    let v = Preview.view(for: copy, app: app)
-                    preview = v
-                    box.pin(v)
+                    let previewView = Preview.view(for: copy, app: app)
+                    preview = previewView
+                    box.pin(previewView)
                     if focusWhenLoaded { focus() }
                     return
                 }
-                read = .success(try await app.get(FilesRead(path: p)))
+                read = .success(try await app.get(FilesRead(path: filePath)))
             } catch { read = .failure(error) }
             guard let self else { return }
             wait?.removeFromSuperview()
             switch read {
-            case .success(let f): loaded(f, in: box)
+            case .success(let file): loaded(file, in: box)
             // Moved or deleted (often by an agent) since the tab was opened: say so, never an empty buffer ⌘S would write.
-            case .failure(let e as RPCError) where e.code == RPCError.invalidParams("").code && Unopenable(e) == nil:
+            case .failure(let error as RPCError)
+            where error.code == RPCError.invalidParams("").code && Unopenable(error) == nil:
                 box.pin(missing())
-            case .failure(let e): box.pin(Self.message(Unopenable(e).map(Self.reason) ?? AppModel.message(e)))
+            case .failure(let error):
+                box.pin(Self.message(Unopenable(error).map(Self.reason) ?? AppModel.message(error)))
             }
         }
     }
 
     /// Its text is here: the editor (Markdown with its preview, or code with a status bar), its language server, and its
     /// version followed from then on.
-    private func loaded(_ f: FilesRead.Result, in box: NSView) {
+    private func loaded(_ file: FilesRead.Result, in box: NSView) {
         let app = self.app
         let found = ChangeBars.project(of: path, in: app.worktrees)
         root = found?.worktree.path ?? root   // the workspaces may have come in since
         let inside = found.map { $0.worktree.path + "/" + $0.file } ?? path   // as its project names it, not through a symlink
-        let text = f.text
+        let text = file.text
         let editable = CodeEditor.canEdit(text)
         if !editable {
             Banner.show(
                 String(localized: "\(title) opens read only: it's too large, or its lines too long, to edit here."))
         }
-        let e = CodeEditor(text: text, url: url, editable: editable)
-        e.view.clipsToBounds = true
-        editor = e
+        let codeEditor = CodeEditor(text: text, url: url, editable: editable)
+        codeEditor.view.clipsToBounds = true
+        editor = codeEditor
         lastSaved = text
-        known = (f.stamp, text)
+        known = (file.stamp, text)
         let bar = EditorStatusBar(url: url, text: text)
-        bar.contextMenu = { [app, weak e] in EditorStatusBar.menu(app, language: e?.languageId) }
-        bar.show(cursor: e.cursor)
+        bar.contextMenu = { [app, weak codeEditor] in EditorStatusBar.menu(app, language: codeEditor?.languageId) }
+        bar.show(cursor: codeEditor.cursor)
         bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
         bar.onProblems = { [app] in app.extensions.run("files.showProblems") }
         statusBar = bar
-        let crumbs = Breadcrumbs(app: app, path: inside, root: root, editor: e)
-        let language = e.languageId
+        let crumbs = Breadcrumbs(app: app, path: inside, root: root, editor: codeEditor)
+        let language = codeEditor.languageId
         // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
         track(owner: self) {
             app.settings.bool("editor.wordWrap", language: language) ?? false
-        } changed: { [weak e, weak bar] wraps in
-            e?.wrapsHere = wraps
-            e?.refreshAppearance()
+        } changed: { [weak codeEditor, weak bar] wraps in
+            codeEditor?.wrapsHere = wraps
+            codeEditor?.refreshAppearance()
             bar?.show(wrapping: wraps)
         }
         if ["md", "markdown"].contains(url.pathExtension.lowercased()) || ArtifactBar.isPage(path) {   // an agent's page of HTML too
-            let md = MarkdownTab(editor: e, url: url, app: app)
+            let md = MarkdownTab(editor: codeEditor, url: url, app: app)
             md.startInPreview = path == Help.location.path || ArtifactBar.isPage(path)   // the help and agents' pages are for reading
             md.saveFile = { [weak self] in await self?.save() ?? false }
             md.onPageTitle = { [weak self] in self?.pageTitle = $0 }
@@ -177,24 +181,24 @@ final class FileTab: SavableTab {
             box.pin(stacked(md.header(else: crumbs), md.view, bar))
             md.attach(bar)
         } else {
-            box.pin(stacked(withTrustBar(crumbs), e.view, bar))
+            box.pin(stacked(withTrustBar(crumbs), codeEditor.view, bar))
         }
-        let before = e.onSelection   // Markdown's selection bar follows the selection too
-        e.onSelection = { [weak bar, weak e] in
+        let before = codeEditor.onSelection   // Markdown's selection bar follows the selection too
+        codeEditor.onSelection = { [weak bar, weak codeEditor] in
             before?()
-            bar?.show(cursor: e?.cursor)
-            bar?.show(problem: e?.problemAtCursor?.message)
+            bar?.show(cursor: codeEditor?.cursor)
+            bar?.show(problem: codeEditor?.problemAtCursor?.message)
         }
-        e.onChange = { [weak self] t in self?.edited(t) }
+        codeEditor.onChange = { [weak self] t in self?.edited(t) }
         if let kept = backup.text {   // what a crash left
             if kept == text {
                 backup.drop()
             } else {
-                e.setText(kept)
+                codeEditor.setText(kept)
                 edited(kept)
             }
         }
-        e.contextMenu = { [weak self] m in self?.contextMenu(m) }
+        codeEditor.contextMenu = { [weak self] m in self?.contextMenu(m) }
         track(owner: self) {
             app.themes.editorRevision
         } changed: { [weak self] _ in
@@ -202,7 +206,7 @@ final class FileTab: SavableTab {
             self?.markdown?.themeChanged()
         }
         if focusWhenLoaded { focus() }
-        rules = FileRules(app: app, path: inside, root: root, editor: e, bar: bar)
+        rules = FileRules(app: app, path: inside, root: root, editor: codeEditor, bar: bar)
         track(owner: self) { [app] in
             app.worktrees.map(\.path)
         } changed: { [weak self] _ in
@@ -220,10 +224,10 @@ final class FileTab: SavableTab {
         } changed: { [weak bar] in
             bar?.show(restricted: $0)
         }
-        let p = path
-        version.key = p
+        let filePath = path
+        version.key = filePath
         track(owner: self) { [app] in
-            app.latest(FileEvent.self, p)
+            app.latest(FileEvent.self, filePath)
         } changed: { [weak self] _ in
             self?.diskChanged()
         }
@@ -241,8 +245,9 @@ final class FileTab: SavableTab {
         // over a conflict (the daemon writes only over the version last read or written here). Sent now: nothing may hold
         // the tab once it's gone (a save on its way holds it, so none is). Either way the backup keeps the text
         // (`UnsavedBackup`'s deinit) until a workspace holding the file takes it back.
-        if autosave, !discarded, let e = editor, FileSync.save(buffer: e.text, saved: lastSaved, disk: disk) == .write {
-            let write = FilesWrite(path: path, text: e.text, base: known?.stamp)
+        if autosave, !discarded, let editor, FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk) == .write
+        {
+            let write = FilesWrite(path: path, text: editor.text, base: known?.stamp)
             Task { [app] in await app.call(write) }
         }
         if lspOpenedOn != nil { app.lsp.close(app, root: root, path: path) }
@@ -251,14 +256,14 @@ final class FileTab: SavableTab {
     func focus() {
         guard let editor else {
             // A preview (an image, a PDF) takes the keys itself, so ⌘C copies from it.
-            let v = preview ?? view
-            if v.acceptsFirstResponder { v.window?.makeFirstResponder(v) } else { focusWhenLoaded = true }
+            let shown = preview ?? view
+            if shown.acceptsFirstResponder { shown.window?.makeFirstResponder(shown) } else { focusWhenLoaded = true }
             return
         }
         editor.focus()
-        if let l = pendingLine {
+        if let line = pendingLine {
             pendingLine = nil
-            DispatchQueue.main.async { [weak self] in self?.editor?.goTo(line: l) }
+            DispatchQueue.main.async { [weak self] in self?.editor?.goTo(line: line) }
         }
     }
     func goTo(line: Int) {
@@ -272,15 +277,15 @@ final class FileTab: SavableTab {
     }
     // MARK: saving
 
-    private func edited(_ t: String) {
+    private func edited(_ text: String) {
         edits += 1
-        backup.keep(t)
+        backup.keep(text)
         if autosave { autosaving.after(0.6) { [weak self] in Task { await self?.autosaveNow() } } }
         editedStateMayHaveChanged()
         markdown?.textChanged()
         guard lspOpenedOn != nil else { return }   // no language server for it (or for a file on another machine)
         lspTask?.cancel()
-        lspUnsent = t
+        lspUnsent = text
         lspTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
@@ -302,8 +307,8 @@ final class FileTab: SavableTab {
     func save() async -> Bool {
         guard editor != nil else { return true }
         return await serially { [self] in
-            guard let e = editor else { return true }
-            switch FileSync.save(buffer: e.text, saved: lastSaved, disk: disk) {
+            guard let editor else { return true }
+            switch FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk) {
             case .write:
                 if await write() { return true }
                 return gone ? await askToWriteBack() : false
@@ -318,20 +323,20 @@ final class FileTab: SavableTab {
 
     /// Moved or deleted (git mv, a rename): writing would bring the old file back beside the new one, so it asks.
     private func askToWriteBack() async -> Bool {
-        let a = NSAlert()
-        a.messageText = String(localized: "“\(title)” was moved or deleted")
-        a.informativeText = String(localized: "Save writes it at its old place again.")
-        a.addButton(withTitle: String(localized: "Save Here"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        guard await runSheet(a) == .alertFirstButtonReturn else { return false }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "“\(title)” was moved or deleted")
+        alert.informativeText = String(localized: "Save writes it at its old place again.")
+        alert.addButton(withTitle: String(localized: "Save Here"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
         return await write(overAnything: true)
     }
 
     /// Autosave writes only when that's safe; a conflict asks (if the tab is on screen), a missing file waits for ⌘S.
     private func autosaveNow() async {
         _ = await serially { [self] in
-            guard let e = editor else { return true }
-            switch FileSync.save(buffer: e.text, saved: lastSaved, disk: disk) {
+            guard let editor else { return true }
+            switch FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk) {
             case .write: return await write()
             case .conflict:
                 apply(disk)
@@ -357,10 +362,10 @@ final class FileTab: SavableTab {
     /// last read or written here; `overAnything`: whatever is there (Save Here). Changed meanwhile: asked about, unless
     /// only touched (its text still what this tab last saved), which is written over once. Only through `serially`.
     private func write(overAnything: Bool = false, touched: Bool = false) async -> Bool {
-        guard let e = editor else { return true }
+        guard let editor else { return true }
         // A Swift string, made off the main thread (5 MB took 400 ms on it): the buffer is compared against it on every
         // keystroke, fast only with a Swift string on this side (`FileSync.same`).
-        let buffer = e.text, at = edits
+        let buffer = editor.text, at = edits
         let text = await Task.detached { String(decoding: Data(buffer.utf8), as: UTF8.self) }.value
         writing = true
         let res = await app.tryCall(FilesWrite(path: path, text: text, base: overAnything ? nil : known?.stamp))
@@ -375,22 +380,22 @@ final class FileTab: SavableTab {
             Banner.show(String(localized: "Couldn't save \(title): \(error)"), style: .error)
             return false
         }
-        guard let r = res.value else { return false }
-        if let stamp = r.stamp {
+        guard let written = res.value else { return false }
+        if let stamp = written.stamp {
             gone = false
             known = (stamp, text)
             saved(text, at: at)
             changeBars?.refresh()
             return true
         }
-        if r.missing == true {
+        if written.missing == true {
             gone = true
             return false
         }
-        guard let c = r.conflict else { return false }
-        known = (c.stamp, c.text)
-        if !touched, let now = c.text, FileSync.same(now, lastSaved) { return await write(touched: true) }
-        apply(.present(c.text))   // an agent's edit: asked about
+        guard let conflict = written.conflict else { return false }
+        known = (conflict.stamp, conflict.text)
+        if !touched, let now = conflict.text, FileSync.same(now, lastSaved) { return await write(touched: true) }
+        apply(.present(conflict.text))   // an agent's edit: asked about
         return false
     }
 
@@ -438,28 +443,28 @@ final class FileTab: SavableTab {
     private func diskChanged() {
         changeBars?.refresh()
         showProblems()
-        guard editor != nil, let v = app.latest(FileEvent.self, path) else { return }
+        guard editor != nil, let event = app.latest(FileEvent.self, path) else { return }
         if reading || writing {
             readAgain = true
             return
         }
-        guard let now = v.stamp else {
+        guard let now = event.stamp else {
             apply(.missing)
             return
         }
         if let known, known.stamp == now { return }   // our own write
         reading = true
-        let p = path
+        let filePath = path
         Task { [weak self, app] in
             let read: Result<FilesRead.Result, Error>
-            do { read = .success(try await app.get(FilesRead(path: p))) } catch { read = .failure(error) }
+            do { read = .success(try await app.get(FilesRead(path: filePath))) } catch { read = .failure(error) }
             guard let self else { return }
             reading = false
             switch read {
-            case .success(let f):
-                known = (f.stamp, f.text)
-                apply(.present(f.text))
-            case .failure(let e) where Unopenable(e) == .binary:
+            case .success(let file):
+                known = (file.stamp, file.text)
+                apply(.present(file.text))
+            case .failure(let error) where Unopenable(error) == .binary:
                 known = (now, nil)
                 apply(.present(nil))   // asked about as such
             case .failure: break   // grown past the limit (a log), a pipe now, or gone (its next version says so): kept as shown
@@ -471,13 +476,13 @@ final class FileTab: SavableTab {
         }
     }
 
-    private func apply(_ d: FileSync.Disk) {
-        guard let e = editor else { return }
+    private func apply(_ onDisk: FileSync.Disk) {
+        guard let editor else { return }
         let wasGone = gone
-        gone = d == .missing
-        switch FileSync.diskChanged(buffer: e.text, saved: lastSaved, disk: d) {
+        gone = onDisk == .missing
+        switch FileSync.diskChanged(buffer: editor.text, saved: lastSaved, disk: onDisk) {
         case .follow(let text):   // no local edits: follow the disk
-            e.setText(text)
+            editor.setText(text)
             saved(text, at: edits)
             markdown?.textChanged()
         case .conflict(let text): askKeepMine(disk: text)
@@ -488,29 +493,29 @@ final class FileTab: SavableTab {
     }
 
     private func askKeepMine(disk: String) {
-        guard let e = editor, let w = view.window, w.attachedSheet == nil else { return }   // asked again on the next change or ⌘S
-        let a = NSAlert()
-        a.messageText = String(localized: "\(title) changed on disk")
-        a.informativeText = String(localized: "An agent edited this file while you had unsaved changes.")
+        guard let editor, let window = view.window, window.attachedSheet == nil else { return }   // asked again on the next change or ⌘S
+        let alert = NSAlert()
+        alert.messageText = String(localized: "\(title) changed on disk")
+        alert.informativeText = String(localized: "An agent edited this file while you had unsaved changes.")
         // No longer text (another encoding, binary): there's no disk version to show, and an empty one would throw the
         // edits away. Keep Mine writes them; Cancel leaves the tab and the file as they are.
         let notText: Bool = if case .present(nil) = self.disk { true } else { false }
         if notText {
-            a.informativeText = String(
+            alert.informativeText = String(
                 localized:
                     "The file on disk is no longer text (another encoding, or binary). Keep Mine writes your version over it."
             )
         }
-        a.addButton(withTitle: String(localized: "Keep Mine"))
-        a.addButton(withTitle: notText ? String(localized: "Cancel") : String(localized: "Use Disk Version"))
+        alert.addButton(withTitle: String(localized: "Keep Mine"))
+        alert.addButton(withTitle: notText ? String(localized: "Cancel") : String(localized: "Use Disk Version"))
         // Holds the tab until answered: closing it meanwhile mustn't throw away the user's choice (or their edits).
-        a.beginSheetModal(for: w) { r in   // AppKit: on main
+        alert.beginSheetModal(for: window) { response in   // AppKit: on main
             MainActor.assumeIsolated {
-                if r == .alertFirstButtonReturn {
+                if response == .alertFirstButtonReturn {
                     self.lastSaved = disk
                     Task { _ = await self.serially { await self.write() } }
                 } else if !notText {
-                    e.setText(disk)
+                    editor.setText(disk)
                     self.saved(disk, at: self.edits)
                     self.markdown?.textChanged()
                 }
@@ -556,28 +561,29 @@ final class FileTab: SavableTab {
             NSSound.beep()
             return
         }   // its formatter would run here, not on the host
-        guard let cmd = await command("format"), let e = editor else { return }
+        guard let cmd = await command("format"), let editor else { return }
         guard app.lsp.askTrust(app, root, again: true, { [weak self] in Task { await self?.format() } }) else { return }   // its toolchain may be the repo's
-        let text = e.text, line = e.cursor?.line ?? 1
-        let r = await Shell.run(app, cmd, cwd: url.deletingLastPathComponent().path, input: text, timeout: 20)
-        guard r.code == 0 else {
-            let why = (r.stderr.isEmpty ? r.stdout : r.stderr).split(separator: "\n").prefix(2).joined(separator: "\n")
+        let text = editor.text, line = editor.cursor?.line ?? 1
+        let result = await Shell.run(app, cmd, cwd: url.deletingLastPathComponent().path, input: text, timeout: 20)
+        guard result.code == 0 else {
+            let why = (result.stderr.isEmpty ? result.stdout : result.stderr).split(separator: "\n").prefix(2).joined(
+                separator: "\n")
             Banner.show(String(localized: "Couldn't format \(title): \(why)"), style: .error)
             return
         }
-        guard e.text == text, r.stdout != text, !r.stdout.isEmpty || text.isEmpty else { return }   // typed meanwhile, or nothing to do
-        e.apply(text: r.stdout, selection: NSRange(location: 0, length: 0))
-        e.goTo(line: line)
+        guard editor.text == text, result.stdout != text, !result.stdout.isEmpty || text.isEmpty else { return }   // typed meanwhile, or nothing to do
+        editor.apply(text: result.stdout, selection: NSRange(location: 0, length: 0))
+        editor.goTo(line: line)
     }
 
     /// What the tab says instead of the text (the daemon refuses it, here or on a host: `files.read`).
-    static func reason(_ u: Unopenable) -> String {
-        switch u {
+    static func reason(_ unopenable: Unopenable) -> String {
+        switch unopenable {
         case .special: String(localized: "Kelp opens files, not devices or pipes.")
-        case .tooBig(let n):
+        case .tooBig(let size):
             String(
                 localized:
-                    "Too big to open here (\(ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file))). Open it with another app."
+                    "Too big to open here (\(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))). Open it with another app."
             )
         case .binary: String(localized: "Binary file — open it with another app.")
         }
@@ -587,26 +593,27 @@ final class FileTab: SavableTab {
     /// The editor's context menu, after Cut, Copy and Paste.
 
     static func menu(
-        _ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void
+        _ app: AppModel, _ menu: NSMenu, uri: String, workspace: String,
+        openBeside: @escaping @MainActor (String) -> Void
     ) {
         let path = TabURI.filePath(uri).path
-        m.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
+        menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
         if ["html", "htm"].contains((path as NSString).pathExtension.lowercased()) {
-            m.add(String(localized: "Open Preview to the Side")) { openBeside("preview:" + path) }
+            menu.add(String(localized: "Open Preview to the Side")) { openBeside("preview:" + path) }
         }
-        m.addItem(.separator())
+        menu.addItem(.separator())
         WorkspaceActions.addLocate(
-            to: m, path: path,
+            to: menu, path: path,
             copies: [(String(localized: "Web Link"), { @MainActor in FileActions(app).copyWebLink(path) })])
     }
 
     /// What the tab shows instead of the file: the empty state, a warning when it couldn't be opened.
 
-    private static func message(_ s: String, failed: Bool = true) -> NSView {
-        let v = NSView(), e = EmptyStateView()
-        e.place(in: v)
-        if failed { e.showError(s, text: nil) } else { e.show(s, symbol: "icloud.and.arrow.down") }
-        return v
+    private static func message(_ text: String, failed: Bool = true) -> NSView {
+        let container = NSView(), empty = EmptyStateView()
+        empty.place(in: container)
+        if failed { empty.showError(text, text: nil) } else { empty.show(text, symbol: "icloud.and.arrow.down") }
+        return container
     }
 }
 
@@ -615,10 +622,10 @@ extension FileTab {
     /// The workspaces changed (or weren't known yet when the tab opened): the change bars and the language server follow
     /// the file's project.
     private func followProject() {
-        guard let e = editor, let found = ChangeBars.project(of: path, in: app.worktrees),
+        guard let editor, let found = ChangeBars.project(of: path, in: app.worktrees),
             changeBars == nil || found.worktree.path != root
         else { return }
-        changeBars = ChangeBars(app: app, worktree: found.worktree, file: found.file, editor: e) { [weak self] in
+        changeBars = ChangeBars(app: app, worktree: found.worktree, file: found.file, editor: editor) { [weak self] in
             self?.isEdited == true
         }
         guard found.worktree.path != root else { return }   // its first bars: the project is the one it had
@@ -631,27 +638,29 @@ extension FileTab {
     }
 
     private func startLSP() {
-        let p = path, r = root, app = app
-        guard app.lsp.language(app, p)?.server != nil,
-            app.lsp.whenTrusted(app, r, { [weak self] in self?.startLSP() })
+        let filePath = path, projectRoot = root, app = app
+        guard app.lsp.language(app, filePath)?.server != nil,
+            app.lsp.whenTrusted(app, projectRoot, { [weak self] in self?.startLSP() })
         else { return }   // asked once per project
         Task { [weak self] in
             guard let text = self?.editor?.text,
-                await app.lsp.open(app, root: r, path: p, text: text, retry: { [weak self] in self?.startLSP() }),
-                let self, let e = editor
+                await app.lsp.open(
+                    app, root: projectRoot, path: filePath, text: text, retry: { [weak self] in self?.startLSP() }),
+                let self, let editor
             else { return }
             lspOpenedOn = app.connections
-            connectServer(to: e, root: r, path: p)
+            connectServer(to: editor, root: projectRoot, path: filePath)
         }
     }
 
     /// LSP: definition of the symbol at the cursor, opened as a tab.
     func jumpToDefinition() {
-        guard let e = editor, let (l, c) = e.cursor else { return }
-        let p = path, r = root, app = app
+        guard let editor, let (line, column) = editor.cursor else { return }
+        let filePath = path, projectRoot = root, app = app
         Task {
             await lspCaughtUp()
-            guard let loc = await app.lsp.definition(app, root: r, path: p, line: l, column: c) else {
+            guard let loc = await app.lsp.definition(app, root: projectRoot, path: filePath, line: line, column: column)
+            else {
                 NSSound.beep()
                 return
             }
@@ -666,22 +675,22 @@ extension FileTab {
     func close() async -> Bool {
         autosaving.cancel()
         _ = await saving?.value   // a save on its way: what's asked is checked against what it wrote
-        guard let e = editor, isEdited else { return true }
-        let action = FileSync.save(buffer: e.text, saved: lastSaved, disk: disk)
+        guard let editor, isEdited else { return true }
+        let action = FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk)
         if autosave, action == .write, await writeAndClose() { return true }
-        let a = NSAlert()
-        a.messageText = String(localized: "Do you want to save the changes you made to “\(title)”?")
-        a.informativeText =
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Do you want to save the changes you made to “\(title)”?")
+        alert.informativeText =
             switch action {
             case .conflict:
                 String(localized: "An agent changed it on disk meanwhile. Save replaces that version with yours.")
             case .missing: String(localized: "It was moved or deleted. Save writes it at its old place again.")
             default: String(localized: "Your changes will be lost if you don't save them.")
             }
-        a.addButton(withTitle: String(localized: "Save"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        a.addButton(withTitle: String(localized: "Don't Save"))
-        switch await runSheet(a) {
+        alert.addButton(withTitle: String(localized: "Save"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Don't Save"))
+        switch await runSheet(alert) {
         case .alertFirstButtonReturn: return await writeAndClose(answering: action)
         case .alertThirdButtonReturn:
             discard()

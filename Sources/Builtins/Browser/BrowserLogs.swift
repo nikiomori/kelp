@@ -18,26 +18,26 @@ extension BrowserTab {
         web.evaluateJavaScript(Self.watchJS)
     }
 
-    func note(_ m: WKScriptMessage) {
-        guard watching, let d = m.body as? [String: Any] else { return }
-        let text = String((d["text"] as? String ?? "").prefix(2000))
-        if d["k"] as? String == "net" {
-            let status = (d["status"] as? Int).map { $0 == 0 ? "failed" : String($0) } ?? "failed"
-            let ms = (d["ms"] as? Int).map { ", \($0) ms" } ?? ""
+    func note(_ message: WKScriptMessage) {
+        guard watching, let entry = message.body as? [String: Any] else { return }
+        let text = String((entry["text"] as? String ?? "").prefix(2000))
+        if entry["k"] as? String == "net" {
+            let status = (entry["status"] as? Int).map { $0 == 0 ? "failed" : String($0) } ?? "failed"
+            let ms = (entry["ms"] as? Int).map { ", \($0) ms" } ?? ""
             noteRequest(
-                "\(status) \(d["method"] as? String ?? "GET") \(d["url"] as? String ?? "") (\(d["type"] as? String ?? "")\(ms)"
+                "\(status) \(entry["method"] as? String ?? "GET") \(entry["url"] as? String ?? "") (\(entry["type"] as? String ?? "")\(ms)"
                     + (text.isEmpty ? ")" : ": \(text))"))
         } else {
-            noteLog("[\(d["level"] as? String ?? "log")] \(text)")
+            noteLog("[\(entry["level"] as? String ?? "log")] \(text)")
         }
     }
 
-    func noteLog(_ s: String) {
-        logs.append(s)
+    func noteLog(_ line: String) {
+        logs.append(line)
         if logs.count > Self.keep { logs.removeFirst(logs.count - Self.keep) }
     }
-    func noteRequest(_ s: String) {
-        requests.append(s)
+    func noteRequest(_ line: String) {
+        requests.append(line)
         if requests.count > Self.keep { requests.removeFirst(requests.count - Self.keep) }
     }
 

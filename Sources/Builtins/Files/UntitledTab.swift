@@ -60,14 +60,14 @@ final class UntitledTab: SavableTab {
 
     func close() async -> Bool {
         guard isEdited else { return true }
-        let a = NSAlert()
-        a.messageText = String(localized: "Do you want to save “\(title)”?")
-        a.informativeText = String(
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Do you want to save “\(title)”?")
+        alert.informativeText = String(
             localized: "It hasn't been saved yet, so its text will be lost if you don't save it.")
-        a.addButton(withTitle: String(localized: "Save…"))
-        a.addButton(withTitle: String(localized: "Cancel"))
-        a.addButton(withTitle: String(localized: "Don't Save"))
-        switch await runSheet(a) {
+        alert.addButton(withTitle: String(localized: "Save…"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Don't Save"))
+        switch await runSheet(alert) {
         case .alertFirstButtonReturn: return await save()
         case .alertThirdButtonReturn:
             discard()
@@ -79,14 +79,14 @@ final class UntitledTab: SavableTab {
     /// Asks for a name in the workspace's folder, writes the file and puts it in this tab's place.
     @discardableResult
     func save() async -> Bool {
-        let p = NSSavePanel()
-        p.nameFieldStringValue = Self.suggestedName(editor.text) ?? title
-        p.directoryURL = app.worktree(app.workbench.workspaceId).map { URL(fileURLWithPath: $0.path) }
-        p.canCreateDirectories = true
-        p.isExtensionHidden = false
-        p.message = String(
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = Self.suggestedName(editor.text) ?? title
+        panel.directoryURL = app.worktree(app.workbench.workspaceId).map { URL(fileURLWithPath: $0.path) }
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.message = String(
             localized: "Name it with an extension for code (main.py, App.swift); without one it's a .txt file.")
-        guard await runSheet(p) == .OK, var url = p.url else { return false }
+        guard await runSheet(panel) == .OK, var url = panel.url else { return false }
         if url.pathExtension.isEmpty { url.appendPathExtension("txt") }
         // Over whatever is there: the save panel asked about replacing it.
         let res = await app.tryCall(FilesWrite(path: url.path, text: editor.text, base: nil))

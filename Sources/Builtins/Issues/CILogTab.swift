@@ -23,12 +23,12 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
     private static var waiting: [String: String] = [:]
 
     static func uri(worktree: String, job: CIRuns.Job) -> String {
-        var c = URLComponents()
-        c.queryItems = [
+        var components = URLComponents()
+        components.queryItems = [
             URLQueryItem(name: "worktree", value: worktree), URLQueryItem(name: "job", value: String(job.id)),
             URLQueryItem(name: "name", value: job.name)
         ]
-        return "cilog:" + (c.string ?? "")
+        return "cilog:" + (components.string ?? "")
     }
 
     /// Opens the job's log, at `step` if one is named.
@@ -44,18 +44,18 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
 
     init(uri: String, app: AppModel) {
         self.uri = uri
-        let q = URLComponents(string: "x:" + TabURI.body(uri))?.queryItems ?? []
-        func value(_ name: String) -> String? { q.first { $0.name == name }?.value }
+        let query = URLComponents(string: "x:" + TabURI.body(uri))?.queryItems ?? []
+        func value(_ name: String) -> String? { query.first { $0.name == name }?.value }
         title = String(localized: "Log: \(value("name") ?? "")")
         view = box
         Self.shown[uri] = { [weak self] in self }
         guard let worktree = value("worktree"), let job = value("job").flatMap(Int.init) else { return }
         let slow = whileSlow { [weak self] in self?.show(String(localized: "Loading the log…")) }
         Task { [weak self] in
-            let r = await app.tryCall(CIFullLog(worktreeId: worktree, job: job))
+            let result = await app.tryCall(CIFullLog(worktreeId: worktree, job: job))
             slow.cancel()
             guard let self else { return }
-            if let log = r.value { loaded(log) } else { show(r.error ?? "") }
+            if let log = result.value { loaded(log) } else { show(result.error ?? "") }
         }
     }
 
@@ -66,19 +66,19 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
     }
 
     private func show(_ message: String) {
-        let e = EmptyStateView()
+        let empty = EmptyStateView()
         box.subviews.forEach { $0.removeFromSuperview() }
-        e.show(message)
-        box.pin(e)
+        empty.show(message)
+        box.pin(empty)
     }
 
     private func loaded(_ log: String) {
         text = log
-        let e = CodeEditor(text: log, url: URL(fileURLWithPath: "/ci.log"), editable: false)
-        e.view.clipsToBounds = true
-        editor = e
+        let codeEditor = CodeEditor(text: log, url: URL(fileURLWithPath: "/ci.log"), editable: false)
+        codeEditor.view.clipsToBounds = true
+        editor = codeEditor
         box.subviews.forEach { $0.removeFromSuperview() }
-        box.pin(e.view)
+        box.pin(codeEditor.view)
         if let step = Self.waiting.removeValue(forKey: uri) { go(to: step) }
     }
 

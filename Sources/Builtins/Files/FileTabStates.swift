@@ -25,7 +25,7 @@ extension FileTab {
         column.orientation = .vertical
         column.spacing = 0
         column.detachesHiddenViews = true
-        for v in [crumbs, trust] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+        for part in [crumbs, trust] { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         return column
     }
 
@@ -34,9 +34,10 @@ extension FileTab {
         let app = self.app, uri = self.uri
         let close = ClosureButton(title: String(localized: "Close Tab")) { app.workbench.closeTab(uri: uri) }
         let files = ClosureButton(title: String(localized: "Show in Files")) { app.workbench.showPanel("files") }
-        let v = NSView(), e = EmptyStateView()
-        e.place(in: v)
-        e.showError(String(localized: "File not found — it was moved or deleted."), text: nil, buttons: [close, files])
-        return v
+        let container = NSView(), empty = EmptyStateView()
+        empty.place(in: container)
+        empty.showError(
+            String(localized: "File not found — it was moved or deleted."), text: nil, buttons: [close, files])
+        return container
     }
 }

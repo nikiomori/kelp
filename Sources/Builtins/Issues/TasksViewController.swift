@@ -29,11 +29,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         case pr(GitHub.PullRequest), issue(GitHub.Issue), linear(LinearIssue), jira(JiraIssue), item(GitHub.ProjectItem)
         var url: String? {
             switch self {
-            case .pr(let p): p.url
-            case .issue(let i): i.url
-            case .linear(let l): l.url
-            case .jira(let j): j.url
-            case .item(let i): i.url
+            case .pr(let pr): pr.url
+            case .issue(let issue): issue.url
+            case .linear(let issue): issue.url
+            case .jira(let issue): issue.url
+            case .item(let item): item.url
             }
         }
     }
@@ -88,11 +88,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         split.addArrangedSubview(ts)
         split.addArrangedSubview(ds)
         split.setHoldingPriority(.defaultLow + 1, forSubviewAt: 1)
-        let v = stacked(bar, split)
-        emptyView.place(in: v, under: bar)
+        let root = stacked(bar, split)
+        emptyView.place(in: root, under: bar)
         showAll.isHidden = true
         setupButton.isHidden = true   // until a list is empty because of them
-        view = v
+        view = root
         sourceChanged()
         nameSources()   // the workspace came before the view: show(worktree:) left naming to here
     }
@@ -117,13 +117,13 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     private var setup: Forge.Setup?
     lazy var checkAgain = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
     lazy var setupButton = ClosureButton(title: "") { [weak self] in
-        if let self, let s = setup { Forge.run(s, in: app) }
+        if let self, let setup = self.setup { Forge.run(setup, in: app) }
     }
 
     func show(worktree id: String?) {
-        let r = app.worktree(id)?.repoId ?? app.repos.first?.id
-        guard r != repoId else { return }
-        repoId = r
+        let newRepoId = app.worktree(id)?.repoId ?? app.repos.first?.id
+        guard newRepoId != repoId else { return }
+        repoId = newRepoId
         guard isViewLoaded else { return }
         // Another project: drop its rows now, or Merge on one before the reload would act on a PR number in this repo.
         rows = []
@@ -157,9 +157,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         case 2:
             filter.addItems(withTitles: [String(localized: "My issues")])
             Task {   // team boards
-                for t in await app.quiet(LinearTeams()) ?? [] where menu == menus {   // the list's own load says what failed
-                    filter.addItem(withTitle: String(localized: "Team: \(t.name)"))
-                    filter.lastItem?.representedObject = t.id
+                for team in await app.quiet(LinearTeams()) ?? [] where menu == menus {   // the list's own load says what failed
+                    filter.addItem(withTitle: String(localized: "Team: \(team.name)"))
+                    filter.lastItem?.representedObject = team.id
                 }
             }
         default: filter.addItems(withTitles: [String(localized: "Loading projects…")])
@@ -203,39 +203,40 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 status.stringValue = String(localized: "Loading…")
             }
         }
-        let src = source.indexOfSelectedItem, f = filter.indexOfSelectedItem
+        let src = source.indexOfSelectedItem, filterIndex = filter.indexOfSelectedItem
         Task {
             defer { slow.cancel() }
             var rows: [Row] = []
             do {
-                let m = app
                 switch src {
                 case 0:
-                    rows = try await m.get(GitHubPRs(repoId: repoId, filter: ["open", "mine", "review"][max(0, f)]))
-                        .map(Row.pr)
+                    rows = try await app.get(
+                        GitHubPRs(repoId: repoId, filter: ["open", "mine", "review"][max(0, filterIndex)])
+                    )
+                    .map(Row.pr)
                 case 1:
-                    rows = try await m.get(GitHubIssues(repoId: repoId, filter: f == 1 ? "mine" : "open")).map(
-                        Row.issue)
+                    rows = try await app.get(GitHubIssues(repoId: repoId, filter: filterIndex == 1 ? "mine" : "open"))
+                        .map(Row.issue)
                 case 2:
                     let team = filter.selectedItem?.representedObject as? String
-                    var issues = try await m.get(LinearIssues(teamId: team))
+                    var issues = try await app.get(LinearIssues(teamId: team))
                     if team != nil { issues.sort { $0.state.name < $1.state.name } }
                     rows = issues.map(Row.linear)
                 case 3:
-                    rows = try await m.get(JiraIssues(jql: f == 1 ? jiraJQL : nil)).map(Row.jira)
+                    rows = try await app.get(JiraIssues(jql: filterIndex == 1 ? jiraJQL : nil)).map(Row.jira)
                 default:
                     if filter.itemTitles.first == String(localized: "Loading projects…") {
-                        let ps = try await m.get(GitHubProjects(repoId: repoId))
+                        let ps = try await app.get(GitHubProjects(repoId: repoId))
                         guard gen == reloads else { return }
                         filter.removeAllItems()
-                        for p in ps {
-                            filter.addItem(withTitle: p.title)
-                            filter.lastItem?.tag = p.number
+                        for project in ps {
+                            filter.addItem(withTitle: project.title)
+                            filter.lastItem?.tag = project.number
                         }
                         projectOwner = ps.first.flatMap { URL(string: $0.url)?.pathComponents.dropFirst(2).first }
                     }
-                    if let owner = projectOwner, let n = filter.selectedItem?.tag {
-                        rows = try await m.get(GitHubProjectItems(owner: owner, number: n))
+                    if let owner = projectOwner, let number = filter.selectedItem?.tag {
+                        rows = try await app.get(GitHubProjectItems(owner: owner, number: number))
                             .sorted { ($0.status ?? "~") < ($1.status ?? "~") }.map(Row.item)
                     } else {
                         rows = []
@@ -246,7 +247,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 self.rows = rows
                 filter.isHidden = false
                 // Empty because of the filter isn't the same as empty: say which, and offer the way back.
-                let narrowed = rows.isEmpty && f > 0 && src < 2
+                let narrowed = rows.isEmpty && filterIndex > 0 && src < 2
                 let none = [String(localized: "No open pull requests"), String(localized: "No open issues")]
                 status.stringValue = ""
                 let picked = filter.titleOfSelectedItem ?? ""
@@ -286,15 +287,17 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let (title, sub): (String, String) =
             switch rows[row] {
-            case .pr(let p): ("#\(p.number)  \(p.title)", "\(p.author) · \(p.headRefName)\(Self.checksText(p.checks))")
-            case .issue(let i): ("#\(i.number)  \(i.title)", i.labels.joined(separator: ", "))
-            case .linear(let l): ("\(l.identifier)  \(l.title)", "\(l.state.name) · \(l.team.name)")
-            case .jira(let j): ("\(j.key)  \(j.title)", "\(j.status) · \(j.type) · \(j.project)")
-            case .item(let i): (i.title, "\(i.status ?? String(localized: "No status")) · \(i.type)")
+            case .pr(let pr):
+                ("#\(pr.number)  \(pr.title)", "\(pr.author) · \(pr.headRefName)\(Self.checksText(pr.checks))")
+            case .issue(let issue): ("#\(issue.number)  \(issue.title)", issue.labels.joined(separator: ", "))
+            case .linear(let issue): ("\(issue.identifier)  \(issue.title)", "\(issue.state.name) · \(issue.team.name)")
+            case .jira(let issue):
+                ("\(issue.key)  \(issue.title)", "\(issue.status) · \(issue.type) · \(issue.project)")
+            case .item(let item): (item.title, "\(item.status ?? String(localized: "No status")) · \(item.type)")
             }
         let t1 = NSTextField(labelWithString: title)
         t1.font = .ui(13, weight: .medium)
@@ -304,81 +307,84 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = .byTruncatingTail
         // Give way to the stack's insets: a title that doesn't fit is cut there, not pushed out past the line under it.
-        for l in [t1, t2] { l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
-        let s = NSStackView(views: [t1, t2])
-        s.orientation = .vertical
-        s.alignment = .leading
-        s.spacing = Metrics.lineGap
-        s.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        return s
+        for field in [t1, t2] { field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
+        let stack = NSStackView(views: [t1, t2])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = Metrics.lineGap
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        return stack
     }
-    static func checksText(_ c: GitHub.PullRequest.Checks) -> String {
-        if c.failed > 0 { return String(localized: " · ✕ \(c.failed) failing") }
-        if c.pending > 0 { return String(localized: " · ◌ \(c.pending) pending") }
-        return c.passed > 0 ? String(localized: " · ✓ checks passed") : ""
+    static func checksText(_ checks: GitHub.PullRequest.Checks) -> String {
+        if checks.failed > 0 { return String(localized: " · ✕ \(checks.failed) failing") }
+        if checks.pending > 0 { return String(localized: " · ◌ \(checks.pending) pending") }
+        return checks.passed > 0 ? String(localized: " · ✓ checks passed") : ""
     }
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableViewSelectionDidChange(_ n: Notification) {
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func tableViewSelectionDidChange(_ notification: Notification) {
         showDetail(table.selectedRow >= 0 ? rows[table.selectedRow] : nil)
     }
 
     // MARK: detail
-    private func label(_ s: String, size: CGFloat = 13, weight: NSFont.Weight = .regular, color: NSColor = .labelColor)
+    private func label(
+        _ text: String, size: CGFloat = 13, weight: NSFont.Weight = .regular, color: NSColor = .labelColor
+    )
         -> NSTextField
     {
-        let l = NSTextField(wrappingLabelWithString: s)
-        l.font = .ui(size, weight: weight)
-        l.textColor = color
-        l.isSelectable = true
-        l.preferredMaxLayoutWidth = 520
-        return l
+        let field = NSTextField(wrappingLabelWithString: text)
+        field.font = .ui(size, weight: weight)
+        field.textColor = color
+        field.isSelectable = true
+        field.preferredMaxLayoutWidth = 520
+        return field
     }
-    private func button(_ t: String, _ sym: String, _ action: @escaping () -> Void) -> NSButton {
-        let b = ClosureButton(title: t, action: action)
-        b.image = .symbol(sym)   // Kelp's own drawing where it has one (a branch, a pull request)
-        b.imagePosition = .imageLeading
-        b.bezelStyle = .push
-        return b
+    private func button(_ title: String, _ sym: String, _ action: @escaping () -> Void) -> NSButton {
+        let button = ClosureButton(title: title, action: action)
+        button.image = .symbol(sym)   // Kelp's own drawing where it has one (a branch, a pull request)
+        button.imagePosition = .imageLeading
+        button.bezelStyle = .push
+        return button
     }
 
-    private func showDetail(_ r: Row?) {
+    private func showDetail(_ row: Row?) {
         detail.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        guard let r else {
+        guard let row else {
             detail.addArrangedSubview(
                 label(rows.isEmpty ? "" : String(localized: "Select an item"), color: .secondaryLabelColor))
             return
         }
-        switch r {
-        case .pr(let p): prDetail(p)
-        case .jira(let j):
-            detail.addArrangedSubview(label("\(j.key)  \(j.title)", size: 17, weight: .semibold))
-            detail.addArrangedSubview(jiraTransitions(j.key, current: j.status))
+        switch row {
+        case .pr(let pr): prDetail(pr)
+        case .jira(let issue):
+            detail.addArrangedSubview(label("\(issue.key)  \(issue.title)", size: 17, weight: .semibold))
+            detail.addArrangedSubview(jiraTransitions(issue.key, current: issue.status))
             detail.addArrangedSubview(
                 button(String(localized: "Start Agent on This"), "sparkles") { [weak self] in
-                    self?.startTask(ref: j.key, title: j.title, body: j.description, url: j.url)
+                    self?.startTask(ref: issue.key, title: issue.title, body: issue.description, url: issue.url)
                 })
-            body(j.description)
-        case .issue(let i):
-            detail.addArrangedSubview(label("#\(i.number)  \(i.title)", size: 17, weight: .semibold))
+            body(issue.description)
+        case .issue(let issue):
+            detail.addArrangedSubview(label("#\(issue.number)  \(issue.title)", size: 17, weight: .semibold))
             detail.addArrangedSubview(
                 button(String(localized: "Start Agent on This"), "sparkles") { [weak self] in
-                    self?.startTask(ref: "#\(i.number)", title: i.title, body: i.body, url: i.url)
+                    self?.startTask(ref: "#\(issue.number)", title: issue.title, body: issue.body, url: issue.url)
                 })
-            body(i.body)
-        case .linear(let l):
-            detail.addArrangedSubview(label("\(l.identifier)  \(l.title)", size: 17, weight: .semibold))
-            detail.addArrangedSubview(statePicker(l))
+            body(issue.body)
+        case .linear(let issue):
+            detail.addArrangedSubview(label("\(issue.identifier)  \(issue.title)", size: 17, weight: .semibold))
+            detail.addArrangedSubview(statePicker(issue))
             detail.addArrangedSubview(
                 button(String(localized: "Start Agent on This"), "sparkles") { [weak self] in
-                    self?.startTask(ref: l.identifier, title: l.title, body: l.description ?? "", url: l.url)
+                    self?.startTask(
+                        ref: issue.identifier, title: issue.title, body: issue.description ?? "", url: issue.url)
                 })
-            body(l.description ?? "")
-        case .item(let i):
-            detail.addArrangedSubview(label(i.title, size: 17, weight: .semibold))
+            body(issue.description ?? "")
+        case .item(let item):
+            detail.addArrangedSubview(label(item.title, size: 17, weight: .semibold))
             detail.addArrangedSubview(
-                label(String(localized: "Status: \(i.status ?? "—")"), color: .secondaryLabelColor))
+                label(String(localized: "Status: \(item.status ?? "—")"), color: .secondaryLabelColor))
         }
-        if let url = r.url {
+        if let url = row.url {
             detail.addArrangedSubview(button(String(localized: "Open on the Web"), "safari") { Forge.open(url) })
         }
     }
@@ -391,32 +397,34 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     }
 
     /// The PR's folder: on its own branch, or on `pr-<n>` when that name was taken by another branch (`Git.fetchPullRequest`).
-    private func worktreeFor(branch: String, pr n: Int) -> Worktree? {
+    private func worktreeFor(branch: String, pr number: Int) -> Worktree? {
         // This project's, and never its main checkout: a fork's PR from `main` isn't your main.
         let main = app.repo(repoId ?? "")?.path
         return app.worktrees.first {
-            $0.repoId == repoId && ($0.branch == branch || $0.branch == "pr-\(n)") && !$0.archived && $0.path != main
+            $0.repoId == repoId && ($0.branch == branch || $0.branch == "pr-\(number)") && !$0.archived
+                && $0.path != main
         }
     }
 
-    private func prDetail(_ r: GitHub.PullRequest) {
+    private func prDetail(_ pr: GitHub.PullRequest) {
         let app = self.app
-        let n = r.number, branch = r.headRefName
-        detail.addArrangedSubview(label("#\(n)  \(r.title)", size: 17, weight: .semibold))
-        let draft = r.isDraft ? String(localized: " · draft") : ""
-        let decision = r.reviewDecision.map { " · " + $0.lowercased().replacingOccurrences(of: "_", with: " ") } ?? ""
+        let number = pr.number, branch = pr.headRefName
+        detail.addArrangedSubview(label("#\(number)  \(pr.title)", size: 17, weight: .semibold))
+        let draft = pr.isDraft ? String(localized: " · draft") : ""
+        let decision = pr.reviewDecision.map { " · " + $0.lowercased().replacingOccurrences(of: "_", with: " ") } ?? ""
         detail.addArrangedSubview(
             label(
-                String(localized: "\(r.author) wants to merge \(branch)\(draft)\(decision)"),
+                String(localized: "\(pr.author) wants to merge \(branch)\(draft)\(decision)"),
                 color: .secondaryLabelColor))
-        let wt = worktreeFor(branch: branch, pr: n)
+        let wt = worktreeFor(branch: branch, pr: number)
         let actions = NSStackView()
         actions.spacing = 8
         if wt == nil, let repoId {   // a folder of its own on the PR's head, as New Chat on Branch… › Pull Request makes
             actions.addArrangedSubview(
                 button(String(localized: "Open in Worktree"), "arrow.triangle.branch") {
                     Task {
-                        guard let made = await app.call(WorktreeCreate(repoId: repoId, branch: branch, pr: n)) else {
+                        guard let made = await app.call(WorktreeCreate(repoId: repoId, branch: branch, pr: number))
+                        else {
                             return
                         }
                         await app.refresh()
@@ -431,12 +439,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 })
             actions.addArrangedSubview(
                 button(String(localized: "Send Review Comments to Agent"), "text.bubble") { [weak self] in
-                    self?.sendReview(n, wt)
+                    self?.sendReview(number, wt)
                 })
         }
-        actions.addArrangedSubview(mergeButton(r, wt))
+        actions.addArrangedSubview(mergeButton(pr, wt))
         detail.addArrangedSubview(actions)
-        if let why = Self.mergeBlock(r) { detail.addArrangedSubview(label(why, color: .secondaryLabelColor)) }
+        if let why = Self.mergeBlock(pr) { detail.addArrangedSubview(label(why, color: .secondaryLabelColor)) }
         let checksBox = NSStackView()
         checksBox.orientation = .vertical
         checksBox.alignment = .leading
@@ -446,25 +454,26 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else { return }
         Task { [weak self] in
             guard let self else { return }
-            let read = await app.tryCall(GitHubChecks(repoId: repoId, pr: n))
+            let read = await app.tryCall(GitHubChecks(repoId: repoId, pr: number))
             let checks = read.value ?? []
-            if let e = read.error {
+            if let error = read.error {
                 checksBox.addArrangedSubview(
-                    label(String(localized: "Couldn't read the checks: \(e)"), color: .secondaryLabelColor))
+                    label(String(localized: "Couldn't read the checks: \(error)"), color: .secondaryLabelColor))
             } else if checks.isEmpty {
                 checksBox.addArrangedSubview(
                     label(String(localized: "No checks reported."), color: .secondaryLabelColor))
             }
-            for c in checks {
-                let icon = c.bucket == "pass" ? "✓" : c.bucket == "fail" ? "✕" : c.bucket == "pending" ? "◌" : "–"
+            for check in checks {
+                let icon =
+                    check.bucket == "pass" ? "✓" : check.bucket == "fail" ? "✕" : check.bucket == "pending" ? "◌" : "–"
                 let row = NSStackView(views: [
-                    label("\(icon)  \(c.name)", color: c.bucket == "fail" ? .systemRed : .labelColor)
+                    label("\(icon)  \(check.name)", color: check.bucket == "fail" ? .systemRed : .labelColor)
                 ])
                 row.spacing = 8
-                if c.bucket == "fail", let run = c.runId, let wt {
+                if check.bucket == "fail", let run = check.runId, let wt {
                     row.addArrangedSubview(
                         button(String(localized: "Fix with Agent"), "wrench.and.screwdriver") { [weak self] in
-                            self?.fixCheck(c.name, run, wt)
+                            self?.fixCheck(check.name, run, wt)
                         })
                 }
                 checksBox.addArrangedSubview(row)
@@ -472,19 +481,19 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
 
-    private func statePicker(_ r: LinearIssue) -> NSView {
+    private func statePicker(_ issue: LinearIssue) -> NSView {
         let pop = NSPopUpButton()
-        pop.addItem(withTitle: r.state.name)
+        pop.addItem(withTitle: issue.state.name)
         Task {
-            guard let states = await app.quiet(LinearStates(teamId: r.team.id)) else { return }   // keeps the current state
+            guard let states = await app.quiet(LinearStates(teamId: issue.team.id)) else { return }   // keeps the current state
             pop.removeAllItems()
-            for s in states {
-                pop.addItem(withTitle: s.name)
-                pop.lastItem?.representedObject = s.id
+            for state in states {
+                pop.addItem(withTitle: state.name)
+                pop.lastItem?.representedObject = state.id
             }
-            pop.selectItem(withTitle: r.state.name)
+            pop.selectItem(withTitle: issue.state.name)
         }
-        let id = r.id
+        let id = issue.id
         let sink = ClosureTarget { [weak pop, app] in
             guard let sid = pop?.selectedItem?.representedObject as? String else { return }
             Task { await app.call(LinearSetState(issueId: id, stateId: sid)) }
@@ -502,9 +511,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         pop.addItem(withTitle: current.isEmpty ? String(localized: "Status") : current)
         Task {
             let ts = await app.quiet(JiraTransitions(key: key)) ?? []   // none offered: the status stays as shown
-            for t in ts {
-                pop.addItem(withTitle: "→ " + t.name)
-                pop.lastItem?.representedObject = t.id
+            for transition in ts {
+                pop.addItem(withTitle: "→ " + transition.name)
+                pop.lastItem?.representedObject = transition.id
             }
         }
         let sink = ClosureTarget { [weak pop, weak self, app] in
@@ -572,40 +581,40 @@ extension TasksViewController {
     /// Review comments as the agent reads them: 12 at most, each cut at 800 characters, so a long thread stays a prompt.
     static func forAgent(_ cs: [GitHub.ReviewComment]) -> String {
         var parts: [String] = []
-        for (i, c) in cs.prefix(12).enumerated() {
-            let line: String = c.line.map { ":\($0)" } ?? ""
-            let loc: String = c.path.map { $0 + line } ?? String(localized: "General")
-            let body = c.body.count > 800 ? c.body.prefix(800) + "…" : c.body
-            parts.append("\(i + 1). \(loc) (\(c.author)):\n   \(body)")
+        for (index, comment) in cs.prefix(12).enumerated() {
+            let line: String = comment.line.map { ":\($0)" } ?? ""
+            let loc: String = comment.path.map { $0 + line } ?? String(localized: "General")
+            let body = comment.body.count > 800 ? comment.body.prefix(800) + "…" : comment.body
+            parts.append("\(index + 1). \(loc) (\(comment.author)):\n   \(body)")
         }
         if cs.count > 12 { parts.append("(\(cs.count - 12) more comments omitted.)") }
         return parts.joined(separator: "\n\n")
     }
 
     // MARK: right-click
-    func menuNeedsUpdate(_ m: NSMenu) {
-        m.removeAllItems()
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
         guard rows.indices.contains(table.clickedRow) else { return }
-        let r = rows[table.clickedRow]
-        if let brief = Self.brief(r) {
-            m.add(String(localized: "Start Agent on This")) { [weak self] in
+        let row = rows[table.clickedRow]
+        if let brief = Self.brief(row) {
+            menu.add(String(localized: "Start Agent on This")) { [weak self] in
                 self?.startTask(ref: brief.ref, title: brief.title, body: brief.body, url: brief.url)
             }
         }
-        guard let url = r.url else { return }
-        m.add(String(localized: "Open in Browser")) { Forge.open(url) }
-        m.addItem(.separator())
-        m.add(String(localized: "Copy Link")) {
+        guard let url = row.url else { return }
+        menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Copy Link")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(url, forType: .string)
         }
     }
     /// What an agent starts from, for the rows it can start on.
-    private static func brief(_ r: Row) -> (ref: String, title: String, body: String, url: String)? {
-        switch r {
-        case .issue(let i): ("#\(i.number)", i.title, i.body, i.url)
-        case .linear(let l): (l.identifier, l.title, l.description ?? "", l.url)
-        case .jira(let j): (j.key, j.title, j.description, j.url)
+    private static func brief(_ row: Row) -> (ref: String, title: String, body: String, url: String)? {
+        switch row {
+        case .issue(let issue): ("#\(issue.number)", issue.title, issue.body, issue.url)
+        case .linear(let issue): (issue.identifier, issue.title, issue.description ?? "", issue.url)
+        case .jira(let issue): (issue.key, issue.title, issue.description, issue.url)
         case .pr, .item: nil
         }
     }

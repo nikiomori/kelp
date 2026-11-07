@@ -8,8 +8,8 @@ extension CIRuns.Run {
     /// workflow takes, which says "about", not a countdown: green runs of one project differ by a factor of four.
     /// Nil: the forge didn't say.
     func timeWords(usual: Double?) -> String? {
-        guard let s = seconds() else { return nil }
-        let span = ciSpan(s)
+        guard let elapsed = seconds() else { return nil }
+        let span = ciSpan(elapsed)
         switch (status, conclusion) {
         case ("completed", "cancelled"?): return String(localized: "cancelled \(span)")
         case ("completed", _): return span
@@ -54,7 +54,7 @@ final class CIClock {
 
     private func tick() {
         hands.removeAll { $0.label?.window == nil }
-        for h in hands { if let t = h.text() { h.label?.stringValue = t } }
+        for hand in hands { if let text = hand.text() { hand.label?.stringValue = text } }
         if hands.isEmpty { stop() }
     }
 }
@@ -68,19 +68,19 @@ final class CIRunMeta: NSView {
     private let attempt: AttemptChip?
 
     /// `extras`: what tells this run from its neighbours, after the number and commit (its workflow, its event).
-    init(_ r: CIRuns.Run, extras: [String], usual: Double?, clock: CIClock) {
-        attempt = r.attempt.flatMap { $0 > 1 ? AttemptChip($0) : nil }
+    init(_ run: CIRuns.Run, extras: [String], usual: Double?, clock: CIClock) {
+        attempt = run.attempt.flatMap { $0 > 1 ? AttemptChip($0) : nil }
         super.init(frame: .zero)
-        let who = NSTextField(labelWithAttributedString: Self.who(r, extras))
+        let who = NSTextField(labelWithAttributedString: Self.who(run, extras))
         who.maximumNumberOfLines = 1
         who.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         who.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let time = NSTextField(labelWithString: r.timeWords(usual: usual) ?? "")
-        if !r.finished { clock.follow(time) { r.timeWords(usual: usual) } }
+        let time = NSTextField(labelWithString: run.timeWords(usual: usual) ?? "")
+        if !run.finished { clock.follow(time) { run.timeWords(usual: usual) } }
         time.font = .uiDigits(11)
         time.textColor = .labelColor
         // A run still going has no "when" yet: its time is now.
-        let ago = NSTextField(labelWithString: r.finished ? CIRunLook.ago(r.began) : "")
+        let ago = NSTextField(labelWithString: run.finished ? CIRunLook.ago(run.began) : "")
         ago.font = .uiDigits(11)
         ago.textColor = .secondaryLabelColor
         ago.alignment = .right
@@ -88,7 +88,9 @@ final class CIRunMeta: NSView {
         let line = NSStackView(views: [who] + (attempt.map { [$0] } ?? []) + [NSView(), time, ago])
         line.spacing = Metrics.gapWide
         line.setCustomSpacing(Metrics.gap, after: who)
-        for v in [time, ago] as [NSView] { v.setContentCompressionResistancePriority(.required, for: .horizontal) }
+        for label in [time, ago] as [NSView] {
+            label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
         pin(line)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -99,25 +101,25 @@ final class CIRunMeta: NSView {
     }
 
     /// "#67 2f2111f", the commit in the face of code.
-    private static func who(_ r: CIRuns.Run, _ extras: [String]) -> NSAttributedString {
+    private static func who(_ run: CIRuns.Run, _ extras: [String]) -> NSAttributedString {
         let one = NSMutableParagraphStyle()
         one.lineBreakMode = .byTruncatingTail
         let look: [NSAttributedString.Key: Any] = [
             .font: NSFont.uiDigits(11), .foregroundColor: NSColor.secondaryLabelColor,
             .paragraphStyle: one
         ]
-        let s = NSMutableAttributedString()
-        if let n = r.number { s.append(NSAttributedString(string: "#\(n)", attributes: look)) }
-        if let sha = r.shortSHA {
-            s.append(NSAttributedString(string: s.length > 0 ? " " : "", attributes: look))
-            s.append(NSAttributedString(string: sha, attributes: look.merging([.font: NSFont.uiMono(11)]) { $1 }))
+        let text = NSMutableAttributedString()
+        if let number = run.number { text.append(NSAttributedString(string: "#\(number)", attributes: look)) }
+        if let sha = run.shortSHA {
+            text.append(NSAttributedString(string: text.length > 0 ? " " : "", attributes: look))
+            text.append(NSAttributedString(string: sha, attributes: look.merging([.font: NSFont.uiMono(11)]) { $1 }))
         }
         if !extras.isEmpty {
-            s.append(
+            text.append(
                 NSAttributedString(
-                    string: (s.length > 0 ? " · " : "") + extras.joined(separator: " · "), attributes: look))
+                    string: (text.length > 0 ? " · " : "") + extras.joined(separator: " · "), attributes: look))
         }
-        return s
+        return text
     }
 }
 
@@ -125,23 +127,23 @@ final class CIRunMeta: NSView {
 @MainActor
 enum CIRow {
     /// "8 steps passed  2m 04s": a chevron opens them.
-    static func fold(_ f: CIRuns.StepRow) -> NSView {
-        let n = f.steps.count
-        switch f {
+    static func fold(_ fold: CIRuns.StepRow) -> NSView {
+        let count = fold.steps.count
+        switch fold {
         case .passed:
-            let seconds = f.steps.compactMap { $0.seconds() }.reduce(0, +),
-                done = String(localized: "\(n) steps passed")
+            let seconds = fold.steps.compactMap { $0.seconds() }.reduce(0, +),
+                done = String(localized: "\(count) steps passed")
             return line(
                 CIRunLook.mark("completed", "success"), done, font: .ui(11), color: .secondaryLabelColor,
                 right: ciSpan(seconds)
             ).cell
         case .skipped:
-            let skipped = String(localized: "\(n) steps skipped")
+            let skipped = String(localized: "\(count) steps skipped")
             return line(
                 CIRunLook.mark("completed", "skipped"), skipped, font: .ui(11), color: .tertiaryLabelColor, right: nil
             ).cell
         case .upcoming, .one:
-            let left = String(localized: "\(n) steps to go")
+            let left = String(localized: "\(count) steps to go")
             return line(CIRunLook.mark("queued", nil), left, font: .ui(11), color: .tertiaryLabelColor, right: nil).cell
         }
     }
@@ -150,29 +152,29 @@ enum CIRow {
     static func line(_ mark: NSView, _ name: String, font: NSFont, color: NSColor, right: String?) -> (
         cell: NSView, time: NSTextField?
     ) {
-        let t = NSTextField(labelWithString: name)
-        t.font = font
-        t.textColor = color
-        t.lineBreakMode = .byTruncatingTail
-        t.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        guard let right else { return (row([mark, t]), nil) }
-        let n = NSTextField(labelWithString: right)
-        n.font = .uiDigits(11)
-        n.textColor = .secondaryLabelColor
-        return (row([mark, t, NSView(), n]), n)
+        let label = NSTextField(labelWithString: name)
+        label.font = font
+        label.textColor = color
+        label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        guard let right else { return (row([mark, label]), nil) }
+        let time = NSTextField(labelWithString: right)
+        time.font = .uiDigits(11)
+        time.textColor = .secondaryLabelColor
+        return (row([mark, label, NSView(), time]), time)
     }
 
     static func row(_ views: [NSView]) -> NSView {
-        let r = NSStackView(views: views)
-        r.spacing = 6
-        r.alignment = .centerY
+        let stack = NSStackView(views: views)
+        stack.spacing = 6
+        stack.alignment = .centerY
         let cell = NSTableCellView()
-        r.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(r)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(stack)
         NSLayoutConstraint.activate([
-            r.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-            r.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
-            r.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+            stack.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            stack.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
         ])
         return cell
     }
@@ -182,16 +184,16 @@ enum CIRow {
 @MainActor
 private final class AttemptChip: PointerControl {
     private let label = NSTextField(labelWithString: "")
-    private let n: Int
+    private let attempt: Int
     var compact = false { didSet { if compact != oldValue { show() } } }
 
-    init(_ n: Int) {
-        self.n = n
+    init(_ attempt: Int) {
+        self.attempt = attempt
         super.init(frame: .zero)
         restFill = .fillHover
         layer?.cornerRadius = Metrics.radiusXS
         isEnabled = false
-        toolTip = String(localized: "Attempt \(n) of this run")
+        toolTip = String(localized: "Attempt \(attempt) of this run")
         label.font = .ui(10, weight: .medium)
         label.textColor = .secondaryLabelColor
         pin(label, inset: NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4))
@@ -199,7 +201,7 @@ private final class AttemptChip: PointerControl {
         show()
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    private func show() { label.stringValue = compact ? "↻ \(n)" : String(localized: "attempt \(n)") }
+    private func show() { label.stringValue = compact ? "↻ \(attempt)" : String(localized: "attempt \(attempt)") }
 }

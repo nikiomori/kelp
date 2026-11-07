@@ -185,10 +185,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     private func placeWeb() {
         NSLayoutConstraint.deactivate(webFill + webFixed)
         webFixed.removeSubrange(3...)
-        if let v = viewport {
+        if let viewport {
             webFixed += [
-                web.widthAnchor.constraint(equalToConstant: v.width),
-                web.heightAnchor.constraint(equalToConstant: v.height)
+                web.widthAnchor.constraint(equalToConstant: viewport.width),
+                web.heightAnchor.constraint(equalToConstant: viewport.height)
             ]
             NSLayoutConstraint.activate(webFixed)
         } else {
@@ -202,28 +202,28 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     func load(_ raw: String) {
-        if let f = previewFile, raw == start {
-            let u = URL(fileURLWithPath: f), dir = u.deletingLastPathComponent()
-            web.loadFileURL(u, allowingReadAccessTo: dir)
-            address.stringValue = u.absoluteString
+        if let previewFile, raw == start {
+            let fileURL = URL(fileURLWithPath: previewFile), dir = fileURL.deletingLastPathComponent()
+            web.loadFileURL(fileURL, allowingReadAccessTo: dir)
+            address.stringValue = fileURL.absoluteString
             watcher = FileWatcher(root: dir.path) { [weak self] _ in MainActor.assumeIsolated { _ = self?.web.reload() }
             }   // delivered on main
             return
         }
-        let s = raw.trimmingCharacters(in: .whitespaces)
-        guard !s.isEmpty, s != "https:", !s.hasPrefix("about:blank") else {
+        let typed = raw.trimmingCharacters(in: .whitespaces)
+        guard !typed.isEmpty, typed != "https:", !typed.hasPrefix("about:blank") else {
             ports.isHidden = false
             return
         }
         let text =
-            s.contains("://")
-            ? s
-            : (s.hasPrefix("localhost") || s.first?.isNumber == true
-                ? "http://" + s
-                : s.contains(".") && !s.contains(" ")
-                    ? "https://" + s
+            typed.contains("://")
+            ? typed
+            : (typed.hasPrefix("localhost") || typed.first?.isNumber == true
+                ? "http://" + typed
+                : typed.contains(".") && !typed.contains(" ")
+                    ? "https://" + typed
                     : "https://duckduckgo.com/?q="
-                        + (s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s))
+                        + (typed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? typed))
         guard let url = URL(string: text) else {
             NSSound.beep()
             return
@@ -236,10 +236,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         load(address.stringValue)
         view.window?.makeFirstResponder(web)
     }
-    @objc private func openExternal() { if let u = web.url { PreviewLinks.openOutside(u) } }
+    @objc private func openExternal() { if let url = web.url { PreviewLinks.openOutside(url) } }
 
-    private static func openIn(_ b: (name: String, icon: NSImage)?) -> String {
-        b.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")
+    private static func openIn(_ browser: (name: String, icon: NSImage)?) -> String {
+        browser.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")
     }
 
     /// The browser that opens web links on this Mac, by name and with its icon: the button says where the page goes.
@@ -253,16 +253,17 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     @objc private func showMore(_ sender: NSButton) {
-        let m = NSMenu()
-        m.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
-        if let v = viewport {
-            m.add(String(localized: "Fill the Pane (the agent set \(Int(v.width))×\(Int(v.height)))")) { [weak self] in
+        let menu = NSMenu()
+        menu.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
+        if let viewport {
+            menu.add(String(localized: "Fill the Pane (the agent set \(Int(viewport.width))×\(Int(viewport.height)))"))
+            { [weak self] in
                 self?.viewport = nil
             }
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.web.reloadFromOrigin() }
-        m.add(String(localized: "Copy Screenshot")) { [weak self] in
+        menu.addItem(.separator())
+        menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.web.reloadFromOrigin() }
+        menu.add(String(localized: "Copy Screenshot")) { [weak self] in
             self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit answers on main
                 MainActor.assumeIsolated {
                     guard let img else { return }
@@ -272,14 +273,14 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
                 }
             }
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Clear Cookies and Data for This Site")) { [weak self] in self?.clearSiteData() }
-        m.addItem(.separator())
-        let tip = m.addItem(
+        menu.addItem(.separator())
+        menu.add(String(localized: "Clear Cookies and Data for This Site")) { [weak self] in self?.clearSiteData() }
+        menu.addItem(.separator())
+        let tip = menu.addItem(
             withTitle: String(localized: "Inspect: right-click the page › Inspect Element"), action: nil,
             keyEquivalent: "")
         tip.isEnabled = false
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 
     private func clearSiteData() {
@@ -300,29 +301,37 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         }
     }
 
-    func webView(_ w: WKWebView, didCommit n: WKNavigation!) {
-        if w.url?.absoluteString != "about:blank" { loadError = nil }   // the error page (about:blank) keeps it
-        address.stringValue = w.url?.absoluteString ?? ""
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        if webView.url?.absoluteString != "about:blank" { loadError = nil }   // the error page (about:blank) keeps it
+        address.stringValue = webView.url?.absoluteString ?? ""
         ports.isHidden = true
-        page = (w.url, w.title)
-        if watching, let u = w.url?.absoluteString, u != "about:blank" { noteLog("[page] \(u)") }
-    }
-    func webView(_ w: WKWebView, decidePolicyFor r: WKNavigationResponse) async -> WKNavigationResponsePolicy {
-        if watching, r.isForMainFrame, let h = r.response as? HTTPURLResponse, let u = h.url {
-            noteRequest("\(h.statusCode) \(u.absoluteString) (page)")
+        page = (webView.url, webView.title)
+        if watching, let pageURL = webView.url?.absoluteString, pageURL != "about:blank" {
+            noteLog("[page] \(pageURL)")
         }
-        return Self.downloads(r) ? .download : .allow
     }
-    func webView(_ w: WKWebView, didFinish n: WKNavigation!) {
-        address.stringValue = w.url?.absoluteString ?? ""
-        page = (w.url, w.title)
-        if designOn { w.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
-        if watching { w.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async
+        -> WKNavigationResponsePolicy
+    {
+        if watching, navigationResponse.isForMainFrame,
+            let httpResponse = navigationResponse.response as? HTTPURLResponse, let url = httpResponse.url
+        {
+            noteRequest("\(httpResponse.statusCode) \(url.absoluteString) (page)")
+        }
+        return Self.downloads(navigationResponse) ? .download : .allow
     }
-    func webView(_ w: WKWebView, didFail n: WKNavigation!, withError e: Error) { showError(e) }
-    func webView(_ w: WKWebView, didFailProvisionalNavigation n: WKNavigation!, withError e: Error) { showError(e) }
-    private func showError(_ e: Error) {
-        let ns = e as NSError
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        address.stringValue = webView.url?.absoluteString ?? ""
+        page = (webView.url, webView.title)
+        if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
+        if watching { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showError(error) }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        showError(error)
+    }
+    private func showError(_ error: Error) {
+        let ns = error as NSError
         // Not failures: a navigation cancelled by the next one (a click or Back while loading), a download handed off.
         // Showing the error page for those cancelled the navigation the user had just started.
         if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
@@ -340,8 +349,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     // MARK: Design Mode
     /// The click watch goes with the tab (a closed tab in Design Mode would leave it on every click).
     func close() async -> Bool {
-        if let w = clickWatch {
-            NSEvent.removeMonitor(w)
+        if let monitor = clickWatch {
+            NSEvent.removeMonitor(monitor)
             clickWatch = nil
         }
         return true
@@ -354,14 +363,16 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
         // The user's own clicks on the page, as AppKit sees them: a page can post without one, it can't make one.
         if designOn, clickWatch == nil {
-            clickWatch = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] e in
-                if let self, e.window === web.window, web.bounds.contains(web.convert(e.locationInWindow, from: nil)) {
+            clickWatch = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                if let self, event.window === web.window,
+                    web.bounds.contains(web.convert(event.locationInWindow, from: nil))
+                {
                     clicks.note()
                 }
-                return e
+                return event
             }
-        } else if !designOn, let w = clickWatch {
-            NSEvent.removeMonitor(w)
+        } else if !designOn, let monitor = clickWatch {
+            NSEvent.removeMonitor(monitor)
             clickWatch = nil
         }
         designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
@@ -369,19 +380,23 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             designOn ? Self.designJS(accent: .themeAccent) : "window.__kelpOff && window.__kelpOff()")
     }
 
-    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
-        if m.name == "kelpWatch" {
-            note(m)
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "kelpWatch" {
+            note(message)
             return
         }
         // Any site can post to this handler: only one message per click the user made while Design Mode is on counts.
-        guard designOn, m.frameInfo.isMainFrame, clicks.take(), let d = m.body as? [String: Any] else { return }
-        let r = d["rect"] as? [String: Double] ?? [:]
-        let rect = CGRect(x: r["x"] ?? 0, y: r["y"] ?? 0, width: max(1, r["w"] ?? 1), height: max(1, r["h"] ?? 1))
-            .insetBy(dx: -8, dy: -8)
+        guard designOn, message.frameInfo.isMainFrame, clicks.take(), let element = message.body as? [String: Any]
+        else { return }
+        let frame = element["rect"] as? [String: Double] ?? [:]
+        let rect = CGRect(
+            x: frame["x"] ?? 0, y: frame["y"] ?? 0, width: max(1, frame["w"] ?? 1), height: max(1, frame["h"] ?? 1)
+        )
+        .insetBy(dx: -8, dy: -8)
         let cfg = WKSnapshotConfiguration()
         cfg.rect = rect.intersection(web.bounds)
-        web.takeSnapshot(with: cfg) { [weak self] img, _ in MainActor.assumeIsolated { self?.sendDesign(d, image: img) }
+        web.takeSnapshot(with: cfg) { [weak self] img, _ in
+            MainActor.assumeIsolated { self?.sendDesign(element, image: img) }
         }   // on main
     }
 
@@ -390,39 +405,39 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         guard let tiff = image?.tiffRepresentation,
             let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
         else { return nil }
-        let u =
+        let url =
             path.map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.temporaryDirectory.appendingPathComponent(
                 "kelp-\(kind)-\(UUID().uuidString.prefix(6)).png")
-        do { try png.write(to: u) } catch { return nil }
-        return u.path
+        do { try png.write(to: url) } catch { return nil }
+        return url.path
     }
 
     /// A field the page wrote, for the draft: one line, short, with nothing that ends Kelp's framing (a fence, a backtick).
-    nonisolated static func pageText(_ v: Any?, most: Int = 200) -> String {
-        String((v as? String ?? "").filter { !$0.isNewline && $0 != "`" }.prefix(most))
+    nonisolated static func pageText(_ value: Any?, most: Int = 200) -> String {
+        String((value as? String ?? "").filter { !$0.isNewline && $0 != "`" }.prefix(most))
     }
 
     /// The element's markup as the page gave it, in a fence it can't close.
-    nonisolated static func pageMarkup(_ v: Any?) -> String {
-        String((v as? String ?? "").prefix(4000)).replacingOccurrences(of: "```", with: "`\u{200B}``")
+    nonisolated static func pageMarkup(_ value: Any?) -> String {
+        String((value as? String ?? "").prefix(4000)).replacingOccurrences(of: "```", with: "`\u{200B}``")
     }
 
-    private func sendDesign(_ d: [String: Any], image: NSImage?) {
+    private func sendDesign(_ element: [String: Any], image: NSImage?) {
         let shot = Self.savePNG(image, kind: "design") ?? ""
-        let styles = (d["styles"] as? [String: String] ?? [:]).filter {
+        let styles = (element["styles"] as? [String: String] ?? [:]).filter {
             !$0.value.isEmpty && $0.value != "none" && $0.value != "normal"
         }
         .sorted { $0.key < $1.key }.prefix(80).map {
             "  \(Self.pageText($0.key, most: 60)): \(Self.pageText($0.value));"
         }.joined(separator: "\n")
-        let source = relativeSource(Self.pageText(d["source"])), component = Self.pageText(d["component"])
+        let source = relativeSource(Self.pageText(element["source"])), component = Self.pageText(element["component"])
         // The address is Kelp's own reading, not the page's word.
         let msg = """
-            Design change for the element `\(Self.pageText(d["selector"]))` on \(web.url?.absoluteString ?? ""):
+            Design change for the element `\(Self.pageText(element["selector"]))` on \(web.url?.absoluteString ?? ""):
             \(source.isEmpty ? "" : "Source: \(source)\(component.isEmpty ? "" : " (component \(component))")\n")
             ```html
-            \(Self.pageMarkup(d["html"]))
+            \(Self.pageMarkup(element["html"]))
             ```
             Computed styles:
             ```css
@@ -431,7 +446,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             \(shot.isEmpty ? "" : "Screenshot: \(shot)\n")
             Change:\u{20}
             """
-        if d["alt"] as? Bool == true {
+        if element["alt"] as? Bool == true {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(msg, forType: .string)
             Banner.show(
@@ -454,14 +469,14 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     /// A dev server's absolute path as the workspace sees it (`src/App.tsx:12`); others stay as they are.
-    private func relativeSource(_ s: String) -> String {
-        var s = s.replacingOccurrences(of: "file://", with: "")
+    private func relativeSource(_ source: String) -> String {
+        var path = source.replacingOccurrences(of: "file://", with: "")
         if let root = app.worktree(app.workbench.workspaceId)?.path {
-            for r in [root, (root as NSString).resolvingSymlinksInPath] where s.hasPrefix(r + "/") {
-                s = String(s.dropFirst(r.count + 1))
+            for prefix in [root, (root as NSString).resolvingSymlinksInPath] where path.hasPrefix(prefix + "/") {
+                path = String(path.dropFirst(prefix.count + 1))
             }
         }
-        return s
+        return path
     }
 
     /// Where the element's component is written, from what dev builds leave on DOM nodes: Svelte's `__svelte_meta`,

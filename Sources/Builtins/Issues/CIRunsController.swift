@@ -18,20 +18,20 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         enum Kind { case run(CIRuns.Run), job(CIRuns.Job, run: Int), step(CIRuns.Step), fold(CIRuns.StepRow, job: Int) }
         let kind: Kind
         var children: [Item]?
-        init(_ k: Kind) { kind = k }
+        init(_ kind: Kind) { self.kind = kind }
         var id: Int? {
             switch kind {
-            case .run(let r): r.id
-            case .job(let j, _): j.id
+            case .run(let run): run.id
+            case .job(let job, _): job.id
             case .step, .fold: nil
             }
         }
         /// What stays open across a refresh, which makes every item anew.
         var key: String? {
             switch kind {
-            case .run(let r): "run \(r.id)"
-            case .job(let j, _): "job \(j.id)"
-            case .fold(let f, let job): "fold \(job) \(f.steps.first?.name ?? "")"
+            case .run(let run): "run \(run.id)"
+            case .job(let job, _): "job \(job.id)"
+            case .fold(let fold, let job): "fold \(job) \(fold.steps.first?.name ?? "")"
             case .step: nil
             }
         }
@@ -42,9 +42,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// Until the first answer for the workspace (gh can take seconds): the panel isn't blank meanwhile.
     private let loading = LoadingView()
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
-        let b = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
-        b.bezelStyle = .push
-        return b
+        let button = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
+        button.bezelStyle = .push
+        return button
     }()
     private let setupButton = NSButton()
     private var setup: Forge.Setup?
@@ -52,10 +52,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var moreButton: NSButton?
     private var pages: GitWebPages.Pages?
     private lazy var jobPane: CIJobPane = {
-        let p = CIJobPane(app: app)
-        p.onChange = { [weak self] in self?.reload() }
-        p.runOf = { [weak self] id in self?.run(id) }
-        return p
+        let pane = CIJobPane(app: app)
+        pane.onChange = { [weak self] in self?.reload() }
+        pane.runOf = { [weak self] id in self?.run(id) }
+        return pane
     }()
     /// The log's half of the split, shown once a job is picked: empty, it took most of the height and left the runs a strip.
     private var logPane: (view: NSView, room: NSLayoutConstraint, split: NSSplitView)?
@@ -77,14 +77,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             self?.showMore()
         }
         workflowsButton.isHidden = true
-        for (b, symbol, tip) in [
+        for (button, symbol, tip) in [
             (workflowsButton, "play.circle", String(localized: "Run Workflow…")),
             (webButton, "arrow.up.forward.square", String(localized: "Open in Browser"))
         ] {
-            b.image = .symbol(symbol, tip)
-            b.toolTip = tip
-            b.setAccessibilityLabel(tip)
-            b.target = self
+            button.image = .symbol(symbol, tip)
+            button.toolTip = tip
+            button.setAccessibilityLabel(tip)
+            button.target = self
         }
         moreButton = more
         workflowsButton.action = #selector(runWorkflow)
@@ -125,13 +125,13 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.addArrangedSubview(scroll)
         split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
-        let v = stacked(header, history, split)
-        empty.place(in: v, under: header)
-        loading.place(in: v, under: header)
+        let stack = stacked(header, history, split)
+        empty.place(in: stack, under: header)
+        loading.place(in: stack, under: header)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
         bottom.isHidden = true
         logPane = (bottom, bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), split)
-        view = v
+        view = stack
         track(owner: self) { [app] in
             app.workbench.workspaceId
         } changed: { [weak self, app] in
@@ -150,14 +150,15 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     /// From origin, not gh: there even when gh or glab isn't set up.
     private func loadPages() {
-        guard let w = worktree else { return }
+        guard let worktreeId = worktree else { return }
         pages = nil
         webButton.isHidden = true
         Task {
-            let p = await app.quiet(GitWebPages(worktreeId: w)) ?? nil   // a decoration: without it there's no globe
-            guard w == worktree else { return }
-            pages = p
-            webButton.isHidden = p == nil
+            // a decoration: without it there's no globe
+            let found = await app.quiet(GitWebPages(worktreeId: worktreeId)) ?? nil
+            guard worktreeId == worktree else { return }
+            pages = found
+            webButton.isHidden = found == nil
         }
     }
 
@@ -167,11 +168,11 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
 
     private func showMore() {
-        guard let b = moreButton else { return }
-        let m = NSMenu()
-        m.addItem(withTitle: String(localized: "Refresh"), action: #selector(refreshPressed), keyEquivalent: "")
+        guard let button = moreButton else { return }
+        let menu = NSMenu()
+        menu.addItem(withTitle: String(localized: "Refresh"), action: #selector(refreshPressed), keyEquivalent: "")
             .target = self
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }
 
     @objc private func refreshPressed() { reload() }
@@ -180,10 +181,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     /// Shown, the log takes about half the height (the runs keep the rest); hidden, the runs have it all.
     private func showLogPane(_ on: Bool) {
-        guard let p = logPane, p.view.isHidden == on else { return }
-        p.view.isHidden = !on
-        p.room.isActive = on
-        if on { p.split.setPosition(p.split.bounds.height * 0.45, ofDividerAt: 0) }
+        guard let pane = logPane, pane.view.isHidden == on else { return }
+        pane.view.isHidden = !on
+        pane.room.isActive = on
+        if on { pane.split.setPosition(pane.split.bounds.height * 0.45, ofDividerAt: 0) }
     }
 
     // MARK: loading
@@ -202,28 +203,28 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func follow() { ciWatch.key = view.window != nil ? worktree : nil }
 
     /// Refresh, and after starting runs: the daemon reads them now, and keeps looking for a while.
-    private func reload() { if let w = worktree { app.watchAgain(.ci, w) } }
+    private func reload() { if let worktree { app.watchAgain(.ci, worktree) } }
 
-    private func apply(_ e: CIEvent?) {
-        guard let e, e.worktree == worktree else { return }
+    private func apply(_ event: CIEvent?) {
+        guard let event, event.worktree == worktree else { return }
         loading.show(nil)
         // A newer list replaces the rows the last one's jobs were being opened in: that one stops at its next step.
         applying?.cancel()
         applying = Task {
-            if let error = e.error {
+            if let error = event.error {
                 branch.title = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
                 workflowsButton.isHidden = true
                 show(note: error, setup: Forge.setup(for: error), failed: true)
                 return
             }
-            branchName = e.result?.branch ?? ""
+            branchName = event.result?.branch ?? ""
             branch.title = branchName
             // What was open stays open across a refresh, its jobs read again.
             let open = Set(
                 runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
-            runs = (e.result?.runs ?? []).map { Item(.run($0)) }
-            workflows = e.result?.workflows ?? []
+            runs = (event.result?.runs ?? []).map { Item(.run($0)) }
+            workflows = event.result?.workflows ?? []
             workflowsButton.isHidden = workflows.isEmpty
             show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
             clock.clear()
@@ -288,25 +289,28 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
 
     private func expand(_ item: Item, openFailed: Bool) async {
-        guard case .run(let run) = item.kind, let w = worktree else { return }
+        guard case .run(let run) = item.kind, let worktree else { return }
         if item.children == nil {
-            guard let jobs = await app.call(CIJobs(worktreeId: w, run: run.id)) else { return }   // the banner says why; asked again next time
+            // the banner says why; asked again next time
+            guard let jobs = await app.call(CIJobs(worktreeId: worktree, run: run.id)) else { return }
             guard runs.contains(where: { $0 === item }) else { return }   // a newer list came meanwhile: these rows are gone
-            item.children = jobs.map { j in
-                let i = Item(.job(j, run: run.id))
-                i.children = CIRuns.rows(j.steps).map { row in
+            item.children = jobs.map { job in
+                let jobItem = Item(.job(job, run: run.id))
+                jobItem.children = CIRuns.rows(job.steps).map { row in
                     if case .one(let step) = row { return Item(.step(step)) }
-                    let fold = Item(.fold(row, job: j.id))
+                    let fold = Item(.fold(row, job: job.id))
                     fold.children = row.steps.map { Item(.step($0)) }
                     return fold
                 }
-                return i
+                return jobItem
             }
             outline.reloadItem(item, reloadChildren: true)
         }
         outline.expandItem(item)
         if openFailed,
-            let failed = item.children?.first(where: { if case .job(let j, _) = $0.kind { j.failed } else { false } })
+            let failed = item.children?.first(where: {
+                if case .job(let job, _) = $0.kind { job.failed } else { false }
+            })
         {
             outline.expandItem(failed)
             let row = outline.row(forItem: failed)
@@ -315,63 +319,66 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
 
     private func showLog(_ job: CIRuns.Job, run: Int) {
-        guard let w = worktree else { return }
+        guard let worktree else { return }
         showLogPane(true)
-        jobPane.show(job, run: run, in: w)
+        jobPane.show(job, run: run, in: worktree)
     }
 
     // MARK: actions
 
-    private var allRuns: [CIRuns.Run] { runs.compactMap { if case .run(let r) = $0.kind { r } else { nil } } }
+    private var allRuns: [CIRuns.Run] { runs.compactMap { if case .run(let run) = $0.kind { run } else { nil } } }
     private func run(_ id: Int) -> CIRuns.Run? { allRuns.first { $0.id == id } }
 
-    private func actions(_ w: String) -> CIActions {
-        CIActions(app: app, worktree: w) { [weak self] in self?.reload() }
+    private func actions(_ worktree: String) -> CIActions {
+        CIActions(app: app, worktree: worktree) { [weak self] in self?.reload() }
     }
 
     @objc private func runWorkflow() {
-        let m = NSMenu()
-        for wf in workflows { m.add(wf.name) { [weak self] in self?.dispatch(wf) } }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: workflowsButton.bounds.height + 4), in: workflowsButton)
+        let menu = NSMenu()
+        for wf in workflows { menu.add(wf.name) { [weak self] in self?.dispatch(wf) } }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: workflowsButton.bounds.height + 4), in: workflowsButton)
     }
 
     /// The workflow's inputs as a form, then `gh workflow run` on this branch.
     private func dispatch(_ wf: CIRuns.Workflow) {
-        guard let w = worktree else { return }
-        let a = NSAlert()
-        a.messageText = String(localized: "Run “\(wf.name)” on \(branchName)?")
+        guard let worktree else { return }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Run “\(wf.name)” on \(branchName)?")
         var fields: [(String, NSView)] = []
         let form = NSGridView()
         form.rowAlignment = .firstBaseline
         for input in wf.inputs {
             let control: NSView
             if !input.options.isEmpty {
-                let p = NSPopUpButton()
-                p.addItems(withTitles: input.options)
-                p.selectItem(withTitle: input.defaultValue)
-                control = p
+                let popUp = NSPopUpButton()
+                popUp.addItems(withTitles: input.options)
+                popUp.selectItem(withTitle: input.defaultValue)
+                control = popUp
             } else {
-                let f = NSTextField(string: input.defaultValue)
-                f.placeholderString = input.description
-                f.widthAnchor.constraint(equalToConstant: 220).isActive = true
-                control = f
+                let field = NSTextField(string: input.defaultValue)
+                field.placeholderString = input.description
+                field.widthAnchor.constraint(equalToConstant: 220).isActive = true
+                control = field
             }
             fields.append((input.name, control))
             form.addRow(with: [NSTextField(labelWithString: input.name + (input.required ? " *" : "")), control])
         }
-        if !wf.inputs.isEmpty { a.accessoryView = form }
-        a.informativeText =
+        if !wf.inputs.isEmpty { alert.accessoryView = form }
+        alert.informativeText =
             wf.inputs.isEmpty
             ? String(localized: "It runs on GitHub Actions.") : String(localized: "Inputs from \(wf.file):")
-        a.addButton(withTitle: String(localized: "Run"))
-        a.addButton(withTitle: String(localized: "Cancel"))
+        alert.addButton(withTitle: String(localized: "Run"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(a) == .alertFirstButtonReturn else { return }
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             var inputs: [String: String] = [:]
-            for (k, v) in fields {
-                inputs[k] = (v as? NSPopUpButton)?.titleOfSelectedItem ?? (v as? NSTextField)?.stringValue ?? ""
+            for (name, control) in fields {
+                inputs[name] =
+                    (control as? NSPopUpButton)?.titleOfSelectedItem ?? (control as? NSTextField)?.stringValue ?? ""
             }
-            if await app.call(CIDispatch(worktreeId: w, workflow: wf.file, branch: branchName, inputs: inputs)) != nil {
+            if await app.call(CIDispatch(worktreeId: worktree, workflow: wf.file, branch: branchName, inputs: inputs))
+                != nil
+            {
                 Banner.show(String(localized: "Started \(wf.name)"))
                 reload()
             }
@@ -380,38 +387,41 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     // MARK: outline
 
-    func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        guard let i = item as? Item else { return runs.count }
-        if case .run = i.kind, i.children == nil { return 1 }   // a placeholder until it's opened
-        return i.children?.count ?? 0
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        guard let item = item as? Item else { return runs.count }
+        if case .run = item.kind, item.children == nil { return 1 }   // a placeholder until it's opened
+        return item.children?.count ?? 0
     }
-    func outlineView(_ o: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-        guard let i = item as? Item else { return runs[index] }
-        return i.children?[index]
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        guard let item = item as? Item else { return runs[index] }
+        return item.children?[index]
             ?? Item(.step(.init(name: String(localized: "Loading…"), status: "queued", conclusion: nil)))
     }
-    func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        guard let i = item as? Item else { return false }
-        if case .step = i.kind { return false }
-        return i.children.map { !$0.isEmpty } ?? true   // a fold, a job with steps, a run not yet read
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+        guard let item = item as? Item else { return false }
+        if case .step = item.kind { return false }
+        return item.children.map { !$0.isEmpty } ?? true   // a fold, a job with steps, a run not yet read
     }
-    func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         TextSize.of({ if case .run? = (item as? Item)?.kind { Metrics.rowTwoLine } else { Metrics.row } }())
     }
-    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
-    func outlineViewItemWillExpand(_ n: Notification) {
-        guard let i = n.userInfo?["NSObject"] as? Item, case .run = i.kind, i.children == nil else { return }
-        Task { await expand(i, openFailed: false) }
-    }
-    func outlineViewSelectionDidChange(_ n: Notification) {
-        guard let i = outline.item(atRow: outline.selectedRow) as? Item, case .job(let j, let run) = i.kind else {
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
+    func outlineViewItemWillExpand(_ notification: Notification) {
+        guard let item = notification.userInfo?["NSObject"] as? Item, case .run = item.kind, item.children == nil else {
             return
         }
-        if let s = jobPane.shown, s.job.id == j.id, s.job.status == j.status {
-            jobPane.keep(j, run: run)
+        Task { await expand(item, openFailed: false) }
+    }
+    func outlineViewSelectionDidChange(_ notification: Notification) {
+        guard let item = outline.item(atRow: outline.selectedRow) as? Item, case .job(let job, let run) = item.kind
+        else {
+            return
+        }
+        if let shown = jobPane.shown, shown.job.id == job.id, shown.job.status == job.status {
+            jobPane.keep(job, run: run)
             return
         }   // a refresh, nothing new to read
-        showLog(j, run: run)
+        showLog(job, run: run)
     }
 
     /// A fold opens from anywhere on its row. A step goes to its place in the job's log, which is read when it's over.
@@ -419,73 +429,75 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         guard let item = outline.item(atRow: outline.clickedRow) as? Item else { return }
         switch item.kind {
         case .fold: if outline.isItemExpanded(item) { outline.collapseItem(item) } else { outline.expandItem(item) }
-        case .step(let s): showInLog(s, of: item)
+        case .step(let step): showInLog(step, of: item)
         case .run, .job: break
         }
     }
 
-    private func showInLog(_ s: CIRuns.Step, of item: Item) {
-        guard let w = worktree, let job = job(of: item), job.status == "completed" else { return }
-        if s.failed, jobPane.shown?.job.id == job.id { return }   // what broke is on show under the runs
-        CILogTab.open(app, worktree: w, job: job, step: s.name)
+    private func showInLog(_ step: CIRuns.Step, of item: Item) {
+        guard let worktree, let job = job(of: item), job.status == "completed" else { return }
+        if step.failed, jobPane.shown?.job.id == job.id { return }   // what broke is on show under the runs
+        CILogTab.open(app, worktree: worktree, job: job, step: step.name)
     }
 
     /// The job a step belongs to, past the fold it may sit in.
     private func job(of item: Item) -> CIRuns.Job? {
         var up = outline.parent(forItem: item) as? Item
-        while let i = up {
-            if case .job(let j, _) = i.kind { return j }
-            up = outline.parent(forItem: i) as? Item
+        while let parent = up {
+            if case .job(let job, _) = parent.kind { return job }
+            up = outline.parent(forItem: parent) as? Item
         }
         return nil
     }
 
-    func outlineView(_ o: NSOutlineView, viewFor c: NSTableColumn?, item: Any) -> NSView? {
-        guard let i = item as? Item else { return nil }
-        switch i.kind {
-        case .run(let r): return runRow(r)
-        case .job(let j, _):
-            let done = j.steps.filter { $0.status == "completed" }.count
+    func outlineView(_ outlineView: NSOutlineView, viewFor column: NSTableColumn?, item: Any) -> NSView? {
+        guard let item = item as? Item else { return nil }
+        switch item.kind {
+        case .run(let run): return runRow(run)
+        case .job(let job, _):
+            let done = job.steps.filter { $0.status == "completed" }.count
             let right =
-                j.status == "completed" || j.steps.isEmpty ? j.seconds().map(ciSpan) : "\(done)/\(j.steps.count)"
+                job.status == "completed" || job.steps.isEmpty
+                ? job.seconds().map(ciSpan) : "\(done)/\(job.steps.count)"
             return CIRow.line(
-                CIRunLook.mark(j.status, j.conclusion), j.name, font: .ui(12), color: .labelColor, right: right
+                CIRunLook.mark(job.status, job.conclusion), job.name, font: .ui(12), color: .labelColor, right: right
             ).cell
-        case .step(let s):
+        case .step(let step):
             // The step running now reads like a title; done ones grey, the ones still to come quieter still.
             let color: NSColor =
-                s.status == "in_progress"
-                ? .labelColor : s.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
-            let r = CIRow.line(
-                CIRunLook.mark(s.status, s.conclusion), s.shortName, font: .ui(11), color: color,
-                right: s.seconds().map(ciSpan))
-            if s.status == "in_progress", let time = r.time { clock.follow(time) { s.seconds().map(ciSpan) } }
-            r.cell.toolTip = s.name
-            return r.cell
-        case .fold(let f, _): return CIRow.fold(f)
+                step.status == "in_progress"
+                ? .labelColor : step.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
+            let line = CIRow.line(
+                CIRunLook.mark(step.status, step.conclusion), step.shortName, font: .ui(11), color: color,
+                right: step.seconds().map(ciSpan))
+            if step.status == "in_progress", let time = line.time { clock.follow(time) { step.seconds().map(ciSpan) } }
+            line.cell.toolTip = step.name
+            return line.cell
+        case .fold(let fold, _): return CIRow.fold(fold)
         }
     }
 
     /// The title, then `CIRunMeta`: which run, how long, when. The tooltip has the whole title, as a commit's first line
     /// rarely fits, and the commit, which a narrow panel cuts.
-    private func runRow(_ r: CIRuns.Run) -> NSView {
-        let t = NSTextField(labelWithString: r.title)
-        t.font = .ui(12)
-        t.lineBreakMode = .byTruncatingTail
+    private func runRow(_ run: CIRuns.Run) -> NSView {
+        let title = NSTextField(labelWithString: run.title)
+        title.font = .ui(12)
+        title.lineBreakMode = .byTruncatingTail
         // What tells runs apart: the workflow only when there are several, the event only when it isn't a push.
         let several = Set(allRuns.map(\.workflow)).count > 1
-        let usual = r.finished ? nil : CIRuns.typicalSeconds(allRuns, workflow: r.workflow)
+        let usual = run.finished ? nil : CIRuns.typicalSeconds(allRuns, workflow: run.workflow)
         let meta = CIRunMeta(
-            r, extras: [several ? r.workflow : nil, r.event == "push" ? nil : r.event].compactMap { $0 }, usual: usual,
+            run, extras: [several ? run.workflow : nil, run.event == "push" ? nil : run.event].compactMap { $0 },
+            usual: usual,
             clock: clock)
-        let text = NSStackView(views: [t, meta])
+        let text = NSStackView(views: [title, meta])
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = Metrics.lineGap
-        for x in [t, meta, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
+        for part in [title, meta, text] { part.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         meta.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
-        let cell = CIRow.row([CIRunLook.mark(r.status, r.conclusion), text])
-        cell.toolTip = [r.title, [r.workflow, r.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(
+        let cell = CIRow.row([CIRunLook.mark(run.status, run.conclusion), text])
+        cell.toolTip = [run.title, [run.workflow, run.shortSHA].compactMap { $0 }.joined(separator: " · ")].joined(
             separator: "\n")
         return cell
     }
@@ -495,46 +507,46 @@ extension CIRunsController {
     /// Right-click: what can be done to this run, job or step now.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        guard let item = outline.item(atRow: outline.clickedRow) as? Item, let w = worktree else { return }
-        let act = actions(w)
+        guard let item = outline.item(atRow: outline.clickedRow) as? Item, let worktree else { return }
+        let act = actions(worktree)
         switch item.kind {
-        case .run(let r): addRun(r, act, to: menu)
-        case .job(let j, _):
-            if j.failed { menu.add(String(localized: "Fix with Agent")) { act.fix(j) } }
-            if j.status == "completed" { menu.add(String(localized: "Re-run This Job")) { act.rerunJob(j.id) } }
+        case .run(let run): addRun(run, act, to: menu)
+        case .job(let job, _):
+            if job.failed { menu.add(String(localized: "Fix with Agent")) { act.fix(job) } }
+            if job.status == "completed" { menu.add(String(localized: "Re-run This Job")) { act.rerunJob(job.id) } }
             if menu.numberOfItems > 0 { menu.addItem(.separator()) }
-            if let u = j.url { addLink(menu, u) }
-        case .step(let s):
-            if let j = job(of: item), j.status == "completed" {
+            if let url = job.url { addLink(menu, url) }
+        case .step(let step):
+            if let job = job(of: item), job.status == "completed" {
                 menu.add(String(localized: "Show in Log")) { [app] in
-                    CILogTab.open(app, worktree: act.worktree, job: j, step: s.name)
+                    CILogTab.open(app, worktree: act.worktree, job: job, step: step.name)
                 }
             }
-            if let u = job(of: item)?.url, let n = s.number {
-                menu.add(String(localized: "Open in Browser")) { Forge.open("\(u)#step:\(n):1") }
+            if let url = job(of: item)?.url, let number = step.number {
+                menu.add(String(localized: "Open in Browser")) { Forge.open("\(url)#step:\(number):1") }
             }
             if menu.numberOfItems > 0 { menu.addItem(.separator()) }
             menu.add(String(localized: "Copy Step Name")) {
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(s.name, forType: .string)
+                NSPasteboard.general.setString(step.name, forType: .string)
             }
         case .fold: break
         }
     }
 
-    private func addRun(_ r: CIRuns.Run, _ act: CIActions, to menu: NSMenu) {
-        if r.failed {
-            menu.add(String(localized: "Fix with Agent")) { [weak self] in self?.fix(r, in: act.worktree) }
-            menu.add(String(localized: "Re-run Failed")) { act.rerunFailed(r.id) }
+    private func addRun(_ run: CIRuns.Run, _ act: CIActions, to menu: NSMenu) {
+        if run.failed {
+            menu.add(String(localized: "Fix with Agent")) { [weak self] in self?.fix(run, in: act.worktree) }
+            menu.add(String(localized: "Re-run Failed")) { act.rerunFailed(run.id) }
         }
-        if r.finished {
-            menu.add(String(localized: "Re-run All")) { act.rerunAll(r.id) }
+        if run.finished {
+            menu.add(String(localized: "Re-run All")) { act.rerunAll(run.id) }
         } else {
-            menu.add(String(localized: "Cancel Run…")) { act.cancel(r) }
+            menu.add(String(localized: "Cancel Run…")) { act.cancel(run) }
         }
         menu.addItem(.separator())
-        if r.sha != nil { menu.add(String(localized: "Show Commit")) { act.showCommit(r) } }
-        addLink(menu, r.url)
+        if run.sha != nil { menu.add(String(localized: "Show Commit")) { act.showCommit(run) } }
+        addLink(menu, run.url)
     }
 
     private func addLink(_ menu: NSMenu, _ url: String) {
@@ -546,12 +558,12 @@ extension CIRunsController {
         }
     }
     /// The run's failure typed into the workspace's agent, for the user to send.
-    private func fix(_ r: CIRuns.Run, in w: String) {
+    private func fix(_ run: CIRuns.Run, in worktree: String) {
         let app = app
-        guard let repo = app.worktree(w)?.repoId else { return }
+        guard let repo = app.worktree(worktree)?.repoId else { return }
         Task {
-            let log = await app.call(GitHubFailedLog(repoId: repo, runId: r.id)) ?? ""
-            GitFix(app).send("fixCI", worktree: w, vars: ["check": r.workflow, "error": log])
+            let log = await app.call(GitHubFailedLog(repoId: repo, runId: run.id)) ?? ""
+            GitFix(app).send("fixCI", worktree: worktree, vars: ["check": run.workflow, "error": log])
         }
     }
 }

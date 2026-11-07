@@ -15,11 +15,11 @@ struct ServerActions {
 
     /// In the Files panel's results, grouped by file as those are.
     func findReferences() {
-        guard let p = place else { return }
-        let app = app, m = LSPReferences(root: root, path: p.path, line: p.line, column: p.column)
+        guard let place else { return }
+        let app = app, request = LSPReferences(root: root, path: place.path, line: place.line, column: place.column)
         Task {
             await tab.lspCaughtUp()
-            let found = await app.call(m) ?? []
+            let found = await app.call(request) ?? []
             guard !found.isEmpty else { return Banner.show(String(localized: "No references found.")) }
             app.workbench.showPanel("files")
             DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.show(references: found) }   // after the panel is built
@@ -27,8 +27,8 @@ struct ServerActions {
     }
 
     func rename() {
-        guard let e = tab.editor, let p = place else { return }
-        let word = e.wordAtCursor, app = app, root = root
+        guard let editor = tab.editor, let place else { return }
+        let word = editor.wordAtCursor, app = app, root = root
         Task { @MainActor in
             guard
                 let name = await prompt(
@@ -39,7 +39,7 @@ struct ServerActions {
             await tab.lspCaughtUp()
             guard
                 let files = await app.call(
-                    LSPRename(root: root, path: p.path, line: p.line, column: p.column, name: name))
+                    LSPRename(root: root, path: place.path, line: place.line, column: place.column, name: name))
             else { return }
             guard !files.isEmpty else {
                 return Banner.show(String(localized: "The language server can't rename this."))
@@ -56,25 +56,26 @@ struct ServerActions {
     }
 
     func quickFix() {
-        guard let e = tab.editor, let p = place else { return }
-        let problem = e.problemAtCursor, app = app, path = tab.path,
-            m = LSPActions(root: root, path: p.path, line: p.line, column: p.column), tab = tab
+        guard let editor = tab.editor, let place else { return }
+        let problem = editor.problemAtCursor, app = app, path = tab.path,
+            request = LSPActions(root: root, path: place.path, line: place.line, column: place.column), tab = tab
         Task { @MainActor in
             await tab.lspCaughtUp()
-            let actions = await app.call(m) ?? [], menu = NSMenu()
-            for a in actions {
-                menu.add(a.title) {
+            let actions = await app.call(request) ?? [], menu = NSMenu()
+            for action in actions {
+                menu.add(action.title) {
                     Task {
                         // A fix that reaches other files (the server names them, anywhere) shows which first, as a rename does.
-                        if a.files.contains(where: { $0.path != path }) {
+                        if action.files.contains(where: { $0.path != path }) {
                             guard
                                 await Self.confirm(
-                                    String(localized: "“\(a.title)” changes \(a.files.count) files. Apply it?"),
-                                    a.files,
+                                    String(
+                                        localized: "“\(action.title)” changes \(action.files.count) files. Apply it?"),
+                                    action.files,
                                     button: String(localized: "Apply"))
                             else { return }
                         }
-                        await ServerActions(app: app, tab: tab, root: tab.root).apply(a.files)
+                        await ServerActions(app: app, tab: tab, root: tab.root).apply(action.files)
                     }
                 }
             }
@@ -85,18 +86,18 @@ struct ServerActions {
                 }
             }
             guard menu.numberOfItems > 0 else { return Banner.show(String(localized: "No fixes here.")) }
-            e.popUpAtCursor(menu)
+            editor.popUpAtCursor(menu)
         }
     }
 
     private static func confirm(_ question: String, _ files: [CodeFileEdit], button: String) async -> Bool {
-        let a = NSAlert()
-        a.messageText = question
-        a.informativeText = files.map { ($0.path as NSString).abbreviatingWithTildeInPath }.prefix(12).joined(
+        let alert = NSAlert()
+        alert.messageText = question
+        alert.informativeText = files.map { ($0.path as NSString).abbreviatingWithTildeInPath }.prefix(12).joined(
             separator: "\n")
-        a.addButton(withTitle: button)
-        a.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(a) == .alertFirstButtonReturn
+        alert.addButton(withTitle: button)
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        return await runSheet(alert) == .alertFirstButtonReturn
     }
 
     /// The tab's own file takes the edits in its buffer, for its undo. Others are written, over the version just read; a file
@@ -113,18 +114,18 @@ struct ServerActions {
                 style: .error)
         }
         var read: [(path: String, old: String, new: String, base: FileStamp)] = []
-        for f in others {
-            guard let r = await app.call(FilesRead(path: f.path)) else { return }
-            read.append((f.path, r.text, TextEdits.applied(f.edits, to: r.text), r.stamp))
+        for fileEdit in others {
+            guard let onDisk = await app.call(FilesRead(path: fileEdit.path)) else { return }
+            read.append((fileEdit.path, onDisk.text, TextEdits.applied(fileEdit.edits, to: onDisk.text), onDisk.stamp))
         }
         let done: [FileBatch.Done]
         switch await FileBatch.writeAll(read, app: app) {
-        case .success(let d): done = d
-        case .failure(let r):
+        case .success(let written): done = written
+        case .failure(let failure):
             let back =
-                r.stuck.isEmpty
-                ? "" : " " + String(localized: "Changed again, so kept as it is: \(FileBatch.names(r.stuck)).")
-            let name = (r.path as NSString).lastPathComponent
+                failure.stuck.isEmpty
+                ? "" : " " + String(localized: "Changed again, so kept as it is: \(FileBatch.names(failure.stuck)).")
+            let name = (failure.path as NSString).lastPathComponent
             return Banner.show(
                 String(localized: "\(name) changed since it was read: nothing was changed.") + back, style: .error)
         }

@@ -5,16 +5,16 @@ import Quartz
 /// Quick Look (Space) for the tree's selection.
 extension FilesPanel: @preconcurrency QLPreviewPanelDataSource, @preconcurrency QLPreviewPanelDelegate {
     @objc func togglePreview() {
-        guard let p = QLPreviewPanel.shared() else { return }
-        if p.isVisible {
-            p.orderOut(nil)
+        guard let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible {
+            panel.orderOut(nil)
             return
         }
-        p.makeKeyAndOrderFront(nil)
-        if p.dataSource == nil {   // no key window's chain led here
-            p.dataSource = self
-            p.delegate = self
-            p.reloadData()
+        panel.makeKeyAndOrderFront(nil)
+        if panel.dataSource == nil {   // no key window's chain led here
+            panel.dataSource = self
+            panel.delegate = self
+            panel.reloadData()
         }
     }
     private var previewURL: URL? {

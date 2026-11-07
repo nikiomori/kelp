@@ -10,8 +10,8 @@ extension Builtins {
     package static let browser = Builtin(
         "kelp.browser", "Browser", "Web pages as tabs, dev servers open automatically, Design Mode.", icon: "safari"
     ) { app in
-        var c = Contributions()
-        c.tabs = [
+        var contributions = Contributions()
+        contributions.tabs = [
             TabProvider(
                 schemes: ["http", "https", "about", "preview", TabURI.agentScheme],
                 make: { BrowserTab(uri: $0, app: app) },
@@ -20,16 +20,16 @@ extension Builtins {
                     return try await page.browse(action, args)
                 })
         ]
-        c.editors = [
+        contributions.editors = [
             EditorSpec(
                 id: "browser.new", title: "Browser", icon: "safari",
                 uri: { _ in "about:blank#\(UUID().uuidString.prefix(6))" })
         ]
-        c.commands = [
+        contributions.commands = [
             CommandSpec(id: "browser.new", title: "New Browser Tab", key: "shift+cmd+b") { args in
                 app.workbench.open(args["url"]?.string ?? "about:blank#\(UUID().uuidString.prefix(6))")
             }
         ]
-        return c
+        return contributions
     }
 }

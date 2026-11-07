@@ -49,35 +49,35 @@ enum Forge {
     }
 
     /// In a terminal tab, where the login asks its questions; from Settings too. No window to run it in: the command is copied.
-    static func run(_ s: Setup, in app: AppModel) {
-        guard let e = app.workbench.editor else {
+    static func run(_ setup: Setup, in app: AppModel) {
+        guard let editor = app.workbench.editor else {
             NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(s.command, forType: .string)
-            Banner.show(String(localized: "Copied “\(s.command)”: run it in Terminal"))
+            NSPasteboard.general.setString(setup.command, forType: .string)
+            Banner.show(String(localized: "Copied “\(setup.command)”: run it in Terminal"))
             return
         }
-        e.run(command: s.command, title: s.title)
+        editor.run(command: setup.command, title: setup.title)
         app.workbench.bringToFront()
     }
 
     /// In the default browser, where the user is signed in to the site.
-    static func open(_ url: String) { if let u = webPage(url) { PreviewLinks.openOutside(u) } }
+    static func open(_ url: String) { if let page = webPage(url) { PreviewLinks.openOutside(page) } }
 
     /// Only a web page: the URL comes from a forge's or tracker's API, and a self-hosted one could hand over a file or
     /// another app's scheme, which `NSWorkspace` would run.
     static func webPage(_ url: String) -> URL? {
-        guard let u = URL(string: url), ["http", "https"].contains(u.scheme?.lowercased()) else { return nil }
-        return u
+        guard let page = URL(string: url), ["http", "https"].contains(page.scheme?.lowercased()) else { return nil }
+        return page
     }
 
     /// One of the workspace's pages (the palette's commands); a banner when origin isn't on a site.
     static func open(_ app: AppModel, _ page: KeyPath<GitWebPages.Pages, String>) {
-        guard let w = app.workbench.workspaceId else {
+        guard let worktree = app.workbench.workspaceId else {
             NSSound.beep()
             return
         }
         Task {
-            guard let pages = await app.call(GitWebPages(worktreeId: w)) else { return }   // the banner says why
+            guard let pages = await app.call(GitWebPages(worktreeId: worktree)) else { return }   // the banner says why
             guard let pages else {
                 Banner.show(
                     String(localized: "This project's origin isn't on GitHub, GitLab or Bitbucket."), style: .error)
@@ -88,19 +88,19 @@ enum Forge {
     }
 
     /// Repository, CI, pull / merge requests and issues, named the site's way.
-    static func menu(_ p: GitWebPages.Pages) -> NSMenu {
-        let m = NSMenu()
-        let site = ["gitlab": "GitLab", "bitbucket": "Bitbucket"][p.forge] ?? "GitHub"
-        m.add(String(localized: "Repository on \(site)"), symbol: "book.closed") { open(p.repo) }
-        m.add(
-            p.forge == "github" ? String(localized: "Actions") : String(localized: "Pipelines"),
+    static func menu(_ pages: GitWebPages.Pages) -> NSMenu {
+        let menu = NSMenu()
+        let site = ["gitlab": "GitLab", "bitbucket": "Bitbucket"][pages.forge] ?? "GitHub"
+        menu.add(String(localized: "Repository on \(site)"), symbol: "book.closed") { open(pages.repo) }
+        menu.add(
+            pages.forge == "github" ? String(localized: "Actions") : String(localized: "Pipelines"),
             symbol: "checkmark.seal"
-        ) { open(p.ci) }
-        m.add(
-            p.forge == "gitlab" ? String(localized: "Merge Requests") : String(localized: "Pull Requests"),
+        ) { open(pages.ci) }
+        menu.add(
+            pages.forge == "gitlab" ? String(localized: "Merge Requests") : String(localized: "Pull Requests"),
             symbol: "arrow.triangle.pull"
-        ) { open(p.pulls) }
-        m.add(String(localized: "Issues"), symbol: "smallcircle.filled.circle") { open(p.issues) }
-        return m
+        ) { open(pages.pulls) }
+        menu.add(String(localized: "Issues"), symbol: "smallcircle.filled.circle") { open(pages.issues) }
+        return menu
     }
 }

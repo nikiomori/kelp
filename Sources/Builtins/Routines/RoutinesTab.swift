@@ -34,8 +34,8 @@ struct RoutinesView: View {
     var runs: [Routine.Run] { app.latest(RoutinesEvent.self)?.runs ?? [] }
 
     var body: some View {
-        TimelineView(.everyMinute) { t in
-            let week = RoutineWeek(now: t.date), list = routines
+        TimelineView(.everyMinute) { context in
+            let week = RoutineWeek(now: context.date), list = routines
             VStack(spacing: 0) {
                 header(week, list)
                 Divider()
@@ -52,9 +52,10 @@ struct RoutinesView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             WeekGrid(week: week, routines: list, runs: runs, chosen: $chosen, picked: $picked, app: app)
                             Divider()
-                            if let r = list.first(where: { $0.id == chosen }) ?? list.first {
+                            if let routine = list.first(where: { $0.id == chosen }) ?? list.first {
                                 RoutineDetail(
-                                    app: app, routine: r, runs: runs.filter { $0.routineId == r.id }, picked: picked,
+                                    app: app, routine: routine, runs: runs.filter { $0.routineId == routine.id },
+                                    picked: picked,
                                     week: week)
                             }
                         }
@@ -81,7 +82,8 @@ struct RoutinesView: View {
     private func newRoutine() {
         let app = self.app, repo = repoId
         Task {
-            guard let r = await RoutineSheet.run(app, repoId: repo), let saved = await app.call(RoutineSet(routine: r))
+            guard let routine = await RoutineSheet.run(app, repoId: repo),
+                let saved = await app.call(RoutineSet(routine: routine))
             else { return }
             chosen = saved.id
         }
@@ -110,26 +112,26 @@ struct WeekGrid: View {
                 }
                 Color.clear.frame(width: Metrics.iconButton + Metrics.inset, height: 1)
             }
-            ForEach(routines) { r in
+            ForEach(routines) { routine in
                 GridRow {
-                    name(r)
-                    ForEach(week.days, id: \.self) { day in cell(r, day) }
+                    name(routine)
+                    ForEach(week.days, id: \.self) { day in cell(routine, day) }
                     Button {
-                        run(r)
+                        run(routine)
                     } label: {
                         Image(
                             systemName: runs.contains {
-                                $0.routineId == r.id && [.running, .asked].contains($0.outcome)
+                                $0.routineId == routine.id && [.running, .asked].contains($0.outcome)
                             } ? "stop.fill" : "play.fill")
                     }
                     .buttonStyle(.borderless).help(String(localized: "Run Now")).frame(
                         width: Metrics.iconButton + Metrics.inset)
                 }
                 .frame(minHeight: 44)
-                .background((chosen ?? routines.first?.id) == r.id ? Color(nsColor: .fillSelected) : .clear)
+                .background((chosen ?? routines.first?.id) == routine.id ? Color(nsColor: .fillSelected) : .clear)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    chosen = r.id
+                    chosen = routine.id
                     picked = nil
                 }
                 Divider().gridCellUnsizedAxes(.horizontal)
@@ -137,47 +139,47 @@ struct WeekGrid: View {
         }
     }
 
-    private func name(_ r: Routine) -> some View {
+    private func name(_ routine: Routine) -> some View {
         HStack(spacing: Metrics.gapWide) {
             Toggle(
                 "",
                 isOn: Binding(
-                    get: { r.enabled },
+                    get: { routine.enabled },
                     set: { on in
-                        var x = r
-                        x.enabled = on
-                        Task { await app.call(RoutineSet(routine: x)) }
+                        var changed = routine
+                        changed.enabled = on
+                        Task { await app.call(RoutineSet(routine: changed)) }
                     })
             )
             .toggleStyle(.switch).controlSize(.small).labelsHidden()
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(r.name).font(.ui(12, weight: .medium)).lineLimit(1)
-                Text(RoutineWeek.schedule(r)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                Text(routine.name).font(.ui(12, weight: .medium)).lineLimit(1)
+                Text(RoutineWeek.schedule(routine)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
             }
         }
         .padding(.horizontal, Metrics.inset)
         .frame(width: 220, alignment: .leading)
-        .opacity(r.enabled ? 1 : 0.55)
+        .opacity(routine.enabled ? 1 : 0.55)
         .contextMenu {
-            Button(String(localized: "Run Now")) { run(r) }
-            Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(r) }
-            Button(r.enabled ? String(localized: "Turn Off") : String(localized: "Turn On")) {
-                var x = r
-                x.enabled.toggle()
-                Task { await app.call(RoutineSet(routine: x)) }
+            Button(String(localized: "Run Now")) { run(routine) }
+            Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
+            Button(routine.enabled ? String(localized: "Turn Off") : String(localized: "Turn On")) {
+                var changed = routine
+                changed.enabled.toggle()
+                Task { await app.call(RoutineSet(routine: changed)) }
             }
             Divider()
-            Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(r) }
+            Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
         }
     }
 
-    private func cell(_ r: Routine, _ day: Date) -> some View {
-        let marks = week.marks(r, runs: runs, day: day)
+    private func cell(_ routine: Routine, _ day: Date) -> some View {
+        let marks = week.marks(routine, runs: runs, day: day)
         return HStack(spacing: 2) {
-            ForEach(marks.prefix(marks.count > 3 ? 2 : 3)) { m in
-                RunMark(mark: m, picked: m.run != nil && m.run?.id == picked).onTapGesture {
-                    chosen = r.id
-                    picked = m.run?.id
+            ForEach(marks.prefix(marks.count > 3 ? 2 : 3)) { mark in
+                RunMark(mark: mark, picked: mark.run != nil && mark.run?.id == picked).onTapGesture {
+                    chosen = routine.id
+                    picked = mark.run?.id
                 }
             }
             if marks.count > 3 {
@@ -188,17 +190,17 @@ struct WeekGrid: View {
         .background(week.isToday(day) ? Color(nsColor: .fillRest) : .clear)
     }
 
-    private func run(_ r: Routine) {
+    private func run(_ routine: Routine) {
         let app = self.app
-        if let open = runs.first(where: { $0.routineId == r.id && [.running, .asked].contains($0.outcome) }),
-            let s = open.sessionId
+        if let open = runs.first(where: { $0.routineId == routine.id && [.running, .asked].contains($0.outcome) }),
+            let sessionId = open.sessionId
         {
-            Task { await app.call(SessionKill(id: s)) }
+            Task { await app.call(SessionKill(id: sessionId)) }
         } else {
             Task {
-                if let run = await app.call(RoutineRun(id: r.id)) {
+                if let run = await app.call(RoutineRun(id: routine.id)) {
                     picked = run.id
-                    chosen = r.id
+                    chosen = routine.id
                 }
             }
         }

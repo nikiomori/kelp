@@ -44,10 +44,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         // No bar of its own: the inspector's title names it, and there's nothing to do over the list.
-        let v = NSView()
-        v.pin(scroll)
-        empty.place(in: v)
-        view = v
+        let content = NSView()
+        content.pin(scroll)
+        empty.place(in: content)
+        view = content
     }
 
     override func viewDidLoad() {
@@ -100,28 +100,31 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
 
     /// Saved in the last two minutes while its chat works: the agent is writing it.
-    private func writing(_ r: ArtifactItem) -> Bool {
-        guard let m = r.modified, app.session(r.session ?? "")?.status == .working else { return false }
-        return Date().timeIntervalSince1970 - m < 120
+    private func writing(_ item: ArtifactItem) -> Bool {
+        guard let modified = item.modified, app.session(item.session ?? "")?.status == .working else { return false }
+        return Date().timeIntervalSince1970 - modified < 120
     }
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
 
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let r = rows[row], s = r.session.flatMap(app.session)
-        let symbol = Self.symbols[r.type] ?? "link"
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+        let item = rows[row], session = item.session.flatMap(app.session)
+        let symbol = Self.symbols[item.type] ?? "link"
         let icon = NSImageView(image: .symbol(symbol))
         icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
-        let name = NSTextField(labelWithString: r.title)
+        let name = NSTextField(labelWithString: item.title)
         name.font = .ui(12, weight: .medium)
         name.lineBreakMode = .byTruncatingTail
-        let progress = r.points.flatMap { n in n == 0 ? nil : String(localized: "\(r.answered ?? 0) of \(n) answered") }
+        let progress = item.points.flatMap { points in
+            points == 0 ? nil : String(localized: "\(item.answered ?? 0) of \(points) answered")
+        }
         var about = [
-            s.map { app.catalog.name($0.agent) }, s?.status == .exited ? String(localized: "ended") : nil, progress
+            session.map { app.catalog.name($0.agent) }, session?.status == .exited ? String(localized: "ended") : nil,
+            progress
         ]
-        if let u = r.url { about.append(URL(string: u)?.host) }
+        if let link = item.url { about.append(URL(string: link)?.host) }
         let detail = NSTextField(labelWithString: about.compactMap { $0 }.joined(separator: " · "))
         detail.font = .ui(11)
         detail.textColor = .secondaryLabelColor
@@ -133,7 +136,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         text.alignment = .leading
         text.spacing = Metrics.lineGap
         let end: NSView
-        if writing(r) {
+        if writing(item) {
             let ring = NSProgressIndicator()
             ring.style = .spinning
             ring.controlSize = .small
@@ -141,12 +144,14 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
             ring.toolTip = String(localized: "The agent is writing it")
             end = ring
         } else {
-            let when = NSTextField(labelWithString: shortAgo(Date(timeIntervalSince1970: r.created)))
+            let when = NSTextField(labelWithString: shortAgo(Date(timeIntervalSince1970: item.created)))
             when.font = .uiDigits(11)
             when.textColor = .secondaryLabelColor
             end = when
         }
-        for x in [name, detail, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
+        for field in [name, detail, text] {
+            field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        }
         let rowView = NSStackView(views: [icon, text, NSView(), end])
         rowView.spacing = 8
         rowView.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
@@ -156,32 +161,32 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     @objc private func open() {
         guard rows.indices.contains(table.clickedRow) else { return }
-        let r = rows[table.clickedRow]
+        let item = rows[table.clickedRow]
         // Only a web page: the record may be a cloned repository's (`Artifacts.record` refuses any other scheme too).
-        if r.url != nil {
-            if let u = URL(string: r.target), u.scheme == "https" { PreviewLinks.openOutside(u) }
+        if item.url != nil {
+            if let url = URL(string: item.target), url.scheme == "https" { PreviewLinks.openOutside(url) }
         } else {
-            app.workbench.open(r.target)
+            app.workbench.open(item.target)
         }
     }
 
-    func menuNeedsUpdate(_ m: NSMenu) {
-        m.removeAllItems()
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
         guard rows.indices.contains(table.clickedRow) else { return }
-        let r = rows[table.clickedRow], app = self.app
-        m.add(String(localized: "Open")) { [weak self] in self?.open() }
-        if let s = r.session.flatMap(app.session), s.status != .exited {
-            m.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: s.id) }
+        let item = rows[table.clickedRow], app = self.app
+        menu.add(String(localized: "Open")) { [weak self] in self?.open() }
+        if let session = item.session.flatMap(app.session), session.status != .exited {
+            menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: session.id) }
         }
-        m.addItem(.separator())
-        if let u = r.url {
-            m.add(String(localized: "Copy Link")) {
+        menu.addItem(.separator())
+        if let link = item.url {
+            menu.add(String(localized: "Copy Link")) {
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(u, forType: .string)
+                NSPasteboard.general.setString(link, forType: .string)
             }
         } else {
-            m.add(String(localized: "Show in Finder")) {
-                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: r.target)])
+            menu.add(String(localized: "Show in Finder")) {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.target)])
             }
         }
     }

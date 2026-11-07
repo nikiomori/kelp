@@ -33,9 +33,10 @@ extension TasksViewController {
     }
 
     @objc private func showMore(_ sender: NSButton) {
-        let m = NSMenu()
-        m.addItem(withTitle: String(localized: "Refresh"), action: #selector(reload), keyEquivalent: "").target = self
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+        let menu = NSMenu()
+        menu.addItem(withTitle: String(localized: "Refresh"), action: #selector(reload), keyEquivalent: "").target =
+            self
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 }
 

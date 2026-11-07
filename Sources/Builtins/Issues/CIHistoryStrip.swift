@@ -28,15 +28,15 @@ final class CIHistoryStrip: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func show(_ h: CIRuns.History?) {
-        height?.constant = h == nil ? 0 : TextSize.of(Metrics.row)
-        guard let h else { return }
-        marks.setViews(h.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
+    func show(_ history: CIRuns.History?) {
+        height?.constant = history == nil ? 0 : TextSize.of(Metrics.row)
+        guard let history else { return }
+        marks.setViews(history.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
         words.stringValue =
-            h.lastGreen.map { green in
+            history.lastGreen.map { green in
                 green.number.map { String(localized: "green on #\($0)") }
                     ?? String(localized: "green \(CIRunLook.ago(green.began)) ago")
-            } ?? (h.greenInARow > 1 ? String(localized: "\(h.greenInARow) green in a row") : "")
+            } ?? (history.greenInARow > 1 ? String(localized: "\(history.greenInARow) green in a row") : "")
     }
 }
 
@@ -45,9 +45,9 @@ final class CIHistoryStrip: NSView {
 private final class HistoryMark: PointerControl {
     private let color: NSColor, pick: @MainActor () -> Void
 
-    init(_ r: CIRuns.Run, pick: @escaping @MainActor () -> Void) {
+    init(_ run: CIRuns.Run, pick: @escaping @MainActor () -> Void) {
         color =
-            switch (r.status, r.conclusion) {
+            switch (run.status, run.conclusion) {
             case ("completed", "success"?): .systemGreen
             case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
                 .quaternaryLabelColor
@@ -57,8 +57,9 @@ private final class HistoryMark: PointerControl {
         self.pick = pick
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.lineGap
-        let number = r.number.map { "#\($0) · " } ?? ""
-        let said = number + CIRunLook.words(r.status, r.conclusion) + (r.timeWords(usual: nil).map { " · " + $0 } ?? "")
+        let number = run.number.map { "#\($0) · " } ?? ""
+        let said =
+            number + CIRunLook.words(run.status, run.conclusion) + (run.timeWords(usual: nil).map { " · " + $0 } ?? "")
         toolTip = said
         setAccessibilityElement(true)
         setAccessibilityRole(.button)

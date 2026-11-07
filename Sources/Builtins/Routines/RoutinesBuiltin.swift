@@ -9,16 +9,18 @@ extension Builtins {
         "kelp.routines", "Routines", "Agents on a schedule, each in a group of its own.",
         icon: "clock.arrow.circlepath"
     ) { app in
-        var c = Contributions()
-        c.tabs = [TabProvider(schemes: ["routines"]) { RoutinesTab(uri: $0, app: app) }]
-        c.editors = [
+        var contributions = Contributions()
+        contributions.tabs = [TabProvider(schemes: ["routines"]) { RoutinesTab(uri: $0, app: app) }]
+        contributions.editors = [
             EditorSpec(id: "routines.open", title: "Routines", icon: "clock.arrow.circlepath") { ctx in
                 ctx.workspace.map { "routines:\($0.repoId)" }
             }
         ]
-        c.commands = [
+        contributions.commands = [
             cmd("routines.show", "Routines") {
-                if let r = app.worktree(app.workbench.workspaceId)?.repoId { app.workbench.open("routines:\(r)") }
+                if let repoId = app.worktree(app.workbench.workspaceId)?.repoId {
+                    app.workbench.open("routines:\(repoId)")
+                }
             },
             cmd("routines.new", "New Routine…") {
                 guard let repo = app.worktree(app.workbench.workspaceId)?.repoId else {
@@ -26,13 +28,13 @@ extension Builtins {
                     return
                 }
                 Task {
-                    guard let r = await RoutineSheet.run(app, repoId: repo),
-                        await app.call(RoutineSet(routine: r)) != nil
+                    guard let routine = await RoutineSheet.run(app, repoId: repo),
+                        await app.call(RoutineSet(routine: routine)) != nil
                     else { return }
                     app.workbench.open("routines:\(repo)")
                 }
             }
         ]
-        return c
+        return contributions
     }
 }

@@ -14,16 +14,17 @@ extension FilesPanel {
     }
 
     @objc private func showMore(_ sender: NSButton) {
-        let m = NSMenu()
-        m.addItem(withTitle: String(localized: "New Folder…"), action: #selector(newFolder), keyEquivalent: "").target =
+        let menu = NSMenu()
+        menu.addItem(withTitle: String(localized: "New Folder…"), action: #selector(newFolder), keyEquivalent: "")
+            .target =
             self
-        m.addItem(
+        menu.addItem(
             withTitle: String(localized: "New from Template…"), action: #selector(newFromTemplate), keyEquivalent: ""
         ).target = self
-        m.addItem(.separator())
-        m.addItem(withTitle: String(localized: "Collapse All"), action: #selector(collapseAll), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: String(localized: "Collapse All"), action: #selector(collapseAll), keyEquivalent: "")
             .target = self
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 
     @objc private func collapseAll() { outline.collapseItem(nil, collapseChildren: true) }

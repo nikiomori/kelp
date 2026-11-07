@@ -24,12 +24,12 @@ struct NameFilter: Equatable {
     var isEmpty: Bool { wanted.isEmpty && left.isEmpty && !changedOnly }
 
     /// Lower case and composed (a name on disk may have й as и + ˘, typed it's one): compared code unit by code unit then.
-    static func folded(_ s: String) -> String { s.lowercased().precomposedStringWithCanonicalMapping }
+    static func folded(_ text: String) -> String { text.lowercased().precomposedStringWithCanonicalMapping }
 
     /// `folded`: the path went through `folded` already. `.literal`: a key in 200k paths took 360 ms, Character by Character.
     func matches(_ path: String, folded done: Bool = false, changed: @autoclosure () -> Bool) -> Bool {
-        let p = done ? path : Self.folded(path)
-        func has(_ w: String) -> Bool { p.range(of: w, options: .literal) != nil }
+        let key = done ? path : Self.folded(path)
+        func has(_ word: String) -> Bool { key.range(of: word, options: .literal) != nil }
         return wanted.allSatisfy(has) && !left.contains(where: has) && (!changedOnly || changed())
     }
 }
@@ -68,24 +68,24 @@ extension FilesPanel {
     /// ↩ in the field opens the first file left; ⇧↩ beside.
     func openFirstOnReturn() {
         guard isNarrowed, NSApp.currentEvent?.type == .keyDown, let row = firstFileRow,
-            let n = outline.item(atRow: row) as? FileNode
+            let node = outline.item(atRow: row) as? FileNode
         else { return }
         if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
-            app.workbench.open(TabURI.file(root + "/" + n.path), split: .right)
+            app.workbench.open(TabURI.file(root + "/" + node.path), split: .right)
         } else {
-            openFile(n.path)
+            openFile(node.path)
         }
     }
 
     /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
     func findInFiles() {
-        guard let w = view.window else { return }
+        guard let window = view.window else { return }
         searchBy(name: false)
-        if w.firstResponder === search.currentEditor() {
+        if window.firstResponder === search.currentEditor() {
             app.workbench.editor?.focusSelected()
             return
         }
-        w.makeFirstResponder(search)
+        window.makeFirstResponder(search)
         search.currentEditor()?.selectAll(nil)
     }
 

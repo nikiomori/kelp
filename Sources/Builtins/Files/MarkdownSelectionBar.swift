@@ -9,7 +9,9 @@ final class MarkdownSelectionBar: NSView {
 
     init(target: AnyObject, items: [(symbol: String, tip: String, action: Selector)]) {
         super.init(frame: .zero)
-        for i in items { row.addArrangedSubview(MarkdownTab.toolButton(i.symbol, i.tip, i.action, target: target)) }
+        for item in items {
+            row.addArrangedSubview(MarkdownTab.toolButton(item.symbol, item.tip, item.action, target: target))
+        }
         row.spacing = Metrics.iconGap
         row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 5)
         let card = FloatingCard(row, radius: Metrics.radiusMD)   // the popover's material, as the other floating controls
