@@ -115,7 +115,7 @@ extension Handled {
 
     /// On the calling thread: an in-order method's, on the reader thread.
     static func answerNow(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Data {
-        try Sessions.$asker.withValue(d.sessions.caller(conn).origin) {
+        try Sessions.$asker.withValue(d.sessions.callers.caller(conn).origin) {
             try JSONEncoder().encode(checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
         }
     }
@@ -135,7 +135,7 @@ extension AsyncHandled {
     func handle(_ s: Service, conn: Int) async throws -> Result { try await handle(s) }
 
     static func answer(_ p: JSONValue, _ d: Daemon, conn: Int) async throws -> Data {
-        try await Sessions.$asker.withValue(d.sessions.caller(conn).origin) {
+        try await Sessions.$asker.withValue(d.sessions.callers.caller(conn).origin) {
             try JSONEncoder().encode(await checked(p, d, conn: conn).handle(Service.of(d), conn: conn))
         }
     }
@@ -166,7 +166,7 @@ extension Daemon {
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
     func allow(_ m: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = m.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        let caller = known ?? sessions.caller(conn)
+        let caller = known ?? sessions.callers.caller(conn)
         switch caller {
         case .user: return
         case .session(let own):

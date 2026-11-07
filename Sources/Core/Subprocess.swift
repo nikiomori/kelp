@@ -95,7 +95,7 @@ public enum Subprocess {
     }
 
     /// Whether `pid` is a program `run` started in this process and still waits for: what that one starts in turn (a repo's
-    /// git hook, an extension's command) is this process's doing, not a terminal's (`Sessions.caller`).
+    /// git hook, an extension's command) is this process's doing, not a terminal's (`Callers.caller`).
     public static func isRunning(_ pid: pid_t) -> Bool { running.withLock { $0.contains(pid) } }
     private static let running = OSAllocatedUnfairLock<Set<pid_t>>(initialState: [])
 

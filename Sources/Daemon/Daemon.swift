@@ -38,9 +38,9 @@ public final class Daemon: Sendable {
 
     public convenience init(root: URL, store: Store? = nil) throws { try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60)) }
 
-    /// kelpd's own: a caller is the user's only when Kelp can tell (`Sessions.session(running:)`); anything else, its own
+    /// kelpd's own: a caller is the user's only when Kelp can tell (`Callers.session(running:)`); anything else, its own
     /// programs' leftovers included, is held to an agent's rules. Not in a test's daemon, whose process is the test's.
-    public func strict() { sessions.strictCallers.withLock { $0 = true } }
+    public func strict() { sessions.callers.strict.withLock { $0 = true } }
 
     /// `lspDelays`: how soon a broken language server is started again, and how long one with no open file keeps running
     /// (tests shorten them).
@@ -264,6 +264,7 @@ public final class Daemon: Sendable {
         // Still here: this process takes the sessions back, as the new kelpd would have, and every agent goes on.
         do {
             let back = try Daemon(root: root, store: store)   // the same database: one writer, not two in one process
+            if sessions.callers.strict.withLock({ $0 }) { back.strict() }   // held to the same rules as this one
             try back.start(adopting: h, takingBack: true)
             running.withLock { $0.successor = back }
             Log.start.notice("the update didn't run: this kelpd took its sessions back")
@@ -298,8 +299,8 @@ public final class Daemon: Sendable {
         if !running.withLock({ $0.accept != nil }) { client.hangUp() }
         Thread.detachNewThread { [self] in
             // Who it is, looked up before anything it sent is read, while its program is surely there: here, not on the
-            // accept queue, as a tmux pane's asks tmux (`Sessions.tmuxCaller`).
-            _ = sessions.caller(client.id)
+            // accept queue, as a tmux pane's asks tmux (`Callers.tmuxCaller`).
+            _ = sessions.callers.caller(client.id)
             var received = LineBuffer()
             var buf = [UInt8](repeating: 0, count: 65536)
             var spoke = false
@@ -347,7 +348,7 @@ public final class Daemon: Sendable {
             // died look alike here (both read 0, both poll as POLLHUP on macOS); either way it asks for nothing more, so its
             // watches go now (no git polling or host stats for it that minute), and a long wait pending ends on its own time.
             // Waited for after a read error too: what it asked is checked against the session it runs in, which is known
-            // only while it's connected (`Sessions.caller`).
+            // only while it's connected (`Callers.caller`).
             if ended { watches.drop(client.id) }
             for _ in 0..<6000 where pending.withLock({ $0 }) > 0 { usleep(10_000) }
             hungUp(client)
@@ -377,8 +378,8 @@ public final class Daemon: Sendable {
         // Input for a session answers once the session has it (`SessionInput`), maybe from its lane.
         if let input = handler as? any SessionInput.Type {
             // Asked again from the lane as the caller it was sent by: its connection may be gone by then, and a gone one
-            // can't be told apart (`Sessions.caller`), so the user's queued input would be refused.
-            let conn = client.id, own = sessions.caller(conn)
+            // can't be told apart (`Callers.caller`), so the user's queued input would be refused.
+            let conn = client.id, own = sessions.callers.caller(conn)
             input.answerInOrder(req.params ?? .null, sessions, allowed: { [self] in try allow($0, conn: conn, caller: own) }, done: reply)
             return
         }

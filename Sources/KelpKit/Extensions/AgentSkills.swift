@@ -277,10 +277,8 @@ enum AgentSkills {
         - `kelp settings unset <key>` — back to the default
         - `kelp ext list` — the extensions and which are on; turning one on or off is the user's (Settings › Extensions)
 
-        Keyboard shortcuts are the `keys` object, laid over Kelp's defaults: command id → key, e.g.
-        `{"editor.saveAll": "opt+cmd+s", "terminal.new": ""}` (`""` = no shortcut; macOS's own items such as Copy go by
-        English menu path, `"Edit › Copy"`). Every command id is in `kelp ui state` (`commands`), and `kelp run <id>` runs one.
-        `kelp settings set keys` replaces the whole object: keep the entries already there.
+        Keyboard shortcuts are the user's to set, in Settings › Keyboard (the `keys` object, command id → key): say which
+        command and key to pick. Every command id is in `kelp ui state` (`commands`), and `kelp run <id>` runs one.
 
         Only change what the user asked for, then say what you changed.
 

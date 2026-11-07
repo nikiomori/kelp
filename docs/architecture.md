@@ -87,14 +87,20 @@ feature from reaching into them, and the shell can't name a built-in either: the
 extensions: user extensions live in `~/.kelp/extensions/<id>/` — see [extensions.md](extensions.md) — and can be
 turned off or removed.
 
-What every view is drawn with is DesignKit, a module the shell, EditorKit and the built-ins share (AppKit only, so it
-doesn't count against KelpKit's `package` ceiling): the design system's sizes (`Metrics`, `Motion`: `Motion.duration` is
+What every view is drawn with is DesignKit, a module the shell, EditorKit and the built-ins share (it doesn't count
+against KelpKit's `package` ceiling): the design system's sizes (`Metrics`, `Motion`: `Motion.duration` is
 0 under Reduce Motion), text that follows Settings › Appearance › Text size (`TextSize`, `NSFont.ui` / `uiDigits` /
 `uiMono`: everything but code), colours (the text shades of the status colours, `gitLetter`, the three grey fills,
 `NSColor(hex:)`) and the parts views are built from — a panel's header or a tab's toolbar (`Bar.panel`, `Bar.content`),
 `IconButton`, the inspector's row (`ListRowView`), `EmptyStateView` (an error is one too), `FloatingCard` for what floats
 over a tab, and the find bar's ↑ ↓ (`NSSegmentedControl.steps`). A panel takes these instead of measuring its own, so
 every panel looks like one; the rules behind them are in the Kelp design system.
+
+Two kits draw them. The window, its lists and tables, the editor and the terminal are AppKit, and follow the model with
+`track { … }`. A part that's a small form or a card of its own (settings pages, a machine's row and tab, usage, a hover
+card) is a SwiftUI view, hosted in an `NSHostingView`, and reads the same `@Observable` model directly; its DesignKit
+parts are the SwiftUI ones beside their AppKit twins (`Segments`, `PointerStyle`, `LoadingLine`, the text shades). A new
+view goes where its neighbours are: in a list or a pane, AppKit; a self-contained page or card, SwiftUI.
 
 ## Source Control
 The Git built-in is a VS Code-style Source Control panel (`Sources/Builtins/Git/SourceControl.swift`): branch menu, commit box
@@ -237,26 +243,29 @@ checks it for every call, by the program at the other end of the socket. A statu
 from a program running inside a session is for that session only (`Answered.reportsFor`), so one agent can't mark another
 done or asking.
 
-**An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Sessions.caller`, a
+**An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Callers.caller`, a
 `Caller`, looked up as it connects, in Daemon/CallerLookup.swift): the session it runs in, by its process tree or a
 terminal it or a parent of it has, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd
 itself started (an extension's command or event, a repository's git hook, whatever they left running: kelpd leads its
-own process session); `unknown` for one gone before it could be read. It's the user's when Kelp can tell: Kelp's window,
-a terminal of Kelp's no agent is on the line of, or a program that came from the user's own login (an ancestor of
-another account: `login` under Terminal or iTerm, `sshd`) or from an app other than Kelp (an editor's terminal). The rest
-is `detached`, what left its terminal and every such ancestor behind (a double fork with `setsid`, `script` in the
-background, `tmux new -d`); a launchd job or a cron line of the user's is `detached` too. Agents, `kelpd`, `unknown` and
+own process session, where it can); `unknown` for one gone before it could be read. It's the user's when Kelp can tell:
+Kelp's window and its terminals, a terminal of Kelp's no agent is on the line of nor running in the foreground (an
+agent typed in by hand counts as one while it runs, by the name it was run as), a program that came from a system
+service (an ancestor of another account that isn't a setuid program: `sshd`, cron; not `login`, which anyone can start),
+or from an app that isn't a Kelp (Terminal, iTerm and its session server, an editor). The rest is `detached`, held to
+an agent's rules: what left its terminal and every such ancestor behind (a double fork with `setsid`, `script` in the
+background, `tmux new -d`, a launchd job), and a terminal Kelp can't trace to the user (`mosh-server`, a `screen`
+reattached, a tmux server on a socket folder of its own). Agents, `kelpd`, `unknown` and
 `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
 `Worktree.madeBy`), run only the app's commands that show something (`UICommand.forAgents`), set no setting of the
-user's own (`SettingsSet.usersOnly`), never answer a question; only a session speaks for itself.
+user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question; only a session speaks for itself.
 
 What this is for: an agent's mistakes, and an agent steered by words it read (a page, an issue, a file) into asking Kelp
 for what's the user's. It isn't a boundary against an agent set on getting around it: agents run as the user's account,
 so one with a shell can write what Kelp keeps as the user can (its database, settings.json, a shell's startup file, an
-agent's manifest in ~/.kelp/agents), make a bundle of its own to look like an app, or start an app for the user to watch
-run something (`open -a Terminal`). Holding that takes a sandbox around the agent itself, which Kelp doesn't add.
+agent's manifest in ~/.kelp/agents), make a bundle of its own to look like an app, add a cron line, put a window of its
+own in front of the user in their tmux, or start an app for the user to watch run something (`open -a Terminal`). Holding that takes a sandbox around the agent itself, which Kelp doesn't add.
 
 **Extensions run commands only as the user allowed them.** One that runs anything (a command, an event, a page) is
 asked about in Kelp's window when it's new and after any file in its folder changes (`ExtensionTrust`, a digest of the

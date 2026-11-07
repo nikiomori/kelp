@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Core
 
 /// Who a call comes from (`Caller`), by the process on the connection: what `Daemon.allow` lets it do goes by this.
@@ -13,6 +14,19 @@ extension Sessions {
     static let ownProgram = "kelpd"
     /// The same for `Caller.unknown`, and for `Caller.detached`.
     static let unknown = "unknown", detached = "detached"
+}
+
+/// Who calls (`Caller`), by the process on each connection: the daemon's one place that tells, apart from the sessions
+/// it reads from (their programs, their terminals).
+final class Callers: Sendable {
+    private let live: SessionTable, clients: Clients
+    /// Whether a caller has to be known for the user's to count as theirs: kelpd says so as it starts (`Daemon.strict`).
+    /// A test's in-process daemon doesn't, and its test process calls as the user.
+    let strict = OSAllocatedUnfairLock(initialState: false)
+    /// Who a tmux pane's caller is, by the pane's terminal, for 10 s (`tmuxCaller`).
+    private let tmuxAnswers = OSAllocatedUnfairLock<[String: (caller: Caller?, at: Date)]>(initialState: [:])
+
+    init(live: SessionTable, clients: Clients) { self.live = live; self.clients = clients }
 
     /// The live session whose program `pid` is, or runs under (its own child, a shell's job…), or whose terminal it or
     /// one of its parents has (a double fork, `nohup`, `script`); `kelpd` for one this daemon started (kelpd leads its
@@ -21,7 +35,7 @@ extension Sessions {
         guard pid == getpid() || Subprocess.parent(pid) != nil else { return .unknown }
         guard pid != getpid() else { return .user }
         let mine = Dictionary(live.all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
-        let strict = strictCallers.withLock { $0 }
+        let strict = self.strict.withLock { $0 }
         var p = pid, chain: [pid_t] = []
         for _ in 0..<64 {
             if let id = mine[p] { return .session(id) }
@@ -36,7 +50,7 @@ extension Sessions {
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
         if throughTmux, let server = chain.last, Unix.executable(server).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux" {
-            return tmuxCaller(pid, server: server) ?? .detached
+            return tmuxCaller(pid, server: server, pane: chain.dropLast().last ?? pid) ?? .detached
         }
         guard strict else { return .user }
         return chain.dropFirst().contains { Self.cameFromTheUser($0) } ? .user : .detached
@@ -48,6 +62,8 @@ extension Sessions {
     static func cameFromTheUser(_ pid: pid_t) -> Bool {
         let path = Unix.executable(pid)
         if path == Clients.appExecutable { return true }
+        // iTerm's own: the server that keeps its sessions (restored ones) lives outside its bundle.
+        if let path, path.hasPrefix(NSHomeDirectory() + "/Library/Application Support/iTerm2/iTermServer") { return true }
         if let uid = Subprocess.owner(pid), uid != getuid(), let path, !Self.isSetuid(path) { return true }
         guard let path, let r = path.range(of: ".app/Contents/MacOS/") else { return false }
         let folder = String(path[..<r.upperBound])
@@ -72,15 +88,16 @@ extension Sessions {
     /// its agent rules, outweighing any other client), else the user's own (theirs only for the pane they look at: the
     /// active one of the window shown, not one an agent added out of sight); nil for nobody, or no tmux to ask. Asked
     /// once a pane and 10 s (`tmuxAnswers`): a hook comes from the same pane many times a turn.
-    private func tmuxCaller(_ pid: pid_t, server: pid_t) -> Caller? {
+    private func tmuxCaller(_ pid: pid_t, server: pid_t, pane: pid_t) -> Caller? {
         guard let dev = Subprocess.terminal(pid), let tty = devname(dev_t(dev), S_IFCHR).map({ "/dev/" + String(cString: $0) }) else { return nil }
-        // Kept only for a caller that was there before it: a terminal's name is given to the next pane once one closes.
+        // Kept for the pane it was asked for: one whose first program (the tmux server's child) was there before the
+        // answer; a terminal's name is given to the next pane once one closes.
         if let kept = tmuxAnswers.withLock({ $0[tty] }), kept.at.timeIntervalSinceNow > -10,
-           let born = Subprocess.started(pid), Double(born) / 1e6 < kept.at.timeIntervalSince1970 { return kept.caller }
+           let born = Subprocess.started(pane), Double(born) / 1e6 < kept.at.timeIntervalSince1970 { return kept.caller }
         let socket = Self.tmuxSocket(Subprocess.arguments(server) ?? [])
         func lines(_ args: [String]) -> [[Substring]] {
             // The server that pane is on: its socket as it was started with (-L, -S), else the default one (TMUX_TMPDIR).
-            var env = ["PATH": Self.childPath]
+            var env = ["PATH": Sessions.childPath]
             env["TMUX_TMPDIR"] = ProcessInfo.processInfo.environment["TMUX_TMPDIR"]
             do {
                 let r = try Subprocess.run([try LoginPath.resolve("tmux")] + socket + args, cwd: NSHomeDirectory(), env: env, timeLimit: 2)
@@ -109,10 +126,20 @@ extension Sessions {
         attached.first { if case .session = $0 { true } else { false } } ?? (shown && attached.contains(.user) ? .user : nil)
     }
 
-    /// The `-L name` or `-S path` a tmux server was started with, for asking that server.
+    /// The `-L name` or `-S path` a tmux server was started with, for asking that server: among tmux's own options, before
+    /// its command (`tmux new ssh -L 8080:h:80 host` names no socket), apart (`-L work`) or joined (`-Lwork`).
     static func tmuxSocket(_ argv: [String]) -> [String] {
-        guard let i = argv.firstIndex(where: { $0 == "-L" || $0 == "-S" }), i + 1 < argv.count else { return [] }
-        return [argv[i], argv[i + 1]]
+        let valued: Set<Character> = ["c", "f", "L", "S", "T"]   // tmux's options that take a value
+        var i = 1
+        while i < argv.count, argv[i].hasPrefix("-"), argv[i] != "-" {
+            let flags = Array(argv[i].dropFirst())
+            if let at = flags.firstIndex(where: valued.contains) {
+                let rest = String(flags[(at + 1)...]), value = rest.isEmpty ? (i + 1 < argv.count ? argv[i + 1] : "") : rest
+                if flags[at] == "L" || flags[at] == "S" { return ["-" + String(flags[at]), value] }
+                i += rest.isEmpty ? 2 : 1
+            } else { i += 1 }
+        }
+        return []
     }
 
     /// Who the program on `conn` is: its process tree, looked up once per connection (`Connection.owner`), as it connects

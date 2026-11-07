@@ -21,7 +21,7 @@ final class Connection: Sendable {
     let peer: String?
     /// Its process, to tell which session a report comes from (`Answered.reportsFor`).
     let peerPID: pid_t?
-    /// Who that process is (`Sessions.caller`), looked up once: its pid and parents stay while it's connected. nil until then.
+    /// Who that process is (`Callers.caller`), looked up once: its pid and parents stay while it's connected. nil until then.
     let owner = OSAllocatedUnfairLock<Caller?>(initialState: nil)
 
     init(id: Int, fd: Int32) {

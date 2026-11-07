@@ -33,7 +33,7 @@ extension SessionCreate: Handled {
         }
         guard let dir else { throw RPCError.invalidParams("cwd or worktreeId required") }
         var o = Sessions.Launch(self)
-        // Asked from inside a session, the parent asked for is that one, whatever id was sent (`Sessions.caller`).
+        // Asked from inside a session, the parent asked for is that one, whatever id was sent (`Callers.caller`).
         let asked = parent.map { Sessions.asker ?? $0 }
         o.parent = try sessions.parent(asked, of: self)
         o.startedBy = try sessions.starter(asked, of: self)

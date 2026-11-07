@@ -211,8 +211,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/true")
     try p.run(); p.waitUntilExit()
-    #expect(r.d.sessions.session(running: p.processIdentifier) == .unknown)
-    #expect(r.d.sessions.session(running: getpid()) == .user)
+    #expect(r.d.sessions.callers.session(running: p.processIdentifier) == .unknown)
+    #expect(r.d.sessions.callers.session(running: getpid()) == .user)
 }
 
 /// One Kelp couldn't place (gone as it connected, its connection handed on) speaks for no session: no report, no
@@ -249,7 +249,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 /// for the user) is `detached`: held to an agent's rules, not the user's.
 @Test func aProgramForkedAwayFromItsTerminalIsNoUser() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    r.d.sessions.strictCallers.withLock { $0 = true }   // as a kelpd leading its own process session is
+    r.d.sessions.callers.strict.withLock { $0 = true }   // as a kelpd leading its own process session is
     let out = FileManager.default.temporaryDirectory.appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: out) }
     let p = Process()
@@ -260,7 +260,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let pid = try #require(Int32(String(contentsOf: out, encoding: .utf8)))
     defer { kill(pid, SIGTERM) }
     #expect(try await waitFor(5) { Subprocess.parent(pid) == 1 })
-    #expect(r.d.sessions.session(running: pid) == .detached)
+    #expect(r.d.sessions.callers.session(running: pid) == .detached)
 }
 
 /// A program in a tmux pane is whoever is attached to that tmux session: nobody, and it's no user (what `tmux new -d`
@@ -268,12 +268,12 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/tmux") || FileManager.default.isExecutableFile(atPath: "/usr/local/bin/tmux")))
 func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    r.d.sessions.strictCallers.withLock { $0 = true }
+    r.d.sessions.callers.strict.withLock { $0 = true }
     let tmux = try LoginPath.resolve("tmux"), name = "kelp-probe-\(UUID().uuidString.prefix(6))", env = ["PATH": "/usr/bin:/bin"]
     _ = try await Subprocess.run([tmux, "new-session", "-d", "-s", name, "sleep 30"], cwd: "/", env: env, timeLimit: 5)
     let out = try await Subprocess.run([tmux, "list-panes", "-t", "=" + name, "-F", "#{pane_pid}"], cwd: "/", env: env, timeLimit: 5)
     let pid = pid_t(String(decoding: out.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
-    #expect(pid.map { r.d.sessions.session(running: $0) } == .detached)
+    #expect(pid.map { r.d.sessions.callers.session(running: $0) } == .detached)
     _ = try await Subprocess.run([tmux, "kill-session", "-t", "=" + name], cwd: "/", env: env, timeLimit: 5)
 }
 
@@ -282,20 +282,20 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func whatCameFromTheUsersLoginTellsTheUser() throws {
     let root = try Subprocess.run(["/usr/bin/pgrep", "-U", "0", "-x", "syslogd"], cwd: "/", env: [:], timeLimit: 5)
     let pid = try #require(pid_t(String(decoding: root.stdout, as: UTF8.self).split(separator: "\n").first ?? ""))
-    #expect(Sessions.cameFromTheUser(pid))   // another account's
+    #expect(Callers.cameFromTheUser(pid))   // another account's
     let plain = Process()
     plain.executableURL = URL(fileURLWithPath: "/bin/sleep")
     plain.arguments = ["5"]
     try plain.run()
     defer { plain.terminate() }
-    #expect(!Sessions.cameFromTheUser(plain.processIdentifier))   // the user's own plain program
+    #expect(!Callers.cameFromTheUser(plain.processIdentifier))   // the user's own plain program
 }
 
 /// A program that forked away and is itself in a bundle (as `kelp` is, in Kelp.app) is no app the user started: only
 /// what it came from counts.
 @Test func aForkedAwayProgramInABundleIsNoUser() async throws {
     let r = try await rig(); defer { r.d.stop() }
-    r.d.sessions.strictCallers.withLock { $0 = true }
+    r.d.sessions.callers.strict.withLock { $0 = true }
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
     let bin = dir.appendingPathComponent("Fake.app/Contents/MacOS")
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
@@ -318,18 +318,18 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let pid = try #require(Int32(String(contentsOf: out, encoding: .utf8)))
     defer { kill(pid, SIGTERM) }
     #expect(try await waitFor(5) { Unix.executable(pid)?.contains(".app/Contents/MacOS/") == true })
-    #expect(r.d.sessions.session(running: pid) == .detached)
+    #expect(r.d.sessions.callers.session(running: pid) == .detached)
 }
 
 /// A tmux pane's caller from who's attached: a Kelp terminal's session outweighs the user's own client; the user's
 /// counts for the pane they're shown only; nobody attached is nobody's.
 @Test func aTmuxPanesCallerIsWhoIsAttached() {
-    #expect(Sessions.tmuxDecision([.user, .session("A")], shown: true) == .session("A"))
-    #expect(Sessions.tmuxDecision([.user], shown: true) == .user)
-    #expect(Sessions.tmuxDecision([.user], shown: false) == nil)
-    #expect(Sessions.tmuxDecision([], shown: true) == nil)
-    #expect(Sessions.tmuxSocket(["tmux", "-L", "work", "new", "-s", "x"]) == ["-L", "work"])
-    #expect(Sessions.tmuxSocket(["tmux", "new"]) == [])
+    #expect(Callers.tmuxDecision([.user, .session("A")], shown: true) == .session("A"))
+    #expect(Callers.tmuxDecision([.user], shown: true) == .user)
+    #expect(Callers.tmuxDecision([.user], shown: false) == nil)
+    #expect(Callers.tmuxDecision([], shown: true) == nil)
+    #expect(Callers.tmuxSocket(["tmux", "-L", "work", "new", "-s", "x"]) == ["-L", "work"])
+    #expect(Callers.tmuxSocket(["tmux", "new"]) == [])
 }
 
 /// A process's own arguments, read back as it was started (what a tmux server's socket is told by).
@@ -340,4 +340,24 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     try p.run()
     defer { p.terminate() }
     #expect(Subprocess.arguments(p.processIdentifier) == ["/bin/sleep", "7"])
+}
+
+/// The socket a tmux server was started on is read from tmux's own options only: not from its command's.
+@Test func aTmuxServersSocketIsReadFromItsOwnOptions() {
+    #expect(Callers.tmuxSocket(["tmux", "-Lwork", "new"]) == ["-L", "work"])
+    #expect(Callers.tmuxSocket(["tmux", "-u", "-S", "/tmp/s", "new"]) == ["-S", "/tmp/s"])
+    #expect(Callers.tmuxSocket(["tmux", "-f", "/x.conf", "-L", "a", "new"]) == ["-L", "a"])
+    #expect(Callers.tmuxSocket(["tmux", "new", "-s", "x", "ssh", "-L", "8080:h:80", "host"]) == [])
+}
+
+/// An agent typed into a plain terminal by hand is an agent's while it runs there: its program (by the name it was run
+/// as) in the terminal's foreground holds what that terminal sends to an agent's rules; once it ends, the shell's the user's.
+@Test func anAgentTypedIntoAPlainTerminalIsHeldToItsRules() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let term = try await session(r, "exec /bin/zsh -f -i")
+    #expect(try !r.d.sessions.forAnAgent(term.id))
+    _ = try await r.c.call(SessionWrite(id: term.id, text: "(exec -a claude /bin/sleep 30)\n"))
+    #expect(try await waitFor(10) { try r.d.sessions.forAnAgent(term.id) })
+    _ = try await r.c.call(SessionWrite(id: term.id, text: "\u{3}"))   // ^C: the shell has its terminal back
+    #expect(try await waitFor(10) { try !r.d.sessions.forAnAgent(term.id) })
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Who a call came from, by its process (`Sessions.caller`): what it may do is `Daemon.allow`'s, by this.
+/// Who a call came from, by its process (`Callers.caller`): what it may do is `Daemon.allow`'s, by this.
 enum Caller: Hashable, Sendable {
     /// Outside every session: the user's own terminal, Kelp's window, the daemon itself. Not held to an agent's rules.
     case user
@@ -12,7 +12,7 @@ enum Caller: Hashable, Sendable {
     /// Gone before it could be looked at (it connected and ended at once, leaving the connection to a child): held to an
     /// agent's rules, and speaks for no session.
     case unknown
-    /// None of the above and not the user's that Kelp can tell (`Sessions.session(running:)`): one that left every
+    /// None of the above and not the user's that Kelp can tell (`Callers.session(running:)`): one that left every
     /// terminal and app behind (a double fork with `setsid`, `script`, a tmux server nobody's attached to). Held to an
     /// agent's rules.
     case detached

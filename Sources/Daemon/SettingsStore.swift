@@ -145,11 +145,13 @@ extension SettingsSet: Handled {
     /// What an agent may not set (`kelp settings set`, its settings skill): where Kelp sends what agents did off this Mac
     /// (`phone.*`), whose accounts agents run as (`accounts.*`), where extensions come from and which are on (one the user
     /// turned off stays off), whether terminals are tmux sessions (whose panes are told apart only by who's attached),
-    /// whether agents hear from those they start, and where every workspace's folder goes.
+    /// whether agents hear from those they start, where every workspace's folder goes; and the keyboard (`keys`: a key on
+    /// a command of the user's, git.push on ⌘S, would have them run it unawares).
     static let usersOnly = ["phone.", "accounts.", "extensions.library", "extensions.disabled", "terminal.tmux", "agents.childReports",
                             "worktrees.folder"]
     var notForAgents: String? {
-        Self.usersOnly.contains { key.hasPrefix($0) } ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil
+        Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"
+            ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil
     }
     func handle(_ settings: SettingsEvents) throws -> [String: JSONValue] {
         let all = try settings.store.set(key, value)

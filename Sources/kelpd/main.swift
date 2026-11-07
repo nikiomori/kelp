@@ -6,7 +6,7 @@ import Daemon
 if CommandLine.arguments.contains("--can-adopt") { print(Handover.canAdopt); exit(0) }   // asked before an update execs this
 signal(SIGPIPE, SIG_IGN)
 // Its own process session where it can have one: what it starts that isn't a terminal's stays in it, and is told for
-// kelpd's by that (`Sessions.session(running:)`). A process-group leader can't (launchd starts it as one, and the app's
+// kelpd's by that (`Callers.session(running:)`). A process-group leader can't (launchd starts it as one, and the app's
 // Process too): then such a leftover is `detached`, held to an agent's rules all the same (`Daemon.strict`).
 if getsid(0) != getpid(), setsid() < 0 {
     FileHandle.standardError.write(Data("kelpd: no process session of its own (\(errno)); leftovers count as detached\n".utf8))

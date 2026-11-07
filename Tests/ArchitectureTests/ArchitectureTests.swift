@@ -298,6 +298,12 @@ private func codeOnly(_ s: String) -> String {
     let shared = try matches(#"^(?:private |fileprivate |public )?(?:let|var) \w+|^\s+(?:private |public )?static let \w+ = (?!Logger\()[A-Z]\w*(?:<[^\n]*>)?\("#,
                              in: ["Sources/Daemon"])
     #expect(stored <= 14, "Daemon's stored properties: \(stored)")
+    // Nor does it go into `Sessions` instead, the service the most comes near: what isn't a session's goes in a type of
+    // its own (`Callers`, `ChildReports`, `SessionLanes`…), which `Sessions` holds as one.
+    let sessions = try #require(sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions.swift" })
+    let held = try NSRegularExpression(pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines])
+        .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
+    #expect(held <= 26, "Sessions' stored properties: \(held)")
     #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
     #expect(shared.count <= 0, "state outside an instance: \(shared)")
 }

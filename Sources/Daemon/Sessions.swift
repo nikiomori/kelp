@@ -37,11 +37,8 @@ final class Sessions: Sendable {
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
-    /// Whether a caller has to be known for the user's to count as theirs (`session(running:)`): kelpd says so as it starts
-    /// (`Daemon.strict`). A test's in-process daemon doesn't, and its test process calls as the user.
-    let strictCallers = OSAllocatedUnfairLock(initialState: false)
-    /// Who a tmux pane's caller is, by the pane's terminal, for 10 s (`tmuxCaller`).
-    let tmuxAnswers = OSAllocatedUnfairLock<[String: (caller: Caller?, at: Date)]>(initialState: [:])
+    /// Who calls, by the program on each connection (CallerLookup.swift).
+    let callers: Callers
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 
@@ -55,6 +52,7 @@ final class Sessions: Sendable {
         self.settings = settings
         self.agentUsage = agentUsage
         self.clients = clients
+        callers = Callers(live: live, clients: clients)
         self.watches = watches
         self.offloads = offloads
     }
