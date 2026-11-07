@@ -186,12 +186,13 @@ extension Daemon {
         }
     }
 
-    /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules, refused in `why`'s words.
+    /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules. Refused in `why`'s
+    /// words, then the rule's own (`SessionCreate`'s tmux…); anything else (the store) as it is.
     private func allowAgent(_ m: any Answered, own: String, or why: String) throws {
-        do {
-            if m.reportsFor != nil { throw RPCError.invalidParams(why) }
-            try allowAgent(m, own: own)
-        } catch { throw RPCError.invalidParams(why) }
+        if m.reportsFor != nil { throw RPCError.invalidParams(why) }
+        do { try allowAgent(m, own: own) } catch let e as RPCError where e.code == RPCError.invalidParams("").code {
+            throw RPCError.invalidParams(why + " " + e.message)
+        }
     }
 
     /// What a program of an agent's (or of the daemon's, `own` = `Sessions.ownProgram`) may not do.

@@ -159,6 +159,14 @@ public enum Subprocess {
         return info.e_tdev
     }
 
+    /// The user it runs as; nil once there's no such process. By sysctl: proc_pidinfo refuses another account's process.
+    public static func owner(_ pid: pid_t) -> uid_t? {
+        var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
+        return info.kp_eproc.e_ucred.cr_uid
+    }
+
     /// Ended, not reaped yet: nothing left to stop.
     public static func isZombie(_ pid: pid_t) -> Bool {
         var info = proc_bsdinfo()

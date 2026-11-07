@@ -184,6 +184,7 @@ extension GitUndoDiscard: Handled {
 }
 
 extension GitRemoteOp: Handled {
+    var inWorkspace: String? { id }   // a pull merges into the tree it's run in: an agent's own
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let o = Git.Remote(rawValue: op) else { throw RPCError.invalidParams("op: pull, push or fetch") }
         try Git.remote(workspaces.folder(id), o, remotes: workspaces.remotes)

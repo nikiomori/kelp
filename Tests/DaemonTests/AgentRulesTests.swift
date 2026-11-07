@@ -274,3 +274,42 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     #expect(pid.map { r.d.sessions.session(running: $0) } == .detached)
     _ = try await Subprocess.run([tmux, "kill-session", "-t", "=" + name], cwd: "/", env: env, timeLimit: 5)
 }
+
+/// What makes a caller the user's: an ancestor of another account (root's `login`, `sshd`), which an agent can't start,
+/// or an app's program; not one of the user's own plain programs, nor Kelp's own (`kelp` sits in Kelp's bundle).
+@Test func whatCameFromTheUsersLoginTellsTheUser() throws {
+    let root = try Subprocess.run(["/usr/bin/pgrep", "-U", "0", "-x", "syslogd"], cwd: "/", env: [:], timeLimit: 5)
+    let pid = try #require(pid_t(String(decoding: root.stdout, as: UTF8.self).split(separator: "\n").first ?? ""))
+    #expect(Sessions.cameFromTheUser(pid))   // another account's
+    #expect(!Sessions.cameFromTheUser(getpid()))   // this test: the user's own plain program
+}
+
+/// A program that forked away and is itself in a bundle (as `kelp` is, in Kelp.app) is no app the user started: only
+/// what it came from counts.
+@Test func aForkedAwayProgramInABundleIsNoUser() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    r.d.sessions.strictCallers.withLock { $0 = true }
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
+    let bin = dir.appendingPathComponent("Fake.app/Contents/MacOS")
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    // A program of its own (a copy of a system one is killed outside the system's folders): it waits, then ends.
+    let c = dir.appendingPathComponent("wait.c")
+    try "#include <unistd.h>\nint main(void) { sleep(10); return 0; }\n".write(to: c, atomically: true, encoding: .utf8)
+    let cc = Process()
+    cc.executableURL = URL(fileURLWithPath: "/usr/bin/cc")
+    cc.arguments = ["-o", bin.appendingPathComponent("sleep").path, c.path]
+    try cc.run(); cc.waitUntilExit()
+    try #require(cc.terminationStatus == 0)
+    let out = dir.appendingPathComponent("pid")
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+    p.arguments = ["-MPOSIX", "-e", "fork && exit; setsid; fork && exit; open(F, '>', $ARGV[0]); print F $$; close F; exec $ARGV[1]",
+                   out.path, bin.appendingPathComponent("sleep").path]
+    try p.run(); p.waitUntilExit()
+    #expect(try await waitFor(5) { (try? String(contentsOf: out, encoding: .utf8)).flatMap { Int32($0) } != nil })
+    let pid = try #require(Int32(String(contentsOf: out, encoding: .utf8)))
+    defer { kill(pid, SIGTERM) }
+    #expect(try await waitFor(5) { Unix.executable(pid)?.contains(".app/Contents/MacOS/") == true })
+    #expect(r.d.sessions.session(running: pid) == .detached)
+}

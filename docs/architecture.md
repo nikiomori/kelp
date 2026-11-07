@@ -238,21 +238,25 @@ from a program running inside a session is for that session only (`Answered.repo
 done or asking.
 
 **An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Sessions.caller`, a
-`Caller`, looked up as it connects, in Daemon/CallerLookup.swift): the session it runs in, by its process tree or its
-terminal, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd itself started (an
-extension's command or event, a repository's git hook, whatever they left running: kelpd leads its own process session);
-`unknown` for one gone before it could be read. It's the user's only when Kelp can tell: Kelp's window, a terminal of
-Kelp's no agent is on the line of, or a program started under an app (Terminal, iTerm, an editor). Anything else is
-`detached`: what left every terminal and app behind (a double fork with `setsid`, `script`, `tmux new -d`, `screen -dm`).
-Agents, `kelpd`, `unknown` and `detached` are held to `Daemon.allow`'s rules: they call only the methods agents use
-(`AgentRules.methods`, by type: reading, their own sessions and hooks, the IDE in their workspaces, what their skills
-use), act on their own session and the ones they started (any session id a call names counts), work in their own
-workspaces (and the ones they made, `Worktree.madeBy`), run only the app's commands that show something
-(`UICommand.forAgents`), set no setting of the user's own (`SettingsSet.usersOnly`), never answer a question; only a
-session speaks for itself. What this fences: an agent's mistakes, and words written to steer it (a page, an issue, a
-file it reads), however it shapes the command. What it doesn't, as agents run as the user's account: a program that
-starts an app for the user to watch run it (`open -a Terminal`, AppleScript), and files left for the user to run (a
-shell's startup file, an agent's manifest in ~/.kelp/agents). Isolating those takes a sandbox around the agent itself.
+`Caller`, looked up as it connects, in Daemon/CallerLookup.swift): the session it runs in, by its process tree or a
+terminal it or a parent of it has, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd
+itself started (an extension's command or event, a repository's git hook, whatever they left running: kelpd leads its
+own process session); `unknown` for one gone before it could be read. It's the user's when Kelp can tell: Kelp's window,
+a terminal of Kelp's no agent is on the line of, or a program that came from the user's own login (an ancestor of
+another account: `login` under Terminal or iTerm, `sshd`) or from an app other than Kelp (an editor's terminal). The rest
+is `detached`, what left its terminal and every such ancestor behind (a double fork with `setsid`, `script` in the
+background, `tmux new -d`); a launchd job or a cron line of the user's is `detached` too. Agents, `kelpd`, `unknown` and
+`detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
+reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
+the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
+`Worktree.madeBy`), run only the app's commands that show something (`UICommand.forAgents`), set no setting of the
+user's own (`SettingsSet.usersOnly`), never answer a question; only a session speaks for itself.
+
+What this is for: an agent's mistakes, and an agent steered by words it read (a page, an issue, a file) into asking Kelp
+for what's the user's. It isn't a boundary against an agent set on getting around it: agents run as the user's account,
+so one with a shell can write what Kelp keeps as the user can (its database, settings.json, a shell's startup file, an
+agent's manifest in ~/.kelp/agents), make a bundle of its own to look like an app, or start an app for the user to watch
+run something (`open -a Terminal`). Holding that takes a sandbox around the agent itself, which Kelp doesn't add.
 
 **Extensions run commands only as the user allowed them.** One that runs anything (a command, an event, a page) is
 asked about in Kelp's window when it's new and after any file in its folder changes (`ExtensionTrust`, a digest of the

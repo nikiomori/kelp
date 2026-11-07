@@ -40,6 +40,8 @@ final class Sessions: Sendable {
     /// Whether a caller has to be known for the user's to count as theirs (`session(running:)`): when kelpd leads its own
     /// process session, as it does run for real. A test's in-process daemon doesn't, and its test process calls as the user.
     let strictCallers = OSAllocatedUnfairLock(initialState: getsid(0) == getpid())
+    /// Who a tmux pane's caller is, by the pane's terminal, for 10 s (`tmuxCaller`).
+    let tmuxAnswers = OSAllocatedUnfairLock<[String: (caller: Caller?, at: Date)]>(initialState: [:])
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:])
 

@@ -2,20 +2,21 @@ import Foundation
 import Core
 
 /// Who a call comes from (`Caller`), by the process on the connection: what `Daemon.allow` lets it do goes by this.
-/// The user's only when Kelp can tell: Kelp's window, a terminal of Kelp's no agent is on the line of, a program started
-/// under an app (Terminal, iTerm, an editor's terminal). Anything else is held to an agent's rules: a program that left
-/// every terminal and app behind (a double fork with `setsid`, `script`, a tmux server with no one attached) is what an
-/// agent does to pass for the user.
+/// The user's when Kelp can tell it's theirs: Kelp's window, a terminal of Kelp's no agent is on the line of, or a program
+/// that came from a login of the user's (an ancestor of another account: `login` under Terminal or iTerm, `sshd`), or from
+/// an app (an editor's terminal). Anything else is held to an agent's rules: a program that left its terminal and every
+/// such ancestor behind (a double fork with `setsid`, `script` in the background, `tmux new -d`), which is what an agent
+/// does to pass for the user. Limit: an agent can't make an ancestor of another account, but a determined one can make a
+/// bundle of its own; and a launchd job or a cron line of the user's is held to an agent's rules too.
 extension Sessions {
     /// What a session started by `Caller.kelpd` records as its origin, and so its line (`lineage`): one that breaks off.
     static let ownProgram = "kelpd"
     /// The same for `Caller.unknown`, and for `Caller.detached`.
     static let unknown = "unknown", detached = "detached"
 
-    /// The live session whose program `pid` is, or runs under (its own child, a shell's job…); `kelpd` for one this
-    /// daemon started. One that left its tree (a double fork, `nohup … &`) still has its session's terminal as its own;
-    /// one of the daemon's that did is still in the daemon's process session (kelpd leads its own: kelpd/main.swift); one
-    /// in a tmux pane is whoever is attached to that tmux session (`tmuxCaller`).
+    /// The live session whose program `pid` is, or runs under (its own child, a shell's job…), or whose terminal it or
+    /// one of its parents has (a double fork, `nohup`, `script`); `kelpd` for one this daemon started (kelpd leads its
+    /// own process session: kelpd/main.swift); one in a tmux pane is whoever is attached there (`tmuxCaller`).
     func session(running pid: pid_t, throughTmux: Bool = true) -> Caller {
         guard pid == getpid() || Subprocess.parent(pid) != nil else { return .unknown }
         guard pid != getpid() else { return .user }
@@ -30,43 +31,63 @@ extension Sessions {
             guard let up = Subprocess.parent(p), up > 1, up != p else { break }
             p = up
         }
-        if let tty = Subprocess.terminal(pid), let s = live.all.first(where: { Subprocess.terminal($0.pty.pid) == tty }) {
-            return .session(s.snapshot.id)
-        }
+        let ttys = Set(chain.compactMap(Subprocess.terminal))
+        if let s = live.all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) { return .session(s.snapshot.id) }
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
-        let programs = chain.map { Unix.executable($0) ?? "" }
-        if throughTmux, programs.last.map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux", let c = tmuxCaller(pid) { return c }
+        if throughTmux, chain.last.flatMap(Unix.executable).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux" {
+            return tmuxCaller(pid) ?? .detached
+        }
         guard strict else { return .user }
-        return programs.contains(where: Self.isApp) ? .user : .detached
+        return chain.dropFirst().contains { Self.cameFromTheUser($0) } ? .user : .detached
     }
 
-    /// Who is attached to the tmux session whose pane `pid` runs in: a terminal of Kelp's (that session, agent rules and
-    /// all, which outweighs any other client), else an app's terminal (the user); nil for none attached, or no tmux to ask.
+    /// An ancestor that only the user's own login or an app starts: one of another account (root's `login`, `sshd`),
+    /// which an agent can't make, or an app's own program that isn't Kelp's.
+    static func cameFromTheUser(_ pid: pid_t) -> Bool {
+        if let uid = Subprocess.owner(pid), uid != getuid() { return true }
+        guard let path = Unix.executable(pid), path.contains(".app/Contents/MacOS/") else { return false }
+        return !path.hasPrefix(kelpsOwn)
+    }
+
+    /// Where Kelp's own programs are (kelp, kelpd, Kelp Machine): its bundle, else (a build folder) kelpd's folder.
+    private static let kelpsOwn: String = {
+        let me = Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? CommandLine.arguments[0]
+        if let r = me.range(of: ".app/Contents/") { return String(me[..<r.lowerBound]) + ".app/" }
+        return URL(fileURLWithPath: me).deletingLastPathComponent().path + "/"
+    }()
+
+    /// Who is attached to the tmux session and window whose pane `pid` runs in: a terminal of Kelp's (that session, with
+    /// its agent rules, outweighing any other client), else the user's own (theirs only for the pane they look at: the
+    /// active one of the window shown, not one an agent added out of sight); nil for nobody, or no tmux to ask. Asked
+    /// once a pane and 10 s (`tmuxAnswers`): a hook comes from the same pane many times a turn.
     private func tmuxCaller(_ pid: pid_t) -> Caller? {
         guard let dev = Subprocess.terminal(pid), let tty = devname(dev_t(dev), S_IFCHR).map({ "/dev/" + String(cString: $0) }) else { return nil }
+        if let kept = tmuxAnswers.withLock({ $0[tty] }), kept.at.timeIntervalSinceNow > -10 { return kept.caller }
         func lines(_ args: [String]) -> [[Substring]] {
-            // The same server the user's and Kelp's terminals reach: its socket folder as theirs (TMUX_TMPDIR, tests too).
+            // The same server the user's and Kelp's terminals reach: its socket folder as theirs (TMUX_TMPDIR).
             var env = ["PATH": Self.childPath]
             env["TMUX_TMPDIR"] = ProcessInfo.processInfo.environment["TMUX_TMPDIR"]
             do {
                 let r = try Subprocess.run([try LoginPath.resolve("tmux")] + args, cwd: NSHomeDirectory(), env: env, timeLimit: 2)
                 guard r.status == 0 else { return [] }
-                return String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map { $0.split(separator: " ", maxSplits: 1) }
+                return String(decoding: r.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).map { $0.split(separator: " ") }
             } catch {
                 Log.session.info("asking tmux who a caller is: \(error)")
                 return []
             }
         }
-        guard let name = lines(["list-panes", "-a", "-F", "#{pane_tty} #{session_name}"]).first(where: { $0.first.map(String.init) == tty })?.last
-        else { return nil }
-        let clients = lines(["list-clients", "-t", "=" + name, "-F", "#{client_pid} #{session_name}"]).compactMap { $0.first.flatMap { pid_t($0) } }
+        let format = "#{pane_tty} #{session_name} #{pane_active} #{window_active}"
+        guard let pane = lines(["list-panes", "-a", "-F", format]).first(where: { $0.first.map(String.init) == tty }), pane.count == 4 else {
+            return nil
+        }
+        let shown = pane[2] == "1" && pane[3] == "1"
+        let clients = lines(["list-clients", "-t", "=" + pane[1], "-F", "#{client_pid}"]).compactMap { $0.first.flatMap { pid_t($0) } }
         let seen = clients.map { session(running: $0, throughTmux: false) }
-        return seen.first { if case .session = $0 { true } else { false } } ?? (seen.contains(.user) ? .user : nil)
+        let found = seen.first { if case .session = $0 { true } else { false } } ?? (shown && seen.contains(.user) ? .user : nil)
+        tmuxAnswers.withLock { $0[tty] = (found, Date()) }
+        return found
     }
-
-    /// An app's own program (inside a bundle's Contents/MacOS), which launchd started for the user, not a daemon.
-    private static func isApp(_ path: String) -> Bool { path.contains(".app/Contents/MacOS/") }
 
     /// Who the program on `conn` is: its process tree, looked up once per connection (`Connection.owner`), as it connects
     /// (Daemon.serve), while it's surely there. The daemon's own calls (`conn` -1) are the user's, and Kelp's window,
