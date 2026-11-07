@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// One workspace on the strip: the state that wants you most among its agents, and the agent that is about.
 struct StripItem: Equatable {
@@ -64,7 +65,7 @@ enum StripModel {
     /// What an agent says on the strip: as on the Dock's icon, but finished work stays a while once read.
     static func cell(_ s: Session, now: Date) -> DockFace.Cell? {
         if let dockCell = DockIcon.cell(s) { return dockCell }
-        let finished = s.isChat && s.parent == nil && SidebarCell.shownStatus(s) == .done
+        let finished = s.isChat && s.parent == nil && s.shownStatus == .done
         return finished && now.timeIntervalSince(s.statusAt ?? .distantPast) < recent ? .done : nil
     }
 
@@ -208,6 +209,21 @@ final class AgentStrip {
     private var observers: [NSObjectProtocol] = []
 
     init(app: AppModel) { self.app = app }
+
+    /// The app's one.
+    static func of(_ app: AppModel) -> AgentStrip { app.part { AgentStrip(app: app) } }
+
+    /// The Dock icon's menu: hide it for a while, or bring it back.
+    func dockItems(_ menu: NSMenu) {
+        guard !isOff else { return }
+        if hiddenUntil != nil {
+            menu.add(String(localized: "Show Agents Above the Dock")) { self.hide(until: nil) }
+        } else {
+            menu.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) {
+                self.hide(until: Date().addingTimeInterval(3600))
+            }
+        }
+    }
 
     func start() {
         track(owner: self) { [app] in

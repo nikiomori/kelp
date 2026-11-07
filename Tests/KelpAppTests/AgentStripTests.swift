@@ -3,6 +3,7 @@ import Core
 import TestSupport
 import Testing
 
+@testable import BuiltinAgents
 @testable import KelpKit
 
 private let places: [(id: String, name: String, repo: String?)] = [

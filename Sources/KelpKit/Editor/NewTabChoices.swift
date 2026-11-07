@@ -4,14 +4,23 @@ import Core
 import WorkbenchKit
 
 /// What the "+" menu and the empty workspace offer, in one order with one set of names and keys, so the two can't drift:
-/// the agents, what opens (a terminal, tmux, what extensions open), what runs.
+/// the agents, what opens (a terminal, tmux, what extensions open), what runs (`ProjectRuns.choices`).
 @MainActor
-enum NewTabChoices {
-    struct Action {
+package enum NewTabChoices {
+    package struct Action {
         let title: String, symbol: String
         let key: KeySpec?
         var help: String?
         let run: @MainActor () -> Void
+        package init(
+            title: String, symbol: String, key: KeySpec?, help: String? = nil, run: @escaping @MainActor () -> Void
+        ) {
+            self.title = title
+            self.symbol = symbol
+            self.key = key
+            self.help = help
+            self.run = run
+        }
     }
 
     /// Agents shown before the rest go behind one item.
@@ -19,7 +28,7 @@ enum NewTabChoices {
 
     /// The key command `id` has in the menus: settings.json's `keys` over it (`""`: none), else its default, so a key
     /// rebound in Settings › Keyboard reads the same here.
-    static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
+    package static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
         app.extensions.key(id, fallback: def)
     }
     /// The default agent's key: New Agent's.
@@ -52,21 +61,6 @@ enum NewTabChoices {
                 })
         }
         return all
-    }
-
-    /// What the run chip runs and its list; none while the project offers nothing to run.
-    static func run(_ app: AppModel, workspace wid: String) -> [Action] {
-        guard let offer = app.scripts.offer(wid) else { return [] }
-        let choose = key("scripts.choose", app, default: "ctrl+cmd+r"),
-            run = offer.guess ? nil : key("scripts.run", app, default: "cmd+r")
-        return [
-            Action(title: String(localized: "Run \(offer.label)"), symbol: "play", key: run, help: offer.command) {
-                Task { await app.scripts.start(choice: offer.choice, in: wid) }
-            },
-            Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: choose) {
-                app.scripts.choose()
-            }
-        ]
     }
 }
 

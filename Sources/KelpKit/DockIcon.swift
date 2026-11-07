@@ -4,7 +4,7 @@ import Core
 /// Kelp's Dock icon as a small status display, chosen in its Dock menu like Activity Monitor's: the agents, how full the
 /// plan is, or the plain icon. Drawn when what it shows changes, with no clock running.
 @MainActor
-final class DockIcon {
+package final class DockIcon {
     private let app: AppModel
     private let view = DockFaceView()
     init(app: AppModel) { self.app = app }
@@ -35,15 +35,7 @@ final class DockIcon {
             NSApp.activate()
             app.workbench.newChat()
         }
-        if let strip = app.agentStrip, !strip.isOff {
-            if strip.hiddenUntil != nil {
-                menu.add(String(localized: "Show Agents Above the Dock")) { strip.hide(until: nil) }
-            } else {
-                menu.add(String(localized: "Hide Agents Above the Dock for 1 Hour")) {
-                    strip.hide(until: Date().addingTimeInterval(3600))
-                }
-            }
-        }
+        for add in app.extensions.all.dockMenu { add(menu) }
         menu.addChoiceMenu("agents.dockIcon", app, title: String(localized: "Dock Icon"), tryOn: false)
         return menu
     }
@@ -56,7 +48,7 @@ final class DockIcon {
             NSApp.activate()
             app.workbench.focus(session: s.id)
         }
-        guard Notifier.asksPermission(s) else {
+        guard s.asksPermission else {
             let state =
                 s.status == .waiting
                 ? String(localized: "needs you")
@@ -102,7 +94,7 @@ final class DockIcon {
     /// The agents in the order to deal with them.
     static func cells(_ sessions: [Session]) -> [DockFace.Cell] { sessions.compactMap(cell).sorted() }
 
-    static func cell(_ s: Session) -> DockFace.Cell? {
+    package static func cell(_ s: Session) -> DockFace.Cell? {
         guard s.isChat else { return nil }
         switch SidebarCell.shownStatus(s) {
         case .waiting: return .asks

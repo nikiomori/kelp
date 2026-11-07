@@ -110,8 +110,15 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // (`pushed`, `planNotes`), a notification under the shell's rules and its Continue, and what the foot, the strip and
     // the warnings read of the shell (`PlanNote`, `LimitStop`, mutes, the warning level, the foot's menu, a hand-off).
     // +7 for the sidebar's server cards (`ServerCards`, `ServerRow`, `SidebarRow`), so the servers' headers are Servers'.
-    #expect(declared <= 373, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 373, "fewer now (\(declared)): lower the ceiling")
+    // +17 so the agent strip is the Agents built-in's: started at launch, its Dock menu items (`launched`, `dockMenu`),
+    // and what it reads of the shell (the Dock's cells, a session's shown status and permission question, place names,
+    // mutes' choices, project icons, an answer from outside the window).
+    // +12 so the run menu is Run's (two it needed the strip had made already): the contribution (`ProjectRuns`, `runs`, `WindowBarItem`), the "+" menu's rows
+    // (`NewTabChoices.Action`, its keys), what the run code reads of the shell (UIState's subscript, a menu item's image
+    // and note, hiding a tab, a tab in the background, the window's content, a screen's name) and which sessions have no
+    // tab (`isHidden`); the shell's `ScriptsMenu`, `app.scripts` and `runFile` went.
+    #expect(declared <= 402, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 402, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -204,8 +211,8 @@ private func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 481, "lines over 120: \(over120)")
-    #expect(over120 >= 481, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 480, "lines over 120: \(over120)")
+    #expect(over120 >= 480, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// Three statements on one line (`a; b; c`) are read as one: the daemon's code has one or two a line. String and regex
@@ -350,7 +357,7 @@ private func codeOnly(_ s: String) -> String {
             "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset",
         "KelpKit/Parking.swift": "a park for an hour ends when its hour is up, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
-        "KelpKit/AgentStripViews.swift":
+        "Builtins/Agents/AgentStripViews.swift":
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift":
             "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
@@ -638,7 +645,7 @@ private func codeOnly(_ s: String) -> String {
         "KelpKit/Shell/Help.swift": (1, "the guide, written to Kelp's home"),
         "KelpKit/Shell/WorkbenchActions.swift": (3, "a dropped or linked path: a file, a folder, or nothing"),
         "KelpKit/Shell/WorkspaceActions.swift": (1, "whether Open In was handed a file or a folder"),
-        "KelpKit/Sidebar/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
+        "KelpKit/Shell/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
         "KelpKit/Sidebar/SidebarCell.swift": (1, "a project folder that's gone"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
         "Builtins/Machines/Machines.swift": (

@@ -16,7 +16,9 @@ final class WindowBar: NSView {
     private let folder = WindowBar.chip(nil), branch = WindowBar.chip("arrow.triangle.branch"),
         pr = WindowBar.chip("arrow.triangle.pull")
     private let search: SearchPill
-    private let run: RunChip, page: PageChip
+    /// Right of the search: the run parts (`ProjectRuns.bar`), the cup, side by side.
+    private let tools = NSStackView()
+    private var runParts: [any WindowBarItem] = []
     private let app: AppModel
     private let back = NSButton.titlebar("chevron.left", String(localized: "Back"), tip: "")
     private let forward = NSButton.titlebar("chevron.right", String(localized: "Forward"), tip: "")
@@ -51,8 +53,6 @@ final class WindowBar: NSView {
     init(app: AppModel) {
         self.app = app
         search = SearchPill(app: app)
-        run = RunChip(app: app)
-        page = PageChip(app: app)
         super.init(frame: .zero)
         name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.init(450), for: .horizontal)
@@ -91,11 +91,9 @@ final class WindowBar: NSView {
         nav.spacing = 0
         // Right of the search: what runs here (gone while the project offers nothing), the page it serves, the cup, and side
         // by side (with two agents or more).
-        let tools = NSStackView(views: [run, page, awake, sideBySide])
+        for button in [awake, sideBySide] { tools.addArrangedSubview(button) }
         tools.spacing = 2
         tools.detachesHiddenViews = true
-        tools.setCustomSpacing(6, after: run)
-        tools.setCustomSpacing(6, after: page)
         for part in [context, nav, search, tools] as [NSView] {
             part.translatesAutoresizingMaskIntoConstraints = false
             addSubview(part)
@@ -129,6 +127,11 @@ final class WindowBar: NSView {
     /// What the bar follows: the workspace, its branch and CI, what runs, the setting of each button.
     private func followModel() {
         let app = app   // what the closures below read, as the initializer's parameter was
+        track(owner: self) {
+            app.extensions.all.runs != nil
+        } changed: { [weak self] _ in
+            self?.placeRunParts()
+        }
         track(owner: self) {
             [-1, 1].map { step in
                 app.workbench.visit(step).flatMap { app.worktree(app.workbench.history.visits[$0]) }.flatMap {
@@ -200,10 +203,21 @@ final class WindowBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Short of room the page's address comes down to its port. The bar's own width, so the choice can't feed back on itself.
+    /// Short of room the parts that can shorten themselves do (the page's address comes down to its port).
     override func layout() {
         super.layout()
-        page.compact = bounds.width < 900
+        for part in runParts { part.fit(barWidth: bounds.width) }
+    }
+
+    /// The run parts as the extensions are now: none while the built-in that has them is off.
+    private func placeRunParts() {
+        for part in runParts { part.removeFromSuperview() }
+        runParts = app.extensions.all.runs?.bar() ?? []
+        for (index, part) in runParts.enumerated() {
+            tools.insertArrangedSubview(part, at: index)
+            tools.setCustomSpacing(6, after: part)
+        }
+        needsLayout = true
     }
 
     /// A capsule that greys in under the pointer and springs when clicked (`PointerButton`), not AppKit's outline.

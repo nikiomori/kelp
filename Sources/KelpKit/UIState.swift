@@ -12,7 +12,7 @@ package final class UIState {
     init(app: AppModel) { self.app = app }
 
     /// nil deletes. Without a daemon it's kept for this run only.
-    subscript(key: String) -> JSONValue? {
+    package subscript(key: String) -> JSONValue? {
         get { values[key] }
         set {
             guard values[key] != newValue else { return }

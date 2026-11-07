@@ -216,10 +216,7 @@ extension SidebarCell {
         return session.isChat && (st == .waiting || st == .error || (st == .done && session.unread))
     }
 
-    /// A paused agent's row is dimmed, but what it finished and you haven't read keeps its bright mark.
-    static func shownStatus(_ session: Session) -> AgentStatus {
-        session.status == .paused && session.unread ? .done : session.markStatus
-    }
+    static func shownStatus(_ session: Session) -> AgentStatus { session.shownStatus }
 
     /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
     static func isNews(_ session: Session) -> Bool {

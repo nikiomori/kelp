@@ -438,15 +438,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt. A question
     /// with a menu of its own (AskUserQuestion) has neither: typed text would wait behind the menu.
     static func category(_ s: Session) -> String? {
-        asksPermission(s) ? "permission" : [.done, .error].contains(s.status) && s.limitHit == nil ? "reply" : nil
-    }
-
-    /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
-    /// Only one whose question shows all of it gets Allow / Deny where it's shown (`Hooks.shownWhole`).
-    static func asksPermission(_ s: Session) -> Bool {
-        let summary = s.summary.lowercased()
-        return s.status == .waiting && ["permission", "approve", "allow"].contains { summary.contains($0) }
-            && Hooks.shownWhole(s.summary)
+        s.asksPermission ? "permission" : [.done, .error].contains(s.status) && s.limitHit == nil ? "reply" : nil
     }
 
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
@@ -502,6 +494,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
+extension Session {
+    /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
+    /// Only one whose question shows all of it gets Allow / Deny where it's shown (`Hooks.shownWhole`).
+    package var asksPermission: Bool {
+        let summary = summary.lowercased()
+        return status == .waiting && ["permission", "approve", "allow"].contains { summary.contains($0) }
+            && Hooks.shownWhole(self.summary)
+    }
+}
+
 extension AppModel {
     /// A built-in's notification, under the shell's rules: held while you type, and a banner in Kelp (with `action` as
     /// its button) when macOS has them turned off. `id` is its own: one added again under the same id may show silently.
@@ -513,4 +515,9 @@ extension AppModel {
 
     /// The Continue of a "limitReset" notification: "continue" to each of `ids` that still stands where the limit left it.
     package func goOn(_ ids: [String]) { Notifier.goOn(self, ids) }
+
+    /// A permission answered from outside Kelp's window (the agent strip's card), as from its banner.
+    package func answer(_ id: String, _ action: String, question: String?) {
+        notifier?.answer(id, action, question: question)
+    }
 }

@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// A panel that takes clicks and a typed reply and leaves the active app active. It stays up with Kelp behind, on every Space, and
 /// at a level under the Dock's.
@@ -316,7 +317,7 @@ final class StripCard {
     private func footer(_ s: Session) -> NSView {
         let open = CardButton(String(localized: "Open in Kelp")) { [weak self] in self?.openInKelp() }
         var views: [NSView] = [open, NSView()]
-        if Notifier.asksPermission(s) {
+        if s.asksPermission {
             let allow = CardButton(String(localized: "Allow")) { [weak self] in self?.answer("allow") }
             allow.keyEquivalent = ""
             allow.bezelColor = .controlAccentColor
@@ -341,7 +342,7 @@ final class StripCard {
     }
 
     private func answer(_ action: String) {
-        app.notifier?.answer(session, action, question: question)
+        app.answer(session, action, question: question)
         onEnd(.answered)
     }
 

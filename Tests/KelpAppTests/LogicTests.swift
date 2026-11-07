@@ -12,6 +12,7 @@ import WorkbenchKit
 @testable import BuiltinGit
 @testable import BuiltinIssues
 @testable import BuiltinRoutines
+@testable import BuiltinRun
 @testable import DesignKit
 @testable import KelpApp
 @testable import KelpKit
@@ -131,10 +132,10 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func onlyAWaitingAgentAsksForPermission() {
-    #expect(Notifier.asksPermission(session(.waiting, summary: "Claude needs your permission to use Bash")))
-    #expect(Notifier.asksPermission(session(.waiting, summary: "Allow rm -rf build?")))
-    #expect(!Notifier.asksPermission(session(.working, summary: "needs your permission")))   // not waiting any more
-    #expect(!Notifier.asksPermission(session(.waiting, summary: "Which file should I edit?")))
+    #expect(session(.waiting, summary: "Claude needs your permission to use Bash").asksPermission)
+    #expect(session(.waiting, summary: "Allow rm -rf build?").asksPermission)
+    #expect(!session(.working, summary: "needs your permission").asksPermission)   // not waiting any more
+    #expect(!session(.waiting, summary: "Which file should I edit?").asksPermission)
 }
 
 /// A limit that ran out: when it resets, the sessions that stopped at it, not one that went on by itself or ended before.

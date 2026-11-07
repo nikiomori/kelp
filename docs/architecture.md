@@ -3,9 +3,9 @@
 Kelp is a native shell around two things: a **daemon** that owns everything stateful
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
-command palette and settings — and, until they move into built-ins of their own, a few features
-that still live in the shell (KelpKit): the run menu and the agent strip. The review rubric
-(`docs/review-rubric.md`, Architecture 5) counts them.
+command palette and settings. Each feature is a built-in of its own: the branch's sync and the CI
+marks are Git's, the plan limits and the agent strip are Agents', the run menu is Run's and the
+server cards are Servers'. The shell gives them places to show up in: the contributions below.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
@@ -82,17 +82,21 @@ that still live in the shell (KelpKit): the run menu and the agent strip. The re
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |
 | planNotes (built-ins only) | the note beside each agent where agents are chosen ("92 % · 3:40pm"), in the "+" menu and the empty workspace |
 | servers (built-ins only) | the sidebar's server cards: the header over a host's projects, its menu, a remote project's menu items and hover card (Servers); none, and remote projects are plain rows |
+| launched (built-ins only) | run once when Kelp has started, its window up: what a built-in keeps going by itself (Agents' strip over the Dock) |
+| dockMenu (built-ins only) | items of its own in the Dock icon's menu, under New Chat (hide the agent strip for an hour, or bring it back) |
+| runs (built-ins only) | what runs in a workspace (Run): the window bar's run chip and the page it serves, the Run menu's project commands, a run's tab (its look, port and Hide in Run Menu), the "+" menu's and the empty workspace's Run rows, the hover card's pages, a run's printed page, a new workspace's setup; none, and every session is a row and a tab |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
 or "the checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
-(`Builtin(offByDefault:)`). The shell names no built-in, panel or command of one (`theShellNamesNoBuiltinByString`),
-the menu bar's layout by command id aside.
+(`Builtin(offByDefault:)`). The shell names a built-in, a panel or a command of one only where
+`theShellNamesNoBuiltinByString` counts it (five places, a ceiling that only goes down), the menu bar's layout by
+command id aside.
 
 Every action of the app is a command with an id (`workbench.toggleSidebar`, `editor.saveAll`, `agents.new`…), as in
 VS Code and Zed: the menu bar is laid out by id (`AppDelegate.buildMenu`), settings.json `keys` rebinds by id, and agents
 run the same ids with `kelp run`.
 
-Built-ins (Agents, Files, Git, Issues, Browser, Activity, Routines, Machines, Servers) can be turned off like any other extension. Each is a
+Built-ins (Agents, Files, Run, Git, Issues, Browser, Activity, Routines, Machines, Servers) can be turned off like any other extension. Each is a
 module of its own (`Sources/Builtins/<Feature>`, target `Builtin<Feature>`) that depends on KelpKit — the shell — and on
 no other built-in. It sees only what KelpKit declares `package`: the contribution types (`TabContent`, `PanelSpec`,
 `CommandSpec`…), `AppModel` and its one error path, `app.workbench` (open a URI, show a panel), shared views and

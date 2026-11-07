@@ -107,18 +107,22 @@ package struct CommandSpec: Identifiable {
         title: String,
         key: String? = nil,
         menu: String? = nil,
+        enabled: (@MainActor () -> Bool)? = nil,
         run: @escaping @MainActor ([String: JSONValue]) -> Void
     ) {
         self.id = id
         self.title = title
         self.key = key
         self.menu = menu
+        self.enabled = enabled
         self.run = run
     }
     package let id: String, title: String
     package var key: String?
     /// The menu bar menu it goes in when Kelp's own layout (`AppDelegate.buildMenu`) doesn't place it; nil: Tools.
     var menu: String?
+    /// Whether its menu item can be chosen now (Stop: something runs); nil: always.
+    let enabled: (@MainActor () -> Bool)?
     package let run: @MainActor ([String: JSONValue]) -> Void
 }
 
@@ -376,6 +380,12 @@ package struct Contributions {
     package var planNotes: (@MainActor () -> [String: PlanNote])?
     /// The sidebar's server cards: one built-in's (the first that has them); none, and remote projects are plain rows.
     package var servers: ServerCards?
+    /// Run once when Kelp has started, its window up: what a built-in keeps going by itself (the agent strip).
+    package var launched: [@MainActor () -> Void] = []
+    /// Items of its own in the Dock icon's menu, under New Chat.
+    package var dockMenu: [@MainActor (NSMenu) -> Void] = []
+    /// What runs in a workspace: its chip, the Run menu, its tabs and pages: one built-in's (the first that has it).
+    package var runs: ProjectRuns?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -463,6 +473,9 @@ package final class ExtensionRegistry {
             merged.pushed += c.pushed
             merged.planNotes = merged.planNotes ?? c.planNotes
             merged.servers = merged.servers ?? c.servers
+            merged.launched += c.launched
+            merged.dockMenu += c.dockMenu
+            merged.runs = merged.runs ?? c.runs
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))

@@ -322,10 +322,10 @@ struct CardView: View {
                 }
                 AgentWork(model: model, id: agent.id)
             }
-            if !model.pages.isEmpty {
+            if !model.pages.isEmpty, let runs = model.app.extensions.all.runs {
                 HStack(spacing: 8) {
                     ForEach(model.pages, id: \.port) { page in
-                        Button(page.address) { model.app.scripts.open(page, in: model.workspaceId) }
+                        Button(page.address) { runs.open(page, model.workspaceId) }
                             .buttonStyle(PointerButtonStyle()).font(.ui(11).monospacedDigit()).foregroundStyle(
                                 Color.accentColor)
                     }

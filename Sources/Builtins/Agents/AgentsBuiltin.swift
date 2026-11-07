@@ -205,6 +205,9 @@ extension Builtins {
         contributions.sidebarSections = [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }]
         contributions.pushed = [{ LimitWatch.of(app).landed($0) }]
         contributions.planNotes = { UsageView.notes(app) }
+        // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu.
+        contributions.launched = [{ AgentStrip.of(app).start() }]
+        contributions.dockMenu = [{ AgentStrip.of(app).dockItems($0) }]
         contributions.commands = [
             CommandSpec(id: "agents.new", title: "New Agent", key: "opt+cmd+t") { args in
                 editor(app)?.newAgent(args["agent"]?.string, prompt: args["prompt"]?.string)

@@ -179,7 +179,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.refresh()
         }
         track(owner: self) { [app] in
-            app.scripts.shown
+            app.workbench.shownSessions
         } changed: { [weak self] _ in
             self?.refresh()
         }
@@ -306,7 +306,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private func build() -> [Node] {
         var tree = SidebarTree(
             projects: app.projects, workspaces: app.projects.flatMap { app.workspaces(of: $0) },
-            sessions: app.scripts.shown)
+            sessions: app.workbench.shownSessions)
         tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
         tree.pinnedLast = app.repos.first(where: NoProject.holds)?.id
         tree.parked = app.parkedIds

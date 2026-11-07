@@ -85,16 +85,6 @@ extension Builtins {
             // Back and forward through the workspaces you visited.
             cmd("workspace.back", "Back", "ctrl+cmd+left") { app.workbench.goBack(-1) },
             cmd("workspace.forward", "Forward", "ctrl+cmd+right") { app.workbench.goBack(1) },
-            // The Run menu: what ran last in the project, else the list of what its files offer (`{"name": "lint"}` runs
-            // a .kelp.yaml command by name).
-            CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r") { args in
-                app.scripts.run(args["name"]?.string ?? "run")
-            },
-            cmd("scripts.choose", "Run…", "ctrl+cmd+r") { app.scripts.choose() },
-            cmd("scripts.test", "Test", "cmd+u") { app.scripts.run("test") },
-            cmd("scripts.stop", "Stop", "cmd+.") { app.scripts.stop() },
-            cmd("scripts.openPage", "Open Page", "shift+cmd+o") { app.scripts.openPage() },
-            cmd("scripts.edit", "Edit Commands…") { app.scripts.edit() },
             cmd("help.guide", "How Kelp Works", "cmd+?") { app.workbench.open(TabURI.file(Help.file.path)) },
             cmd("help.extensionGuide", "Writing Extensions") {
                 app.workbench.open(TabURI.file(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md").path))

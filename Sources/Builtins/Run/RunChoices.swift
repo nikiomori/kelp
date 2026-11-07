@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import WorkbenchKit
 
 /// What can run in each workspace and what runs now: the run chip and the Run list follow it.
@@ -21,7 +22,7 @@ final class RunState {
     var active: [String: Run] = [:]
     /// Pages printed before run.start answered with their session.
     @ObservationIgnored var early: [String: String] = [:]
-    /// Runs put away in the Run menu this run of Kelp (`ScriptsMenu.isHidden` reads the kept list too): the sidebar and
+    /// Runs put away in the Run menu this run of Kelp (`hidden` adds the kept list): the sidebar and
     /// the tabs follow it.
     var hidden: Set<String> = []
     /// Workspace → the ports its sessions listen on, as last read for the Run menu.
@@ -40,29 +41,12 @@ extension ScriptsMenu {
     // MARK: hidden runs
 
     /// Runs whose tab was put away in the Run menu: they keep running, the menu shows them (`run.hidden` in UIState, so a
-    /// restarted Kelp doesn't bring their tabs back).
-    /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
-    var shown: [Session] {
-        let hidden = state.hidden.union(app.uiState.strings("run.hidden")),
-            inTab = Set(app.uiState.strings(Session.inTabKey))
-        return app.sessions.filter { !hidden.contains($0.id) && !isOnLine($0, inTab: inTab) }
-    }
-    func isHidden(_ sid: String) -> Bool {
-        state.hidden.contains(sid) || app.uiState.strings("run.hidden").contains(sid)
-            || app.session(sid).map { isOnLine($0) } == true
-    }
-    /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
-    func isOnLine(_ session: Session, inTab: Set<String>? = nil) -> Bool {
-        app.sessions.owner(of: session) != nil
-            && !(inTab ?? Set(app.uiState.strings(Session.inTabKey))).contains(session.id)
-    }
-    /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).
-    package func openInTab(_ sid: String) {
-        let live = app.uiState.strings(Session.inTabKey).filter {
-            app.session($0).map { $0.status != .exited } ?? false
-        }
-        app.uiState[Session.inTabKey] = .array((live.filter { $0 != sid } + [sid]).map(JSONValue.string))
-        app.workbench.open(TabURI.session(sid), workspace: app.session(sid)?.worktreeId)
+    /// restarted Kelp doesn't bring their tabs back). The sidebar and the tabs leave them out (`Workbench.isHidden`).
+    var hidden: Set<String> { state.hidden.union(app.uiState.strings("run.hidden")) }
+    /// A run's tab can go into the Run menu: the run keeps going, the menu brings its output back.
+    func tabItems(_ menu: NSMenu, _ session: Session) {
+        guard choice(of: session) != nil else { return }
+        menu.add(String(localized: "Hide in Run Menu")) { [weak self] in self?.hide(session.id) }
     }
     func hide(_ sid: String) {
         state.hidden.insert(sid)
@@ -224,6 +208,23 @@ extension ScriptsMenu {
         }
     }
 
+    /// What the run chip runs and its list; none while the project offers nothing to run.
+    func choices(_ wid: String) -> [NewTabChoices.Action] {
+        guard let offer = offer(wid) else { return [] }
+        let choose = NewTabChoices.key("scripts.choose", app, default: "ctrl+cmd+r"),
+            run = offer.guess ? nil : NewTabChoices.key("scripts.run", app, default: "cmd+r")
+        return [
+            NewTabChoices.Action(
+                title: String(localized: "Run \(offer.label)"), symbol: "play", key: run, help: offer.command
+            ) {
+                Task { await self.start(choice: offer.choice, in: wid) }
+            },
+            NewTabChoices.Action(title: String(localized: "Choose What to Run…"), symbol: "list.bullet", key: choose) {
+                self.choose()
+            }
+        ]
+    }
+
     /// The Run menu under the chip, as Xcode's scheme menu: a section per file, what ⌘R runs checked, what runs now said
     /// under its name. Shown with what's known; the files are read again for next time (at once if nothing is known yet).
     func choose(from button: NSView? = nil) {
@@ -240,7 +241,7 @@ extension ScriptsMenu {
             // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
             if let below = button ?? anchor, below.window != nil {
                 runMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: below.bounds.height + 4), in: below)
-            } else if let content = app.workbench.window?.window?.contentView {
+            } else if let content = app.workbench.windowContent {
                 runMenu.popUp(
                     positioning: nil, at: NSPoint(x: content.bounds.midX - 120, y: content.bounds.maxY - 40),
                     in: content)
@@ -279,7 +280,8 @@ extension ScriptsMenu {
         let rows = rows(wid), rest = rows.filter { Self.purpose($0) == .other }
         let shown = rest.count > 3 ? rows.filter { Self.purpose($0) != .other } : rows
         let tools = shown.map(Self.source).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        let column = Self.column(shown.map(\.name) + [String(localized: "More")])   // the programs, after the longest name
+        // The programs, after the longest name.
+        let column = NSMenuItem.noteColumn(shown.map(\.name) + [String(localized: "More")])
         for tool in tools {
             if runMenu.numberOfItems > 0 { runMenu.addItem(.separator()) }
             let group = shown.filter { Self.source($0) == tool }.sorted {
@@ -288,7 +290,7 @@ extension ScriptsMenu {
             for row in group { item(row, in: runMenu, wid, column: column) }
         }
         if rest.count > 3 {
-            let sub = NSMenu(), inSub = Self.column(rest.map(\.name))
+            let sub = NSMenu(), inSub = NSMenuItem.noteColumn(rest.map(\.name))
             var file = ""
             for row in rest {
                 let from = row.folder.isEmpty ? row.file : "\(row.folder) · \(row.file)"
@@ -299,7 +301,8 @@ extension ScriptsMenu {
                 item(row, in: sub, wid, column: inSub)
             }
             let more = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            more.attributedTitle = Self.title(String(localized: "More"), note: "\(rest.count)", column: column)
+            more.attributedTitle = NSMenuItem.titleWithNote(
+                String(localized: "More"), note: "\(rest.count)", column: column)
             more.show(.symbol("ellipsis.circle"))
             if runMenu.numberOfItems > 0 { runMenu.addItem(.separator()) }
             runMenu.addItem(more)
@@ -355,35 +358,10 @@ extension ScriptsMenu {
         // What it runs is the project's file's to say: seen before it's picked, not only on a hover.
         if #available(macOS 14.4, *) { item.subtitle = String((row.detail ?? row.command).prefix(80)) }
         let port = row.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
-        let hidden = row.session.map(isHidden) == true ? [String(localized: "hidden")] : []
+        let hidden = row.session.map(app.workbench.isHidden) == true ? [String(localized: "hidden")] : []
         let place = [Self.source(row)] + (row.running ? [port ?? String(localized: "Running")] : []) + hidden
         let note = row.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
-        item.attributedTitle = Self.title(row.name, note: note, column: column, dim: row.missing != nil)
-    }
-
-    /// A name, and in grey at `column` what tells it apart.
-    static func title(
-        _ name: String, note: String, column: CGFloat, dim: Bool = false, noteColor: NSColor = .secondaryLabelColor
-    ) -> NSAttributedString {
-        let tab = NSMutableParagraphStyle()
-        tab.tabStops = [NSTextTab(textAlignment: .left, location: column)]
-        let text = NSMutableAttributedString(
-            string: name,
-            attributes: [
-                .font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab,
-                .foregroundColor: dim ? NSColor.secondaryLabelColor : NSColor.labelColor
-            ])
-        text.append(
-            NSAttributedString(
-                string: "\t" + note,
-                attributes: [.font: NSFont.menuFont(ofSize: 0), .paragraphStyle: tab, .foregroundColor: noteColor]))
-        return text
-    }
-
-    /// The longest name's width and a gap: where the grey notes start.
-    static func column(_ names: [String]) -> CGFloat {
-        (names.map { ($0 as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width }.max() ?? 0)
-            + Metrics.inset
+        item.attributedTitle = NSMenuItem.titleWithNote(row.name, note: note, column: column, dim: row.missing != nil)
     }
 
     /// What a command is for: the order of a program's commands in the Run menu, its symbol.
@@ -434,14 +412,15 @@ extension ScriptsMenu {
     /// colour would paint its mark into the disc.
     static func tinted(_ name: String, _ color: NSColor) -> NSImage? {
         let key = "\(name)\u{0}\(color)" as NSString   // the same image each time, as NSImage.symbol
-        if let known = symbolCache.object(forKey: key) { return known }
+        if let known = symbols.object(forKey: key) { return known }
         let colors = name.hasSuffix(".circle.fill") ? [.white, color] : [color]
         let look = NSImage.SymbolConfiguration.chrome().applying(.init(paletteColors: colors))
         let image = NSImage.symbol(name, "").withSymbolConfiguration(look)
         image?.isTemplate = false
-        if let image { symbolCache.setObject(image, forKey: key) }
+        if let image { symbols.setObject(image, forKey: key) }
         return image
     }
+    private static let symbols = NSCache<NSString, NSImage>()
 
     /// Where a command comes from, in a word: its program ("make", "npm", "uv", "compose", ".kelp.yaml") and its folder.
     static func source(_ row: Row) -> String {

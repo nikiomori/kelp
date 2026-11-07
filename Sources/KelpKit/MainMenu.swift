@@ -235,10 +235,10 @@ extension AppDelegate {
         .keyEquivalentModifierMask = [.command, .control]
     }
 
-    /// Run: the project's commands (ScriptsMenu fills in the rest) and the editor's run / test / format.
+    /// Run: the project's commands (the built-in that runs them fills in the rest) and the editor's run, test, format.
     private func runMenu(_ b: MenuBuilder) {
         let runs = b.sub("Run")
-        runs.delegate = app.scripts   // the project's other commands go between the separators
+        runs.delegate = app.extensions.all.runs?.menu   // the project's other commands go between the separators
         b.add(
             runs, "scripts.run", "scripts.choose", "scripts.test", "scripts.stop", "scripts.openPage", "-", "-",
             "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")

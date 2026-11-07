@@ -385,10 +385,11 @@ private final class RunGroup: NSStackView {
         alignment = .leading
         spacing = 6
         edgeInsets = NSEdgeInsets(top: 18, left: 0, bottom: 0, right: 0)
+        // The rows again when what they say changes.
         track(owner: self) {
-            app.scripts.offer(wid)
+            (app.extensions.all.runs?.choices(wid) ?? []).map { [$0.title, $0.help ?? "", $0.key?.description ?? ""] }
         } changed: { [weak self] _ in
-            self?.show(NewTabChoices.run(app, workspace: wid))
+            self?.show(app.extensions.all.runs?.choices(wid) ?? [])
         }
     }
     required init?(coder: NSCoder) { fatalError() }

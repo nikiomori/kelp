@@ -26,7 +26,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var main: MainWindowController!
     private(set) lazy var notifier = Notifier(app: app)
     private lazy var dockIcon = DockIcon(app: app)
-    private lazy var agentStrip = AgentStrip(app: app)
     /// Files and links opened while Kelp starts (nil once it has).
     private var pendingOpens: [URL]? = []
     /// Sparkle needs a feed URL in Info.plist: a bare binary and `make dev`'s Kelp Dev (whose plist drops it) skip it.
@@ -50,8 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.notifier = notifier
         notifier.start()
         dockIcon.start()
-        app.agentStrip = agentStrip
-        agentStrip.start()
+        for start in app.extensions.all.launched { start() }
         buildMenu()
         // Glances are timed only while some finished agent is still unread: no clock runs the rest of the time.
         track(owner: self) { [app] in
@@ -258,15 +256,12 @@ extension AppDelegate: NSMenuItemValidation {
             item.title = main.inspectorShown ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
         case "workbench.toggleFocusMode": item.state = main.inFocusMode ? .on : .off
         case "power.keepAwake": item.state = app.settings.string("power.keepAwake") == "always" ? .on : .off
-        case "scripts.run", "scripts.test", "scripts.edit": return app.workbench.workspaceId != nil
         // Off elsewhere, so a terminal still gets ⌥Z.
         case "editor.toggleWordWrap":
             item.state =
                 app.settings.bool("editor.wordWrap", language: CodeEditor.focused?.languageId) == true ? .on : .off
             return app.workbench.editor?.focusedContent?.fileURL != nil
         case "editor.reopenTab": return app.workbench.nextClosedTab != nil   // off elsewhere, so a terminal still gets the key
-        case "scripts.stop": return app.scripts.canStop
-        case "scripts.openPage": return app.workbench.workspaceId.map { !app.scripts.pages($0).isEmpty } ?? false
         // Off elsewhere, so a terminal still gets their keys.
         case "editor.runFile", "editor.testAtCursor", "editor.format":
             return app.workbench.editor?.focusedContent?.fileURL != nil
@@ -284,7 +279,11 @@ extension AppDelegate: NSMenuItemValidation {
         case "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "markdown.bullets",
             "markdown.numbered", "markdown.tasks":
             return CodeEditor.focused?.isMarkdown == true
-        default: break
+        // A command that says when it can run (Run › Stop: something runs).
+        default:
+            if let enabled = item.identifier.flatMap({ app.extensions.command($0.rawValue) })?.enabled {
+                return enabled()
+            }
         }
         return true
     }

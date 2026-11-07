@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// A side of a screen the strip hides behind, as a picture-in-picture video does in Dia. Not the foot (the Dock) nor the head
 /// (the menu bar).

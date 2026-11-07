@@ -17,6 +17,8 @@ package final class Workbench {
     // What an extension may ask of the window (it never gets the window itself).
     /// Brings the main window to the front, as after a sheet or a settings change made elsewhere.
     package func bringToFront() { window?.window?.makeKeyAndOrderFront(nil) }
+    /// The main window's content: where a menu with no button to open under shows (near its top).
+    package var windowContent: NSView? { window?.window?.contentView }
     /// Shows an inspector panel by its id ("files", "ci"…).
     package func showPanel(_ id: String) { window?.showInspector(panel: id) }
     /// The panel that shows `role`, whichever built-in's it is; none on, nothing happens.

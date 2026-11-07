@@ -63,6 +63,11 @@ extension Workbench {
         area(workspace)?.open(uri, split: split, focus: focus)
     }
 
+    /// A tab for a workspace that isn't on screen, without showing it (a run started there).
+    package func openInBackground(_ uri: String, workspace id: String) {
+        window?.editors.openInBackground(uri, workspace: id)
+    }
+
     /// `EditorArea.runURI`, for what Kelp itself asks to run.
     func runURI(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil, focus: Bool = true) {
         area(workspace)?.runURI(uri, split: split, focus: focus)
@@ -149,11 +154,34 @@ extension Workbench {
     }
 
     /// Takes a tab off the screen without closing what it shows: a run hidden in the Run menu keeps running.
-    func hideTab(uri: String) {
+    package func hideTab(uri: String) {
         guard let area = window?.editors.current, area.layout.tab(uri: uri) != nil,
             let tab = area.layout.tab(uri: uri)
         else { return }
         area.drop(tab.id)
+    }
+
+    /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
+    var shownSessions: [Session] {
+        let hidden = app.extensions.all.runs?.hidden() ?? [], inTab = Set(app.uiState.strings(Session.inTabKey))
+        return app.sessions.filter { !hidden.contains($0.id) && !isOnLine($0, inTab: inTab) }
+    }
+    /// No tab of its own: a run put away in the Run menu, or a command its agent's line shows.
+    package func isHidden(_ sid: String) -> Bool {
+        app.extensions.all.runs?.hidden().contains(sid) == true || app.session(sid).map { isOnLine($0) } == true
+    }
+    /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
+    func isOnLine(_ session: Session, inTab: Set<String>? = nil) -> Bool {
+        app.sessions.owner(of: session) != nil
+            && !(inTab ?? Set(app.uiState.strings(Session.inTabKey))).contains(session.id)
+    }
+    /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).
+    package func openInTab(_ sid: String) {
+        let live = app.uiState.strings(Session.inTabKey).filter {
+            app.session($0).map { $0.status != .exited } ?? false
+        }
+        app.uiState[Session.inTabKey] = .array((live.filter { $0 != sid } + [sid]).map(JSONValue.string))
+        open(TabURI.session(sid), workspace: app.session(sid)?.worktreeId)
     }
 
     func addProject() {
@@ -273,9 +301,7 @@ extension Workbench {
             guard let rid = await project(repo), let made = await app.call(WorktreeCreate(repoId: rid)) else { return }
             let id = made.worktree.id
             await startChat(on: id)
-            if made.setupNeedsTrust == true, let info = await app.scripts.load(id), info.setup != nil {
-                await app.scripts.runKelp(id, "setup", info)
-            }
+            if made.setupNeedsTrust == true { await app.extensions.all.runs?.setup(id, nil) }
         }
     }
 
@@ -304,9 +330,7 @@ extension Workbench {
             let choice = sheet.choice
             guard let made = await app.call(NewChatSheet.request(choice, repo: rid)) else { return }
             await startChat(on: made.worktree.id, agent: choice.agent)
-            if made.setupNeedsTrust == true, let info = await app.scripts.load(made.worktree.id), info.setup != nil {
-                await app.scripts.runKelp(made.worktree.id, "setup", info, pullRequest: choice.pr)
-            }
+            if made.setupNeedsTrust == true { await app.extensions.all.runs?.setup(made.worktree.id, choice.pr) }
         }
     }
 

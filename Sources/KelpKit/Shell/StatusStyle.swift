@@ -274,6 +274,9 @@ extension Session {
     package var markStatus: AgentStatus {
         progress != nil && (agent == "shell" || agent == "custom") ? .working : status
     }
+    /// What its row's mark shows: a paused agent's row is dimmed, but what it finished and you haven't read keeps its
+    /// bright mark.
+    package var shownStatus: AgentStatus { status == .paused && unread ? .done : markStatus }
     /// "Working · 40 %" when it says how far it got.
     package var statusWords: String {
         let shown = markStatus

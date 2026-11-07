@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Testing
 
+@testable import BuiltinAgents
 @testable import KelpKit
 
 private let area = NSRect(x: 0, y: 0, width: 2000, height: 1200)

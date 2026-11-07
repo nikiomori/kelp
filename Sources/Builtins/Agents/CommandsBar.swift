@@ -221,7 +221,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private func stop(_ s: Session) { Task { await app.call(SessionKill(id: s.id)) } }
     private func moveToTab(_ s: Session) {
         if console?.sessionId == s.id { fold(true) }
-        app.scripts.openInTab(s.id)
+        app.workbench.openInTab(s.id)
         show(runs: runs.filter { $0.id != s.id })
         if items.isEmpty { reload(keeping: false) }
     }

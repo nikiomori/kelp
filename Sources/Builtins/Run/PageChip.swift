@@ -1,24 +1,27 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import WorkbenchKit
 
 /// The title bar's way to what the workspace on screen serves, whoever started it: its address opens the page beside you
 /// (⇧⌘O; a database's is copied), "+2" opens the Run menu, which lists them all, and a right-click has the rest. There
 /// with no run chip too: an agent's server in a project with nothing to run. Hidden while nothing listens.
 @MainActor
-final class PageChip: NSStackView {
+final class PageChip: NSStackView, WindowBarItem {
     private struct Look: Equatable { var workspace: String, page: ServedPage, more: Int }
 
     /// Only the port, when the bar is short of room.
     var compact = false { didSet { if compact != oldValue { show(look) } } }
 
     private let app: AppModel
+    private let scripts: ScriptsMenu
     private let ports: Watched
     private let open = PointerButton(frame: .zero), more = PointerButton(frame: .zero)
 
-    init(app: AppModel) {
+    init(app: AppModel, scripts: ScriptsMenu) {
         self.app = app
+        self.scripts = scripts
         ports = Watched(.ports, in: app)
         super.init(frame: .zero)
         for chip in [open, more] {
@@ -33,12 +36,12 @@ final class PageChip: NSStackView {
         open.symbolConfiguration = .chrome(Metrics.iconSmall)
         open.onClick = { [weak self] in
             guard let self, let look = look else { return }
-            app.scripts.open(look.page, in: look.workspace)
+            scripts.open(look.page, in: look.workspace)
         }
         more.padding = 6
         more.contentTintColor = .secondaryLabelColor
         more.toolTip = String(localized: "Everything Running Here (⌃⌘R)")
-        more.onClick = { [weak self] in self?.app.scripts.choose(from: self?.more) }
+        more.onClick = { [weak self] in self?.scripts.choose(from: self?.more) }
         setViews([open, more], in: .leading)
         spacing = 0
         detachesHiddenViews = true
@@ -58,9 +61,13 @@ final class PageChip: NSStackView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Short of room the page's address comes down to its port. The bar's own width, so the choice can't feed back on
+    /// itself.
+    func fit(barWidth: CGFloat) { compact = barWidth < 900 }
+
     private var look: Look? {
         guard let wid = app.workbench.workspaceId else { return nil }
-        let pages = app.scripts.pages(wid)
+        let pages = scripts.pages(wid)
         return pages.first.map { Look(workspace: wid, page: $0, more: pages.count - 1) }
     }
 
@@ -99,11 +106,11 @@ final class PageChip: NSStackView {
 
     /// What a click doesn't do. A page that came from a run's printed address may have no process here: a host's.
     private func menu(_ look: Look) -> NSMenu {
-        let actions = NSMenu(), app = app
+        let actions = NSMenu(), app = app, scripts = scripts
         if look.page.isWeb {
             actions.add(String(localized: "Open in Browser")) {
                 Task {
-                    if let url = await app.scripts.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) })
+                    if let url = await scripts.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) })
                     {
                         PreviewLinks.openOutside(url)
                     }
@@ -112,7 +119,7 @@ final class PageChip: NSStackView {
         }
         actions.add(String(localized: "Copy Address")) {
             Task {
-                if let reached = await app.scripts.reach(look.page, in: look.workspace) { app.scripts.copy(reached) }
+                if let reached = await scripts.reach(look.page, in: look.workspace) { scripts.copy(reached) }
             }
         }
         if look.page.host != nil, look.page.forwarded {

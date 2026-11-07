@@ -58,7 +58,7 @@ extension OneAtATime {
         area.reconcile()
         #expect(area.layout.tab(uri: TabURI.session(agent.id)) != nil)
         #expect(area.layout.tab(uri: TabURI.session(run.id)) == nil)
-        #expect(app.scripts.shown.map(\.id) == [agent.id])
+        #expect(app.workbench.shownSessions.map(\.id) == [agent.id])
         #expect(!run.isChat && agent.isChat)
 
         agent.status = .exited
@@ -68,8 +68,8 @@ extension OneAtATime {
 
         agent.status = .idle
         app.sessions = [agent, run]
-        app.scripts.openInTab(run.id)
-        #expect(!app.scripts.isOnLine(run))
+        app.workbench.openInTab(run.id)
+        #expect(!app.workbench.isOnLine(run))
     }
 }
 

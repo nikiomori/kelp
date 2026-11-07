@@ -59,8 +59,7 @@ package final class EditorArea: NSViewController {
         // A run's tab follows the Run menu: its port once it prints one, its look once its files are read. Any session's
         // follows what it listens on.
         track(owner: self) { [weak self, app] in
-            [app.scripts.state.active.count.description] + app.scripts.state.active.values.compactMap(\.url)
-                + app.scripts.state.found.keys.sorted()
+            (app.extensions.all.runs?.tabsFollow() ?? [])
                 + (app.latest(PortsEvent.self, self?.workspaceId ?? "")?.ports ?? []).map { "\($0.port) \($0.session)" }
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
@@ -339,11 +338,12 @@ package final class EditorArea: NSViewController {
         }
         var item = item
         if session.agent != "shell" { item.card = "a:" + session.id }   // an agent's tab shows the sidebar's card; a terminal keeps its tooltip
-        if let look = app.scripts.look(session) {
+        let runs = app.extensions.all.runs
+        if let look = runs?.look(session) {
             item.icon = look.icon
             item.run = look.glow
         }
-        if let port = app.scripts.port(of: session) { item.title += " · :\(port)" }
+        if let port = runs?.port(session) { item.title += " · :\(port)" }
         return item
     }
 

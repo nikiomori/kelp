@@ -4,7 +4,7 @@ import DesignKit
 
 /// A project's own icon, found where `IconSearch` looks; its initial when it has none.
 @MainActor
-enum ProjectIcon {
+package enum ProjectIcon {
     /// The icons found.
     private static var cache: [String: NSImage] = [:]
     /// Each project's initial, and the colour it was drawn in.
@@ -21,7 +21,7 @@ enum ProjectIcon {
 
     /// `view` shows the project's icon: its initial at once, the icon when found. `initial` false: what it shows now
     /// (the empty workspace's folder) stays until there's a real icon, the initial being too big a guess at 56 pt.
-    static func show(_ repo: String, in view: NSImageView, app: AppModel, initial: Bool = true) {
+    package static func show(_ repo: String, in view: NSImageView, app: AppModel, initial: Bool = true) {
         if NoProject.holds(path: repo) {   // chats with no project: Kelp's own folder, not a project's icon
             view.image = .symbol("bubble.left")
             view.shadow = nil

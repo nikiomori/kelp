@@ -256,10 +256,9 @@ extension EditorArea {
         menu.addItem(.separator())
         // A run's tab can go into the Run menu: the run keeps going, the menu brings its output back.
         if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, TabURI.scheme(uri) == "session",
-            let session = app.session(TabURI.body(uri)), session.status != .exited,
-            app.scripts.choice(of: session) != nil
+            let session = app.session(TabURI.body(uri)), session.status != .exited
         {
-            menu.add(String(localized: "Hide in Run Menu")) { [app] in app.scripts.hide(session.id) }
+            app.extensions.all.runs?.tabMenu(menu, session)
         }
         menu.add(String(localized: "Close Tab")) { [weak self] in self?.closeTab(id) }
         let tabs = layout.group(of: id).flatMap { layout.groups[$0]?.tabs } ?? []
@@ -288,7 +287,7 @@ extension EditorArea {
             }
             item.show(app.catalog.icon(agent.id))
             if let note = notes[agent.id] {
-                item.attributedTitle = ScriptsMenu.title(
+                item.attributedTitle = NSMenuItem.titleWithNote(
                     agent.name, note: note.text, column: column, noteColor: note.color)
             }
             if agent.id == def, let shortcut = NewTabChoices.defaultKey(app) {
@@ -296,7 +295,7 @@ extension EditorArea {
                 item.keyEquivalentModifierMask = shortcut.mods.flags
             }
         }
-        let column = ScriptsMenu.column(shown.map(\.name))
+        let column = NSMenuItem.noteColumn(shown.map(\.name))
         for agent in shown { agentItem(agent, in: menu, column: column) }
         if agents.isEmpty {
             menu.addItem(withTitle: String(localized: "No agent CLIs found"), action: nil, keyEquivalent: "")
@@ -304,7 +303,7 @@ extension EditorArea {
                 false
         }
         if !rest.isEmpty {
-            let sub = NSMenu(), column = ScriptsMenu.column(rest.map(\.name))
+            let sub = NSMenu(), column = NSMenuItem.noteColumn(rest.map(\.name))
             for agent in rest { agentItem(agent, in: sub, column: column) }
             let item = menu.addItem(withTitle: String(localized: "Other Agents"), action: nil, keyEquivalent: "")
             item.show(.symbol("ellipsis.circle"))
@@ -314,7 +313,7 @@ extension EditorArea {
         menu.addItem(.sectionHeader(title: String(localized: "Open")))
         let open = NewTabChoices.open(app, app.worktree(workspaceId)) { [weak self] in self?.newTerminal() }
         for choice in open { menu.add(choice, before: focus) }
-        let run = NewTabChoices.run(app, workspace: workspaceId)
+        let run = app.extensions.all.runs?.choices(workspaceId) ?? []
         if !run.isEmpty {
             menu.addItem(.separator())
             menu.addItem(.sectionHeader(title: String(localized: "Run")))

@@ -1,19 +1,22 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// The title bar's run control, Xcode's Run and scheme in one capsule: ▶ runs what ⌘R would (■ stops what runs here),
 /// the name opens the Run list. A name nothing ran yet is a guess, dimmed. Hidden while the project offers nothing to
 /// run. The page it serves has a capsule of its own (`PageChip`).
 @MainActor
-final class RunChip: NSStackView {
+final class RunChip: NSStackView, WindowBarItem {
     struct Look: Equatable { var name: String, guess: Bool, running: Bool }
 
     private let app: AppModel
+    private let scripts: ScriptsMenu
     private let go = PointerButton(frame: .zero), name = PointerButton(frame: .zero)
 
-    init(app: AppModel) {
+    init(app: AppModel, scripts: ScriptsMenu) {
         self.app = app
+        self.scripts = scripts
         super.init(frame: .zero)
         for chip in [go, name] {
             chip.radius = nil   // a capsule, as the capsule it sits in
@@ -31,7 +34,7 @@ final class RunChip: NSStackView {
         name.image = .symbol("chevron.down", "")
         name.symbolConfiguration = .chrome(Metrics.iconTiny)
         name.lineBreakMode = .byTruncatingTail
-        name.onClick = { [weak self] in self?.app.scripts.choose() }
+        name.onClick = { [weak self] in self?.scripts.choose() }
         name.toolTip = String(localized: "Choose What to Run (⌃⌘R)")
         setViews([go, name], in: .leading)
         spacing = 0
@@ -47,14 +50,17 @@ final class RunChip: NSStackView {
         track(owner: self) {
             app.workbench.workspaceId
         } changed: { wid in
-            guard let wid, app.scripts.state.found[wid] == nil else { return }
+            guard let wid, scripts.state.found[wid] == nil else { return }
             Task {
-                await app.scripts.detect(wid)
-                await app.scripts.load(wid)
+                await scripts.detect(wid)
+                await scripts.load(wid)
             }
         }
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// As wide however short the bar is: its name truncates.
+    func fit(barWidth: CGFloat) {}
 
     override func layout() {
         super.layout()
@@ -63,7 +69,7 @@ final class RunChip: NSStackView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         fadeBackground(to: .fillRest)
-        if window != nil { app.scripts.anchor = name }
+        if window != nil { scripts.anchor = name }
     }
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -72,7 +78,6 @@ final class RunChip: NSStackView {
 
     /// What the workspace on screen would run, and what runs there now.
     private var look: Look? {
-        let scripts = app.scripts
         guard let wid = app.workbench.workspaceId, let current = scripts.current(wid) else { return nil }
         let live = scripts.running(in: wid)
         let label = scripts.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
@@ -97,7 +102,6 @@ final class RunChip: NSStackView {
     }
 
     private func goClicked() {
-        let scripts = app.scripts
         if scripts.canStop { scripts.stop() } else { scripts.run("run") }
     }
 }

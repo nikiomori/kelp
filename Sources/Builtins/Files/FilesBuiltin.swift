@@ -267,11 +267,7 @@ extension Builtins {
             cmd("editor.copyWebLink", "Copy Web Link") {
                 if let tab = fileTab(app) { FileActions(app).copyWebLink(tab.path, lines: tab.selectedLines) }
             },
-            // The language's commands (`contributes.languages`): run, test and format the file.
-            cmd("editor.runFile", "Run File") { if let tab = fileTab(app) { app.scripts.runFile(tab, "run") } },
-            cmd("editor.testAtCursor", "Test at Cursor") {
-                if let tab = fileTab(app) { app.scripts.runFile(tab, "test") }
-            },
+            // The language's commands (`contributes.languages`): format the file (running it and its tests is Run's).
             // ⌃⇧I as in Xcode: an Option-only key like VS Code's ⇧⌥F never reaches the menu from a text view (it types Ï).
             cmd("editor.format", "Format Document", "ctrl+shift+i") {
                 if let tab = fileTab(app) { Task { await tab.format() } }

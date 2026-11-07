@@ -31,7 +31,6 @@ package final class AppModel {
     @ObservationIgnored private(set) package lazy var availability = AgentAvailability(app: self)
     @ObservationIgnored private(set) lazy var agentIcons = AgentIcons()
     @ObservationIgnored private(set) package lazy var quickOpen = QuickOpen(app: self)
-    @ObservationIgnored private(set) package lazy var scripts = ScriptsMenu(app: self)
     @ObservationIgnored private(set) lazy var noProject = NoProject(app: self)
     @ObservationIgnored private(set) lazy var switcher = WorkspaceSwitcher(app: self)
     /// What a built-in keeps once per app (its windows, what it asked about), made when first asked for: the app holds
@@ -39,7 +38,6 @@ package final class AppModel {
     @ObservationIgnored private var parts: [ObjectIdentifier: AnyObject] = [:]
     /// Banners and the dock badge: the running app's (its delegate sets it), none in tests.
     @ObservationIgnored var notifier: Notifier?
-    @ObservationIgnored var agentStrip: AgentStrip?
     @ObservationIgnored let updates = Updates()
     /// The app's one `T`, made by `make` the first time.
     package func part<T: AnyObject>(_ make: () -> T) -> T {
@@ -504,10 +502,10 @@ package final class AppModel {
         case let devServer as DevServerEvent:
             // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside
             // it; the keys stay where they are: the page comes while you may be typing.
-            if !scripts.served(devServer), devServer.worktree == workbench.workspaceId {
+            if extensions.all.runs?.served(devServer) != true, devServer.worktree == workbench.workspaceId {
                 workbench.open(devServer.url, split: .right, workspace: devServer.worktree, focus: false)
             }
-        case let busy as PortBusyEvent: scripts.portBusy(busy)
+        case let busy as PortBusyEvent: extensions.all.runs?.portBusy(busy)
         case let repo as Repo: record(repo)
         case let worktree as Worktree: record(worktree)
         case let removal as RemovedEvent: removed(removal)
@@ -572,13 +570,13 @@ package final class AppModel {
     /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same
     /// name ("infra · beet"), so the two tell apart; the one on this Mac and every unique name stay as they are.
     /// A group's name; nil for a project's own screen, which goes by its project's.
-    func groupName(_ worktree: Worktree?) -> String? {
+    package func groupName(_ worktree: Worktree?) -> String? {
         guard let worktree else { return nil }
         return repo(worktree.repoId).flatMap { mainWorkspace(of: $0, among: worktrees) }?.id == worktree.id
             ? nil : worktree.displayName
     }
 
-    func projectName(_ id: String?) -> String? {
+    package func projectName(_ id: String?) -> String? {
         guard let project = repo(id) else { return nil }
         // what the row holds: chats outside any project
         if NoProject.holds(project) { return String(localized: "Chats") }

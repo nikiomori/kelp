@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import WorkbenchKit
 
 /// The Run menu and the title bar's run chip: the project's commands — what its files offer (`run.detect`: package.json,
@@ -8,7 +9,7 @@ import WorkbenchKit
 /// banner says how, with the way to its output. ⌘R runs what last ran in the project (`run.last.<project>` in UIState),
 /// else lists the choices; ⌘U the tests, ⌘. stops. A .kelp.yaml's commands run only after you trust the file.
 @MainActor
-package final class ScriptsMenu: NSObject, NSMenuDelegate {
+final class ScriptsMenu: NSObject, NSMenuDelegate {
     let app: AppModel
     init(app: AppModel) {
         self.app = app
@@ -25,7 +26,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     // MARK: menu
 
     /// The Run menu's fixed items are commands (scripts.run, .test, .stop, .edit); the project's other commands fill in when it opens.
-    package func menuNeedsUpdate(_ menu: NSMenu) {
+    func menuNeedsUpdate(_ menu: NSMenu) {
         let wid = app.workbench.workspaceId
         // Between the two separators: setup and the commands other than run/test.
         let seps = menu.items.indices.filter { menu.items[$0].isSeparatorItem }
@@ -125,9 +126,14 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         await start(wid, "kelp:" + name, ScriptsRun(worktreeId: wid, name: name))
     }
 
+    /// A new workspace's setup, when its .kelp.yaml has one that waits for the file's trust (asked here first).
+    func setup(_ wid: String, pullRequest: Int?) async {
+        if let info = await load(wid), info.setup != nil { await runKelp(wid, "setup", info, pullRequest: pullRequest) }
+    }
+
     /// Run File / Test at Cursor: the file's language's `run` / `test`, run like the project's commands. Languages come
     /// from extensions the user installed, so there's no trust question.
-    package func runFile(_ tab: TabContent, _ name: String) {
+    func runFile(_ tab: TabContent, _ name: String) {
         guard let wid = app.workbench.workspaceId else {
             NSSound.beep()
             return
@@ -145,7 +151,8 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
     where M.Result == Session {
         watch()
         let same = running(in: wid).filter { app.session($0).flatMap(self.choice(of:)) == choice }
-        let hidden = same.contains(where: isHidden)   // put away in the Run menu: started over, it stays there
+        // Put away in the Run menu: started over, it stays there.
+        let hidden = same.contains(where: app.workbench.isHidden)
         for sid in same {
             state.active[sid] = nil
             await app.call(SessionKill(id: sid))
@@ -165,7 +172,7 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         if wid == app.workbench.workspaceId {
             app.workbench.open(TabURI.session(sid), split: .down, workspace: wid, focus: false)
         } else {
-            app.workbench.window?.editors.openInBackground(TabURI.session(sid), workspace: wid)
+            app.workbench.openInBackground(TabURI.session(sid), workspace: wid)
         }
         return true
     }

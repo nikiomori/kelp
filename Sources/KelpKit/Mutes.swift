@@ -4,12 +4,12 @@ import Foundation
 /// Rows told to keep quiet, each until a date: a project, a workspace or an agent. A session is muted by its own entry or
 /// by what holds it. Only its banners, their sound and the Dock's bounce stop: its row and the Dock's badge go on as ever.
 /// A date that passed just stops counting.
-enum Mutes {
+package enum Mutes {
     static let key = "notifications.muted"
-    static let forever = Date.distantFuture
+    package static let forever = Date.distantFuture
 
     /// Mute Notifications ▸ …
-    static func choices(now: Date = Date(), calendar: Calendar = .current) -> [(title: String, until: Date)] {
+    package static func choices(now: Date = Date(), calendar: Calendar = .current) -> [(title: String, until: Date)] {
         let midnight =
             calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(86400)
         return [

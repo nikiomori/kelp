@@ -2,11 +2,11 @@ import AppKit
 
 /// What Kelp's Dock icon shows. Only what is drawn is in here, so the icon is redrawn when the drawing changes,
 /// not at every status.
-enum DockFace: Equatable {
+package enum DockFace: Equatable {
     /// One agent's mark. In the order they are drawn: what wants you first.
-    enum Cell: Int, Comparable {
+    package enum Cell: Int, Comparable {
         case asks, failed, done, working   // finished work is news; work going on is not
-        static func < (lhs: Cell, rhs: Cell) -> Bool { lhs.rawValue < rhs.rawValue }
+        package static func < (lhs: Cell, rhs: Cell) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     /// What fits in the pill.
     static let marks = 4

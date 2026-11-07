@@ -128,7 +128,7 @@ extension EditorArea {
         closed = closed.filter { app.session($0).map { $0.status != .exited } ?? false }
         for session in mine
         where session.status != .exited && !shown.contains(session.id) && !closed.contains(session.id)
-            && !app.scripts.isHidden(session.id)
+            && !app.workbench.isHidden(session.id)
         {
             layout.add(TabURI.session(session.id), select: false)
             changed = true
