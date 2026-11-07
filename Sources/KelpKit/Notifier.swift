@@ -108,7 +108,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private var quietWait: Task<Void, Never>?
 
     private func holds(question: Bool) -> Bool {
-        app.settings.bool("agents.holdBanners") ?? true
+        app.settings[SettingKeys.holdBanners]
             && TypingHold.holds(question: question, lastKey: lastKey, active: NSApp.isActive)
     }
 
@@ -257,7 +257,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         reminders[s.id]?.cancel()
         reminders[s.id] = nil
         guard s.status == .waiting, s.limitHit == nil,
-            let minutes = QuestionReminder.minutes(app.settings.string("agents.remindAfter"))
+            let minutes = QuestionReminder.minutes(app.settings[SettingKeys.remindAfter])
         else { return }
         reminders[s.id] = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(minutes * 60), clock: .continuous) } catch { return }
@@ -313,13 +313,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     static func leftToItsParent(_ s: Session) -> Bool { s.parent != nil && s.status == .done && s.limitHit == nil }
 
     private var rule: NotifyRule {
-        func level(_ key: String, _ standard: NotifyRule.Level) -> NotifyRule.Level {
-            app.settings.string(key).flatMap(NotifyRule.Level.init) ?? standard
+        func level(_ setting: Setting<String>) -> NotifyRule.Level {
+            NotifyRule.Level(rawValue: app.settings[setting]) ?? NotifyRule.Level(rawValue: setting.fallback) ?? .off
         }
         return NotifyRule(
-            finished: level("agents.onFinish", .banner), waiting: level("agents.onWaiting", .sound),
-            failed: level("agents.onError", .sound),
-            quietUnder: app.settings.number("agents.quietUnder") ?? 20)
+            finished: level(SettingKeys.onFinish), waiting: level(SettingKeys.onWaiting),
+            failed: level(SettingKeys.onError), quietUnder: app.settings[SettingKeys.quietUnder])
     }
 
     private func tell(_ s: Session, turn: TimeInterval?) {
@@ -347,7 +346,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         try? await Task.sleep(for: .milliseconds(1200))
         // Nobody at the Mac: a recap from a fork of its conversation (what it did, what's left) waits for whoever comes back.
         // Only for a banner that will show: a recap is a run of Claude, not worth it for a muted row or a short turn.
-        if session.status == .done, session.agent == "claude", app.settings.bool("agents.recap") != false,
+        if session.status == .done, session.agent == "claude", app.settings[SettingKeys.recap],
             !Presence.here(),
             tells(session, turn: turn),
             let line = await app.quiet(SessionRecap(id: session.id)) ?? nil

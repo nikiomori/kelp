@@ -397,7 +397,7 @@ final class Sessions: Sendable {
     /// keepAwake: "always" | "agents" (only while an agent is working) | "off".
     /// "always" is Caffeine: the screen stays on too. Agents only need the Mac itself, so the screen may still sleep and lock.
     func applyKeepAwake() {
-        let mode = settings["power.keepAwake"]?.string ?? "agents"
+        let mode = settings[SettingKeys.keepAwake]
         let working = live.all.contains { $0.snapshot.status == .working && $0.snapshot.agent != "shell" }
         let want =
             mode == "always"

@@ -144,18 +144,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             for panel in [self?.leftFloat, self?.rightFloat] { panel?.show(look) }
         }
         track {
-            app.settings.bool("workbench.sidebar.autoHide") == true
+            app.settings[SettingKeys.sidebarAutoHide]
         } changed: { [weak self] in
             self?.setAutoHide(sidebar: true, $0)
             self?.sidebarToggle.menu = self?.autoHideMenu(
-                String(localized: "Auto-Hide Sidebar"), "workbench.sidebar.autoHide", $0)
+                String(localized: "Auto-Hide Sidebar"), SettingKeys.sidebarAutoHide, $0)
         }
         track {
-            app.settings.bool("workbench.inspector.autoHide") == true
+            app.settings[SettingKeys.inspectorAutoHide]
         } changed: { [weak self] in
             self?.setAutoHide(sidebar: false, $0)
             self?.inspectorToggle.menu = self?.autoHideMenu(
-                String(localized: "Auto-Hide Inspector"), "workbench.inspector.autoHide", $0)
+                String(localized: "Auto-Hide Inspector"), SettingKeys.inspectorAutoHide, $0)
         }
     }
     /// A panel's column. It holds the panel while it's docked; while the panel hides (auto-hide, focus mode) the panel is
@@ -171,9 +171,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         return item
     }
     /// The toggles' right-click menu: the panel's auto-hide, as in Settings › Appearance.
-    private func autoHideMenu(_ title: String, _ key: String, _ on: Bool) -> NSMenu {
+    private func autoHideMenu(_ title: String, _ setting: Setting<Bool>, _ on: Bool) -> NSMenu {
         let menu = NSMenu(), app = app
-        menu.add(title) { app.settings.set(key, .bool(!on)) }.state = on ? .on : .off
+        menu.add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
         return menu
     }
     required init?(coder: NSCoder) { fatalError() }

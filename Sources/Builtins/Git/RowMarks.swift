@@ -60,8 +60,8 @@ final class RowMarks {
     private func wanted() -> Set<String> {
         let settings = app.settings
         guard app.extensions.all.ci != nil else { return [] }
-        var ci = settings.bool("workbench.ci.sidebar") != false ? app.gitFolders : []
-        if settings.string("workbench.ci.branchChip") != "off" || settings.bool("workbench.ci.popover") != false,
+        var ci = settings[SettingKeys.ciSidebar] ? app.gitFolders : []
+        if settings[SettingKeys.ciBranchChip] != "off" || settings[SettingKeys.ciPopover],
             let here = app.gitFolder(of: app.workbench.workspaceId)
         {
             ci.insert(here.id)
@@ -86,7 +86,7 @@ extension RowMarks {
     }
     /// Beside a folder in the sidebar (and the ⌃Tab switcher): a pass while it hasn't been on screen.
     func sidebarCI(_ id: String) -> CIRuns.State? {
-        guard app.settings.bool("workbench.ci.sidebar") != false, let ciState = state(id) else { return nil }
+        guard app.settings[SettingKeys.ciSidebar], let ciState = state(id) else { return nil }
         return ciState != .passed || unseen.contains(id) ? ciState : nil
     }
     /// Every folder's sidebar mark: the rows follow this, not each CI read.
@@ -101,7 +101,7 @@ extension RowMarks {
     /// Where the chip shows it (Settings › CI on the branch chip): in place of the branch glyph, after the counts, or
     /// not at all.
     func chip(_ id: String) -> (state: CIRuns.State, atEnd: Bool)? {
-        let place = app.settings.string("workbench.ci.branchChip") ?? "icon"
+        let place = app.settings[SettingKeys.ciBranchChip]
         guard place != "off", let ciState = chipCI(id) else { return nil }
         return (ciState, place == "end")
     }
@@ -139,8 +139,8 @@ extension RowMarks {
 
     /// The branch chip's menu: where its CI shows.
     func menuItems(_ menu: NSMenu) {
-        menu.addChoices("workbench.ci.branchChip", app, heading: String(localized: "CI on the Chip"))
-        menu.addToggle("workbench.ci.popover", app, title: String(localized: "CI in the Popover"))
+        menu.addChoices(SettingKeys.ciBranchChip, app, heading: String(localized: "CI on the Chip"))
+        menu.addToggle(SettingKeys.ciPopover, app, title: String(localized: "CI in the Popover"))
         menu.addItem(.separator())
         menu.addSettingsLink(String(localized: "CI Settings…"), section: "git", group: "CI", app)
     }

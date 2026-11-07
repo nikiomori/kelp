@@ -20,11 +20,12 @@ struct AccountProfile: Codable, Hashable, Identifiable {
 @MainActor
 enum Accounts {
     static func load(_ app: AppModel) async -> [AccountProfile] {
-        let saved = await app.call(SettingsGet())?["accounts.profiles"]   // a banner when the settings can't be read
+        // A banner when the settings can't be read.
+        let saved = await app.call(SettingsGet())?[SettingKeys.accounts.key]
         return (try? saved?.decode([AccountProfile].self)) ?? []
     }
     static func save(_ app: AppModel, _ list: [AccountProfile]) async {
-        await app.call(SettingsSet(key: "accounts.profiles", value: (try? JSONValue.from(list)) ?? .array([])))
+        await app.call(SettingsSet(key: SettingKeys.accounts.key, value: (try? JSONValue.from(list)) ?? .array([])))
     }
 }
 

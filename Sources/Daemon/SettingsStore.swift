@@ -27,6 +27,8 @@ final class SettingsStore: Sendable {
     var all: JSONValue { .object(values) }
     subscript(key: String) -> JSONValue? { state.withLock { $0 }.values[key] }
     func number(_ key: String) -> Double? { self[key]?.number }
+    /// A declared setting: its value in settings.json, else its default.
+    subscript<Value>(_ setting: Setting<Value>) -> Value { setting.read(self[setting.key]) }
 
     /// nil or .null removes the key.
     func set(_ key: String, _ value: JSONValue?) throws -> [String: JSONValue] {
@@ -168,8 +170,8 @@ extension SettingsSet: Handled {
     /// whether agents hear from those they start, where every workspace's folder goes; and the keyboard (`keys`: a key on
     /// a command of the user's, git.push on ⌘S, would have them run it unawares).
     static let usersOnly = [
-        "phone.", "accounts.", "extensions.library", "extensions.disabled", "terminal.tmux", "agents.childReports",
-        "worktrees.folder"
+        "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
+        SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key
     ]
     var notForAgents: String? {
         Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"

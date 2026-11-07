@@ -130,7 +130,12 @@ Git runs in the daemon (`Daemon/GitHandlers.swift`: `git.branches`, `git.switch`
 
 ## Settings
 `~/.kelp/settings.json`, owned by the daemon (`settings.get` / `settings.set`, `event.settings`
-on change, also when the file is edited by hand). Flat dotted keys, VS Code style.
+on change, also when the file is edited by hand). Flat dotted keys, VS Code style. A setting is declared once, its key
+with its default (`Setting`, in `SettingKeys`: Core's for what the daemon, the CLI or the shell reads, an extension of it
+in the module that alone reads one), and read by that declaration: `app.settings[SettingKeys.wordWrap]` in the app,
+`settings[SettingKeys.keepAwake]` in the daemon. A value of another type reads as the default. Its row in Settings
+(`Builtins.s`) takes the declaration too, so the window shows the default the code reads (ArchitectureTests
+`settingsAreReadByTheirDeclaration`).
 
 ## AI agents and the IDE: skills
 Every agent session gets `KELP_SOCKET` and the `kelp` CLI on PATH (open files/URLs, settings, extensions,

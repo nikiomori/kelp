@@ -49,7 +49,7 @@ extension Sessions {
     private func promptEditor(_ manifest: AgentManifest, _ rec: Session, given: String?) -> String? {
         let mine = given ?? ProcessInfo.processInfo.environment["VISUAL"]
         guard mine == nil, manifest.id != "shell", remotes.of(rec.cwd) == nil, Tmux.session(rec.argv) == nil,
-            settings["agents.editInKelp"]?.bool != false
+            settings[SettingKeys.editInKelp]
         else { return nil }
         return "kelp edit --wait"
     }
@@ -95,7 +95,7 @@ extension Sessions {
     static let configDirEnv = ["claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"]
     func profile(_ name: String, agent: String) -> (key: String, dir: String)? {
         guard let key = Self.configDirEnv[agent] else { return nil }
-        for entry in settings["accounts.profiles"]?.array ?? []
+        for entry in settings[SettingKeys.accounts]
         where entry["name"]?.string == name && entry["agent"]?.string == agent {
             if let dir = entry["dir"]?.string {
                 Log.session.attempt("making profile \(name)'s folder") {
@@ -143,7 +143,7 @@ extension Sessions {
     /// Pause agents that have sat idle for `hibernateMinutes` with nobody watching. Not one that asks something: the pause would
     /// end the question unanswered, and its row, Needs You until then, would say Paused.
     func hibernateIdle() {
-        let minutes = settings.number("sessions.hibernateMinutes") ?? 0
+        let minutes = settings[SettingKeys.hibernateMinutes]
         guard minutes > 0 else { return }
         // Only one a pause can bring back (`LiveSession.resumable`, known since its start: nothing is read on the tick).
         let parents = Set(live.all.compactMap(\.snapshot.parent))   // what their children say next would find nobody
@@ -417,7 +417,7 @@ extension Sessions {
     }
 
     /// Settings › Git: what goes before the branches Kelp names.
-    var branchPrefix: String { settings["git.branchPrefix"]?.string ?? "" }
+    var branchPrefix: String { settings[SettingKeys.branchPrefix] }
 
     /// A placeholder branch (task-123, wip, new-worktree…) gets a real name from what the agent was asked to do. Folder
     /// and record agree after it either way: a record that couldn't be saved puts the folder's old name back.

@@ -125,10 +125,13 @@ package final class ThemeManager {
 
     /// The theme painting the window now: Match System's light or dark one; nil for Ghostty's own colors.
     var shown: Theme? {
-        let id = app.settings.string("workbench.theme") ?? "auto"
+        let id = app.settings[SettingKeys.theme]
         return id == "ghostty"
             ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
     }
+
+    /// A font setting's family; nil: empty, the theme's or the system's.
+    private static func named(_ family: String) -> String? { family.isEmpty ? nil : family }
 
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
 
@@ -137,7 +140,7 @@ package final class ThemeManager {
         // One choice, like VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's;
         // Match System and Ghostty follow macOS.
         let want: NSAppearance.Name? =
-            switch themes.first(where: { $0.id == settings.string("workbench.theme") })?.appearance {
+            switch themes.first(where: { $0.id == settings[SettingKeys.theme] })?.appearance {
             case "light": .aqua
             case "dark": .darkAqua
             default: nil
@@ -157,7 +160,7 @@ package final class ThemeManager {
         let theme = shown
 
         var terminal = TerminalAppearance()
-        terminal.useGhosttyConfig = theme == nil || settings.bool("terminal.useGhosttyConfig") == true
+        terminal.useGhosttyConfig = theme == nil || settings[SettingKeys.useGhosttyConfig]
         if let colors = theme?.terminal {
             terminal.background = Theme.terminalColor(colors.background)
             terminal.foreground = Theme.terminalColor(colors.foreground)
@@ -166,15 +169,15 @@ package final class ThemeManager {
             terminal.selection = Theme.terminalColor(colors.selection)
             terminal.palette = (colors.palette ?? []).compactMap(Theme.terminalColor)
         }
-        terminal.fontFamily = settings.string("terminal.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
-        terminal.fontSize = settings.number("terminal.fontSize")
-        terminal.cursorStyle = settings.string("terminal.cursorStyle")
-        terminal.optionAsAlt = settings.bool("terminal.optionAsAlt") ?? false
+        terminal.fontFamily = Self.named(settings[SettingKeys.terminalFontFamily])
+        terminal.fontSize = settings[SettingKeys.terminalFontSize]
+        terminal.cursorStyle = settings[SettingKeys.cursorStyle]
+        terminal.optionAsAlt = settings[SettingKeys.optionAsAlt]
         // Settings › Appearance › Terminal opacity, over any theme: the window opens up with it.
-        let opacity = settings.string("terminal.opacity").flatMap(Double.init).map { $0 / 100 }
+        let opacity = Double(settings[SettingKeys.terminalOpacity]).map { $0 / 100 }
         terminal.opacity = opacity ?? theme?.terminal?.opacity
         terminal.shader = theme?.terminal?.shader
-        GhosttyRuntime.cleanCopy = settings.bool("terminal.cleanCopy") ?? true
+        GhosttyRuntime.cleanCopy = settings[SettingKeys.cleanCopy]
         if terminal != lastTerminal {
             lastTerminal = terminal
             GhosttyRuntime.appearance = terminal
@@ -189,19 +192,19 @@ package final class ThemeManager {
                 number: $0.number, function: $0.function, selection: $0.selection ?? theme?.terminal?.selection,
                 lineHighlight: $0.lineHighlight)
         }
-        let size = CGFloat(settings.number("editor.fontSize") ?? 13),
-            font = settings.string("editor.fontFamily").flatMap { $0.isEmpty ? nil : $0 }
-        let wrap = settings.bool("editor.wordWrap") ?? false
-        let hang = settings.string("editor.wrappingIndent").flatMap(CodeEditor.WrappingIndent.init) ?? .same
-        TextSize.apply(settings.string("workbench.textSize"))
+        let size = CGFloat(settings[SettingKeys.editorFontSize])
+        let font = Self.named(settings[SettingKeys.editorFontFamily])
+        let wrap = settings[SettingKeys.wordWrap]
+        let hang = CodeEditor.WrappingIndent(rawValue: settings[SettingKeys.wrappingIndent]) ?? .same
+        TextSize.apply(settings[SettingKeys.textSize])
         TextSize.apply(design: theme?.window?.font)
-        chromeText = "\(settings.string("workbench.textSize") ?? "") \(theme?.window?.font ?? "")"
+        chromeText = "\(settings[SettingKeys.textSize]) \(theme?.window?.font ?? "")"
         chromeDesign =
             ["mono": .monospaced, "serif": .serif, "rounded": .rounded][theme?.window?.font ?? ""] ?? .default
         NSColor.setThemeAccent(Self.accent(theme))
         look = Self.windowLook(theme, terminalOpacity: terminal.opacity ?? 1, forced: opacity)
         // Read by Foundation at launch, so a change shows the next time Kelp opens.
-        let language = settings.string("workbench.language").flatMap { $0 == "system" ? nil : [$0] }
+        let chosen = settings[SettingKeys.language], language = chosen == "system" ? nil : [chosen]
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
         if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName
             || wrap != CodeEditor.wrapLines

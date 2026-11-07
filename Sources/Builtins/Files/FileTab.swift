@@ -30,7 +30,7 @@ final class FileTab: SavableTab {
     /// Keystrokes so far: a save knows whether the buffer is still the text it wrote.
     private var edits = 0
     private var comparing: Task<Void, Never>?
-    private var autosave: Bool { app.settings.bool("editor.autoSave") == true }
+    private var autosave: Bool { app.settings[SettingKeys.autoSave] }
     private let autosaving = Debounce()
     var lspTask: Task<Void, Never>?
     /// Typed and not sent to the language server yet (changes go a moment after the last key).
@@ -166,7 +166,7 @@ final class FileTab: SavableTab {
         let language = codeEditor.languageId
         // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
         track(owner: self) {
-            app.settings.bool("editor.wordWrap", language: language) ?? false
+            app.settings[SettingKeys.wordWrap, language: language]
         } changed: { [weak codeEditor, weak bar] wraps in
             codeEditor?.wrapsHere = wraps
             codeEditor?.refreshAppearance()

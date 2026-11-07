@@ -205,7 +205,7 @@ final class AgentSummary: NSView {
         let menu = NSMenu()
         menu.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
         menu.addItem(.separator())
-        menu.addChoices("workbench.sidebar.agentDetail", app, heading: String(localized: "Second Line"))
+        menu.addChoices(SettingKeys.agentDetail, app, heading: String(localized: "Second Line"))
         menu.addItem(.separator())
         menu.addSettingsLink(String(localized: "Needs You Settings…"), section: "appearance", group: "Sidebar", app)
         return menu

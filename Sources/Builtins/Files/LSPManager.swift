@@ -14,7 +14,7 @@ final class LSPManager {
     static func of(_ app: AppModel) -> LSPManager { app.part { LSPManager() } }
     /// Server commands already reported missing this launch.
     @ObservationIgnored private var reported: Set<String> = []
-    func enabled(_ app: AppModel) -> Bool { app.settings.bool("editor.lsp") != false }
+    func enabled(_ app: AppModel) -> Bool { app.settings[SettingKeys.lsp] }
 
     func language(_ app: AppModel, _ path: String) -> LanguageSpec? {
         LanguageSpec.find(path, in: app.extensions.all.languages)

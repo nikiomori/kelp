@@ -168,7 +168,7 @@ final class SyncPopover: NSViewController {
             self?.update()
         }
         track(owner: self) { [app] in
-            app.settings.bool("workbench.ci.popover")
+            app.settings[SettingKeys.ciPopover]
         } changed: { [weak self] _ in
             self?.update()
         }
@@ -341,7 +341,7 @@ final class SyncPopover: NSViewController {
     /// CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
     private func showCI(on branch: String?) {
         let runs =
-            app.settings.bool("workbench.ci.popover") == false
+            !app.settings[SettingKeys.ciPopover]
             ? [] : CIRuns.latest(app.latest(CIEvent.self, folder)?.result?.runs ?? [])
         ci.isHidden = runs.isEmpty
         guard !runs.isEmpty else { return }

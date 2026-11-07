@@ -113,7 +113,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         isHidden = true
         guard watch else { return }
         // Off by default (Settings › Agents): off, it neither shows nor watches the hooks' commands.
-        let on = { [app] in app.settings.bool("agents.commandsBar") == true }
+        let on = { [app] in app.settings[SettingKeys.commandsBar] }
         track(owner: self) {
             on()
         } changed: { [weak self] in
@@ -398,7 +398,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         if menu.numberOfItems > 0 { menu.addItem(.separator()) }
         if !commands.isEmpty {
             menu.add(String(localized: "Hide Commands Bar")) {
-                app.settings.set("agents.commandsBar", .bool(false))
+                app.settings.set(SettingKeys.commandsBar, false)
                 Banner.show(String(localized: "The commands bar is hidden. Settings › Agents brings it back."))
             }
         }

@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 
 /// A project, then its chats and groups in the same two columns (the slot under the project's icon, the name under its
@@ -219,9 +220,8 @@ final class SidebarRowView: NSTableRowView {
 /// under the icon.
 enum ServerLook: String {
     case stripes, sparse, fade, icon
-    static let key = "workbench.sidebar.serverLook"
     @MainActor static func of(_ app: AppModel) -> ServerLook {
-        app.settings.string(key).flatMap(ServerLook.init) ?? .stripes
+        ServerLook(rawValue: app.settings[SettingKeys.serverLook]) ?? .stripes
     }
 }
 

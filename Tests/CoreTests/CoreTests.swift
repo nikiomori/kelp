@@ -638,3 +638,19 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     try FileManager.default.removeItem(at: dir.appendingPathComponent("community.json"))
     #expect(try IDE.library(index: dir.appendingPathComponent("index.json").absoluteString).count == 1)
 }
+
+/// A declared setting reads its default while settings.json doesn't have it, the stored value when it does, and its
+/// default again when the stored one is of another type (a string where a switch goes).
+@Test func aSettingReadsItsDefaultUnlessStoredAsItsType() {
+    let wrap = Setting("editor.wordWrap", false), size = Setting<Double>("editor.fontSize", 13)
+    #expect(wrap.read(in: [:]) == false && size.read(in: [:]) == 13)
+    #expect(wrap.read(in: ["editor.wordWrap": .bool(true)]) == true)
+    #expect(size.read(.int(14)) == 14 && size.read(.double(13.5)) == 13.5)
+    #expect(wrap.read(.string("yes")) == false && size.read(.string("big")) == 13)
+    // A list keeps what's of its type; an optional one tells unset (nil) from empty.
+    let off = Setting<[String]?>("extensions.disabled", nil)
+    #expect(off.read(nil) == nil && off.read(.array([])) == [])
+    #expect(off.read(.array([.string("a"), .int(1)])) == ["a"])
+    // A whole number goes back as an int, as a row's default.
+    #expect(size.fallback.setting == .int(13) && Setting<Double>("x", 1.5).fallback.setting == .double(1.5))
+}

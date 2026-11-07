@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 import EditorKit
 import SwiftUI
@@ -32,9 +33,9 @@ private struct TerminalSample: View {
 
     var body: some View {
         let settings = app.settings, colors = app.themes.shown?.terminal
-        let size = CGFloat(settings.number("terminal.fontSize") ?? 13)
+        let size = CGFloat(settings[SettingKeys.terminalFontSize])
         let font =
-            settings.string("terminal.fontFamily").flatMap { NSFont(name: $0, size: size) }
+            NSFont(name: settings[SettingKeys.terminalFontFamily], size: size)
             ?? .monospacedSystemFont(ofSize: size, weight: .regular)
         let fg = colors.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .primary
         let palette = colors?.palette ?? []
@@ -64,7 +65,7 @@ private struct TerminalSample: View {
     }
 
     @ViewBuilder private func cursor(_ size: CGFloat) -> some View {
-        switch app.settings.string("terminal.cursorStyle") {
+        switch app.settings[SettingKeys.cursorStyle] {
         case "bar": Rectangle().frame(width: 2, height: size * 1.25)
         case "underline": Rectangle().frame(width: size * 0.6, height: 2).frame(height: size * 1.25, alignment: .bottom)
         default: Rectangle().frame(width: size * 0.6, height: size * 1.25)
@@ -95,13 +96,11 @@ private struct EditorSample: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {
         let editor = context.coordinator, settings = app.settings
         _ = app.themes.editorRevision   // font, colors and wrapping are the editor's own (ThemeManager sets them)
-        editor.rulers =
-            settings.string("editor.rulers").map { $0.split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 } }
-            ?? []
+        editor.rulers = settings[SettingKeys.rulers].split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 }
         editor.whitespace =
-            EditorTextView.WhitespaceMarks(rawValue: settings.string("editor.renderWhitespace") ?? "") ?? .selection
-        editor.bracketColors = settings.bool("editor.bracketColors") == true
-        editor.indentGuides = settings.bool("editor.indentGuides") == true
+            EditorTextView.WhitespaceMarks(rawValue: settings[SettingKeys.renderWhitespace]) ?? .selection
+        editor.bracketColors = settings[SettingKeys.bracketColors]
+        editor.indentGuides = settings[SettingKeys.indentGuides]
         // A moment later: ThemeManager applies a settings change after the views that read it are told.
         DispatchQueue.main.async { editor.refreshAppearance() }
     }

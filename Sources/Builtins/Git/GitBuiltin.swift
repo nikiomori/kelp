@@ -38,30 +38,25 @@ extension Builtins {
             SettingsSection(
                 id: "git", title: "Source Control", icon: "arrow.triangle.branch",
                 specs: [
-                    s(
-                        "git.branchPrefix", "Branch prefix", "string", "", "Added to branches Kelp names.",
+                    s(SettingKeys.branchPrefix, "Branch prefix", "string", "Added to branches Kelp names.",
                         placeholder: "you/"),
-                    s(
-                        "worktrees.folder", "Folder for worktrees", "string", "",
+                    s(SettingKeys.worktreesFolder, "Folder for worktrees", "string",
                         "Empty: inside Kelp's own folder.",
                         help:
                             "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.",
                         placeholder: "~/worktrees"),
                     // Where a branch's CI shows (RowMarks keeps it; gh / glab are asked only for what one of these shows).
-                    s(
-                        "workbench.ci.branchChip", "CI on the branch chip", "enum", "icon",
+                    s(SettingKeys.ciBranchChip, "CI on the branch chip", "enum",
                         "A ring while it runs, a red dot when it fails.",
                         help:
                             "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
                         options: ["icon", "end", "off"], group: "CI"),
-                    s(
-                        "workbench.ci.sidebar", "CI beside folders", "boolean", true,
+                    s(SettingKeys.ciSidebar, "CI beside folders", "boolean",
                         "In the sidebar and the ⌃Tab switcher.",
                         help:
                             "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.",
                         group: "CI"),
-                    s(
-                        "workbench.ci.popover", "CI in the branch popover", "boolean", true,
+                    s(SettingKeys.ciPopover, "CI in the branch popover", "boolean",
                         "The newest run of each workflow; a click opens CI Runs.", group: "CI")
                 ], order: 80)
         ]
@@ -125,4 +120,10 @@ private func remote(
         return
     }
     Task { if await app.call(GitRemoteOp(id: workspace, op: op)) != nil { Banner.show(done) } }
+}
+
+/// Where a branch's CI shows, read only here (the branch chip's is in Core, for its labels in Settings).
+extension SettingKeys {
+    static let ciSidebar = Setting("workbench.ci.sidebar", true)
+    static let ciPopover = Setting("workbench.ci.popover", true)
 }

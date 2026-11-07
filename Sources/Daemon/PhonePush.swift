@@ -60,7 +60,7 @@ extension Sessions {
 
     /// Told once per stop by `eventsHeard`.
     func phoneHeard(_ session: Session) {
-        guard PhonePush.worthTelling(session), PhonePush.url(settings["phone.url"]?.string) != nil else { return }
+        guard PhonePush.worthTelling(session), PhonePush.url(settings[SettingKeys.phoneURL]) != nil else { return }
         if phoneAway {
             phoneSend(session)
             return
@@ -74,7 +74,7 @@ extension Sessions {
     }
 
     private func phoneSend(_ session: Session) {
-        guard let url = PhonePush.url(settings["phone.url"]?.string) else { return }
+        guard let url = PhonePush.url(settings[SettingKeys.phoneURL]) else { return }
         let worktree = session.worktreeId.flatMap { id in
             Log.session.attempt("reading a workspace") { try store.worktree(id) } ?? nil
         }
@@ -90,7 +90,7 @@ extension Sessions {
             ?? session.agent ?? "Agent"
         let (title, body) = PhonePush.message(
             session, name: name, place: worktree?.displayName ?? session.displayTitle,
-            details: settings["phone.details"]?.bool == true)
+            details: settings[SettingKeys.phoneDetails])
         guard let request = PhonePush.request(url, title: title, body: body) else { return }
         Task.detached {
             // Once more a little later: right after a wake the network often isn't back yet, and being away is that.

@@ -81,7 +81,7 @@ final class WindowBar: NSView {
         sideBySide.target = self
         sideBySide.action = #selector(toggleSideBySide)
         let hide = NSMenu()
-        Self.addHide(to: hide, "workbench.sideBySideButton", app)
+        Self.addHide(to: hide, SettingKeys.sideBySideButton, app)
         sideBySide.menu = hide
         back.target = self
         back.action = #selector(goBack)
@@ -152,7 +152,7 @@ final class WindowBar: NSView {
             self?.showSideBySide($0)
         }
         track(owner: self) { [app] in
-            app.settings.bool("workbench.sideBySideButton") != false
+            app.settings[SettingKeys.sideBySideButton]
                 && WindowBar.liveAgents(app, in: app.workbench.workspaceId) >= 2
         } changed: { [weak self] in
             self?.sideBySide.isHidden = !$0
@@ -353,9 +353,9 @@ final class WindowBar: NSView {
     /// The setting ("always", "agents", "off"), or "working": agents keep the Mac awake right now (as the daemon counts them).
     /// "hidden" once the button's right-click hid it, whatever the mode.
     private static func awakeMode(_ app: AppModel) -> String {
-        let mode = app.settings.string("power.keepAwake") ?? "agents"
+        let mode = app.settings[SettingKeys.keepAwake]
         let working = app.sessions.contains { $0.isChat && $0.status == .working }
-        return app.settings.bool("workbench.awakeButton") == false
+        return !app.settings[SettingKeys.awakeButton]
             ? "hidden" : mode == "agents" && working ? "working" : mode
     }
 
@@ -383,18 +383,18 @@ final class WindowBar: NSView {
             ("agents", String(localized: "While agents work")), ("always", String(localized: "Always")),
             ("off", String(localized: "Never"))
         ] {
-            menu.add(title) { app.settings.set("power.keepAwake", .string(choice)) }.state =
+            menu.add(title) { app.settings.set(SettingKeys.keepAwake, choice) }.state =
                 (mode == "working" ? "agents" : mode) == choice ? .on : .off
         }
         menu.addItem(.separator())
-        Self.addHide(to: menu, "workbench.awakeButton", app)
+        Self.addHide(to: menu, SettingKeys.awakeButton, app)
         awake.menu = menu
     }
 
     /// A title-bar button's right-click: off by its setting, which Settings › Window turns back on.
-    private static func addHide(to menu: NSMenu, _ key: String, _ app: AppModel) {
+    private static func addHide(to menu: NSMenu, _ setting: Setting<Bool>, _ app: AppModel) {
         menu.add(String(localized: "Hide Button")) {
-            app.settings.set(key, .bool(false))
+            app.settings.set(setting, false)
             Banner.show(String(localized: "The button is hidden. Settings › Window brings it back."))
         }
     }

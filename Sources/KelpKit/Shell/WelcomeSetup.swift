@@ -1,3 +1,4 @@
+import Core
 import DesignKit
 import SwiftUI
 
@@ -8,21 +9,21 @@ struct WelcomeSetup: View {
 
     var body: some View {
         let agents = Self.firstAgents(
-            app.catalog.installed(app.catalog.all).map(\.id), current: app.settings.string("agents.default"))
+            app.catalog.installed(app.catalog.all).map(\.id), current: app.settings[SettingKeys.defaultAgent])
         VStack(alignment: .leading, spacing: Metrics.sheetInset) {
-            choice("Theme") { ThemeGallery(selection: binding("workbench.theme", "auto"), kelpOnly: true) }
+            choice("Theme") { ThemeGallery(selection: binding(SettingKeys.theme), kelpOnly: true) }
             choice("Text size") {
                 PictureGrid(
-                    key: "workbench.textSize", options: ["normal", "large", "larger"],
-                    selection: binding("workbench.textSize", "normal"),
-                    label: { SettingRow.label("workbench.textSize", $0, app) })
+                    key: SettingKeys.textSize.key, options: ["normal", "large", "larger"],
+                    selection: binding(SettingKeys.textSize),
+                    label: { SettingRow.label(SettingKeys.textSize.key, $0, app) })
             }
             if !agents.isEmpty {
                 choice("Default agent") {
                     PictureGrid(
-                        key: "agents.default", options: agents,
-                        selection: binding("agents.default", "claude"),
-                        label: { SettingRow.label("agents.default", $0, app) })
+                        key: SettingKeys.defaultAgent.key, options: agents,
+                        selection: binding(SettingKeys.defaultAgent),
+                        label: { SettingRow.label(SettingKeys.defaultAgent.key, $0, app) })
                 }
             }
         }
@@ -48,7 +49,7 @@ struct WelcomeSetup: View {
         }
     }
 
-    private func binding(_ key: String, _ fallback: String) -> Binding<String> {
-        Binding(get: { app.settings.string(key) ?? fallback }, set: { app.settings.set(key, .string($0)) })
+    private func binding(_ setting: Setting<String>) -> Binding<String> {
+        Binding(get: { app.settings[setting] }, set: { app.settings.set(setting, $0) })
     }
 }

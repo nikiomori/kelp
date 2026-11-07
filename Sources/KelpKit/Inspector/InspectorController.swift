@@ -38,7 +38,6 @@ final class InspectorController: NSViewController {
     /// The panel's name in the inspector's top band, level with the traffic lights: the icons alone don't say where you are.
     private let panelTitle = NSTextField(labelWithString: "")
     private let empty = EmptyStateView()
-    private static let orderKey = "workbench.inspector.panelOrder", hiddenKey = "workbench.inspector.hiddenPanels"
 
     override func loadView() {
         let root = InspectorView()
@@ -131,12 +130,12 @@ final class InspectorController: NSViewController {
             self?.rebuild()
         }
         track(owner: self) { [app] in
-            [app.settings.value(Self.orderKey), app.settings.value(Self.hiddenKey)]
+            [app.settings[SettingKeys.panelOrder], app.settings[SettingKeys.hiddenPanels] ?? []]
         } changed: { [weak self] _ in
             self?.rebuild()
         }
         track(owner: self) { [app] in
-            app.settings.string("workbench.inspectorIconsPosition") == "bottom"
+            app.settings[SettingKeys.inspectorIconsPosition] == "bottom"
         } changed: { [weak self] in
             guard let self else { return }
             NSLayoutConstraint.deactivate($0 ? self.top : self.bottom)
@@ -160,17 +159,17 @@ final class InspectorController: NSViewController {
             self?.showCounts()
         }
         track(owner: self) { [app] in
-            app.settings.string("workbench.inspectorIcons")
+            app.settings[SettingKeys.inspectorIcons]
         } changed: { [weak self] in
             guard let self else { return }
-            let want = self.align[$0 ?? ""] == nil ? "center" : $0 ?? ""
+            let want = self.align[$0] == nil ? "center" : $0
             for (k, c) in self.align { c.isActive = k == want }
         }
     }
 
     private func rebuild() {
         // In the order the row was dragged into; panels it doesn't name yet follow in the registry's order.
-        let order = ids(Self.orderKey), hidden = Set(ids(Self.hiddenKey))
+        let order = app.settings[SettingKeys.panelOrder], hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
         func rank(_ e: (offset: Int, element: PanelSpec)) -> (Int, Int) {
             (order.firstIndex(of: e.element.id) ?? .max, e.offset)
         }
@@ -251,7 +250,7 @@ final class InspectorController: NSViewController {
     /// As many icons as the inspector's width holds, in the row's order; the rest go into the » menu. The shown
     /// panel's icon stays in the row, in the last slot, so the row always says where you are.
     private func fold() {
-        let hidden = Set(ids(Self.hiddenKey))
+        let hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
         let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0   // as showSelected picks it
         let order = selector.arrangedSubviews.compactMap { v in buttons.firstIndex { $0 === v } }
             .filter { !hidden.contains(panels[$0].id) }
@@ -330,8 +329,6 @@ final class InspectorController: NSViewController {
         showSelected()   // the shown panel's icon again: its state stays on
     }
 
-    private func ids(_ key: String) -> [String] { app.settings.value(key)?.array?.compactMap(\.string) ?? [] }
-
     /// A dragged icon takes the slot under the pointer (`x` in the row); the others slide aside.
     private func move(_ b: NSButton, to x: CGFloat) {
         var views = selector.arrangedSubviews
@@ -350,7 +347,7 @@ final class InspectorController: NSViewController {
 
     private func saveOrder() {
         let order = selector.arrangedSubviews.compactMap { v in buttons.firstIndex { $0 === v }.map { panels[$0].id } }
-        app.settings.set(Self.orderKey, .array(order.map(JSONValue.string)))
+        app.settings.set(SettingKeys.panelOrder, order)
     }
 
     /// The row's right-click menu (on an icon or the band around it): which icons show, where the row sits, auto-hide.
@@ -361,31 +358,30 @@ final class InspectorController: NSViewController {
             (band - TabStrip.height...band).contains(point.y)
                 || (selector.frame.minY...selector.frame.maxY).contains(point.y)
         else { return nil }
-        let settings = app.settings, hidden = Set(ids(Self.hiddenKey)), menu = NSMenu()
+        let settings = app.settings, hidden = Set(settings[SettingKeys.hiddenPanels] ?? []), menu = NSMenu()
         menu.addItem(.sectionHeader(title: String(localized: "Icons")))
         for panel in panels {
             menu.addItem(item(loc(panel.title), #selector(toggleIcon(_:)), panel.id, on: !hidden.contains(panel.id)))
         }
-        let at = settings.string("workbench.inspectorIconsPosition") == "bottom" ? "bottom" : "top"
+        let at = settings[SettingKeys.inspectorIconsPosition] == "bottom" ? "bottom" : "top"
         menu.addItem(.sectionHeader(title: String(localized: "Position")))
         for v in ["top", "bottom"] {
-            menu.addItem(
-                item(loc(v.capitalized), #selector(setChoice(_:)), ("workbench.inspectorIconsPosition", v), on: at == v)
-            )
+            let choice = (SettingKeys.inspectorIconsPosition.key, v)
+            menu.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), choice, on: at == v))
         }
         let side =
-            ["left", "right"].contains(settings.string("workbench.inspectorIcons"))
-            ? settings.string("workbench.inspectorIcons") : "center"
+            ["left", "right"].contains(settings[SettingKeys.inspectorIcons])
+            ? settings[SettingKeys.inspectorIcons] : "center"
         menu.addItem(.sectionHeader(title: String(localized: "Alignment")))
         for v in ["left", "center", "right"] {
             menu.addItem(
-                item(loc(v.capitalized), #selector(setChoice(_:)), ("workbench.inspectorIcons", v), on: side == v))
+                item(loc(v.capitalized), #selector(setChoice(_:)), (SettingKeys.inspectorIcons.key, v), on: side == v))
         }
         menu.addItem(.separator())
         menu.addItem(
             item(
                 String(localized: "Auto-Hide Inspector"), #selector(toggleAutoHide), nil,
-                on: settings.bool("workbench.inspector.autoHide") == true))
+                on: settings[SettingKeys.inspectorAutoHide]))
         menu.addSettingsLink(String(localized: "Inspector Settings…"), section: "appearance", group: "Inspector", app)
         return menu
     }
@@ -400,9 +396,9 @@ final class InspectorController: NSViewController {
 
     @objc private func toggleIcon(_ i: NSMenuItem) {
         guard let id = i.representedObject as? String else { return }
-        var hidden = ids(Self.hiddenKey)
+        var hidden = app.settings[SettingKeys.hiddenPanels] ?? []
         if let index = hidden.firstIndex(of: id) { hidden.remove(at: index) } else { hidden.append(id) }
-        app.settings.set(Self.hiddenKey, hidden.isEmpty ? nil : .array(hidden.map(JSONValue.string)))
+        app.settings.set(SettingKeys.hiddenPanels, hidden.isEmpty ? nil : hidden)
         // Hiding the shown panel's icon shows the first panel that still has one.
         let shown = panels.first { $0.id == app.workbench.inspectorPanel } ?? panels.first
         if shown?.id == id, hidden.contains(id), let next = panels.first(where: { !hidden.contains($0.id) }) {
@@ -416,8 +412,7 @@ final class InspectorController: NSViewController {
     }
 
     @objc private func toggleAutoHide() {
-        app.settings.set(
-            "workbench.inspector.autoHide", .bool(app.settings.bool("workbench.inspector.autoHide") != true))
+        app.settings.set(SettingKeys.inspectorAutoHide, !app.settings[SettingKeys.inspectorAutoHide])
     }
 
     /// Shows a panel by id (menus and commands use this too).

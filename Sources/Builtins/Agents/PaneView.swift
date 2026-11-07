@@ -184,7 +184,8 @@ final class PaneView: NSView {
         settle(shown: true)
         offScreen?.cancel()
         offScreen = nil
-        guard window == nil, let minutes = app.settings.number("sessions.hibernateMinutes"), minutes > 0 else { return }
+        let minutes = app.settings[SettingKeys.hibernateMinutes]
+        guard window == nil, minutes > 0 else { return }
         offScreen = Task { [weak self] in
             try? await Task.sleep(for: .seconds(minutes * 60))
             if !Task.isCancelled { self?.letGo() }

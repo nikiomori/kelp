@@ -262,15 +262,15 @@ final class AgentStrip {
         }
         let loud = app.sessions.filter { !Mutes.isMuted($0, in: app) && !putOff.contains(StripModel.key($0)) }
         return State(
-            items: StripModel.items(loud, workspaces: shown), mode: app.settings.string("agents.dockStrip"),
-            comesFor: app.settings.string("agents.dockStrip.comesFor"),
-            fullScreen: app.settings.bool("agents.dockStrip.fullScreen") ?? true)
+            items: StripModel.items(loud, workspaces: shown), mode: app.settings[SettingKeys.dockStrip],
+            comesFor: app.settings[SettingKeys.dockStripComesFor],
+            fullScreen: app.settings[SettingKeys.dockStripFullScreen])
     }
 
     var isShowing: Bool { panel?.isVisible == true }
     var frame: NSRect? { panel?.frame }
     var panelForTests: NSPanel? { panel }
-    var isOff: Bool { app.settings.string("agents.dockStrip") == "off" }
+    var isOff: Bool { app.settings[SettingKeys.dockStrip] == "off" }
 
     /// Out of the way for a while, whatever comes meanwhile; nil brings it back now.
     func hide(until: Date?) {
@@ -498,14 +498,14 @@ final class AgentStrip {
             hide.add(c.title) { [weak self] in self?.hide(until: c.until) }
         }
         menu.setSubmenu(hide, for: menu.addItem(withTitle: String(localized: "Hide"), action: nil, keyEquivalent: ""))
-        menu.addChoiceMenu("agents.dockStrip.comesFor", app, title: String(localized: "Comes Up For"), tryOn: false)
-        menu.addToggle("agents.dockStrip.fullScreen", app, title: String(localized: "Over Full-Screen Apps"))
+        menu.addChoiceMenu(SettingKeys.dockStripComesFor, app, title: String(localized: "Comes Up For"), tryOn: false)
+        menu.addToggle(SettingKeys.dockStripFullScreen, app, title: String(localized: "Over Full-Screen Apps"))
         menu.addItem(.separator())
         if place?.edge == nil { menu.add(String(localized: "Hide Behind the Edge")) { [weak self] in self?.tuck() } }
         if place != nil {
             menu.add(String(localized: "Move Back Above the Dock")) { [weak self] in self?.moved(to: nil) }
         }
-        menu.add(String(localized: "Turn Off")) { [app] in app.settings.set("agents.dockStrip", .string("off")) }
+        menu.add(String(localized: "Turn Off")) { [app] in app.settings.set(SettingKeys.dockStrip, "off") }
         menu.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
         return menu
     }

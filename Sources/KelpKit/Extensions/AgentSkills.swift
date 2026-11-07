@@ -10,32 +10,32 @@ enum AgentSkills {
         let settings = app.settings
         for old in ["krill-extensions", "krill-settings"] { put(old, on: false, description: "", body: "") }   // the app's old name's
         put(
-            "kelp-extensions", on: settings.bool("agents.skills.extensions") != false,
+            "kelp-extensions", on: settings[SettingKeys.skillExtensions],
             description:
                 "Use when the user wants something added to or changed in Kelp, the IDE this session runs in: a panel, list, tab, command, "
                 + "setting, theme or language server — e.g. “add a Kelp panel with my Docker containers”, “show Android emulators in Kelp”. Kelp extensions are "
                 + "extension.json folders in $KELP_HOME/extensions; they are not Claude Code plugins, mods, hooks or MCP servers.",
             body: extensionsSteps(ExtensionRegistry.userDir.path) + IDE.extensionGuide)
         put(
-            "kelp-settings", on: settings.bool("agents.skills.settings") != false,
+            "kelp-settings", on: settings[SettingKeys.skillSettings],
             description:
                 "Use when the user wants to see or change how Kelp, the IDE this session runs in, is set up: theme, fonts, editor, "
                 + "terminal, agents. Done with the kelp CLI (kelp settings set …), not Claude Code's own settings.",
             body: settingsGuide(app))
         put(
-            "kelp-terminals", on: settings.bool("agents.skills.terminals") != false,
+            "kelp-terminals", on: settings[SettingKeys.skillTerminals],
             description:
                 "Use when you run tests, a build or a dev server, or work through a long multi-step task, in Kelp, the IDE this session runs "
                 + "in: run the command where the user can watch it, wait for it, read what it printed, and show your progress on your row.",
             body: terminalsGuide)
         put(
-            "kelp-agents", on: settings.bool("agents.skills.agents") != false,
+            "kelp-agents", on: settings[SettingKeys.skillAgents],
             description:
                 "Use when part of the work can go to another agent beside you in Kelp, the IDE this session runs in: a review by "
                 + "another model, a long job while you go on. Start it with kelp session new --agent; its result comes back to you by itself.",
             body: agentsGuide)
         put(
-            "kelp-artifacts", on: settings.bool("agents.skills.artifacts") != false,
+            "kelp-artifacts", on: settings[SettingKeys.skillArtifacts],
             description:
                 "Use when the user asks for a doc, report or plan, choices to pick from, slides, a design or a dashboard, in "
                 + "Kelp, the IDE this session runs in: run kelp artifact guide <type> first. It says where to make it (your own "
@@ -43,7 +43,7 @@ enum AgentSkills {
             body: artifactsGuide)
         // Written whenever it's on; the daemon gives it only to chats in a home with a machine (`Sessions.skillArgs`).
         put(
-            "kelp-vm", on: settings.bool("agents.skills.vm") != false,
+            "kelp-vm", on: settings[SettingKeys.skillVM],
             description:
                 "Use when a command should run in a Linux or macOS machine instead of on this Mac, or you need to see and tap a Mac "
                 + "Android or iOS app, in Kelp, the IDE this session runs in: Linux builds and tests, servers and scripts kept off the Mac, "

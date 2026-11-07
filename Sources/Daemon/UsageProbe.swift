@@ -87,7 +87,8 @@ extension AgentUsage {
     ]
 
     /// Settings › Show plan limits.
-    var readsPlans: Bool { (settings["usage.readPlans"] ?? settings["usage.readClaudePlan"])?.bool != false }
+    var readsPlans: Bool { SettingKeys.readPlans.read(
+        settings[SettingKeys.readPlans.key] ?? settings[SettingKeys.readClaudePlan.key]) }
 
     /// How long after its last session an agent's limits are still read: a probe is a whole run of the agent (one installed
     /// but unused cost a launch every half hour, up to a GB at once with the others).

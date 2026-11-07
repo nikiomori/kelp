@@ -157,7 +157,7 @@ extension WorktreeCreate: Handled {
         }
         let base = try clientRef(base.flatMap { $0.isEmpty ? nil : $0 }) ?? repo.baseBranch
         let into = Workspaces.worktreesDir(
-            workspaces.root, repo, chosen: workspaces.sessions.settings["worktrees.folder"]?.string)
+            workspaces.root, repo, chosen: workspaces.sessions.settings[SettingKeys.worktreesFolder])
         // A pull request's code, fetched now or under what it starts from (`holdsPullRequest`): it gets none of the project's
         // own files (.env), and nothing of .kelp.yaml runs on it until the user says so (below).
         let checksOut = existing == true || pr != nil

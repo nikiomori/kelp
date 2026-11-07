@@ -57,7 +57,7 @@ final class AgentUsage: Sendable {
     func agentRoots() -> (claude: [URL], codex: [URL]) {
         let homes = agentHomes.withLock { $0 }
         var claude = [homes.claude], codex = [homes.codex]
-        for profile in settings["accounts.profiles"]?.array ?? [] {
+        for profile in settings[SettingKeys.accounts] {
             guard let dir = profile["dir"]?.string else { continue }
             if profile["agent"]?.string == "claude" {
                 claude.append(URL(fileURLWithPath: dir).appendingPathComponent("projects"))

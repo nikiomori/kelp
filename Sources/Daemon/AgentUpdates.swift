@@ -13,7 +13,7 @@ extension Sessions {
             return true
         }
         // Its native launcher, whatever comes first on PATH: that's what /restart runs.
-        guard due, settings["agents.updateIdle"]?.bool != false,
+        guard due, settings[SettingKeys.updateIdle],
             let installed = Paths.real(NSHomeDirectory() + "/.local/bin/claude")
         else { return }
         for ls in live.all

@@ -73,12 +73,12 @@ extension FileTab {
                 }
         }
         codeEditor.hoverProvider = { [weak self] line, col in
-            guard app.settings.bool("editor.hover") != false else { return nil }
+            guard app.settings[SettingKeys.hover] else { return nil }
             await self?.lspCaughtUp()
             return await app.quiet(LSPHover(root: projectRoot, path: filePath, line: line, column: col)) ?? nil
         }
         codeEditor.signatureProvider = { [weak self] line, col in
-            guard app.settings.bool("editor.hover") != false else { return nil }
+            guard app.settings[SettingKeys.hover] else { return nil }
             await self?.lspCaughtUp()
             guard
                 let found = await app.quiet(LSPSignature(root: projectRoot, path: filePath, line: line, column: col))

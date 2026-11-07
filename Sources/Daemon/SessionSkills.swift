@@ -91,7 +91,7 @@ extension Sessions {
         if let choice {
             return BrowserSkill(on: choice == "on", why: "set for this project", choice: choice, hint: choice == "off")
         }
-        switch Self.browserSetting(settings["agents.skills.browser"]) {
+        switch Self.browserSetting(settings[SettingKeys.skillBrowser.key]) {
         case "on": return BrowserSkill(on: true, why: "Always, in Settings")
         case "off": return BrowserSkill(on: false, why: "Never, in Settings")
         default: break
@@ -107,7 +107,7 @@ extension Sessions {
     /// "auto", "on" or "off"; the switch it used to be counts as on / off.
     static func browserSetting(_ value: JSONValue?) -> String {
         if case .bool(let on)? = value { return on ? "on" : "off" }
-        return value?.string ?? "auto"
+        return value?.string ?? SettingKeys.skillBrowser.fallback
     }
 
     private func state(_ key: String) -> JSONValue? {

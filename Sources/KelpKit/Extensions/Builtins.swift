@@ -41,15 +41,16 @@ package enum Builtins {
         return app.workbench.editor
     }
 
-    package static func s(
-        _ key: String, _ title: String, _ type: String, _ def: JSONValue?, _ desc: String? = nil, help: String? = nil,
+    /// A row in Settings for a declared setting: its key and default are the declaration's.
+    package static func s<Value>(
+        _ setting: Setting<Value>, _ title: String, _ type: String, _ desc: String? = nil, help: String? = nil,
         options: [String]? = nil, range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil,
-        requires: String? = nil, placeholder: String? = nil
+        requires: String? = nil, placeholder: String? = nil, perLanguage: Bool? = nil
     ) -> SettingSpec {
         SettingSpec(
-            key: key, title: title, type: type, default: def, description: desc, help: help, options: options,
-            range: range, group: group,
-            hidden: hidden, requires: requires, placeholder: placeholder)
+            key: setting.key, title: title, type: type, default: setting.fallback.setting, description: desc,
+            help: help, options: options, range: range, group: group, hidden: hidden, requires: requires,
+            placeholder: placeholder, perLanguage: perLanguage)
     }
 
     package static let appearance = Builtin(
@@ -63,39 +64,33 @@ package enum Builtins {
             SettingsSection(
                 id: "appearance", title: "Appearance", icon: "paintpalette",
                 specs: [
-                    s(
-                        "workbench.theme", "Color theme", "theme", "auto",
+                    s(SettingKeys.theme, "Color theme", "theme",
                         "The window, terminal and editor together.",
                         help:
                             "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."
                     ),
-                    s(
-                        "workbench.textSize", "Text size", "enum", "normal",
+                    s(SettingKeys.textSize, "Text size", "enum",
                         "Everything but code.",
                         help:
                             "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
                         options: ["normal", "large", "larger"]),
-                    s(
-                        "terminal.opacity", "Terminal opacity", "enum", "theme",
+                    s(SettingKeys.terminalOpacity, "Terminal opacity", "enum",
                         "The desktop shows through the terminals, in any theme.",
                         help:
                             "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
                         options: ["theme", "100", "90", "80", "70", "60", "50", "40"])
                 ] + sidebar + inspector + [
-                    s(
-                        "workbench.sideBySideButton", "Agents side by side button", "boolean", true,
+                    s(SettingKeys.sideBySideButton, "Agents side by side button", "boolean",
                         "In the title bar, with two agents or more; ⌃⌘T works either way.",
                         help:
                             "In the title bar, right of the search, with two agents or more; right-click it to hide it. ⌃⌘T works either way.",
                         group: "Window"),
-                    s(
-                        "workbench.awakeButton", "Keep Mac awake button", "boolean", true,
+                    s(SettingKeys.awakeButton, "Keep Mac awake button", "boolean",
                         "A cup in the title bar while the Mac is kept awake.",
                         help:
                             "A cup in the title bar while the Mac is kept awake; right-click it to hide it. Tools › Keep Mac Awake works either way.",
                         group: "Window"),
-                    s(
-                        "workbench.iconTheme", "File icon theme", "enum", .string(FileIcon.standard),
+                    s(SettingKeys.iconTheme, "File icon theme", "enum",
                         "Icons in Files, Source Control and tabs.",
                         help:
                             "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…",
@@ -104,8 +99,7 @@ package enum Builtins {
             SettingsSection(
                 id: "general", title: "General", icon: "gearshape",
                 specs: [
-                    s(
-                        "workbench.language", "Language", "enum", "system", "Takes effect the next time Kelp opens.",
+                    s(SettingKeys.language, "Language", "enum", "Takes effect the next time Kelp opens.",
                         options: ["system", "en", "ru"])
                 ], custom: { AnyView(GeneralSettings()) }, keywords: ["Updates", "Background", "Login Items"], order: 5),
             SettingsSection(
@@ -117,56 +111,44 @@ package enum Builtins {
 
     /// Appearance › Inspector: its panels and where their icons sit, here and in the icons' own right-click menu.
     private static let inspector = [
-        s(
-            "workbench.inspector.hiddenPanels", "Panels", "panels", nil, "Drag an icon in the inspector to move it.",
+        s(SettingKeys.hiddenPanels, "Panels", "panels", "Drag an icon in the inspector to move it.",
             group: "Inspector"),
-        s(
-            "workbench.inspectorIconsPosition", "Panel icons", "enum", "top", options: ["top", "bottom"],
+        s(SettingKeys.inspectorIconsPosition, "Panel icons", "enum", options: ["top", "bottom"],
             group: "Inspector"),
-        s(
-            "workbench.inspectorIcons", "Icon alignment", "enum", "center", options: ["left", "center", "right"],
+        s(SettingKeys.inspectorIcons, "Icon alignment", "enum", options: ["left", "center", "right"],
             group: "Inspector"),
-        s(
-            "workbench.inspector.autoHide", "Auto-hide inspector", "boolean", false,
+        s(SettingKeys.inspectorAutoHide, "Auto-hide inspector", "boolean",
             "Comes in while the pointer is at the window's right edge.",
             group: "Inspector")
     ]
 
     /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.
     private static let sidebar = [
-        s(
-            "workbench.sidebar.autoHide", "Auto-hide sidebar", "boolean", false,
+        s(SettingKeys.sidebarAutoHide, "Auto-hide sidebar", "boolean",
             "Comes in while the pointer is at the window's left edge, like the Dock.",
             group: "Sidebar"),
-        s(
-            "workbench.sidebar.rowHeight", "Row height", "enum", "system",
+        s(SettingKeys.rowHeight, "Row height", "enum",
             nil,
             help: "Match System follows Sidebar icon size in System Settings › Appearance.",
             options: ["system", "compact", "regular", "large"], group: "Sidebar"),
-        s(
-            "workbench.sidebar.agentDetail", "Show what an agent asks", "enum", "needsYou",
+        s(SettingKeys.agentDetail, "Show what an agent asks", "enum",
             "A second line under an agent: its question, or what went wrong.",
             options: ["needsYou", "always", "never"], group: "Sidebar"),
-        s(
-            "workbench.sidebar.agentIcons", "Agent icons", "enum", "others",
+        s(SettingKeys.agentIcons, "Agent icons", "enum",
             "Other Agents Only hides the default agent's icon.",
             options: ["others", "always", "never"], group: "Sidebar"),
-        s(
-            "workbench.sidebar.gitBadges", "Changes and pull requests", "boolean", true,
+        s(SettingKeys.gitBadges, "Changes and pull requests", "boolean",
             "“+6 −2” and “#128” beside folders.",
             help: "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),
-        s(
-            "workbench.sidebar.projectColor", "Project color", "enum", "icon",
+        s(SettingKeys.projectColor, "Project color", "enum",
             nil,
             help:
                 "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
             options: ["icon", "card"], group: "Sidebar"),
-        s(
-            "workbench.sidebar.serverLook", "Servers", "enum", "stripes",
+        s(SettingKeys.serverLook, "Servers", "enum",
             nil, help: "How a server's card shows that its projects run on another machine.",
             options: ["stripes", "sparse", "fade", "icon"], group: "Sidebar"),
-        s(
-            "workbench.sidebar.order", "Project order", "enum", "manual",
+        s(SettingKeys.sidebarOrder, "Project order", "enum",
             "Agents First moves rows as agents start and stop.",
             options: ["manual", "active"], group: "Sidebar")
     ]

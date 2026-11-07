@@ -27,7 +27,7 @@ struct NotifyRule: Equatable {
 
 /// One reminder of a question that went unanswered (Settings › Agents › Notifications): no growing series of pings.
 enum QuestionReminder {
-    static func minutes(_ setting: String?) -> Int? { Int(setting ?? "10") }
+    static func minutes(_ setting: String) -> Int? { Int(setting) }
 
     /// The question it was asked for still stands: not answered, not followed by another.
     static func stillStands(_ asked: Session, now: Session?) -> Bool {

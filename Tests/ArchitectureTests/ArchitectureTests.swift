@@ -216,6 +216,15 @@ private func codeOnly(_ s: String) -> String {
     #expect(over120 >= 479, "fewer now (\(over120)): lower the ceiling")
 }
 
+/// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
+/// where it's read can drift from its row's and repeats the default by hand.
+@Test func settingsAreReadByTheirDeclaration() throws {
+    let named = try matches(
+        #"settings(?:\[|\.(?:string|bool|number|int|double|value)\()\s*"[a-z]+\.[\w.]+"#, in: ["Sources"])
+    #expect(named.count <= 0, "settings read by a key literal: \(named)")
+    #expect(named.count >= 0, "fewer now (\(named.count)): lower the ceiling")
+}
+
 /// Three statements on one line (`a; b; c`) are read as one: the daemon's code has one or two a line. String and regex
 /// literals and comments don't count.
 @Test func theDaemonSaysOneThingALine() {

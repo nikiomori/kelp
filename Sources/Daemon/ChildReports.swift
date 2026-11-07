@@ -111,7 +111,7 @@ extension Sessions {
     /// the session's own: these read the disk and take other sessions' locks.
     func familyHeard(_ session: Session) {
         guard !reports.isRestarting(session.id) else { return }
-        let news = session.parent != nil && settings["agents.childReports"]?.bool != false && reports.isNews(session)
+        let news = session.parent != nil && settings[SettingKeys.childReports] && reports.isNews(session)
         guard news || session.status == .exited else { return }
         reports.make { [weak self] in
             guard let self else { return }
@@ -184,7 +184,7 @@ extension Sessions {
             guard let self else { return }
             for var session in left {
                 endChildren(of: session.id)
-                guard let parent = session.parent, !ids.contains(parent), settings["agents.childReports"]?.bool != false
+                guard let parent = session.parent, !ids.contains(parent), settings[SettingKeys.childReports]
                 else { continue }
                 session.status = .exited
                 tell(parent, ChildReports.text(session, body: "Closed by the user"))

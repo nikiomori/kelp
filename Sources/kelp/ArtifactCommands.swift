@@ -9,7 +9,7 @@ extension Main {
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
         switch sub {
         case "guide":
-            let whereTo = try await c.call(SettingsGet())["artifacts.where"]?.string ?? "agent"
+            let whereTo = try await SettingKeys.artifactsWhere.read(in: c.call(SettingsGet()))
             guard let kind = args.first, let text = Artifacts.guide(kind, whereTo: whereTo) else {
                 fail("artifact guide <\(Artifacts.guides.joined(separator: "|"))>")
             }

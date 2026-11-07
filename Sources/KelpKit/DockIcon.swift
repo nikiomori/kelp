@@ -36,7 +36,7 @@ package final class DockIcon {
             app.workbench.newChat()
         }
         for add in app.extensions.all.dockMenu { add(menu) }
-        menu.addChoiceMenu("agents.dockIcon", app, title: String(localized: "Dock Icon"), tryOn: false)
+        menu.addChoiceMenu(SettingKeys.dockIcon, app, title: String(localized: "Dock Icon"), tryOn: false)
         return menu
     }
 
@@ -69,7 +69,7 @@ package final class DockIcon {
 
     /// With nothing to show the plain icon stands in: no agents, or an agent without a plan's numbers.
     static func face(_ app: AppModel) -> DockFace {
-        switch app.settings.string("agents.dockIcon") {
+        switch app.settings[SettingKeys.dockIcon] {
         case "usage":
             guard let limits = app.latest(LimitsEvent.self)?.usage,
                 let fullest = limits.fresh().map(\.limit.percent).max()

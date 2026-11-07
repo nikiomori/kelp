@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 import KelpKit
 import UniformTypeIdentifiers
@@ -139,9 +140,9 @@ extension EditorStatusBar {
     static func menu(_ app: AppModel, language: String?) -> NSMenu {
         let menu = NSMenu()
         menu.add(String(localized: "Wrap Long Lines")) { app.extensions.run("editor.toggleWordWrap") }.state =
-            app.settings.bool("editor.wordWrap", language: language) == true ? .on : .off
-        menu.addToggle("editor.autoSave", app, title: String(localized: "Save Automatically"))
-        menu.addToggle("editor.formatOnSave", app, title: String(localized: "Format on Save"))
+            app.settings[SettingKeys.wordWrap, language: language] ? .on : .off
+        menu.addToggle(SettingKeys.autoSave, app, title: String(localized: "Save Automatically"))
+        menu.addToggle(SettingKeys.formatOnSave, app, title: String(localized: "Format on Save"))
         menu.addItem(.separator())
         menu.addSettingsLink(String(localized: "Editor Settings…"), section: "editor", app)
         return menu

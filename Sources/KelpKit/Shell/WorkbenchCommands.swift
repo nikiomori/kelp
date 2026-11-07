@@ -105,8 +105,8 @@ extension Builtins {
     /// Terminal and editor text zoom together, like a browser; the settings stay the one source.
     private static func zoomText(_ app: AppModel, _ step: Double?) {
         let settings = app.settings
-        for key in ["terminal.fontSize", "editor.fontSize"] {
-            settings.set(key, .double(step.map { min(40, max(8, (settings.number(key) ?? 13) + $0)) } ?? 13))
+        for setting in [SettingKeys.terminalFontSize, SettingKeys.editorFontSize] {
+            settings.set(setting.key, .double(step.map { min(40, max(8, settings[setting] + $0)) } ?? setting.fallback))
         }
     }
 

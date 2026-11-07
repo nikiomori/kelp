@@ -45,7 +45,7 @@ final class Breadcrumbs: NSView {
         }
         let language = editor.languageId
         track(owner: self) { [settings = app.settings, workbench = app.workbench] in
-            settings.bool("editor.breadcrumbs", language: language) == true && !workbench.inFocusMode
+            settings[SettingKeys.breadcrumbs, language: language] && !workbench.inFocusMode
         } changed: { [weak self] on in
             self?.isHidden = !on
             self?.height?.constant = on ? TextSize.of(Metrics.statusBar) : 0

@@ -21,10 +21,9 @@ package struct AgentCatalog {
     /// The agent "New Agent" starts: the setting if it's installed, else the first installed one.
     package var defaultAgent: String {
         let installed = installed(all)
-        if let agentId = app.settings.string("agents.default"), installed.contains(where: { $0.id == agentId }) {
-            return agentId
-        }
-        return installed.first?.id ?? "claude"
+        let agentId = app.settings[SettingKeys.defaultAgent]
+        if installed.contains(where: { $0.id == agentId }) { return agentId }
+        return installed.first?.id ?? SettingKeys.defaultAgent.fallback
     }
     /// Whether to offer tmux sessions in a workspace: tmux is on this Mac, or the project is on a host (which usually has
     /// it; tmux.list says so when it hasn't).

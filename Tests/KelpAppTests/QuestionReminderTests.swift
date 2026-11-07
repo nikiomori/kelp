@@ -5,7 +5,7 @@ import Testing
 @testable import KelpKit
 
 @Test func theReminderFollowsItsSetting() {
-    #expect(QuestionReminder.minutes(nil) == 10)
+    #expect(QuestionReminder.minutes(SettingKeys.remindAfter.fallback) == 10)
     #expect(QuestionReminder.minutes("30") == 30)
     #expect(QuestionReminder.minutes("off") == nil)
 }

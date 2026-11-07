@@ -175,7 +175,7 @@ extension SidebarController {
         case .host(let host):
             app.extensions.all.servers?.menu(menu, host)
             menu.addItem(.separator())
-            menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
+            menu.addChoiceMenu(SettingKeys.serverLook, app, title: String(localized: "Servers"))
         case .parked: break
         }
     }
@@ -197,16 +197,16 @@ extension SidebarController {
             if let command = app.extensions.command(id) { menu.add(command.title) { app.extensions.run(id) } }
         }
         menu.addItem(.separator())
-        menu.addChoiceMenu("workbench.sidebar.order", app, title: String(localized: "Project Order"))
-        menu.addChoiceMenu("workbench.sidebar.rowHeight", app, title: String(localized: "Row Height"))
-        menu.addChoiceMenu("workbench.sidebar.projectColor", app, title: String(localized: "Project Color"))
+        menu.addChoiceMenu(SettingKeys.sidebarOrder, app, title: String(localized: "Project Order"))
+        menu.addChoiceMenu(SettingKeys.rowHeight, app, title: String(localized: "Row Height"))
+        menu.addChoiceMenu(SettingKeys.projectColor, app, title: String(localized: "Project Color"))
         if app.extensions.all.servers != nil {   // no servers' cards to mark without the built-in that makes them
-            menu.addChoiceMenu(ServerLook.key, app, title: String(localized: "Servers"))
+            menu.addChoiceMenu(SettingKeys.serverLook, app, title: String(localized: "Servers"))
         }
-        menu.addChoiceMenu("workbench.sidebar.agentIcons", app, title: String(localized: "Agent Icons"))
-        menu.addToggle("workbench.sidebar.gitBadges", app, title: String(localized: "Changes and Pull Requests"))
+        menu.addChoiceMenu(SettingKeys.agentIcons, app, title: String(localized: "Agent Icons"))
+        menu.addToggle(SettingKeys.gitBadges, app, title: String(localized: "Changes and Pull Requests"))
         menu.addItem(.separator())
-        menu.addToggle("workbench.sidebar.autoHide", app, title: String(localized: "Auto-Hide Sidebar"))
+        menu.addToggle(SettingKeys.sidebarAutoHide, app, title: String(localized: "Auto-Hide Sidebar"))
         menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", group: "Sidebar", app)
     }
 

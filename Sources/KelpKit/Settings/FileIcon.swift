@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import UniformTypeIdentifiers
 
 /// The icon beside a file or folder name (Files, Source Control, tabs, Quick Open), from the theme picked in
@@ -18,11 +19,11 @@ package struct FileIcon {
 
     /// Changes with the pick and with installed extensions: views showing icons reload when it does.
     package var revision: String {
-        "\(app.settings.string("workbench.iconTheme") ?? Self.standard)#\(app.extensions.revision)"
+        "\(app.settings[SettingKeys.iconTheme])#\(app.extensions.revision)"
     }
 
     package func image(_ name: String, folder: Bool = false, expanded: Bool = false) -> NSImage {
-        switch app.settings.string("workbench.iconTheme") ?? Self.standard {
+        switch app.settings[SettingKeys.iconTheme] {
         case Self.system: Self.systemIcon(name, folder: folder)
         case Self.colorful: ColorfulIcons.image(name, folder: folder)
         case let id:

@@ -12,7 +12,7 @@ extension UsageGet: Handled {
         if let cached, Date().timeIntervalSince(cached.at) < 60, force != true { return usage.withLimits(cached.value) }
         let roots = usage.agentRoots()
         var claude: [Claude] = [], codex: [Codex] = []
-        let names = ["Default"] + (usage.settings["accounts.profiles"]?.array ?? []).compactMap { $0["name"]?.string }
+        let names = ["Default"] + usage.settings[SettingKeys.accounts].compactMap { $0["name"]?.string }
         for (index, root) in roots.claude.enumerated() where FileManager.default.fileExists(atPath: root.path) {
             // Today, the week and the 5-hour block from the index (read incrementally).
             let cal = Calendar.current, today = cal.startOfDay(for: Date()), now = Date()

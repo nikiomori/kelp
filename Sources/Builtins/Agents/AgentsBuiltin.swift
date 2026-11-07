@@ -24,98 +24,78 @@ extension Builtins {
             SettingsSection(
                 id: "agents", title: "Agents", icon: "sparkles",
                 specs: [
-                    s(
-                        "agents.default", "Default agent", "enum", "claude",
+                    s(SettingKeys.defaultAgent, "Default agent", "enum",
                         "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.",
                         options: app.catalog.all.map(\.id)),
-                    s(
-                        "agents.commandsBar", "Show the commands an agent runs", "boolean", false,
+                    s(SettingKeys.commandsBar, "Show the commands an agent runs", "boolean",
                         "A line under its terminal with the commands it ran.",
                         help:
                             "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed."
                     ),
-                    s(
-                        "agents.editInKelp", "Edit agent prompts in Kelp", "boolean", true,
+                    s(SettingKeys.editInKelp, "Edit agent prompts in Kelp", "boolean",
                         "⌃G opens an agent's prompt in a tab here.",
                         help: "⌃G in an agent opens its prompt in a tab here. For agents started from now on."),
-                    s(
-                        "sessions.hibernateMinutes", "Pause idle agents", "number", 0,
+                    s(SettingKeys.hibernateMinutes, "Pause idle agents", "number",
                         "Paused agents free memory and resume the same conversation.",
                         options: ["0", "15", "30", "60", "240"]),
-                    s(
-                        "agents.updateIdle", "Update idle agents", "boolean", true,
+                    s(SettingKeys.updateIdle, "Update idle agents", "boolean",
                         "Restarts into an update after its turn, in the same conversation.",
                         help:
                             "When Claude Code installs an update, an agent restarts into it once its turn is over, in the same conversation. Not while it asks you something, runs anything in the background, or has text in its prompt."
                     ),
-                    s(
-                        "agents.recap", "Recap when you're away", "boolean", true,
+                    s(SettingKeys.recap, "Recap when you're away", "boolean",
                         "What it did and what's left, if it finishes while you're away.",
                         help:
                             "A Claude Code agent that finishes while nobody's at the Mac says what it did and what's left, from a fork of its conversation that leaves the conversation as it was. Uses a little of its plan."
                     ),
-                    s(
-                        "agents.childReports", "Report back to the parent agent", "boolean", true,
+                    s(SettingKeys.childReports, "Report back to the parent agent", "boolean",
                         "The other agent's result or question comes back as input.",
                         help:
                             "When an agent starts another with kelp, the other's result or question comes to it as input."
                     ),
-                    s("power.keepAwake", "Keep Mac awake", "enum", "agents", options: ["agents", "always", "off"]),
-                    s(
-                        "usage.readPlans", "Show plan limits", "boolean", true,
+                    s(SettingKeys.keepAwake, "Keep Mac awake", "enum", options: ["agents", "always", "off"]),
+                    s(SettingKeys.readPlans, "Show plan limits", "boolean",
                         "At the bottom of the sidebar, read without spending tokens.",
                         help:
                             "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.",
                         group: "Plan limits"),
-                    s(
-                        "usage.limits", "Limits to show", "enum", "all",
+                    s(SettingKeys.usageLimits, "Limits to show", "enum",
                         "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
                         options: ["fullest", "all"], group: "Plan limits", requires: "usage.readPlans"),
-                    s(
-                        "usage.resets", "Reset time beside a limit", "boolean", true,
+                    s(SettingKeys.usageResets, "Reset time beside a limit", "boolean",
                         "Only when it resets within 12 hours.",
                         group: "Plan limits", requires: "usage.readPlans"),
-                    s(
-                        "usage.pace", "Even pace mark", "boolean", true,
+                    s(SettingKeys.usagePace, "Even pace mark", "boolean",
                         "A tick where an even pace would be by now.",
                         help: "A tick on the bar: how much would be used by now, spending evenly until the reset.",
                         group: "Plan limits", requires: "usage.readPlans"),
-                    s(
-                        "usage.alertAt", "Warn about limits at", "enum", "80",
+                    s(SettingKeys.alertAt, "Warn about limits at", "enum",
                         "A notification at this level, and again at 95%.",
                         options: ["off", "70", "80", "90"], group: "Plan limits", requires: "usage.readPlans"),
-                    s(
-                        "artifacts.where", "Where agents make pages", "enum", "agent",
+                    s(SettingKeys.artifactsWhere, "Where agents make pages", "enum",
                         "Docs, slides and designs; reviews stay in the project.",
                         help:
                             "Docs, slides and designs: an agent with artifacts of its own (Claude Code on claude.ai) makes them there. Reviews stay in the project.",
                         options: ["agent", "local"]),
                     // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
-                    s(
-                        "agents.skills.extensions", "Write Kelp extensions", "boolean", true,
+                    s(SettingKeys.skillExtensions, "Write Kelp extensions", "boolean",
                         "Ask Claude Code for a panel, tab or command: it knows how to make one.",
                         group: "Claude Code skills"),
-                    s(
-                        "agents.skills.settings", "Change Kelp settings", "boolean", true,
+                    s(SettingKeys.skillSettings, "Change Kelp settings", "boolean",
                         "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills"),
-                    s(
-                        "agents.skills.terminals", "Run commands in Kelp tabs", "boolean", true,
+                    s(SettingKeys.skillTerminals, "Run commands in Kelp tabs", "boolean",
                         "Tests and servers run in a tab you can watch; Claude Code reads what they print.",
                         group: "Claude Code skills"),
-                    s(
-                        "agents.skills.agents", "Hand work to other agents", "boolean", true,
+                    s(SettingKeys.skillAgents, "Hand work to other agents", "boolean",
                         "Claude Code can start another agent with kelp and gets its result back.",
                         group: "Claude Code skills"),
-                    s(
-                        "agents.skills.artifacts", "Make docs and reviews", "boolean", true,
+                    s(SettingKeys.skillArtifacts, "Make docs and reviews", "boolean",
                         "Claude Code puts a doc, or choices for you to pick from, on a page beside it.",
                         group: "Claude Code skills"),
-                    s(
-                        "agents.skills.vm", "Run commands in Kelp machines", "boolean", true,
+                    s(SettingKeys.skillVM, "Run commands in Kelp machines", "boolean",
                         "Claude Code runs Linux builds, tests and servers in a machine of yours, not on this Mac.",
                         group: "Claude Code skills"),
-                    s(
-                        "agents.skills.browser", "Use pages in Kelp's browser", "enum", "auto",
+                    s(SettingKeys.skillBrowser, "Use pages in Kelp's browser", "enum",
                         "Your app in a tab beside it; a project can have its own.",
                         help:
                             "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.",
@@ -125,53 +105,42 @@ extension Builtins {
             SettingsSection(
                 id: "notifications", title: "Notifications", icon: "bell",
                 specs: [
-                    s(
-                        "agents.onWaiting", "When an agent needs you", "enum", "sound",
+                    s(SettingKeys.onWaiting, "When an agent needs you", "enum",
                         "Comes at once, even while you type.",
                         options: ["off", "banner", "sound"]),
-                    s(
-                        "agents.remindAfter", "Remind if an agent still waits", "enum", "10",
+                    s(SettingKeys.remindAfter, "Remind if an agent still waits", "enum",
                         "Once. Not after you opened it or muted its row.",
                         options: ["off", "5", "10", "30"], requires: "agents.onWaiting"),
-                    s(
-                        "agents.onFinish", "When an agent finishes", "enum", "banner",
+                    s(SettingKeys.onFinish, "When an agent finishes", "enum",
                         "Turns shorter than the time below stay quiet.",
                         options: ["off", "banner", "sound"]),
-                    s(
-                        "agents.quietUnder", "Stay quiet for turns under", "number", 20,
+                    s(SettingKeys.quietUnder, "Stay quiet for turns under", "number",
                         "Finished agents only; the row shows them either way.",
                         options: ["0", "10", "20", "30", "60"], requires: "agents.onFinish"),
-                    s("agents.onError", "When an agent fails", "enum", "sound", options: ["off", "banner", "sound"]),
-                    s(
-                        "agents.holdBanners", "Hold finished agents while I type", "boolean", true,
+                    s(SettingKeys.onError, "When an agent fails", "enum", options: ["off", "banner", "sound"]),
+                    s(SettingKeys.holdBanners, "Hold finished agents while I type", "boolean",
                         "They come as one when you stop; questions come at once.",
                         help:
                             "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once."
                     ),
-                    s(
-                        "agents.dockStrip", "Show agents above the Dock", "enum", "always",
+                    s(SettingKeys.dockStrip, "Show agents above the Dock", "enum",
                         "With Kelp behind another app: see them work and answer from there.",
                         options: ["always", "needed", "off"], group: "Dock"),
-                    s(
-                        "agents.dockStrip.comesFor", "Comes up for", "enum", "failures",
+                    s(SettingKeys.dockStripComesFor, "Comes up for", "enum",
                         "A row you muted stays quiet here too.",
                         options: ["questions", "failures", "all"], group: "Dock", requires: "agents.dockStrip=needed"),
-                    s(
-                        "agents.dockStrip.fullScreen", "Over full-screen apps", "boolean", true,
+                    s(SettingKeys.dockStripFullScreen, "Over full-screen apps", "boolean",
                         "Off: a film or a talk stays clear of it; a banner still tells you.",
                         group: "Dock", requires: "agents.dockStrip"),
-                    s(
-                        "agents.dockIcon", "Dock icon", "enum", "icon",
+                    s(SettingKeys.dockIcon, "Dock icon", "enum",
                         "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
                         options: ["icon", "agents", "usage"], group: "Dock"),
-                    s(
-                        "phone.url", "Phone notifications (ntfy address)", "string", "",
+                    s(SettingKeys.phoneURL, "Phone notifications (ntfy address)", "string",
                         "When you've been away 5 minutes or Kelp is closed.",
                         help:
                             "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.",
                         group: "Phone", placeholder: "https://ntfy.sh/your-topic"),
-                    s(
-                        "phone.details", "Show what the agent says on the phone", "boolean", false,
+                    s(SettingKeys.phoneDetails, "Show what the agent says on the phone", "boolean",
                         "Off: the agent's and the workspace's names only.",
                         group: "Phone", requires: "phone.url")
                 ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50),
@@ -182,18 +151,15 @@ extension Builtins {
             SettingsSection(
                 id: "terminal", title: "Terminal", icon: "terminal",
                 specs: [
-                    s("terminal.fontFamily", "Font", "font", "", "Default: the theme's / Ghostty's font."),
-                    s("terminal.fontSize", "Font size", "number", 13, range: [8, 40]),
-                    s("terminal.cursorStyle", "Cursor style", "enum", "block", options: ["block", "bar", "underline"]),
-                    s("terminal.optionAsAlt", "Option key sends Alt (Meta)", "boolean", false),
-                    s(
-                        "terminal.cleanCopy", "Copy text without borders", "boolean", true,
+                    s(SettingKeys.terminalFontFamily, "Font", "font", "Default: the theme's / Ghostty's font."),
+                    s(SettingKeys.terminalFontSize, "Font size", "number", range: [8, 40]),
+                    s(SettingKeys.cursorStyle, "Cursor style", "enum", options: ["block", "bar", "underline"]),
+                    s(SettingKeys.optionAsAlt, "Option key sends Alt (Meta)", "boolean"),
+                    s(SettingKeys.cleanCopy, "Copy text without borders", "boolean",
                         "Drops box borders and an agent's gutter, and rejoins lines it wrapped."),
-                    s(
-                        "terminal.useGhosttyConfig", "Also read ~/.config/ghostty/config", "boolean", false,
+                    s(SettingKeys.useGhosttyConfig, "Also read ~/.config/ghostty/config", "boolean",
                         "Keybindings and other Ghostty options; the theme's colors still apply."),
-                    s(
-                        "terminal.tmux", "Run terminals inside tmux", "boolean", false,
+                    s(SettingKeys.tmux, "Run terminals inside tmux", "boolean",
                         "They keep running when Kelp quits or updates.",
                         help:
                             "They keep running when Kelp quits or updates, on the host for a remote project. Closing the tab ends them. Needs tmux."
@@ -224,10 +190,18 @@ extension Builtins {
             cmd("agents.history", "Session History", "shift+cmd+h") { HistoryWindow.of(app).show() },
             // Like Caffeine: ticked keeps the Mac awake until unticked, which goes back to the setting's default.
             cmd("power.keepAwake", "Keep Mac Awake") {
-                app.settings.set(
-                    "power.keepAwake", app.settings.string("power.keepAwake") == "always" ? nil : .string("always"))
+                let always = app.settings[SettingKeys.keepAwake] == "always"
+                app.settings.set(SettingKeys.keepAwake, always ? nil : "always")
             }
         ]
         return contributions
     }
+}
+
+/// Settings only this built-in reads (the rest are `SettingKeys` in Core).
+extension SettingKeys {
+    static let commandsBar = Setting("agents.commandsBar", false)
+    static let usageResets = Setting("usage.resets", true)
+    static let usagePace = Setting("usage.pace", true)
+    static let dockStripFullScreen = Setting("agents.dockStrip.fullScreen", true)
 }

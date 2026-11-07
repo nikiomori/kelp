@@ -6,9 +6,9 @@ import SwiftUI
 /// instead of its name in a menu. The value written is the option, as from the menu.
 enum SettingPictures {
     static let keys: Set<String> = [
-        "workbench.textSize", "workbench.sidebar.rowHeight", "workbench.sidebar.agentDetail",
-        "workbench.sidebar.projectColor", "workbench.sidebar.serverLook", "agents.dockIcon", "agents.dockStrip",
-        "terminal.cursorStyle"
+        SettingKeys.textSize.key, SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
+        SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.dockIcon.key, SettingKeys.dockStrip.key,
+        SettingKeys.cursorStyle.key
     ]
 }
 
@@ -93,15 +93,15 @@ private struct PictureArt: View {
 
     var body: some View {
         switch key {
-        case "workbench.textSize": textSize
-        case "workbench.sidebar.rowHeight": rows(["compact": 24, "regular": 28, "large": 32][option] ?? 28)
-        case "workbench.sidebar.agentDetail": agentRow
-        case "workbench.sidebar.projectColor": projectRow
-        case "workbench.sidebar.serverLook": serverRow
-        case "agents.dockIcon": dockIcon
-        case "agents.dockStrip": dockStrip
-        case "terminal.cursorStyle": cursor
-        case "agents.default": agent
+        case SettingKeys.textSize.key: textSize
+        case SettingKeys.rowHeight.key: rows(["compact": 24, "regular": 28, "large": 32][option] ?? 28)
+        case SettingKeys.agentDetail.key: agentRow
+        case SettingKeys.projectColor.key: projectRow
+        case SettingKeys.serverLook.key: serverRow
+        case SettingKeys.dockIcon.key: dockIcon
+        case SettingKeys.dockStrip.key: dockStrip
+        case SettingKeys.cursorStyle.key: cursor
+        case SettingKeys.defaultAgent.key: agent
         default: EmptyView()
         }
     }
@@ -306,12 +306,11 @@ struct InspectorPanelsRow: View {
     let title: AnyView
     let about: String?
     @Environment(AppModel.self) private var app
-    private static let hiddenKey = "workbench.inspector.hiddenPanels", orderKey = "workbench.inspector.panelOrder"
 
     var body: some View {
         let settings = app.settings
-        let hidden = Set(settings.value(Self.hiddenKey)?.array?.compactMap(\.string) ?? [])
-        let order = settings.value(Self.orderKey)?.array?.compactMap(\.string) ?? []
+        let hidden = Set(settings[SettingKeys.hiddenPanels] ?? [])
+        let order = settings[SettingKeys.panelOrder]
         let panels = app.extensions.all.panels.enumerated()
             .sorted {
                 (order.firstIndex(of: $0.element.id) ?? .max, $0.offset) < (
@@ -331,7 +330,7 @@ struct InspectorPanelsRow: View {
                             // At least one stays: an inspector without icons has no way back but here.
                             guard next.count < panels.count else { return }
                             let kept = panels.map(\.id).filter(next.contains)
-                            settings.set(Self.hiddenKey, kept.isEmpty ? nil : .array(kept.map(JSONValue.string)))
+                            settings.set(SettingKeys.hiddenPanels, kept.isEmpty ? nil : kept)
                         })
                 ) {
                     Label(loc(panel.title), systemImage: panel.icon)

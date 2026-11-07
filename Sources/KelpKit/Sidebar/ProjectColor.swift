@@ -77,7 +77,7 @@ extension Arrangement {
         var colors = projectColors
         if let preview = colorPreview { colors[preview.project] = preview.color }
         return ProjectLook(
-            style: ProjectColorStyle(rawValue: app.settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon,
+            style: ProjectColorStyle(rawValue: app.settings[SettingKeys.projectColor]) ?? .icon,
             colors: colors)
     }
 

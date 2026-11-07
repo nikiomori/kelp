@@ -7,22 +7,22 @@ import Core
 @MainActor
 extension NSMenu {
     /// The choices in place, under `heading`.
-    package func addChoices(_ key: String, _ app: AppModel, heading: String, tryOn: Bool = true) {
+    package func addChoices(_ setting: Setting<String>, _ app: AppModel, heading: String, tryOn: Bool = true) {
         addItem(.sectionHeader(title: heading))
-        addChoiceItems(key, app, tryOn: tryOn)
+        addChoiceItems(setting, app, tryOn: tryOn)
     }
 
     /// The choices in a submenu of their own.
-    package func addChoiceMenu(_ key: String, _ app: AppModel, title: String, tryOn: Bool = true) {
+    package func addChoiceMenu(_ setting: Setting<String>, _ app: AppModel, title: String, tryOn: Bool = true) {
         let list = NSMenu()
-        list.addChoiceItems(key, app, tryOn: tryOn)
+        list.addChoiceItems(setting, app, tryOn: tryOn)
         setSubmenu(list, for: addItem(withTitle: title, action: nil, keyEquivalent: ""))
     }
 
     /// A switch: a check mark, and a click changes it.
-    package func addToggle(_ key: String, _ app: AppModel, title: String) {
-        let on = app.settings.bool(key) == true
-        add(title) { app.settings.set(key, .bool(!on)) }.state = on ? .on : .off
+    package func addToggle(_ setting: Setting<Bool>, _ app: AppModel, title: String) {
+        let on = app.settings[setting]
+        add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
     }
 
     /// The last item: the section of Settings this part's settings are in, and the group in it.
@@ -33,11 +33,12 @@ extension NSMenu {
         }
     }
 
-    private func addChoiceItems(_ key: String, _ app: AppModel, tryOn: Bool) {
+    private func addChoiceItems(_ setting: Setting<String>, _ app: AppModel, tryOn: Bool) {
+        let key = setting.key
         guard let spec = app.extensions.all.settings.lazy.flatMap(\.specs).first(where: { $0.key == key }) else {
             return
         }
-        let now = app.settings.string(key), preview = ChoicePreview(app.settings)
+        let now = app.settings[setting], preview = ChoicePreview(app.settings)
         if tryOn, delegate == nil { delegate = preview }
         for option in SettingRow.options(spec, app) {
             let keep = ClosureTarget { app.settings.set(key, .string(option)) }

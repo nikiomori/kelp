@@ -148,6 +148,9 @@ package struct SettingSpec: Codable, Identifiable {
     var requires: String?
     /// What an empty text field shows: an example of what goes in it.
     var placeholder: String?
+    /// Read for each language's own files, so Settings' language picker shows it; the rest (the font, autosave,
+    /// servers) is one value for every file. Limit: said by the row; a setting that starts reading its language says so.
+    var perLanguage: Bool?
     package var id: String { key }
 
     var bounds: ClosedRange<Double>? {
@@ -434,10 +437,10 @@ package final class ExtensionRegistry {
 
     /// Built-ins a clean install starts with switched off (`Builtin.offByDefault`); once settings.json has its own list,
     /// that list decides.
-    func disabled(_ v: JSONValue?) -> Set<String> {
-        v?.array.map { Set($0.compactMap(\.string)) } ?? Set(app.builtins.filter(\.offByDefault).map(\.info.id))
+    func disabled(_ list: [String]?) -> Set<String> {
+        list.map(Set.init) ?? Set(app.builtins.filter(\.offByDefault).map(\.info.id))
     }
-    var disabled: Set<String> { disabled(app.settings.value("extensions.disabled")) }
+    var disabled: Set<String> { disabled(app.settings[SettingKeys.disabledExtensions]) }
 
     /// Loaded before the daemon's state was read: what was allowed wasn't known, so all that runs commands waited.
     private(set) var loadedWithoutState = false
@@ -615,7 +618,7 @@ package final class ExtensionRegistry {
     func setEnabled(_ id: String, _ on: Bool) {
         var off = disabled
         if on { off.remove(id) } else { off.insert(id) }
-        app.settings.set("extensions.disabled", .array(off.sorted().map { .string($0) }))
+        app.settings.set(SettingKeys.disabledExtensions, off.sorted())
     }
 
     func uninstall(_ id: String) {

@@ -56,8 +56,8 @@ private func folder(_ files: [String: String]) throws -> URL {
 @MainActor @Test func disabledListFallsBackToTheDefaultOnlyWhenUnset() {
     let reg = AppModel(builtins: Builtins.all).extensions
     #expect(reg.disabled(nil) == ["kelp.activity"])
-    #expect(reg.disabled(.array([.string("a"), .int(1)])) == ["a"])
-    #expect(reg.disabled(.array([])).isEmpty)   // an explicit empty list switches everything on
+    #expect(reg.disabled(SettingKeys.disabledExtensions.read(.array([.string("a"), .int(1)]))) == ["a"])
+    #expect(reg.disabled([]).isEmpty)   // an explicit empty list switches everything on
 }
 
 @MainActor @Test func aManifestFolderBecomesContributions() throws {

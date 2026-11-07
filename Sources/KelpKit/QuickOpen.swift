@@ -164,7 +164,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         choosing = Choosing(
             key: spec.key, saved: store.values[spec.key], tries: section.id == "appearance", query: field.stringValue)
         all = choices(spec).map { v, name in
-            let (note, image) = spec.key == "workbench.theme" ? self.themeLook(v.string ?? "") : ("", nil)
+            let (note, image) = spec.key == SettingKeys.theme.key ? self.themeLook(v.string ?? "") : ("", nil)
             return Item(
                 kind: "Choice", icon: v.string == "ghostty" ? "terminal" : "", title: name, detail: note,
                 action: { store.set(spec.key, v) },

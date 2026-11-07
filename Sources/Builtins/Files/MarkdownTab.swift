@@ -97,7 +97,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     private var defaultSegment: Int {
-        switch app.settings.string("markdown.defaultMode") {
+        switch app.settings[SettingKeys.markdownMode] {
         case "edit": 0
         case "split": 1
         default: 2

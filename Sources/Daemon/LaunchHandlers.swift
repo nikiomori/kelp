@@ -49,7 +49,7 @@ extension SessionCreate: Handled {
             guard !name.isEmpty else { throw RPCError.invalidParams("Name the tmux session.") }
             launch.argv = Tmux.argv(name)
             if launch.title == nil { launch.title = "tmux \(name)" }
-        } else if command == nil, (agent ?? "shell") == "shell", sessions.settings["terminal.tmux"]?.bool == true,
+        } else if command == nil, (agent ?? "shell") == "shell", sessions.settings[SettingKeys.tmux],
             sessions.remotes.of(dir) != nil || (try? LoginPath.resolve("tmux")) != nil
         {
             // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn)
@@ -533,7 +533,7 @@ extension Sessions {
             let manifest = try? JSONDecoder().decode(Manifest.self, from: data)
         else { throw RPCError.invalidParams("No extension \"\(id)\".") }
         // Limit: unset means none of the user's extensions is off (the app's default-off list names built-ins only).
-        let off = Set(settings["extensions.disabled"]?.array?.compactMap(\.string) ?? [])
+        let off = Set(settings[SettingKeys.disabledExtensions] ?? [])
         let name = manifest.name ?? manifest.id
         guard !off.contains(manifest.id) else {
             throw RPCError.invalidParams("The extension “\(name)” is turned off.")

@@ -56,10 +56,10 @@ struct UsageView: View {
     /// The agents that have used anything of their plans: a row at 0% says nothing.
     private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
     private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
-    private var all: Bool { app.settings.string("usage.limits") != "fullest" }
+    private var all: Bool { app.settings[SettingKeys.usageLimits] != "fullest" }
     /// The rows on show (Settings › Agents, or the footer's right-click): nothing once plan limits are turned off.
     private var shown: [Row] {
-        guard app.settings.bool("usage.readPlans") != false else { return [] }
+        guard app.settings[SettingKeys.readPlans] else { return [] }
         return all ? used.sorted { ($0.main?.used ?? 0) > ($1.main?.used ?? 0) } : fullest
     }
 
@@ -71,7 +71,7 @@ struct UsageView: View {
                 // A minute at a time: a reading ages while nothing else changes.
                 // The reset times only while the bars keep their room; a narrow sidebar has them on hover.
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
-                    let resets = app.settings.bool("usage.resets") != false
+                    let resets = app.settings[SettingKeys.usageResets]
                     ViewThatFits(in: .horizontal) {
                         bars(resets: resets)
                         bars(resets: false)
@@ -91,7 +91,7 @@ struct UsageView: View {
     }
 
     private func bars(resets: Bool) -> some View {
-        let pace = app.settings.bool("usage.pace") != false
+        let pace = app.settings[SettingKeys.usagePace]
         return VStack(alignment: .leading, spacing: Metrics.gapWide) {
             ForEach(shown) { row in
                 let main = row.main ?? Line(label: "", used: 0)
@@ -365,7 +365,7 @@ extension UsageView {
     /// What's said beside an agent where agents are chosen (`Contributions.planNotes`); nothing once plan limits are
     /// turned off.
     static func notes(_ app: AppModel) -> [String: PlanNote] {
-        guard app.settings.bool("usage.readPlans") != false else { return [:] }
+        guard app.settings[SettingKeys.readPlans] else { return [:] }
         return Dictionary(
             rows(app).compactMap { row in
                 PlanNote(
@@ -395,15 +395,15 @@ final class UsageFooter: NSHostingView<UsageView> {
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let app else { return nil }
         let menu = NSMenu()
-        menu.addChoices("usage.limits", app, heading: String(localized: "Show"))
-        menu.addToggle("usage.resets", app, title: String(localized: "Reset Time"))
-        menu.addToggle("usage.pace", app, title: String(localized: "Pace Mark"))
+        menu.addChoices(SettingKeys.usageLimits, app, heading: String(localized: "Show"))
+        menu.addToggle(SettingKeys.usageResets, app, title: String(localized: "Reset Time"))
+        menu.addToggle(SettingKeys.usagePace, app, title: String(localized: "Pace Mark"))
         menu.addItem(.separator())
         menu.add(String(localized: "Open Usage")) { app.extensions.run("agents.usage") }
-        menu.addChoiceMenu("usage.alertAt", app, title: String(localized: "Warn At"), tryOn: false)
+        menu.addChoiceMenu(SettingKeys.alertAt, app, title: String(localized: "Warn At"), tryOn: false)
         menu.addItem(.separator())
         menu.add(String(localized: "Hide Plan Limits")) {
-            app.settings.set("usage.readPlans", .bool(false))
+            app.settings.set(SettingKeys.readPlans, false)
             Banner.show(String(localized: "Plan limits are hidden. Settings › Agents brings them back."))
         }
         menu.addSettingsLink(String(localized: "Limits Settings…"), section: "agents", group: "Plan limits", app)

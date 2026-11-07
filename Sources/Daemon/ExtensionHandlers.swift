@@ -7,7 +7,7 @@ extension Methods {
 
 extension ExtensionLibrary: Handled {
     func handle(_ settings: SettingsStore) throws -> Result {
-        try IDE.library(index: settings["extensions.library"]?.string ?? IDE.libraryIndex)
+        try IDE.library(index: settings[SettingKeys.extensionLibrary])
     }
 }
 

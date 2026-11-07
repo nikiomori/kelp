@@ -87,7 +87,7 @@ extension Sessions {
             var id: String, contributes: Contributes?
         }
         let dir = root.appendingPathComponent("extensions"),
-            off = Set(settings["extensions.disabled"]?.array?.compactMap(\.string) ?? [])
+            off = Set(settings[SettingKeys.disabledExtensions] ?? [])
         let found = FileManager.default.enumerator(
             at: dir, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants])
         let folders = found?.allObjects as? [URL] ?? []

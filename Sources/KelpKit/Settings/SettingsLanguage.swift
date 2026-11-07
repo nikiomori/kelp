@@ -28,16 +28,6 @@ struct LanguagePicker: View {
 }
 
 extension SettingRow {
-    /// What an editor reads for its own language: the rest (the font, autosave, servers) is one value for every file, so the
-    /// picker leaves it out. Limit: kept by hand; a setting that starts reading its language goes in here.
-    static let perLanguage: Set<String> = [
-        "editor.wordWrap", "editor.wordWrapColumn", "editor.rulers", "editor.renderWhitespace", "editor.tabSize",
-        "editor.insertSpaces",
-        "editor.detectIndentation", "editor.formatOnSave", "editor.stickyScroll", "editor.bracketColors",
-        "editor.indentGuides",
-        "editor.breadcrumbs"
-    ]
-
     /// Set to something other than its default (for a language: set in its block): a dot after its title, Reset on a right-click.
     var changed: Bool {
         if let language, case .object(let block)? = store.values["[\(language)]"] { return block[spec.key] != nil }

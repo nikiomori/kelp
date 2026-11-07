@@ -291,7 +291,7 @@ final class SidebarCell: NSTableCellView {
 
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     private func updateBadges() {
-        let badgeFolder = app.settings.bool("workbench.sidebar.gitBadges") == false ? nil : folder,
+        let badgeFolder = app.settings[SettingKeys.gitBadges] ? folder : nil,
             stats = badgeFolder.flatMap { app.rowBadges.stats[$0.id] }
         let changeCounts = RowBadges.changes(stats)
         let prBadge = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
@@ -461,7 +461,7 @@ final class SidebarCell: NSTableCellView {
     /// default one (Other Agents Only), none for Never. In colour while the agent is loaded; paused, the same icon without
     /// its colour (not see-through: a faded tile read wider than the others), so what's unloaded reads at a glance.
     private func showIcon(_ session: Session) {
-        let mode = app.settings.string("workbench.sidebar.agentIcons") ?? "others",
+        let mode = app.settings[SettingKeys.agentIcons],
             image = app.catalog.icon(session.agent, size: 16)
         face.isHidden = mode != "always"
         markBox.isHidden = !face.isHidden
@@ -613,7 +613,7 @@ extension SidebarCell {
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ session: Session) {
         let line = Self.line(
-            session, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+            session, mode: app.settings[SettingKeys.agentDetail], among: app.sessions,
             back: app.arrangement.parkedBack[session.id])
         setAsk(line)
     }

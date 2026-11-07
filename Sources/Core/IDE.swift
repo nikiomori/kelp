@@ -100,11 +100,12 @@ public enum IDE {
         guard isValidExtensionID(id) else { throw invalidID(id) }
         let rest = try await disabledExtensions(client: client).filter { $0 != id }
         let list = enabled ? rest : rest + [id]
-        _ = try await client.call(SettingsSet(key: "extensions.disabled", value: .array(list.map { .string($0) })))
+        _ = try await client.call(
+            SettingsSet(key: SettingKeys.disabledExtensions.key, value: .array(list.map(JSONValue.string))))
     }
 
     static func disabledExtensions(client: RPCClient) async throws -> [String] {
-        (try await client.call(SettingsGet())["extensions.disabled"]?.array ?? []).compactMap(\.string)
+        try await SettingKeys.disabledExtensions.read(in: client.call(SettingsGet())) ?? []
     }
 
     static func invalidID(_ id: String) -> RPCError {

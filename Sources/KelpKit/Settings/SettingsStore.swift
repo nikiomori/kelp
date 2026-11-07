@@ -37,7 +37,7 @@ package final class SettingsStore {
         app.themes.apply()
         if skillsChanged { AgentSkills.write(app) }
         if !app.extensions.extensions.isEmpty,
-            app.extensions.disabled(incoming["extensions.disabled"]) != app.extensions.disabledLoaded
+            app.extensions.disabled(SettingKeys.disabledExtensions.read(in: incoming)) != app.extensions.disabledLoaded
         {
             app.extensions.reload()
         }
@@ -45,7 +45,7 @@ package final class SettingsStore {
 
     /// What Kelp itself sets per language: prose reads best wrapped.
     private static let languageDefaults: [String: [String: JSONValue]] = [
-        "markdown": ["editor.wordWrap": .bool(true)], "plaintext": ["editor.wordWrap": .bool(true)]
+        "markdown": [SettingKeys.wordWrap.key: .bool(true)], "plaintext": [SettingKeys.wordWrap.key: .bool(true)]
     ]
 
     /// `language`'s own value for `key`: settings.json's `"[markdown]": { … }` block, as in VS Code, then Kelp's default for it.
@@ -63,13 +63,33 @@ package final class SettingsStore {
         }
         return nil
     }
-    package func string(_ key: String, language: String? = nil) -> String? { value(key, language: language)?.string }
-    /// The share of a plan limit that alerts (`usage.alertAt`, "80"); nil: never ("off"). One place for its default.
-    package var usageAlertAt: Int? { Int(string("usage.alertAt") ?? "80") }
-    package func bool(_ key: String, language: String? = nil) -> Bool? { value(key, language: language)?.bool }
-    package func number(_ key: String, language: String? = nil) -> Double? {
+    /// By name, for a key that isn't declared here (a row of Settings, an extension's): typed, else nil.
+    func string(_ key: String, language: String? = nil) -> String? { value(key, language: language)?.string }
+    func bool(_ key: String, language: String? = nil) -> Bool? { value(key, language: language)?.bool }
+    func number(_ key: String, language: String? = nil) -> Double? {
         guard let raw = value(key, language: language)?.number else { return nil }
-        return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(raw) ?? raw
+        return clamped(key, raw)
+    }
+    /// The share of a plan limit that alerts; nil: never ("off").
+    package var usageAlertAt: Int? { Int(self[SettingKeys.alertAt]) }
+
+    /// A declared setting (`language`: for that language's files): settings.json's value, else its default.
+    package subscript<Value>(_ setting: Setting<Value>, language language: String? = nil) -> Value {
+        setting.read(stored(setting.key, language))
+    }
+    /// A number, kept in its row's range: one out of it in settings.json counts as the nearest end.
+    package subscript(_ setting: Setting<Double>, language language: String? = nil) -> Double {
+        clamped(setting.key, setting.read(stored(setting.key, language)))
+    }
+    private func clamped(_ key: String, _ raw: Double) -> Double {
+        app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(raw) ?? raw
+    }
+    private func stored(_ key: String, _ language: String?) -> JSONValue? {
+        language.flatMap { own(key, $0) } ?? values[key]
+    }
+    /// nil goes back to the default.
+    package func set<Value>(_ setting: Setting<Value>, _ value: Value?, language: String? = nil) {
+        set(setting.key, value?.setting, language: language)
     }
 
     /// A row's `requires`: "key" is on (true, or a value that isn't empty, off, never or 0), "key=value", "key!=value".

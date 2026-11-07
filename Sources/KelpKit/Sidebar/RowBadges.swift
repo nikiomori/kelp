@@ -25,7 +25,7 @@ package final class RowBadges {
 
     /// Settings › Appearance › Changes and pull requests off: no git or PR is watched for the badges, gh isn't asked.
     private func wanted() -> [WatchTopic: Set<String>] {
-        let badges = app.settings.bool("workbench.sidebar.gitBadges") != false ? folders : []
+        let badges = app.settings[SettingKeys.gitBadges] ? folders : []
         return [.git: badges, .pr: badges]
     }
 

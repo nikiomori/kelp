@@ -16,7 +16,7 @@ enum SettingsWindow {
         UserDefaults.standard.set(group ?? "", forKey: "settings.group")
         let fresh = window == nil
         if fresh {
-            language = app.settings.string("workbench.language")
+            language = app.settings[SettingKeys.language]
             let created = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
                 styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
@@ -153,7 +153,7 @@ private struct SectionForm: View {
                 if section.id == "editor" { LanguagePicker(language: $language) }
                 ForEach(groups.indices, id: \.self) { index in
                     let rows = groups[index].1.filter {
-                        (language.isEmpty || SettingRow.perLanguage.contains($0.key)) && store.meets($0.requires)
+                        (language.isEmpty || $0.perLanguage == true) && store.meets($0.requires)
                     }
                     if rows.isEmpty {
                         EmptyView()
@@ -242,7 +242,7 @@ struct SettingRow: View {
 
     var body: some View {
         marked
-        if spec.key == "workbench.language" { RelaunchRow() }
+        if spec.key == SettingKeys.language.key { RelaunchRow() }
     }
 
     private var marked: some View {
@@ -375,9 +375,9 @@ struct SettingRow: View {
 
     /// Two or three short choices seen side by side, as macOS shows them, instead of behind a menu.
     static let segmented: Set<String> = [
-        "agents.onWaiting", "agents.onFinish", "agents.onError", "power.keepAwake", "usage.limits",
-        "workbench.sidebar.order", "markdown.defaultMode", "workbench.inspectorIcons",
-        "workbench.inspectorIconsPosition"
+        SettingKeys.onWaiting.key, SettingKeys.onFinish.key, SettingKeys.onError.key, SettingKeys.keepAwake.key,
+        SettingKeys.usageLimits.key, SettingKeys.sidebarOrder.key, SettingKeys.markdownMode.key,
+        SettingKeys.inspectorIcons.key, SettingKeys.inspectorIconsPosition.key
     ]
 
     /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
@@ -389,9 +389,9 @@ struct SettingRow: View {
     /// Choices that depend on what's installed are computed when shown.
     static func options(_ spec: SettingSpec, _ app: AppModel) -> [String] {
         switch spec.key {
-        case "workbench.theme": return ["auto", "ghostty"] + app.themes.themes.map(\.id)
-        case "workbench.iconTheme": return app.fileIcons.themes.map(\.id)
-        case "agents.default": return app.catalog.installed(app.catalog.all).map(\.id)
+        case SettingKeys.theme.key: return ["auto", "ghostty"] + app.themes.themes.map(\.id)
+        case SettingKeys.iconTheme.key: return app.fileIcons.themes.map(\.id)
+        case SettingKeys.defaultAgent.key: return app.catalog.installed(app.catalog.all).map(\.id)
         default: return spec.options ?? []
         }
     }
@@ -399,78 +399,80 @@ struct SettingRow: View {
     /// Option values made readable (agent ids → names, theme ids → names).
     static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
         switch key {
-        case "agents.default": return app.catalog.name(value)
-        case "workbench.theme":
+        case SettingKeys.defaultAgent.key: return app.catalog.name(value)
+        case SettingKeys.theme.key:
             return value == "auto"
                 ? String(localized: "Match System")
                 : value == "ghostty"
                     ? String(localized: "Ghostty config")
                     : app.themes.themes.first { $0.id == value }?.name ?? value
-        case "workbench.iconTheme": return app.fileIcons.themes.first { $0.id == value }?.label ?? value
-        case "agents.dockStrip.comesFor":
+        case SettingKeys.iconTheme.key: return app.fileIcons.themes.first { $0.id == value }?.label ?? value
+        case SettingKeys.dockStripComesFor.key:
             return [
                 "questions": String(localized: "Questions"), "failures": String(localized: "Questions and Failures"),
                 "all": String(localized: "Anything New")
             ][value] ?? value
-        case "agents.dockStrip":
+        case SettingKeys.dockStrip.key:
             return [
                 "needed": String(localized: "When Needed"), "always": String(localized: "Always"),
                 "off": String(localized: "Never")
             ][value] ?? value
-        case "agents.dockIcon":
+        case SettingKeys.dockIcon.key:
             return [
                 "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
                 "icon": String(localized: "App Icon")
             ][value] ?? value
-        case "terminal.opacity": return value == "theme" ? String(localized: "From Theme") : "\(value)%"
-        case "artifacts.where":
+        case SettingKeys.terminalOpacity.key: return value == "theme" ? String(localized: "From Theme") : "\(value)%"
+        case SettingKeys.artifactsWhere.key:
             return [
                 "agent": String(localized: "Agent’s Own When It Has One"),
                 "local": String(localized: "Always on This Mac")
             ][value] ?? value
-        case "agents.skills.browser":
+        case SettingKeys.skillBrowser.key:
             return [
                 "auto": String(localized: "In Web Projects"), "on": String(localized: "Always"),
                 "off": String(localized: "Never")
             ][value] ?? value
-        case "power.keepAwake":
+        case SettingKeys.keepAwake.key:
             return [
                 "agents": String(localized: "While Agents Work"), "always": String(localized: "Always"),
                 "off": String(localized: "Never")
             ][value] ?? value
         // Each language in its own words, so it can be found whichever language Kelp is in.
-        case "workbench.language": return ["en": "English", "ru": "Русский"][value] ?? String(localized: "Match System")
-        case "workbench.sidebar.rowHeight" where value == "system": return String(localized: "Match System")
-        case "workbench.sidebar.agentDetail" where value == "needsYou": return String(localized: "When They Need You")
-        case "workbench.sidebar.agentIcons" where value == "others": return String(localized: "Other Agents Only")
-        case "workbench.sidebar.projectColor":
+        case SettingKeys.language.key:
+            return ["en": "English", "ru": "Русский"][value] ?? String(localized: "Match System")
+        case SettingKeys.rowHeight.key where value == "system": return String(localized: "Match System")
+        case SettingKeys.agentDetail.key where value == "needsYou": return String(localized: "When They Need You")
+        case SettingKeys.agentIcons.key where value == "others": return String(localized: "Other Agents Only")
+        case SettingKeys.projectColor.key:
             return value == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
-        case "workbench.sidebar.serverLook":
+        case SettingKeys.serverLook.key:
             let said = [
                 "stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
                 "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")
             ]
             return said[value] ?? value
-        case "workbench.ci.branchChip":
+        case SettingKeys.ciBranchChip.key:
             let said = [
                 "icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"),
                 "off": String(localized: "Off")
             ]
             return said[value] ?? value
-        case "workbench.inspectorIconsPosition":
+        case SettingKeys.inspectorIconsPosition.key:
             return value == "bottom" ? String(localized: "Under the Panel") : String(localized: "Beside the Tabs")
-        case "usage.limits":
+        case SettingKeys.usageLimits.key:
             return value == "all" ? String(localized: "All Agents") : String(localized: "Fullest Limit")
-        case "usage.alertAt": return value == "off" ? String(localized: "Off") : "\(value)%"
-        case "workbench.sidebar.order":
+        case SettingKeys.alertAt.key: return value == "off" ? String(localized: "Off") : "\(value)%"
+        case SettingKeys.sidebarOrder.key:
             return value == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
-        case "agents.onFinish", "agents.onWaiting", "agents.onError":
+        case SettingKeys.onFinish.key, SettingKeys.onWaiting.key, SettingKeys.onError.key:
             return [
                 "sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"),
                 "off": String(localized: "Off")
             ][value] ?? value
-        case "agents.quietUnder": return value == "0" ? String(localized: "Off") : String(localized: "\(value) Seconds")
-        case "sessions.hibernateMinutes":
+        case SettingKeys.quietUnder.key:
+            return value == "0" ? String(localized: "Off") : String(localized: "\(value) Seconds")
+        case SettingKeys.hibernateMinutes.key:
             let minutes = Int(value) ?? -1
             return minutes == 0
                 ? String(localized: "Never")
@@ -478,7 +480,7 @@ struct SettingRow: View {
                     ? String(localized: "After 1 Hour")
                     : minutes > 0 && minutes % 60 == 0
                         ? String(localized: "After \(minutes / 60) Hours") : String(localized: "After \(value) Minutes")
-        case "agents.remindAfter":
+        case SettingKeys.remindAfter.key:
             return value == "off" ? String(localized: "Off") : String(localized: "After \(value) Minutes")
         default: return loc(value.prefix(1).uppercased() + value.dropFirst())
         }
@@ -513,7 +515,7 @@ struct HelpMark: View {
 private struct RelaunchRow: View {
     @Environment(AppModel.self) private var app
     var body: some View {
-        if app.settings.string("workbench.language") != SettingsWindow.language {
+        if app.settings[SettingKeys.language] != SettingsWindow.language {
             LabeledContent("Kelp needs to reopen for this.") {
                 Button("Relaunch") {
                     guard app.workbench.editedFiles.isEmpty else {

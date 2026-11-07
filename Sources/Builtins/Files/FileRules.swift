@@ -22,26 +22,26 @@ final class FileRules {
         self.bar = bar
         let language = editor.languageId
         detected =
-            app.settings.bool("editor.detectIndentation", language: language) != false
+            app.settings[SettingKeys.detectIndentation, language: language]
             ? Indentation.detect(editor.text) : nil
         bar.indentMenu = { [weak self] in self?.menu() ?? NSMenu() }
         editor.snippetSource = { await Snippets.load(app: app, language: language, root: root, path: path) }
         track(owner: self) { [settings = app.settings] in
             [
-                settings.number("editor.tabSize", language: language),
-                settings.bool("editor.insertSpaces", language: language) == false ? 1 : 0
+                settings[SettingKeys.tabSize, language: language],
+                settings[SettingKeys.insertSpaces, language: language] ? 0 : 1
             ]
         } changed: { [weak self] _ in
             self?.apply()
         }
         track(owner: self) { [settings = app.settings] in
             [
-                settings.string("editor.rulers", language: language) ?? "",
-                settings.string("editor.renderWhitespace", language: language) ?? "",
-                "\(settings.number("editor.wordWrapColumn", language: language) ?? 0)",
-                "\(settings.bool("editor.stickyScroll", language: language) != false)",
-                "\(settings.bool("editor.bracketColors", language: language) == true)",
-                "\(settings.bool("editor.indentGuides", language: language) == true)"
+                settings[SettingKeys.rulers, language: language],
+                settings[SettingKeys.renderWhitespace, language: language],
+                "\(settings[SettingKeys.wordWrapColumn, language: language])",
+                "\(settings[SettingKeys.stickyScroll, language: language])",
+                "\(settings[SettingKeys.bracketColors, language: language])",
+                "\(settings[SettingKeys.indentGuides, language: language])"
             ]
         } changed: { [weak self] _ in
             self?.applyLooks()
@@ -57,16 +57,15 @@ final class FileRules {
     private func applyLooks() {
         guard let editor else { return }
         let language = editor.languageId, settings = app.settings
-        editor.rulers = Self.columns(settings.string("editor.rulers", language: language))
+        editor.rulers = Self.columns(settings[SettingKeys.rulers, language: language])
         editor.whitespace =
-            EditorTextView.WhitespaceMarks(
-                rawValue: settings.string("editor.renderWhitespace", language: language) ?? "")
+            EditorTextView.WhitespaceMarks(rawValue: settings[SettingKeys.renderWhitespace, language: language])
             ?? .selection
-        let column = Int(settings.number("editor.wordWrapColumn", language: language) ?? 0)
+        let column = Int(settings[SettingKeys.wordWrapColumn, language: language])
         editor.wrapColumn = column > 0 ? column : nil
-        editor.stickyEnabled = settings.bool("editor.stickyScroll", language: language) != false
-        editor.bracketColors = settings.bool("editor.bracketColors", language: language) == true
-        editor.indentGuides = settings.bool("editor.indentGuides", language: language) == true
+        editor.stickyEnabled = settings[SettingKeys.stickyScroll, language: language]
+        editor.bracketColors = settings[SettingKeys.bracketColors, language: language]
+        editor.indentGuides = settings[SettingKeys.indentGuides, language: language]
     }
 
     private var tabSize: Int {
@@ -74,14 +73,14 @@ final class FileRules {
         var fromFile: Int?
         if case .spaces(let width)? = detected { fromFile = width }
         return chosen.tabSize ?? config.tabSize ?? fromFile
-            ?? Int(app.settings.number("editor.tabSize", language: language) ?? 4)
+            ?? Int(app.settings[SettingKeys.tabSize, language: language])
     }
 
     private var spaces: Bool {
         var fromFile: Bool?
         if let detected { fromFile = detected != .tabs }
         return chosen.spaces ?? config.insertSpaces ?? fromFile
-            ?? (app.settings.bool("editor.insertSpaces", language: editor?.languageId) != false)
+            ?? app.settings[SettingKeys.insertSpaces, language: editor?.languageId]
     }
 
     private func apply() {
@@ -111,10 +110,9 @@ final class FileRules {
         guard let editor else { return }
         let language = editor.languageId
         let trim =
-            config.trimTrailingWhitespace ?? app.settings.bool("files.trimTrailingWhitespace", language: language)
-            == true
+            config.trimTrailingWhitespace ?? app.settings[SettingKeys.trimTrailingWhitespace, language: language]
         let final =
-            config.insertFinalNewline ?? app.settings.bool("files.insertFinalNewline", language: language) == true
+            config.insertFinalNewline ?? app.settings[SettingKeys.insertFinalNewline, language: language]
         guard trim || final else { return }
         let text = editor.text, clean = Indentation.cleaned(text, trim: trim, finalNewline: final)
         if clean != text { editor.apply(text: clean, selection: editor.selectedRange) }

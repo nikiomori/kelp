@@ -243,17 +243,17 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.refresh()
         }
         track(owner: self) { [app] in
-            ["rowHeight", "agentDetail", "agentIcons"].map { app.settings.string("workbench.sidebar." + $0) }
+            [SettingKeys.rowHeight, SettingKeys.agentDetail, SettingKeys.agentIcons].map { app.settings[$0] }
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
         track(owner: self) { [app] in
-            app.settings.bool("workbench.sidebar.gitBadges")
+            app.settings[SettingKeys.gitBadges]
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
         track(owner: self) { [app] in
-            app.settings.string("workbench.sidebar.order")
+            app.settings[SettingKeys.sidebarOrder]
         } changed: { [weak self] _ in
             self?.refresh()
         }
@@ -307,7 +307,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var tree = SidebarTree(
             projects: app.projects, workspaces: app.projects.flatMap { app.workspaces(of: $0) },
             sessions: app.workbench.shownSessions)
-        tree.activeFirst = app.settings.string("workbench.sidebar.order") == "active"
+        tree.activeFirst = app.settings[SettingKeys.sidebarOrder] == "active"
         tree.pinnedLast = app.repos.first(where: NoProject.holds)?.id
         tree.parked = app.arrangement.parkedIds
         let servers = app.extensions.all.servers
@@ -499,7 +499,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// Settings › Appearance › Row height; Match System reads macOS's Sidebar icon size (small, medium, large), as
     /// Finder and Mail do. Limit: only the height follows it, the text stays 13 pt (Text size scales that).
     private var rowBase: CGFloat {
-        switch app.settings.string("workbench.sidebar.rowHeight") {
+        switch app.settings[SettingKeys.rowHeight] {
         case "compact": 24
         case "regular": 28
         case "large": 32
@@ -509,7 +509,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private func hasAsk(_ node: Node) -> Bool {
         guard case .agent(let id) = node.kind, let session = app.session(id) else { return false }
         return SidebarCell.line(
-            session, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
+            session, mode: app.settings[SettingKeys.agentDetail], among: app.sessions,
             back: app.arrangement.parkedBack[id]) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
