@@ -159,7 +159,7 @@ extension WorktreeCreate: Handled {
             result.setupNeedsTrust = true   // the app asks, then scripts.trust + scripts.run "setup"
         } else if let cmd = cfg.setup, setup != false {
             var o = Sessions.Launch(); o.title = "setup"
-            let s = try workspaces.sessions.spawn(cwd: path, manifest: .custom(cmd), worktreeId: w.id, o)
+            let s = try workspaces.sessions.spawn(cwd: path, manifest: .custom(cfg.shell(cmd)), worktreeId: w.id, o)
             result.setupSession = s.id
         }
         workspaces.notify(ChangedEvent.worktree)

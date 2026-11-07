@@ -3,16 +3,16 @@ import Core
 import GitKit
 
 /// What a project's own files offer to run (`run.detect`, `run.start`): package.json scripts, Makefile and justfile
-/// targets, compose services, Python apps, Procfile processes, cargo / go / swift / gradle / maven / mix. One shell script
-/// prints the files that name commands and the programs on PATH; it runs in the workspace's folder, here or on a remote
-/// project's host (one ssh call), so both are read the same way. Only these names, in the folder, its subfolders and
-/// apps/* packages/* services/*: no walk over the tree.
+/// targets, compose services, Python apps, Procfile processes, cargo / go / swift / gradle / maven / mix, VS Code and Zed
+/// tasks. One shell script prints the files that name commands and the programs on PATH; it runs in the workspace's
+/// folder, here or on a remote project's host (one ssh call), so both are read the same way. Only these names, in the
+/// folder, its subfolders and apps/* packages/* services/*: no walk over the tree.
 enum Runnables {
     /// Read, up to 64 KB each.
     static let files = ["package.json", "deno.json", "deno.jsonc", "Makefile", "makefile", "GNUmakefile", "justfile", "Justfile",
                         "compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml", "Dockerfile", "pyproject.toml", "manage.py",
                         "requirements.txt", "app/main.py", "main.py", "app.py", "Procfile", "Procfile.dev", "Cargo.toml", "go.mod", "Package.swift",
-                        "build.gradle", "build.gradle.kts", "pom.xml", "mix.exs"]
+                        "build.gradle", "build.gradle.kts", "pom.xml", "mix.exs", ".vscode/tasks.json", ".zed/tasks.json"]
     /// Only whether they're there.
     static let marks = ["node_modules", ".venv", "uv.lock", "poetry.lock", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "main.go",
                         "bin/dev", "gradlew", "artisan", "deps"]
@@ -70,7 +70,7 @@ enum Runnables {
     /// Every folder's, its own folder first; a command found twice in one folder (a Makefile's `dev: npm run dev`) once.
     static func options(_ f: Found) -> [RunOption] {
         let folders = Set(f.files.keys.map(folder(of:))).sorted { ($0.isEmpty ? 0 : 1, $0) < ($1.isEmpty ? 0 : 1, $1) }
-        let finders: [(Found, String) -> [RunOption]] = [node, make, compose, python, compiled, procfile]
+        let finders: [(Found, String) -> [RunOption]] = [node, make, compose, python, compiled, procfile, editorTasks]
         let all = folders.flatMap { d in finders.flatMap { $0(f, d) } }
         var seen = Set<String>()
         return Array(all.filter { seen.insert($0.folder + "\u{0}" + $0.command).inserted }.prefix(60))

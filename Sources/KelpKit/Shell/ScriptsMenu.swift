@@ -42,6 +42,8 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         let m = ScriptsList(worktreeId: wid)
         guard let r = asked ? await app.call(m) : await app.quiet(m) else { return nil }
         if state.kelp[wid] != r.scripts { state.kelp[wid] = r.scripts }
+        let file = Self.shortName(r.file)
+        if state.kelpFile[wid] != file { state.kelpFile[wid] = file }
         setupCommand[wid] = r.setup
         return r
     }
@@ -183,6 +185,13 @@ package final class ScriptsMenu: NSObject, NSMenuDelegate {
         a.accessoryView = Self.trustText(info)
         a.addButton(withTitle: String(localized: "Run Setup")); a.addButton(withTitle: String(localized: "Skip"))
         return await runSheet(a) == .alertFirstButtonReturn
+    }
+
+    /// A project's commands file as the menu names it: from its first folder that starts with a dot (`.conductor/settings.toml`,
+    /// `.codex/environments/environment.toml`), else its own name (`conductor.json`).
+    static func shortName(_ path: String) -> String {
+        let parts = path.split(separator: "/").suffix(3)
+        return (parts.firstIndex { $0.hasPrefix(".") }.map { parts[$0...] } ?? parts.suffix(1)).joined(separator: "/")
     }
 
     /// The file's effects as the file spells them, scrollable when long.

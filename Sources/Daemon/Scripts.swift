@@ -7,15 +7,24 @@ import Core
 extension Workspaces {
     var trustFile: URL { root.appendingPathComponent("trusted-configs.json") }
 
-    func configText(_ repoPath: String) -> String { (try? String(contentsOfFile: repoPath + "/.kelp.yaml", encoding: .utf8)) ?? "" }
+    /// The project's commands file: its .kelp.yaml, else another tool's (`ImportedConfig`), else none (`.kelp.yaml`, empty).
+    static func configFile(_ repoPath: String) -> (path: String, text: String, config: RepoConfig) {
+        let own = repoPath + "/.kelp.yaml"
+        if let data = FileManager.default.contents(atPath: own) {
+            let text = String(decoding: data, as: UTF8.self)
+            return (own, text, RepoConfig.parse(text))
+        }
+        if let other = ImportedConfig.find(repoPath) { return (repoPath + "/" + other.file, other.text, other.config) }
+        return (own, "", RepoConfig())
+    }
     static func digest(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined() }
 
     /// The file read once, its parsed config and whether the user trusts exactly that text: checking one read and using
     /// another would let a write in between (an agent, a pull) slip in unseen.
-    func configAndTrust(_ repoPath: String) -> (text: String, config: RepoConfig, trusted: Bool) {
-        let text = configText(repoPath), cfg = RepoConfig.parse(text)
-        guard !Self.asksNothing(cfg) else { return (text, cfg, true) }
-        return (text, cfg, trustLock.withLock { knownDigests() }[repoPath] == Self.digest(text))
+    func configAndTrust(_ repoPath: String) -> (text: String, config: RepoConfig, trusted: Bool, path: String) {
+        let (path, text, cfg) = Self.configFile(repoPath)
+        guard !Self.asksNothing(cfg) else { return (text, cfg, true, path) }
+        return (text, cfg, trustLock.withLock { knownDigests() }[repoPath] == Self.digest(text), path)
     }
 
     /// trusted-configs.json is read and written under one lock: two projects trusted at once both stay trusted.
@@ -48,7 +57,7 @@ extension ScriptsList: Handled {
         let read = workspaces.configAndTrust(repo), cfg = read.config
         // Everything trusting it would allow, and the digest of exactly this text (one read): trust is given to what was shown.
         return Result(scripts: cfg.scripts, setup: cfg.setup, tabs: cfg.tabs, shared: cfg.shared, recipes: cfg.recipes, issueCommand: cfg.issueCommand,
-                      digest: Workspaces.digest(read.text), trusted: read.trusted, file: repo + "/.kelp.yaml")
+                      digest: Workspaces.digest(read.text), trusted: read.trusted, file: read.path)
     }
 }
 
@@ -60,10 +69,12 @@ extension ScriptsTrust: Handled {
     var onlyFromKelp: String? { "Only Kelp's window can trust a project's commands: open the project there and run one." }
     func handle(_ workspaces: Workspaces) throws -> Done {
         let (_, repo) = try workspaces.configRepo(worktreeId)
-        let now = Workspaces.digest(workspaces.configText(repo))
+        let now = Workspaces.digest(Workspaces.configFile(repo).text)
         // The digest from scripts.list: a file changed since it was shown (an agent, a pull) isn't what was trusted.
         guard let digest else { throw RPCError.invalidParams("scripts.trust needs the digest of the .kelp.yaml that was shown.") }
-        guard digest == now else { throw RPCError.invalidParams(".kelp.yaml changed since it was shown. Look at it again before trusting it.") }
+        guard digest == now else {
+            throw RPCError.invalidParams("The project's commands file changed since it was shown. Look at it again before trusting it.")
+        }
         try workspaces.trustLock.withLock {
             var known = workspaces.knownDigests()
             known[repo] = now
@@ -80,10 +91,10 @@ extension ScriptsRun: Handled {
         guard read.trusted else { throw RPCError.invalidParams("This project's commands aren't trusted yet.") }
         let cfg = read.config
         guard let s = cfg.scripts.first(where: { $0.name == name }) ?? cfg.setup.flatMap({ name == "setup" ? .init(name: name, command: $0) : nil }) else {
-            throw RPCError.invalidParams("No “\(name)” command in .kelp.yaml.")
+            throw RPCError.invalidParams("No “\(name)” command in \((read.path as NSString).lastPathComponent).")
         }
         var o = Sessions.Launch(); o.title = name
-        return try workspaces.sessions.spawn(cwd: w.path, manifest: .custom(s.command), worktreeId: w.id, o)
+        return try workspaces.sessions.spawn(cwd: w.path, manifest: .custom(cfg.shell(s.command)), worktreeId: w.id, o)
     }
 }
 

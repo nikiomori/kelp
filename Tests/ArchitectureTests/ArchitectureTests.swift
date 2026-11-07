@@ -364,7 +364,7 @@ private func codeOnly(_ s: String) -> String {
 /// A `try?` turns a failure into nothing, unseen: right for a probe ("is it there", "does it parse"), wrong for a write,
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
-    let ceilings = ["Daemon": 102, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 12,
+    let ceilings = ["Daemon": 100, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20, "Builtins": 12,
                     "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 32, "KelpGuest": 4, "EditorKit": 6, "WorkbenchKit": 1, "DesignKit": 0]
     // Every module is in it: a new one gets its count here, not none.
     let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)

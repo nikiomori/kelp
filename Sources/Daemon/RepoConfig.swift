@@ -17,6 +17,8 @@ public struct RepoConfig: Sendable, Equatable {
     /// Named commands in the file's order.
     public var scripts: [Script] = []
     public typealias Script = ScriptsList.Script
+    /// Run before each of its commands: the variables another tool's scripts expect (`ImportedConfig`); "" for a .kelp.yaml.
+    public var prelude = ""
     public static let scriptNames: Set = ["run", "test", "lint", "build"]
 
     public static func parse(_ text: String) -> RepoConfig {
@@ -42,9 +44,8 @@ public struct RepoConfig: Sendable, Equatable {
         }
         return c
     }
-    public static func load(repoPath: String) -> RepoConfig {
-        parse((try? String(contentsOfFile: repoPath + "/.kelp.yaml", encoding: .utf8)) ?? "")
-    }
+    /// One of its commands as the shell gets it.
+    public func shell(_ command: String) -> String { prelude + command }
 }
 
 /// Prompt templates for agent actions; a repo's `recipe.<name>` overrides the default.

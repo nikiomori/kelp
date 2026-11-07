@@ -63,7 +63,7 @@ extension Main {
             let r = try await c.call(try JSONValue.object(p).decode(TaskFromIssue.self))
             print("\(r.worktree.branch)  \(r.worktree.path)")
             if !has("--send") { print("The issue's text is typed into the agent, not sent: look it over in Kelp and press Return.") }
-            if r.setupNeedsTrust { print("Its .kelp.yaml setup didn't run: open the project in Kelp to look at it and trust it.") }
+            if r.setupNeedsTrust { print("Its setup didn't run: open the project in Kelp to look at its commands and trust them.") }
         case ("linear", "tasks"):
             for x in try await c.call(LinearIssues()) { print("\(x.identifier)  [\(x.state.name)]  \(x.title)") }
         case ("linear", "login"):

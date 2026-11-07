@@ -14,8 +14,9 @@ final class RunState {
     }
     /// Workspace → what its files offer.
     var found: [String: RunDetect.Result] = [:]
-    /// Workspace → its .kelp.yaml's commands.
+    /// Workspace → its .kelp.yaml's commands, and the file they come from when it's another tool's (`.conductor/settings.toml`).
     var kelp: [String: [ScriptsList.Script]] = [:]
+    var kelpFile: [String: String] = [:]
     /// Session → what it runs.
     var active: [String: Run] = [:]
     /// Pages printed before run.start answered with their session.
@@ -357,7 +358,7 @@ extension ScriptsMenu {
     /// Where a command comes from, in a word: its program ("make", "npm", "uv", "compose", ".kelp.yaml") and its folder.
     static func source(_ r: Row) -> String {
         let words = r.command.split(separator: " ").map(String.init)
-        var tool = r.file == ".kelp.yaml" ? ".kelp.yaml" : words.first ?? ""
+        var tool = r.id.hasPrefix("kelp:") ? r.file : words.first ?? ""
         if tool == "docker", words.dropFirst().first == "compose" { tool = "compose" }
         if tool.hasPrefix(".venv/") { tool = "venv" }
         if tool.hasPrefix("./") { tool = String(tool.dropFirst(2)) }
@@ -409,7 +410,7 @@ extension ScriptsMenu {
         let live = Dictionary(running(in: wid).compactMap { sid in app.session(sid).flatMap(choice(of:)).map { ($0, sid) } }) { a, _ in a }
         let kinds = ["run": "run", "test": "test", "build": "build", "lint": "lint"]
         let kelp = (state.kelp[wid] ?? []).map {
-            Row(id: "kelp:" + $0.name, name: $0.name, command: $0.command, kind: kinds[$0.name] ?? "other", file: ".kelp.yaml")
+            Row(id: "kelp:" + $0.name, name: $0.name, command: $0.command, kind: kinds[$0.name] ?? "other", file: state.kelpFile[wid] ?? ".kelp.yaml")
         }
         let found = (state.found[wid]?.options ?? []).map { o in
             Row(id: o.id, name: o.kind == "install" ? String(localized: "Install") : o.name, command: o.command, detail: o.detail,

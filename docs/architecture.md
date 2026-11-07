@@ -298,7 +298,8 @@ folder in `extensions.trusted`, which only the window writes), and kelpd checks 
 **Not trusted: what came from someone else** — a cloned repository's files and branches, a pull request, an issue or
 review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the user:
 - `.kelp.yaml` runs nothing (setup, tabs, shared links, recipes, issueCommand) until the user trusts that exact text,
-  shown in Kelp's window; only the KelpApp next to the daemon may grant it (`scripts.trust`, checked by the connecting
+  shown in Kelp's window. The same holds for another tool's file read in its place (`ImportedConfig`: Conductor, Codex,
+  Cursor…); only the KelpApp next to the daemon may grant it (`scripts.trust`, checked by the connecting
   program), so a repository's script or an agent's casual call can't.
 - What a project's other files offer to run (package.json scripts, Makefile targets, compose services… `run.detect`)
   runs only when the user picks it in the run list or presses ⌘R after picking it once, with the command shown; opening
