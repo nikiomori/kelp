@@ -288,10 +288,15 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
 
     /// The program in the foreground when it isn't the one the PTY started (a shell running `npm run dev`, vim…).
     public var foregroundProgram: String? {
-        let pg = phase.withLock { $0.open ? tcgetpgrp(primaryFD) : -1 }
-        guard pg > 0, pg != pid else { return nil }
+        guard let pg = foregroundGroup else { return nil }
         var name = [CChar](repeating: 0, count: 256)
         return proc_name(pg, &name, UInt32(name.count)) > 0 ? String(cBuffer: name) : "a program"
+    }
+
+    /// The foreground's process group (its leader's pid) when it isn't the program the PTY started.
+    public var foregroundGroup: pid_t? {
+        let pg = phase.withLock { $0.open ? tcgetpgrp(primaryFD) : -1 }
+        return pg > 0 && pg != pid ? pg : nil
     }
 
     public func resize(cols: UInt16, rows: UInt16) {

@@ -94,3 +94,14 @@ private let env = ProcessInfo.processInfo.environment
     #expect(Subprocess.parent(getpid()) == getppid() && Subprocess.owner(getpid()) == getuid())
     #expect(Subprocess.parent(999_999) == nil)
 }
+
+/// Arguments longer than the first read's buffer are read whole: the system fills a short buffer with their tail.
+@Test func longArgumentsAreReadWhole() throws {
+    let long = String(repeating: "x", count: 20_000)
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    p.arguments = ["5", long]   // sleep reads its first; the rest is only there to be read back
+    try p.run()
+    defer { p.terminate() }
+    #expect(Subprocess.arguments(p.processIdentifier) == ["/bin/sleep", "5", long])
+}

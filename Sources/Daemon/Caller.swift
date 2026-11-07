@@ -24,6 +24,12 @@ enum Caller: Hashable, Sendable {
     /// goes on to that terminal's session (`lineage`), and is held to an agent's rules (`forAnAgent`).
     static let typed = "typed:"
 
+    /// The session an origin (or a `madeBy`) names: a session's id, or the terminal's of a `typed:` one; nil for a mark.
+    static func session(of origin: String?) -> String? {
+        guard let origin, !marks.contains(origin) else { return nil }
+        return origin.hasPrefix(typed) ? String(origin.dropFirst(typed.count)) : origin
+    }
+
     /// The marks `origin` records for a caller with no session: never a session's id (a UUID), and where a line stops.
     static let marks: Set<String> = [Sessions.ownProgram, Sessions.unknown, Sessions.detached]
 

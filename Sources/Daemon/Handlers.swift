@@ -175,7 +175,7 @@ extension Daemon {
             try allowAgent(m, own: own)
         case .typedAgent(let own):
             if let id = m.reportsFor, own != id { throw RPCError.invalidParams("A session speaks only for itself.") }
-            try allowAgent(m, own: own)
+            try allowAgent(m, own: own, typed: true)
         case .unknown:
             // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
             // connection on, which is how a program would speak for a session not its own.
@@ -200,7 +200,12 @@ extension Daemon {
     }
 
     /// What a program of an agent's (or of the daemon's, `own` = `Sessions.ownProgram`) may not do.
-    private func allowAgent(_ m: any Answered, own: String) throws {
+    /// `typed`: an agent the user typed into `own`, a terminal of theirs: what it reaches is what it started there
+    /// (`typed:` on its line), not everything the user started from that terminal.
+    private func allowAgent(_ m: any Answered, own: String, typed: Bool = false) throws {
+        func reaches(_ id: String) throws -> Bool {
+            try sessions.lineage(id).contains { typed ? $0.origin == Caller.typed + own : $0.id == own }
+        }
         if let refusal = m.notForAgents { throw RPCError.invalidParams(refusal) }
         if m.answersQuestion {
             throw RPCError.invalidParams("An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs.")
@@ -213,14 +218,14 @@ extension Daemon {
             throw RPCError.invalidParams("That session asks a question, the user's to answer; `kelp session send` types once it's answered.")
         }
         for id in Set([m.actsOn].compactMap { $0 } + (try sessions.named(by: m))) where id != own {
-            guard try sessions.lineage(id).contains(where: { $0.id == own }) else {
+            guard try reaches(id) else {
                 throw RPCError.invalidParams("An agent acts only on its own session and the sessions it started.")
             }
         }
         if let w = m.inWorkspace, try !sessions.works(own, in: w) {
             throw RPCError.invalidParams("An agent works only in its own workspace.")
         }
-        if let e = m.ends, try sessions.ending(e).contains(where: { s in try !sessions.lineage(s).contains { $0.id == own } }) {
+        if let e = m.ends, try sessions.ending(e).contains(where: { s in try s != own && !reaches(s) }) {
             throw RPCError.invalidParams("An agent ends only its own sessions and the ones it started.")
         }
     }

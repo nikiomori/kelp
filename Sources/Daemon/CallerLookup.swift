@@ -36,11 +36,16 @@ final class Callers: Sendable {
     func session(running pid: pid_t, throughTmux: Bool = true) -> Caller {
         guard pid == getpid() || Subprocess.parent(pid) != nil else { return .unknown }
         guard pid != getpid() else { return .user }
-        let mine = Dictionary(live.all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
+        let all = live.all
+        let mine = Dictionary(all.map { ($0.pty.pid, $0.snapshot.id) }) { a, _ in a }
+        let agents = Set(all.filter { $0.snapshot.isAgent }.map(\.snapshot.id))
         let strict = self.strict.withLock { $0 }
         var p = pid, chain: [pid_t] = [], underAgent = false
         // Under an agent the user ran by hand (`claude` typed in a shell, a tmux pane, Terminal): that agent's, not theirs.
-        func of(_ id: String) -> Caller { underAgent ? .typedAgent(id) : .session(id) }
+        // Not in a session Kelp started an agent in, which is that agent's already (its own programs, a wrapper's child).
+        func of(_ id: String) -> Caller {
+            underAgent && !agents.contains(id) ? .typedAgent(id) : .session(id)
+        }
         for _ in 0..<64 {
             if let id = mine[p] { return of(id) }
             if Subprocess.isRunning(p) { return .kelpd }
@@ -53,7 +58,12 @@ final class Callers: Sendable {
             p = up
         }
         let ttys = Set(chain.compactMap(Subprocess.terminal))
-        if let s = live.all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) { return of(s.snapshot.id) }
+        if let s = all.first(where: { Subprocess.terminal($0.pty.pid).map(ttys.contains) == true }) {
+            // Left its line (`&`, `nohup`) with the terminal still its own: while an agent holds that terminal's foreground,
+            // it's that agent's leftover as likely as not, and held to its rules.
+            if !underAgent, let fg = s.pty.foregroundGroup, Self.runsAnAgent(fg) { underAgent = true }
+            return of(s.snapshot.id)
+        }
         let daemon = getsid(0)   // a test's in-process daemon leads no session: then none of this
         if daemon == getpid(), getsid(pid) == daemon { return .kelpd }
         if throughTmux, let server = chain.last, Unix.executable(server).map({ URL(fileURLWithPath: $0).lastPathComponent }) == "tmux" {
@@ -69,9 +79,9 @@ final class Callers: Sendable {
     }
 
     /// The programs of the agents Kelp knows (its presets'), by the name they're run as.
-    static var agentPrograms: Set<String> {
+    static let agentPrograms: Set<String> = {
         Set(AgentManifest.presets.filter { !["shell", "custom"].contains($0.id) }.map { URL(fileURLWithPath: $0.command).lastPathComponent })
-    }
+    }()
 
     /// Whether `pid` is one of those: by the name it was run as (`claude`, whose file is named for its version), or the
     /// script an interpreter runs (`node …/codex`, `python3 …/aider`).
@@ -80,8 +90,9 @@ final class Callers: Sendable {
         func interpreter(_ n: String) -> Bool { ["node", "bun", "deno", "ruby"].contains(n) || n.hasPrefix("python") }
         guard let argv = Subprocess.arguments(pid), let first = argv.first.map({ URL(fileURLWithPath: $0).lastPathComponent }) else { return false }
         guard interpreter(first) else { return agents.contains(first) }
-        let script = argv.dropFirst().first { !$0.hasPrefix("-") }.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
-        return script.map(agents.contains) == true
+        // The script is the first argument that is a file (`node --require x …/codex` runs codex, not x).
+        let script = argv.dropFirst().first { !$0.hasPrefix("-") && FileManager.default.fileExists(atPath: $0) }
+        return script.map { agents.contains(URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent) } == true
     }
 
     /// An ancestor that only the user's own login or an app starts: Kelp's window (its terminals' `kelp attach`), one of

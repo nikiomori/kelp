@@ -378,11 +378,35 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func whatATypedAgentStartsIsHeldToItsRules() async throws {
     let r = try await rig(); defer { r.d.stop() }
     let term = try await session(r, "cat")
-    var started = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", agent: nil, title: "", titleManual: false, argv: ["cat"])
+    var started = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
     started.origin = Caller.typedAgent(term.id).origin
     try r.d.sessions.store.save(started)
     #expect(try !r.d.sessions.forAnAgent(term.id))   // the terminal itself: the user's, but for what runs under the agent
     #expect(try r.d.sessions.forAnAgent(started.id))
     #expect(try r.d.sessions.lineage(started.id).contains { $0.id == term.id })
     #expect(throws: Never.self) { try r.d.allow(SessionKill(id: started.id), conn: 0, caller: .typedAgent(term.id)) }
+    // What the user started from that terminal themselves isn't the agent's.
+    var theirs = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
+    theirs.origin = term.id
+    try r.d.sessions.store.save(theirs)
+    #expect(throws: (any Error).self) { try r.d.allow(SessionKill(id: theirs.id), conn: 0, caller: .typedAgent(term.id)) }
+}
+
+/// A job an agent typed into a terminal left behind (`&`, its line cut at launchd, the terminal still its) is held to the
+/// agent's rules while that agent holds the terminal's foreground.
+@Test func aJobLeftByATypedAgentIsHeldToItsRules() async throws {
+    let r = try await rig(); defer { r.d.stop() }
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(UUID().uuidString.prefix(6))")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    try FileManager.default.createSymbolicLink(atPath: dir.appendingPathComponent("claude").path, withDestinationPath: "/bin/zsh")
+    let out = dir.appendingPathComponent("pid")
+    let term = try await session(r, "exec /bin/zsh -f -i")
+    _ = try await r.c.call(SessionWrite(id: term.id, text: "(sleep 30 & echo $! > \(out.path))\n"))
+    #expect(try await waitFor(10) { (try? String(contentsOf: out, encoding: .utf8)).flatMap { pid_t($0.trimmingCharacters(in: .whitespacesAndNewlines)) } != nil })
+    let job = try #require(pid_t(String(contentsOf: out, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)))
+    defer { kill(job, SIGTERM) }
+    #expect(r.d.sessions.callers.session(running: job) == .session(term.id))   // the shell in front: the user's
+    _ = try await r.c.call(SessionWrite(id: term.id, text: "\(dir.path)/claude -c 'sleep 30; :'\n"))
+    #expect(try await waitFor(10) { r.d.sessions.callers.session(running: job) == .typedAgent(term.id) })
 }

@@ -78,7 +78,7 @@ extension Sessions {
         var line: [Session] = [], next: String? = id
         while let n = next, !Caller.marks.contains(n), line.count < 32, !line.contains(where: { $0.id == n }), let s = try store.session(n) {
             line.append(s)
-            next = (s.parent ?? s.startedBy ?? s.origin).map { $0.hasPrefix(Caller.typed) ? String($0.dropFirst(Caller.typed.count)) : $0 }
+            next = s.parent ?? s.startedBy ?? s.origin.flatMap { Caller.session(of: $0) ?? $0 }
         }
         return line
     }
@@ -200,13 +200,19 @@ extension Sessions {
     /// A restart is a new session in the old one's place: its children stay its children (and what it started, its own),
     /// and what it hadn't typed is the new one's to type. `owed`: what was taken from the old one as it stopped.
     func passChildren(of old: String, to new: String, owed: [OwedInput]) throws {
+        // What an agent typed into it started (`typed:`) and the workspaces it or one made, too.
+        let typedOld = Caller.typed + old, typedNew = Caller.typed + new
         let pass: @Sendable (inout Session) -> Void = { s in
             if s.parent == old { s.parent = new }
             if s.startedBy == old { s.startedBy = new }
-            if s.origin == old { s.origin = new }
+            if s.origin == old { s.origin = new } else if s.origin == typedOld { s.origin = typedNew }
         }
-        for c in try store.sessions() where [c.parent, c.startedBy, c.origin].contains(old) {
+        for c in try store.sessions() where [c.parent, c.startedBy, c.origin].contains(old) || c.origin == typedOld {
             if let ls = existing(c.id) { _ = ls.update(pass); publish(ls) } else { try change(c.id, pass) }
+        }
+        for var w in try store.worktrees() where w.madeBy == old || w.madeBy == typedOld {
+            w.madeBy = w.madeBy == old ? new : typedNew
+            try store.save(w)
         }
         existing(new)?.giveBack(owed + (existing(old)?.takeOwed() ?? []) + (try store.takeOwed(old)))
     }
