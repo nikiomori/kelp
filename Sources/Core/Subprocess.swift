@@ -144,11 +144,17 @@ public enum Subprocess {
         return info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec
     }
 
-    /// Its parent's pid; nil once there's no such process.
+    /// Its parent's pid; nil once there's no such process. By sysctl, which reads another account's process too
+    /// (proc_pidinfo doesn't): a line walked up through root's `login` goes on to the app above it.
     public static func parent(_ pid: pid_t) -> pid_t? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size ? pid_t(info.pbi_ppid) : nil
+        kinfo(pid).map { $0.kp_eproc.e_ppid }
+    }
+
+    private static func kinfo(_ pid: pid_t) -> kinfo_proc? {
+        var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
+        return info
     }
 
     /// Its controlling terminal's device; nil for none (a program started by launchd, or `setsid`), or no such process.
@@ -160,12 +166,7 @@ public enum Subprocess {
     }
 
     /// The user it runs as; nil once there's no such process. By sysctl: proc_pidinfo refuses another account's process.
-    public static func owner(_ pid: pid_t) -> uid_t? {
-        var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.stride
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
-        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
-        return info.kp_eproc.e_ucred.cr_uid
-    }
+    public static func owner(_ pid: pid_t) -> uid_t? { kinfo(pid).map { $0.kp_eproc.e_ucred.cr_uid } }
 
     /// Ended, not reaped yet: nothing left to stop.
     public static func isZombie(_ pid: pid_t) -> Bool {

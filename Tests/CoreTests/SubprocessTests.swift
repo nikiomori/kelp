@@ -84,3 +84,13 @@ private let env = ProcessInfo.processInfo.environment
     #expect(p.terminationReason == .uncaughtSignal && p.terminationStatus == SIGKILL)
     #expect(Subprocess.started(pid) == nil)
 }
+
+/// A process's parent and owner are read for another account's process too (root's `login` under a terminal): a line
+/// walked up from a terminal goes on past it to the app.
+@Test func anotherAccountsProcessHasItsParentAndOwnerRead() throws {
+    let r = try Subprocess.run(["/usr/bin/pgrep", "-U", "0", "-x", "syslogd"], cwd: "/", env: [:], timeLimit: 5)
+    let pid = try #require(pid_t(String(decoding: r.stdout, as: UTF8.self).split(separator: "\n").first ?? ""))
+    #expect(Subprocess.parent(pid) == 1 && Subprocess.owner(pid) == 0)
+    #expect(Subprocess.parent(getpid()) == getppid() && Subprocess.owner(getpid()) == getuid())
+    #expect(Subprocess.parent(999_999) == nil)
+}
