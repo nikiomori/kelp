@@ -72,8 +72,8 @@ struct ProjectLook: Equatable {
 
 extension AppModel {
     var projectLook: ProjectLook {
-        var colors = projectColors
-        if let p = colorPreview { colors[p.project] = p.color }
+        var colors = arrangement.projectColors
+        if let p = arrangement.colorPreview { colors[p.project] = p.color }
         return ProjectLook(style: ProjectColorStyle(rawValue: settings.string("workbench.sidebar.projectColor") ?? "") ?? .icon, colors: colors)
     }
 

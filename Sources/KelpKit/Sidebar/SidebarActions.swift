@@ -20,7 +20,7 @@ extension SidebarController {
 
     /// What rows draw from the app's own state: a mute's bell, a project's colour.
     func followRowLooks() {
-        track(owner: self) { [app] in app.mutes } changed: { [weak self] _ in self?.updateVisibleCells() }
+        track(owner: self) { [app] in app.arrangement.mutes } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.projectLook } changed: { [weak self] _ in self?.updateVisibleCells() }
     }
 
@@ -77,7 +77,7 @@ extension SidebarController {
 
     func menuDidClose(_ menu: NSMenu) {
         outline.menuClosed()
-        app.colorPreview = nil
+        app.arrangement.colorPreview = nil
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -189,11 +189,12 @@ extension SidebarController {
     }
 
     private func colorItem(_ menu: NSMenu, _ id: String) {
-        let app = self.app, now = app.projectColors[id]
-        func pick(_ c: ProjectColor?) { app.projectColors[id] = c }
+        let app = self.app, now = app.arrangement.projectColors[id]
+        func pick(_ c: ProjectColor?) { app.arrangement.projectColors[id] = c }
         guard NSWorkspace.shared.isVoiceOverEnabled || NSApp.isFullKeyboardAccessEnabled else {
             let row = menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: "")
-            row.view = ColorSwatches(chosen: now, previewing: { app.colorPreview = (id, $0) }, left: { app.colorPreview = nil }, pick: pick)
+            let a = app.arrangement
+            row.view = ColorSwatches(chosen: now, previewing: { a.colorPreview = (id, $0) }, left: { a.colorPreview = nil }, pick: pick)
             return
         }
         let shades = NSMenu()

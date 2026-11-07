@@ -37,11 +37,12 @@ extension AppModel {
     package func latest<E: Pushed>(_ t: E.Type, _ key: String = "") -> E? { latest(t).byKey[key] }
 
     /// Kept as the latest of its kind, if it differs (each change re-renders its readers): whether it did.
-    @discardableResult package func land<E: Pushed>(_ e: E) -> Bool {
+    /// Only what the daemon pushed (`watched`) and the shell's own refresh: a built-in asks again (`watchAgain`) rather than
+    /// writing its own copy, so the store holds one source.
+    @discardableResult func land<E: Pushed>(_ e: E) -> Bool {
         let box = latest(E.self)
         guard e.replaces(box.byKey[e.key]) else { return false }
         box.byKey[e.key] = e
-        box.landed.forEach { $0(e) }
         return true
     }
 
@@ -75,11 +76,6 @@ extension AppModel {
         if let id = e.session { removed(session: id) }
     }
 
-    /// The machine `session` runs a command in (`kelp vm run`): its row's chip says so.
-    func machine(runningFor session: String) -> String? {
-        latest(MachinesEvent.self)?.machines.first { $0.sessions?.contains(session) == true }?.machine.name
-    }
-
     /// The context ring of every agent that hasn't ended: watched while it runs, let go when it ends.
     func syncContextWatches() {
         let want = Set(sessions.filter { $0.agent != "shell" && $0.status != .exited }.map(\.id))
@@ -94,9 +90,6 @@ extension AppModel {
 @Observable
 package final class Latest<E: Pushed> {
     package var byKey: [String: E] = [:]
-    /// What its owner does with each new one beside showing it (a forecast taking a reading): asked by the owner, so the
-    /// shell names no kind.
-    @ObservationIgnored package var landed: [(E) -> Void] = []
 }
 
 /// One key of a topic watched at a time (the workspace a panel shows): set `key`, nil lets go; so does the owner going.

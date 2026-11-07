@@ -199,7 +199,7 @@ extension OneAtATime {
         vc.menuNeedsUpdate(menu)
         let color = try #require(menu.items.first { $0.title == "Color" })   // a row of dots, or a submenu for the keyboard
         if let dots = color.view as? ColorSwatches { dots.pick(.blue) } else { color.submenu?.performActionForItem(at: color.submenu?.indexOfItem(withTitle: "Blue") ?? 0) }
-        #expect(vc.app.projectColors["r1"] == .blue)
+        #expect(vc.app.arrangement.projectColors["r1"] == .blue)
         vc.placeCards()
         #expect(vc.cards.isEmpty)                   // on its icon: the row stays plain
         #expect(vc.app.iconColor(folder: here.path) == .blue)
@@ -207,11 +207,11 @@ extension OneAtATime {
         vc.placeCards()
         #expect(vc.cards["p:r1"]?.look.color == .blue)
         #expect(vc.app.iconColor(folder: here.path) == nil)
-        vc.app.colorPreview = ("r1", nil)           // the dot under the pointer: shown, not kept
+        vc.app.arrangement.colorPreview = ("r1", nil)           // the dot under the pointer: shown, not kept
         vc.placeCards()
         #expect(vc.cards.isEmpty)
-        vc.app.colorPreview = nil
-        #expect(vc.app.projectColors["r1"] == .blue)
+        vc.app.arrangement.colorPreview = nil
+        #expect(vc.app.arrangement.projectColors["r1"] == .blue)
         #expect(ProjectColor.read(.obj(["r1": .string("a colour a later build dropped")])).isEmpty)
     }
 }

@@ -29,8 +29,6 @@ extension CommandsEvent: Pushed { package var key: String { session }; package s
 extension SubagentsEvent: Pushed { package var key: String { session }; package static var forgottenWith: WatchTopic? { .subagents } }
 extension RoutinesEvent: Pushed { package var key: String { "" }; package static var forgottenWith: WatchTopic? { nil } }   // always pushed
 extension HostEvent: Pushed { package var key: String { stats.host }; package static var forgottenWith: WatchTopic? { nil } }
-extension MachinesEvent: Pushed { package var key: String { "" }; package static var forgottenWith: WatchTopic? { nil } }
-extension MachineEvent: Pushed { package var key: String { name }; package static var forgottenWith: WatchTopic? { .machineDetail } }
 extension ContextEvent: Pushed {
     package var key: String { session }
     package static var forgottenWith: WatchTopic? { .context }

@@ -14,9 +14,13 @@ package final class AppModel {
     @ObservationIgnored let builtins: [Builtin]
     init(builtins: [Builtin] = []) {
         self.builtins = builtins
-        // What the shell does with a new reading of these, beside showing it: their owners' hooks (`Latest.landed`).
-        latest(LimitsEvent.self).landed.append { [weak self] in self?.forecast.record($0.usage) }
-        latest(CIEvent.self).landed.append { [weak self] in self?.followParked($0) }
+        // What the shell does with a new reading of these beside showing it, followed as any view follows them.
+        track(owner: self) { [weak self] in self?.latest(LimitsEvent.self)?.usage } changed: { [weak self] in
+            if let u = $0 { self?.forecast.record(u) }
+        }
+        track(owner: self) { [weak self] in self?.latest(CIEvent.self).byKey } changed: { [weak self] in
+            $0?.values.forEach { self?.followParked($0) }
+        }
     }
 
     @ObservationIgnored private(set) package lazy var workbench = Workbench(app: self)
@@ -86,22 +90,12 @@ package final class AppModel {
     /// Projects as the sidebar lists them: by name, unless dragged into another order, and No Project last.
     var projects: [Repo] { ordered(repos.filter { !NoProject.holds($0) }) + repos.filter(NoProject.holds) }
 
-    /// Project and workspace ids in the order they were dragged into in the sidebar; ones never moved follow them.
-    var order: [String] = [] { didSet { uiState["sidebar.order"] = try? .from(order) } }
-    /// Rows told to keep quiet: id → until when (`Mutes`).
-    var mutes: [String: Date] = [:] { didSet { uiState[Mutes.key] = Mutes.value(mutes) } }
-    /// Agents parked: id → until when (`Parking`).
-    var parked: [String: Date] = [:] { didSet { uiState[Parking.key] = Mutes.value(parked); endParksOnTime() } }
-    /// Why a parked agent came back, on its row until it's opened.
-    var parkedBack: [String: String] = [:]
-    /// Each project's colour, by id.
-    var projectColors: [String: ProjectColor] = [:] { didSet { uiState[ProjectColor.key] = ProjectColor.value(projectColors) } }
-    /// What the dot under the pointer in a project's menu would make of it: shown, not kept.
-    var colorPreview: (project: String, color: ProjectColor?)?
+    /// How the user arranged the sidebar: its own observed model, not the daemon's mirror (`Arrangement`).
+    @ObservationIgnored private(set) lazy var arrangement = Arrangement(app: self)
     /// Puts these (siblings) in this order.
-    func reorder(_ ids: [String]) { order = ids + order.filter { !ids.contains($0) } }
+    func reorder(_ ids: [String]) { arrangement.order = ids + arrangement.order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {
-        let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
+        let rank = Dictionary(arrangement.order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
         return xs.enumerated().sorted { (rank[$0.1.id] ?? .max, $0.0) < (rank[$1.1.id] ?? .max, $1.0) }.map(\.1)
     }
 
@@ -207,10 +201,11 @@ package final class AppModel {
         // tries again rather than load lists over a connection that's gone.
         guard client === c else { return reconnectSoon() }
         await uiState.load()
-        if uiState.strings("sidebar.order") != order { order = uiState.strings("sidebar.order") }
-        if Mutes.read(uiState[Mutes.key]) != mutes { mutes = Mutes.read(uiState[Mutes.key]) }
-        if Mutes.read(uiState[Parking.key]) != parked { parked = Mutes.read(uiState[Parking.key]) }
-        if ProjectColor.read(uiState[ProjectColor.key]) != projectColors { projectColors = ProjectColor.read(uiState[ProjectColor.key]) }
+        if uiState.strings("sidebar.order") != arrangement.order { arrangement.order = uiState.strings("sidebar.order") }
+        if Mutes.read(uiState[Mutes.key]) != arrangement.mutes { arrangement.mutes = Mutes.read(uiState[Mutes.key]) }
+        if Mutes.read(uiState[Parking.key]) != arrangement.parked { arrangement.parked = Mutes.read(uiState[Parking.key]) }
+        let colors = ProjectColor.read(uiState[ProjectColor.key])
+        if colors != arrangement.projectColors { arrangement.projectColors = colors }
         await settings.load()
         await refresh()
         connected = client === c   // after the lists: what waits for the connection finds the projects in

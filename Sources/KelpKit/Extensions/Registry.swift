@@ -209,6 +209,12 @@ package struct TabProvider {
 }
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
+/// A mark on a session's row: an SF Symbol and what it says.
+package struct SessionMark: Equatable {
+    package let symbol: String, tip: String
+    package init(symbol: String, tip: String) { self.symbol = symbol; self.tip = tip }
+}
+
 /// A block of a built-in's own in the sidebar, under the projects (Machines): its view, made when the sidebar is.
 package struct SidebarSection {
     package let id: String
@@ -228,6 +234,9 @@ package struct Contributions {
     package var tabs: [TabProvider] = []
     /// Blocks of its own in the sidebar, under the projects (Machines), made when the sidebar is and only while it's on.
     package var sidebarSections: [SidebarSection] = []
+    /// A mark on an agent's sidebar row for where it runs something of the built-in's (a machine): the first that has one
+    /// shows, when the row has no goal or command of its own to show. Read under observation: it must not do work.
+    package var sessionMarks: [@MainActor (Session) -> SessionMark?] = []
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
 }
@@ -305,6 +314,7 @@ package final class ExtensionRegistry {
             merged.tabs += c.tabs
             merged.languages += c.languages
             merged.sidebarSections += c.sidebarSections
+            merged.sessionMarks += c.sessionMarks
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil)) ?? [] where Self.isFolder(folder) {

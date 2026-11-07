@@ -34,15 +34,15 @@ enum Mutes {
 }
 
 extension AppModel {
-    func isMuted(_ s: Session) -> Bool { Mutes.covers(mutes, [s.id, s.worktreeId, worktree(s.worktreeId)?.repoId]) }
+    func isMuted(_ s: Session) -> Bool { Mutes.covers(arrangement.mutes, [s.id, s.worktreeId, worktree(s.worktreeId)?.repoId]) }
 
     /// When these rows' own mute ends; nil: they aren't.
-    func mutedUntil(_ ids: [String]) -> Date? { ids.compactMap { mutes[$0] }.filter { $0 > Date() }.max() }
+    func mutedUntil(_ ids: [String]) -> Date? { ids.compactMap { arrangement.mutes[$0] }.filter { $0 > Date() }.max() }
 
     /// nil unmutes. What ran out, and rows that are gone (a closed workspace, an ended agent), leave with each change.
     func mute(_ ids: [String], until: Date?) {
-        var m = mutes.filter { id, end in end > Date() && (session(id) != nil || worktree(id) != nil || repo(id) != nil) }
+        var m = arrangement.mutes.filter { id, end in end > Date() && (session(id) != nil || worktree(id) != nil || repo(id) != nil) }
         for id in ids { m[id] = until }
-        mutes = m
+        arrangement.mutes = m
     }
 }

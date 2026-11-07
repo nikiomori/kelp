@@ -375,7 +375,7 @@ final class SidebarCell: NSTableCellView {
             // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
             let quiet = Self.shownStatus(s) == .working ? s.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
             trailing.stringValue = [.waiting, .error].contains(Self.shownStatus(s)) ? shortAgo(s.statusAt ?? s.createdAt)
-                : m.parked[sid].flatMap { m.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
+                : m.arrangement.parked[sid].flatMap { m.isParked(sid) ? Parking.until($0) : nil } ?? quiet ?? picked
             alphaValue = m.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
             family.show(m.sessions.children(of: sid), running: s.runningSubagents, finished: s.finishedSubagents)
             showChip(s)
@@ -460,15 +460,15 @@ final class SidebarCell: NSTableCellView {
     /// command in (`kelp vm run`). Words have no room here: a name and a chip shared the same points, and a command mostly
     /// ended before it could be read. The tooltip and the card say them.
     private func showChip(_ s: Session) {
-        let beside = s.aside.count, machine = beside == 0 ? app.machine(runningFor: s.id) : nil
+        let beside = s.aside.count, mark = beside == 0 ? app.extensions.all.sessionMarks.lazy.compactMap({ $0(s) }).first : nil
         // Beside the dots there's no room for both it and the name: the card lists what it says.
-        chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0 && machine == nil)
+        chip.isHidden = !family.isHidden || (s.goal == nil && beside == 0 && mark == nil)
         if let g = s.goal {
             chip.show("scope")
             chip.toolTip = String(localized: "Goal: \(g)")
         } else {
-            chip.show(machine == nil ? "apple.terminal" : "shippingbox", count: beside)
-            chip.toolTip = machine.map { String(localized: "Runs a command in \($0)") } ?? s.backgroundTip
+            chip.show(mark?.symbol ?? "apple.terminal", count: beside)
+            chip.toolTip = mark?.tip ?? s.backgroundTip
         }
         chip.setAccessibilityLabel(chip.toolTip)
     }
@@ -528,7 +528,7 @@ extension SidebarCell {
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ s: Session) {
         let line = Self.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
-                             back: app.parkedBack[s.id])
+                             back: app.arrangement.parkedBack[s.id])
         setAsk(line)
     }
 

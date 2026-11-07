@@ -117,7 +117,7 @@ import WorkbenchKit
     #expect(m.isParked(s.id) && m.parkedIds == [s.id])
     s.status = .waiting
     m.followParked(s)
-    #expect(!m.isParked(s.id) && m.parkedBack[s.id] == "it asks you something")
+    #expect(!m.isParked(s.id) && m.arrangement.parkedBack[s.id] == "it asks you something")
     m.park(s.id, until: Date().addingTimeInterval(-1))   // a time that passed counts no more
     #expect(!m.isParked(s.id))
 }
@@ -184,9 +184,9 @@ import WorkbenchKit
 @Test @MainActor func aTimedParkEndsOnTime() async throws {
     let m = AppModel()
     m.park("s1", until: Date().addingTimeInterval(0.3))
-    #expect(m.parked["s1"] != nil)
-    #expect(try await waitFor(5) { !(m.parked["s1"] != nil) })
-    #expect(m.parked["s1"] == nil)
+    #expect(m.arrangement.parked["s1"] != nil)
+    #expect(try await waitFor(5) { !(m.arrangement.parked["s1"] != nil) })
+    #expect(m.arrangement.parked["s1"] == nil)
 }
 
 /// The Issues panel shows the list last asked for: the slower reply of a filter left behind (All open, then Mine) used

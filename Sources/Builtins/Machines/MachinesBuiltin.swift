@@ -16,6 +16,15 @@ extension Builtins {
             v.sizingOptions = [.intrinsicContentSize]
             return v
         }]
+        // An agent running a command in a machine (`kelp vm run`) says so on its row.
+        c.sessionMarks = [{ s in
+            app.machineList.first { $0.sessions?.contains(s.id) == true }
+                .map { SessionMark(symbol: "shippingbox", tip: String(localized: "Runs a command in \($0.machine.name)")) }
+        }]
         return c
     }
 }
+
+// How the app keeps what the daemon pushes about machines: Machines' own kinds, not the shell's.
+extension MachinesEvent: Pushed { package var key: String { "" }; package static var forgottenWith: WatchTopic? { nil } }
+extension MachineEvent: Pushed { package var key: String { name }; package static var forgottenWith: WatchTopic? { .machineDetail } }

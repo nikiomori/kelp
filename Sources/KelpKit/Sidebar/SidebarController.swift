@@ -139,9 +139,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.repos } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.scripts.shown } changed: { [weak self] _ in self?.refresh() }
-        track(owner: self) { [app] in app.order } changed: { [weak self] _ in self?.refresh() }
-        track(owner: self) { [app] in app.parked } changed: { [weak self] _ in self?.refresh() }
-        track(owner: self) { [app] in app.parkedBack } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in app.arrangement.order } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in app.arrangement.parked } changed: { [weak self] _ in self?.refresh() }
+        track(owner: self) { [app] in app.arrangement.parkedBack } changed: { [weak self] _ in self?.refresh() }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.syncSelection(); self?.updateCard() }
         track(owner: self) { [app] in app.workbench.page } changed: { [weak self] _ in self?.syncSelection() }
         track(owner: self) { [app] in app.workbench.focusedTab } changed: { [weak self] _ in self?.syncSelection() }
@@ -149,8 +149,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         track(owner: self) { [app] in app.latest(HostEvent.self).byKey } changed: { [weak self] _ in self?.updateHeaders() }
         track(owner: self) { [app] in app.rowBadges.prs } changed: { [weak self] _ in self?.updateVisibleCells() }
         // Who runs in which machine: their CPU and memory (new every 5 s while one runs) aren't on the rows.
+        // The marks built-ins put on agents' rows (a machine one runs in), as they change.
         track(owner: self) { [app] in
-            (app.latest(MachinesEvent.self)?.machines ?? []).map { [$0.machine.name] + ($0.sessions ?? []) }
+            app.sessions.map { s in app.extensions.all.sessionMarks.compactMap { $0(s) } }
         } changed: { [weak self] _ in self?.updateVisibleCells() }
         track(owner: self) { [app] in app.rowBadges.sidebarMarks } changed: { [weak self] _ in self?.updateVisibleCells() }
         followRowLooks()
@@ -364,7 +365,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private func hasAsk(_ n: Node) -> Bool {
         guard case .agent(let id) = n.kind, let s = app.session(id) else { return false }
         return SidebarCell.line(s, mode: app.settings.string("workbench.sidebar.agentDetail") ?? "needsYou", among: app.sessions,
-                                back: app.parkedBack[id]) != nil
+                                back: app.arrangement.parkedBack[id]) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
     private func pads(_ n: Node) -> (top: CGFloat, bottom: CGFloat) {
@@ -470,7 +471,7 @@ extension SidebarController {
         guard !syncing, outline.selectedRowIndexes.count == 1, let node = outline.item(atRow: outline.selectedRow) as? Node else { return }
         switch node.kind {
         case .workspace(let id): app.workbench.show(workspace: id)
-        case .agent(let id): app.workbench.focus(session: id); app.parkedBack[id] = nil   // opened: its "Back:" line has been read
+        case .agent(let id): app.workbench.focus(session: id); app.arrangement.parkedBack[id] = nil   // opened: its "Back:" line has been read
         case .project:
             guard let id = node.workspace else { break }
             // Already there: the pill stays with the tab.

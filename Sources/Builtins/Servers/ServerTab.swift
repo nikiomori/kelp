@@ -95,12 +95,13 @@ struct ServerView: View {
         }
     }
 
-    /// Opens the shared connection (the watch only reads over one that's open) and shows the first reading.
+    /// Opens the shared connection (the watch only reads over one that's open), then has the watch read it now: its first
+    /// reading comes as every other does, pushed.
     private func dial() {
         guard !dialing else { return }
         dialing = true
         Task {
-            if let s = await app.quiet(HostStatsRead(host: host, connect: true)) { app.land(HostEvent(stats: s)) }
+            if await app.quiet(HostStatsRead(host: host, connect: true)) != nil { app.watchAgain(.hostDetail, host) }
             dialing = false
         }
     }

@@ -81,13 +81,16 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // What the built-ins may reach of the shell. It goes down when a built-in stops using one (that goes too), and up only
     // with a built-in feature that needs the shell, said beside the number: what the feature does itself stays in its
     // module, and the number counts what the shell had to open, not a goal it's kept under.
+    // Every `package` a declaration carries, wherever it stands in it (`private(set) package var`, `override package
+    // func`, a one-line extension's members), not only lines that start with one.
+    let token = try NSRegularExpression(pattern: #"\bpackage\s+(?:(?:static|final|override|lazy|nonisolated|convenience|required|init)\b|(?:func|var|let|class|struct|enum|protocol|typealias|subscript|actor)\b|init\b)"#)
     let declared = sources(["Sources/KelpKit"]).map { f in
-        codeOnly(f.text).split(separator: "\n").filter { $0.range(of: #"^\s*(@\w+(\([^)]*\))?\s+)*package\s"#, options: .regularExpression) != nil }.count
+        let code = codeOnly(f.text)
+        return token.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    // What built-ins may use of the shell: a budget that rises with a feature needing more of it (the store of pushed
-    // data and the watch that feeds it, 2026-11-08), said here; and the moment it falls, lowered, as a ratchet.
-    #expect(declared <= 286, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 286, "fewer now (\(declared)): lower the ceiling")
+    // Counted whole since 2026-11-08 (335; the line-start count said 286). Raised only with a reason beside it.
+    #expect(declared <= 335, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 335, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -542,13 +545,14 @@ private func codeOnly(_ s: String) -> String {
     #expect(found == [], "take it from what's handed down (`app`, `app.workbench`)")
 }
 
-/// What the daemon pushes for a watched topic lands in one store, `AppModel.latest(E.self)`, by the event's own
-/// `Pushed` conformance in Core: a new kind touches no file of the shell (no property, no case in a switch), so a
+/// What the daemon pushes for a watched topic lands in one store, `AppModel.latest(E.self)`, by the event's `Pushed`
+/// conformance (in KelpKit, or in the built-in whose kind it is): a new kind touches no file of the shell (no property, no case in a switch), so a
 /// feature's data needn't live in KelpKit. And the model's own observed state stays what every part reads: the
 /// connection, projects, workspaces, sessions and the sidebar's arrangement.
 @Test func pushedStateLandsInOneStore() throws {
     let watching = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/Watching.swift"), encoding: .utf8)
-    let kinds = try NSRegularExpression(pattern: #"\bas\??\s+\w+Event\b|case let \w+ as"#)
+    // Any kind named (`RPCEvent`, the protocol, and `RemovedEvent`, the records' own, aside).
+    let kinds = try NSRegularExpression(pattern: #"\b(?!RPCEvent\b|RemovedEvent\b)[A-Z]\w*Event\b|case let \w+ as"#)
     let code = codeOnly(watching)
     let named = kinds.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     #expect(named == 0, "event kinds named one by one in Watching.swift: \(named)")
@@ -564,8 +568,8 @@ private func codeOnly(_ s: String) -> String {
         guard let brace = l.firstIndex(of: "{") else { return true }   // `{ didSet` keeps it stored; any other brace: computed
         return l[brace...].contains("didSet") || l[brace...].contains("willSet")
     }
-    #expect(observed.count <= 13, "AppModel's observed stored properties: \(observed.count)")
-    #expect(observed.count >= 13, "fewer now: lower the ceiling to \(observed.count)")
+    #expect(observed.count <= 7, "AppModel's observed stored properties: \(observed.count)")
+    #expect(observed.count >= 7, "fewer now: lower the ceiling to \(observed.count)")
 }
 
 /// The shell doesn't know its built-ins: no id of one, nor of a panel or command one contributes, written in KelpKit as
