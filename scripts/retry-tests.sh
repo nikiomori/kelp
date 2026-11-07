@@ -13,7 +13,8 @@ failed=$(sed -nE 's/.*✘[^T]*Test ([^ (]+)\(.*failed after.*/\1/p' "$log" | sor
 known=$(sed -E 's/#.*//; s/[[:space:]]+//g; /^$/d' "$(dirname "$0")/../Tests/flaky.txt")
 unknown=$(comm -23 <(echo "$failed") <(echo "$known" | sort -u) | paste -sd' ' -)
 if [ -n "$unknown" ]; then echo "::error::Failed, and not known to be load-bound (Tests/flaky.txt): $unknown"; exit 1; fi
-list=$(echo "$failed" | paste -sd'|' -)
+# By whole name: a test's id ends `.<name>()`, so one name doesn't pick up others it's the start of.
+list="\.($(echo "$failed" | paste -sd'|' -))\("
 echo "::warning::Failed, running these once more: $list"
 "$@" --filter "$list" 2>&1 | tee "$log"
 [ "${PIPESTATUS[0]}" = 0 ] && ! grep -q 'WARNING: ThreadSanitizer' "$log"

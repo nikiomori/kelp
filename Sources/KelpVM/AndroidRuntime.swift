@@ -54,7 +54,11 @@ final class AndroidRuntime {
     private func handle(_ r: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         switch r.op {
         case .status: done(nil)
-        case .start where r.args == ["begin"]: lastUse = Date(); wake { _ in }; done(nil)   // kelpd's wake: answered as it starts
+        // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
+        case .start where r.begins:
+            lastUse = Date()
+            if r.beginsShown { windowed = true }
+            wake { _ in }; done(nil)
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
         case .stop: stop { done(nil); exit(0) }   // off, nothing kept: the next start is the kelp-vm installed then
@@ -62,6 +66,11 @@ final class AndroidRuntime {
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
             lastUse = Date()
+            // Booting headless (an agent's run began it): once it's up, slept and woken again with its window.
+            if state == .starting, !windowed {
+                windowed = true
+                return ready.append { _ in self.sleep { _ in self.wake(done) } }
+            }
             guard !windowed || emulator == nil else { return done(nil) }
             windowed = true
             sleep { _ in self.wake(done) }   // from its snapshot, now with a window

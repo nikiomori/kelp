@@ -257,6 +257,11 @@ public enum VMHelper {
         /// `share`: the folder here; the answer's `slot` says which of the machine's shares holds it.
         public var path: String?
         public var args: [String]?, session: String?
+        /// A `start` kelpd sends as it wakes the machine (`VMService.wake`): answered as soon as it starts, the boot going
+        /// on; `show` along, for a boot with its window.
+        public static func begin(show: Bool) -> Request { .init(op: .start, args: show ? ["begin", "show"] : ["begin"]) }
+        public var begins: Bool { op == .start && args?.first == "begin" }
+        public var beginsShown: Bool { begins && args?.contains("show") == true }
         public init(op: Operation, path: String? = nil, args: [String]? = nil, session: String? = nil) {
             self.op = op; self.path = path; self.args = args; self.session = session
         }

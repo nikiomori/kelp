@@ -26,6 +26,11 @@ jobs:
             cache: tests
             build: swift build --manifest-cache local --build-tests
             test: scripts/retry-tests.sh swift test --manifest-cache local --skip-build --skip DaemonTests   # those: the job below
+          - name: Release build
+            cache: release
+            # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
+            build: swift build --manifest-cache local -c release
+            test: "true"
           - name: Daemon under Thread Sanitizer
             cache: tsan
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
