@@ -233,6 +233,8 @@ extension FilesSearch: Handled {
 
 extension CommentAdd: Handled {
     var reportsFor: String? { session }   // a comment names its own session's agent as author, not another's
+    var signs: Bool { true }
+    var inWorkspace: String? { id }   // a review is of an agent's own workspace's code
     func handle(_ workspaces: Workspaces) throws -> DiffComment {
         let w = try workspaces.store.worktree(named: id)
         let on = try clientRef(commit) ?? "HEAD"
@@ -241,7 +243,10 @@ extension CommentAdd: Handled {
         if commit != nil, full.isEmpty { throw RPCError.invalidParams("No commit \(on) here.") }
         let head = String(full.prefix(12))
         let agent = session.flatMap { workspaces.sessions.existing($0)?.snapshot.agent }.flatMap { $0 == "shell" || $0 == "custom" ? nil : $0 }
+        // A program in a terminal (an agent typed into it, a script) is named too: only the window's own comments are the
+        // user's, unframed when they're sent.
         let author = try agent.map { try workspaces.sessions.manifest($0, command: nil).name }
+            ?? session.map { _ in String(localized: "A program in a terminal") }
         let c = DiffComment(worktreeId: w.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "", text: text,
                             side: side == "old" ? "old" : nil, commit: head.isEmpty ? nil : head, author: author,
                             onCommit: commit == nil ? nil : full)
@@ -261,6 +266,8 @@ extension CommentSetState: Handled {
 /// All open comments → one message into the agent's terminal.
 extension CommentSend: Handled {
     var actsOn: String? { session }   // it types, with Enter: an agent sends only to itself and the sessions it started
+    var typesInto: String? { session }   // a send (`SessionSend`, whose handler it calls past `allow`): not into a question
+    var inWorkspace: String? { id }   // its own workspace's comments: sent ones leave the user's open list
     func handle(_ workspaces: Workspaces) throws -> Int {
         let w = try workspaces.store.worktree(named: id)
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).

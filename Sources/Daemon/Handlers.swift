@@ -46,6 +46,9 @@ protocol Answered: RPCMethod {
     var typesInto: String? { get }
     /// A session it shows (a tab of it), checked as any session a call names: a typed agent's own terminal included.
     var shows: String? { get }
+    /// Words it leaves for another to read (a review comment), whose author is `reportsFor`'s: an agent names its session,
+    /// or they would read as the user's.
+    var signs: Bool { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -60,6 +63,7 @@ extension Answered {
     var notForAgents: String? { nil }
     var typesInto: String? { nil }
     var shows: String? { nil }
+    var signs: Bool { false }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ p: JSONValue, _ d: Daemon, conn: Int) throws -> Self {
@@ -206,6 +210,9 @@ extension Daemon {
     /// `typed`: an agent the user typed into `own`, a terminal of theirs: what it reaches is what it started there
     /// (`typed:` on its line), not everything the user started from that terminal.
     private func allowAgent(_ m: any Answered, own: String, typed: Bool = false) throws {
+        if m.signs, m.reportsFor == nil {
+            throw RPCError.refused("What an agent writes for others says it's an agent's: run it from the agent's terminal, which names its session.")
+        }
         func reaches(_ id: String) throws -> Bool {
             try sessions.store.lineage(id).contains { typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own }
         }

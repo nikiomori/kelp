@@ -458,6 +458,9 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (typed, SessionWrite(id: mine.id, text: "x"), true, "a typed agent drives what it started"),
         (typed, SessionKill(id: theirs.id), false, "not what the user started from that terminal"),
         (typed, phone, false, "nor the user's settings"),
+        (typed, CommentAdd(id: r.wt.id, file: "a", start: 1, end: 1, quote: nil, text: "x"), false, "a comment of no session would read as the user's"),
+        (.detached, CommentAdd(id: r.wt.id, file: "a", start: 1, end: 1, quote: nil, text: "x"), false, "from nowhere, the same"),
+        (.user, CommentAdd(id: r.wt.id, file: "a", start: 1, end: 1, quote: nil, text: "x"), true, "the window's is the user's"),
         (typed, SessionRename(id: term.id, title: "x"), false, "nor rename the user's terminal"),
         (typed, font, true, "a look it may set"),
         (typed, WorktreeNote(id: made.id, note: "x"), true, "a typed agent works in a workspace it made"),
@@ -518,9 +521,10 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         refusal = e.message
     }
     #expect(refusal.contains("asks a question"))
-    refusal = ""   // nor sent: a send's Enter would answer it too
-    do { try r.d.allow(SessionSend(id: menu.id, text: "go"), conn: 0, caller: .detached) } catch let e as RPCError where e.isRefusal {
-        refusal = e.message
+    // Nor sent, by any door: a send's Enter would answer it too (review comments are a send).
+    for m in [SessionSend(id: menu.id, text: "go"), CommentSend(id: r.wt.id, session: menu.id)] as [any Answered] {
+        refusal = ""
+        do { try r.d.allow(m, conn: 0, caller: .detached) } catch let e as RPCError where e.isRefusal { refusal = e.message }
+        #expect(refusal.contains("asks a question"), "\(type(of: m).name)")
     }
-    #expect(refusal.contains("asks a question"))
 }
