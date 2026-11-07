@@ -2,7 +2,7 @@ import AppKit
 import Core
 
 /// What the views watch (`WatchTopic`), counted here so the daemon hears once per topic and key: on the first watcher
-/// and after the last. What it pushes lands in AppModel's observed state (`git`, `ports`…), which views `track`.
+/// and after the last. What it pushes lands in one store per kind (`latest(CIEvent.self, key)`), which views `track`.
 extension AppModel {
     package func watch(_ topic: WatchTopic, _ key: String = "") {
         let w = WatchStart(topic, key)
@@ -41,6 +41,7 @@ extension AppModel {
         let box = latest(E.self)
         guard e.replaces(box.byKey[e.key]) else { return false }
         box.byKey[e.key] = e
+        box.landed.forEach { $0(e) }
         return true
     }
 
@@ -49,10 +50,8 @@ extension AppModel {
     /// What the daemon pushed for a watched topic.
     func watched(_ event: any RPCEvent) {
         guard let e = event as? any Pushed else { return }
-        func open<E: Pushed>(_ e: E) -> Bool { land(e) }
-        guard open(e) else { return }
-        if let e = event as? LimitsEvent { forecast.record(e.usage) }
-        if let e = event as? CIEvent { followParked(e) }
+        func open<E: Pushed>(_ e: E) { land(e) }
+        open(e)
     }
 
     /// A project or workspace as it is now: the lists follow the daemon's records without reading them again.
@@ -95,6 +94,9 @@ extension AppModel {
 @Observable
 package final class Latest<E: Pushed> {
     package var byKey: [String: E] = [:]
+    /// What its owner does with each new one beside showing it (a forecast taking a reading): asked by the owner, so the
+    /// shell names no kind.
+    @ObservationIgnored package var landed: [(E) -> Void] = []
 }
 
 /// One key of a topic watched at a time (the workspace a panel shows): set `key`, nil lets go; so does the owner going.

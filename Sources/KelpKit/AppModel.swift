@@ -12,7 +12,12 @@ package final class AppModel {
     /// window, the built-ins' contributions and their views.
     /// The built-in extensions the app was made with (the app's target lists them: KelpKit names none).
     @ObservationIgnored let builtins: [Builtin]
-    init(builtins: [Builtin] = []) { self.builtins = builtins }
+    init(builtins: [Builtin] = []) {
+        self.builtins = builtins
+        // What the shell does with a new reading of these, beside showing it: their owners' hooks (`Latest.landed`).
+        latest(LimitsEvent.self).landed.append { [weak self] in self?.forecast.record($0.usage) }
+        latest(CIEvent.self).landed.append { [weak self] in self?.followParked($0) }
+    }
 
     @ObservationIgnored private(set) package lazy var workbench = Workbench(app: self)
     @ObservationIgnored private(set) package lazy var settings = SettingsStore(app: self)

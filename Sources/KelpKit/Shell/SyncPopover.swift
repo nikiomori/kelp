@@ -104,7 +104,7 @@ final class SyncPopover: NSViewController {
 
         // The whole line is the link, its chevron too: it greys in under the pointer and springs when clicked.
         let footer = LinkRow(String(localized: "Open Source Control")) { [weak self] in
-            self?.app.workbench.showPanel("git.changes")
+            self?.app.workbench.showPanel(.changes)
             self?.popover?.performClose(nil)
         }
 
@@ -385,7 +385,7 @@ final class SyncPopover: NSViewController {
         popover?.performClose(nil)
         GitFix(app).offer(error, recipe: "resolveConflicts", worktree: wid,
                           vars: ["base": String(localized: "the remote branch"), "files": String(localized: "see git status")])
-        app.workbench.showPanel("git.changes")
+        app.workbench.showPanel(.changes)
     }
 
     /// Git's message in a few lines: the pieces of a long push or pull report that say why.

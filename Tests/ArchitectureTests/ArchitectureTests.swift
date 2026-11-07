@@ -84,7 +84,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     let declared = sources(["Sources/KelpKit"]).map { f in
         codeOnly(f.text).split(separator: "\n").filter { $0.range(of: #"^\s*(@\w+(\([^)]*\))?\s+)*package\s"#, options: .regularExpression) != nil }.count
     }.reduce(0, +)
-    #expect(declared <= 283, "\(declared) package declarations in KelpKit")   // +6 for Machines: its tab reads the list, acts on one, says its step
+    // What built-ins may use of the shell: a budget that rises with a feature needing more of it (the store of pushed
+    // data and the watch that feeds it, 2026-11-08), said here; and the moment it falls, lowered, as a ratchet.
+    #expect(declared <= 286, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 286, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -545,15 +548,24 @@ private func codeOnly(_ s: String) -> String {
 /// connection, projects, workspaces, sessions and the sidebar's arrangement.
 @Test func pushedStateLandsInOneStore() throws {
     let watching = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/Watching.swift"), encoding: .utf8)
-    let cases = codeOnly(watching).components(separatedBy: "case let e as").count - 1
-    #expect(cases == 0, "event kinds named one by one in Watching.swift: \(cases)")
+    let kinds = try NSRegularExpression(pattern: #"\bas\??\s+\w+Event\b|case let \w+ as"#)
+    let code = codeOnly(watching)
+    let named = kinds.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
+    #expect(named == 0, "event kinds named one by one in Watching.swift: \(named)")
+    // AppModel's stored, observed properties: every `var` at its top level that isn't computed, nor marked
+    // @ObservationIgnored (on its line, or on an attribute line of its own just above).
     let model = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/AppModel.swift"), encoding: .utf8)
-    let lines = model.components(separatedBy: "\n")
+    let lines = codeOnly(model).components(separatedBy: "\n")
+    let stored = try NSRegularExpression(pattern: #"^    (?:(?:package|private|fileprivate|private\(set\)|package\(set\))\s+)*(?:lazy\s+)?var\s+\w+"#)
     let observed = lines.indices.filter { i in
-        lines[i].range(of: #"^    (package |private\(set\) package |private\(set\) )?var \w+(: [^={]+)?( = |\s*\{ didSet)"#, options: .regularExpression) != nil
-            && !lines[i].contains("@ObservationIgnored") && !(i > 0 && lines[i - 1].contains("@ObservationIgnored"))
+        let l = lines[i]
+        guard stored.firstMatch(in: l, range: NSRange(l.startIndex..., in: l)) != nil, !l.contains("@ObservationIgnored") else { return false }
+        if i > 0, lines[i - 1].trimmingCharacters(in: .whitespaces).hasPrefix("@ObservationIgnored"), !lines[i - 1].contains("var ") { return false }
+        guard let brace = l.firstIndex(of: "{") else { return true }   // `{ didSet` keeps it stored; any other brace: computed
+        return l[brace...].contains("didSet") || l[brace...].contains("willSet")
     }
-    #expect(observed.count <= 10, "AppModel's observed stored properties: \(observed.count)")
+    #expect(observed.count <= 13, "AppModel's observed stored properties: \(observed.count)")
+    #expect(observed.count >= 13, "fewer now: lower the ceiling to \(observed.count)")
 }
 
 /// The shell doesn't know its built-ins: no id of one, nor of a panel or command one contributes, written in KelpKit as
@@ -576,7 +588,12 @@ private func codeOnly(_ s: String) -> String {
     for f in sources(["Sources/KelpKit"]) where !layout.contains(f.path) {
         // Strings kept (they're what's looked for), comments not.
         let code = f.text.components(separatedBy: "\n").map { $0.components(separatedBy: "// ").first ?? "" }.joined(separator: "\n")
-        for n in names where code.contains("\"\(n)\"") { named.append("\(f.path): \(n)") }
+        // Used as one: run, looked up, shown or keyed by it (a setting that shares a command's name isn't the command).
+        for n in names {
+            let use = try NSRegularExpression(pattern: #"(?:command|run|showPanel|key|panel)\(\s*""# + NSRegularExpression.escapedPattern(for: n) + "\"")
+            named += use.matches(in: code, range: NSRange(code.startIndex..., in: code)).map { _ in "\(f.path): \(n)" }
+        }
     }
-    #expect(named.count <= 11, "the shell names built-ins: \(named.sorted())")
+    #expect(named.count <= 6, "the shell names built-ins: \(named.sorted())")
+    #expect(named.count >= 6, "fewer now (\(named.count)): lower the ceiling")
 }

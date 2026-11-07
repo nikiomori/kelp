@@ -64,9 +64,7 @@ extension AppModel {
             let base = ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][image] ?? "vm"
             var name = base, n = 2
             while machineList.contains(where: { $0.id == name }) { name = "\(base)\(n)"; n += 1 }
-            if let v = await call(VMCreate(name: name, image: image, file: file)), !machineList.contains(where: { $0.id == v.id }) {
-                land(MachinesEvent(machines: machineList + [v]))
-            }
+            if await call(VMCreate(name: name, image: image, file: file)) != nil { watchAgain(.machines) }   // as the daemon has it
         }
     }
 
@@ -88,13 +86,10 @@ extension AppModel {
     /// The machines as the daemon last told (`WatchTopic.machines`).
     var machineList: [VMInfo] { latest(MachinesEvent.self)?.machines ?? [] }
 
-    /// Start, sleep or stop it; its row shows the answer at once, the watch the rest.
+    /// Start, sleep or stop it; its row follows as the daemon pushes the list again.
     func control(machine name: String, _ action: VMControl.Action) {
         Task {
-            guard let v = await call(VMControl(name: name, action: action)), let i = machineList.firstIndex(where: { $0.id == v.id }) else { return }
-            var list = machineList
-            list[i] = v
-            land(MachinesEvent(machines: list))
+            if await call(VMControl(name: name, action: action)) != nil { watchAgain(.machines) }   // as the daemon has it now
         }
     }
 

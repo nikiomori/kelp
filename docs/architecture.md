@@ -62,7 +62,7 @@ contributions, the command palette and settings.
   Restart attaches to it again ("Connection lost" › Reconnect), closing the tab ends it. After attaching, tmux's redraw
   doesn't count as a turn.
 
-## Contribution points (built-in Swift extensions and `extension.json` folders use the same ones)
+## Contribution points (built-in Swift extensions and `extension.json` folders use the same ones, the last two rows aside)
 | Point | Where it shows |
 | --- | --- |
 | panels | right inspector (selector icons) |
@@ -72,6 +72,13 @@ contributions, the command palette and settings.
 | themes | Appearance settings; build the window round the terminal and editor, and color all three |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
+| tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`) |
+| sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on |
+
+A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell asks for "the changes" or "the
+checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
+(`Builtin(offByDefault:)`). The shell names no built-in, panel or command of one (`theShellNamesNoBuiltinByString`),
+the menu bar's layout by command id aside.
 
 Every action of the app is a command with an id (`workbench.toggleSidebar`, `editor.saveAll`, `agents.new`…), as in
 VS Code and Zed: the menu bar is laid out by id (`AppDelegate.buildMenu`), settings.json `keys` rebinds by id, and agents
@@ -144,8 +151,11 @@ What has no record of its own is a topic a view watches while it's on screen (`w
 ports, every session's CPU and memory, the branch's CI runs and pull request, an agent's context, the plan limits, a
 file's version (its stamp only: `event.file`) and a workspace's file list (`event.files`). The
 daemon reads a topic once for all its watchers, only while someone watches, and pushes it (`event.git`, `event.ports`…)
-only when it changed; the app counts its watchers (`AppModel.watch`, `Watched`) and keeps what came in observed state
-(`AppModel.git`, `.ports`…). Watching what's watched again (`watchAgain`) reads it now: after a commit or a push.
+only when it changed; the app counts its watchers (`AppModel.watch`, `Watched`) and keeps the latest of each kind in a
+store of its own (`app.latest(CIEvent.self, workspace)`, by the event's `Pushed` conformance in KelpKit: its key, the
+topic that forgets it), so a reader re-renders for its kind only and a new kind touches no file of the shell; what an
+owner does with a new one beside showing it hangs on its store (`Latest.landed`). Watching what's watched again
+(`watchAgain`) reads it now: after a commit, a push, a machine made or started — the one source, not a copy patched.
 Clocks left in the app are its own (relative times, "still loading" hints, reconnecting) — ArchitectureTests lists them.
 A project's files are the daemon's too: the Files panel's tree is the pushed list, and its moves, trashes, copies and
 new files are `files.*` calls (a remote project's refused there, with why). What the app still reads or checks itself

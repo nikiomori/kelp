@@ -152,7 +152,7 @@ extension RowBadges {
     /// CI Runs for the folder (it opens a failed job's log by itself), in its workspace; without the panel, the run's page.
     func openCI(_ id: String) {
         if folder(of: app.workbench.workspaceId)?.id != id || app.workbench.page != nil { app.workbench.show(workspace: id) }
-        if app.extensions.all.panels.contains(where: { $0.id == "ci" }) { app.workbench.showPanel("ci") }
+        if app.extensions.all.panels.contains(where: { $0.role == .checks }) { app.workbench.showPanel(.checks) }
         else if let runs = app.latest(CIEvent.self, id)?.result?.runs, let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first {
             app.workbench.open(run.url)
         }

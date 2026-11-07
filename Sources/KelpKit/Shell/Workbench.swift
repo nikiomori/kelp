@@ -19,6 +19,10 @@ package final class Workbench {
     package func bringToFront() { window?.window?.makeKeyAndOrderFront(nil) }
     /// Shows an inspector panel by its id ("files", "ci"…).
     package func showPanel(_ id: String) { window?.showInspector(panel: id) }
+    /// The panel that shows `role`, whichever built-in's it is; none on, nothing happens.
+    func showPanel(_ role: PanelRole) {
+        if let p = app.extensions.all.panels.first(where: { $0.role == role }) { showPanel(p.id) }
+    }
     /// The panel's controller once the inspector has built it; nil before it's first shown.
     package func builtPanel(_ id: String) -> NSViewController? { window?.inspector.built(id) }
     /// The inspector panel in its column beside the editors, by id; nil while the inspector is hidden or only peeking.
@@ -44,7 +48,7 @@ package final class Workbench {
     var focusedFile: String?
     /// The workspace on screen puts its agents side by side as they open (the title bar's button, ⌃⌘T).
     var sideBySide = true
-    var inspectorPanel: String = UserDefaults.standard.string(forKey: "inspectorPanel") ?? "git.changes" {
+    var inspectorPanel: String = UserDefaults.standard.string(forKey: "inspectorPanel") ?? "" {   // none yet: the first
         didSet { UserDefaults.standard.set(inspectorPanel, forKey: "inspectorPanel") }
     }
     /// What ⇧⌘T brings back. Here, not in `EditorArea`: an area not seen lately leaves memory.

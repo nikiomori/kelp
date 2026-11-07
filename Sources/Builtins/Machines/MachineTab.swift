@@ -261,11 +261,8 @@ struct MachineView: View {
     /// Changes its size: one of processors, memory (GB) or disk (GB) at a time, the list updated with the answer.
     private func resize(cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
         Task {
-            guard let new = await app.call(VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)),
-                  let i = app.machineList.firstIndex(where: { $0.id == new.id }) else { return }
-            var list = app.machineList
-            list[i] = new
-            app.land(MachinesEvent(machines: list))
+            // The list as the daemon has it now, pushed again: one source for it, not a copy patched here.
+            if await app.call(VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)) != nil { app.watchAgain(.machines) }
         }
     }
 

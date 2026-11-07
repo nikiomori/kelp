@@ -14,7 +14,7 @@ extension Builtins {
                   TabProvider(schemes: ["commit"]) { CommitMessageTab(uri: $0, app: app) }]
         let changed = ChangedFiles(app: app)
         let panel = LivePanel()
-        c.panels = [PanelSpec(id: "git.changes", title: "Source Control", icon: "arrow.triangle.branch", extensionId: "kelp.git",
+        c.panels = [PanelSpec(id: "git.changes", title: "Source Control", icon: "arrow.triangle.branch", extensionId: "kelp.git", role: .changes,
                               badge: { changed.count > 0 ? PanelBadge(count: changed.count) : nil }) {
             let p = SourceControlController(app: app)
             panel.controller = p

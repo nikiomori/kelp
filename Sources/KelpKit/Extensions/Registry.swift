@@ -18,12 +18,17 @@ package struct IDEContext {
     }
 }
 
+/// What the shell may ask a panel for by what it shows, not by whose it is: "show the changes" after a pull, "show
+/// the checks" from a row's CI mark. A built-in says which of its panels is which; none, and nothing is shown.
+package enum PanelRole: Sendable { case changes, checks }
+
 /// A right-inspector panel.
 package struct PanelSpec: Identifiable {
-    package init(id: String, title: String, icon: String, extensionId: String,
+    package init(id: String, title: String, icon: String, extensionId: String, role: PanelRole? = nil,
                  badge: (@MainActor () -> PanelBadge?)? = nil, poll: (@MainActor () async -> Void)? = nil,
                  make: @escaping @MainActor () -> NSViewController) {
         self.id = id
+        self.role = role
         self.title = title
         self.icon = icon
         self.extensionId = extensionId
@@ -32,6 +37,7 @@ package struct PanelSpec: Identifiable {
         self.make = make
     }
     package let id: String, title: String, icon: String, extensionId: String
+    let role: PanelRole?
     /// What the panel's icon says (nil: nothing). Read under observation, so it must not build the panel.
     var badge: (@MainActor () -> PanelBadge?)?
     /// Keeps `badge` current while the inspector lists the panel (an extension's badge command); cancelled on a rebuild.
