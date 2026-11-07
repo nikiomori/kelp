@@ -1,4 +1,6 @@
+import Core
 import Darwin
+import Foundation
 
 /// What a Linux or macOS machine costs the Mac. Its guest runs in Virtualization's own processes, not in kelp-vm: the
 /// machine itself and its graphics' GPU tasks (~1 GB for macOS), which launchd starts and this kelp-vm is responsible
@@ -37,5 +39,17 @@ enum Usage {
             return Double(used) / Double(now.at - l.at) * 100
         }
         return (percent, Int(bytes >> 20))
+    }
+
+    /// The adb clients talking to the emulator `serial` (`adb -s emulator-5600 shell …`), other than kelp-vm's own.
+    static func adbClients(_ serial: String) -> Int {
+        let me = getpid()
+        var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
+        let n = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        return pids.prefix(max(0, n)).filter { p in
+            guard p > 0, p != me, Subprocess.parent(p) != me, let argv = Subprocess.arguments(p),
+                  argv.first.map({ ($0 as NSString).lastPathComponent }) == "adb" else { return false }
+            return zip(argv, argv.dropFirst()).contains { $0 == "-s" && $1 == serial }
+        }.count
     }
 }

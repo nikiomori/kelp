@@ -14,6 +14,9 @@ final class AndroidRuntime {
     private var shown = false
     private var port = 0
     private var windowed = false
+    /// Show asked for the window: the next boot has it whatever ended the emulator before (Show's own sleep included).
+    private var showAsked = false
+    private var pausing = false
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// A sleep under way, and what wakes it once it has (a wake meanwhile would start a second emulator).
@@ -47,7 +50,9 @@ final class AndroidRuntime {
 
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .paused, .starting].contains(state)
-        let r = VMHelper.Reply(state: state, connections: 0, memoryMiB: up ? machine.memoryMiB : nil, error: error,
+        // In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
+        let using = state == .running ? Usage.adbClients(serial) + (windowed ? 1 : 0) : 0
+        let r = VMHelper.Reply(state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
                                serial: state == .running ? serial : nil)
         if let d = try? Wire.line(r) { Unix.writeAll(fd, d) }
         close(fd)
@@ -59,7 +64,7 @@ final class AndroidRuntime {
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
         case .start where r.begins:
             lastUse = Date()
-            if r.beginsShown { windowed = true }
+            if r.beginsShown { windowed = true; showAsked = true }
             wake { _ in }; done(nil)
         case .start: lastUse = Date(); wake(done)
         case .sleep: sleep(done)
@@ -69,6 +74,7 @@ final class AndroidRuntime {
         case .show:
             lastUse = Date()
             windowed = true
+            showAsked = true
             if emulator != nil, shown { return wake(done) }   // has its window: up, or coming up
             if emulator == nil { return wake(done) }   // down: it boots with its window
             // Started headless (an agent's run): once it's up, slept and woken again with its window.
@@ -89,7 +95,7 @@ final class AndroidRuntime {
         case .starting: ready.append(done)
         case .paused:
             Task {
-                _ = try? await adb(["emu", "avd", "start"])
+                do { _ = try await adb(["emu", "avd", "start"]) } catch { return done("It didn't go on after its pause: \(error.localizedDescription)") }
                 state = .running
                 done(nil)
             }
@@ -106,7 +112,7 @@ final class AndroidRuntime {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: exe)
         p.arguments = ["-avd", machine.name, "-port", "\(port)", "-no-audio", "-no-boot-anim", "-cores", "\(machine.cpus)",
-                       "-memory", "\(machine.memoryMiB)"] + (windowed ? [] : ["-no-window"])
+                       "-memory", "\(machine.memoryMiB)"] + (windowed || showAsked ? [] : ["-no-window"])
         var env = ProcessInfo.processInfo.environment
         env["ANDROID_AVD_HOME"] = avd.path
         if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
@@ -119,9 +125,7 @@ final class AndroidRuntime {
                 MainActor.assumeIsolated {   // the main queue
                     guard let self, self.emulator === ended else { return }
                     self.emulator = nil
-                    // Its window went with it (closed, or quit): the next start is headless again. Not so a sleep's (Show's
-                    // own, from a headless boot to a windowed one), which wakes it as it was asked.
-                    if !self.saving { self.windowed = false }
+                    self.windowed = false   // its window went with it (closed, slept, quit): the next start is headless, unless Show asks
                     if self.state == .starting { self.started(VMError("The emulator quit: see emulator.log in its folder.")) }
                     if self.state != .sleeping { self.state = .off }
                 }
@@ -129,6 +133,8 @@ final class AndroidRuntime {
         }
         do { try p.run() } catch { return started(error) }
         emulator = p
+        windowed = windowed || showAsked
+        showAsked = false
         shown = windowed
         Task { await awaitBoot(since: Date()) }
     }
@@ -193,9 +199,12 @@ final class AndroidRuntime {
     }
 
     private func tick() {
+        if state == .running, Usage.adbClients(serial) > 0 { lastUse = Date() }   // a command through adb (`kelp vm run`) is use
         let idle = Date().timeIntervalSince(lastUse)
-        if state == .running, !windowed, idle > Runtime.pauseAfter {
+        if state == .running, !windowed, !pausing, idle > Runtime.pauseAfter {
+            pausing = true
             Task {
+                defer { pausing = false }
                 guard (try? await adb(["emu", "avd", "stop"])) != nil else { return }
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
                 if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter { state = .paused; log("paused") } else {
