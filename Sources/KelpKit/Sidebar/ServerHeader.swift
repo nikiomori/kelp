@@ -108,7 +108,7 @@ final class ServerHeader: NSTableCellView {
 
     func update() {
         guard let app = owner?.app else { return }
-        let s = app.hostStats[host]
+        let s = app.latest(HostEvent.self, host)?.stats
         title.stringValue = host
         let said = app.serverWord(host)
         let up = s?.connected == true
@@ -207,7 +207,7 @@ extension SidebarController {
         menu.add(String(localized: "Open htop")) { app.openHtop(host) }
         menu.addItem(.separator())
         menu.add(String(localized: "Add Project on \(host)…")) { app.addProject(onServer: host) }
-        if app.hostStats[host]?.connected == true { menu.add(String(localized: "Disconnect")) { app.disconnectServer(host) } }
+        if app.latest(HostEvent.self, host)?.stats.connected == true { menu.add(String(localized: "Disconnect")) { app.disconnectServer(host) } }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Host")) {
             NSPasteboard.general.clearContents()

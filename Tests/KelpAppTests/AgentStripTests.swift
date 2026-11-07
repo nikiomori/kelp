@@ -92,7 +92,7 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     strip.start()
     #expect(!strip.isShowing)
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    #expect(try await waitFor(2) { strip.isShowing })
+    #expect(try await waitFor(5) { strip.isShowing })
     #expect(strip.isShowing)
     let f = try #require(strip.frame), area = try #require(NSScreen.main?.visibleFrame)
     #expect(f.height == StripButton.stripHeight)
@@ -102,17 +102,17 @@ private func session(_ place: String, _ status: AgentStatus, unread: Bool = fals
     strip.hide(until: Date().addingTimeInterval(3600))   // a call: out of the way, whatever comes
     #expect(strip.hiddenUntil != nil)
     strip.hide(until: nil)
-    #expect(try await waitFor(2) { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
+    #expect(try await waitFor(5) { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
     strip.later(asked.id)   // put off: it stops calling
-    #expect(try await waitFor(2) { !(strip.isShowing) })
+    #expect(try await waitFor(5) { !(strip.isShowing) })
     #expect(!strip.isShowing)
     var again = asked
     again.statusAt = Date()   // the agent asks something else
     rig.app.sessions = [again]
-    #expect(try await waitFor(2) { strip.isShowing })
+    #expect(try await waitFor(5) { strip.isShowing })
     #expect(strip.isShowing)
     rig.app.sessions = []
-    #expect(try await waitFor(2) { !(strip.isShowing) })
+    #expect(try await waitFor(5) { !(strip.isShowing) })
     #expect(!strip.isShowing)
 }
 

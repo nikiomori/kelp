@@ -33,7 +33,7 @@ extension FileTab {
 
     func showProblems() {
         guard let editor else { return }
-        let found = app.fileVersions[path]?.problems ?? []
+        let found = app.latest(FileEvent.self, path)?.problems ?? []
         editor.problems = found.map {
             .init(line: $0.line, column: $0.column, endLine: $0.endLine, endColumn: $0.endColumn, isError: $0.isError, message: $0.message)
         }

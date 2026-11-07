@@ -52,7 +52,7 @@ package final class EditorArea: NSViewController {
         // follows what it listens on.
         track(owner: self) { [weak self, app] in
             [app.scripts.state.active.count.description] + app.scripts.state.active.values.compactMap(\.url) + app.scripts.state.found.keys.sorted()
-                + (app.ports[self?.workspaceId ?? ""] ?? []).map { "\($0.port) \($0.session)" }
+                + (app.latest(PortsEvent.self, self?.workspaceId ?? "")?.ports ?? []).map { "\($0.port) \($0.session)" }
         } changed: { [weak self] _ in self?.groupViews.keys.forEach { self?.refreshGroup($0) } }
         track(owner: self) { app.themes.chromeText } changed: { [weak self] _ in   // the tabs' titles take the new size
             self?.groupViews.values.forEach { $0.strip.restyle() }
@@ -234,7 +234,7 @@ package final class EditorArea: NSViewController {
                 item = .badged(.init(id: t.id, title: c.title, icon: c.icon, status: nil, toolTip: c.toolTip), c.badge, edited: c.isEdited)
             } else if TabURI.scheme(t.uri) == "session" {   // not built, or its terminal let go: its session still says all this
                 let sid = TabURI.body(t.uri)
-                item = .badged(item, .of(app.session(sid), meter: app.contextUsage[sid]))
+                item = .badged(item, .of(app.session(sid), meter: app.latest(ContextEvent.self, sid)?.shown))
             }
             return runLook(item, t)
         }, model.tabs), selected: model.selectedTab?.id)

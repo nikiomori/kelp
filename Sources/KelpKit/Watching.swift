@@ -25,50 +25,34 @@ extension AppModel {
         if watching[w] != nil { client?.notify(w) }
     }
 
-    private func forget(_ topic: WatchTopic, _ key: String) {
-        switch topic {
-        case .git: git[key] = nil
-        case .ports: ports[key] = nil
-        case .activity: activity = nil
-        case .ci: ci[key] = nil
-        case .pr: prs[key] = nil
-        case .context: contextUsage[key] = nil
-        case .limits: limits = nil
-        case .file: fileVersions[key] = nil
-        case .files: fileLists[key] = nil
-        case .artifacts: artifacts[key] = nil
-        case .commands: commands[key] = nil
-        case .subagents: subagentSteps[key] = nil
-        case .host, .hostDetail, .machines: break   // the other may still watch it; an old value says only how it was
-        case .machineDetail: machineDetail[key] = nil
+    /// The latest pushed `E` by key (`Pushed`): one observable box per kind, so a view reading CI re-renders for CI only.
+    package func latest<E: Pushed>(_: E.Type) -> Latest<E> {
+        part {
+            let box = Latest<E>()
+            if let t = E.forgottenWith { forgetters[t, default: []].append { [weak box] key in box?.byKey[key] = nil } }
+            return box
         }
     }
+    /// The latest pushed `E` for `key` (a workspace, a session, a path; "" for one of a kind).
+    package func latest<E: Pushed>(_ t: E.Type, _ key: String = "") -> E? { latest(t).byKey[key] }
 
-    /// What the daemon pushed for a watched topic. Assigned only when it differs: every assignment re-renders its readers.
+    /// Kept as the latest of its kind, if it differs (each change re-renders its readers): whether it did.
+    @discardableResult package func land<E: Pushed>(_ e: E) -> Bool {
+        let box = latest(E.self)
+        guard e.replaces(box.byKey[e.key]) else { return false }
+        box.byKey[e.key] = e
+        return true
+    }
+
+    private func forget(_ topic: WatchTopic, _ key: String) { forgetters[topic]?.forEach { $0(key) } }
+
+    /// What the daemon pushed for a watched topic.
     func watched(_ event: any RPCEvent) {
-        switch event {
-        case let e as GitEvent: if git[e.worktree] != e { git[e.worktree] = e }
-        case let e as PortsEvent: if ports[e.worktree] != e.ports { ports[e.worktree] = e.ports }
-        case let e as ActivityEvent: if activity != e { activity = e }
-        case let e as CIEvent: if ci[e.worktree] != e { ci[e.worktree] = e; followParked(e) }
-        case let e as PREvent: if prs[e.worktree] != e.pr { prs[e.worktree] = e.pr }
-        case let e as LimitsEvent: if limits != e.usage { forecast.record(e.usage); limits = e.usage }
-        case let e as FileEvent: if fileVersions[e.path] != e { fileVersions[e.path] = e }
-        case let e as FilesEvent: if fileLists[e.worktree] != e { fileLists[e.worktree] = e }
-        case let e as ArtifactsEvent: if artifacts[e.worktree] != e.items { artifacts[e.worktree] = e.items }
-        case let e as CommandsEvent: if commands[e.session] != e.commands { commands[e.session] = e.commands }
-        case let e as SubagentsEvent: if subagentSteps[e.session] != e.steps { subagentSteps[e.session] = e.steps }
-        case let e as RoutinesEvent: if routines != e { routines = e }
-        case let e as HostEvent: if hostStats[e.stats.host] != e.stats { hostStats[e.stats.host] = e.stats }
-        case let e as MachinesEvent: if machines != e.machines { machines = e.machines }
-        case let e as MachineEvent: if machineDetail[e.name] != e.detail { machineDetail[e.name] = e.detail }
-        case let e as ContextEvent:
-            // No usage (not Claude Code, ended, just compacted) takes the ring away.
-            let usage = e.usage.flatMap { $0.window > 0 ? $0 : nil }, old = contextUsage[e.session]
-            func share(_ u: SessionContextWindow.Usage?) -> Double { u.map { Double($0.used) / Double($0.window) } ?? -1 }
-            if usage?.window != old?.window || abs(share(usage) - share(old)) > 0.01 { contextUsage[e.session] = usage }   // a percent at a time
-        default: break
-        }
+        guard let e = event as? any Pushed else { return }
+        func open<E: Pushed>(_ e: E) -> Bool { land(e) }
+        guard open(e) else { return }
+        if let e = event as? LimitsEvent { forecast.record(e.usage) }
+        if let e = event as? CIEvent { followParked(e) }
     }
 
     /// A project or workspace as it is now: the lists follow the daemon's records without reading them again.
@@ -99,6 +83,13 @@ extension AppModel {
         for id in want.subtracting(have) { watch(.context, id) }
         for id in have.subtracting(want) { unwatch(.context, id) }
     }
+}
+
+/// The latest pushed of one kind, by key (`AppModel.latest`).
+@MainActor
+@Observable
+package final class Latest<E: Pushed> {
+    package var byKey: [String: E] = [:]
 }
 
 /// One key of a topic watched at a time (the workspace a panel shows): set `key`, nil lets go; so does the owner going.

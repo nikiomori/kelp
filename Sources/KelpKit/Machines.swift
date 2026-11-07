@@ -62,8 +62,10 @@ extension AppModel {
             }
             let base = ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][image] ?? "vm"
             var name = base, n = 2
-            while machines.contains(where: { $0.id == name }) { name = "\(base)\(n)"; n += 1 }
-            if let v = await call(VMCreate(name: name, image: image, file: file)), !machines.contains(where: { $0.id == v.id }) { machines.append(v) }
+            while machineList.contains(where: { $0.id == name }) { name = "\(base)\(n)"; n += 1 }
+            if let v = await call(VMCreate(name: name, image: image, file: file)), !machineList.contains(where: { $0.id == v.id }) {
+                land(MachinesEvent(machines: machineList + [v]))
+            }
         }
     }
 
@@ -82,16 +84,21 @@ extension AppModel {
         workbench.editorForNewTab?.run(command: line, title: name)
     }
 
+    /// The machines as the daemon last told (`WatchTopic.machines`).
+    package var machineList: [VMInfo] { latest(MachinesEvent.self)?.machines ?? [] }
+
     /// Start, sleep or stop it; its row shows the answer at once, the watch the rest.
     package func control(machine name: String, _ action: VMControl.Action) {
         Task {
-            guard let v = await call(VMControl(name: name, action: action)), let i = machines.firstIndex(where: { $0.id == v.id }) else { return }
-            machines[i] = v
+            guard let v = await call(VMControl(name: name, action: action)), let i = machineList.firstIndex(where: { $0.id == v.id }) else { return }
+            var list = machineList
+            list[i] = v
+            land(MachinesEvent(machines: list))
         }
     }
 
     /// The machine the session runs a command in now, if any (`kelp vm run`).
-    func machine(runningFor session: String) -> String? { machines.first { $0.sessions?.contains(session) == true }?.machine.name }
+    func machine(runningFor session: String) -> String? { machineList.first { $0.sessions?.contains(session) == true }?.machine.name }
 
     /// What a machine's state reads as, and in what colour.
     package func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {

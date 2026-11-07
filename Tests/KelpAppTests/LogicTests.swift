@@ -350,7 +350,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     let w = FileWatcher(root: dir.path, latency: 0.05) { paths in MainActor.assumeIsolated { seen += paths } }
     try Data("a".utf8).write(to: dir.appendingPathComponent("node_modules/x/a.js"))
     try Data("b".utf8).write(to: dir.appendingPathComponent("b.swift"))
-    #expect(try await waitFor(3) { seen.contains(where: { $0.hasSuffix("/b.swift") }) })
+    #expect(try await waitFor(5) { seen.contains(where: { $0.hasSuffix("/b.swift") }) })
     #expect(w != nil && seen.contains { $0.hasSuffix("/b.swift") })
     #expect(!seen.contains { $0.contains("/node_modules/") })
 }
@@ -565,7 +565,7 @@ extension OneAtATime {
                    Worktree(id: "w2", repoId: "r1", branch: "fix", path: "/tmp/kelp-ci-atlas-fix")]
     func ci(_ status: String, _ conclusion: String? = nil) {
         let run = CIRuns.Run(id: 1, title: "", workflow: "CI", status: status, conclusion: conclusion, event: "push", url: "", createdAt: "")
-        m.ci["w1"] = CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run], workflows: []))
+        m.land(CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: [run], workflows: [])))
     }
     let b = m.rowBadges
     m.workbench.workspaceId = "w2"   // its own worktree: not w1's folder

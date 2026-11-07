@@ -43,7 +43,7 @@ extension AppModel {
 
     /// What a server's heading says, and in what colour: nothing while it's fine, and what's wrong otherwise.
     func serverWord(_ host: String) -> (text: String, color: NSColor)? {
-        guard let s = hostStats[host] else { return nil }
+        guard let s = latest(HostEvent.self, host)?.stats else { return nil }
         if !s.connected {
             return s.error == nil ? (String(localized: "Not connected"), .secondaryLabelColor) : (String(localized: "Can't reach"), .textRed)
         }

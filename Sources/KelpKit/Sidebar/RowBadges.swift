@@ -10,8 +10,8 @@ import DesignKit
 package final class RowBadges {
     private let app: AppModel
     /// Worktree id → changes / its branch's PR (observed through AppModel).
-    var stats: [String: LineStats] { app.git.compactMapValues(\.stats) }
-    var prs: [String: GitHub.PullRequest] { app.prs }
+    var stats: [String: LineStats] { app.latest(GitEvent.self).byKey.compactMapValues(\.stats) }
+    var prs: [String: GitHub.PullRequest] { app.latest(PREvent.self).byKey.compactMapValues(\.pr) }
     @ObservationIgnored private var following: [WatchTopic: Set<String>] = [:]
     @ObservationIgnored private var readPRs: [String: GitHub.PullRequest] = [:]
     @ObservationIgnored private var states: [String: CIRuns.State] = [:]
@@ -28,8 +28,8 @@ package final class RowBadges {
         track(owner: self) { [weak self] in self?.folder(of: app.workbench.workspaceId)?.id } changed: { [weak self] in
             if let id = $0, self?.unseen.remove(id) != nil { self?.show(id) }
         }
-        track(owner: self) { app.git.compactMapValues(\.branches) } changed: { [weak self] in self?.pushes($0) }
-        track(owner: self) { app.prs } changed: { [weak self] in self?.prsRead($0) }
+        track(owner: self) { app.latest(GitEvent.self).byKey.compactMapValues(\.branches) } changed: { [weak self] in self?.pushes($0) }
+        track(owner: self) { app.latest(PREvent.self).byKey.compactMapValues(\.pr) } changed: { [weak self] in self?.prsRead($0) }
     }
 
     private func prsRead(_ now: [String: GitHub.PullRequest]) {
@@ -118,7 +118,8 @@ package final class RowBadges {
 extension RowBadges {
     /// Its runs and its PR's checks, the more pressing of the two (the checks lag a minute; the runs miss what isn't CI).
     func state(_ id: String) -> CIRuns.State? {
-        [app.ci[id]?.result.flatMap { CIRuns.state($0.runs) }, app.prs[id].flatMap { CIRuns.state($0.checks) }].compactMap { $0 }.max()
+        let ci = app.latest(CIEvent.self, id)?.result.flatMap { CIRuns.state($0.runs) }
+        return [ci, app.latest(PREvent.self, id)?.pr.flatMap { CIRuns.state($0.checks) }].compactMap { $0 }.max()
     }
     /// Beside a folder in the sidebar (and the ⌃Tab switcher): a pass while it hasn't been on screen.
     func sidebarCI(_ id: String) -> CIRuns.State? {
@@ -126,7 +127,7 @@ extension RowBadges {
         return s != .passed || unseen.contains(id) ? s : nil
     }
     /// Every folder's sidebar mark: the rows follow this, not each CI read.
-    var sidebarMarks: [String: CIRuns.State] { Set(app.ci.keys).union(app.prs.keys).reduce(into: [:]) { $0[$1] = sidebarCI($1) } }
+    var sidebarMarks: [String: CIRuns.State] { Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = sidebarCI($1) } }
     /// On the branch chip: a pass for its first minute on screen.
     func chipCI(_ id: String) -> CIRuns.State? {
         guard let s = state(id) else { return nil }
@@ -136,7 +137,7 @@ extension RowBadges {
     /// "CI: Failed · Tests, Deploy": what the mark says, and which workflows say it.
     func ciLine(_ id: String) -> String? {
         guard let s = state(id) else { return nil }
-        let runs = CIRuns.latest(app.ci[id]?.result?.runs ?? []).filter {
+        let runs = CIRuns.latest(app.latest(CIEvent.self, id)?.result?.runs ?? []).filter {
             switch s {
             case .failed: $0.failed
             case .waiting: $0.status == "waiting"
@@ -152,11 +153,13 @@ extension RowBadges {
     func openCI(_ id: String) {
         if folder(of: app.workbench.workspaceId)?.id != id || app.workbench.page != nil { app.workbench.show(workspace: id) }
         if app.extensions.all.panels.contains(where: { $0.id == "ci" }) { app.workbench.showPanel("ci") }
-        else if let runs = app.ci[id]?.result?.runs, let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first { app.workbench.open(run.url) }
+        else if let runs = app.latest(CIEvent.self, id)?.result?.runs, let run = CIRuns.latest(runs).first(where: \.failed) ?? runs.first {
+            app.workbench.open(run.url)
+        }
     }
 
     private func ciStates() -> [String: CIRuns.State] {
-        Set(app.ci.keys).union(app.prs.keys).reduce(into: [:]) { $0[$1] = state($1) }
+        Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = state($1) }
     }
 
     /// A run that went from running to passed: on screen, the chip's ✓ for a minute; elsewhere, the sidebar's until you go there.

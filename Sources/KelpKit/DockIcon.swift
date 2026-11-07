@@ -64,7 +64,7 @@ final class DockIcon {
     static func face(_ app: AppModel) -> DockFace {
         switch app.settings.string("agents.dockIcon") {
         case "usage":
-            guard let u = app.limits, let fullest = LimitAlerts.readings(u).map(\.limit.percent).max() else { return .icon }
+            guard let u = app.latest(LimitsEvent.self)?.usage, let fullest = LimitAlerts.readings(u).map(\.limit.percent).max() else { return .icon }
             return usage(fullest, warnAt: app.settings.usageAlertAt)
         case "agents":
             let cells = cells(onSidebar(app))

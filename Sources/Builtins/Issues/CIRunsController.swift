@@ -127,9 +127,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
             self?.follow()
             self?.loadPages()
-            if app.ci[$0 ?? ""] == nil { self?.loading.show(String(localized: "Loading…")) }
+            if app.latest(CIEvent.self, $0 ?? "") == nil { self?.loading.show(String(localized: "Loading…")) }
         }
-        track(owner: self) { [weak self, app] in app.ci[self?.worktree ?? ""] } changed: { [weak self] in self?.apply($0) }
+        track(owner: self) { [weak self, app] in app.latest(CIEvent.self, self?.worktree ?? "") } changed: { [weak self] in self?.apply($0) }
     }
 
     /// From origin, not gh: there even when gh or glab isn't set up.

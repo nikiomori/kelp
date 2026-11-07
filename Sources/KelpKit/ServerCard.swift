@@ -8,7 +8,7 @@ struct ServerSection: View {
     let close: () -> Void
 
     var body: some View {
-        let s = app.hostStats[host]
+        let s = app.latest(HostEvent.self, host)?.stats
         VStack(alignment: .leading, spacing: 8) {
             Divider()
             HStack(spacing: 6) {

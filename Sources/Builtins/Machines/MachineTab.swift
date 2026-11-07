@@ -33,8 +33,8 @@ final class MachineTab: KelpKit.TabContent {   // not SwiftUI's
 
 struct MachineView: View {
     let app: AppModel, name: String
-    private var info: VMInfo? { app.machines.first { $0.machine.name == name } }
-    private var detail: VMDetail? { app.machineDetail[name] }
+    private var info: VMInfo? { app.machineList.first { $0.machine.name == name } }
+    private var detail: VMDetail? { app.latest(MachineEvent.self, name)?.detail }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -262,8 +262,10 @@ struct MachineView: View {
     private func resize(cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
         Task {
             guard let new = await app.call(VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)),
-                  let i = app.machines.firstIndex(where: { $0.id == new.id }) else { return }
-            app.machines[i] = new
+                  let i = app.machineList.firstIndex(where: { $0.id == new.id }) else { return }
+            var list = app.machineList
+            list[i] = new
+            app.land(MachinesEvent(machines: list))
         }
     }
 

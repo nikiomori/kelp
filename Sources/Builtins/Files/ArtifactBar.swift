@@ -67,7 +67,7 @@ final class ArtifactBar: NSObject {
         workspace = app.worktrees.filter { real.hasPrefix((Paths.real($0.path) ?? $0.path) + "/") }.max { $0.path.count < $1.path.count }?.id
         super.init()
         watched.key = workspace
-        track(owner: self) { [app, workspace] in app.artifacts[workspace ?? ""] } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app, workspace] in app.latest(ArtifactsEvent.self, workspace ?? "")?.items } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app] in app.sessions.map { "\($0.id)\($0.status)\($0.title)" } } changed: { [weak self] _ in self?.update() }
     }
 
@@ -79,7 +79,7 @@ final class ArtifactBar: NSObject {
     }
 
     private func update() {
-        item = app.artifacts[workspace ?? ""]?.first { (Paths.real($0.target) ?? $0.target) == real }
+        item = app.latest(ArtifactsEvent.self, workspace ?? "")?.items.first { (Paths.real($0.target) ?? $0.target) == real }
         let s = item?.session.flatMap(app.session)
         let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
         kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")

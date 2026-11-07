@@ -31,7 +31,7 @@ struct MachinesView: View {
                     add
                 }
                 .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
-                ForEach(app.machines) { row($0) }
+                ForEach(app.machineList) { row($0) }
             }
             // Room under it even without machines: the plan limits' rule right under the heading read as its first row.
             .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)

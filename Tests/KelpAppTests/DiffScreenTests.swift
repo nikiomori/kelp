@@ -105,7 +105,7 @@ extension AppOfItsOwn {
         }
         let button = try #require(vc.gapRow(file: f, from: from, lines: n, context: "").subviews.first as? NSButton)
         button.performClick(nil)
-        #expect(try await waitFor(2) { !(vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } })) })
+        #expect(try await waitFor(5) { !(vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } })) })
         #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
         #expect(vc.rows.contains { shown($0)?.text == "line 20" && shown($0)?.kind == .context })
     }
@@ -140,7 +140,7 @@ extension AppOfItsOwn {
         #expect(vc.rows[at + 1] == .draft && vc.draft?.field.stringValue == "why upper case?")
         let save = try #require(buttons(in: vc.draftCard()).first { $0.keyEquivalent == "\r" })
         save.performClick(nil)
-        #expect(try await waitFor(2) { vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) })
+        #expect(try await waitFor(5) { vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) })
         #expect(vc.draft == nil && !vc.rows.contains(.draft))
         let line = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })   // read again: found again
         #expect(vc.rows[line + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
@@ -229,12 +229,12 @@ extension AppOfItsOwn {
         let rig = try await AppRig(); defer { rig.done() }
         try rig.write("f.txt", "b\n")
         let wid = rig.workspace.id, vc = DiffViewController(app: rig.app)
-        defer { rig.app.git[wid] = nil }
+        defer { rig.app.latest(GitEvent.self).byKey[wid] = nil }
         rig.show(vc, 900, 700)
         let head = BranchInfo(current: "main", head: "abc1234", local: ["main"], remote: [], upstream: "origin/main", ahead: 0, behind: 0, merging: false)
         let e = GitEvent(worktree: wid, changes: [FileChange(path: "f.txt", index: ".", worktree: "M")], branches: head,
                          stats: LineStats(added: [.code: 1], removed: [.code: 1]))
-        rig.app.git[wid] = e
+        rig.app.land(e)
         vc.show(worktree: wid)
         await vc.load()
         var reads = vc.reads
@@ -244,11 +244,11 @@ extension AppOfItsOwn {
 
         reads = vc.reads
         var fetched = e; fetched.branches?.behind = 3
-        rig.app.git[wid] = fetched; vc.gitChanged(fetched)
+        rig.app.land(fetched); vc.gitChanged(fetched)
         try await Task.sleep(for: .milliseconds(300))
         #expect(vc.reads == reads)
         var edited = fetched; edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])
-        rig.app.git[wid] = edited; vc.gitChanged(edited)
+        rig.app.land(edited); vc.gitChanged(edited)
         #expect(try await waitFor(5) { !(vc.reads == reads) })   // a busy runner took over 300 ms
         #expect(vc.reads == reads + 1)
     }

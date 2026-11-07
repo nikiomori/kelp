@@ -22,10 +22,10 @@ final class WindowBar: NSView {
     private let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
     private let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
     /// The branch chip: the workspace on screen's git, as the daemon pushes it (ChangedFiles watches it).
-    private var info: BranchInfo? { app.git[app.workbench.workspaceId ?? ""]?.branches }
+    private var info: BranchInfo? { app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.branches }
 
     /// Uncommitted changes in the workspace on screen (a dot on the chip), and what a sync running there says.
-    private var dirty: Bool { !(app.git[app.workbench.workspaceId ?? ""]?.changes ?? []).isEmpty }
+    private var dirty: Bool { !(app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes ?? []).isEmpty }
     private var syncing: String? { app.syncing[app.workbench.workspaceId ?? ""] }
     private let popover = NSPopover()
     private var closedAt = Date.distantPast
@@ -196,7 +196,7 @@ final class WindowBar: NSView {
         ciMark.state = atEnd || inPlace ? ci : nil
         ciAtStart.isActive = inPlace
         ciAtEnd.isActive = atEnd
-        let changed = app.git[app.workbench.workspaceId ?? ""]?.changes?.count ?? 0
+        let changed = app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes?.count ?? 0
         let parts = [info.current ?? info.head ?? "HEAD"] + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
             + (behind > 0 ? [String(localized: "\(behind) to pull")] : []) + (changed > 0 ? [String(localized: "\(changed) changed")] : [])
         let said = ciLine

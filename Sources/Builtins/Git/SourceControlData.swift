@@ -27,7 +27,7 @@ extension SourceControlController {
         showWork()
         rebuild()
         followWatches()
-        apply(app.git[wid ?? ""])
+        apply(app.latest(GitEvent.self, wid ?? ""))
     }
 
     /// Watched only while on screen: swapped out of the inspector, it reads no git.

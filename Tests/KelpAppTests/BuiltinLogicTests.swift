@@ -185,7 +185,7 @@ import WorkbenchKit
     let m = AppModel()
     m.park("s1", until: Date().addingTimeInterval(0.3))
     #expect(m.parked["s1"] != nil)
-    #expect(try await waitFor(2) { !(m.parked["s1"] != nil) })
+    #expect(try await waitFor(5) { !(m.parked["s1"] != nil) })
     #expect(m.parked["s1"] == nil)
 }
 

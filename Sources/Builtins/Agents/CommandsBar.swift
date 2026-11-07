@@ -101,7 +101,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         // Off by default (Settings › Agents): off, it neither shows nor watches the hooks' commands.
         let on = { [app] in app.settings.bool("agents.commandsBar") == true }
         track(owner: self) { on() } changed: { [weak self] in self?.watched.key = $0 ? session : nil }
-        track(owner: self) { [app] in on() ? app.commands[session] ?? [] : nil } changed: { [weak self] in self?.show($0) }
+        track(owner: self) { [app] in on() ? app.latest(CommandsEvent.self, session)?.commands ?? [] : nil } changed: { [weak self] in self?.show($0) }
         track(owner: self) { [app] in
             let inTabs = app.uiState.strings(Session.inTabKey)
             return app.sessions.filter { $0.startedBy == session && !inTabs.contains($0.id) && app.sessions.owner(of: $0) != nil }
@@ -263,7 +263,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     /// The page a run serves: the port on this Mac.
     private func port(of s: Session) -> Int? {
-        s.worktreeId.flatMap { app.ports[$0] }?.first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
+        s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?.first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
     }
 
     /// The last line of what's running, on screen only; of what ended, once more for the last word.

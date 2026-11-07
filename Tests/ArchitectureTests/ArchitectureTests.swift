@@ -538,3 +538,20 @@ private func codeOnly(_ s: String) -> String {
     }
     #expect(found == [], "take it from what's handed down (`app`, `app.workbench`)")
 }
+
+/// What the daemon pushes for a watched topic lands in one store, `AppModel.latest(E.self)`, by the event's own
+/// `Pushed` conformance in Core: a new kind touches no file of the shell (no property, no case in a switch), so a
+/// feature's data needn't live in KelpKit. And the model's own observed state stays what every part reads: the
+/// connection, projects, workspaces, sessions and the sidebar's arrangement.
+@Test func pushedStateLandsInOneStore() throws {
+    let watching = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/Watching.swift"), encoding: .utf8)
+    let cases = codeOnly(watching).components(separatedBy: "case let e as").count - 1
+    #expect(cases == 0, "event kinds named one by one in Watching.swift: \(cases)")
+    let model = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/AppModel.swift"), encoding: .utf8)
+    let lines = model.components(separatedBy: "\n")
+    let observed = lines.indices.filter { i in
+        lines[i].range(of: #"^    (package |private\(set\) package |private\(set\) )?var \w+(: [^={]+)?( = |\s*\{ didSet)"#, options: .regularExpression) != nil
+            && !lines[i].contains("@ObservationIgnored") && !(i > 0 && lines[i - 1].contains("@ObservationIgnored"))
+    }
+    #expect(observed.count <= 10, "AppModel's observed stored properties: \(observed.count)")
+}

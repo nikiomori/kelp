@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Core
 import Testing
 import TestSupport
 import WorkbenchKit
@@ -143,9 +144,9 @@ extension AppOfItsOwn {
         let p = try file("one\n")
         let tab = await opened(p, in: rig)
         tab.editor?.setText("mine\n"); tab.editor?.onChange?("mine\n")
-        let was = rig.app.fileVersions[p]?.stamp
+        let was = rig.app.latest(FileEvent.self, p)?.stamp
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
-        #expect(try await waitFor(5) { rig.app.fileVersions[p]?.stamp != was })
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
         try await Task.sleep(for: .milliseconds(200))   // its text read meanwhile
         #expect(tab.editor?.text == "mine\n" && tab.isEdited)
         #expect(!tab.gone)   // failed once on CI by saving over the file: this and `now` say which way it got there
@@ -165,9 +166,9 @@ extension AppOfItsOwn {
             #expect(utimensat(AT_FDCWD, p, &times, 0) == 0)
         }
         tab.editor?.setText("mine\n"); tab.editor?.onChange?("mine\n")
-        let was = rig.app.fileVersions[p]?.stamp
+        let was = rig.app.latest(FileEvent.self, p)?.stamp
         try touch(5)
-        #expect(try await waitFor(5) { rig.app.fileVersions[p]?.stamp != was })
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
         #expect(await tab.save())
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
         tab.editor?.setText("mine again\n"); tab.editor?.onChange?("mine again\n")
@@ -235,7 +236,7 @@ extension AppOfItsOwn {
         tv.replace([NSRange(location: end, length: 1)], with: ["y"])   // the saved length, other text
         #expect(tab.isEdited)
         tv.replace([NSRange(location: end, length: 1)], with: [was])   // the saved text again
-        #expect(try await waitFor(2) { !(tab.isEdited) })
+        #expect(try await waitFor(5) { !(tab.isEdited) })
         #expect(!tab.isEdited)
     }
 

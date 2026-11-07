@@ -11,7 +11,7 @@ final class FailedRuns {
 
     /// A dot keyed by the failed runs: a new failure shows it again after the panel was looked at.
     var badge: PanelBadge? {
-        let runs = CIRuns.latest(app.ci[app.workbench.workspaceId ?? ""]?.result?.runs ?? []).filter(\.failed)
+        let runs = CIRuns.latest(app.latest(CIEvent.self, app.workbench.workspaceId ?? "")?.result?.runs ?? []).filter(\.failed)
         return runs.isEmpty ? nil : PanelBadge(alert: true, key: runs.map { String($0.id) }.joined(separator: ","))
     }
 

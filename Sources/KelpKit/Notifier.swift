@@ -28,7 +28,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         track(owner: self) { [app] in app.sessions } changed: { [weak self] _ in self?.updateBadge() }
         // For as long as Kelp runs: what shows the limits comes and goes (a hidden sidebar), and their warnings mustn't.
         app.watch(.limits)
-        track(owner: self) { [app] in app.limits } changed: { [weak self] u in self?.limitsChanged(u) }
+        track(owner: self) { [app] in app.latest(LimitsEvent.self)?.usage } changed: { [weak self] u in self?.limitsChanged(u) }
         // Typing: a key in one of Kelp's windows while it is the key one (a bare modifier isn't a keyDown).
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             if e.window?.isKeyWindow == true { self?.lastKey = Date() }
@@ -39,14 +39,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.lookedAt() }   // queue: .main
         }
-        track(owner: self) { [app] in app.routines?.runs.filter { $0.outcome == .missed }.map(\.id) ?? [] } changed: { [weak self] _ in self?.missedRuns() }
+        track(owner: self) { [app] in app.latest(RoutinesEvent.self)?.runs.filter { $0.outcome == .missed }.map(\.id) ?? [] } changed: { [weak self] _ in
+            self?.missedRuns()
+        }
     }
 
     /// A routine that didn't run (the Mac slept or Kelp was off, and it skips those): a banner that opens its routines.
     /// The ones already there when Kelp opened aren't news.
     private var missedTold: Set<String>?
     private func missedRuns() {
-        guard let e = app.routines else { return }
+        guard let e = app.latest(RoutinesEvent.self) else { return }
         let missed = e.runs.filter { $0.outcome == .missed }
         defer { missedTold = (missedTold ?? []).union(missed.map(\.id)) }
         guard let told = missedTold else { return }

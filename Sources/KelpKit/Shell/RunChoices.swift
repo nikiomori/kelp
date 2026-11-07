@@ -80,13 +80,14 @@ extension ScriptsMenu {
 
     /// What the workspace serves, its main page first: the title bar's capsule, ⇧⌘O and the sidebar's card.
     func pages(_ wid: String) -> [ServedPage] {
-        ServedPages.list(printed: running(in: wid).compactMap { state.active[$0]?.url }, ports: app.ports[wid] ?? [])
+        ServedPages.list(printed: running(in: wid).compactMap { state.active[$0]?.url }, ports: app.latest(PortsEvent.self, wid)?.ports ?? [])
     }
 
     /// The port after a tab's name: what its run printed, else what its session listens on.
     func port(of s: Session) -> Int? {
         state.active[s.id]?.url.flatMap { URLComponents(string: $0)?.port }
-            ?? s.worktreeId.flatMap { app.ports[$0] }?.first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
+            ?? s.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?
+                .first { $0.session == s.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
     }
 
     /// The page as this Mac reaches it, the ports read again when that moved it; nil and a banner when it can't be.

@@ -235,7 +235,7 @@ final class EditorHost: NSViewController {
         track { app.repos } changed: { [weak self] _ in self?.refresh() }
         track { app.worktrees } changed: { [weak self] _ in self?.refresh() }
         track { app.sessions } changed: { [weak self] _ in self?.refresh() }
-        track { app.contextUsage } changed: { [weak self] _ in self?.refresh() }
+        track { app.latest(ContextEvent.self).byKey } changed: { [weak self] _ in self?.refresh() }
         track { app.themes.look } changed: { [weak self] in self?.card.look = $0 }
     }
 

@@ -183,7 +183,7 @@ final class FileTab: SavableTab {
             changed: { [weak bar] in bar?.show(restricted: $0) }
         let p = path
         version.key = p
-        track(owner: self) { [app] in app.fileVersions[p] } changed: { [weak self] _ in self?.diskChanged() }
+        track(owner: self) { [app] in app.latest(FileEvent.self, p) } changed: { [weak self] _ in self?.diskChanged() }
         startLSP()
         track(owner: self) { [app] in app.connections } changed: { [weak self] now in
             guard let self, let was = lspOpenedOn, was != now else { return }
@@ -364,7 +364,7 @@ final class FileTab: SavableTab {
     private func diskChanged() {
         changeBars?.refresh()
         showProblems()
-        guard editor != nil, let v = app.fileVersions[path] else { return }
+        guard editor != nil, let v = app.latest(FileEvent.self, path) else { return }
         if reading || writing { readAgain = true; return }
         guard let now = v.stamp else { apply(.missing); return }
         if let known, known.stamp == now { return }   // our own write

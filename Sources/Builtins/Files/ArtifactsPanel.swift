@@ -45,7 +45,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         super.viewDidLoad()
         // The workspace on screen, its pages, and its chats: who made each page, and whether it's still writing.
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] _ in self?.watchShown() }
-        track(owner: self) { [app] in app.artifacts[app.workbench.workspaceId ?? ""] } changed: { [weak self] _ in self?.reload() }
+        track(owner: self) { [app] in app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items } changed: { [weak self] _ in self?.reload() }
         track(owner: self) { [app] in app.sessions.map { "\($0.id)\($0.status)" } } changed: { [weak self] _ in self?.reload() }
     }
     override func viewDidAppear() {
@@ -59,7 +59,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private func watchShown() { watched.key = shown ? app.workbench.workspaceId : nil; reload() }
 
     private func reload() {
-        let list = app.artifacts[app.workbench.workspaceId ?? ""]
+        let list = app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
         rows = list ?? []
         empty.show(list != nil && rows.isEmpty ? String(localized: "No artifacts yet") : nil, symbol: "doc.richtext",
                    text: String(localized: "Pages agents make show here."), buttons: [makeButton])

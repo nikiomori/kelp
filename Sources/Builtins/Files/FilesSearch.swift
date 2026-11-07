@@ -82,7 +82,7 @@ extension FilesPanel {
 
     /// What the language servers say of the project's open files, in a search's place; errors first.
     func showProblems() {
-        let found = Self.problems(in: app.fileVersions.mapValues { $0.problems ?? [] }, root: root)
+        let found = Self.problems(in: app.latest(FileEvent.self).byKey.mapValues { $0.problems ?? [] }, root: root)
         show(references: found)
         noResults.show(found.isEmpty ? String(localized: "No problems in open files") : nil, symbol: "checkmark.circle", buttons: [clearButton()])
     }

@@ -99,8 +99,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         ])
         view = v
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.bind($0) }
-        track(owner: self) { [app] in app.fileLists[app.workbench.workspaceId ?? ""] } changed: { [weak self] in self?.listed($0) }
-        track(owner: self) { [app] in app.git[app.workbench.workspaceId ?? ""]?.changes } changed: { [weak self] in self?.badges($0) }
+        track(owner: self) { [app] in app.latest(FilesEvent.self, app.workbench.workspaceId ?? "") } changed: { [weak self] in self?.listed($0) }
+        track(owner: self) { [app] in app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes } changed: { [weak self] in self?.badges($0) }
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in self?.reloadIcons() }
     }
 
@@ -167,7 +167,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         showSearchOptions()
         matches = []; results.reloadData()
         watchShown()
-        if let next { badges(app.git[next.id]?.changes); listed(app.fileLists[next.id]) }
+        if let next { badges(app.latest(GitEvent.self, next.id)?.changes); listed(app.latest(FilesEvent.self, next.id)) }
     }
 
     override func viewWillAppear() {

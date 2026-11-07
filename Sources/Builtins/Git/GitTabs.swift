@@ -45,7 +45,7 @@ final class DiffTab: TabContent {
         guard commit == nil else { return }
         gitWatch.key = worktreeId
         var shown = false   // the first value is what was just loaded
-        track(owner: self) { [weak self, app] in app.git[self?.worktreeId ?? ""] } changed: { [weak self] e in
+        track(owner: self) { [weak self, app] in app.latest(GitEvent.self, self?.worktreeId ?? "") } changed: { [weak self] e in
             guard let self, shown else { shown = true; return }
             controller.gitChanged(e)
         }

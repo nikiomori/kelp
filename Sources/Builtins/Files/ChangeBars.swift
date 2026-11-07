@@ -31,7 +31,10 @@ final class ChangeBars {
         let id = w.id, mine = file
         // This file's line in the status and the branch: a change to other files says nothing about its bars (the disk's
         // changes to it come through `refresh` from its tab).
-        track(owner: self) { [app] in Seen(changes: app.git[id]?.changes?.filter { $0.path == mine } ?? [], branches: app.git[id]?.branches) }
+        track(owner: self) { [app] in
+            let git = app.latest(GitEvent.self, id)
+            return Seen(changes: git?.changes?.filter { $0.path == mine } ?? [], branches: git?.branches)
+        }
             changed: { [weak self] _ in self?.refresh() }
         refresh()
     }

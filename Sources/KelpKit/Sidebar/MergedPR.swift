@@ -26,7 +26,7 @@ struct MergedPR {
         guard let p = app.rowBadges.prs[w.id], p.state == "MERGED", p.headRefName == w.branch, let base = app.repo(w.repoId)?.baseBranch,
               base != w.branch else { return nil }
         let working = app.sessions.contains { $0.status == .working && app.worktree($0.worktreeId)?.path == w.path }
-        return (p, Self.next(base: base, working: working, uncommitted: app.git[w.id]?.changes?.count ?? 0))
+        return (p, Self.next(base: base, working: working, uncommitted: app.latest(GitEvent.self, w.id)?.changes?.count ?? 0))
     }
 
     func tell(_ w: Worktree) {

@@ -76,7 +76,7 @@ struct UsageView: View {
         // Watched while shown: the daemon says when a plan read or the token count changed.
         .onAppear { app.watch(.limits); load() }
         .onDisappear { app.unwatch(.limits) }
-        .onChange(of: app.limits) { load() }
+        .onChange(of: app.latest(LimitsEvent.self)?.usage) { load() }
         .onChange(of: app.availability.ids) { load() }
     }
 
@@ -213,13 +213,13 @@ struct UsageView: View {
     static func tint(_ u: Double, quiet: Color = .secondary) -> Color { u >= 0.9 ? .red : u >= 0.7 ? .orange : quiet }
 
     private func load() {
-        guard app.limits != nil else { return }
+        guard app.latest(LimitsEvent.self)?.usage != nil else { return }
         let next = Self.rows(app)
         if next != rows { rows = next }
     }
 
     static func rows(_ app: AppModel) -> [Row] {
-        guard let u = app.limits else { return [] }
+        guard let u = app.latest(LimitsEvent.self)?.usage else { return [] }
         return app.catalog.installed(app.catalog.all).compactMap { a -> Row? in
             var r = Row(id: a.id, name: Self.short(a.name), fullName: a.name)
             r.readAt = u.plansReadAt?[a.id].map { Date(timeIntervalSince1970: $0) }

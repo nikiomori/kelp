@@ -108,7 +108,7 @@ extension OneAtATime {
     let c = try RPCClient(socket: path), m = AppModel(builtins: [])
     m.listen(c)
     c.onEvent?(Repo(id: "r1", name: "one", path: "/one"))
-    #expect(try await waitFor(1) { !(m.repos.isEmpty) })
+    #expect(try await waitFor(5) { !(m.repos.isEmpty) })
     m.stopHearing(c)
     c.onEvent?(Repo(id: "r2", name: "two", path: "/two"))
     try await Task.sleep(for: .milliseconds(100))

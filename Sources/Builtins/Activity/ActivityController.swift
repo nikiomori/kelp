@@ -56,14 +56,14 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     override func viewDidAppear() {
         super.viewDidAppear()
         watched.key = ""
-        show(app.activity)
+        show(app.latest(ActivityEvent.self))
     }
     override func viewDidDisappear() { super.viewDidDisappear(); watched.key = nil }
     private lazy var watched = Watched(.activity, in: app)
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        track(owner: self) { [app] in app.activity } changed: { [weak self] in self?.show($0) }
+        track(owner: self) { [app] in app.latest(ActivityEvent.self) } changed: { [weak self] in self?.show($0) }
     }
 
     private func show(_ e: ActivityEvent?) {

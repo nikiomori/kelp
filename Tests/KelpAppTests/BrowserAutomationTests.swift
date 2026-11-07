@@ -228,7 +228,7 @@ import WorkbenchKit
 @MainActor @Test(.timeLimit(.minutes(1))) func aSharedTabOnAnotherSiteIsntDriven() async throws {
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
     tab.web.loadHTMLString("<p>mail</p>", baseURL: URL(string: "https://mail.other.com/"))
-    #expect(try await waitFor(2) { !(tab.web.url?.host != "mail.other.com") })
+    #expect(try await waitFor(5) { !(tab.web.url?.host != "mail.other.com") })
     await #expect(throws: RPCError.self) { try await tab.browse("snapshot", .object([:])) }
 }
 

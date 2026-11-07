@@ -55,7 +55,7 @@ final class PortsView: NSView {
                    text: String(localized: "Servers you start in this screen's terminals and agents show up here. Or type an address above."))
     }
 
-    private var pages: [ServedPage]? { ports.key.map { ServedPages.list(printed: [], ports: app.ports[$0] ?? []) } }
+    private var pages: [ServedPage]? { ports.key.map { ServedPages.list(printed: [], ports: app.latest(PortsEvent.self, $0)?.ports ?? []) } }
 
     private func show(_ found: [ServedPage]?) {
         guard let wid = ports.key, let found, found != shown else { return }

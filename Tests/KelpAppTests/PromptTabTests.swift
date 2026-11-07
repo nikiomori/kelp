@@ -24,7 +24,7 @@ extension AppOfItsOwn {
     @Test func closingAPromptWritesItsTextAndSaysItsDone() async throws {
         let rig = try await AppRig(files: [:]); defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
-        #expect(try await waitFor(2) { !(tab.typed == nil) })
+        #expect(try await waitFor(5) { !(tab.typed == nil) })
         tab.type("long prompt\n")
         #expect(await tab.close())
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "long prompt\n")

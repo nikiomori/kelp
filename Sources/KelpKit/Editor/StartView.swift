@@ -199,7 +199,7 @@ final class StartView: NSView {
         planSwitch.restFill = .fillRest
         planSwitch.setContentCompressionResistancePriority(.required, for: .horizontal)
         showPlans(in: stack, after: under)
-        track(owner: self) { [app] in app.limits } changed: { [weak self, weak stack] _ in
+        track(owner: self) { [app] in app.latest(LimitsEvent.self)?.usage } changed: { [weak self, weak stack] _ in
             if let stack { self?.showPlans(in: stack, after: under) }
         }
     }

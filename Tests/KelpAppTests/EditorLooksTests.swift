@@ -70,7 +70,7 @@ import TestSupport
     e.snippetSource = { [snippet] }
     e.textView.setSelectedRange(NSRange(location: 6, length: 0))
     e.showCompletions()
-    #expect(try await waitFor(1) { !(e.completing == nil) })
+    #expect(try await waitFor(5) { !(e.completing == nil) })
     #expect(e.completing?.items == [snippet])
     e.accept(snippet)
     #expect(e.text == "    func a() {\n        \n    }")

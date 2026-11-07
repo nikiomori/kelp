@@ -35,7 +35,7 @@ final class SessionTab: TabContent {
         session.map(app.catalog.displayName) ?? String(localized: "Session")
     }
     var icon: NSImage? { app.catalog.icon(session?.agent) }
-    var badge: TabBadge? { .of(session, meter: app.contextUsage[sessionId]) }
+    var badge: TabBadge? { .of(session, meter: app.latest(ContextEvent.self, sessionId)?.shown) }
     /// Only one on screen: a hidden pane's grid is from whatever size it last had.
     var terminalGrid: (cols: Int, rows: Int)? { pane.window == nil ? nil : pane.gridSize }
     var toolTip: String? {

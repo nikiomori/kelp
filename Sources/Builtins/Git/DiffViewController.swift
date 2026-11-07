@@ -365,13 +365,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         }
         if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? agent : nil) }
         let asked = asking, request = diffRequest()
-        basis = request.basis(app.git[wid])
+        basis = request.basis(app.latest(GitEvent.self, wid))
         let r = await app.tryCall(request)
         let d = r.value ?? []
         var ch: [FileChange] = [], cm: [DiffComment] = []
         if single == nil, r.error == nil {   // the files' letters and the comments: the diff above already said what failed
             // The letters as pushed for this workspace (a review tab watches it), else asked.
-            if let pushed = app.git[wid]?.changes { ch = pushed } else { ch = await app.quiet(GitStatus(id: wid)) ?? [] }
+            if let pushed = app.latest(GitEvent.self, wid)?.changes { ch = pushed } else { ch = await app.quiet(GitStatus(id: wid)) ?? [] }
             cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
         }
         if d != diffs { opened = [:] }   // lines opened between changes may have moved

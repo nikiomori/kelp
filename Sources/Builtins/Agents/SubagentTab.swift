@@ -62,7 +62,7 @@ struct SubagentJournalView: View {
         }
         .onAppear { watched.key = model.session }
         .onDisappear { watched.key = nil }
-        .task(id: Change(touched: app.subagentSteps[model.session]?[model.id]?.touched, working: working)) { await load() }
+        .task(id: Change(touched: app.latest(SubagentsEvent.self, model.session)?.steps[model.id]?.touched, working: working)) { await load() }
     }
 
     private func load() async {

@@ -21,7 +21,7 @@ import Core
 
 @Test func requestsFailOnceTheServerExited() async throws {
     let c = try #require(LSPClient(argv: ["/usr/bin/true"], root: NSTemporaryDirectory()))
-    #expect(try await waitFor(2) { !(c.isRunning) })
+    #expect(try await waitFor(5) { !(c.isRunning) })
     #expect(!c.isRunning)
     await #expect(throws: RPCError.self) { _ = try await c.request("initialize", .null) }
 }

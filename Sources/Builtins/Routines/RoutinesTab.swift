@@ -29,8 +29,8 @@ struct RoutinesView: View {
     @State private var chosen: String?   // routine
     @State private var picked: String?   // run
 
-    var routines: [Routine] { app.routines?.routines.filter { $0.repoId == repoId } ?? [] }
-    var runs: [Routine.Run] { app.routines?.runs ?? [] }
+    var routines: [Routine] { app.latest(RoutinesEvent.self)?.routines.filter { $0.repoId == repoId } ?? [] }
+    var runs: [Routine.Run] { app.latest(RoutinesEvent.self)?.runs ?? [] }
 
     var body: some View {
         TimelineView(.everyMinute) { t in

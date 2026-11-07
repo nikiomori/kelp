@@ -77,7 +77,7 @@ struct AgentWork: View {
     }
 
     private func step(of run: Subagent) -> String? {
-        guard let last = model.app.subagentSteps[id]?[run.id] else { return nil }
+        guard let last = model.app.latest(SubagentsEvent.self, id)?.steps[run.id] else { return nil }
         let text = last.step.tool + "  " + last.step.detail, quiet = Date().timeIntervalSince(last.touched)
         return quiet < Self.quietAfter ? text : String(localized: "\(text) · quiet for \(shortSpan(quiet))")
     }

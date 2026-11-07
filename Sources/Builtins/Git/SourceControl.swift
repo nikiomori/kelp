@@ -152,8 +152,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         updateHeader()   // NSButton's own "Button" title must not show while the branch loads
         if app.workbench.workspaceId == nil { showNoProject(true) }
         track(owner: self) { [app] in app.workbench.workspaceId } changed: { [weak self] in self?.bind($0) }
-        track(owner: self) { [weak self, app] in app.git[self?.worktreeId ?? ""] } changed: { [weak self] in self?.apply($0) }
-        track(owner: self) { [weak self, app] in app.ci[self?.worktreeId ?? ""] } changed: { [weak self] in self?.applyCI($0) }
+        track(owner: self) { [weak self, app] in app.latest(GitEvent.self, self?.worktreeId ?? "") } changed: { [weak self] in self?.apply($0) }
+        track(owner: self) { [weak self, app] in app.latest(CIEvent.self, self?.worktreeId ?? "") } changed: { [weak self] in self?.applyCI($0) }
         track(owner: self) { app.fileIcons.revision } changed: { [weak self] _ in
             for o in [self?.outline, self?.graphOutline].compactMap({ $0 }) { o.reloadData(forRowIndexes: IndexSet(0..<o.numberOfRows), columnIndexes: [0]) }
         }

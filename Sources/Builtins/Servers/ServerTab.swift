@@ -35,7 +35,7 @@ struct ServerView: View {
     @State private var history: [(cpu: Double, memory: Double)] = []
     @State private var dialing = false
 
-    private var stats: HostStats? { app.hostStats[host] }
+    private var stats: HostStats? { app.latest(HostEvent.self, host)?.stats }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -100,7 +100,7 @@ struct ServerView: View {
         guard !dialing else { return }
         dialing = true
         Task {
-            if let s = await app.quiet(HostStatsRead(host: host, connect: true)) { app.hostStats[host] = s }
+            if let s = await app.quiet(HostStatsRead(host: host, connect: true)) { app.land(HostEvent(stats: s)) }
             dialing = false
         }
     }

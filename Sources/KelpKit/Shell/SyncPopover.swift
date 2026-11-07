@@ -137,9 +137,9 @@ final class SyncPopover: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        track(owner: self) { [app, wid] in app.git[wid] } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [app, wid] in app.latest(GitEvent.self, wid) } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app, wid] in app.syncing[wid] } changed: { [weak self] _ in self?.update() }
-        track(owner: self) { [weak self] in self.flatMap { $0.app.ci[$0.folder] } } changed: { [weak self] _ in self?.update() }
+        track(owner: self) { [weak self] in self.flatMap { $0.app.latest(CIEvent.self, $0.folder) } } changed: { [weak self] _ in self?.update() }
         track(owner: self) { [app] in app.settings.bool("workbench.ci.popover") } changed: { [weak self] _ in self?.update() }
     }
 
@@ -175,7 +175,7 @@ final class SyncPopover: NSViewController {
     // MARK: state
 
     private func update() {
-        let info = app.git[wid]?.branches, running = app.syncing[wid]
+        let info = app.latest(GitEvent.self, wid)?.branches, running = app.syncing[wid]
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
         name.attributedTitle = NSAttributedString(string: info?.current ?? info?.head ?? "HEAD",
@@ -284,7 +284,7 @@ final class SyncPopover: NSViewController {
     /// "CI · origin/main" and the newest run of each workflow (CI and deploys apart), as CI Runs marks them; a row opens
     /// CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
     private func showCI(on branch: String?) {
-        let runs = app.settings.bool("workbench.ci.popover") == false ? [] : CIRuns.latest(app.ci[folder]?.result?.runs ?? [])
+        let runs = app.settings.bool("workbench.ci.popover") == false ? [] : CIRuns.latest(app.latest(CIEvent.self, folder)?.result?.runs ?? [])
         ci.isHidden = runs.isEmpty
         guard !runs.isEmpty else { return }
         let head = NSTextField(labelWithString: "")
@@ -335,7 +335,7 @@ final class SyncPopover: NSViewController {
     }
 
     private func showChanges() {
-        let git = app.git[wid], list = git?.changes ?? [], n = list.count
+        let git = app.latest(GitEvent.self, wid), list = git?.changes ?? [], n = list.count
         let hasRemote = git?.branches.map { $0.upstream != nil || !$0.remote.isEmpty } ?? false
         changes.attributedStringValue = NSAttributedString(string: String(localized: "Changes") + (n > 0 ? " · \(n)" : ""),
                                                            attributes: Self.captionAttributes)
@@ -359,7 +359,7 @@ final class SyncPopover: NSViewController {
 
     private func sync(_ ops: [String]) {
         guard app.syncing[wid] == nil else { return }
-        let before = app.git[wid]?.branches, ahead = before?.ahead ?? 0, behind = before?.behind ?? 0
+        let before = app.latest(GitEvent.self, wid)?.branches, ahead = before?.ahead ?? 0, behind = before?.behind ?? 0
         let published = before?.upstream != nil, branch = before?.current ?? "HEAD"
         result = nil
         Task {
@@ -426,7 +426,7 @@ final class SyncPopover: NSViewController {
 
     /// The local branches to switch to, and a new one; the remote ones are in Source Control.
     @objc private func switchMenu() {
-        guard let info = app.git[wid]?.branches else { return }
+        guard let info = app.latest(GitEvent.self, wid)?.branches else { return }
         let m = NSMenu(), wid = wid
         for b in info.local {
             m.add(b) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: b)) }.state = b == info.current ? .on : .off

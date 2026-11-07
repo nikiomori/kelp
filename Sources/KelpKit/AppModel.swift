@@ -51,36 +51,13 @@ package final class AppModel {
     /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
     /// and tab on every session event, and a scan per lookup (copying each 45-field record) took half the main thread.
     @ObservationIgnored private var sessionAt: [String: Int]?
-    /// How full each agent's conversation is, pushed when its status changes and while it works (`WatchTopic.context`).
-    package var contextUsage: [String: SessionContextWindow.Usage] = [:]
-    /// The commands each watched agent ran (`WatchTopic.commands`), by session id.
-    package var commands: [String: [AgentCommand]] = [:]
-    /// What the subagents at work did last, by session then subagent, while watched.
-    package var subagentSteps: [String: SessionSubagentSteps.Result] = [:]
-    /// What the daemon pushes for what's watched (`watch(_:_:)`), by worktree id where it has one.
-    package var git: [String: GitEvent] = [:]
     /// A pull, push or fetch running in a workspace, by worktree id: what it says ("Pushing…"). See `GitSync`.
     var syncing: [String: String] = [:]
-    package var ports: [String: [PortsList.Port]] = [:]
-    package var activity: ActivityEvent?
-    package var ci: [String: CIEvent] = [:]
-    /// Every routine and their runs of the last two weeks, as the daemon last told (`event.routines`).
-    package var routines: RoutinesEvent?
-    var prs: [String: GitHub.PullRequest] = [:]
-    var limits: UsageGet.Result?
     @ObservationIgnored var forecast = LimitForecast()   // the pace of each limit, from the readings pushed so far
-    /// Watched files' versions by path (`WatchTopic.file`; a nil stamp: gone), and workspaces' files (`WatchTopic.files`).
-    package var fileVersions: [String: FileEvent] = [:]
-    package var fileLists: [String: FilesEvent] = [:]
-    /// The pages agents made, by workspace (`WatchTopic.artifacts`).
-    package var artifacts: [String: [ArtifactItem]] = [:]
-    /// Remote hosts as they're doing, by host (`WatchTopic.host` / `.hostDetail`, and what `host.stats` answered).
-    package var hostStats: [String: HostStats] = [:]
-    /// Kelp's virtual machines as the daemon last told (`WatchTopic.machines`), and what runs in each (`.machineDetail`).
-    package var machines: [VMInfo] = []
-    package var machineDetail: [String: VMDetail] = [:]
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
+    /// What lets go of each topic's latest values once nothing watches a key (`latest`, `Pushed.forgottenWith`).
+    @ObservationIgnored var forgetters: [WatchTopic: [(String) -> Void]] = [:]
     /// `event.repo` / `event.worktree` / `event.removed` handled since the last refresh, per id: a list asked for before
     /// one may be older. Emptied as each refresh ends (nothing compares with them until the next begins), or they'd keep
     /// every record that ever was.
@@ -396,7 +373,7 @@ package final class AppModel {
             if merged != sessions { sessions = merged }
             for (now, was) in missed { notifier?.statusChanged(now, was) }
         }
-        if let r = await quiet(RoutineList()), r != routines { routines = r }
+        if let r = await quiet(RoutineList()) { land(r) }
         syncContextWatches()
         recordEvents = [:]; sessionEvents = [:]
     }
