@@ -10,6 +10,8 @@ final class AndroidRuntime {
     let folder: URL, machine: VMMachine
     private(set) var state: VMState
     private var emulator: Process?
+    /// Whether the emulator running now was started with its window: `windowed` is what the next start asks.
+    private var shown = false
     private var port = 0
     private var windowed = false
     private var lastUse = Date()
@@ -66,13 +68,11 @@ final class AndroidRuntime {
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
             lastUse = Date()
-            // Booting headless (an agent's run began it): once it's up, slept and woken again with its window.
-            if state == .starting, !windowed {
-                windowed = true
-                return ready.append { _ in self.sleep { _ in self.wake(done) } }
-            }
-            guard !windowed || emulator == nil else { return done(nil) }
             windowed = true
+            if emulator != nil, shown { return wake(done) }   // has its window: up, or coming up
+            if emulator == nil { return wake(done) }   // down: it boots with its window
+            // Started headless (an agent's run): once it's up, slept and woken again with its window.
+            if state == .starting { return ready.append { _ in self.sleep { _ in self.wake(done) } } }
             sleep { _ in self.wake(done) }   // from its snapshot, now with a window
         case .quit:
             done(nil)
@@ -126,6 +126,7 @@ final class AndroidRuntime {
         }
         do { try p.run() } catch { return started(error) }
         emulator = p
+        shown = windowed
         Task { await awaitBoot(since: Date()) }
     }
 
