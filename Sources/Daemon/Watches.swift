@@ -193,7 +193,12 @@ final class Watches: Sendable {
             // Files changing all through a read: not back to back, or a large repository's git never stops; and not more than
             // 8 s behind either, or a slow repository's panels stay stale while an agent writes.
             if again { schedule(k, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began)))) }
-            else if let next { schedule(k, after: fastUntil > Date() ? next : Self.slowed(k.topic, next, quiet: quiet)) }
+            else if let next {
+                // A backed-off read lands a little apart from the others': every project's watches start and slow down
+                // together, so gh and ssh ran in bursts (10 in one 30 s, then 2 in three minutes).
+                let t = fastUntil > Date() ? next : Self.slowed(k.topic, next, quiet: quiet)
+                schedule(k, after: t == next ? t : t * Double.random(in: 0.8...1.2))
+            }
         }
     }
 
