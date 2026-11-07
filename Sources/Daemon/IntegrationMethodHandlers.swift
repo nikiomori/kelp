@@ -26,7 +26,10 @@ extension GitHubBranchPR: Handled {
         if let hit = forges.prCache.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 120 { return hit.value }
         // nil: no PR, or gh couldn't tell (try? flattens to one optional)
         let v = GitLab.isGitLab(cwd: w.path) ? try? GitLab.mergeRequest(cwd: w.path, branch: branch) : try? GitHub.pullRequest(cwd: w.path, branch: branch)
-        forges.prCache.withLock { $0[key] = (Date(), v) }
+        forges.prCache.withLock { c in
+            if c.count >= 500 { c = c.filter { Date().timeIntervalSince($0.value.at) < 120 } }   // what's past its 2 min goes, not kept for the daemon's life
+            c[key] = (Date(), v)
+        }
         return v
     }
 }
@@ -142,7 +145,10 @@ extension GitAuthorAvatar: AsyncHandled {
             if (resp as? HTTPURLResponse)?.statusCode == 200, !body.isEmpty { data = body }
         }
         let found = data
-        forges.avatars.withLock { $0[key] = (Date(), found) }
+        forges.avatars.withLock { a in
+            if a.count >= 2000 { a.removeAll() }   // a picture each, a few KB: past that many authors, asked again as they're shown
+            a[key] = (Date(), found)
+        }
         return found
     }
 }

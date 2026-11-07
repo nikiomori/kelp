@@ -19,10 +19,7 @@ enum NewTabChoices {
 
     /// The key command `id` has in the menus: settings.json's `keys` over it (`""`: none), else its default, so a key
     /// rebound in Settings › Keyboard reads the same here.
-    static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
-        guard let over = KeyBindings.overrides(app.settings)[id] else { return KeySpec(app.extensions.command(id)?.key ?? def) }
-        return over.isEmpty ? nil : KeySpec(over)
-    }
+    static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? { app.extensions.key(id, fallback: def) }
     /// The default agent's key: New Agent's.
     static func defaultKey(_ app: AppModel) -> KeySpec? { key("agents.new", app, default: "opt+cmd+t") }
 
@@ -42,7 +39,7 @@ enum NewTabChoices {
         }
         let ctx = IDEContext.of(app)
         for e in app.extensions.all.editors {
-            all.append(Action(title: e.label, symbol: e.icon, key: app.extensions.command(e.id)?.key.flatMap(KeySpec.init)) { e.open(ctx, in: app) })
+            all.append(Action(title: e.label, symbol: e.icon, key: app.extensions.key(e.id)) { e.open(ctx, in: app) })
         }
         return all
     }

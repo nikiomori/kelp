@@ -4,6 +4,7 @@ import JavaScriptCore
 import os
 import Testing
 import Core
+import WorkbenchKit
 @testable import KelpKit
 @testable import BuiltinActivity
 @testable import BuiltinBrowser
@@ -238,4 +239,18 @@ import Core
     #expect(!m.sessionEvents.isEmpty && !m.recordEvents.isEmpty)
     await m.refresh()
     #expect(m.sessionEvents.isEmpty && m.recordEvents.isEmpty)
+}
+
+/// A key reads the same wherever it's shown: the command's own, settings.json's `keys` over it (`""`: none), and a
+/// fallback only for what isn't a registered command.
+@Test @MainActor func aCommandsKeyIsReadWithItsRebinding() async throws {
+    let rig = try await AppRig(); defer { rig.done() }
+    _ = NSApplication.shared   // the themes a reload applies set its appearance
+    rig.app.extensions.reload()
+    #expect(rig.app.extensions.key("terminal.new") == KeySpec("cmd+t"))
+    rig.app.settings.set("keys", .object(["terminal.new": .string("cmd+shift+t"), "agents.new": .string("")]))
+    #expect(rig.app.extensions.key("terminal.new") == KeySpec("cmd+shift+t"))
+    #expect(rig.app.extensions.key("agents.new") == nil)
+    #expect(NewTabChoices.defaultKey(rig.app) == nil)   // the "+" menu and the start page read the same
+    #expect(rig.app.extensions.key("no.such", fallback: "cmd+r") == KeySpec("cmd+r"))
 }

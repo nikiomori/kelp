@@ -207,7 +207,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         for id in ["workspace.addProject", "workspace.cloneRepository", "workspace.addRemote"] {
             guard let c = app.extensions.command(id) else { continue }
             let i = m.add(c.title) { app.extensions.run(id) }
-            if let k = c.key.flatMap(KeySpec.init) { i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags }
+            if let k = app.extensions.key(id) { i.keyEquivalent = k.key; i.keyEquivalentModifierMask = k.mods.flags }
         }
         m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
     }

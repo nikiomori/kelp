@@ -422,6 +422,12 @@ package final class ExtensionRegistry {
     }
 
     func command(_ id: String) -> CommandSpec? { all.commands.first { $0.id == id } }
+    /// The key command `id` has: settings.json's `keys` over its own (`""`: none), `fallback` for one that isn't a
+    /// registered command (the menus' own). What every menu and list that shows a key reads, so a rebound one reads the same.
+    func key(_ id: String, fallback: String? = nil) -> KeySpec? {
+        if let over = KeyBindings.overrides(app.settings)[id] { return over.isEmpty ? nil : KeySpec(over) }
+        return (command(id)?.key ?? fallback).flatMap(KeySpec.init)
+    }
     /// Runs the command (a menu item's, a key's); one whose extension is off does nothing.
     package func run(_ id: String, _ args: [String: JSONValue] = [:]) { command(id)?.run(args) }
 }
