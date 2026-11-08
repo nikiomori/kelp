@@ -10,8 +10,13 @@ final class SidebarCell: NSTableCellView {
     private weak var owner: SidebarController?
     let app: AppModel
     private let icon = NSImageView()
-    /// The pointer is over this project's group: its colour glows up round the icon (Icon style).
-    func glowIcon(_ on: Bool) { ProjectIcon.glow(icon, on) }
+    /// Behind the slot: the project's colour, lit while the pointer is over its group (Icon style, `glowIcon`).
+    private let glow = CALayer()
+    private var glowColor: ProjectColor?
+    func glowIcon(_ on: Bool) {
+        guard let glowColor else { return }
+        ProjectIcon.glow(glow, color: glowColor, on)
+    }
     private let title = NSTextField(labelWithString: "")
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
     private let trailing = NSTextField(labelWithString: "")
@@ -107,6 +112,9 @@ final class SidebarCell: NSTableCellView {
             icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
             icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
             fillSlot(icon)
+            slot.wantsLayer = true
+            glow.frame = CGRect(x: 0, y: 0, width: 16, height: 16)
+            slot.layer?.insertSublayer(glow, at: 0)
             detail.font = .ui(12)
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingTail
@@ -369,6 +377,8 @@ final class SidebarCell: NSTableCellView {
         case .project(let id):
             let repo = app.repo(id)
             let missing = repo.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
+            glowColor = repo.flatMap { app.arrangement.iconColor(folder: $0.path) }
+            if glowColor == nil { glow.shadowOpacity = 0 }
             if let repo, !missing {
                 ProjectIcon.show(repo.path, in: icon, app: app)
             } else {

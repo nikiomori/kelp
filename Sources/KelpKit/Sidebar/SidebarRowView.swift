@@ -248,7 +248,7 @@ final class ProjectCard: NSView {
     /// The pointer is over the project's group: a card with a colour glows up, brighter and with a soft rim of its
     /// colour round it (Card style), the way the Icon style's halo does round an icon.
     var glowing = false { didSet { if glowing != oldValue { showGlow() } } }
-    private static let glowOpacity: Float = 0.45, glowRadius: CGFloat = 9
+    private static let glowOpacity: Float = 0.6, glowRadius: CGFloat = 7   // the rim stays inside the list's 8 pt edges
     private var fill: NSColor? {
         let base: NSColor? = look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest)
         switch look.remote {
