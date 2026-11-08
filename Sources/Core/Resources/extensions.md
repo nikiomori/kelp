@@ -124,6 +124,7 @@ Exactly one of:
 | `run` | runs the command in the background; output shown only on failure |
 | `open` | opens a URL (browser tab) or a path (file tab) |
 | `agent` | starts the default agent in a new tab with this prompt |
+
 Optional: `confirm` (question shown first), `icon`.
 
 ## commands

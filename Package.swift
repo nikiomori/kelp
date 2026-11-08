@@ -21,6 +21,7 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
         .package(url: "https://github.com/CodeEditApp/CodeEditLanguages", from: "0.1.20"),
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.25.0"),
+        .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.9.0"),
     ],
     targets: [
         .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json"),   // docs link to both
@@ -41,7 +42,8 @@ let package = Package(
         .target(name: "LSPKit", dependencies: ["Core"]),
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),
-        .target(name: "Markdown", resources: [.copy("Resources/mermaid.min.js"), .copy("Resources/mermaid-LICENSE.txt")]),   // mermaid 11.17.2, MIT
+        .target(name: "Markdown", dependencies: [.product(name: "Markdown", package: "swift-markdown", moduleAliases: ["Markdown": "SwiftMarkdown"])],   // cmark-gfm, as SwiftMarkdown
+                resources: [.copy("Resources/mermaid.min.js"), .copy("Resources/mermaid-LICENSE.txt")]),   // mermaid 11.17.2, MIT
         // The design system's sizes, colours and building blocks (panel bar, icon button, empty state): AppKit only.
         .target(name: "DesignKit"),
         .target(name: "EditorKit", dependencies: ["DesignKit", .product(name: "CodeEditLanguages", package: "CodeEditLanguages"),

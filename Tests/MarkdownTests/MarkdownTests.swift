@@ -123,7 +123,7 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
             == #"<p align="center"><img src="logo.png" width="120"></p>"#)
     #expect(r("<iframe src=x></iframe>").contains("&lt;iframe"))
     #expect(r("a <!-- hidden --> b") == #"<p>a  b</p>"#)
-    #expect(r("&copy; & co") == #"<p>&copy; &amp; co</p>"#)
+    #expect(r("&copy; & co") == #"<p>© &amp; co</p>"#)   // cmark decodes entities
 }
 
 @Test func pageDocument() {

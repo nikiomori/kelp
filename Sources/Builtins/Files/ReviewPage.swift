@@ -8,30 +8,34 @@ import Markdown
 enum ReviewPage {
     /// `sendTo`: the chat's name on the button; nil when it has ended (the picks go to the agent on screen).
     static func body(_ r: Review, sendTo: String?) -> String {
-        var html = "<h1>\(esc(r.title))</h1>\n"
+        var html = "<h1>\(MarkdownHTML.esc(r.title))</h1>\n"
         if !r.intro.isEmpty { html += "<div class=\"k-intro\">\(MarkdownHTML.render(r.intro))</div>\n" }
         for p in r.points {
             html +=
-                "<section class=\"k-point\"><div class=\"k-q\"><span class=\"k-n\">\(esc(p.number))</span><h2>\(inline(p.question))</h2></div>"
+                "<section class=\"k-point\"><div class=\"k-q\"><span class=\"k-n\">\(MarkdownHTML.esc(p.number))</span><h2>\(inline(p.question))</h2></div>"
             html += "<div class=\"k-opts\">"
             for o in p.options {
-                let rec = o.recommended ? "<span class=\"k-rec\">\(esc(String(localized: "Recommended")))</span>" : ""
+                let rec =
+                    o.recommended
+                    ? "<span class=\"k-rec\">\(MarkdownHTML.esc(String(localized: "Recommended")))</span>" : ""
                 let detail = o.detail.isEmpty ? "" : "<span class=\"k-d\">\(inline(o.detail))</span>"
                 html +=
                     "<button type=\"button\" class=\"k-opt\(o.picked ? " on" : "")\" aria-pressed=\"\(o.picked)\" "
-                    + "data-p=\"\(esc(p.number))\" data-k=\"\(esc(o.key))\">"
-                    + "<span class=\"k-dot\"></span><span class=\"k-key\">\(esc(o.key))</span>"
+                    + "data-p=\"\(MarkdownHTML.esc(p.number))\" data-k=\"\(MarkdownHTML.esc(o.key))\">"
+                    + "<span class=\"k-dot\"></span><span class=\"k-key\">\(MarkdownHTML.esc(o.key))</span>"
                     + "<span class=\"k-t\"><span class=\"k-line\">\(inline(o.text))\(rec)</span>\(detail)</span></button>"
             }
             html +=
-                "</div><input class=\"k-note\" data-p=\"\(esc(p.number))\" value=\"\(esc(p.note))\" "
-                + "placeholder=\"\(esc(String(localized: "Add a note…")))\" aria-label=\"\(esc(String(localized: "Note on point \(p.number)")))\"></section>\n"
+                "</div><input class=\"k-note\" data-p=\"\(MarkdownHTML.esc(p.number))\" value=\"\(MarkdownHTML.esc(p.note))\" "
+                + "placeholder=\"\(MarkdownHTML.esc(String(localized: "Add a note…")))\" "
+                + "aria-label=\"\(MarkdownHTML.esc(String(localized: "Note on point \(p.number)")))\"></section>\n"
         }
         let picks = r.points.compactMap { p in p.pick.map { p.number + $0 } }.joined(separator: " ")
         let button = sendTo.map { String(localized: "Send to \($0)") } ?? String(localized: "Send to the Agent")
         html +=
-            "<div class=\"k-bar\"><span class=\"k-sum\">\(esc(picks.isEmpty ? String(localized: "Pick an option in each point") : picks))</span>"
-            + "<button type=\"button\" class=\"k-send\"\(picks.isEmpty ? " disabled" : "")>\(esc(button))</button></div>"
+            "<div class=\"k-bar\"><span class=\"k-sum\">\(MarkdownHTML.esc(picks.isEmpty ? String(localized: "Pick an option in each point") : picks))</span>"
+            + "<button type=\"button\" class=\"k-send\"\(picks.isEmpty ? " disabled" : "")>"
+            + "\(MarkdownHTML.esc(button))</button></div>"
         return html
     }
 
@@ -85,10 +89,5 @@ enum ReviewPage {
         let html = MarkdownHTML.render(s).trimmingCharacters(in: .whitespacesAndNewlines)
         guard html.hasPrefix("<p>"), html.hasSuffix("</p>") else { return html }
         return String(html.dropFirst(3).dropLast(4))
-    }
-
-    private static func esc(_ s: String) -> String {
-        s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
     }
 }
