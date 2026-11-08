@@ -279,30 +279,60 @@ final class AgentUsage: Sendable {
         return nil
     }
 
-    /// "## You / ## Claude" turns from a Claude Code transcript, newest kept when it's longer than `limit`.
+    /// The file `session`'s agent keeps its conversation in, for the agents whose files Kelp can tell apart: Claude Code,
+    /// Codex (the rollout it has open, else the newest begun here since it started), pi and oh-my-pi.
+    func conversationFile(of session: Session, live: LiveSession?) -> URL? {
+        switch session.agent {
+        case "claude": return live.flatMap(transcript(of:)) ?? transcript(of: session)
+        case "codex":
+            if live != nil, let open = Self.openRollout(pid: session.pid) { return open }
+            return agentRoots().codex.lazy.compactMap {
+                CodexHistory.rollouts(cwd: session.cwd, since: session.createdAt, root: $0).first
+            }
+            .first
+        case let agent?:
+            return UsageFormat(rawValue: agent).flatMap(\.defaultRoot).flatMap {
+                PiHistory.newest(cwd: session.cwd, since: session.createdAt, root: $0)
+            }
+        case nil: return nil
+        }
+    }
+
+    /// "## You / ## Agent" turns from a Claude Code, Codex or pi conversation file, newest kept when it's longer than
+    /// `limit`. Only what was said: tool calls, their results, reasoning and injected context are left out.
     static func conversation(transcript url: URL, limit: Int) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         var turns: [String] = []
         for line in data.split(separator: 0x0A) {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                let type = entry["type"] as? String,
-                type == "user" || type == "assistant", let msg = entry["message"] as? [String: Any]
+                let (role, content) = said(entry)
             else { continue }
-            let text: String
-            if let plain = msg["content"] as? String {
-                text = plain
-            } else {
-                text = ((msg["content"] as? [[String: Any]]) ?? []).compactMap {
-                    $0["type"] as? String == "text" ? $0["text"] as? String : nil
-                }
-                .joined(separator: "\n")
-            }
+            let text =
+                (content as? String)
+                ?? ((content as? [[String: Any]]) ?? []).compactMap { $0["text"] as? String }.joined(separator: "\n")
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("<") else { continue }   // tool results and system notes aren't the conversation
-            turns.append("## \(type == "user" ? "You" : "Agent")\n\n\(trimmed)")
+            // tool results, system notes and Codex's AGENTS.md aren't the conversation
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("<"), !trimmed.hasPrefix("# AGENTS.md") else { continue }
+            turns.append("## \(role == "user" ? "You" : "Agent")\n\n\(trimmed)")
         }
         var out = turns.joined(separator: "\n\n")
         if out.count > limit { out = "…\n\n" + String(out.suffix(limit)) }
         return out
+    }
+
+    /// Who said what in one line: Claude Code's `{type: user|assistant, message}`, pi's `{type: message, message: {role}}`,
+    /// Codex's `{payload: {type: message, role}}`. Nil for anything else (Codex's developer notes, pi's system prompt).
+    private static func said(_ entry: [String: Any]) -> (role: String, content: Any?)? {
+        let message = entry["message"] as? [String: Any], payload = entry["payload"] as? [String: Any]
+        let (role, content): (String?, Any?) =
+            switch entry["type"] as? String {
+            case let type? where type == "user" || type == "assistant": (type, message?["content"])
+            case "message": (message?["role"] as? String, message?["content"])
+            case "response_item" where payload?["type"] as? String == "message":
+                (payload?["role"] as? String, payload?["content"])
+            default: (nil, nil)
+            }
+        guard let role, role == "user" || role == "assistant" else { return nil }
+        return (role, content)
     }
 }

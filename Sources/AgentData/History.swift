@@ -114,9 +114,17 @@ public enum CodexHistory {
     /// with a finished turn.
     /// Limit: two Codex chats begun in one folder can read each other's here, and a resumed one, begun before `since`, reads none.
     public static func lastReply(cwd: String, since: Date, now: Date = Date(), root: URL = defaultRoot) -> String? {
+        rollouts(cwd: cwd, since: since, now: now, root: root).compactMap(lastReply(rollout:)).first
+    }
+
+    /// The conversations begun in `cwd` since `since`, newest first (same limit as `lastReply(cwd:since:)`).
+    public static func rollouts(cwd: String, since: Date, now: Date = Date(), root: URL = defaultRoot)
+        -> LazyFilterSequence<[URL]>
+    {
         let real = Paths.real(cwd) ?? cwd
-        func here(_ url: URL) -> Bool { parse(url).map { (Paths.real($0.cwd) ?? $0.cwd) == real } ?? false }
-        return rollouts(root: root, since: since, now: now).lazy.filter(here).compactMap(lastReply(rollout:)).first
+        return rollouts(root: root, since: since, now: now).lazy.filter {
+            parse($0).map { (Paths.real($0.cwd) ?? $0.cwd) == real } ?? false
+        }
     }
 
     /// Those begun since `since`, newest first: a file's name says when, in local time, like its folder's.
@@ -165,6 +173,28 @@ public enum CodexHistory {
             agent: .codex, id: id ?? String(url.deletingPathExtension().lastPathComponent.suffix(36)), cwd: cwd ?? "",
             title: JSONL.clip(prompt ?? fallbackPrompt ?? ""), started: started, updated: updated,
             messageCount: Int((Double(count) / covered).rounded()), path: url)
+    }
+}
+
+/// pi's (and oh-my-pi's) conversations: `root/--<real cwd, "/" as "-">--/<time>_<id>.jsonl`, as pi names them.
+public enum PiHistory {
+    /// The one of `cwd` written to last, if that was since `since`.
+    /// Limit: two pi chats in one folder read as the one written to last.
+    public static func newest(cwd: String, since: Date, root: URL) -> URL? {
+        let real = Paths.real(cwd) ?? cwd
+        let name = "--" + String(real.dropFirst(real.hasPrefix("/") ? 1 : 0)).replacing(/[\/:]/, with: "-") + "--"
+        func modified(_ url: URL) -> Date {
+            var info = stat()
+            return stat(url.path, &info) == 0
+                ? Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)) : .distantPast
+        }
+        // No folder: no conversation of pi's here yet.
+        let files =
+            FileManager.default.enumerator(
+                at: root.appendingPathComponent(name), includingPropertiesForKeys: nil,
+                options: .skipsSubdirectoryDescendants)?
+            .allObjects as? [URL] ?? []
+        return files.filter { $0.pathExtension == "jsonl" && modified($0) >= since }.max { modified($0) < modified($1) }
     }
 }
 

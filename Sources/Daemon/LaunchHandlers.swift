@@ -125,12 +125,12 @@ extension SessionHandoff: Handled {
             launch)
     }
 
-    /// Transcript of a session written to ~/.kelp/handoff/<id>.md for the next agent to read. Claude Code's own
-    /// conversation (what was asked and answered) when there is one; otherwise the terminal's text.
+    /// Transcript of a session written to ~/.kelp/handoff/<id>.md for the next agent to read. The agent's own
+    /// conversation (what was asked and answered: Claude Code, Codex, pi) when there is one; otherwise the terminal's text.
     private static func file(of session: Session, full: Bool, _ sessions: Sessions) throws -> URL {
         let limit = full ? 400_000 : 40_000
         let body: String
-        if let transcript = sessions.existing(session.id).flatMap(sessions.agentUsage.transcript(of:)),
+        if let transcript = sessions.agentUsage.conversationFile(of: session, live: sessions.existing(session.id)),
             let talk = AgentUsage.conversation(transcript: transcript, limit: limit), !talk.isEmpty
         {
             body = talk

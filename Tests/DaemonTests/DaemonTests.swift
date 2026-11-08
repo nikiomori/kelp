@@ -1,3 +1,4 @@
+import AgentData
 import Agents
 import Core
 import Foundation
@@ -490,6 +491,48 @@ final class NoteBox: @unchecked Sendable {
     try lines.joined(separator: "\n").write(to: u, atomically: true, encoding: .utf8)
     let brief = try #require(AgentUsage.conversation(transcript: u, limit: 10_000))
     #expect(brief == "## You\n\nAdd a login page\n\n## Agent\n\nI'll add it.\n\n## Agent\n\nDone: login.html")
+}
+
+/// Codex's rollout and pi's session read the same way: only what was said, not injected context or tool calls.
+@Test func handoffBriefFromCodexAndPi() throws {
+    let codex = tmp().appendingPathComponent("rollout.jsonl"), pi = tmp().appendingPathComponent("pi.jsonl")
+    try [
+        #"{"type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"rules"}]}}"#,
+        #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>x</environment_context>"}]}}"#,
+        ##"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions"}]}}"##,
+        #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the build"}]}}"#,
+        #"{"type":"response_item","payload":{"type":"reasoning","summary":[]}}"#,
+        #"{"type":"event_msg","payload":{"type":"agent_message","message":"Fixed"}}"#,
+        #"{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Fixed"}]}}"#
+    ].joined(separator: "\n").write(to: codex, atomically: true, encoding: .utf8)
+    try [
+        #"{"type":"session","cwd":"/tmp"}"#,
+        #"{"type":"message","message":{"role":"system","content":"prompt"}}"#,
+        #"{"type":"message","message":{"role":"user","content":[{"type":"text","text":"Fix the build"}]}}"#,
+        #"{"type":"message","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hm"},{"type":"toolCall","name":"bash"}]}}"#,
+        #"{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"Fixed"}]}}"#
+    ].joined(separator: "\n").write(to: pi, atomically: true, encoding: .utf8)
+    for file in [codex, pi] {
+        #expect(
+            AgentUsage.conversation(transcript: file, limit: 10_000) == "## You\n\nFix the build\n\n## Agent\n\nFixed")
+    }
+}
+
+/// pi keeps a folder's conversations under its real path with "/" as "-": the newest written since the session began.
+@Test func piConversationOfAFolder() throws {
+    let root = tmp(), cwd = tmp()
+    let real = try #require(Paths.real(cwd.path))
+    let dir = root.appendingPathComponent("--" + real.dropFirst().replacing("/", with: "-") + "--")
+    try Paths.ensure(dir)
+    let old = dir.appendingPathComponent("a.jsonl"), new = dir.appendingPathComponent("b.jsonl")
+    try "{}".write(to: old, atomically: true, encoding: .utf8)
+    try "{}".write(to: new, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSinceNow: -3600)], ofItemAtPath: old.path)
+    #expect(
+        PiHistory.newest(cwd: cwd.path, since: Date(timeIntervalSinceNow: -60), root: root)?.lastPathComponent
+            == "b.jsonl")
+    #expect(PiHistory.newest(cwd: cwd.path, since: Date(timeIntervalSinceNow: 60), root: root) == nil)
 }
 
 /// A server a workspace's terminal started shows up as that workspace's port, and only there.
