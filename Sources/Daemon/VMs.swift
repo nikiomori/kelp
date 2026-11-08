@@ -618,7 +618,9 @@ extension VMList: Handled {
 extension VMType: Handled {
     /// No text types the machine's password (Type Password): into whatever has its focus, which the user looks at first.
     var notForAgents: String? {
-        text == nil ? "Typing a machine's password is the user's: Type Password in its tab." : nil
+        text == nil
+            ? "Typing a machine's password is the user's: ask them to press Type Password at the top of its window "
+                + "(kelp vm show <name> opens it) or in its tab in Kelp." : nil
     }
     func handle(_ vms: VMService) throws -> Done {
         try vms.type(name, text, session: Sessions.asker)

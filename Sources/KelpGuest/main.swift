@@ -131,7 +131,8 @@ final class Server {
         guard !AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) else { return }
         throw Failure(
             "Kelp Guest needs Accessibility in the machine to read controls: its dialog is on the machine's screen. "
-                + "Open System Settings from it, turn Kelp Guest on, and `kelp vm password <name>` types the password it asks. "
+                + "Open System Settings from it and turn Kelp Guest on; for the password it asks, the user presses "
+                + "Type Password at the top of this machine's window (kelp vm show <name>). "
                 + "Or work from screenshots and clicks, which need nothing.")
     }
 

@@ -494,6 +494,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             screenWindow.delegate = self
             screenWindow.center()
             window = screenWindow
+            if machine.os == "macos" { PasswordButton.add(to: screenWindow, machine: machine.name, folder: folder) }
         }
         let view = window?.contentView as? VZVirtualMachineView
         if view?.virtualMachine !== vm { view?.virtualMachine = vm }

@@ -182,10 +182,12 @@ enum AgentSkills {
           your last action); while another chat's turn lasts, yours says so: wait a moment and go on.
         - Look again after each step that changes the screen; give Spotlight and app launches a second. The user sees it
           live with `kelp vm show <name>`.
-        - A dialog in it asks for the password (an installer, Privacy & Security): `kelp vm password <name>` types it.
+        - A dialog in it asks for the password (an installer, Privacy & Security): only the user may give it, and they
+          don't know it. Run `kelp vm show <name>`, then ask them to press Type Password at the top of that window.
         - `kelp vm ui <name> [--app Safari]` — the front app's controls as text: `- button "Sign in" [ref=e12] (640,412 80×24)`;
           `kelp vm press <name> e12` presses one. It needs Accessibility for Kelp Guest inside, asked the first time: its
-          error says how (a click on the dialog, the switch, `kelp vm password`). Screenshots and clicks don't need it.
+          error says how (a click on the dialog, the switch, the user's Type Password). Screenshots and clicks don't
+          need it.
 
         ## An Android machine
 

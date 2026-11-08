@@ -137,6 +137,12 @@ extension Clients {
         return me.deletingLastPathComponent().appendingPathComponent("KelpApp").resolvingSymlinksInPath().path
     }
 
+    /// A machine's kelp-vm beside this daemon (`VMService.helper`): Kelp's own code, its window's buttons the user's.
+    static var machineExecutable: String {
+        let me = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
+        return URL(fileURLWithPath: VMService.helper(beside: me.path)).resolvingSymlinksInPath().path
+    }
+
     /// For what only Kelp's window may do (its state, trusting a project): anyone else is refused, and the log says who,
     /// so a second install or a stale app (whose path isn't the one beside this daemon) can be told apart.
     func requireApp(_ conn: Int, _ refusal: String) throws {

@@ -241,7 +241,13 @@ final class Callers: Sendable {
         guard let connection = clients.connection(conn) else { return conn < 0 ? .user : .kelpd }
         if let known = connection.owner.withLock({ $0 }) { return known }
         let seen = connection.peerPID.map { session(running: $0) } ?? .unknown   // not under the connection's lock: this takes the sessions'
-        let found: Caller = seen == .detached && connection.peer == Clients.appExecutable ? .user : seen
+        // Kelp's own code is the user's: its window, and a machine's kelp-vm (Type Password in that machine's window).
+        let found: Caller =
+            switch seen {
+            case .detached where connection.peer == Clients.appExecutable: .user
+            case .kelpd where connection.peer == Clients.machineExecutable: .user
+            default: seen
+            }
         connection.owner.withLock { $0 = found }
         return found
     }
