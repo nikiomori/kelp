@@ -390,7 +390,7 @@ struct KelpLinks {
             FileManager.default.fileExists(atPath: path, isDirectory: &dir)
             if !dir.boolValue {
                 openFile(path, line: query.first { $0.name == "line" }?.value.flatMap(Int.init))
-            } else if app.repos.contains(where: { Self.within(path, $0.path, orIs: true) }) {   // a link out of a project isn't in it
+            } else if app.repos.contains(where: { IDE.inside(path, $0.path) }) {   // a link out of a project isn't in it
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
                 let alert = NSAlert()
@@ -406,7 +406,7 @@ struct KelpLinks {
     }
 
     private func openFile(_ path: String, line: Int?) {
-        let worktree = app.worktrees.filter { Self.within(path, $0.path) }.max { $0.path.count < $1.path.count }
+        let worktree = app.worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
         whenAllowed(path) {
             app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: worktree?.id)
         }
@@ -434,23 +434,7 @@ struct KelpLinks {
 
     /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.
     func isKnown(_ path: String) -> Bool {
-        (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { Self.within(path, $0) }
-    }
-
-    /// Whether `path` is in `folder` (or is it), both as they really are (`Paths.real`, as projects are kept): `..` and
-    /// links followed.
-    static func within(_ path: String, _ folder: String, orIs: Bool = false) -> Bool {
-        let (realPath, realFolder) = (real(path), real(folder))
-        return realPath.hasPrefix(realFolder + "/") || (orIs && realPath == realFolder)
-    }
-
-    /// A path not there (yet) is its nearest folder that is, as it really is, and the rest as written.
-    private static func real(_ path: String) -> String {
-        let standard = (path as NSString).standardizingPath
-        if let resolved = Paths.real(standard) { return resolved }
-        let up = (standard as NSString).deletingLastPathComponent
-        return up == standard
-            ? standard : (real(up) as NSString).appendingPathComponent((standard as NSString).lastPathComponent)
+        (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { IDE.inside(path, $0) }
     }
 }
 

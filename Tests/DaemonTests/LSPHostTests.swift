@@ -6,14 +6,16 @@ import Testing
 @testable import Daemon
 @testable import LSPKit
 
-/// A language server that answers initialize, definition, completion and documentSymbol, and writes what it heard
-/// (started, each notification with the document's version, exit) to `log`.
+/// A language server that answers initialize, definition, completion, symbols, hover, signatures, references, rename and
+/// code actions (the project's symbols in the file opened last), and writes what it heard (started, each notification
+/// with the document's version, exit) to `log`.
 private func fakeServer(in dir: String) throws -> (command: String, args: [String], log: String) {
     let script = dir + "/server.py", log = dir + "/server.log"
     try #"""
     import sys, json, os
     log = open(sys.argv[1], "a", buffering=1)
     log.write("start %d\n" % os.getpid())
+    opened = [None]
     def read():
         head = b""
         while not head.endswith(b"\r\n\r\n"):
@@ -31,16 +33,32 @@ private func fakeServer(in dir: String) throws -> (command: String, args: [Strin
         meth = m.get("method")
         if "id" in m and meth:
             r = None
+            uri = ((m.get("params") or {}).get("textDocument") or {}).get("uri")
+            def at(l, c): return {"start": {"line": l, "character": c}, "end": {"line": l, "character": c + 5}}
+            edit = {"changes": {uri: [{"range": at(0, 4), "newText": (m.get("params") or {}).get("newName", "fixed")}]}}
             if meth == "initialize": r = {"capabilities": {}}
             elif meth == "textDocument/definition":
                 r = {"uri": "file:///tmp/defined.swift", "range": {"start": {"line": 4, "character": 2}, "end": {"line": 4, "character": 2}}}
             elif meth == "textDocument/completion": r = [{"label": "hello", "insertText": "hello()"}]
-            elif meth == "textDocument/documentSymbol": r = []
+            elif meth == "textDocument/documentSymbol":
+                r = [{"name": "greet", "kind": 12, "range": {"start": {"line": 0, "character": 0}, "end": {"line": 2, "character": 1}},
+                      "selectionRange": at(0, 5), "children": [{"name": "word", "kind": 13, "range": at(1, 8), "selectionRange": at(1, 8)}]}]
+            elif meth == "textDocument/hover": r = {"contents": {"kind": "markdown", "value": "Says hello"}}
+            elif meth == "textDocument/signatureHelp":
+                r = {"signatures": [{"label": "greet(name: String)", "parameters": [{"label": "name: String"}]}], "activeParameter": 0}
+            elif meth == "textDocument/references":
+                r = [{"uri": uri, "range": at(1, 8)}, {"uri": "file:///usr/lib/swift/Core.swift", "range": at(9, 0)}]
+            elif meth == "textDocument/rename": r = edit
+            elif meth == "textDocument/codeAction": r = [{"title": "Fix it", "edit": edit}, {"title": "Run", "command": {"command": "x"}}]
+            elif meth == "workspace/symbol":
+                r = [{"name": "greet", "kind": 12, "location": {"uri": opened[0], "range": at(0, 5)}},
+                     {"name": "print", "kind": 12, "location": {"uri": "file:///usr/lib/swift/Core.swift", "range": at(9, 0)}}]
             send({"jsonrpc": "2.0", "id": m["id"], "result": r})
         elif meth:
             doc = (m.get("params") or {}).get("textDocument") or {}
             log.write("%s %s\n" % (meth, doc.get("version", "")))
             if meth == "textDocument/didOpen":
+                opened[:] = [doc.get("uri")]
                 log.write("text %s %s\n" % (doc.get("uri"), doc.get("text")))
                 if "problem" in doc.get("text", ""):
                     at = {"start": {"line": 1, "character": 2}, "end": {"line": 1, "character": 6}}
@@ -89,6 +107,44 @@ private func lines(_ log: String) -> [String] {
         LSPOpen(
             root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "let x = 2"))
     #expect(lines(server.log).filter { $0.hasPrefix("start") }.count == 1)
+}
+
+/// What the editor asks a server about a place, read back as Kelp's own values: the symbol around a line and the file's
+/// symbols, hover text, a signature with its parameter, references and the project's symbols (a toolchain's left out),
+/// and a rename's and a quick fix's edits (an action that only runs a command left out).
+@Test func aServersAnswersAboutAPlaceComeBackAsKelpsValues() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = tmp().path, file = root + "/main.swift", server = try fakeServer(in: root)
+    let text = "func greet() {\n    let word = 1\n}\n"
+    try text.write(toFile: file, atomically: true, encoding: .utf8)
+    try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
+    _ = try await c.call(
+        LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: text))
+    #expect(try await c.call(LSPSymbol(root: root, path: file, line: 2)) == "greet")
+    #expect(
+        try await c.call(LSPSymbols(root: root, path: file)) == [
+            CodeSymbol(name: "greet", kind: "function", line: 1), CodeSymbol(name: "word", kind: "variable", line: 2)
+        ])
+    #expect(try await c.call(LSPHover(root: root, path: file, line: 1, column: 6)) == "Says hello")
+    #expect(
+        try await c.call(LSPSignature(root: root, path: file, line: 1, column: 12))
+            == CodeSignature(label: "greet(name: String)", activeStart: 6, activeEnd: 18))
+    #expect(
+        try await c.call(LSPReferences(root: root, path: file, line: 1, column: 6)) == [
+            SearchMatch(path: "main.swift", line: 2, text: "let word = 1")
+        ])
+    #expect(
+        try await c.call(LSPWorkspaceSymbols(root: root, path: file, query: "gr")) == [
+            CodeSymbol(name: "greet", kind: "function", line: 1, path: file)
+        ])
+    let renamed = CodeFileEdit(path: file, edits: [CodeEdit(line: 0, column: 4, endLine: 0, endColumn: 9, text: "hi")])
+    #expect(try await c.call(LSPRename(root: root, path: file, line: 1, column: 6, name: "hi")) == [renamed])
+    let fixed = CodeFileEdit(path: file, edits: [CodeEdit(line: 0, column: 4, endLine: 0, endColumn: 9, text: "fixed")])
+    #expect(
+        try await c.call(LSPActions(root: root, path: file, line: 1, column: 6)) == [
+            CodeAction(title: "Fix it", files: [fixed])
+        ])
 }
 
 /// A project's language servers run its own code: the daemon starts none until the user trusted the project in Kelp's

@@ -72,7 +72,7 @@ extension QuickOpen {
         }
         let app = self.app, path = url.path
         let root =
-            app.worktrees.filter { path.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }?.path
+            app.worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }?.path
             ?? url.deletingLastPathComponent().path
         symbolLoad?.cancel()
         symbolLoad = Task { [weak self] in
@@ -108,7 +108,7 @@ extension QuickOpen {
         guard !q.isEmpty else { return setRows([], grouped: false, heading: String(localized: "Type a name")) }
         let app = self.app, path = url.path
         let root =
-            app.worktrees.filter { path.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }?.path
+            app.worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }?.path
             ?? url.deletingLastPathComponent().path
         symbolLoad?.cancel()
         symbolLoad = Task { [weak self] in

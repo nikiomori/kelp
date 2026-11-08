@@ -79,7 +79,7 @@ final class ArtifactBar: NSObject {
         let real = Paths.real(path) ?? path
         self.real = real
         workspace =
-            app.worktrees.filter { real.hasPrefix((Paths.real($0.path) ?? $0.path) + "/") }.max {
+            app.worktrees.filter { IDE.inside(real, $0.path) }.max {
                 $0.path.count < $1.path.count
             }?.id
         super.init()

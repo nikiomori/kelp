@@ -5,14 +5,14 @@ import Testing
 // lower it to the new count in the same commit, so nothing creeps back. The `try?` ones are exact (lowered or the test fails).
 // KelpKit's `package` count is a budget, not a ratchet: it rises with a feature that needs more of the shell, said beside it.
 
-private let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent()
 
 /// The app: its target (main.swift and the list of built-ins), the shell (KelpKit) and the built-ins' modules.
 private let appDirs = ["Sources/KelpApp", "Sources/KelpKit", "Sources/Builtins"]
 
 /// Every .swift file under these folders (relative to the repo), with its text.
-private func sources(_ dirs: [String]) -> [(path: String, text: String)] {
+func sources(_ dirs: [String]) -> [(path: String, text: String)] {
     dirs.flatMap { dir -> [(path: String, text: String)] in
         let base = root.appendingPathComponent(dir)
         let files =
@@ -139,7 +139,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
 }
 
 /// A Swift file's code without its comments and string literals (their words could be any name); lines stay where they were.
-private func codeOnly(_ s: String) -> String {
+func codeOnly(_ s: String) -> String {
     var out = "", i = s.startIndex
     func skip(to end: String.Index) {
         out += s[i..<end].filter { $0 == "\n" }
@@ -489,7 +489,7 @@ private func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 100, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 20,
+        "Daemon": 98, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 19,
         "Builtins": 12,
         "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 32, "KelpGuest": 4, "EditorKit": 6,
         "WorkbenchKit": 1, "DesignKit": 0
@@ -500,8 +500,13 @@ private func codeOnly(_ s: String) -> String {
     #expect(
         Set(modules).subtracting(ceilings.keys).isEmpty,
         "modules with no try? ceiling: \(Set(modules).subtracting(ceilings.keys).sorted())")
+    // Counted in code: a `try?` a comment or a string mentions swallows nothing.
+    let tryQuestion = try NSRegularExpression(pattern: #"\btry\?"#)
     for (module, ceiling) in ceilings {
-        let n = try matches(#"\btry\?"#, in: ["Sources/" + module]).count
+        let n = sources(["Sources/" + module]).map { f in
+            let code = codeOnly(f.text)
+            return tryQuestion.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
+        }.reduce(0, +)
         #expect(n <= ceiling, "try? in \(module): \(n), over its ceiling")
         #expect(n >= ceiling, "try? in \(module): \(n), under its ceiling \(ceiling): lower it")
     }

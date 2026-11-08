@@ -227,8 +227,9 @@ else a `NotificationCenter` name.
   `Clients` → a session's own lock → a `Connection`'s. A session's lock is never held while another session's is taken.
   Everything about a session that changes is one struct (`LiveSession.State`) under that lock, touched only inside
   `withLock`, so the compiler checks it; what it tells the daemon (`LiveSession.Callbacks`) is fixed at launch.
-  `Workspaces.deskLock` makes listing workspaces and adding a missing one a single step (taken once, never again inside),
-  and its `trustLock` guards trusted-configs.json.
+  `Workspaces.workspaceLock` makes listing workspaces and adding a missing one a single step (taken once, never again
+  inside). It is held across git calls (each local project's current branch is read under it), so it's an `NSLock`, not
+  an unfair lock. Its `trustLock` guards trusted-configs.json.
 - **Deadlines.** Every git, gh and ssh run has a time limit (300 s by default) and is stopped with its children
   (`Subprocess`). A call waits for its reply as long as its method says (`RPCMethod.timeout`: 330 s, just past that;
   `repo.clone` waits for good, its Cancel stops it), so a reply that never comes fails the call instead of hanging it.

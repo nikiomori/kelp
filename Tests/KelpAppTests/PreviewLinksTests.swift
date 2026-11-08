@@ -218,8 +218,7 @@ import Testing
     // A project kept as it really is (`/private/var/…`) holds a link's path written without `/private`, and the reverse.
     let real = try #require(Paths.real(rig.repo)), plain = real.replacingOccurrences(of: "/private/", with: "/")
     #expect(
-        KelpLinks.within(plain + "/f.txt", real) && KelpLinks.within(real + "/f.txt", plain)
-            && KelpLinks.within(plain, real, orIs: true))
+        IDE.inside(plain + "/f.txt", real) && IDE.inside(real + "/f.txt", plain) && IDE.inside(plain, real))
     for elsewhere in ["/etc/hosts", rig.repo + "/../../../etc/hosts", rig.repo + "/out/hosts", rig.repo + "x/f.txt"] {
         #expect(!links.isKnown(elsewhere), "\(elsewhere)")
     }

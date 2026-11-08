@@ -95,6 +95,14 @@ private func rig() async throws -> World {
     #expect(s["installed"]?.bool == true && s["user"]?.string == "ada")
 }
 
+@Test func gitlabStatusSaysWhoIsSignedIn() async throws {
+    _ = fakeGlab
+    let r = try await rig()
+    defer { r.d.stop() }
+    let s = try await r.c.call(GitLabStatus())
+    #expect(s.installed && s.user == "ada on gitlab.example.com")
+}
+
 @Test func theBranchsPullRequestIsCachedForTwoMinutes() async throws {
     let r = try await rig()
     defer { r.d.stop() }
@@ -124,6 +132,8 @@ private func rig() async throws -> World {
     #expect(jobs.first?["name"]?.string == "build" && jobs.first?["steps"]?.array?.first?["name"]?.string == "Compile")
     let log = try await r.c.call("ci.log", .obj(["worktreeId": .string(wt.id), "job": 5])).string ?? ""
     #expect(log.contains("error: boom") && !log.contains("2026-10-20T10:00:00Z"))   // the timestamp column is stripped
+    let full = try await r.c.call(CIFullLog(worktreeId: wt.id, job: 5))
+    #expect(full.contains("step 2 failed") && calls().contains("run view --job 5 --log"))   // the whole log, not its failures
     let report = try await r.c.call("ci.failures", .obj(["worktreeId": .string(wt.id), "job": 5]))
     #expect(report["log"]?.string?.contains("error: boom") == true)
     _ = try await r.c.call("ci.rerun", .obj(["worktreeId": .string(wt.id), "run": 99]))
@@ -180,6 +190,7 @@ private let fakeGlab: String = {
       *"merge_requests?source_branch=feat%2Fgl"*) echo '[{"iid":9,"title":"GL","web_url":"u","author":{"username":"bo"},"source_branch":"feat/gl","state":"merged"}]';;
       *"merge_requests/9"*) echo '{"iid":9,"title":"GL","web_url":"u","author":{"username":"bo"},"source_branch":"feat/gl","state":"merged",\
     "head_pipeline":{"status":"running"}}';;
+      "auth status") echo "✓ Logged in to gitlab.example.com as ada (/x/config.yml)" >&2;;
       *"issues?state=opened"*) echo '[{"iid":2,"title":"Bug","description":null,"web_url":"w","labels":["p1"],"assignees":[{"username":"bo"}],"state":"opened"}]';;
       *) echo "unexpected: $*" >&2; exit 1;;
     esac

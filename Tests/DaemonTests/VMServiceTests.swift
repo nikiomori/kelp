@@ -250,3 +250,22 @@ import os
     #expect(VMService.contentLength(headers) == 25_595_669_503)
     #expect(VMService.contentLength("HTTP/1.1 200 OK\r\n\r\n") == 0)
 }
+
+/// Through the daemon, by a machine's folder alone (no kelp-vm runs): listed, nothing read from inside one that's off,
+/// resized while it's off (a disk only grows), and one that failed or isn't there can't be connected to.
+@Test func machinesAreListedAndResizedFromTheirFolders() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let folder = d.root.appendingPathComponent("vms/deb")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let machine = VMMachine(name: "deb", image: "debian-13", cpus: 2, memoryMiB: 2048, diskGiB: 32, user: "t")
+    try JSONEncoder().encode(machine).write(to: folder.appendingPathComponent("machine.json"))
+    #expect(try await c.call(VMList()).map(\.state) == [.off])
+    #expect(try await c.call(VMDetailRead(name: "deb")) == nil)   // only a running one is read from inside
+    #expect(try await c.call(VMConfigure(name: "deb", cpus: 1)).machine.cpus == 1)
+    #expect(try await c.call(VMList()).first?.machine.cpus == 1)   // kept in its folder
+    await #expect(throws: (any Error).self) { _ = try await c.call(VMConfigure(name: "deb", disk: 8)) }
+    try Data("tar: broken".utf8).write(to: folder.appendingPathComponent("failed"))
+    await #expect(throws: (any Error).self) { _ = try await c.call(VMConnect(name: "deb", cwd: nil)) }
+    await #expect(throws: (any Error).self) { _ = try await c.call(VMConnect(name: "none", cwd: nil)) }
+}

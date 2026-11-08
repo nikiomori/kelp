@@ -66,6 +66,29 @@ import Testing
     #expect(IDE.workspace(cwd: "/elsewhere", among: all, own: "w2") == nil)
 }
 
+/// "Is this path in that folder" by what the paths are, not how they're spelled.
+@Test func aPathIsInsideAFolderAsItReallyIs() throws {
+    let base = FileManager.default.temporaryDirectory.appendingPathComponent("in-\(UUID().uuidString.prefix(6))").path
+    let folder = base + "/a/b"
+    try FileManager.default.createDirectory(atPath: folder + "/c", withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(atPath: base + "/a/bc", withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(atPath: base + "/link", withDestinationPath: folder)
+    try FileManager.default.createSymbolicLink(atPath: folder + "/out", withDestinationPath: base + "/a/bc")
+    defer { try? FileManager.default.removeItem(atPath: base) }
+    #expect(IDE.inside(folder, folder) && IDE.inside(folder + "/", folder) && IDE.inside(folder, folder + "/"))
+    #expect(IDE.inside(folder + "/c/f.txt", folder) && IDE.inside(folder + "/not/there/yet.md", folder))
+    #expect(!IDE.inside(base + "/a/bc", folder) && !IDE.inside(base + "/a/bc/f.txt", folder))   // a sibling named alike
+    #expect(!IDE.inside(base + "/a", folder) && !IDE.inside("/", folder))
+    #expect(IDE.inside(folder + "/c/../c/f", folder) && !IDE.inside(folder + "/../bc/f", folder))   // `..` followed
+    #expect(IDE.inside(base + "/link/c", folder) && IDE.inside(folder + "/c", base + "/link"))   // through a link
+    #expect(IDE.inside(base + "/link/new/x.md", folder))   // through a link, not there yet
+    #expect(!IDE.inside(folder + "/out/f", folder))   // a link out of the folder
+    let real = try #require(Paths.real(folder)), plain = real.replacingOccurrences(of: "/private/", with: "/")
+    #expect(IDE.inside(plain + "/c", real) && IDE.inside(real + "/new", plain))   // /tmp is /private/tmp
+    #expect(IDE.inside("x/../y", FileManager.default.currentDirectoryPath))   // relative: from the current folder
+    #expect(IDE.inside("/a/b", "/") && !IDE.inside("/", "/a"))
+}
+
 /// The daemon's placeholder is a new chat to people; a name someone gave it, or a first prompt did, stays.
 @Test func aWorkspaceNobodyNamedIsANewChat() {
     func workspace(_ note: String) -> Worktree { Worktree(repoId: "r", branch: "main", path: "/p", note: note) }

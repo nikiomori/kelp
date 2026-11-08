@@ -64,12 +64,21 @@ public enum IDE {
         URL(fileURLWithPath: path, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).standardizedFileURL.path
     }
 
-    public static func inside(_ dir: String, _ root: String) -> Bool {
-        let (resolvedDir, resolvedRoot) = (
-            URL(fileURLWithPath: dir).resolvingSymlinksInPath().path,
-            URL(fileURLWithPath: root).resolvingSymlinksInPath().path
-        )
-        return resolvedDir == resolvedRoot || resolvedDir.hasPrefix(resolvedRoot + "/")
+    /// Whether `path` is `folder` or in it, both as they really are: `..` and links followed, a relative path taken from
+    /// the current folder. So `/a/bc` isn't in `/a/b`, a link out of the folder isn't in it, and `/tmp/x` is in
+    /// `/private/tmp`. The one way to ask it: a `hasPrefix(folder + "/")` by hand misses the links.
+    public static func inside(_ path: String, _ folder: String) -> Bool {
+        let (path, folder) = (real(path), real(folder))
+        return path == folder || path.hasPrefix(folder.hasSuffix("/") ? folder : folder + "/")
+    }
+
+    /// A path as it really is; one not there (yet) is its nearest folder that is, as it really is, and the rest as written.
+    private static func real(_ path: String) -> String {
+        let standard = (URL(fileURLWithPath: path).path as NSString).standardizingPath
+        if let resolved = Paths.real(standard) { return resolved }
+        let up = (standard as NSString).deletingLastPathComponent
+        return up == standard
+            ? standard : (real(up) as NSString).appendingPathComponent((standard as NSString).lastPathComponent)
     }
 
     // MARK: extensions

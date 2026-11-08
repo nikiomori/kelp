@@ -338,12 +338,10 @@ struct Turns: Sendable {
         guard (head.isEmpty ? nil : head) == mark.head else {
             throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
         }
-        let top = URL(fileURLWithPath: dir).resolvingSymlinksInPath().path
         let others = live.all.filter { other in   // anywhere in the checkout, by any path to it
-            let snapshot = other.snapshot,
-                at = URL(fileURLWithPath: other.turnDir ?? snapshot.cwd).resolvingSymlinksInPath().path
+            let snapshot = other.snapshot
             return snapshot.id != id && snapshot.status != .exited && snapshot.isAgent
-                && (at == top || at.hasPrefix(top + "/"))
+                && IDE.inside(other.turnDir ?? snapshot.cwd, dir)
         }
         guard others.isEmpty else {
             throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.")

@@ -93,9 +93,14 @@ extension AgentUsage {
     /// The Kelp project a folder is in, else the folder's name; the projects read once (a reply names thousands of rows').
     func projects() -> (String) -> String {
         let repos = (try? store.repos()) ?? []
+        var named: [String: String] = [:]   // each folder looked up once: the rows repeat a few
         return { cwd in
-            repos.first { cwd == $0.path || cwd.hasPrefix($0.path + "/") }?.name
+            if let name = named[cwd] { return name }
+            let name =
+                repos.first { !cwd.isEmpty && IDE.inside(cwd, $0.path) }?.name
                 ?? (cwd.isEmpty ? "Other" : (cwd as NSString).lastPathComponent)
+            named[cwd] = name
+            return name
         }
     }
 

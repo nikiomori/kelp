@@ -198,6 +198,10 @@ import Testing
     #expect(list.array?.map { $0["title"]?.string } == ["Fix the parser"])
     let report = try await d.handle("usage.report", .obj(["days": 1]), conn: -1)
     #expect(report["models"]?.array?.first?["tokens"]?.int == 8)
+    // By agent too (other agents' folders may have rows of their own: only Claude's are this test's).
+    let agents = try await d.handle("usage.agents", .obj(["days": 1]), conn: -1)
+    let claude = agents["agents"]?.array?.first { $0["id"]?.string == "claude" }
+    #expect(claude?["tokens"]?.int == 8 && claude?["input"]?.int == 3 && claude?["output"]?.int == 5)
     await #expect(throws: RPCError.invalidParams("session required")) {
         try await d.handle("history.resume", .null, conn: -1)
     }

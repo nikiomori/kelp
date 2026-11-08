@@ -142,13 +142,7 @@ extension Git {
     /// `dst` is still in `root` once symlinks are followed: a folder the branch commits as a link (`conf -> ~/x`) would
     /// take the copy (the user's ignored `.env`), or the folders made for it, out of the worktree.
     static func staysInside(_ dst: String, _ root: String) -> Bool {
-        var folder = (dst as NSString).deletingLastPathComponent
-        while !FileManager.default.fileExists(atPath: folder), folder.count > 1 {
-            folder = (folder as NSString).deletingLastPathComponent
-        }
-        let real = URL(fileURLWithPath: folder).resolvingSymlinksInPath().path,
-            inside = URL(fileURLWithPath: root).resolvingSymlinksInPath().path
-        return real == inside || real.hasPrefix(inside + "/")
+        IDE.inside((dst as NSString).deletingLastPathComponent, root)
     }
 
     /// Symlink shared directories (node_modules, .venv…) from the main checkout instead of reinstalling.

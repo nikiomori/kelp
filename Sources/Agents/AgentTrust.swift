@@ -10,10 +10,8 @@ public enum AgentTrust {
     public static func trusts(
         agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()
     ) -> Bool {
-        let trusted = trustedFolders(agent: agent, env: env, home: home).map(normal)
-        return folders.map(normal).contains { folder in
-            trusted.contains { t in folder == t || folder.hasPrefix(t == "/" ? "/" : t + "/") }
-        }
+        let trusted = trustedFolders(agent: agent, env: env, home: home)
+        return folders.contains { folder in trusted.contains { !$0.isEmpty && IDE.inside(folder, $0) } }
     }
 
     public static func trustedFolders(agent: String, env: [String: String], home: String) -> [String] {

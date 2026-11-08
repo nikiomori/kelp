@@ -124,11 +124,62 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     #expect((try await r.call("files.search", ["query": "HELLO", "case": true]).array ?? []).isEmpty)
 }
 
+/// Unstaging takes a file out of the next commit and leaves its change in the folder.
+@Test func unstagingKeepsTheChange() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    try write(r, "a.txt", "changed\n")
+    _ = try await r.c.call(GitStage(id: r.wt.id, files: ["a.txt"]))
+    _ = try await r.c.call(GitUnstage(id: r.wt.id, files: ["a.txt"]))
+    let a = try #require(try await r.c.call(GitStatus(id: r.wt.id)).first { $0.path == "a.txt" })
+    #expect(!a.staged && a.unstaged)
+    #expect(try String(contentsOfFile: r.wt.path + "/a.txt", encoding: .utf8) == "changed\n")
+}
+
+/// What a push would send: nothing before there's a remote branch to compare with, then the commits it hasn't got.
+@Test func unsyncedCommitsAreTheOnesTheUpstreamHasntGot() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    #expect(try await r.c.call(GitUnsynced(id: r.wt.id)) == Unsynced(outgoing: [], incoming: []))
+    let bare = tmp().path
+    try Git.run(["init", "-q", "--bare", "-b", "main"], cwd: bare)
+    try Git.run(["remote", "add", "origin", bare], cwd: r.wt.path)
+    try Git.run(["push", "-q", "-u", "origin", "feat/x"], cwd: r.wt.path)
+    try write(r, "n.txt", "n\n")
+    try Git.run(["add", "n.txt"], cwd: r.wt.path)
+    try Git.run(["commit", "-qm", "not pushed"], cwd: r.wt.path)
+    let unsynced = try await r.c.call(GitUnsynced(id: r.wt.id))
+    #expect(unsynced.outgoing.map(\.subject) == ["not pushed"] && unsynced.incoming.isEmpty)
+}
+
+/// The Files panel's ignored entries: a folder git ignores as one entry, its files when it's opened, nothing above the
+/// workspace.
+@Test func ignoredFilesAreListedByFolder() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    try write(r, ".gitignore", "build/\n")
+    try FileManager.default.createDirectory(atPath: r.wt.path + "/build", withIntermediateDirectories: true)
+    try write(r, "build/out.o", "o")
+    #expect(try await r.c.call(FilesIgnored(id: r.wt.id)) == ["build/"])
+    #expect(try await r.c.call(FilesIgnored(id: r.wt.id, folder: "build")) == ["build/out.o"])
+    await #expect(throws: (any Error).self) { _ = try await r.c.call(FilesIgnored(id: r.wt.id, folder: "../")) }
+}
+
 private func session(_ r: Rig, _ command: String) async throws -> Session {
     try await r.c.call(
         "session.create", .obj(["worktreeId": .string(r.wt.id), "command": .string(command)]), as: Session.self)
 }
 private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("session.list", as: [Session].self) }
+
+/// `kelp why`: a session's status and where it came from; nothing for one that isn't running here.
+@Test func whyASessionHasItsStatusSaysWhere() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let s = try await session(r, "cat")
+    let why = try #require(try await r.c.call(SessionWhy(id: s.id)))
+    #expect(why.contains(#/^[a-z]+ \(.+\)/#), "\(why)")
+    #expect(try await r.c.call(SessionWhy(id: "missing")) == nil)
+}
 
 @Test func unreadMarksFlipAndAnnotationsSetTheSummary() async throws {
     let r = try await rig()

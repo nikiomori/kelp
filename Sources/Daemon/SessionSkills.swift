@@ -57,7 +57,7 @@ extension SessionSetup {
     /// The argv names this home's skills (a restart's, from the record).
     static func hasSkills(_ argv: [String], root: URL) -> Bool {
         let dir = root.appendingPathComponent("agent-skills").path
-        return argv.contains { $0 == dir || $0.hasPrefix(dir + "/") }
+        return argv.contains { IDE.inside($0, dir) }
     }
 
     /// The argv without this home's skill folders and Kelp's sentence, for choosing them again.
@@ -67,7 +67,7 @@ extension SessionSetup {
         while index < argv.count {
             let next = index + 1 < argv.count ? argv[index + 1] : nil
             if let next,
-                (argv[index] == flag && (next == dir || next.hasPrefix(dir + "/")))
+                (argv[index] == flag && IDE.inside(next, dir))
                     || (argv[index] == contextFlag && next.hasPrefix(kelpIntro))
             {
                 index += 2

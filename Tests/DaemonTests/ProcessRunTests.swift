@@ -47,3 +47,12 @@ import Testing
     }
     #expect(try await c.call(ProcessRun(argv: ["/bin/sh", "-c", "head -c 1000 /dev/zero"])).stdout.utf8.count == 1000)
 }
+
+/// With PATH given outright (KELP_LOGIN_PATH, as the tests run) there's no login shell to read again: it stays.
+@Test func refreshingThePathKeepsOneGivenOutright() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let before = LoginPath.value
+    _ = try await c.call(ProcessRefreshPath())
+    #expect(LoginPath.value == before)
+}

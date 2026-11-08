@@ -42,7 +42,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         {
             return URL(fileURLWithPath: saved)
         }
-        if let repo = app.repos.last(where: { !$0.path.hasPrefix(Paths.root.path) }) {
+        if let repo = app.repos.last(where: { !IDE.inside($0.path, Paths.root.path) }) {
             return URL(fileURLWithPath: repo.path).deletingLastPathComponent()
         }
         let dev = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Developer")
