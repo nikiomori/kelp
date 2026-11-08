@@ -136,5 +136,9 @@ struct MachinesView: View {
             }
         case .creating, .error: EmptyView()
         }
+        if v.state != .creating {
+            Divider()
+            Button(String(localized: "Delete…"), role: .destructive) { Machines.deleteMachine(app, v) }
+        }
     }
 }

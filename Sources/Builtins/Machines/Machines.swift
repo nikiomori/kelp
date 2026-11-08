@@ -107,6 +107,27 @@ enum Machines {
         }
     }
 
+    /// Asks first, then stops it and erases its folder (disk, keys, password): there's no getting it back.
+    static func deleteMachine(_ app: AppModel, _ info: VMInfo) {
+        let name = info.machine.name
+        Task {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Delete “\(name)”?")
+            let size = info.diskMiB.map { String(format: "%.1f GB", Double($0) / 1024) }
+            alert.informativeText =
+                size.map {
+                    String(localized: "Its disk and everything on it (\($0)) are erased. This can't be undone.")
+                }
+                ?? String(localized: "Its disk and everything on it are erased. This can't be undone.")
+            alert.addButton(withTitle: String(localized: "Delete")).hasDestructiveAction = true
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard await app.call(VMControl(name: name, action: .delete)) != nil else { return }
+            app.workbench.closeTab(uri: TabURI.machine(name))
+            app.watchAgain(.machines)   // as the daemon has it now
+        }
+    }
+
     /// The machine the session runs a command in now, if any (`kelp vm run`).
 
     /// What a machine's state reads as, and in what colour.
