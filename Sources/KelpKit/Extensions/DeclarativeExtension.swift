@@ -395,11 +395,7 @@ struct ExtActions {
 /// (`process.run`): the app starts no programs. `extension`: whose command it is (its folder's name) — refused once
 /// that extension is off. A failure to reach the daemon or to start the program is code -1 with the reason as stderr.
 package enum Shell {
-    package struct Result: Sendable {
-        package var code: Int32
-        package var stdout: String
-        package var stderr: String
-    }
+    package typealias Result = ProcessRun.Result
     package static func run(
         _ app: AppModel, _ command: String, cwd: String, input: String? = nil, timeout: TimeInterval = 60,
         extension id: String? = nil
@@ -414,11 +410,12 @@ package enum Shell {
         extension id: String? = nil
     ) async -> Result {
         do {
-            let result = try await app.get(
+            return try await app.get(
                 ProcessRun(argv: argv, cwd: cwd, stdin: input, timeLimit: timeout, extensionId: id))
-            return Result(code: result.code, stdout: result.stdout, stderr: result.stderr)
         } catch {
-            return Result(code: -1, stdout: "", stderr: (error as? RPCError)?.message ?? error.localizedDescription)
+            return Result(
+                code: -1, stdout: "", stderr: (error as? RPCError)?.message ?? error.localizedDescription,
+                timedOut: false)
         }
     }
 }

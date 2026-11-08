@@ -11,33 +11,16 @@ final class UnavailableTab: TabContent {
     var icon: NSImage? { .symbol("questionmark.square.dashed") }
     init(uri: String, app: AppModel) {
         self.uri = uri
-        let icon = NSImageView(image: .symbol("puzzlepiece.extension"))
-        icon.symbolConfiguration = .chrome(Metrics.iconEmpty)
-        icon.contentTintColor = .tertiaryLabelColor
-        let heading = NSTextField(labelWithString: String(localized: "Extension Turned Off"))
-        heading.font = .ui(13, weight: .semibold)
-        let message = NSTextField(
-            wrappingLabelWithString: String(
-                localized: "The extension that shows “\(uri)” is turned off or was removed."))
-        message.alignment = .center
-        message.textColor = .secondaryLabelColor
-        let button = ClosureButton(title: String(localized: "Extensions…")) {
-            SettingsWindow.show(app, section: "extensions")
-        }
-        button.bezelStyle = .push
-        let stack = NSStackView(views: [icon, heading, message, button])
-        stack.orientation = .vertical
-        stack.spacing = 8
-        let content = NSView()
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            stack.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -32),
-            message.widthAnchor.constraint(lessThanOrEqualToConstant: 420)
-        ])
-        view = content
+        let empty = EmptyStateView()
+        empty.show(
+            String(localized: "Extension Turned Off"), symbol: "puzzlepiece.extension",
+            text: String(localized: "The extension that shows “\(uri)” is turned off or was removed."),
+            buttons: [
+                ClosureButton(title: String(localized: "Extensions…")) {
+                    SettingsWindow.show(app, section: "extensions")
+                }
+            ])
+        view = empty
     }
     func focus() {}
 }

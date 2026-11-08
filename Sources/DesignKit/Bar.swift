@@ -93,13 +93,4 @@ public final class Bar: NSView {
         control.controlSize = .small
         control.font = .ui(11)
     }
-
-    /// A bar's title words: semibold row text, the panel's name or what it lists.
-    public static func title(_ text: String) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
-        label.font = .ui(12, weight: .semibold)
-        label.lineBreakMode = .byTruncatingTail
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return label
-    }
 }

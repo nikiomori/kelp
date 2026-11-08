@@ -111,7 +111,6 @@ enum KeyBindings {
         if let key { keys[id] = key.key.isEmpty ? "" : key.description } else { keys[id] = nil }
         settings.set("keys", keys.isEmpty ? nil : .object(keys.mapValues { .string($0) }))
     }
-    static func resetAll(_ settings: SettingsStore) { settings.set("keys", nil) }
 
     /// "⇧⌘K", as menus show it.
     static func display(_ key: KeySpec) -> String {
@@ -262,7 +261,7 @@ struct KeyboardSettings: View {
                 detail: String(localized: "The shortcuts you set are lost."),
                 action: String(localized: "Restore Defaults"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
-            KeyBindings.resetAll(app.settings)
+            app.settings.set("keys", nil)
             later()
         }
     }

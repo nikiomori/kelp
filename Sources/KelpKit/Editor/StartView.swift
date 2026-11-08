@@ -405,9 +405,8 @@ private final class RunGroup: NSStackView {
 
 /// One action: symbol, title, a detail and its shortcut on the right; highlights on hover.
 @MainActor
-private final class StartRow: NSView {
-    private let action: () -> Void
-    private var hover = false
+private final class StartRow: PointerControl {
+    private let run: () -> Void
 
     /// The edge of the row's highlight to its icon.
     static let inset: CGFloat = 10
@@ -418,11 +417,9 @@ private final class StartRow: NSView {
     }
 
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {
-        self.action = action
+        run = action
         super.init(frame: .zero)
-        wantsLayer = true
         layer?.cornerRadius = Metrics.radiusMD
-        layer?.cornerCurve = .continuous
         let icon = NSImageView(image: image ?? NSImage())
         icon.symbolConfiguration = .chrome(Metrics.iconLarge)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
@@ -449,33 +446,11 @@ private final class StartRow: NSView {
             heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowCard)),
             icon.widthAnchor.constraint(equalToConstant: Metrics.iconButton)
         ])
-        addTrackingArea(
-            NSTrackingArea(
-                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(title)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) {
-        hover = true
-        fadeBackground(to: .fillHover)
-    }
-    override func mouseExited(with e: NSEvent) {
-        hover = false
-        fadeBackground(to: nil)
-    }
-    override func mouseDown(with e: NSEvent) { fadeBackground(to: .fillSelected, held: true) }
-    override func mouseUp(with e: NSEvent) {
-        fadeBackground(to: hover ? .fillHover : nil)
-        if bounds.contains(convert(e.locationInWindow, from: nil)) {
-            pressBounce()
-            action()
-        }
-    }
-    override func accessibilityPerformPress() -> Bool {
-        action()
-        return true
-    }
+    override func clicked() { run() }
 }

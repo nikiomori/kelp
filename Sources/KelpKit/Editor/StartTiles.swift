@@ -4,10 +4,9 @@ import DesignKit
 /// An agent to start, as a tile: its icon, its name and how full its plan is (a bar and the share, the reset in the
 /// tip). The default agent's has the accent's outline and its shortcut in the corner. Highlights on hover.
 @MainActor
-final class AgentTile: NSView {
-    private let action: () -> Void
+final class AgentTile: PointerControl {
+    private let run: () -> Void
     private let isDefault: Bool
-    private var hover = false
     private let name: String
     private let bar = PlanBar()
     private let amount = NSTextField(labelWithString: " ")
@@ -27,11 +26,11 @@ final class AgentTile: NSView {
     }
 
     private init(icon: NSView, title: String, key: String?, isDefault: Bool, action: @escaping () -> Void) {
-        self.action = action
+        run = action
         self.isDefault = isDefault
         name = title
         super.init(frame: .zero)
-        wantsLayer = true
+        restFill = .fillRest
         let label = NSTextField(labelWithString: title)
         label.font = .ui(12)
         label.lineBreakMode = .byTruncatingTail
@@ -65,9 +64,6 @@ final class AgentTile: NSView {
                 keyLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide)
             ])
         }
-        addTrackingArea(
-            NSTrackingArea(
-                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(title)
@@ -99,29 +95,9 @@ final class AgentTile: NSView {
         layer?.cornerCurve = .continuous
         layer?.borderWidth = isDefault ? 1.5 : 1
         layer?.borderColor = (isDefault ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
-        layer?.backgroundColor = (hover ? NSColor.fillHover : NSColor.fillRest).cgColor
     }
 
-    override func mouseEntered(with e: NSEvent) {
-        hover = true
-        fadeBackground(to: .fillHover)
-    }
-    override func mouseExited(with e: NSEvent) {
-        hover = false
-        fadeBackground(to: .fillRest)
-    }
-    override func mouseDown(with e: NSEvent) { fadeBackground(to: .fillSelected, held: true) }
-    override func mouseUp(with e: NSEvent) {
-        fadeBackground(to: hover ? .fillHover : .fillRest)
-        if bounds.contains(convert(e.locationInWindow, from: nil)) {
-            pressBounce()
-            action()
-        }
-    }
-    override func accessibilityPerformPress() -> Bool {
-        action()
-        return true
-    }
+    override func clicked() { run() }
 }
 
 /// A plan's share as a thin bar, in the plan's colour.

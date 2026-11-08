@@ -71,9 +71,7 @@ extension QuickOpen {
             return
         }
         let app = self.app, path = url.path
-        let root =
-            app.worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }?.path
-            ?? url.deletingLastPathComponent().path
+        let root = app.worktree(holding: path)?.path ?? url.deletingLastPathComponent().path
         symbolLoad?.cancel()
         symbolLoad = Task { [weak self] in
             var found = await app.quiet(LSPSymbols(root: root, path: path)) ?? []
@@ -107,9 +105,7 @@ extension QuickOpen {
         }
         guard !q.isEmpty else { return setRows([], grouped: false, heading: String(localized: "Type a name")) }
         let app = self.app, path = url.path
-        let root =
-            app.worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }?.path
-            ?? url.deletingLastPathComponent().path
+        let root = app.worktree(holding: path)?.path ?? url.deletingLastPathComponent().path
         symbolLoad?.cancel()
         symbolLoad = Task { [weak self] in
             let found = await app.quiet(LSPWorkspaceSymbols(root: root, path: path, query: q)) ?? []

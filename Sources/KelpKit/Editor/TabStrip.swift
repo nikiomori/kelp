@@ -229,7 +229,7 @@ final class TabStrip: NSView {
 
     /// The titles' font changed: the tabs take it, and their widths with it.
     func restyle() {
-        buttons.forEach { $0.restyle() }
+        buttons.forEach { $0.updateLook() }
         measured = nil
         needsLayout = true
     }

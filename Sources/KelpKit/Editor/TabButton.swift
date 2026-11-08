@@ -151,9 +151,7 @@ final class TabButton: NSControl, NSDraggingSource {
         }
     }
 
-    func restyle() { updateLook() }
-
-    private func updateLook() {
+    func updateLook() {
         let edited = item?.edited == true
         close.isHidden = !hover
         editedDot.isHidden = hover || !edited

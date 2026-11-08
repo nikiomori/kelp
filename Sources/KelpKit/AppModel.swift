@@ -563,6 +563,10 @@ package final class AppModel {
     }
 
     package func worktree(_ id: String?) -> Worktree? { worktrees.first { $0.id == id } }
+    /// The workspace whose folder holds `path`: the innermost, for a branch's folder inside its project's.
+    package func worktree(holding path: String) -> Worktree? {
+        worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
+    }
     package func repo(_ id: String?) -> Repo? { repos.first { $0.id == id } }
     package func session(_ id: String) -> Session? {
         let all = sessions   // read through the observed property: a `track` that asks follows `sessions`

@@ -132,12 +132,7 @@ package final class SettingsStore {
 
     /// `language`: a value that language has of its own changes there, where it's read; any other changes for all files.
     package func set(_ key: String, _ value: JSONValue?, language: String? = nil) {
-        if let language, own(key, language) != nil {
-            var block: [String: JSONValue] = [:]
-            if case .object(let existing)? = values["[\(language)]"] { block = existing }
-            block[key] = value
-            return set("[\(language)]", .object(block))
-        }
+        if let language, own(key, language) != nil { return setOwn(key, value, language: language) }
         var next = values
         next[key] = value
         apply(next)   // optimistic; the daemon's echo confirms

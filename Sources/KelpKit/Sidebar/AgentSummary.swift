@@ -62,10 +62,10 @@ final class AgentSummary: NSView {
         sheen.wantsLayer = true
         sheen.layer?.cornerRadius = Metrics.radiusXL
         sheen.layer?.cornerCurve = .continuous
-        for view in [glass, sheen, content] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            capsule.addSubview(view)
-        }
+        capsule.pin(glass)
+        capsule.pin(sheen)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        capsule.addSubview(content)
         capsule.look = { [weak self] hovering, pressed in
             self?.sheen.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
         }
@@ -94,14 +94,6 @@ final class AgentSummary: NSView {
             row.leadingAnchor.constraint(equalTo: leadingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Metrics.gap),   // a gap short of Add Project
             capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
-            glass.topAnchor.constraint(equalTo: capsule.topAnchor),
-            glass.bottomAnchor.constraint(equalTo: capsule.bottomAnchor),
-            glass.leadingAnchor.constraint(equalTo: capsule.leadingAnchor),
-            glass.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
-            sheen.topAnchor.constraint(equalTo: glass.topAnchor),
-            sheen.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
-            sheen.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
-            sheen.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
             content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
             content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
             content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)

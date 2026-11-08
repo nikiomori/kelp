@@ -6,9 +6,31 @@ public protocol Hoverable: AnyObject { func setHover(_ on: Bool) }
 
 /// A row of an inspector list: the system's selection colour on a rounded rect inset 6 from the sides and 1 from its
 /// neighbours, and the pointer passed on to a `Hoverable` cell. The selection pill is the sidebar's alone.
+/// A palette's row (Spotlight's) asks for its own inset and corner, a fixed selection colour that stays emphasised in a
+/// panel that isn't key, the pointer even while another window has the keyboard, and which rows light up at all.
 @MainActor
 public final class ListRowView: NSTableRowView {
     private var area: NSTrackingArea?
+    private let inset: CGFloat, radius: CGFloat, selection: NSColor?, tracking: NSTrackingArea.Options
+    private let lights: (ListRowView) -> Bool
+
+    public init(
+        inset: CGFloat = 6, radius: CGFloat = Metrics.radiusSM, selection: NSColor? = nil,
+        tracking: NSTrackingArea.Options = .activeInKeyWindow, lights: @escaping (ListRowView) -> Bool = { _ in true }
+    ) {
+        self.inset = inset
+        self.radius = radius
+        self.selection = selection
+        self.tracking = tracking
+        self.lights = lights
+        super.init(frame: .zero)
+    }
+    public required init?(coder: NSCoder) { fatalError() }
+
+    override public var isEmphasized: Bool {
+        get { selection != nil || super.isEmphasized }
+        set { super.isEmphasized = newValue }
+    }
     /// Under the pointer: the selection's shape in the hover grey, faded in and out. A layer, not a view: a row view's
     /// subviews are its cells (`view(atColumn:)` counts them).
     private let hoverFill = CALayer()
@@ -17,7 +39,7 @@ public final class ListRowView: NSTableRowView {
 
     override public func updateTrackingAreas() {
         super.updateTrackingAreas()
-        area = retracked(area, .activeInKeyWindow)
+        area = retracked(area, tracking)
     }
     override public func mouseEntered(with event: NSEvent) { setHovering(true) }
     override public func mouseExited(with event: NSEvent) { setHovering(false) }
@@ -50,21 +72,23 @@ public final class ListRowView: NSTableRowView {
     }
     private func recheckPointer() {
         guard let window else { return }
-        setHovering(window.isKeyWindow && bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)))
+        setHovering(
+            (tracking.contains(.activeAlways) || window.isKeyWindow)
+                && bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)))
     }
 
     private func showHover() {
         wantsLayer = true
         guard let layer else { return }
         if hoverFill.superlayer == nil {
-            hoverFill.cornerRadius = Metrics.radiusSM
+            hoverFill.cornerRadius = radius
             hoverFill.cornerCurve = .continuous
             layer.insertSublayer(hoverFill, at: 0)
         }
-        hoverFill.frame = bounds.insetBy(dx: 6, dy: 1)
+        hoverFill.frame = bounds.insetBy(dx: inset, dy: 1)
         var color: CGColor?
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            color = hovering && !isSelected ? NSColor.fillHover.cgColor : nil
+            color = hovering && !isSelected && lights(self) ? NSColor.fillHover.cgColor : nil
         }
         let old = hoverFill.presentation()?.backgroundColor ?? hoverFill.backgroundColor
         hoverFill.backgroundColor = color
@@ -80,14 +104,14 @@ public final class ListRowView: NSTableRowView {
         super.layout()
         CATransaction.begin()
         CATransaction.setDisableActions(true)   // the fill follows the row's size, it doesn't slide there
-        hoverFill.frame = bounds.insetBy(dx: 6, dy: 1)
+        hoverFill.frame = bounds.insetBy(dx: inset, dy: 1)
         CATransaction.commit()
     }
     override public func drawSelection(in rect: NSRect) {
-        (isEmphasized ? NSColor.selectedContentBackgroundColor : NSColor.unemphasizedSelectedContentBackgroundColor)
+        (selection
+            ?? (isEmphasized ? .selectedContentBackgroundColor : .unemphasizedSelectedContentBackgroundColor))
             .setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM)
-            .fill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: inset, dy: 1), xRadius: radius, yRadius: radius).fill()
     }
 }
 

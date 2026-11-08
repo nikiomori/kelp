@@ -257,7 +257,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         reminders[s.id]?.cancel()
         reminders[s.id] = nil
         guard s.status == .waiting, s.limitHit == nil,
-            let minutes = QuestionReminder.minutes(app.settings[SettingKeys.remindAfter])
+            let minutes = Int(app.settings[SettingKeys.remindAfter])
         else { return }
         reminders[s.id] = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(minutes * 60), clock: .continuous) } catch { return }

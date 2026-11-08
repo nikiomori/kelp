@@ -79,60 +79,19 @@ final class PaletteField: NSSearchField {
     }
 }
 
-/// The palette's list: its rows are `PaletteRowView`s. Asked of the table (NSTableView loads a row view by
-/// `rowViewIdentifier` when its delegate doesn't give one), not of the delegate: that method would be one more of the
-/// shell's `package` declarations.
+/// The palette's list. Its rows are Spotlight's: the accent under the chosen one (the palette's list is chosen from even
+/// while the field has the keyboard), the hover grey under the pointer, both on an 8 pt rounded rect inset from the
+/// sides. Asked of the table (NSTableView loads a row view by `rowViewIdentifier` when its delegate doesn't give one),
+/// not of the delegate: that method would be one more of the shell's `package` declarations.
 @MainActor
 final class PaletteTable: NSTableView {
     override func makeView(withIdentifier id: NSUserInterfaceItemIdentifier, owner: Any?) -> NSView? {
-        id == NSTableView.rowViewIdentifier ? PaletteRowView() : super.makeView(withIdentifier: id, owner: owner)
-    }
-}
-
-/// A palette row, as Spotlight's: the accent under the chosen one (the palette's list is chosen from even while the field
-/// has the keyboard), the hover grey under the pointer, both on an 8 pt rounded rect inset from the sides.
-@MainActor
-final class PaletteRowView: NSTableRowView {
-    private let hoverFill = CALayer()
-    private var area: NSTrackingArea?
-    private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
-    override var isEmphasized: Bool {
-        get { true }
-        set {}
-    }
-    override var isSelected: Bool { didSet { showHover() } }
-
-    override func drawSelection(in r: NSRect) {
-        NSColor.themeAccent.setFill()   // the selection colour turns grey in a panel that isn't key; Spotlight's stays blue
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 1), xRadius: Metrics.radiusMD, yRadius: Metrics.radiusMD)
-            .fill()
-    }
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        area = retracked(area, .activeAlways)
-    }
-    override func mouseEntered(with e: NSEvent) { hovering = true }
-    override func mouseExited(with e: NSEvent) { hovering = false }
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        hovering = false
-    }
-    private func showHover() {
-        wantsLayer = true
-        if hoverFill.superlayer == nil {
-            hoverFill.cornerRadius = Metrics.radiusMD
-            hoverFill.cornerCurve = .continuous
-            layer?.insertSublayer(hoverFill, at: 0)
+        guard id == NSTableView.rowViewIdentifier else { return super.makeView(withIdentifier: id, owner: owner) }
+        // The selection colour turns grey in a panel that isn't key; Spotlight's stays blue. A heading's row holds no
+        // PaletteCell: it chooses nothing, so it doesn't light up either.
+        return ListRowView(inset: 2, radius: Metrics.radiusMD, selection: .themeAccent, tracking: .activeAlways) {
+            $0.subviews.contains { $0 is PaletteCell }
         }
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(Motion.duration(Motion.fast))
-        hoverFill.frame = bounds.insetBy(dx: 2, dy: 1)
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            // A heading's row holds no PaletteCell: it chooses nothing, so it doesn't light up either.
-            let item = subviews.contains { $0 is PaletteCell }
-            hoverFill.backgroundColor = hovering && !isSelected && item ? NSColor.fillHover.cgColor : nil
-        }
-        CATransaction.commit()
     }
 }
 

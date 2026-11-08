@@ -36,11 +36,7 @@ extension EditorArea {
 
     /// A path as the disk has it (/tmp/x is /private/tmp/x), so one file has one tab however it was reached; what isn't
     /// there (yet) as given.
-    static func realPath(_ path: String) -> String {
-        guard let real = realpath(path, nil) else { return path }
-        defer { free(real) }
-        return String(cString: real)
-    }
+    static func realPath(_ path: String) -> String { Paths.real(path) ?? path }
 
     /// Opens a URI in the focused group (or a new group to the right / below). Reuses a tab already showing it. Only shows:
     /// callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…` starts nothing.
