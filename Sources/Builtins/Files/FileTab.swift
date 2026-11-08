@@ -46,6 +46,8 @@ final class FileTab: SavableTab {
     let remote: Bool
     /// A remote image's or PDF's preview, once its copy is here.
     private var preview: NSView?
+    /// A preview of a file here, built again when the file is written over.
+    private var following: FollowedPreview?
     private var pendingLine: Int?
     /// Closed with Don't Save: deinit's autosave mustn't write it after all.
     private var discarded = false
@@ -90,7 +92,9 @@ final class FileTab: SavableTab {
         let host = RemoteHost.containing(filePath)?.remote.host
         remote = host != nil
         if !remote, Preview.canPreview(url) {
-            view = Preview.view(for: url, app: app)
+            let followed = FollowedPreview(url: url, app: app)
+            following = followed
+            view = followed.view
             return
         }
         if !remote, url.pathExtension.lowercased() == "ipynb" {
@@ -256,7 +260,7 @@ final class FileTab: SavableTab {
     func focus() {
         guard let editor else {
             // A preview (an image, a PDF) takes the keys itself, so ⌘C copies from it.
-            let shown = preview ?? view
+            let shown = preview ?? following?.shown ?? view
             if shown.acceptsFirstResponder { shown.window?.makeFirstResponder(shown) } else { focusWhenLoaded = true }
             return
         }

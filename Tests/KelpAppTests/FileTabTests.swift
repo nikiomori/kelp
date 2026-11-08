@@ -302,6 +302,27 @@ extension AppOfItsOwn {
         #expect(try await waitFor(5) { !(tab.editor?.text != "cccc\n") })
         #expect(tab.editor?.text == "cccc\n")
     }
+
+    /// A preview written over (a new render of a video, an image) shows the new file: it used to keep the old one until
+    /// the tab was opened again.
+    @Test func aPreviewFollowsItsFile() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let p = try file("") + ".png"
+        func png(_ side: Int) throws {
+            let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side, bitsPerSample: 8, samplesPerPixel: 4,
+                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+            try #require(rep?.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: p))
+        }
+        try png(10)
+        let tab = FileTab(uri: TabURI.file(p), app: rig.app)
+        func side() -> CGFloat? { (tab.view.subviews.first as? ImagePreview)?.image?.size.width }
+        #expect(side() == 10)
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != nil })
+        try png(20)
+        #expect(try await waitFor(5) { side() == 20 })
+    }
 }
 
 /// A picture bigger than the window is shown smaller: it used to grow the window to its own size (#39).

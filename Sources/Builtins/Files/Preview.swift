@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import KelpKit
 import PDFKit
 import Quartz
@@ -36,6 +37,40 @@ enum Preview {
         quickLookView.previewItem = url as NSURL
         quickLookView.shouldCloseWithWindow = false
         return quickLookView
+    }
+}
+
+/// A file's preview that follows the file: written over (a new render of a video, an image), it's built again, since
+/// Quick Look, PDFKit and an image read once keep showing the old one. Gone, it stays as shown.
+@MainActor
+final class FollowedPreview {
+    let view = NSView()
+    private(set) var shown: NSView
+    /// The version shown: nil until the daemon pushes the first, which is the one already shown.
+    private var stamp: FileStamp?
+    private let version: Watched
+
+    init(url: URL, app: AppModel) {
+        shown = Preview.view(for: url, app: app)
+        view.pin(shown)
+        version = Watched(.file, in: app)
+        version.key = url.path
+        track(owner: self) {
+            app.latest(FileEvent.self, url.path)?.stamp
+        } changed: { [weak self] now in
+            guard let self, let now, now != stamp else { return }
+            defer { stamp = now }
+            if stamp != nil { show(Preview.view(for: url, app: app)) }
+        }
+    }
+
+    private func show(_ next: NSView) {
+        let focused = shown.window?.firstResponder === shown
+        (shown as? QLPreviewView)?.close()   // or its player keeps playing the old file
+        shown.removeFromSuperview()
+        shown = next
+        view.pin(next)
+        if focused { next.window?.makeFirstResponder(next) }
     }
 }
 
