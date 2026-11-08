@@ -9,7 +9,8 @@ import Testing
 private enum Step { case typed(String), sent(String), out(String), tick }
 
 private func replay(_ agent: String, _ steps: [(at: Double, Step)]) -> AgentStatus {
-    let m = AgentManifest.presets.first { $0.id == agent } ?? AgentManifest(id: agent, name: agent, command: agent)
+    var m = AgentManifest.presets.first { $0.id == agent } ?? AgentManifest(id: agent, name: agent, command: agent)
+    if m.hooks == .codexConfig { m.hooks = nil }   // recorded before Codex had Kelp's hooks: its screen alone
     var d = StatusDetector(manifest: m)
     let t0 = Date()
     for (at, step) in steps {

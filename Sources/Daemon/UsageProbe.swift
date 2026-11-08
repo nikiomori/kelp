@@ -211,13 +211,28 @@ extension AgentUsage {
         }
     }
 
-    /// One `account/rateLimits/read`. The app server quits as soon as its input closes, before answering, so it gets a
-    /// terminal like the /usage probes and is stopped once it has answered.
+    /// One `account/rateLimits/read`.
     static func codexLimits(path: String, open: OpenProbes? = nil) -> CodexLimits? {
+        let answer = askCodex(path: path, method: "account/rateLimits/read", open: open)
+        let limits = CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
+        if limits == nil {
+            Log.session.error("codex app-server gave no limits: \(answer.map { "\($0)" } ?? "no answer in 20 s")")
+        }
+        return limits
+    }
+
+    /// One question to `codex app-server` started with `args` (`-c` pairs): its answer (result or error), nil if none
+    /// came. The app server quits as soon as its input closes, before answering, so it gets a terminal like the /usage
+    /// probes and is stopped once it has answered.
+    static func askCodex(
+        path: String, args: [String] = [], method: String, params: String? = nil, open: OpenProbes? = nil,
+        within seconds: TimeInterval = 20
+    ) -> [String: Any]? {
         let out = ScreenBuffer()
         let pty: PTY
         do {
-            pty = try PTY(argv: [path, "app-server"], cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value])
+            pty = try PTY(
+                argv: [path, "app-server"] + args, cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value])
         } catch {
             Log.session.error("codex app-server didn't start: \(error)")
             return nil
@@ -232,22 +247,19 @@ extension AgentUsage {
         let ask = [
             #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"kelp","version":"1"}}}"#,
             #"{"method":"initialized"}"#,
-            #"{"id":2,"method":"account/rateLimits/read"}"#
+            #"{"id":2,"method":"\#(method)""# + (params.map { #","params":\#($0)"# } ?? "") + "}"
         ]
         pty.write(Data((ask.joined(separator: "\n") + "\n").utf8))
         var answer: [String: Any]?
-        _ = out.wait(20) { text in   // the terminal echoes the questions back: only an answer has a result or an error
+        // The terminal echoes the questions back: only an answer has a result or an error.
+        _ = out.wait(seconds) { text in
             answer = text.split(whereSeparator: \.isNewline).lazy.compactMap {
                 try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]
             }
             .first { $0["id"] as? Int == 2 && ($0["result"] != nil || $0["error"] != nil) }
             return answer != nil
         }
-        let limits = CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
-        if limits == nil {
-            Log.session.error("codex app-server gave no limits: \(answer.map { "\($0)" } ?? "no answer in 20 s")")
-        }
-        return limits
+        return answer
     }
 
     /// Kelp's own folder, with no agent config in it: nobody watches the hidden copy, so no project's hooks or MCP servers

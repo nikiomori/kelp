@@ -18,6 +18,8 @@ final class SessionSetup: Sendable {
     /// What Claude Code's /context counted, by folder and flags, and when (`claudeSetup`).
     let contextSetups = OSAllocatedUnfairLock<[String: (at: Date, setup: SessionContextParts.Setup?)]>(initialState: [:]
     )
+    /// Whether this Codex takes Kelp's hooks (`CodexHooks`), once per binary.
+    let codexHooks = CodexHookCheck()
 
     init(
         root: URL, socketPath: String, store: Store, settings: SettingsStore, remotes: Remotes, agentUsage: AgentUsage
@@ -46,7 +48,17 @@ final class SessionSetup: Sendable {
             run = [remote.ssh] + remote.sshArgs(tty: true) + [command]
         }
         guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
-        return [try LoginPath.resolve(exe)] + run.dropFirst()
+        let resolved = try LoginPath.resolve(exe)
+        // Codex's hooks: here, not in the record, as the host's are, so a wake gets this kelpd's.
+        let hooks = tmux == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
+        return [resolved] + hooks + run.dropFirst()
+    }
+
+    /// A local Codex that agrees on Kelp's hooks gets them on its command line (`CodexHookCheck`).
+    func codexHooksOn(_ manifest: AgentManifest, argv: [String], cwd: String) -> Bool {
+        guard manifest.hooks == .codexConfig, remotes.of(cwd) == nil, let exe = argv.first else { return false }
+        // Not found: it won't start either.
+        do { return codexHooks.agrees(try LoginPath.resolve(exe)) } catch { return false }
     }
 
     /// One place for a session's environment, used to start it and to wake it: the account profile it was started with
@@ -106,7 +118,7 @@ final class SessionSetup: Sendable {
         if let key = transport.env, env[key] != nil { return }
         do {
             switch transport {
-            case .settingsFlag: break
+            case .settingsFlag, .codexConfig: break
             case .pluginDir(let key):
                 try Hooks.writePlugin(dir: dir)
                 env[key] = dir.path
@@ -153,13 +165,16 @@ final class SessionSetup: Sendable {
     )
         -> AgentManifest
     {
-        wiredHooks(trustAnswered(manifest, cwd: cwd, worktreeId: worktreeId, env: env), env: env, argv: argv)
+        wiredHooks(trustAnswered(manifest, cwd: cwd, worktreeId: worktreeId, env: env), env: env, argv: argv, cwd: cwd)
     }
 
     /// Only hooks this launch really wired report: not a remote session's (Kelp's files are on this Mac), nor one whose
     /// variable the user set themselves, whose file couldn't be written, or whose flag a custom command line left out.
-    /// Those have their screen read instead.
-    func wiredHooks(_ manifest: AgentManifest, env: [String: String], argv: [String]) -> AgentManifest {
+    /// Those have their screen read instead. `cwd`: where it starts now; nil for one taken over running, whose Codex
+    /// may have started under a kelpd that gave it none.
+    func wiredHooks(_ manifest: AgentManifest, env: [String: String], argv: [String], cwd: String? = nil)
+        -> AgentManifest
+    {
         let dir = hooksDir(manifest)
         let wired =
             switch manifest.hooks {
@@ -167,6 +182,7 @@ final class SessionSetup: Sendable {
             case .pluginDir(let key)?: env[key] == dir.path
             case .settingsFile(let key, _)?: env[key] == dir.appendingPathExtension("json").path
             case .herdr?: env["HERDR_PANE_ID"] != nil
+            case .codexConfig?: cwd.map { codexHooksOn(manifest, argv: argv, cwd: $0) } ?? false
             case nil: false
             }
         var out = manifest

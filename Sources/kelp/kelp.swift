@@ -216,7 +216,8 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
                 try await hook.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
                 // A permission question: Allow or Deny given in Kelp comes back as this hook's decision, not as keys typed
                 // into the menu, which stays on screen meanwhile (Claude Code shows it while its hook runs).
-                if hook.hookName == "PermissionRequest",
+                // `--no-answer`: one whose agent shows its menu only after the hook (Codex), answered in that menu.
+                if hook.hookName == "PermissionRequest", !args.contains("--no-answer"),
                     let answer = try await connect().call(SessionPermissionWait(id: id))
                 {
                     let decision =

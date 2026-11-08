@@ -11,12 +11,14 @@ public enum HookTransport: Sendable, Equatable {
     case settingsFile(env: String, replaces: String?)
     /// herdr's socket (fx): `HERDR_SOCKET_PATH` is kelpd's, `HERDR_PANE_ID` the session (`pane.report_agent`).
     case herdr
+    /// Codex: the hooks and their trust on its command line (`-c`, `CodexHooks.args`), nothing written to ~/.codex.
+    case codexConfig
 
     /// The variable it's set through, if any.
     public var env: String? {
         switch self {
         case .pluginDir(let name), .settingsFile(let name, _): name
-        case .settingsFlag, .herdr: nil
+        case .settingsFlag, .herdr, .codexConfig: nil
         }
     }
 
@@ -34,6 +36,8 @@ public enum HookTransport: Sendable, Equatable {
                 }.first)
         } else if try container.decodeIfPresent(Bool.self, forKey: .hooksHerdr) == true {
             self = .herdr
+        } else if try container.decodeIfPresent(Bool.self, forKey: .hooksCodexConfig) == true {
+            self = .codexConfig
         } else {
             return nil
         }
@@ -45,6 +49,7 @@ public enum HookTransport: Sendable, Equatable {
         case .pluginDir(let name): try container.encode(name, forKey: .hooksConfigDirEnv)
         case .settingsFile(let name, _): try container.encode(name, forKey: .hooksSettingsEnv)
         case .herdr: try container.encode(true, forKey: .hooksHerdr)
+        case .codexConfig: try container.encode(true, forKey: .hooksCodexConfig)
         }
     }
 }

@@ -5,9 +5,16 @@ import Testing
 
 @testable import Agents
 
+/// Codex as it runs when it didn't take Kelp's hooks (`CodexHookCheck`): its status comes from its screen.
+func hooklessCodex() throws -> AgentManifest {
+    var codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    codex.hooks = nil
+    return codex
+}
+
 @Test func heuristicWaitingVsDone() throws {
     let t0 = Date()
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })   // no hooks: status comes from output
+    let codex = try hooklessCodex()   // no hooks: status comes from output
     var d = StatusDetector(manifest: codex)
     d.input()   // the user gave it a task
     d.output("\u{1B}[1mDo you want to proceed? [y/n]\u{1B}[0m", at: t0)
@@ -264,7 +271,7 @@ import Testing
 
 @Test func answeredQuestionIsNotAskedAgain() throws {
     let t0 = Date()
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    let codex = try hooklessCodex()
     var d = StatusDetector(manifest: codex)
     d.input()
     d.output("Do you want to proceed? (y/n)\n", at: t0)
@@ -397,7 +404,7 @@ import Testing
 /// Codex running a long command prints nothing but its title's spinner, once a second: it's still working.
 @Test func spinnerInTheTitleIsWork() throws {
     let t0 = Date()
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    let codex = try hooklessCodex()
     var d = StatusDetector(manifest: codex)
     d.input()
     d.output("• Ran docker compose exec backend python -m scripts.seed", at: t0)
@@ -413,7 +420,7 @@ import Testing
 /// A TUI redraws its input line on every key: that echo isn't work, and a pause to think isn't a finished turn.
 @Test func typingIsNotWork() throws {
     let t0 = Date()
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    let codex = try hooklessCodex()
     var d = StatusDetector(manifest: codex)
     d.input(typing: true, at: t0)
     d.output("› fix the login", at: t0.addingTimeInterval(0.1))
@@ -426,7 +433,7 @@ import Testing
 
 @Test func approveInProseIsNotAQuestion() throws {
     let t0 = Date()
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    let codex = try hooklessCodex()
     var d = StatusDetector(manifest: codex)
     d.input(at: t0.addingTimeInterval(-10))
     d.output("I updated the approve button and its tests.\n", at: t0)
@@ -525,7 +532,7 @@ import Testing
 /// Paused (or ended) stays so: what the program prints or reports while it's being stopped doesn't make it "working"
 /// again (which would then be saved as ended, and the session couldn't resume).
 @Test func aPausedSessionStaysPausedWhileItsProgramStops() throws {
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    let codex = try hooklessCodex()
     var d = StatusDetector(manifest: codex)
     d.input(at: Date(timeIntervalSince1970: 0))   // typed into: the heuristics are on
     d.override(.paused)
@@ -564,8 +571,8 @@ import Testing
             && StatusDetector.wholeSequences("ok\u{1B}[31m").rest.isEmpty)
 }
 
-@Test func aCutShortTurnIsIdleAndItsRedrawIsNoWork() {
-    var d = StatusDetector(manifest: AgentManifest.presets.first { $0.id == "codex" }!)
+@Test func aCutShortTurnIsIdleAndItsRedrawIsNoWork() throws {
+    var d = StatusDetector(manifest: try hooklessCodex())
     let t = Date()
     d.input(at: t)
     d.output("Working on the tests for the login form", at: t)

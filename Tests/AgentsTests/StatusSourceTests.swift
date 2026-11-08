@@ -6,7 +6,7 @@ import Testing
 /// A program with no "done" of its own (Codex at its prompt, herdr) ends a turn with idle: that's a finished turn, told as
 /// one, and the idle that follows doesn't take it back. Idle before any work, after a question or a stop finished nothing.
 @Test func idleAfterWorkIsAFinishedTurn() throws {
-    var d = StatusDetector(manifest: try #require(AgentManifest.presets.first { $0.id == "codex" }))
+    var d = StatusDetector(manifest: try hooklessCodex())
     d.program("idle")
     #expect(d.status == .idle)
     d.program("working")
@@ -26,7 +26,7 @@ import Testing
 
 @Test func theStatusSaysWhereItCameFrom() throws {
     let t0 = Date()
-    let codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    let codex = try hooklessCodex()
     var d = StatusDetector(manifest: codex)
     #expect(d.source == "the start")
     d.input()

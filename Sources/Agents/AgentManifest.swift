@@ -118,7 +118,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         case id, name, command, args, env, waitingPatterns, quietSeconds, modelFlag, models, effortArgs, autoAnswers,
             resumeArgs
         case sessionIdFlag, resumeIdFlag, pluginDirFlag, contextFlag, install, update, npm
-        case hooksSettingsFlag, hooksConfigDirEnv, hooksSettingsEnv, hooksHerdr   // `hooks`, as agent files have it
+        // `hooks`, as agent files have it
+        case hooksSettingsFlag, hooksConfigDirEnv, hooksSettingsEnv, hooksHerdr, hooksCodexConfig
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -296,7 +297,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         // No update question: it stands before the prompt, which waits behind it, and Kelp offers updates itself.
         .init(
             id: "codex", name: "Codex", command: "codex",
-            args: ["--no-daemon", "-c", "check_for_update_on_startup=false"],
+            args: ["--no-daemon", "-c", "check_for_update_on_startup=false"], hooks: .codexConfig,
             modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
             effortArgs: [
                 "low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
