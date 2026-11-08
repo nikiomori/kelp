@@ -273,7 +273,6 @@ extension Methods {
 extension LSPOpen: Handled {
     /// Before the changes typed after it. Quick: a server starts on a task of its own.
     static var inOrder: Bool { true }
-    func handle(_ lsp: LSPHost) throws -> Done { try handle(lsp, conn: -1) }
     func handle(_ lsp: LSPHost, conn: Int) throws -> Done {
         guard lsp.remotes.of(root) == nil else {
             throw RPCError.invalidParams("No language servers for a project on another machine.")
@@ -298,7 +297,6 @@ extension LSPChange: Handled {
 
 extension LSPClose: Handled {
     static var inOrder: Bool { true }
-    func handle(_ lsp: LSPHost) throws -> Done { try handle(lsp, conn: -1) }
     func handle(_ lsp: LSPHost, conn: Int) throws -> Done {
         lsp.close(conn: conn, root, path)
         return Done()

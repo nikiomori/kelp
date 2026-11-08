@@ -8,7 +8,6 @@ extension UIPublish: Handled {
     static var inOrder: Bool { true }
     /// Only Kelp's window says what's on screen (and gets event.ui): an agent can't stand in for it.
     var onlyFromKelp: String? { "Only Kelp's window publishes its state." }
-    func handle(_ clients: Clients) throws -> Done { try handle(clients, conn: -1) }
     func handle(_ clients: Clients, conn: Int) throws -> Done {
         guard case .object = state else { throw RPCError.invalidParams("state must be an object") }
         clients.publishUI(state, from: conn)
@@ -122,7 +121,6 @@ extension StateSet: Handled {
 
 extension ClientEvents: Handled {
     static var inOrder: Bool { true }   // before whatever is broadcast after it
-    func handle(_ clients: Clients) throws -> Done { Done() }
     func handle(_ clients: Clients, conn: Int) throws -> Done {
         clients.setMuted(conn, !events)
         return Done()

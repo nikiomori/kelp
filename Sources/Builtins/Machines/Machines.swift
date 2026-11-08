@@ -92,7 +92,7 @@ enum Machines {
     static func runInMachine(_ app: AppModel, _ name: String, command: String? = nil) {
         let folder = app.workbench.workspaceId.flatMap(app.worktree)?.path
         let home = folder.map { !VMs.mayShare($0) } ?? true
-        var line = "kelp vm run " + VMs.shellQuoted(name) + (home ? " --home" : "")
+        var line = "kelp vm run " + IDE.shellWord(name) + (home ? " --home" : "")
         if let command { line += " -- " + command }
         app.workbench.editorForNewTab?.run(command: line, title: name)
     }

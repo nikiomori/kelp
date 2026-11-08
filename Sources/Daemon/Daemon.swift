@@ -51,7 +51,7 @@ public final class Daemon: Sendable {
     /// `lspDelays`: how soon a broken language server is started again, and how long one with no open file keeps running
     /// (tests shorten them).
     init(root: URL, store: Store?, lspDelays: (retry: TimeInterval, idle: TimeInterval)) throws {
-        // a client that hangs up mid-write fails that write; it must not end the process (kelpd does this too, tests host a Daemon themselves)
+        // a client that hangs up mid-write fails that write; it must not end the process (kelpd's, or a test's hosting one)
         signal(SIGPIPE, SIG_IGN)
         self.root = root
         try Paths.ensure(root)
@@ -96,7 +96,7 @@ public final class Daemon: Sendable {
     /// "background service isn't running" banner (the app starts kelpd with its output thrown away). The file goes once a
     /// daemon starts. Limit: a KELP_HOME that can't be written can't hold it either; then only the log and stderr have it.
     public static func startFailed(_ error: Error, root: URL) -> String {
-        let why = (error as? RPCError)?.message ?? "\(error)"
+        let why = error.rpcMessage
         Log.start.fault("kelpd didn't start: \(why, privacy: .public)")
         try? Data((why + "\n").utf8).write(to: Paths.daemonError(in: root))
         return why
@@ -334,8 +334,7 @@ public final class Daemon: Sendable {
     struct Reply: Encodable {
         var jsonrpc = "2.0"
         let id: JSONValue
-        let result: JSONValue?
-        let error: RPCError?
+        let error: RPCError
     }
 
     private func serve(_ fd: Int32) {
@@ -421,7 +420,7 @@ public final class Daemon: Sendable {
     private func refuse(_ line: Data, _ client: Connection) {
         guard let id = (try? JSONDecoder().decode(JSONValue.self, from: line))?["id"], id != .null,
             let refusal = try? Wire.line(
-                Reply(id: id, result: nil, error: RPCError(code: -32600, message: "invalid request")))
+                Reply(id: id, error: RPCError(code: -32600, message: "invalid request")))
         else { return }
         client.send(refusal)
     }
@@ -490,7 +489,7 @@ public final class Daemon: Sendable {
             default: held = true
             }
         } catch {
-            client.send(Data("kelp: \((error as? RPCError)?.message ?? "\(error)")\r\n".utf8))
+            client.send(Data("kelp: \(error.rpcMessage)\r\n".utf8))
             return
         }
         if sessions.existing(session) == nil, (try? store.session(session))?.status == .exited {
@@ -507,7 +506,7 @@ public final class Daemon: Sendable {
                 client.send(Data("kelp: no such session\r\n".utf8))
                 return
             }
-            let why = (error as? RPCError)?.message ?? "\(error)"
+            let why = error.rpcMessage
             Log.session.error("\(session, privacy: .public) didn't wake for a terminal: \(why)")
             client.send(Data("kelp: \(why)\r\n".utf8))
             return
@@ -586,7 +585,7 @@ public final class Daemon: Sendable {
         if let rpcError = error as? RPCError, !notification {
             Log.rpc.debug("\(method, privacy: .public) failed: \(rpcError.message)")
         } else {
-            Log.rpc.error("\(method, privacy: .public) failed: \((error as? RPCError)?.message ?? "\(error)")")
+            Log.rpc.error("\(method, privacy: .public) failed: \(error.rpcMessage)")
         }
     }
 
@@ -600,7 +599,7 @@ public final class Daemon: Sendable {
         return line
     }
     static func errorLine(id: JSONValue, _ error: Error) -> Data? {
-        try? Wire.line(Reply(id: id, result: nil, error: (error as? RPCError) ?? .internalError("\(error)")))
+        try? Wire.line(Reply(id: id, error: (error as? RPCError) ?? .internalError("\(error)")))
     }
 
     /// Not ordered with replies on other threads: an event can reach a client before the reply it follows from. Events

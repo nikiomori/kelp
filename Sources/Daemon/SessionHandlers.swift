@@ -16,7 +16,6 @@ extension SessionList: Handled {
 }
 
 extension SessionAttach: Handled {
-    func handle(_ sessions: Sessions) throws -> Result { try handle(sessions, conn: -1) }
     func handle(_ sessions: Sessions, conn: Int) throws -> Result {
         if sessions.existing(id) == nil, try sessions.store.session(id)?.status == .exited {   // ended: what it last printed, from its log
             return Result(
@@ -30,7 +29,6 @@ extension SessionAttach: Handled {
 }
 
 extension SessionDetach: Handled {
-    func handle(_ sessions: Sessions) throws -> Done { try handle(sessions, conn: -1) }
     func handle(_ sessions: Sessions, conn: Int) throws -> Done {
         sessions.existing(id)?.detach(conn)
         return Done()

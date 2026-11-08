@@ -136,7 +136,7 @@ enum Runnables {
     /// node_modules here or above: installing them is an entry of its own.
     static func node(_ found: Found, _ dir: String) -> [RunOption] {
         var out: [RunOption] = []
-        if let json = found.text(dir, "package.json").flatMap(object) {
+        if let json = found.text(dir, "package.json").flatMap(JSONC.object) {
             let pm = manager(found, dir, json["packageManager"] as? String)
             let scripts = (json["scripts"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }
             let hooks = scripts.keys.filter { key in
@@ -149,18 +149,12 @@ enum Runnables {
             }
         }
         for file in ["deno.json", "deno.jsonc"] {
-            guard let tasks = found.text(dir, file).flatMap(object)?["tasks"] as? [String: Any] else { continue }
+            guard let tasks = found.text(dir, file).flatMap(JSONC.object)?["tasks"] as? [String: Any] else { continue }
             out += tasks.keys.sorted(by: byRank).map {
                 opt(found, dir, file, $0, "deno task \($0)", detail: tasks[$0] as? String, tool: "deno")
             }
         }
         return out
-    }
-
-    static func object(_ text: String) -> [String: Any]? {
-        Log.session.attempt("reading a project's JSON") {
-            try JSONSerialization.jsonObject(with: Data(text.utf8), options: .json5Allowed)
-        } as? [String: Any]
     }
 
     /// package.json's packageManager, else the lock file here or in the workspace's folder (a monorepo's), else npm.

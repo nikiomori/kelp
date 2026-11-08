@@ -28,7 +28,6 @@ final class Watches: Sendable {
     /// Reads so far by key, counted once a test sets it to `[:]`: one read for two watchers, and none after the last one
     /// left. Nil, as the daemon runs: a count for every key ever watched would only grow.
     let reads = OSAllocatedUnfairLock<[Key: Int]?>(initialState: nil)
-    var running: Int { entries.withLock { $0.count } }
     /// How a topic is read now: the event as sent (nil: nothing to say) and when to read it again with nothing else
     /// saying so (nil: only when something does). The daemon's (it answers the topic's methods as a client would), set
     /// once it's made; a test's stand-in in its place (to hold one read back while a newer one finishes). In a struct, not

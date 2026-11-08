@@ -13,6 +13,11 @@ public struct RPCRequest: Codable, Sendable {
     }
 }
 
+extension Error {
+    /// An RPC refusal's own words, else the error as Swift prints it (for logs and terminals, not `localizedDescription`).
+    public var rpcMessage: String { (self as? RPCError)?.message ?? "\(self)" }
+}
+
 public struct RPCError: Codable, Error, Sendable, Equatable {
     public var code: Int
     public var message: String

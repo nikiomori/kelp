@@ -94,12 +94,12 @@ private final class Heard: Sendable {
     a.notify(WatchStart(.ports, wt.id))
     b.notify(WatchStart(.ports, wt.id))
     #expect(try await waitFor(10) { !ha.events(PortsEvent.self).isEmpty && !hb.events(PortsEvent.self).isEmpty })
-    #expect(w.d.watches.running == 1)
+    #expect(w.d.watches.count == 1)
     a.notify(WatchStop(.ports, wt.id))
     _ = try await b.call(Ping())   // after b's own connection was taken; a's stop is on its way
-    #expect(try await waitFor(5) { w.d.watches.running == 1 })
+    #expect(try await waitFor(5) { w.d.watches.count == 1 })
     b.close()
-    #expect(try await waitFor(5) { w.d.watches.running == 0 })
+    #expect(try await waitFor(5) { w.d.watches.count == 0 })
     let key = Watches.Key(topic: .ports, key: wt.id)
     let reads = w.d.watches.reads.withLock { $0?[key] ?? 0 }
     // A ports reader reads every 3 s while anyone watches: once one started after the stop has been read twice, the
@@ -193,7 +193,7 @@ private final class Heard: Sendable {
     func stamps() -> [FileStamp?] { heard.events(FileEvent.self).map(\.stamp) }
     let first = try await c.call(FilesRead(path: path)).stamp
     #expect(try await waitFor(10) { stamps() == [first] && hearsToo.events(FileEvent.self).map(\.stamp) == [first] })
-    #expect(d.watches.running == 1)
+    #expect(d.watches.count == 1)
     try "two".write(toFile: path, atomically: true, encoding: .utf8)
     let second = try await c.call(FilesRead(path: path)).stamp
     #expect(try await waitFor(10) { stamps() == [first, second] })

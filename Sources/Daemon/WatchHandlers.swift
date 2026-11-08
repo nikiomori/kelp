@@ -23,7 +23,7 @@ extension Daemon {
                 let changes = try await ask(GitStatus(id: key))
                 event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
                 event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
-            } catch { event = GitEvent(worktree: key, error: message(error)) }
+            } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
             return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
         case .ports:
             // A host is asked over ssh: less often, and as with git only while watched.
@@ -34,7 +34,7 @@ extension Daemon {
             )
         case .activity:
             do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) } catch {
-                return (line(ActivityEvent(error: message(error))), 2)
+                return (line(ActivityEvent(error: error.rpcMessage)), 2)
             }
         case .ci:
             // gh / glab ask the forge: often while a run goes on (or just after a push asked, `fast`), else every 2 minutes,
@@ -44,7 +44,7 @@ extension Daemon {
                 let running = CIRuns.latest(result.runs).contains { $0.status != "completed" }
                 return (line(CIEvent(worktree: key, result: result)), running ? 10 : fast ? 5 : 120)
             } catch {   // no network yet after a wake, a slow gh: tried again, or the mark stays on this error
-                return (line(CIEvent(worktree: key, error: message(error))), 120)
+                return (line(CIEvent(worktree: key, error: error.rpcMessage)), 120)
             }
         case .pr:
             return (
@@ -86,7 +86,7 @@ extension Daemon {
                 event = FilesEvent(
                     worktree: key, paths: try await ask(FilesList(id: key)),
                     ignored: try? await ask(FilesIgnored(id: key)))
-            } catch { event = FilesEvent(worktree: key, error: message(error)) }
+            } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
             return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
         case .artifacts:
             // Read on this Mac: a remote project's folder here holds only its marker. Every page is read, so off the pool;
@@ -132,8 +132,6 @@ extension Daemon {
         return data
     }
 
-    private func message(_ error: Error) -> String { (error as? RPCError)?.message ?? "\(error)" }
-
     /// A project or workspace record changed, or a record went: it goes to every client (they keep their lists from these).
     func recordChanged(_ change: Store.Change) {
         switch change {
@@ -148,7 +146,6 @@ extension Daemon {
 
 extension WatchStart: Handled {
     static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
-    func handle(_ watches: Watches) throws -> Done { throw RPCError.internalError("needs its connection") }
     func handle(_ watches: Watches, conn: Int) throws -> Done {
         watches.start(.init(topic: topic, key: key), conn: conn)
         return Done()
@@ -157,7 +154,6 @@ extension WatchStart: Handled {
 
 extension WatchStop: Handled {
     static var inOrder: Bool { true }
-    func handle(_ watches: Watches) throws -> Done { throw RPCError.internalError("needs its connection") }
     func handle(_ watches: Watches, conn: Int) throws -> Done {
         watches.stop(.init(topic: topic, key: key), conn: conn)
         return Done()

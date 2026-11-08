@@ -13,20 +13,17 @@ func clientRef(_ ref: String?) throws -> String? {
 
 extension Store {
     /// The project and folder a method names: its workspace's (`worktreeId`), else its project's (`repoId`).
-    func repoPath(_ params: JSONValue) throws -> (Repo, String) {
-        if let wid = params["worktreeId"]?.string, let worktree = try self.worktree(wid),
-            let repo = try self.repo(worktree.repoId)
-        {
+    func repoPath(worktreeId: String?, repoId: String?) throws -> (Repo, String) {
+        if let worktreeId, let worktree = try self.worktree(worktreeId), let repo = try self.repo(worktree.repoId) {
             return (repo, worktree.path)
         }
-        guard let repo = try self.repo(params.req("repoId")) else { throw RPCError.invalidParams("no repo") }
+        guard let repoId else { throw RPCError.invalidParams("missing repoId") }
+        guard let repo = try self.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         return (repo, repo.path)
     }
 
-    func repoPath(worktreeId: String?, repoId: String?) throws -> (Repo, String) {
-        try repoPath(
-            .obj(["worktreeId": worktreeId.map { .string($0) } ?? .null, "repoId": repoId.map { .string($0) } ?? .null])
-        )
+    func repoPath(_ params: JSONValue) throws -> (Repo, String) {
+        try repoPath(worktreeId: params["worktreeId"]?.string, repoId: params["repoId"]?.string)
     }
 }
 

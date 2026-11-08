@@ -284,7 +284,7 @@ struct VMService: Sendable {
             throw RPCError.internalError("This build of Kelp has no kelp-vm beside kelpd (\(helper)).")
         }
         let line =
-            "\(VMs.shellQuoted(helper)) \(VMs.shellQuoted(folder(machine.name).path)) >> \(VMs.shellQuoted(log))"
+            "\(IDE.shellWord(helper)) \(IDE.shellWord(folder(machine.name).path)) >> \(IDE.shellWord(log))"
             + " 2>&1 < /dev/null &"
         _ = try Subprocess.run(
             ["/bin/sh", "-c", line], cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 10)

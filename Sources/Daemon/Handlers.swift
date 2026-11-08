@@ -138,6 +138,7 @@ protocol Handled: Answered {
 extension Handled {
     static var inOrder: Bool { false }
     static var quick: Bool { false }
+    func handle(_ service: Service) throws -> Result { throw RPCError.internalError("needs its connection") }
     func handle(_ service: Service, conn: Int) throws -> Result { try handle(service) }
 
     /// On the calling thread: an in-order method's, on the reader thread.
@@ -161,6 +162,7 @@ protocol AsyncHandled: Answered {
 
 extension AsyncHandled {
     static var inOrder: Bool { false }
+    func handle(_ service: Service) async throws -> Result { throw RPCError.internalError("needs its connection") }
     func handle(_ service: Service, conn: Int) async throws -> Result { try await handle(service) }
 
     static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data {
@@ -314,9 +316,7 @@ extension Daemon {
     func answer(_ method: String, _ params: JSONValue, conn: Int) async throws -> Data {
         guard let methodType = Self.methods[method] else { throw RPCError.methodNotFound }
         if let quiet = try refuseRemoteForge(methodType, params) { return quiet }
-        return try await integrationErrors {
-            try await gitErrors { try await methodType.answer(params, self, conn: conn) }
-        }
+        do { return try await methodType.answer(params, self, conn: conn) } catch { throw Self.rpc(error) }
     }
 
     /// An in-order method, here on the connection's reader thread, where everything sent after it waits: it starts no
@@ -331,10 +331,8 @@ extension Daemon {
                 Log.rpc.error("in-order \(methodType.name, privacy: .public) held its connection for \(ms) ms")
             }
         }
-        do { return try Subprocess.quickOnly { try methodType.answerNow(params, self, conn: conn) } } catch let error
-            as GitError
-        {
-            throw RPCError.internalError(error.message)
+        do { return try Subprocess.quickOnly { try methodType.answerNow(params, self, conn: conn) } } catch {
+            throw Self.rpc(error)
         }
     }
 
@@ -343,15 +341,14 @@ extension Daemon {
         try JSONDecoder().decode(JSONValue.self, from: await answer(method, params, conn: conn))
     }
 
-    private func gitErrors<T>(_ body: () async throws -> T) async throws -> T {
-        do { return try await body() } catch let error as GitError { throw RPCError.internalError(error.message) }
-    }
-
-    /// The integrations' own errors, as the app shows them.
-    private func integrationErrors<T>(_ body: () async throws -> T) async throws -> T {
-        do { return try await body() } catch let error as GitHubError {
-            throw RPCError.internalError(error.description)
-        } catch let error as IntegrationError { throw RPCError.internalError(error.description) }
+    /// git's and the integrations' own errors, as the app shows them; anything else as it is.
+    private static func rpc(_ error: Error) -> Error {
+        switch error {
+        case let error as GitError: RPCError.internalError(error.message)
+        case let error as GitHubError: RPCError.internalError(error.description)
+        case let error as IntegrationError: RPCError.internalError(error.description)
+        default: error
+        }
     }
 
     /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to

@@ -128,7 +128,6 @@ final class CloneLog: Sendable {
 }
 
 extension RepoClone: AsyncHandled {
-    func handle(_ work: ForgeWork) async throws -> Repo { try await handle(work, conn: -1) }
     func handle(_ work: ForgeWork, conn: Int) async throws -> Repo {
         let dest = try await work.forges.clone(
             url, into: parent, folder: folder, id: id ?? UUID().uuidString, conn: conn)

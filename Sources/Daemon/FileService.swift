@@ -1,5 +1,4 @@
 import Core
-import CryptoKit
 import Foundation
 import GitKit
 
@@ -79,39 +78,39 @@ struct FileService: Sendable {
     }
 
     func move(_ pairs: [FileMove], unique: Bool) -> FilesMove.Result {
-        var done: [FileMove] = []
-        for pair in pairs {
-            do {
-                let from = try here(pair.from), named = try here(pair.to), to = unique ? Self.free(named) : named
-                try FileManager.default.moveItem(atPath: from, toPath: to)
-                done.append(.init(from: from, to: to))
-            } catch { return .init(done: done, error: message(error)) }
+        let (done, error) = each(pairs) { pair in
+            let from = try here(pair.from), named = try here(pair.to), to = unique ? Self.free(named) : named
+            try FileManager.default.moveItem(atPath: from, toPath: to)
+            return FileMove(from: from, to: to)
         }
-        return .init(done: done, error: nil)
+        return .init(done: done, error: error)
     }
 
     func trash(_ paths: [String]) -> FilesMove.Result {
-        var done: [FileMove] = []
-        for path in paths {
-            do {
-                let from = try here(path)
-                done.append(.init(from: from, to: try Trash.move(URL(fileURLWithPath: from)).path))
-            } catch { return .init(done: done, error: message(error)) }
+        let (done, error) = each(paths) { path in
+            let from = try here(path)
+            return FileMove(from: from, to: try Trash.move(URL(fileURLWithPath: from)).path)
         }
-        return .init(done: done, error: nil)
+        return .init(done: done, error: error)
     }
 
     func copy(_ paths: [String], into: String) -> FilesCopy.Result {
-        var made: [String] = []
-        for path in paths {
-            do {
-                let from = try here(path), dir = try here(into),
-                    to = Self.free(dir + "/" + (from as NSString).lastPathComponent)
-                try FileManager.default.copyItem(atPath: from, toPath: to)
-                made.append(to)
-            } catch { return .init(made: made, error: message(error)) }
+        let (made, error) = each(paths) { path in
+            let from = try here(path), dir = try here(into),
+                to = Self.free(dir + "/" + (from as NSString).lastPathComponent)
+            try FileManager.default.copyItem(atPath: from, toPath: to)
+            return to
         }
-        return .init(made: made, error: nil)
+        return .init(made: made, error: error)
+    }
+
+    /// `step` on each in turn, up to the first that fails: what was done, and why that one failed.
+    private func each<Item, Done>(_ items: [Item], _ step: (Item) throws -> Done) -> ([Done], String?) {
+        var done: [Done] = []
+        for item in items {
+            do { done.append(try step(item)) } catch { return (done, message(error)) }
+        }
+        return (done, nil)
     }
 
     func create(_ path: String, folder: Bool, text: String?, unique: Bool) throws -> String {
@@ -143,9 +142,7 @@ struct FileService: Sendable {
     }
 
     /// A version on a host: its bytes' SHA-256.
-    static func digest(_ data: some DataProtocol) -> FileStamp {
-        "sha256:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
+    static func digest(_ data: Data) -> FileStamp { "sha256:" + IDE.sha256(data) }
 
     // MARK: here
 
