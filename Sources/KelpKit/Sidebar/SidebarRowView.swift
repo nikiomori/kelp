@@ -280,8 +280,8 @@ final class ProjectCard: NSView {
         let animation = CABasicAnimation(keyPath: "shadowOpacity")
         animation.fromValue = from
         animation.toValue = to
-        animation.duration = to > 0 ? Motion.appear : Motion.appear * 2 / 3
-        animation.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.7, 0.3, 1)
+        animation.duration = to > 0 ? Motion.glowIn : Motion.glowOut
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         layer.add(animation, forKey: "glow")
     }
     required init?(coder: NSCoder) { fatalError() }

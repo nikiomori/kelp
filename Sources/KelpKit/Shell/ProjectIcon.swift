@@ -79,8 +79,8 @@ package enum ProjectIcon {
             let animation = CABasicAnimation(keyPath: key)
             animation.fromValue = from
             animation.toValue = to
-            animation.duration = Motion.duration(on ? Motion.appear : Motion.appear * 2 / 3)
-            animation.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.7, 0.3, 1)
+            animation.duration = Motion.duration(on ? Motion.glowIn : Motion.glowOut)
+            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             glow.add(animation, forKey: "glow." + key)
         }
         CATransaction.commit()

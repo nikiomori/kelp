@@ -83,6 +83,10 @@ public enum Motion {
     public static let linger: TimeInterval = 1.5   // "Copied" stays, a banner stays after the pointer leaves it
     public static let stagger: TimeInterval = 0.05   // between things that come one after another
     public static let settle: TimeInterval = 0.1   // a row that just got its place, before it moves
+    // A coloured project's group lighting up under the pointer, and going out: slow both ways and eased at both ends, a
+    // glow that swells and fades rather than switches (at 240 / 160 ms it read as a flash).
+    public static let glowIn: TimeInterval = 0.45
+    public static let glowOut: TimeInterval = 0.4
 
     // What goes on while a state lasts, one way (a breath is this there and this back).
     public static let spin: TimeInterval = 1   // the ring's turn: working
