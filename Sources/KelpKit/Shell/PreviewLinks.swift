@@ -51,11 +51,13 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         return .cancel
     }
 
-    /// A clicked link, by `target`: a web page as a browser tab, a file as a tab, mail in Mail, anything else refused.
-    package static func open(_ url: URL, in app: AppModel) {
+    /// A clicked link, by `target`: a web page as a browser tab, a file as a tab (asking first when it's outside the
+    /// projects, as a `kelp://` link does: `ask`), mail in Mail, anything else refused.
+    package static func open(_ url: URL, in app: AppModel, ask: (@MainActor (String) async -> Bool)? = nil) {
         switch target(url) {
         case .web(let address): app.workbench.open(address)
-        case .file(let path): app.workbench.open(TabURI.file(path))
+        case .file(let path):
+            KelpLinks(app).whenAllowed(path, ask: ask ?? KelpLinks.askToOpen) { app.workbench.open(TabURI.file(path)) }
         case .mail(let mail): openOutside(mail)
         case .refused: refuse(url)
         }

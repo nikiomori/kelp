@@ -317,7 +317,8 @@ own in front of the user in their tmux, or start an app for the user to watch ru
 
 **Extensions run commands only as the user allowed them.** One that runs anything (a command, an event, a page) is
 asked about in Kelp's window when it's new and after any file in its folder changes (`ExtensionTrust`, a digest of the
-folder in `extensions.trusted`, which only the window writes), and kelpd checks the same before each command and event.
+folder in `extensions.trusted`, which only the window writes), and kelpd checks the same before each command and event:
+one not in that record runs nothing. The window's first look adopts, once, those made before Kelp began to ask (0.10).
 
 **Not trusted: what came from someone else** — a cloned repository's files and branches, a pull request, an issue or
 review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the user:
@@ -353,7 +354,8 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
   its last file closes), which checks that trust itself before it starts one, whoever asks.
 - Links clicked in a Markdown, notebook or PDF preview, or ⌘-clicked in a terminal, open web pages, plain files (as tabs) and
   mail only: a link to an app the repo ships (files from `git clone` carry no quarantine), a `.command` file or another
-  app's scheme is refused. ⌥⌘ on a path a program printed
+  app's scheme is refused. A preview's link to a file outside the projects asks first, as a `kelp://open` link does.
+  ⌥⌘ on a path a program printed
   shows it in the Finder rather than opening it with its app.
 - A program in a terminal can put text on the clipboard (OSC 52 writes: Claude Code copies that way over ssh), but that
   text can't run on the user's next ⌘V into a Kelp terminal that takes no bracketed pastes: such a paste is refused with a

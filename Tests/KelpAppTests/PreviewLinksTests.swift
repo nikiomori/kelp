@@ -40,6 +40,26 @@ import Testing
     }
 }
 
+/// A preview's link (a Markdown page, an artifact, a PDF) to a file outside the projects asks first, as a `kelp://` link
+/// does: the page may be a cloned repository's. A project's file opens as it did.
+@MainActor
+@Test func aPreviewsLinkOutOfTheProjectsAsks() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    let outside = rig.root.appendingPathComponent("elsewhere.txt")
+    try "x".write(to: outside, atomically: true, encoding: .utf8)
+    final class Asked { var paths: [String] = [] }
+    let asked = Asked()
+    for url in [URL(fileURLWithPath: rig.repo + "/f.txt"), outside] {
+        PreviewLinks.open(url, in: rig.app) {
+            asked.paths.append($0)
+            return false
+        }
+    }
+    await mainActorTurns()
+    #expect(asked.paths == [outside.resolvingSymlinksInPath().path])
+}
+
 /// What Kelp hands to another app (`openOutside`, the one door): web pages, mail and System Settings, never a file or an
 /// app's scheme, whoever asks (a forge's link, a page's Open in Browser, a terminal's link).
 @MainActor

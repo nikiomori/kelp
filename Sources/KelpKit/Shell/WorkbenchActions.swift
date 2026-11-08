@@ -405,17 +405,31 @@ struct KelpLinks {
         NSApp.activate()
     }
 
-    /// A project's file opens as a tab; one elsewhere (any web page can send this link) asks first, as a folder does.
     private func openFile(_ path: String, line: Int?) {
         let worktree = app.worktrees.filter { Self.within(path, $0.path) }.max { $0.path.count < $1.path.count }
-        let open = { app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: worktree?.id) }
+        whenAllowed(path) {
+            app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: worktree?.id)
+        }
+    }
+
+    /// A project's file opens right away; one elsewhere once the user says so (`ask`, a sheet), as a folder does: any web
+    /// page can send a `kelp://` link, and a preview's page may be a cloned repository's (`PreviewLinks`).
+    func whenAllowed(
+        _ path: String,
+        ask: @escaping @MainActor (String) async -> Bool = askToOpen,
+        _ open: @escaping @MainActor () -> Void
+    ) {
         guard !isKnown(path) else { return open() }
+        Task { if await ask(path) { open() } }
+    }
+
+    static func askToOpen(_ path: String) async -> Bool {
         let alert = NSAlert()
         alert.messageText = String(localized: "Open “\((path as NSString).lastPathComponent)”?")
         alert.informativeText = String(localized: "A link asked to open \(path), which is outside your projects.")
         alert.addButton(withTitle: String(localized: "Open"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        Task { if await runSheet(alert) == .alertFirstButtonReturn { open() } }
+        return await runSheet(alert) == .alertFirstButtonReturn
     }
 
     /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.

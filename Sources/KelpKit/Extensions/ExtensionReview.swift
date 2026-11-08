@@ -51,14 +51,13 @@ enum ExtensionTrust {
 
     /// Whether `folder`'s extension waits to be allowed: it runs something, and what was allowed isn't what's there, or
     /// isn't known yet with a daemon there (its state not read, or not readable). Without a daemon nothing of it can run
-    /// (the daemon checks too), and the first connection that reads the state reloads (`loadedWithoutState`). Not once
-    /// the window never recorded one (`adopt`).
+    /// (the daemon checks too), and the first connection that reads the state reloads (`loadedWithoutState`). With no
+    /// record at all it waits too, until `adopt` has recorded what was there before Kelp asked.
     static func waits(_ folder: URL, _ app: AppModel) -> Bool {
         let (commands, pages) = IDE.commandsIn(manifest(folder))
         guard !commands.isEmpty || !pages.isEmpty else { return false }
         guard app.uiState.loaded else { return app.client != nil }
-        guard case .object(let allowed)? = app.uiState[IDE.extensionTrustKey] else { return false }
-        return allowed[folder.lastPathComponent]?.string != IDE.extensionDigest(folder)
+        return app.uiState[IDE.extensionTrustKey]?[folder.lastPathComponent]?.string != IDE.extensionDigest(folder)
     }
 
     /// Allowed as `folders` are now. False when it couldn't be recorded (a banner says why).
@@ -89,10 +88,21 @@ enum ExtensionTrust {
         return await app.uiState.save(IDE.extensionTrustKey, .object(allowed))
     }
 
-    /// The first time this Kelp sees the daemon's state without the key: what's installed was installed when nothing was
-    /// asked, so it's allowed as it is; from now on a new or changed one is asked about.
+    /// The first time this Kelp sees the daemon's state without the key, once: what was installed before Kelp asked
+    /// (`askedSince`) is allowed as it is, and the record, even an empty one, marks it done. One made since, then or
+    /// later, is asked about.
     static func adopt(_ folders: [URL], _ app: AppModel) async -> Bool {
         guard app.connected, app.uiState.loaded, app.uiState[IDE.extensionTrustKey] == nil else { return false }
-        return await allow(folders, app)
+        return await allow(folders.filter { created($0) < askedSince }, app)
+    }
+
+    /// When Kelp began to ask (0.10, 2026-11-06 UTC).
+    static let askedSince = Date(timeIntervalSince1970: 1_793_923_200)
+
+    /// When `folder` was made; one whose date can't be read counts as new, and so is asked about.
+    private static func created(_ folder: URL) -> Date {
+        do { return try folder.resourceValues(forKeys: [.creationDateKey]).creationDate ?? .distantFuture } catch {
+            return .distantFuture
+        }
     }
 }

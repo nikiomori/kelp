@@ -532,17 +532,6 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         return row
     }
 
-    /// The default agent starts on the issue in the workspace on screen, its text typed in but not sent: whoever filed the
-    /// issue wrote it, so the user reads it before the agent acts on it.
-    private func startTask(ref: String, title: String, body: String, url: String) {
-        let brief = ["Work on \(ref): \(title)", body, url].filter { !$0.isEmpty }.joined(separator: "\n\n")
-        guard let editor = app.workbench.editor else {
-            NSSound.beep()
-            return
-        }
-        editor.newAgent(nil, prompt: brief, draft: true)
-    }
-
     private func agentSession(_ wt: Worktree) -> String? {
         app.sessions.last {
             $0.worktreeId == wt.id && $0.status != .exited && $0.agent != "shell" && $0.agent != "custom"
@@ -578,6 +567,25 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
 }
 
 extension TasksViewController {
+    /// The default agent starts on the issue in the workspace on screen, its text typed in but not sent: whoever filed the
+    /// issue wrote it, so the user reads it before the agent acts on it.
+    private func startTask(ref: String, title: String, body: String, url: String) {
+        guard let editor = app.workbench.editor, let wid = app.workbench.workspaceId else {
+            NSSound.beep()
+            return
+        }
+        Task {
+            let issue = ["ref": ref, "title": title, "body": body, "url": url]
+            guard let brief = await Self.issuePrompt(issue, in: wid, app) else { return }
+            editor.newAgent(nil, prompt: brief, draft: true)
+        }
+    }
+
+    /// The project's `issue` recipe, as `kelp github issue` writes it: the title and body framed as someone else's words.
+    static func issuePrompt(_ issue: [String: String], in wid: String, _ app: AppModel) async -> String? {
+        await app.call(RecipeRender(id: wid, name: "issue", vars: issue))
+    }
+
     /// Review comments as the agent reads them: 12 at most, each cut at 800 characters, so a long thread stays a prompt.
     static func forAgent(_ cs: [GitHub.ReviewComment]) -> String {
         var parts: [String] = []

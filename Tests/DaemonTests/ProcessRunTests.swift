@@ -24,6 +24,10 @@ import Testing
     try FileManager.default.createDirectory(at: ext, withIntermediateDirectories: true)
     try #"{"id": "me.demo", "name": "Demo"}"#.write(
         to: ext.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
+    await #expect(throws: RPCError.self, "not allowed yet") {
+        try await c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "demo"))
+    }
+    try d.sessions.store.setUIState(IDE.extensionTrustKey, .obj(["demo": .string(IDE.extensionDigest(ext))]))
     #expect(try await c.call(ProcessRun(argv: ["/bin/echo", "ok"], extensionId: "demo")).stdout == "ok\n")
     _ = try await c.call(SettingsSet(key: "extensions.disabled", value: .array(["me.demo"])))   // turned off
     for id in ["demo", "nope", "..", "demo/../demo"] {

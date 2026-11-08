@@ -216,6 +216,19 @@ extension OneAtATime {
     #expect(area.contents[file.id] != nil)
 }
 
+/// An extension that runs a command, made before Kelp asked (`ExtensionTrust.askedSince`) or now.
+@MainActor private func commandExtension(old: Bool) throws -> URL {
+    let d = try folder([
+        "extension.json": #"{"id":"t.trust","name":"T","contributes":{"commands":[{"title":"Hi","run":"./hi.sh"}]}}"#,
+        "hi.sh": "echo hi"
+    ])
+    if old {
+        try FileManager.default.setAttributes(
+            [.creationDate: ExtensionTrust.askedSince.addingTimeInterval(-86_400)], ofItemAtPath: d.path)
+    }
+    return d
+}
+
 /// What was installed before Kelp asked is allowed as it is; once one changes (an agent edits its script), its commands
 /// aren't loaded until it's allowed again.
 extension OneAtATime {
@@ -223,15 +236,11 @@ extension OneAtATime {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         rig.app.connected = true
-        let d = try folder([
-            "extension.json":
-                #"{"id":"t.trust","name":"T","contributes":{"commands":[{"title":"Hi","run":"./hi.sh"}]}}"#,
-            "hi.sh": "echo hi"
-        ])
+        let d = try commandExtension(old: true)
         let adoptedUnknown = await ExtensionTrust.adopt([d], rig.app)
         #expect(ExtensionTrust.waits(d, rig.app) && !adoptedUnknown)   // what was allowed isn't known yet
         await rig.app.uiState.load()
-        #expect(!ExtensionTrust.waits(d, rig.app))   // nothing recorded yet
+        #expect(ExtensionTrust.waits(d, rig.app))   // nothing recorded yet: nothing allowed
         #expect(await ExtensionTrust.adopt([d], rig.app))
         #expect(
             !ExtensionTrust.waits(d, rig.app)
@@ -241,6 +250,21 @@ extension OneAtATime {
         #expect(info.waitsToBeAllowed && c.commands.isEmpty)
         #expect(await ExtensionTrust.allow([d], rig.app))
         #expect(!ExtensionTrust.waits(d, rig.app))
+    }
+
+    /// The first look adopts what was there before Kelp asked, once: one made since waits, and so does an old one that
+    /// turns up after (copied in, or written by an agent with its dates set back).
+    @Test func extensionsFromBeforeAskingAreAdoptedOnce() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        rig.app.connected = true
+        await rig.app.uiState.load()
+        let old = try commandExtension(old: true), new = try commandExtension(old: false)
+        #expect(await ExtensionTrust.adopt([old, new], rig.app))
+        #expect(!ExtensionTrust.waits(old, rig.app) && ExtensionTrust.waits(new, rig.app))
+        let later = try commandExtension(old: true)
+        #expect(!(await ExtensionTrust.adopt([old, new, later], rig.app)))
+        #expect(ExtensionTrust.waits(later, rig.app) && ExtensionTrust.waits(new, rig.app))
     }
 }
 
