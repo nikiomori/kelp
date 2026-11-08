@@ -459,13 +459,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     }
 
     /// A command run over `<name>-own`: not counted as use.
-    private func own(_ command: String) async throws -> String {
+    func own(_ command: String, stdin: Data? = nil) async throws -> String {
         let out = try await Subprocess.run(
             [
                 "/usr/bin/ssh", "-F", file("ssh_config").path, "-T", "-o", "BatchMode=yes", machine.name + "-own",
                 command
             ],
-            cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 20)
+            cwd: "/", env: ProcessInfo.processInfo.environment, stdin: stdin, timeLimit: 20)
         guard out.status == 0 else { throw VMError(String(decoding: out.stderr, as: UTF8.self)) }
         return String(decoding: out.stdout, as: UTF8.self)
     }
