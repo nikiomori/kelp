@@ -36,6 +36,7 @@ package enum ProjectIcon {
         if initial || cache[repo] != nil { view.image = image }
         looking[repo]?.append(Weak(view: view, showing: view.image))
         guard initial else { return }
+        if showing.object(forKey: view) as String? != repo { rest(view) }   // a reused row: another project's glow goes
         showing.setObject(repo as NSString, forKey: view)
         halo(on: view, color)
         if recolored, color != nil { flare(view) }
@@ -53,6 +54,61 @@ package enum ProjectIcon {
             glow.shadowBlurRadius = Metrics.iconGlow
             return glow
         }
+    }
+
+    /// The pointer is over the project's group (Icon style): its halo glows up, about twice as wide as the icon,
+    /// round it, and goes back when the pointer leaves, from wherever it had got to. An icon with no colour: nothing.
+    static func glow(_ view: NSImageView, _ on: Bool) {
+        guard view.shadow != nil, let layer = view.layer, view.bounds.width > 0 else { return }
+        let grow = on ? view.bounds.width * 0.4 : 0, shape = view.bounds.insetBy(dx: -grow, dy: -grow)
+        let corner = shape.width * 7 / 32   // a tile's
+        let path = CGPath(roundedRect: shape, cornerWidth: corner, cornerHeight: corner, transform: nil)
+        // At rest the halo follows the icon's own alpha: an initial's tile is a faint tint, a picture is solid. Moving, it
+        // has a solid shape, so it starts and ends as faint as the icon's own.
+        let resting: Float = showing.object(forKey: view).map { cache[$0 as String] != nil } == true ? 1 : 0.25
+        let radius = on ? Metrics.iconGlow * 2 : Metrics.iconGlow, opacity: Float = on ? 1 : resting
+        let rest = CGPath(roundedRect: view.bounds, cornerWidth: corner, cornerHeight: corner, transform: nil)
+        let still = layer.animation(forKey: "glow.shadowPath") == nil && layer.shadowPath == nil
+        let from: [String: Any] = [
+            "shadowPath": layer.presentation()?.shadowPath ?? layer.shadowPath ?? rest,
+            "shadowRadius": layer.presentation()?.shadowRadius ?? layer.shadowRadius,
+            "shadowOpacity": still ? resting : layer.presentation()?.shadowOpacity ?? 1
+        ]
+        let to: [String: Any] = ["shadowPath": path, "shadowRadius": radius, "shadowOpacity": opacity]
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        // Back at rest, the halo follows the icon's alpha again, unless it glows again by then. The block runs on the
+        // main thread, where the transaction was committed.
+        if !on {
+            CATransaction.setCompletionBlock {
+                MainActor.assumeIsolated {
+                    guard layer.shadowRadius == Metrics.iconGlow else { return }
+                    for key in to.keys { layer.removeAnimation(forKey: "glow." + key) }
+                    layer.shadowPath = nil
+                }
+            }
+        }
+        layer.shadowPath = path
+        layer.shadowRadius = radius
+        for (key, value) in to {
+            let animation = CABasicAnimation(keyPath: key)
+            animation.fromValue = from[key]
+            animation.toValue = value
+            animation.duration = Motion.duration(on ? Motion.appear : Motion.appear * 2 / 3)
+            animation.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.7, 0.3, 1)
+            animation.fillMode = .forwards   // the opacity holds until the shape goes (the model's stays 1)
+            animation.isRemovedOnCompletion = false
+            layer.add(animation, forKey: "glow." + key)
+        }
+        CATransaction.commit()
+    }
+    /// A view showing another project now: the glow it had goes at once.
+    private static func rest(_ view: NSImageView) {
+        for key in ["shadowPath", "shadowRadius", "shadowOpacity"] {
+            view.layer?.removeAnimation(forKey: "glow." + key)
+        }
+        view.layer?.shadowPath = nil
+        if view.shadow != nil { view.layer?.shadowRadius = Metrics.iconGlow }
     }
 
     /// A glow coming comes wider and settles to its own blur, so the row being coloured is plain to see.

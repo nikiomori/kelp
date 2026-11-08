@@ -168,6 +168,7 @@ final class SidebarRowView: NSTableRowView {
     override func mouseExited(with event: NSEvent) { hovering = false }
     override func prepareForReuse() {
         super.prepareForReuse()
+        clipsToBounds = true   // a project's row let its icon's glow out (SidebarController.glow)
         hovering = false
         menuTarget = false
     }
@@ -241,8 +242,13 @@ final class ProjectCard: NSView {
             guard look != oldValue else { return }
             fadeBackground(to: fill)
             needsDisplay = true
+            showGlow()
         }
     }
+    /// The pointer is over the project's group: a card with a colour glows up, brighter and with a soft rim of its
+    /// colour round it (Card style), the way the Icon style's halo does round an icon.
+    var glowing = false { didSet { if glowing != oldValue { showGlow() } } }
+    private static let glowOpacity: Float = 0.45, glowRadius: CGFloat = 9
     private var fill: NSColor? {
         let base: NSColor? = look.color.map { .fillTint($0.color) } ?? (look.plain ? nil : .fillRest)
         switch look.remote {
@@ -259,7 +265,24 @@ final class ProjectCard: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.masksToBounds = true   // the fading stripes keep to its corners
+    }
+
+    /// The glow under the card: its translucent fill shows it through, so the card lights up and its edge goes soft.
+    private func showGlow() {
+        guard let layer else { return }
+        let to: Float = glowing && look.color != nil && look.remote == nil ? Self.glowOpacity : 0
+        let from = layer.presentation()?.shadowOpacity ?? layer.shadowOpacity
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.shadowOpacity = to
+        CATransaction.commit()
+        guard !Motion.reduced, from != to else { return }
+        let animation = CABasicAnimation(keyPath: "shadowOpacity")
+        animation.fromValue = from
+        animation.toValue = to
+        animation.duration = to > 0 ? Motion.appear : Motion.appear * 2 / 3
+        animation.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.7, 0.3, 1)
+        layer.add(animation, forKey: "glow")
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -267,6 +290,12 @@ final class ProjectCard: NSView {
     override func updateLayer() {   // the appearance is current here: the fill follows light and dark
         layer?.cornerRadius = Metrics.radiusLG
         layer?.backgroundColor = fill?.cgColor
+        layer?.masksToBounds = look.remote == .fade   // the fading stripes keep to its corners; a glow goes past them
+        layer?.shadowColor = look.color?.color.cgColor
+        layer?.shadowOffset = .zero
+        layer?.shadowRadius = Self.glowRadius
+        layer?.shadowPath = CGPath(
+            roundedRect: bounds, cornerWidth: Metrics.radiusLG, cornerHeight: Metrics.radiusLG, transform: nil)
         layer?.borderWidth = look.remote == .sparse ? 1 : 0
         layer?.borderColor = NSColor.separatorColor.cgColor
         showFading()
@@ -302,6 +331,8 @@ final class ProjectCard: NSView {
     }
     override func setFrameSize(_ size: NSSize) {
         super.setFrameSize(size)
+        layer?.shadowPath = CGPath(
+            roundedRect: bounds, cornerWidth: Metrics.radiusLG, cornerHeight: Metrics.radiusLG, transform: nil)
         guard let fading else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)

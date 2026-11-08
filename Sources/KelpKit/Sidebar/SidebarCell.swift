@@ -10,6 +10,8 @@ final class SidebarCell: NSTableCellView {
     private weak var owner: SidebarController?
     let app: AppModel
     private let icon = NSImageView()
+    /// The pointer is over this project's group: its colour glows up round the icon (Icon style).
+    func glowIcon(_ on: Bool) { ProjectIcon.glow(icon, on) }
     private let title = NSTextField(labelWithString: "")
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
     private let trailing = NSTextField(labelWithString: "")

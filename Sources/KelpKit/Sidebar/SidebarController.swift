@@ -65,6 +65,15 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var arriving: Set<String> = []
     /// Each project's card, under its rows (`placeCards`).
     var cards: [String: ProjectCard] = [:]
+    /// The project whose group the pointer is over (`glow`).
+    var glowing: String? {
+        didSet {
+            if glowing != oldValue {
+                glow(oldValue, false)
+                glow(glowing, true)
+            }
+        }
+    }
     var roots: [Node] = []
     private var shape: [String] = []
     /// Project id → the host it's on: a host's header and projects share one hatched card (`placeCards`).
@@ -283,6 +292,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
 
     override func mouseMoved(with event: NSEvent) {
         let row = outline.row(at: outline.convert(event.locationInWindow, from: nil))
+        glowing = row >= 0 && renaming == nil ? project(atRow: row) : nil
         let cell = row >= 0 ? outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell : nil
         guard row >= 0, renaming == nil, let node = outline.item(atRow: row) as? Node,
             cell?.overAction(event.locationInWindow) != true
@@ -292,7 +302,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         card.hover(node.workspace.map { "w:" + $0 } ?? node.key, rect: outline.rect(ofRow: row), in: outline)
     }
-    override func mouseExited(with event: NSEvent) { card.hover(nil, rect: .zero, in: outline) }
+    override func mouseExited(with event: NSEvent) {
+        card.hover(nil, rect: .zero, in: outline)
+        glowing = nil
+    }
     /// A row's card, now: a click asked for it.
     func openCard(_ node: Node) {
         let row = outline.row(forItem: node)

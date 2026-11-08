@@ -260,6 +260,24 @@ extension OneAtATime {
         }
     }
 
+    @Test func aColouredGroupGlowsWhileThePointerIsOverIt() throws {
+        try withSidebar(repos: [project], worktrees: [], sessions: []) { vc, _ in
+            vc.app.settings.apply(["workbench.sidebar.projectColor": "card"])
+            vc.app.arrangement.projectColors["r1"] = .pink
+            vc.placeCards()
+            let card = try #require(vc.cards["p:r1"])
+            #expect(vc.project(atRow: 0) == "p:r1")
+            vc.glowing = vc.project(atRow: 0)
+            #expect(card.glowing && card.layer?.shadowOpacity ?? 0 > 0)
+            vc.glowing = nil   // the pointer left: it goes back
+            #expect(!card.glowing && card.layer?.shadowOpacity == 0)
+            vc.app.arrangement.projectColors["r1"] = nil
+            vc.placeCards()
+            vc.glowing = "p:r1"   // a project with no colour has no card to light
+            #expect(vc.cards["p:r1"] == nil)
+        }
+    }
+
     @Test func anEndedAgentAndAPlainTerminalAreNotListed() throws {
         let ended = Session(
             worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .exited, title: "Old chat")

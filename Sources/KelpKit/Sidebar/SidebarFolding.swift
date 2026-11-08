@@ -119,6 +119,7 @@ extension SidebarController {
             }
             let card = ProjectCard(frame: frame)
             card.look = shows
+            card.glowing = key == glowing
             card.autoresizingMask = .width
             outline.addSubview(card, positioned: .below, relativeTo: nil)
             cards[key] = card
@@ -173,6 +174,27 @@ extension SidebarController {
                 outline.addSubview(card, positioned: .below, relativeTo: nil)
             }
         }
+    }
+
+    /// The project a row is in: its own row's key, or its group's.
+    func project(atRow row: Int) -> String? {
+        var node = outline.item(atRow: row) as? Node
+        while let up = outline.parent(forItem: node) as? Node { node = up }
+        guard case .project? = node?.kind else { return nil }
+        return node?.key
+    }
+
+    /// A project's group lights up while the pointer is over it, in its colour: its card (Card style) or the halo round
+    /// its icon (Icon style). One without a colour stays as it is.
+    func glow(_ key: String?, _ on: Bool) {
+        guard let key, let node = node(key) else { return }
+        cards[key]?.glowing = on
+        let row = outline.row(forItem: node)
+        guard row >= 0 else { return }
+        // The halo spreads past the row, which clips what it holds for a fold; a project's own row never folds, and a
+        // reused row view clips again (SidebarRowView.prepareForReuse).
+        if on { outline.rowView(atRow: row, makeIfNecessary: false)?.clipsToBounds = false }
+        (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.glowIcon(on)
     }
 
     /// The rows on show.
