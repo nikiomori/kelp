@@ -18,13 +18,12 @@ extension CodeEditor {
 
     func problemsChanged() {
         let string = textView.string as NSString
-        func offset(_ line: Int, _ column: Int) -> Int? {
-            lineIndex.start(ofLine: line, in: string).map { min($0 + column, string.length) }
-        }
         textView.problemMarks = problems.compactMap { problem -> EditorTextView.ProblemMark? in
-            guard let from = offset(problem.line, problem.column) else { return nil }
+            let start = lineIndex.offset(line: problem.line, column: problem.column, in: string)
+            guard let from = start else { return nil }
             // A server may name a point: the mark takes the character there.
-            let to = max(offset(problem.endLine, problem.endColumn) ?? from, min(from + 1, string.length))
+            let end = lineIndex.offset(line: problem.endLine, column: problem.endColumn, in: string)
+            let to = max(end ?? from, min(from + 1, string.length))
             return .init(
                 range: NSRange(location: from, length: to - from), isError: problem.isError, message: problem.message)
         }.sorted { $0.range.location < $1.range.location }

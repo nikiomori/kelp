@@ -122,7 +122,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
     private var researching: DispatchWorkItem?
 
-    private func flip(_ option: WritableKeyPath<FindOptions, Bool>) {
+    func flip(_ option: WritableKeyPath<FindOptions, Bool>) {
         options[keyPath: option].toggle()
         caseToggle.isOn = options.matchCase
         wordToggle.isOn = options.wholeWord
@@ -219,7 +219,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         search(moving: true)
     }
 
-    private func replaceAll() {
+    func replaceAll() {
         guard let tv = editor?.textView, let regex, !found.isEmpty else { return }
         let string = tv.string as NSString, template = replaceField.stringValue
         tv.replace(
@@ -228,17 +228,13 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         search(moving: false)
     }
 
-    func flipRegexForTest() { flip(\.regex) }
-    func replaceAllForTest() { replaceAll() }
-
     /// ⌘G and ⇧⌘G with the keys in a field. Before the menu: its item would go to the field's editor, a text view too, whose
-    /// find panel is off. By key code, as a Russian layout sends another letter.
+    /// find panel is off.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard event.keyCode == 5, mods.subtracting(.shift) == .command, !isHidden,
+        guard let forward = event.findStep, !isHidden,
             (window?.firstResponder as? NSView)?.isDescendant(of: self) == true
         else { return super.performKeyEquivalent(with: event) }
-        step(forward: !mods.contains(.shift))
+        step(forward: forward)
         return true
     }
 

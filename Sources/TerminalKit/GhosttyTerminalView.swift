@@ -8,7 +8,6 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     public var onTitle: ((String) -> Void)?
     public var onOpenURL: ((URL) -> Void)?
     public var onExit: (() -> Void)?
-    public var onFocus: (() -> Void)?
     /// Find in the scrollback: Ghostty reports matches as it searches (-1 = not known yet).
     public enum SearchEvent: Sendable { case started(String), ended, total(Int), selected(Int) }
     public var onSearch: ((SearchEvent) -> Void)?
@@ -92,7 +91,6 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         // Focused only in the key window: another app in front, Ghostty draws this one at most 30 times a second.
         if let surface { ghostty_surface_set_focus(surface, window?.isKeyWindow != false) }
         setVisible(true)   // AppKit can miss an occlusion change (Spaces, full screen): typing here means it's on screen
-        onFocus?()
         return true
     }
     public override func resignFirstResponder() -> Bool {

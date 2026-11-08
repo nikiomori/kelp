@@ -36,8 +36,8 @@ let package = Package(
         .executableTarget(name: "kelp", dependencies: ["Core"]),
         // A virtual machine for agents (Core/VMs.swift): the only program signed with the virtualization entitlement.
         .executableTarget(name: "KelpVM", dependencies: ["Core"], linkerSettings: [.linkedFramework("Virtualization")]),
-        // Inside a macOS machine: its screen, clicks and keys for agents, over SSH (Sources/KelpGuest). Copied in as an app.
-        .executableTarget(name: "KelpGuest", linkerSettings: [.linkedFramework("ScreenCaptureKit")]),
+        // Inside a macOS machine: its apps' controls for agents, over SSH (Sources/KelpGuest). Copied in as an app.
+        .executableTarget(name: "KelpGuest"),
         .target(name: "LSPKit", dependencies: ["Core"]),
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),

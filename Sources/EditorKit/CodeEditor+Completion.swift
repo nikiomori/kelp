@@ -57,13 +57,10 @@ extension CodeEditor {
         return textView.window?.convertToScreen(rect) ?? rect
     }
 
-    private func offset(_ line: Int, _ column: Int, in string: NSString) -> Int {
-        min((lineIndex.start(ofLine: line, in: string) ?? string.length) + column, string.length)
-    }
-
     private func range(_ edit: TextEdit, in string: NSString) -> NSRange {
-        let from = offset(edit.line, edit.column, in: string)
-        return NSRange(location: from, length: max(offset(edit.endLine, edit.endColumn, in: string) - from, 0))
+        let from = lineIndex.offset(line: edit.line, column: edit.column, in: string) ?? string.length
+        let to = lineIndex.offset(line: edit.endLine, column: edit.endColumn, in: string) ?? string.length
+        return NSRange(location: from, length: max(to - from, 0))
     }
 
     /// The server's edit reached as far as was typed when it was asked; the item takes all that's been typed since too.

@@ -321,9 +321,7 @@ public final class CodeEditor: NSObject {
 
     /// 1-based line/column of the primary cursor.
     public var cursor: (line: Int, column: Int)? {
-        let location = textView.selectedRange().location, string = textView.string as NSString
-        let line = lineIndex.line(at: location, in: string)
-        return (line + 1, location - (lineIndex.start(ofLine: line, in: string) ?? 0) + 1)
+        lineIndex.position(of: textView.selectedRange().location, in: textView.string as NSString)
     }
 
     /// Primary selection in UTF-16 units.

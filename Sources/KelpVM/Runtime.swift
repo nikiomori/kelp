@@ -242,8 +242,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             error: error, slot: slot)
         answer.screen = Screen.turn
         answer.cpu = vm == nil ? nil : usage?.cpu
-        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
-        close(fd)
+        Control.write(fd, answer)
     }
 
     // MARK: the machine

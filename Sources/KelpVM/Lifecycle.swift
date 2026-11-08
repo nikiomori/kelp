@@ -47,6 +47,23 @@ enum Control {
             DispatchQueue.main.async { MainActor.assumeIsolated { answer(request) } }   // the main queue
         }
     }
+
+    /// The request on `fd` read and handed to `handle`, whose answer (an error, or nil) goes to `reply`.
+    static func serve(
+        _ fd: Int32, handle: @escaping @MainActor @Sendable (VMHelper.Request, @escaping (String?) -> Void) -> Void,
+        reply: @escaping @MainActor @Sendable (Int32, String?) -> Void
+    ) {
+        read(fd) { request in
+            guard let request else { return reply(fd, "can't read the request") }
+            handle(request) { reply(fd, $0) }
+        }
+    }
+
+    /// `answer` written to `fd` as one line, and the connection closed.
+    static func write(_ fd: Int32, _ answer: VMHelper.Reply) {
+        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
+        close(fd)
+    }
 }
 
 extension Control {

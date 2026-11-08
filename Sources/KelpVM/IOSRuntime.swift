@@ -27,16 +27,12 @@ final class IOSRuntime {
     func listen() {
         // Its lock is held already (main.swift).
         sources.append(
-            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
+            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] fd in
+                guard let self else { return }
+                Control.serve(fd, handle: handle, reply: reply)
+            })
         sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.stop { exit(0) } })
         log("ready: \(machine.name) (iOS \(udid)), off")
-    }
-
-    private func control(_ fd: Int32) {
-        Control.read(fd) { request in
-            guard let request else { return self.reply(fd, "can't read the request") }
-            self.handle(request) { self.reply(fd, $0) }
-        }
     }
 
     private func reply(_ fd: Int32, _ error: String?) {
@@ -46,8 +42,7 @@ final class IOSRuntime {
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? udid : nil)
         answer.port = state == .running ? port : nil
-        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
-        close(fd)
+        Control.write(fd, answer)
     }
 
     private func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {

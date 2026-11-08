@@ -26,6 +26,17 @@ struct LineIndex {
         return line < starts.count ? starts[line] : nil
     }
 
+    /// The offset at 0-based `line` and `column`, no further than the text's end; nil past the last line.
+    mutating func offset(line: Int, column: Int, in string: NSString) -> Int? {
+        start(ofLine: line, in: string).map { min($0 + column, string.length) }
+    }
+
+    /// The 1-based line and column of `offset`.
+    mutating func position(of offset: Int, in string: NSString) -> (line: Int, column: Int) {
+        let line = line(at: offset, in: string)
+        return (line + 1, offset - (start(ofLine: line, in: string) ?? 0) + 1)
+    }
+
     private mutating func scan(_ string: NSString, to offset: Int) {
         while scanned < offset {
             let end = min(string.length, max(offset, scanned + 65_536)), from = scanned

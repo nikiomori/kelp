@@ -102,10 +102,9 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
 
     /// ⌘G / ⇧⌘G while typing (the field editor would swallow them otherwise).
     override public func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard !isHidden, event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "g",
-            (window?.firstResponder as? NSText)?.delegate === field
+        guard !isHidden, let forward = event.findStep, (window?.firstResponder as? NSText)?.delegate === field
         else { return super.performKeyEquivalent(with: event) }
-        onStep?(!event.modifierFlags.contains(.shift))
+        onStep?(forward)
         return true
     }
 
@@ -114,5 +113,14 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         pending?.cancel()
         isHidden = true
         onClose?()
+    }
+}
+
+extension NSEvent {
+    /// ⌘G → forward, ⇧⌘G → back, anything else nil. By key code, as a Russian layout sends another letter.
+    public var findStep: Bool? {
+        let mods = modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard type == .keyDown, keyCode == 5, mods.subtracting(.shift) == .command else { return nil }
+        return !mods.contains(.shift)
     }
 }

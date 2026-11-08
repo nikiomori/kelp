@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """The numbers the review rubric (docs/review-rubric.md) is scored on, read from the sources: run it before a review
-and paste its output into the review. `scripts/metrics.py` (from anywhere); `--json` for a machine."""
-import json
+and paste its output into the review. `scripts/metrics.py` (from anywhere)."""
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -129,9 +127,6 @@ def main():
         },
         "reliability": {"try_question": tryq},
     }
-    if "--json" in sys.argv:
-        print(json.dumps(m, indent=2))
-        return
     for section, values in m.items():
         print(f"## {section}")
         for k, v in values.items():

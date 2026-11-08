@@ -41,16 +41,12 @@ final class AndroidRuntime {
     func listen() {
         // Its lock is held already (main.swift).
         sources.append(
-            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] c in self?.control(c) })
+            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] fd in
+                guard let self else { return }
+                Control.serve(fd, handle: handle, reply: reply)
+            })
         sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })   // SIGTERM
         log("ready: \(machine.name) (Android), \(state.rawValue)")
-    }
-
-    private func control(_ fd: Int32) {
-        Control.read(fd) { request in
-            guard let request else { return self.reply(fd, "can't read the request") }
-            self.handle(request) { self.reply(fd, $0) }
-        }
     }
 
     private func reply(_ fd: Int32, _ error: String?) {
@@ -60,8 +56,7 @@ final class AndroidRuntime {
         let answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? serial : nil)
-        if let line = try? Wire.line(answer) { Unix.writeAll(fd, line) }
-        close(fd)
+        Control.write(fd, answer)
     }
 
     func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it

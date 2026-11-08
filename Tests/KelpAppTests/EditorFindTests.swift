@@ -41,7 +41,7 @@ extension OneAtATime {
         e.textView.setSelectedRange(NSRange(location: 0, length: 0))
         e.openFind(with: "foo(\\d)")
         let bar = try #require(e.findBar)
-        bar.flipRegexForTest()
+        bar.flip(\.regex)
         #expect(e.textView.findMarks.count == 3)
         #expect(e.textView.findCurrent == NSRange(location: 0, length: 4))
         bar.step(forward: true)
@@ -50,7 +50,7 @@ extension OneAtATime {
         bar.step(forward: false)
         #expect(e.textView.selectedRange().location == 18)   // round the end
         bar.replaceField.stringValue = "n$1"
-        bar.replaceAllForTest()
+        bar.replaceAll()
         #expect(e.text == "n1 bar n2 bar n3\n")
         e.undoManager(for: e.textView)?.undo()
         #expect(e.text == "foo1 bar foo2 bar foo3\n")

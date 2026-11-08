@@ -25,18 +25,13 @@ extension CodeEditor {
         guard let hoverProvider, location < string.length, Self.word(at: location, in: string).length > 0,
             hoverShownAt != location
         else { return }
-        let (line, column) = position(of: location)
+        let (line, column) = lineIndex.position(of: location, in: string)
         hoverShownAt = location
         Task { [weak self] in
             let text = await hoverProvider(line, column)
             guard let self, hoverShownAt == location, let text else { return }
             open(HoverCard(HoverText.attributed(text), width: Self.cardWidth, most: Self.cardHeight), at: location)
         }
-    }
-
-    private func position(of location: Int) -> (line: Int, column: Int) {
-        let string = textView.string as NSString, line = lineIndex.line(at: location, in: string)
-        return (line + 1, location - (lineIndex.start(ofLine: line, in: string) ?? 0) + 1)
     }
 
     private func open(_ card: NSViewController, at location: Int) {
@@ -73,7 +68,7 @@ extension CodeEditor {
         signatureAsk?.cancel()
         signatureAsk = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
-            guard let at = self?.textView.selectedRange().location, let (line, column) = self?.position(of: at) else {
+            guard let at = self?.textView.selectedRange().location, let (line, column) = self?.cursor else {
                 return
             }
             let found = await signatureProvider(line, column)

@@ -491,7 +491,7 @@ func codeOnly(_ s: String) -> String {
     let ceilings = [
         "Daemon": 98, "KelpKit": 59, "Core": 34, "GitKit": 30, "AgentData": 32, "Agents": 22, "kelp": 19,
         "Builtins": 12,
-        "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 32, "KelpGuest": 4, "EditorKit": 6,
+        "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 30, "KelpGuest": 4, "EditorKit": 6,
         "WorkbenchKit": 1, "DesignKit": 0
     ]
     // Every module is in it: a new one gets its count here, not none.
