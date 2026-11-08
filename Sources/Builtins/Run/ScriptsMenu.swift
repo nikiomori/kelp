@@ -264,18 +264,15 @@ final class ScriptsMenu: NSObject, NSMenuDelegate {
         if !info.shared.isEmpty { lines.append("shared: " + info.shared.joined(separator: ", ")) }
         if let command = info.issueCommand { lines.append("issueCommand: \(command)") }
         for (name, recipe) in info.recipes.sorted(by: { $0.key < $1.key }) { lines.append("recipe.\(name): \(recipe)") }
-        let text = NSTextView(frame: NSRect(x: 0, y: 0, width: 360, height: 10))
-        text.string = lines.joined(separator: "\n")
-        text.isEditable = false
-        text.drawsBackground = false
-        text.font = .uiMono(11)
-        text.isVerticallyResizable = true
-        text.textContainer?.widthTracksTextView = true
-        let scroll = NSScrollView(
-            frame: NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8)))
-        scroll.documentView = text
-        scroll.hasVerticalScroller = true
+        let scroll = NSTextView.scrollableTextView()
+        scroll.frame = NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8))
         scroll.drawsBackground = false
+        if let text = scroll.documentView as? NSTextView {
+            text.string = lines.joined(separator: "\n")
+            text.isEditable = false
+            text.drawsBackground = false
+            text.font = .uiMono(11)
+        }
         return scroll
     }
 

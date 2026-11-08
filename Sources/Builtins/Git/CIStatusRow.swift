@@ -5,15 +5,15 @@ import KelpKit
 
 /// The branch's CI in a line under Commit: the latest run of each workflow, a failure first with the job that broke
 /// ("CI: Failed · test"; the step is in the tooltip). Only the summary: a click opens the CI Runs panel, which has the log and the actions.
-final class CIStatusRow: NSView {
+final class CIStatusRow: PointerControl {
     var onClick: (() -> Void)?
     private let text = NSTextField(labelWithString: ""), time = NSTextField(labelWithString: "")
     private let chevron = NSImageView()
     private let line = NSStackView()
-    private var hover = false
 
     init() {
         super.init(frame: .zero)
+        layer?.cornerRadius = Metrics.radiusSM
         text.font = .ui(12)
         text.lineBreakMode = .byTruncatingTail
         text.maximumNumberOfLines = 1
@@ -26,9 +26,6 @@ final class CIStatusRow: NSView {
         line.spacing = 6
         line.alignment = .centerY
         pin(line, inset: NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4))
-        addTrackingArea(
-            NSTrackingArea(
-                rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         isHidden = true
@@ -73,38 +70,7 @@ final class CIStatusRow: NSView {
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
-    /// The hover grey fades in, held it darkens, a click springs it, as every row and button does (no hand cursor:
-    /// macOS keeps that for links).
-    private var pressed = false
-    private func showFill() {
-        wantsLayer = true
-        layer?.cornerRadius = Metrics.radiusSM
-        fadeBackground(to: pressed ? .fillSelected : hover ? .fillHover : nil, held: pressed)
-    }
-    override func mouseEntered(with e: NSEvent) {
-        hover = true
-        showFill()
-    }
-    override func mouseExited(with e: NSEvent) {
-        hover = false
-        pressed = false
-        showFill()
-    }
-    override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) != nil ? self : nil }   // one target, labels included
-    override func mouseDown(with e: NSEvent) {
-        pressed = true
-        showFill()
-    }   // the click is the row's, not the panel's
-    override func mouseUp(with e: NSEvent) {
-        pressed = false
-        showFill()
-        if bounds.contains(convert(e.locationInWindow, from: nil)) {
-            pressBounce()
-            onClick?()
-        }
-    }
-    override func accessibilityPerformPress() -> Bool {
-        onClick?()
-        return true
-    }
+    override func clicked() { onClick?() }
+    // one target, labels included
+    override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) != nil ? self : nil }
 }

@@ -31,11 +31,7 @@ final class ResultsTable: NSTableView {
 /// (DesignKit's ListRowView), no background of their own over the panel.
 extension FilesPanel {
     func styleLists() {
-        for table in [outline, results] as [NSTableView] {
-            table.style = .plain
-            table.backgroundColor = .clear
-            table.rowSizeStyle = .custom
-        }
+        for table in [outline, results] as [NSTableView] { table.rowSizeStyle = .custom }
         outline.rowHeight = TextSize.of(Metrics.row)
         outline.indentationPerLevel = 12
         results.rowHeight = TextSize.of(Metrics.rowTwoLine)

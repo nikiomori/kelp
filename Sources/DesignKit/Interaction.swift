@@ -173,6 +173,23 @@ private final class Ghost: NSImageView {
 
 @MainActor
 extension NSTableView {
+    /// A panel's list: one column as wide as the table (an outline's own), no header, no fill; in `scroll`, which
+    /// gets a vertical scroller and no fill either.
+    @discardableResult
+    public func plainList(_ column: String, in scroll: NSScrollView = NSScrollView()) -> NSScrollView {
+        let col = NSTableColumn(identifier: .init(column))
+        col.resizingMask = .autoresizingMask
+        addTableColumn(col)
+        (self as? NSOutlineView)?.outlineTableColumn = col
+        headerView = nil
+        style = .plain
+        backgroundColor = .clear
+        scroll.documentView = self
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        return scroll
+    }
+
     /// Where the rows on show stand, by a key that outlives a reload: for `settleRows` after it.
     public func rowPlaces(_ key: (Int) -> String?) -> [String: NSPoint] {
         var places: [String: NSPoint] = [:]

@@ -5,7 +5,7 @@ import EditorKit
 /// A diff's code coloured by the editor's tree-sitter grammars, so it reads like the file: each file's old side (its
 /// unchanged and removed lines) and new side (unchanged and added lines) parsed once as one text, then cut per line.
 /// The hunks are pieces of the file, not all of it; tree-sitter makes the best of that, as it does of a file being typed.
-/// A side past `limit`, or a language without a grammar, keeps the regex colours (`Highlighter`).
+/// A side past `limit`, a language without a grammar and lines opened between changes show plain.
 enum DiffColors {
     struct Span: Sendable, Equatable {
         let range: NSRange

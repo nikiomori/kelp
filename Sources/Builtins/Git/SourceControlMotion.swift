@@ -72,23 +72,21 @@ extension SourceControlController {
     func stagingPlaces() -> [String: NSPoint] {
         guard let was = staging, was != changeShape else { return [:] }
         staging = nil
-        var places: [String: NSPoint] = [:]
-        for r in 0..<outline.numberOfRows {
-            if let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell {
-                places[cell.path] = cell.placeInWindow
-            }
-        }
-        return places
+        return outline.rowPlaces(fileKey)
     }
 
-    func slideStaged(from places: [String: NSPoint]) {
+    func slideStaged(from places: [String: NSPoint]) { slideRows(outline, from: places, fileKey) }
+
+    private func fileKey(_ row: Int) -> String? {
+        (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? FileCell)?.path
+    }
+
+    /// After a reload: the rows that stayed travel from where they stood.
+    private func slideRows(_ table: NSTableView, from places: [String: NSPoint], _ key: (Int) -> String?) {
         guard !places.isEmpty else { return }
-        outline.layoutSubtreeIfNeeded()
-        for r in 0..<outline.numberOfRows {
-            guard let cell = outline.view(atColumn: 0, row: r, makeIfNecessary: false) as? FileCell,
-                let place = places[cell.path]
-            else { continue }
-            cell.slide(from: place)
+        table.layoutSubtreeIfNeeded()
+        table.enumerateAvailableRowViews { rowView, row in
+            if let rowKey = key(row), let place = places[rowKey] { rowView.slide(from: place) }
         }
     }
 
@@ -104,23 +102,12 @@ extension SourceControlController {
             uniqueKeysWithValues: new.reversed().enumerated().map { ($1.hash, Double($0) * Motion.stagger) })
     }
 
-    func commitPlaces() -> [String: NSPoint] {
-        var places: [String: NSPoint] = [:]
-        for r in 0..<graphOutline.numberOfRows {
-            if let cell = graphOutline.view(atColumn: 0, row: r, makeIfNecessary: false) as? CommitCell {
-                places[cell.commitHash] = cell.placeInWindow
-            }
-        }
-        return places
-    }
+    func commitPlaces() -> [String: NSPoint] { graphOutline.rowPlaces(commitKey) }
 
     /// The commits already there move down to let the new ones in.
-    func slideCommits(from places: [String: NSPoint]) {
-        guard !places.isEmpty else { return }
-        graphOutline.layoutSubtreeIfNeeded()
-        for r in 0..<graphOutline.numberOfRows {
-            let cell = graphOutline.view(atColumn: 0, row: r, makeIfNecessary: false) as? CommitCell
-            if let cell, let place = places[cell.commitHash] { cell.slide(from: place) }
-        }
+    func slideCommits(from places: [String: NSPoint]) { slideRows(graphOutline, from: places, commitKey) }
+
+    private func commitKey(_ row: Int) -> String? {
+        (graphOutline.view(atColumn: 0, row: row, makeIfNecessary: false) as? CommitCell)?.commitHash
     }
 }

@@ -200,13 +200,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     /// A list in the panel: one column, no header, rows drawn by the cells.
     private func list(_ o: NSOutlineView) -> NSScrollView {
-        let col = NSTableColumn(identifier: .init("scm"))
-        col.resizingMask = .autoresizingMask
-        o.addTableColumn(col)
-        o.outlineTableColumn = col
-        o.headerView = nil
-        o.style = .plain
-        o.backgroundColor = .clear
+        let scrollView = o.plainList("scm")
+        scrollView.autohidesScrollers = true
         o.intercellSpacing = .zero
         o.indentationPerLevel = 0
         o.rowSizeStyle = .custom
@@ -218,11 +213,6 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let menu = NSMenu()
         menu.delegate = self
         o.menu = menu
-        let scrollView = NSScrollView()
-        scrollView.documentView = o
-        scrollView.hasVerticalScroller = true
-        scrollView.drawsBackground = false
-        scrollView.autohidesScrollers = true
         return scrollView
     }
 

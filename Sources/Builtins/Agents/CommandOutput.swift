@@ -63,28 +63,22 @@ final class CommandOutput: NSViewController {
                 top: Metrics.gapWide, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
             return box
         }
-        let log = NSTextView()
-        log.isEditable = false
-        log.font = .uiMono(11)
-        log.textColor = .labelColor
-        log.textContainerInset = NSSize(width: 6, height: 6)
-        log.drawsBackground = false
-        log.isVerticallyResizable = true
-        log.isHorizontallyResizable = false
-        log.autoresizingMask = .width
-        log.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
-        log.textContainer?.widthTracksTextView = true
-        log.string = out
-        let scroll = NSScrollView()
-        scroll.documentView = log
-        scroll.hasVerticalScroller = true
+        let scroll = NSTextView.scrollableTextView()
         scroll.drawsBackground = false
         // As tall as what it printed, up to 300 pt.
         let lines = CGFloat(out.reduce(into: 1) { n, ch in if ch == "\n" { n += 1 } })
         scroll.heightAnchor.constraint(
             equalToConstant: min(300, lines * ceil(NSFont.uiMono(11).boundingRectForFont.height) + 12)
         ).isActive = true
-        log.scrollToEndOfDocument(nil)
+        if let log = scroll.documentView as? NSTextView {
+            log.isEditable = false
+            log.font = .uiMono(11)
+            log.textColor = .labelColor
+            log.textContainerInset = NSSize(width: 6, height: 6)
+            log.drawsBackground = false
+            log.string = out
+            log.scrollToEndOfDocument(nil)
+        }
         return scroll
     }
 

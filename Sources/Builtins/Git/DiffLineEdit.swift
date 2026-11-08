@@ -73,18 +73,14 @@ extension DiffViewController: NSTextFieldDelegate {
     func write(_ new: String, over old: String, path: String, line: Int) async {
         guard let root = app.worktree(worktreeId)?.path, let read = await app.call(FilesRead(path: root + "/" + path))
         else { return }
-        guard let text = TextEdits.replacing(line: line, expected: old, with: new, in: read.text) else {
-            return Banner.show(
-                String(
-                    localized:
-                        "\((path as NSString).lastPathComponent) changed since this was shown. Nothing was written."),
-                style: .error)
+        // The line isn't as shown, or the write was refused: it changed between the read and the write.
+        var stamp: FileStamp?
+        if let text = TextEdits.replacing(line: line, expected: old, with: new, in: read.text) {
+            guard let written = await app.call(FilesWrite(path: root + "/" + path, text: text, base: read.stamp))
+            else { return }
+            stamp = written.stamp
         }
-        guard let written = await app.call(FilesWrite(path: root + "/" + path, text: text, base: read.stamp)) else {
-            return
-        }
-        // Refused: it changed between the read and the write.
-        guard written.stamp != nil else {
+        guard stamp != nil else {
             return Banner.show(
                 String(
                     localized:

@@ -6,7 +6,6 @@ import WorkbenchKit
 
 @MainActor
 extension DiffViewController {
-    private func ext(_ f: Int) -> String { (diffs[f].path as NSString).pathExtension }
 
     func label(_ string: String, font: NSFont, color: NSColor = .labelColor, align: NSTextAlignment = .left)
         -> NSTextField
@@ -79,7 +78,7 @@ extension DiffViewController {
             DiffColors.key(f, l).flatMap { syntax[$0] }.map {
                 Highlighter.attributed(
                     prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
-            } ?? Highlighter.attributed(prefix + text, ext: ext(f), font: font)
+            } ?? NSAttributedString(string: prefix + text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         let styled = NSMutableAttributedString(attributedString: colored)
         let key =
             l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil

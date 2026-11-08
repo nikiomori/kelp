@@ -373,21 +373,20 @@ extension AppOfItsOwn {
     }
 }
 
-/// A minified line in a diff: the regexes were quadratic in it, a text field takes seconds over a megabyte.
+/// A minified line in a diff: a text field takes seconds over a megabyte, and its captures would pile up.
 @MainActor @Test func aVeryLongDiffLineIsCutAndLeftUncolored() {
     let long = "let a = 1; " + String(repeating: "x", count: Highlighter.maxColored)
-    let font = NSFont.systemFont(ofSize: 12)
-    func colored(_ s: String) -> Bool {
-        var found = false
-        Highlighter.attributed(s, ext: "js", font: font).enumerateAttribute(
-            .foregroundColor, in: NSRange(location: 0, length: 3)
-        ) { c, _, _ in
-            found = found || (c as? NSColor) != .labelColor
-        }
-        return found
-    }
-    #expect(colored("let a = 1;"))
-    #expect(!colored(long))
+    let lines = [
+        DiffLine(kind: .add, text: "let a = 1;", newLine: 1), DiffLine(kind: .add, text: long, newLine: 2)
+    ]
+    let d = [
+        FileDiff(
+            path: "a.js", header: "", hunks: [Hunk(header: "@@", oldStart: 1, newStart: 1, lines: lines)],
+            binary: false)
+    ]
+    let spans = DiffColors.spans(d, grammars: DiffColors.grammars(d))
+    #expect(spans["0:n:1"]?.isEmpty == false)
+    #expect(spans["0:n:2"]?.isEmpty != false)
     #expect(DiffViewController.shown("short") == "short")
     #expect(DiffViewController.shown(String(repeating: "y", count: 30_000)).utf16.count == 20_001)
 }
