@@ -153,7 +153,7 @@ final class LimitStrip: NSView {
     /// How full each agent's fullest plan limit is.
     private func planUse() -> [String: Double] {
         guard let limits = app.latest(LimitsEvent.self)?.usage else { return [:] }
-        return LimitAlerts.readings(limits).reduce(into: [:]) {
+        return limits.fresh().reduce(into: [:]) {
             $0[$1.agent] = max($0[$1.agent] ?? 0, $1.limit.percent)
         }
     }

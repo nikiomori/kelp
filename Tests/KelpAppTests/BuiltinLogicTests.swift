@@ -337,7 +337,7 @@ import os
     #expect(Machines.machineLine(app, v) == "Starting for the first time")
     v.state = .off
     v.diskMiB = 2048
-    #expect(Machines.machineLine(app, v) == "2.0 GB on disk · Boots in a few seconds")
+    #expect(Machines.machineLine(app, v) == "2 GB on disk · Boots in a few seconds")
     v.state = .sleeping
     v.machine.os = "linux"
     v.diskMiB = nil

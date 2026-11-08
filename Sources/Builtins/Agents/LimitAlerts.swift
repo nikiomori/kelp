@@ -11,19 +11,13 @@ struct LimitAlerts {
     private var told: [String: Int] = [:]   // "agent|kind" → highest level already announced
     private var seeded = false
 
-    /// Every limit the agents report now, as the sidebar's rings show them, with when it resets if that can be told.
-    /// Not the ones the sidebar dims (`fresh`): a reading from more than half an hour ago says nothing about now.
-    static func readings(_ u: UsageGet.Result, now: Date = Date()) -> [(
-        agent: String, limit: UsageGet.Limit, resetAt: Date?
-    )] {
-        u.fresh(now: now).map { ($0.agent, $0.limit, $0.resetAt) }
-    }
-
-    /// The first reading only sets the baseline: what was already full when Kelp opened isn't news.
+    /// The first reading only sets the baseline: what was already full when Kelp opened isn't news. Fresh ones only:
+    /// a reading from over half an hour ago says nothing about now.
     mutating func update(_ u: UsageGet.Result, first: Int? = 80) -> [Alert] {
         let levels = Self.levels(first: first)
         var alerts: [Alert] = []
-        for (agent, l, _) in Self.readings(u) {
+        for r in u.fresh() {
+            let agent = r.agent, l = r.limit
             let key = agent + "|" + l.kind
             let level = levels.last { l.percent >= Double($0) } ?? 0
             if l.percent < Double((levels.first ?? 100) - 10) { told[key] = nil }

@@ -79,6 +79,9 @@ package func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.U
 }
 nonisolated(unsafe) private let spanFormatters = NSCache<NSString, DateComponentsFormatter>()   // NSCache is thread-safe, as is formatting
 
+/// Bytes as people read memory and disk: "870 MB", "3.1 GB".
+package func bytes(_ n: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .memory) }
+
 /// A status mark for AppKit. Ready agents show none.
 @MainActor
 package final class StatusMark: NSView {

@@ -68,8 +68,7 @@ extension DiffViewController {
         m.addItem(.separator())
         m.add(String(localized: "Open File")) { [weak self] in self?.openLine(path, nil) }
         m.add(String(localized: "Copy Path")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(path, forType: .string)
+            copyText(path)
         }
     }
     func openLine(_ path: String, _ line: Int?) {
@@ -119,8 +118,7 @@ extension DiffViewController {
             m.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, number) }
         }
         m.add(String(localized: "Copy Line")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(line.text, forType: .string)
+            copyText(line.text)
         }
     }
     private func setComment(_ id: String, _ state: String) {

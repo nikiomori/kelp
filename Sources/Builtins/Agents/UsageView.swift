@@ -156,7 +156,7 @@ struct UsageView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
+    static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
 
     /// How full a limit is (a bar can't be mistaken for the "working" spinner); orange from 70 %, red from 90 %. `pace`: a
     /// tick where an even pace would have it now, cut out of the bar on both sides so it shows on the fill as on the track.

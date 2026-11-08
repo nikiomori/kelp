@@ -57,20 +57,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         filter.action = #selector(filterChanged)
         let bar = makeBar()
 
-        let col = NSTableColumn(identifier: .init("t"))
-        table.addTableColumn(col)
-        table.headerView = nil
+        let ts = table.plainList("t")
         table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
-        table.style = .plain
         table.menu = NSMenu()
         table.menu?.delegate = self
-        table.backgroundColor = .clear
-        let ts = NSScrollView()
-        ts.documentView = table
-        ts.hasVerticalScroller = true
-        ts.drawsBackground = false
         detail.orientation = .vertical
         detail.alignment = .leading
         detail.spacing = 10
@@ -612,8 +604,7 @@ extension TasksViewController {
         menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Link")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(url, forType: .string)
+            copyText(url)
         }
     }
     /// What an agent starts from, for the rows it can start on.

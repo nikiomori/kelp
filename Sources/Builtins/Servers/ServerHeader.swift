@@ -157,7 +157,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         }
         func of(_ used: Int?, _ total: Int?) -> String? {
             guard let used, let total, let percent = HostStats.percent(used, total) else { return nil }
-            return "\(serverBytes(used)) / \(serverBytes(total)) · \(percent)%"
+            return "\(bytes(used)) / \(bytes(total)) · \(percent)%"
         }
         let load = stats.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: " ") }
         return [
@@ -223,8 +223,7 @@ enum ServerHeaders {
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Host")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(host, forType: .string)
+            copyText(host)
         }
     }
 

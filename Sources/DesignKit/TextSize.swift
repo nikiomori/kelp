@@ -58,4 +58,8 @@ extension Font {
 extension View {
     /// A section's title over its rows: 11 semibold, secondary. One look for every titled section.
     public func sectionTitle() -> some View { font(.ui(11, weight: .semibold)).foregroundStyle(.secondary) }
+    /// A section's title in a column of sections: `sectionTitle()` at the bottom of a section row's height.
+    public func sectionHeading() -> some View { sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom) }
+    /// A line that says there's nothing here or why: 12, secondary.
+    public func quietNote() -> some View { font(.ui(12)).foregroundStyle(.secondary) }
 }

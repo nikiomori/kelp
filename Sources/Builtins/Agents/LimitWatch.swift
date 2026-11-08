@@ -50,7 +50,7 @@ final class LimitWatch {
     private var resets = LimitResets()
     private var resetWaits: [String: Task<Void, Never>] = [:]
     private func resetsChanged(_ u: UsageGet.Result) {
-        for agent in resets.update(LimitAlerts.readings(u)) {
+        for agent in resets.update(u.fresh()) {
             guard let until = resets.full[agent]?.until else { continue }
             resetWaits[agent]?.cancel()
             resetWaits[agent] = Task { [weak self] in
@@ -86,7 +86,8 @@ final class LimitWatch {
     private func forecastChanged(_ u: UsageGet.Result) {
         guard app.settings.usageAlertAt != nil else { return }
         var read = Set<String>()
-        for (agent, l, resetAt) in LimitAlerts.readings(u) {
+        for r in u.fresh() {
+            let agent = r.agent, l = r.limit, resetAt = r.resetAt
             let key = LimitForecast.key(agent, l.kind), window = UsageView.window(l.kind)
             read.insert(key)
             // Told again only once its pace eases to 90 % at the reset: a pace that wobbles around full isn't news each read.

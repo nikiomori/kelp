@@ -47,10 +47,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
 
     override func loadView() {
         let app = self.app
-        let col = NSTableColumn(identifier: .init("f"))
-        outline.addTableColumn(col)
-        outline.outlineTableColumn = col
-        outline.headerView = nil
+        outline.plainList("f", in: leftScroll)
+        results.plainList("r", in: resultsScroll)
         styleLists()
         outline.dataSource = self
         outline.delegate = self
@@ -66,21 +64,12 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.menu?.delegate = self
         results.menu = NSMenu()
         results.menu?.delegate = self
-        leftScroll.documentView = outline
-        leftScroll.hasVerticalScroller = true
-        leftScroll.drawsBackground = false
-        let rc = NSTableColumn(identifier: .init("r"))
-        results.addTableColumn(rc)
-        results.headerView = nil
         results.dataSource = self
         results.delegate = self
         results.target = self
         results.action = #selector(openResult)
         search.delegate = self
-        resultsScroll.documentView = results
-        resultsScroll.hasVerticalScroller = true
         resultsScroll.isHidden = true
-        resultsScroll.drawsBackground = false
         // One field, like Finder's: empty shows the tree, a search (↩) shows matches in their place, clearing it goes back.
         setUpSearchMode()
         search.target = self
@@ -184,7 +173,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         WorkspaceActions.addLocate(
             to: menu, path: path,
             copies: [
-                (String(localized: "Relative Path"), { @MainActor [weak self] in self?.copyText(rel) }),
+                (String(localized: "Relative Path"), { @MainActor in copyText(rel) }),
                 (String(localized: "Web Link"), { @MainActor in FileActions(app).copyWebLink(path) })
             ])
         menu.addItem(.separator())
@@ -569,10 +558,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
         let path = URL(fileURLWithPath: root).appendingPathComponent(node.path).path
         trash({ [path] }, undo: String(localized: "Move to Trash"))
-    }
-    private func copyText(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
     }
     /// The files couldn't be listed (a folder moved away, git refusing it): say why where the tree would be, not an empty tree.
     let loadError = EmptyStateView()

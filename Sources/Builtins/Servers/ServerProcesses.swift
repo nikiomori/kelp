@@ -93,7 +93,7 @@ struct ProcessRow: View {
             agent.frame(width: Self.kelp, alignment: .leading)
             Text(process.user).foregroundStyle(.secondary).lineLimit(1).frame(width: Self.user, alignment: .leading)
             Text(String(format: "%.1f%%", process.cpu)).frame(width: Self.number, alignment: .trailing)
-            Text(process.memory > 0 ? serverBytes(process.memory) : "–").frame(width: Self.number, alignment: .trailing)
+            Text(process.memory > 0 ? bytes(process.memory) : "–").frame(width: Self.number, alignment: .trailing)
             Text(serverDuration(Double(process.seconds))).foregroundStyle(.secondary).frame(
                 width: Self.number, alignment: .trailing)
         }
@@ -111,8 +111,8 @@ struct ProcessRow: View {
             if let sid = process.session {
                 Button(String(localized: "Show Agent")) { app.workbench.focus(session: sid) }
             }
-            Button(String(localized: "Copy Command Line")) { copy(process.args) }
-            Button(String(localized: "Copy PID")) { copy("\(process.pid)") }
+            Button(String(localized: "Copy Command Line")) { copyText(process.args) }
+            Button(String(localized: "Copy PID")) { copyText("\(process.pid)") }
         }
     }
 
@@ -126,10 +126,5 @@ struct ProcessRow: View {
         } else if process.session != nil {
             Text("Kelp").foregroundStyle(.secondary)
         }
-    }
-
-    private func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
     }
 }

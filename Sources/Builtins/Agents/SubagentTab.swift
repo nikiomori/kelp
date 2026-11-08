@@ -141,8 +141,7 @@ struct SubagentJournalView: View {
     }
 
     static func clock(_ seconds: TimeInterval) -> String {
-        let totalSeconds = Int(max(0, seconds))
-        return "\(totalSeconds / 60):" + String(format: "%02d", totalSeconds % 60)
+        Duration.seconds(Int(max(0, seconds))).formatted(.time(pattern: .minuteSecond))
     }
 
     /// What it reported. Limit: Markdown's inline marks and headings; a table or a list stands as written.

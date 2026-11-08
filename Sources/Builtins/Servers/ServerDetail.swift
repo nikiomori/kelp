@@ -46,14 +46,14 @@ struct ServerDetail: View {
                     } ?? "",
                     share: stats.cpu.map { $0 / 100 }, trend: history.map(\.cpu))
                 Tile(
-                    label: "Memory", value: stats.memory.map(serverBytes) ?? "–",
+                    label: "Memory", value: stats.memory.map(bytes) ?? "–",
                     detail: of(stats.memory, stats.memoryTotal),
                     share: share(stats.memory, stats.memoryTotal), trend: history.map(\.memory))
                 Tile(
-                    label: "Swap", value: stats.swap.map(serverBytes) ?? "–", detail: of(stats.swap, stats.swapTotal),
+                    label: "Swap", value: stats.swap.map(bytes) ?? "–", detail: of(stats.swap, stats.swapTotal),
                     share: share(stats.swap, stats.swapTotal))
                 Tile(
-                    label: "Disk /", value: stats.disk.map(serverBytes) ?? "–", detail: of(stats.disk, stats.diskTotal),
+                    label: "Disk /", value: stats.disk.map(bytes) ?? "–", detail: of(stats.disk, stats.diskTotal),
                     share: share(stats.disk, stats.diskTotal))
             }
         }
@@ -64,7 +64,7 @@ struct ServerDetail: View {
     }
     private func of(_ used: Int?, _ total: Int?) -> String {
         guard let total, let percent = HostStats.percent(used, total) else { return String(localized: "Linux only") }
-        return String(localized: "of \(serverBytes(total)) · \(percent)%")
+        return String(localized: "of \(bytes(total)) · \(percent)%")
     }
 }
 

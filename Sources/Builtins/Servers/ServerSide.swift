@@ -27,33 +27,28 @@ struct ServerSide: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            heading("Agents")
-            if agents.isEmpty { quiet("No agents on \(host) now.") }
+            Text("Agents").sectionHeading()
+            if agents.isEmpty { Text("No agents on \(host) now.").quietNote() }
             ForEach(agents, id: \.id) { s in agentRow(s) }
             if !leftRunning.isEmpty {
-                heading("Still Running in tmux").padding(.top, 10)
+                Text("Still Running in tmux").sectionHeading().padding(.top, 10)
                 ForEach(leftRunning, id: \.name) { t in tmuxRow(t) }
             }
             if let ports = stats.ports, !ports.isEmpty {
-                heading("Listening").padding(.top, 10)
+                Text("Listening").sectionHeading().padding(.top, 10)
                 ForEach(ports, id: \.port) { p in portRow(p) }
             }
-            heading("Projects").padding(.top, 10)
+            Text("Projects").sectionHeading().padding(.top, 10)
             ForEach(projects, id: \.id) { r in projectRow(r) }
         }
     }
-
-    private func heading(_ text: LocalizedStringKey) -> some View {
-        Text(text).sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom)
-    }
-    private func quiet(_ text: LocalizedStringKey) -> some View { Text(text).font(.ui(12)).foregroundStyle(.secondary) }
 
     /// What its processes there take together.
     private func cost(_ sid: String) -> String? {
         let mine = (stats.processes ?? []).filter { $0.session == sid }
         guard !mine.isEmpty else { return nil }
         let cpu = mine.reduce(0) { $0 + $1.cpu }, memory = mine.reduce(0) { $0 + $1.memory }
-        return String(format: "%.1f%%", cpu) + " · " + serverBytes(memory)
+        return String(format: "%.1f%%", cpu) + " · " + bytes(memory)
     }
 
     private func agentRow(_ session: Session) -> some View {

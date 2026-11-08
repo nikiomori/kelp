@@ -409,7 +409,7 @@ struct KelpLinks {
     }
 
     private func openFile(_ path: String, line: Int?) {
-        let worktree = app.worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
+        let worktree = app.worktree(holding: path)
         whenAllowed(path) {
             app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: worktree?.id)
         }
@@ -545,15 +545,13 @@ package struct FileActions {
         Task {
             guard let url = await app.call(GitWebURL(path: path, start: lines?.lowerBound, end: lines?.upperBound))
             else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(url, forType: .string)
+            copyText(url)
             Banner.show(String(localized: "Link copied"))
         }
     }
 
     package func copyReference(_ path: String, lines: ClosedRange<Int>?) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(reference(path, lines: lines), forType: .string)
+        copyText(reference(path, lines: lines))
     }
 }
 

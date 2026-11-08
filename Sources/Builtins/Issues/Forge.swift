@@ -51,8 +51,7 @@ enum Forge {
     /// In a terminal tab, where the login asks its questions; from Settings too. No window to run it in: the command is copied.
     static func run(_ setup: Setup, in app: AppModel) {
         guard let editor = app.workbench.editor else {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(setup.command, forType: .string)
+            copyText(setup.command)
             Banner.show(String(localized: "Copied “\(setup.command)”: run it in Terminal"))
             return
         }

@@ -296,8 +296,7 @@ struct AgentsSettings: View {
             Text(cmd).font(.uiMono(11)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(cmd, forType: .string)
+                copyText(cmd)
             } label: {
                 Image(systemName: "doc.on.doc")
             }.buttonStyle(PointerButtonStyle()).help("Copy")
@@ -402,8 +401,7 @@ struct AgentsSettings: View {
     /// The agent's own command, in a terminal in the workspace on screen, so what it does is in plain sight.
     private func run(_ cmd: String, _ title: String, in folder: String? = nil) {
         guard let editor = app.workbench.editor else {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(cmd, forType: .string)
+            copyText(cmd)
             Banner.show(String(localized: "Open a chat to run it there — the command is on the clipboard: \(cmd)"))
             return
         }

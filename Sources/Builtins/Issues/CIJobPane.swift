@@ -21,8 +21,10 @@ final class CIJobPane: NSObject {
     private var report: CIRuns.Report?
     /// What the run's earlier try says of this failure.
     private var note: String?
-    private let log = NSTextView(), failures = CIFailuresView()
-    private let logScroll = NSScrollView()
+    private let failures = CIFailuresView()
+    // Lines wrap at the pane's width: a long one (a URL, a command) was cut off at the edge.
+    private let logScroll = NSTextView.scrollableTextView()
+    private var log: NSTextView { logScroll.documentView as? NSTextView ?? NSTextView() }
     private let title = NSTextField(labelWithString: "")
     private lazy var mode = NSSegmentedControl(
         labels: [String(localized: "Failure"), String(localized: "Log")], trackingMode: .selectOne,
@@ -56,14 +58,6 @@ final class CIJobPane: NSObject {
         log.font = .uiMono(11)
         log.textContainerInset = NSSize(width: 6, height: 6)
         log.drawsBackground = false
-        // Lines wrap at the pane's width: a long one (a URL, a command) was cut off at the edge.
-        log.isVerticallyResizable = true
-        log.isHorizontallyResizable = false
-        log.autoresizingMask = .width
-        log.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
-        log.textContainer?.widthTracksTextView = true
-        logScroll.documentView = log
-        logScroll.hasVerticalScroller = true
         logScroll.drawsBackground = false
         title.font = .ui(12, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
@@ -157,8 +151,7 @@ final class CIJobPane: NSObject {
 
     private func copy() {
         let text = !failures.isHidden ? report?.summary ?? "" : log.string
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        copyText(text)
         Banner.show(!failures.isHidden ? String(localized: "Failures copied") : String(localized: "Log copied"))
     }
 

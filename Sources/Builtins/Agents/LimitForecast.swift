@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import KelpKit
 
 /// When a plan limit will be full at the pace it's filling, and whether that comes before it resets. Readings arrive every
 /// ten minutes or so; the pace is the rise over the last two hours (a window that reset starts again), or, until there are
@@ -11,8 +12,8 @@ struct LimitForecast {
     static func key(_ agent: String, _ kind: String) -> String { agent + "|" + kind }
 
     mutating func record(_ u: UsageGet.Result, now: Date = Date()) {
-        for (agent, l, _) in LimitAlerts.readings(u, now: now) {
-            let key = Self.key(agent, l.kind)
+        for r in u.fresh(now: now) {
+            let l = r.limit, key = Self.key(r.agent, l.kind)
             var series = samples[key] ?? []
             if let last = series.last {
                 if l.percent < last.percent {
@@ -77,12 +78,6 @@ struct LimitForecast {
         return left > 0 && left <= 86400 && percent < 50
     }
 
-    static func duration(_ t: TimeInterval) -> String {
-        let minutes = Int((t / 60).rounded(.up))
-        return minutes < 60
-            ? String(localized: "\(minutes) min")
-            : minutes < 36 * 60
-                ? String(localized: "\(minutes / 60) h \(minutes % 60) min")
-                : String(localized: "\(minutes / 1440) days")
-    }
+    /// "5m", "1h 10m", "2d 3h", in whole minutes up: a limit full in 30 seconds isn't full in none.
+    static func duration(_ t: TimeInterval) -> String { shortSpan((t / 60).rounded(.up) * 60, units: 2) }
 }

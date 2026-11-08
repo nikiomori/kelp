@@ -59,12 +59,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         super.init(frame: .zero)
         let line = NSBox()
         line.boxType = .separator
-        let col = NSTableColumn(identifier: .init("c"))
-        col.resizingMask = .autoresizingMask
-        table.addTableColumn(col)
-        table.headerView = nil
-        table.style = .plain
-        table.backgroundColor = .clear
+        table.plainList("c", in: scroll)
         table.rowHeight = Self.rowHeight
         table.dataSource = self
         table.delegate = self
@@ -72,9 +67,6 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         table.action = #selector(clickedRow)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        scroll.documentView = table
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
         popover.behavior = .transient
         consoleBox.clipsToBounds = true
         header.press = { [weak self] in self?.fold(self?.unfolded == true) }
@@ -383,8 +375,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     }
     private func addCopy(to menu: NSMenu, _ command: String) {
         menu.add(String(localized: "Copy Command")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(command, forType: .string)
+            copyText(command)
         }
     }
     /// The bar's own line: its last command, and the way to turn the shell tool's commands off.

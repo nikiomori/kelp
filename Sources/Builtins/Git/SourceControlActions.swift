@@ -340,8 +340,7 @@ extension SourceControlController {
             }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy Path")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(file.path, forType: .string)
+                copyText(file.path)
             }
             if let discard {
                 menu.addItem(.separator())
@@ -374,12 +373,10 @@ extension SourceControlController {
             menu.addItem(.separator())
             let copies = NSMenu()
             copies.add(String(localized: "Hash")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(commit.hash, forType: .string)
+                copyText(commit.hash)
             }
             copies.add(String(localized: "Message")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(commit.subject, forType: .string)
+                copyText(commit.subject)
             }
             menu.setSubmenu(
                 copies, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
@@ -392,8 +389,7 @@ extension SourceControlController {
             menu.add(String(localized: "Open File")) { [weak self] in self?.openFile(fileChange) }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy Path")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(fileChange.path, forType: .string)
+                copyText(fileChange.path)
             }
         default: break
         }

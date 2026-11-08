@@ -71,8 +71,7 @@ struct ServerView: View {
                 }
                 Divider()
                 Button(String(localized: "Copy Host")) {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(host, forType: .string)
+                    copyText(host)
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")

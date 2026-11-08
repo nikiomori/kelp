@@ -75,8 +75,7 @@ struct MachineView: View {
                 }
                 Divider()
                 Button(String(localized: "Copy Run Command")) {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("kelp vm run \(name) -- ", forType: .string)
+                    copyText("kelp vm run \(name) -- ")
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -94,11 +93,10 @@ struct MachineView: View {
         let machine = info.machine
         var parts = [VMImage.named(machine.image)?.title ?? machine.image, String(localized: "\(machine.cpus) CPUs")]
         if let cpu = info.cpu { parts[1] += String(format: " (%.0f%%)", cpu) }
-        let total = Double(machine.memoryMiB) / 1024
         if let now = info.memoryMiB {
             parts.append(String(format: String(localized: "%.1f GB in use"), Double(now) / 1024))
         } else {
-            parts.append(String(format: "%.0f GB", total))
+            parts.append(bytes(machine.memoryMiB << 20))
         }
         if let disk = info.diskMiB {
             parts.append(String(format: String(localized: "disk %.1f GB"), Double(disk) / 1024))
@@ -168,21 +166,22 @@ struct MachineView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
                 if let guest = detail?.guest { screen(guest) }
-                heading("Running")
+                Text("Running").sectionHeading()
                 if let runs = detail?.runs, !runs.isEmpty {
                     ForEach(runs, id: \.pid) { runRow($0) }
                 } else {
-                    quiet(
+                    let note: LocalizedStringKey =
                         info.state == .paused
-                            ? "Paused: nothing has run for a while. The next command goes on at once."
-                            : "Nothing runs in it now. Agents use it with kelp vm run.")
+                        ? "Paused: nothing has run for a while. The next command goes on at once."
+                        : "Nothing runs in it now. Agents use it with kelp vm run."
+                    Text(note).quietNote().padding(.horizontal, 6)
                 }
                 if let detail, !detail.ports.isEmpty, let address = detail.address {
-                    heading("Listening").padding(.top, 10)
+                    Text("Listening").sectionHeading().padding(.top, 10)
                     ForEach(detail.ports.filter { $0 != 22 }, id: \.self) { portRow($0, address) }
                 }
                 if let folders = detail?.folders, !folders.isEmpty {
-                    heading("Shared Folders").padding(.top, 10)
+                    Text("Shared Folders").sectionHeading().padding(.top, 10)
                     ForEach(folders, id: \.self) { folder in
                         Text((folder as NSString).abbreviatingWithTildeInPath).font(.ui(12)).lineLimit(1)
                             .truncationMode(
@@ -201,7 +200,7 @@ struct MachineView: View {
     /// A macOS machine's screen: whose turn it is (agents read and drive it from the Mac's side, nothing to allow), and
     /// the password for a dialog inside that asks for it.
     @ViewBuilder private func screen(_ guest: VMDetail.Guest) -> some View {
-        heading("Screen")
+        Text("Screen").sectionHeading()
         VStack(alignment: .leading, spacing: 6) {
             let holder = guest.screen.flatMap(app.session).map { app.catalog.displayName($0) } ?? guest.screen
             Text(
@@ -219,13 +218,6 @@ struct MachineView: View {
             .controlSize(.small)
         }
         .padding(.horizontal, 6).padding(.bottom, 10)
-    }
-
-    private func heading(_ text: LocalizedStringKey) -> some View {
-        Text(text).sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom)
-    }
-    private func quiet(_ text: LocalizedStringKey) -> some View {
-        Text(text).font(.ui(12)).foregroundStyle(.secondary).padding(.horizontal, 6)
     }
 
     /// A `kelp vm run`: the chat it came from (a terminal's shows as Terminal), its command, how long it has run.
@@ -270,10 +262,10 @@ struct MachineView: View {
     private func machine(_ info: VMInfo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let files = info.files { exchange(files) }
-            heading("Machine").padding(.top, 10)
+            Text("Machine").sectionHeading().padding(.top, 10)
             facts(info)
             if ["linux", "macos"].contains(info.machine.os), info.state != .off {
-                quiet("Shut it down to change its processors, memory or disk.")
+                Text("Shut it down to change its processors, memory or disk.").quietNote().padding(.horizontal, 6)
             }
         }
         .frame(maxWidth: 560, alignment: .leading)
@@ -282,7 +274,7 @@ struct MachineView: View {
     /// Its exchange folder: `~/Kelp` inside, a folder beside the machine here.
     private func exchange(_ files: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            heading("Files").padding(.top, 10)
+            Text("Files").sectionHeading().padding(.top, 10)
             VStack(alignment: .leading, spacing: 6) {
                 Text("~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.")
                     .font(.ui(12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -369,13 +361,12 @@ struct MachineView: View {
 
     private func memory(_ info: VMInfo) -> String {
         let total = Double(info.machine.memoryMiB) / 1024
-        guard let now = info.memoryMiB else { return String(format: "%.0f GB", total) }
+        guard let now = info.memoryMiB else { return bytes(info.machine.memoryMiB << 20) }
         return String(format: String(localized: "%.1f GB of the Mac's (%.0f GB given)"), Double(now) / 1024, total)
     }
 
     /// 41 → "0:41", 4321 → "1:12:01".
     static func elapsed(_ s: Int) -> String {
-        s >= 3600
-            ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String(format: "%d:%02d", s / 60, s % 60)
+        Duration.seconds(s).formatted(.time(pattern: s >= 3600 ? .hourMinuteSecond : .minuteSecond))
     }
 }

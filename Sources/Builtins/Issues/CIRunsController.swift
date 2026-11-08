@@ -93,13 +93,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         history.onPick = { [weak self] in self?.reveal($0) }
         let header = Bar.panel([branch], [workflowsButton, webButton, more])
 
-        let col = NSTableColumn(identifier: .init("ci"))
-        col.resizingMask = .autoresizingMask
-        outline.addTableColumn(col)
-        outline.outlineTableColumn = col
-        outline.headerView = nil
-        outline.style = .plain
-        outline.backgroundColor = .clear
+        let scroll = outline.plainList("ci")
         outline.indentationPerLevel = 12
         outline.rowSizeStyle = .custom
         outline.dataSource = self
@@ -108,10 +102,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         outline.menu?.delegate = self
         outline.target = self
         outline.action = #selector(rowClicked)
-        let scroll = NSScrollView()
-        scroll.documentView = outline
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
         setupButton.bezelStyle = .push
         setupButton.target = self
         setupButton.action = #selector(runSetup)
@@ -527,8 +517,7 @@ extension CIRunsController {
             }
             if menu.numberOfItems > 0 { menu.addItem(.separator()) }
             menu.add(String(localized: "Copy Step Name")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(step.name, forType: .string)
+                copyText(step.name)
             }
         case .fold: break
         }
@@ -553,8 +542,7 @@ extension CIRunsController {
         menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Link")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(url, forType: .string)
+            copyText(url)
         }
     }
     /// The run's failure typed into the workspace's agent, for the user to send.

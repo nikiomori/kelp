@@ -234,8 +234,7 @@ final class CommitCardView: NSView {
         let copyTitle = String(localized: "Copy Commit Hash")
         weak var button: NSButton?
         let copy = ClosureButton(title: String(c.hash.prefix(7))) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(c.hash, forType: .string)
+            copyText(c.hash)
             button?.crossfade()
             button?.image = .symbol("checkmark", String(localized: "Copied"))
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) {

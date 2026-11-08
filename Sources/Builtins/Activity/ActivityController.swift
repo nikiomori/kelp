@@ -25,12 +25,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     private var rows: [Row] = []
 
     override func loadView() {
-        let col = NSTableColumn(identifier: .init("a"))
-        col.resizingMask = .autoresizingMask
-        table.addTableColumn(col)
-        table.headerView = nil
-        table.style = .plain
-        table.backgroundColor = .clear
+        let scroll = table.plainList("a")
         table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
@@ -38,10 +33,6 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.doubleAction = #selector(open)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        let scroll = NSScrollView()
-        scroll.documentView = table
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
         total.font = .uiDigits(12)
         total.textColor = .secondaryLabelColor
         total.lineBreakMode = .byTruncatingTail
@@ -97,7 +88,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
         total.stringValue =
             rows.isEmpty
-            ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(Self.bytes(mem))")
+            ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(bytes(mem))")
         if let error = event.error {
             empty.showError(String(localized: "Couldn't measure the sessions"), text: error)
         } else {
@@ -109,7 +100,6 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     static func percent(_ cpu: Double) -> String { cpu < 10 ? String(format: "%.1f%%", cpu) : "\(Int(cpu.rounded()))%" }
-    static func bytes(_ b: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(b), countStyle: .memory) }
 
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
     func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
@@ -138,7 +128,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         text.orientation = .vertical
         text.alignment = .leading
         text.spacing = Metrics.lineGap
-        let cost = NSTextField(labelWithString: "\(Self.percent(entry.cpu))\n\(Self.bytes(entry.memory))")
+        let cost = NSTextField(labelWithString: "\(Self.percent(entry.cpu))\n\(bytes(entry.memory))")
         cost.font = .uiDigits(11)
         cost.alignment = .right
         cost.textColor = entry.cpu > 80 ? .textOrange : .secondaryLabelColor

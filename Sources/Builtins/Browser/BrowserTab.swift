@@ -447,8 +447,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             Change:\u{20}
             """
         if element["alt"] as? Bool == true {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(msg, forType: .string)
+            copyText(msg)
             Banner.show(
                 source.isEmpty
                     ? String(localized: "Element details copied")
@@ -456,8 +455,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             return
         }
         guard let sid = app.workbench.focusedSession else {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(msg, forType: .string)
+            copyText(msg)
             Banner.show(
                 String(localized: "No agent on this screen — the element details were copied to the clipboard."))
             return

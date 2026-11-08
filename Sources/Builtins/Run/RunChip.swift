@@ -7,7 +7,7 @@ import KelpKit
 /// the name opens the Run list. A name nothing ran yet is a guess, dimmed. Hidden while the project offers nothing to
 /// run. The page it serves has a capsule of its own (`PageChip`).
 @MainActor
-final class RunChip: NSStackView, WindowBarItem {
+final class RunChip: ChipCapsule, WindowBarItem {
     struct Look: Equatable { var name: String, guess: Bool, running: Bool }
 
     private let app: AppModel
@@ -17,12 +17,8 @@ final class RunChip: NSStackView, WindowBarItem {
     init(app: AppModel, scripts: ScriptsMenu) {
         self.app = app
         self.scripts = scripts
-        super.init(frame: .zero)
-        for chip in [go, name] {
-            chip.radius = nil   // a capsule, as the capsule it sits in
-            chip.font = .ui(12)
-            chip.setContentCompressionResistancePriority(.init(320), for: .horizontal)
-        }
+        super.init()
+        hold([go, name], font: .ui(12))
         go.imagePosition = .imageOnly
         go.contentTintColor = .labelColor
         go.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -36,11 +32,6 @@ final class RunChip: NSStackView, WindowBarItem {
         name.lineBreakMode = .byTruncatingTail
         name.onClick = { [weak self] in self?.scripts.choose() }
         name.toolTip = String(localized: "Choose What to Run (⌃⌘R)")
-        setViews([go, name], in: .leading)
-        spacing = 0
-        detachesHiddenViews = true
-        wantsLayer = true
-        heightAnchor.constraint(equalToConstant: 22).isActive = true
         track(owner: self) { [weak self] in
             self?.look
         } changed: { [weak self] in
@@ -62,18 +53,9 @@ final class RunChip: NSStackView, WindowBarItem {
     /// As wide however short the bar is: its name truncates.
     func fit(barWidth: CGFloat) {}
 
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = bounds.height / 2
-    }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        fadeBackground(to: .fillRest)
         if window != nil { scripts.anchor = name }
-    }
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        fadeBackground(to: .fillRest)
     }
 
     /// What the workspace on screen would run, and what runs there now.
@@ -103,5 +85,41 @@ final class RunChip: NSStackView, WindowBarItem {
 
     private func goClicked() {
         if scripts.canStop { scripts.stop() } else { scripts.run("run") }
+    }
+}
+
+/// The title bar's capsule of buttons, shared by the run and page chips: 22 high, round ends, a resting fill.
+@MainActor
+class ChipCapsule: NSStackView {
+    init() {
+        super.init(frame: .zero)
+        spacing = 0
+        detachesHiddenViews = true
+        wantsLayer = true
+        heightAnchor.constraint(equalToConstant: 22).isActive = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// Its buttons, in order: capsules too, so they don't square off its ends.
+    func hold(_ chips: [PointerButton], font: NSFont) {
+        for chip in chips {
+            chip.radius = nil   // a capsule, as the capsule it sits in
+            chip.font = font
+            chip.setContentCompressionResistancePriority(.init(320), for: .horizontal)
+        }
+        setViews(chips, in: .leading)
+    }
+
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height / 2
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        fadeBackground(to: .fillRest)
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        fadeBackground(to: .fillRest)
     }
 }

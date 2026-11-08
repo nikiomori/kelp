@@ -84,17 +84,12 @@ final class PortsView: NSView {
         showEmpty(found.isEmpty)
     }
 
-    private static func copy(_ page: ServedPage) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(page.address, forType: .string)
-    }
-
     private func row(_ page: ServedPage, workspace wid: String) -> NSView {
         let app = app
         let link = PointerButton(title: page.host == nil ? page.address : page.place) { [weak self] in
             Task {
                 guard let here = await page.reached(in: wid, call: { await app.call($0) }) else { return }
-                if page.isWeb { self?.onOpen?(here.url) } else { Self.copy(here) }
+                if page.isWeb { self?.onOpen?(here.url) } else { copyText(here.address) }
             }
         }
         link.contentTintColor = .linkColor
@@ -104,7 +99,7 @@ final class PortsView: NSView {
         what.textColor = .secondaryLabelColor
         what.font = .ui(12)
         let copy = ClosureButton(title: String(localized: "Copy")) {
-            Task { if let here = await page.reached(in: wid, call: { await app.call($0) }) { Self.copy(here) } }
+            Task { if let here = await page.reached(in: wid, call: { await app.call($0) }) { copyText(here.address) } }
         }
         let stop = ClosureButton(title: String(localized: "Stop")) {
             Task {

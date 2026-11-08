@@ -146,13 +146,8 @@ private final class FailureRow: PointerControl {
         if failure.file != nil { menu.add(String(localized: "Open File"), open) }
         menu.add(String(localized: "Fix with Agent"), fix)
         menu.addItem(.separator())
-        if let test = failure.test { menu.add(String(localized: "Copy Test Name")) { Self.copy(test) } }
-        menu.add(String(localized: "Copy Failure")) { Self.copy(CIRuns.Report.text(of: [failure])) }
+        if let test = failure.test { menu.add(String(localized: "Copy Test Name")) { copyText(test) } }
+        menu.add(String(localized: "Copy Failure")) { copyText(CIRuns.Report.text(of: [failure])) }
         return menu
-    }
-
-    private static func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
     }
 }

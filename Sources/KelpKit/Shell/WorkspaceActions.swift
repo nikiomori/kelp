@@ -57,7 +57,6 @@ package struct WorkspaceActions {
             item.image = NSWorkspace.shared.icon(forFile: editor.app.path).resized(16)
         }
     }
-    static func addOpenIn(to menu: NSMenu, path: String) { addOpenIn(to: menu, path: { path }) }
 
     /// Where a thing is, the same items everywhere: Reveal in Finder, Open In ›, and Copy Path, or Copy › when `copies`
     /// has more than the path to offer.
@@ -74,8 +73,7 @@ package struct WorkspaceActions {
                 editors, for: menu.addItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: ""))
         }
         let copyPath: @MainActor () -> Void = {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(path, forType: .string)
+            copyText(path)
         }
         guard !copies.isEmpty else {
             menu.add(String(localized: "Copy Path"), copyPath)

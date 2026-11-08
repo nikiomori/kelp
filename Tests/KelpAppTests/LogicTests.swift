@@ -1,5 +1,5 @@
 import AppKit
-import Core
+@testable import Core
 import Foundation
 import TestSupport
 import Testing
@@ -141,8 +141,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 /// A limit that ran out: when it resets, the sessions that stopped at it, not one that went on by itself or ended before.
 @Test func aLimitResetFindsTheSessionsItStopped() throws {
     let now = Date(), until = now.addingTimeInterval(3600)
-    func reading(_ p: Double, _ at: Date?) -> (agent: String, limit: UsageGet.Limit, resetAt: Date?) {
-        ("codex", .init(kind: "session", percent: p, resets: nil), at)
+    func reading(_ p: Double, _ at: Date?) -> UsageGet.Result.Reading {
+        let limit = UsageGet.Limit(kind: "session", percent: p, resets: nil)
+        return .init(agent: "codex", limit: limit, resetAt: at, window: nil, readAt: nil)
     }
     var r = LimitResets()
     #expect(r.update([reading(80, until)], now: now).isEmpty)
@@ -594,8 +595,8 @@ extension OneAtATime {
             claude: [], codex: [], plans: ["grok": [.init(kind: "week", percent: 99, resets: nil)]],
             plansReadAt: ["grok": now.timeIntervalSince1970 - ago])
     }
-    #expect(LimitAlerts.readings(u(60), now: now).count == 1)
-    #expect(LimitAlerts.readings(u(7200), now: now).isEmpty)
+    #expect(u(60).fresh(now: now).count == 1)
+    #expect(u(7200).fresh(now: now).isEmpty)
 }
 
 @Test func limitForecastWarnsOnlyWhenItFillsBeforeItResets() {

@@ -8,7 +8,7 @@ import WorkbenchKit
 /// (⇧⌘O; a database's is copied), "+2" opens the Run menu, which lists them all, and a right-click has the rest. There
 /// with no run chip too: an agent's server in a project with nothing to run. Hidden while nothing listens.
 @MainActor
-final class PageChip: NSStackView, WindowBarItem {
+final class PageChip: ChipCapsule, WindowBarItem {
     private struct Look: Equatable { var workspace: String, page: ServedPage, more: Int }
 
     /// Only the port, when the bar is short of room.
@@ -23,12 +23,8 @@ final class PageChip: NSStackView, WindowBarItem {
         self.app = app
         self.scripts = scripts
         ports = Watched(.ports, in: app)
-        super.init(frame: .zero)
-        for chip in [open, more] {
-            chip.radius = nil   // a capsule, as the capsule it sits in
-            chip.font = .uiDigits(12)
-            chip.setContentCompressionResistancePriority(.init(320), for: .horizontal)
-        }
+        super.init()
+        hold([open, more], font: .uiDigits(12))
         open.padding = 8
         open.imagePosition = .imageLeading
         open.imageHugsTitle = true
@@ -42,12 +38,7 @@ final class PageChip: NSStackView, WindowBarItem {
         more.contentTintColor = .secondaryLabelColor
         more.toolTip = String(localized: "Everything Running Here (⌃⌘R)")
         more.onClick = { [weak self] in self?.scripts.choose(from: self?.more) }
-        setViews([open, more], in: .leading)
-        spacing = 0
-        detachesHiddenViews = true
-        wantsLayer = true
         isHidden = true
-        heightAnchor.constraint(equalToConstant: 22).isActive = true
         track(owner: self) { [weak self] in
             self?.look
         } changed: { [weak self] in
@@ -69,19 +60,6 @@ final class PageChip: NSStackView, WindowBarItem {
         guard let wid = app.workbench.workspaceId else { return nil }
         let pages = scripts.pages(wid)
         return pages.first.map { Look(workspace: wid, page: $0, more: pages.count - 1) }
-    }
-
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = bounds.height / 2
-    }
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        fadeBackground(to: .fillRest)
-    }
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        fadeBackground(to: .fillRest)
     }
 
     private func show(_ look: Look?) {

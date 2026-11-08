@@ -241,19 +241,19 @@ struct UsageReportView: View {
                 stale
                 ? String(localized: "Read \(shortAgo(plan.readAt)) ago")
                 : ([top.label + (top.resets.map { String(localized: " · resets \($0)") } ?? "")]
-                    + plan.limits.dropFirst().prefix(1).map { "\($0.label) \(percent($0.used))" }).joined(
+                    + plan.limits.dropFirst().prefix(1).map { "\($0.label) \(UsageView.percent($0.used))" }).joined(
                         separator: " · ")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     GeometryReader { proxy in
                         ZStack(alignment: .leading) {
                             Capsule().fill(.quaternary)
-                            Capsule().fill(tint(top.used, quiet: .secondary)).frame(
+                            Capsule().fill(UsageView.tint(top.used)).frame(
                                 width: max(4, proxy.size.width * min(top.used, 1)))
                         }
                     }
                     .frame(height: 4)
-                    Text(percent(top.used)).monospacedDigit().foregroundStyle(
+                    Text(UsageView.percent(top.used)).monospacedDigit().foregroundStyle(
                         top.used >= 0.9 ? Color.textRed : top.used >= 0.7 ? .textOrange : .primary)
                 }
                 Text(note).foregroundStyle(.secondary).lineLimit(1)
@@ -262,7 +262,7 @@ struct UsageReportView: View {
             .opacity(stale ? 0.55 : 1)
             .help(
                 plan.limits.map { limit in
-                    "\(limit.label): \(percent(limit.used))"
+                    "\(limit.label): \(UsageView.percent(limit.used))"
                         + (limit.resets.map { String(localized: ", resets \($0)") } ?? "")
                 }
                 .joined(separator: "\n"))
@@ -457,9 +457,9 @@ struct UsageReportView: View {
         v == 0 && tokens > 0 ? "—" : v.formatted(.currency(code: "USD").precision(.fractionLength(v < 10 ? 2 : 0)))
     }
     private func count(_ n: Int) -> String { n.formatted(.number.notation(.compactName)) }
-    private func percent(_ part: Int, of whole: Int) -> String { percent(Double(part) / Double(max(1, whole))) }
-    private func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
-    private func tint(_ u: Double, quiet: Color) -> Color { u >= 0.9 ? .red : u >= 0.7 ? .orange : quiet }
+    private func percent(_ part: Int, of whole: Int) -> String {
+        UsageView.percent(Double(part) / Double(max(1, whole)))
+    }
     private func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value).font(.ui(17, weight: .semibold).monospacedDigit())

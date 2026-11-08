@@ -9,7 +9,7 @@ struct LimitResets {
     private(set) var full: [String: Full] = [:]   // agent id → its full limits
 
     /// Agents whose limit just ran out, or now resets later (a weekly one ran out too), from the readings the sidebar shows.
-    mutating func update(_ readings: [(agent: String, limit: UsageGet.Limit, resetAt: Date?)], now: Date = Date())
+    mutating func update(_ readings: [UsageGet.Result.Reading], now: Date = Date())
         -> [String]
     {
         var changed: [String] = []

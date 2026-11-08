@@ -206,8 +206,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
     @objc private func copyCommand() {
         guard table.selectedRow >= 0 else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(command(rows[table.selectedRow]), forType: .string)
+        copyText(command(rows[table.selectedRow]))
         status.stringValue = String(localized: "Copied")
         DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in self?.showCount() }
     }

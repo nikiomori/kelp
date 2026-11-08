@@ -67,7 +67,7 @@ struct ServerMeters: View {
 
     @ViewBuilder private func meter(_ label: LocalizedStringKey, _ used: Int?, _ total: Int?) -> some View {
         if let used, let total, total > 0 {
-            row(label, Double(used) / Double(total), "\(serverBytes(used)) / \(serverBytes(total))")
+            row(label, Double(used) / Double(total), "\(bytes(used)) / \(bytes(total))")
         }
     }
 

@@ -252,8 +252,7 @@ struct SettingRow: View {
                 Button(language == nil ? "Reset to Default" : "Use the Value for All Files") { put(nil) }.disabled(
                     !changed)
                 Button("Copy Key") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(spec.key, forType: .string)
+                    copyText(spec.key)
                 }
                 if let reveal { Button("Show in Section", action: reveal) }
             }
@@ -353,7 +352,7 @@ struct SettingRow: View {
             ColorPicker(
                 selection: Binding(
                     get: { Color(hex: string() ?? "") ?? .accentColor },
-                    set: { put(.string($0.hex)) })
+                    set: { put(.string(NSColor($0).hexString)) })
             ) { label }
         case "font":
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
@@ -492,11 +491,5 @@ extension Color {
     init?(hex: String) {
         guard let color = NSColor(hex: hex) else { return nil }
         self.init(nsColor: color)
-    }
-    var hex: String {
-        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return "#000000" }
-        return String(
-            format: "#%02x%02x%02x", Int(color.redComponent * 255), Int(color.greenComponent * 255),
-            Int(color.blueComponent * 255))
     }
 }

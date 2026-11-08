@@ -276,14 +276,13 @@ final class WindowBar: NSView {
     @objc private func folderMenu() {
         guard let path = worktree?.path else { return }
         let menu = NSMenu()
-        WorkspaceActions.addOpenIn(to: menu, path: path)
+        WorkspaceActions.addOpenIn(to: menu, path: { path })
         if !menu.items.isEmpty { menu.addItem(.separator()) }
         menu.add(String(localized: "Reveal in Finder")) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
         menu.add(String(localized: "Copy Path")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(path, forType: .string)
+            copyText(path)
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: folder.bounds.height + 4), in: folder)
     }
@@ -461,8 +460,7 @@ extension WindowBar: NSMenuDelegate {
         let app = app
         if let name = info?.current {
             menu.add(String(localized: "Copy Branch Name")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(name, forType: .string)
+                copyText(name)
             }
         }
         app.extensions.all.ci?.menu(menu, worktree?.id)

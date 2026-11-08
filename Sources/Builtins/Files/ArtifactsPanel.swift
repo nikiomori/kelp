@@ -26,12 +26,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let col = NSTableColumn(identifier: .init("a"))
-        col.resizingMask = .autoresizingMask
-        table.addTableColumn(col)
-        table.headerView = nil
-        table.style = .plain
-        table.backgroundColor = .clear
+        let scroll = table.plainList("a")
         table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
@@ -39,10 +34,6 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.action = #selector(open)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        let scroll = NSScrollView()
-        scroll.documentView = table
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
         // No bar of its own: the inspector's title names it, and there's nothing to do over the list.
         let content = NSView()
         content.pin(scroll)
@@ -181,8 +172,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         menu.addItem(.separator())
         if let link = item.url {
             menu.add(String(localized: "Copy Link")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(link, forType: .string)
+                copyText(link)
             }
         } else {
             menu.add(String(localized: "Show in Finder")) {

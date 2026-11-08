@@ -80,8 +80,7 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
             action: (
                 String(localized: "Copy Link"),
                 {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                    copyText(url.absoluteString)
                 }
             ))
     }

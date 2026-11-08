@@ -126,8 +126,7 @@ package struct AgentActions {
     package func copyContext(_ sid: String) {
         Task {
             guard let context = await app.call(SessionContext(id: sid)) else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(context, forType: .string)
+            copyText(context)
             Banner.show(String(localized: "Context copied"))
         }
     }

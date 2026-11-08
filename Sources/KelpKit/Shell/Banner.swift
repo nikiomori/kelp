@@ -33,8 +33,7 @@ package enum Banner {
                 action = (
                     String(localized: "Copy Fix"),
                     {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(fix.command, forType: .string)
+                        copyText(fix.command)
                     }
                 )
             }

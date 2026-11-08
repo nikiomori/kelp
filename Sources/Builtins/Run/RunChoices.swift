@@ -108,8 +108,7 @@ extension ScriptsMenu {
     }
 
     func copy(_ page: ServedPage) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(page.address, forType: .string)
+        copyText(page.address)
         Banner.show(String(localized: "Copied \(page.address)"))
     }
 

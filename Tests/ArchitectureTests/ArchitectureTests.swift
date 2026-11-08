@@ -212,8 +212,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 476, "lines over 120: \(over120)")
-    #expect(over120 >= 476, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 474, "lines over 120: \(over120)")
+    #expect(over120 >= 474, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -490,7 +490,7 @@ func codeOnly(_ s: String) -> String {
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
         "Daemon": 98, "KelpKit": 59, "Core": 36, "GitKit": 30, "AgentData": 30, "Agents": 22, "kelp": 16,
-        "Builtins": 12,
+        "Builtins": 11,
         "Integrations": 11, "LSPKit": 7, "Markdown": 4, "TerminalKit": 3, "KelpVM": 30, "KelpGuest": 4, "EditorKit": 6,
         "WorkbenchKit": 1, "DesignKit": 0
     ]

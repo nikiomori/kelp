@@ -78,10 +78,7 @@ final class ArtifactBar: NSObject {
         // without symlinks: a tab opened as /tmp/… is in the project at /private/tmp/….
         let real = Paths.real(path) ?? path
         self.real = real
-        workspace =
-            app.worktrees.filter { IDE.inside(real, $0.path) }.max {
-                $0.path.count < $1.path.count
-            }?.id
+        workspace = app.worktree(holding: real)?.id
         super.init()
         watched.key = workspace
         track(owner: self) { [app, workspace] in
@@ -227,8 +224,7 @@ final class ArtifactBar: NSObject {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         }
         menu.add(String(localized: "Copy Path")) {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(Artifacts.projectPath(path), forType: .string)
+            copyText(Artifacts.projectPath(path))
         }
         if let id = item?.session, app.session(id)?.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }

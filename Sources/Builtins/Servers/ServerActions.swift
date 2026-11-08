@@ -48,11 +48,6 @@ enum ServerActions {
     }
 }
 
-/// Bytes as people read them on a server: "870 MB", "3.1 GB".
-func serverBytes(_ n: Int) -> String {
-    ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .memory)
-}
-
 /// "3 d 10 h", "18 m", "40 s".
 func serverDuration(_ seconds: Double) -> String {
     let total = Int(seconds), days = total / 86400, hours = total % 86400 / 3600, minutes = total % 3600 / 60

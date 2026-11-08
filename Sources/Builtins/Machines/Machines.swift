@@ -113,7 +113,7 @@ enum Machines {
         Task {
             let alert = NSAlert()
             alert.messageText = String(localized: "Delete “\(name)”?")
-            let size = info.diskMiB.map { String(format: "%.1f GB", Double($0) / 1024) }
+            let size = info.diskMiB.map { bytes($0 << 20) }
             alert.informativeText =
                 size.map {
                     String(localized: "Its disk and everything on it (\($0)) are erased. This can't be undone.")
@@ -175,11 +175,11 @@ enum Machines {
                 : info.machine.os == "linux"
                     ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
             guard let disk = info.diskMiB else { return wake }
-            return String(localized: "\(String(format: "%.1f GB", Double(disk) / 1024)) on disk") + " · " + wake
+            return String(localized: "\(bytes(disk << 20)) on disk") + " · " + wake
         default:
             var parts: [String] = []
             if let cpu = info.cpu { parts.append(String(localized: "\(String(format: "%.0f%%", cpu)) CPU")) }
-            if let memory = info.memoryMiB { parts.append(String(format: "%.1f GB", Double(memory) / 1024)) }
+            if let memory = info.memoryMiB { parts.append(bytes(memory << 20)) }
             let connections = info.connections ?? 0
             if connections > 0 {
                 parts.append(String(localized: "\(connections) running"))
