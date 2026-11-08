@@ -22,7 +22,6 @@ extension SettingKeys {
     static let rowHeight = Setting("workbench.sidebar.rowHeight", "system")
     static let agentDetail = Setting("workbench.sidebar.agentDetail", "needsYou")
     static let agentIcons = Setting("workbench.sidebar.agentIcons", "others")
-    static let gitBadges = Setting("workbench.sidebar.gitBadges", true)
     static let projectColor = Setting("workbench.sidebar.projectColor", "icon")
     static let serverLook = Setting("workbench.sidebar.serverLook", "stripes")
     static let sidebarOrder = Setting("workbench.sidebar.order", "manual")

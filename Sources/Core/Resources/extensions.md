@@ -138,7 +138,7 @@ session, only one of Kelp's that shows something), and `kelp ui state` lists eve
 ```json
 { "key": "docker.refresh", "title": "Refresh interval", "type": "number", "default": 5, "description": "Seconds" }
 ```
-Types: `boolean`, `number`, `string`, `enum` (with `"options": ["a", "b"]`), `color`. A `number` with `"options": ["0", "15"]` shows as a picker of those values. `"range": [8, 40]` keeps a number between those two. `"description"` is one line under the title; a longer `"help"` shows behind ⓘ beside it.
+Types: `boolean`, `number`, `string`, `enum` (with `"options": ["a", "b"]`, named by `"labels": {"a": "First"}`; `"look": "segments"` shows two or three side by side), `color`. A `number` with `"options": ["0", "15"]` shows as a picker of those values. `"range": [8, 40]` keeps a number between those two. `"description"` is one line under the title; a longer `"help"` shows behind ⓘ beside it.
 They appear in Settings under the extension's name and in `~/.kelp/settings.json`. `"group": "Refresh"` puts a setting and
 the ones after it with the same group under that heading.
 

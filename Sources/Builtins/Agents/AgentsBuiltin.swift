@@ -37,7 +37,8 @@ extension Builtins {
                         help: "⌃G in an agent opens its prompt in a tab here. For agents started from now on."),
                     s(SettingKeys.hibernateMinutes, "Pause idle agents", "number",
                         "Paused agents free memory and resume the same conversation.",
-                        options: ["0", "15", "30", "60", "240"]),
+                        options: ["0", "15", "30", "60", "240"],
+                        labels: labels(["0", "15", "30", "60", "240"], pauseAfter)),
                     s(SettingKeys.updateIdle, "Update idle agents", "boolean",
                         "Restarts into an update after its turn, in the same conversation.",
                         help:
@@ -53,7 +54,11 @@ extension Builtins {
                         help:
                             "When an agent starts another with kelp, the other's result or question comes to it as input."
                     ),
-                    s(SettingKeys.keepAwake, "Keep Mac awake", "enum", options: ["agents", "always", "off"]),
+                    s(SettingKeys.keepAwake, "Keep Mac awake", "enum", options: ["agents", "always", "off"],
+                        labels: [
+                            "agents": String(localized: "While Agents Work"), "always": String(localized: "Always"),
+                            "off": String(localized: "Never")
+                        ], look: "segments"),
                     s(SettingKeys.readPlans, "Show plan limits", "boolean",
                         "At the bottom of the sidebar, read without spending tokens.",
                         help:
@@ -61,7 +66,9 @@ extension Builtins {
                         group: "Plan limits"),
                     s(SettingKeys.usageLimits, "Limits to show", "enum",
                         "At the bottom of the sidebar: the fullest limit, or a row for each agent.",
-                        options: ["fullest", "all"], group: "Plan limits", requires: "usage.readPlans"),
+                        options: ["fullest", "all"],
+                        labels: ["fullest": String(localized: "Fullest Limit"), "all": String(localized: "All Agents")],
+                        look: "segments", group: "Plan limits", requires: "usage.readPlans"),
                     s(SettingKeys.usageResets, "Reset time beside a limit", "boolean",
                         "Only when it resets within 12 hours.",
                         group: "Plan limits", requires: "usage.readPlans"),
@@ -71,12 +78,18 @@ extension Builtins {
                         group: "Plan limits", requires: "usage.readPlans"),
                     s(SettingKeys.alertAt, "Warn about limits at", "enum",
                         "A notification at this level, and again at 95%.",
-                        options: ["off", "70", "80", "90"], group: "Plan limits", requires: "usage.readPlans"),
+                        options: ["off", "70", "80", "90"],
+                        labels: labels(["off", "70", "80", "90"]) { $0 == "off" ? String(localized: "Off") : "\($0)%" },
+                        group: "Plan limits", requires: "usage.readPlans"),
                     s(SettingKeys.artifactsWhere, "Where agents make pages", "enum",
                         "Docs, slides and designs; reviews stay in the project.",
                         help:
                             "Docs, slides and designs: an agent with artifacts of its own (Claude Code on claude.ai) makes them there. Reviews stay in the project.",
-                        options: ["agent", "local"]),
+                        options: ["agent", "local"],
+                        labels: [
+                            "agent": String(localized: "Agent’s Own When It Has One"),
+                            "local": String(localized: "Always on This Mac")
+                        ]),
                     // Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
                     s(SettingKeys.skillExtensions, "Write Kelp extensions", "boolean",
                         "Ask Claude Code for a panel, tab or command: it knows how to make one.",
@@ -99,7 +112,11 @@ extension Builtins {
                         "Your app in a tab beside it; a project can have its own.",
                         help:
                             "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.",
-                        options: ["auto", "on", "off"], group: "Claude Code skills")
+                        options: ["auto", "on", "off"],
+                        labels: [
+                            "auto": String(localized: "In Web Projects"), "on": String(localized: "Always"),
+                            "off": String(localized: "Never")
+                        ], group: "Claude Code skills")
                 ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30,
                 previews: ["Plan limits": { AnyView(LimitsSample()) }]),
             SettingsSection(
@@ -107,17 +124,24 @@ extension Builtins {
                 specs: [
                     s(SettingKeys.onWaiting, "When an agent needs you", "enum",
                         "Comes at once, even while you type.",
-                        options: ["off", "banner", "sound"]),
+                        options: ["off", "banner", "sound"], labels: alerts, look: "segments"),
                     s(SettingKeys.remindAfter, "Remind if an agent still waits", "enum",
                         "Once. Not after you opened it or muted its row.",
-                        options: ["off", "5", "10", "30"], requires: "agents.onWaiting"),
+                        options: ["off", "5", "10", "30"],
+                        labels: labels(["off", "5", "10", "30"]) {
+                            $0 == "off" ? String(localized: "Off") : String(localized: "After \($0) Minutes")
+                        }, requires: "agents.onWaiting"),
                     s(SettingKeys.onFinish, "When an agent finishes", "enum",
                         "Turns shorter than the time below stay quiet.",
-                        options: ["off", "banner", "sound"]),
+                        options: ["off", "banner", "sound"], labels: alerts, look: "segments"),
                     s(SettingKeys.quietUnder, "Stay quiet for turns under", "number",
                         "Finished agents only; the row shows them either way.",
-                        options: ["0", "10", "20", "30", "60"], requires: "agents.onFinish"),
-                    s(SettingKeys.onError, "When an agent fails", "enum", options: ["off", "banner", "sound"]),
+                        options: ["0", "10", "20", "30", "60"],
+                        labels: labels(["0", "10", "20", "30", "60"]) {
+                            $0 == "0" ? String(localized: "Off") : String(localized: "\($0) Seconds")
+                        }, requires: "agents.onFinish"),
+                    s(SettingKeys.onError, "When an agent fails", "enum", options: ["off", "banner", "sound"],
+                        labels: alerts, look: "segments"),
                     s(SettingKeys.holdBanners, "Hold finished agents while I type", "boolean",
                         "They come as one when you stop; questions come at once.",
                         help:
@@ -125,16 +149,29 @@ extension Builtins {
                     ),
                     s(SettingKeys.dockStrip, "Show agents above the Dock", "enum",
                         "With Kelp behind another app: see them work and answer from there.",
-                        options: ["always", "needed", "off"], group: "Dock"),
+                        options: ["always", "needed", "off"],
+                        labels: [
+                            "needed": String(localized: "When Needed"), "always": String(localized: "Always"),
+                            "off": String(localized: "Never")
+                        ], look: "pictures", group: "Dock"),
                     s(SettingKeys.dockStripComesFor, "Comes up for", "enum",
                         "A row you muted stays quiet here too.",
-                        options: ["questions", "failures", "all"], group: "Dock", requires: "agents.dockStrip=needed"),
+                        options: ["questions", "failures", "all"],
+                        labels: [
+                            "questions": String(localized: "Questions"),
+                            "failures": String(localized: "Questions and Failures"),
+                            "all": String(localized: "Anything New")
+                        ], group: "Dock", requires: "agents.dockStrip=needed"),
                     s(SettingKeys.dockStripFullScreen, "Over full-screen apps", "boolean",
                         "Off: a film or a talk stays clear of it; a banner still tells you.",
                         group: "Dock", requires: "agents.dockStrip"),
                     s(SettingKeys.dockIcon, "Dock icon", "enum",
                         "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
-                        options: ["icon", "agents", "usage"], group: "Dock"),
+                        options: ["icon", "agents", "usage"],
+                        labels: [
+                            "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
+                            "icon": String(localized: "App Icon")
+                        ], look: "pictures", group: "Dock"),
                     s(SettingKeys.phoneURL, "Phone notifications (ntfy address)", "string",
                         "When you've been away 5 minutes or Kelp is closed.",
                         help:
@@ -143,7 +180,8 @@ extension Builtins {
                     s(SettingKeys.phoneDetails, "Show what the agent says on the phone", "boolean",
                         "Off: the agent's and the workspace's names only.",
                         group: "Phone", requires: "phone.url")
-                ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50),
+                ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50,
+                pictures: [SettingKeys.dockStrip.key: { AnyView(DockStripPicture(option: $0)) }]),
             SettingsSection(
                 id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
                 custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name), fillsPane: true,
@@ -153,7 +191,8 @@ extension Builtins {
                 specs: [
                     s(SettingKeys.terminalFontFamily, "Font", "font", "Default: the theme's / Ghostty's font."),
                     s(SettingKeys.terminalFontSize, "Font size", "number", range: [8, 40]),
-                    s(SettingKeys.cursorStyle, "Cursor style", "enum", options: ["block", "bar", "underline"]),
+                    s(SettingKeys.cursorStyle, "Cursor style", "enum", options: ["block", "bar", "underline"],
+                        look: "pictures"),
                     s(SettingKeys.optionAsAlt, "Option key sends Alt (Meta)", "boolean"),
                     s(SettingKeys.cleanCopy, "Copy text without borders", "boolean",
                         "Drops box borders and an agent's gutter, and rejoins lines it wrapped."),
@@ -171,6 +210,7 @@ extension Builtins {
         contributions.sidebarSections = [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }]
         contributions.pushed = [{ LimitWatch.of(app).landed($0) }]
         contributions.planNotes = { UsageView.notes(app) }
+        contributions.dockUsage = { LimitWatch.dockFace(app) }
         // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu.
         contributions.launched = [{ AgentStrip.of(app).start() }]
         contributions.dockMenu = [{ AgentStrip.of(app).dockItems($0) }]
@@ -204,4 +244,25 @@ extension SettingKeys {
     static let usageResets = Setting("usage.resets", true)
     static let usagePace = Setting("usage.pace", true)
     static let dockStripFullScreen = Setting("agents.dockStrip.fullScreen", true)
+}
+
+/// Each option's name, by `name`.
+private func labels(_ options: [String], _ name: (String) -> String) -> [String: String] {
+    Dictionary(uniqueKeysWithValues: options.map { ($0, name($0)) })
+}
+
+/// How a notification comes, for each kind of news.
+private let alerts = [
+    "sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"), "off": String(localized: "Off")
+]
+
+/// "After 4 Hours": when an idle agent pauses.
+private func pauseAfter(_ value: String) -> String {
+    let minutes = Int(value) ?? -1
+    return minutes == 0
+        ? String(localized: "Never")
+        : minutes == 60
+            ? String(localized: "After 1 Hour")
+            : minutes > 0 && minutes % 60 == 0
+                ? String(localized: "After \(minutes / 60) Hours") : String(localized: "After \(value) Minutes")
 }

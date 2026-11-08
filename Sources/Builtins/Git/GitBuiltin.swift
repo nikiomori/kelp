@@ -50,7 +50,11 @@ extension Builtins {
                         "A ring while it runs, a red dot when it fails.",
                         help:
                             "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
-                        options: ["icon", "end", "off"], group: "CI"),
+                        options: ["icon", "end", "off"],
+                        labels: [
+                            "icon": String(localized: "In Place of the Branch Icon"),
+                            "end": String(localized: "After the Counts"), "off": String(localized: "Off")
+                        ], group: "CI"),
                     s(SettingKeys.ciSidebar, "CI beside folders", "boolean",
                         "In the sidebar and the ⌃Tab switcher.",
                         help:
@@ -94,14 +98,17 @@ extension Builtins {
                 return controller
             },
             folderMenu: { MergedPR(app: app).addItems(to: $1, $0) })
-        // The CI mark beside folders and on the branch chip.
+        // The CI and PR marks beside folders and on the window bar, and the PR in a folder's hover card.
         contributions.ci = FolderCI(
             rows: { RowMarks.of(app).sidebarMarks },
             row: { RowMarks.of(app).sidebarCI($0) },
             chip: { RowMarks.of(app).chip($0) },
             line: { RowMarks.of(app).ciLine($0) },
             open: { RowMarks.of(app).openCI($0) },
-            menu: { RowMarks.of(app).menuItems($0) })
+            menu: { RowMarks.of(app).menuItems($0, worktree: $1) },
+            pr: { PullRequests.mark($0, app) },
+            card: { PullRequests.card($0, app) },
+            carded: { RowMarks.of(app).carded = $0 })
         return contributions
     }
 }

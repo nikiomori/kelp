@@ -70,9 +70,6 @@ package final class SettingsStore {
         guard let raw = value(key, language: language)?.number else { return nil }
         return clamped(key, raw)
     }
-    /// The share of a plan limit that alerts; nil: never ("off").
-    package var usageAlertAt: Int? { Int(self[SettingKeys.alertAt]) }
-
     /// A declared setting (`language`: for that language's files): settings.json's value, else its default.
     package subscript<Value>(_ setting: Setting<Value>, language language: String? = nil) -> Value {
         setting.read(stored(setting.key, language))

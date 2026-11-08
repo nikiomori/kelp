@@ -47,6 +47,10 @@ final class WindowBar: NSView {
     private static let chipPadding: CGFloat = 6
     /// The mark and its place, from the built-in that has CI (`FolderCI`); none, and the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
+    /// The branch's pull request, from the built-in that has them (`FolderCI`); none, and no PR chip.
+    private var prMark: (title: NSAttributedString, tip: String, url: String)? {
+        badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
+    }
     /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
     private var ciLine: String? { badgeFolder.flatMap { app.extensions.all.ci?.line($0.id) } }
 
@@ -190,8 +194,8 @@ final class WindowBar: NSView {
         } changed: { [weak self] _ in
             self?.update()
         }
-        track(owner: self) {
-            app.rowBadges.prs
+        track(owner: self) { [weak self] in
+            self?.prMark?.tip
         } changed: { [weak self] _ in
             self?.update()
         }
@@ -261,11 +265,11 @@ final class WindowBar: NSView {
         folder.toolTip = path + "\n" + String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.isHidden = info == nil
         if let info { showBranch(info) }
-        let badge = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
+        let badge = prMark
         pr.isHidden = badge == nil
         if let badge {
-            pr.attributedTitle = badge.0
-            pr.toolTip = badge.1
+            pr.attributedTitle = badge.title
+            pr.toolTip = badge.tip
         }
     }
 
@@ -437,7 +441,7 @@ final class WindowBar: NSView {
     @objc private func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
 
     @objc private func openPR() {
-        guard let folder = badgeFolder, let url = app.rowBadges.prs[folder.id]?.url else { return }
+        guard let url = prMark?.url else { return }
         app.workbench.open(url, workspace: worktree?.id)
     }
 }
@@ -452,7 +456,7 @@ extension WindowBar: NSMenuDelegate {
         if menu === branch.menu { branchItems(menu) } else { placeItems(menu, step: menu === back.menu ? -1 : 1) }
     }
 
-    /// The branch chip: the name, and where its CI shows.
+    /// The branch chip: the name, then the built-in's items (Create Pull Request, where its CI shows).
     func branchItems(_ menu: NSMenu) {
         let app = app
         if let name = info?.current {
@@ -461,12 +465,7 @@ extension WindowBar: NSMenuDelegate {
                 NSPasteboard.general.setString(name, forType: .string)
             }
         }
-        if let worktree, app.rowBadges.prs[badgeFolder?.id ?? ""] == nil {
-            menu.add(String(localized: "Create Pull Request…")) { PRActions(app).create(worktree: worktree.id) }
-        }
-        guard let ci = app.extensions.all.ci else { return }
-        if !menu.items.isEmpty { menu.addItem(.separator()) }
-        ci.menu(menu)
+        app.extensions.all.ci?.menu(menu, worktree?.id)
     }
 
     /// Back's and Forward's list: the places that way, nearest first, as a browser's arrows hold them.

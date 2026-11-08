@@ -220,7 +220,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.updateVisibleCells()
         }
         track(owner: self) { [app] in
-            app.rowBadges.prs
+            app.extensions.all.ci.map { ci in app.gitFolders.sorted().map { ci.pr($0)?.tip } } ?? []
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }

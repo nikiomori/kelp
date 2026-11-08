@@ -101,7 +101,8 @@ final class HoverCard {
     }
 }
 
-/// The card's contents: what the sidebar knows now, then what git, GitHub and the agent's transcript add.
+/// The card's contents: what the sidebar knows now, the folder's git and PR as they're pushed, then what the agent's
+/// transcript adds.
 @MainActor
 @Observable
 final class CardModel {
@@ -119,8 +120,9 @@ final class CardModel {
     /// Whose mute the card shows: the row's. A workspace alone in its project is that project's row too.
     let muteIds: [String]
     var worktrees: [RepoWorktreeSizes.Item]?
-    var changes: LineStats?
-    var pr: GitHub.PullRequest?
+    /// A workspace's card: the folder whose git and PR it shows (`gitFolder`), read while the card is up.
+    let folder: String?
+    var changes: LineStats? { folder.flatMap { app.latest(GitEvent.self, $0)?.stats } }
     var turn: String?
     var context: SessionContextWindow.Usage?
     var parts: SessionContextParts.Parts?
@@ -129,7 +131,7 @@ final class CardModel {
     let server: String?
     /// Puts the card away (a button in it opened something else).
     @ObservationIgnored var closeCard: () -> Void = {}
-    /// What its subagents did last, read while the card is up.
+    /// What its subagents did last and its folder's git, read while the card is up.
     private var watches: [Watched] = []
 
     /// `placed`: the subtitle says where the agent is (group · project); a tab's card leaves it out.
@@ -148,6 +150,7 @@ final class CardModel {
             repo = nil
             muteIds = [session.id]
             server = nil
+            folder = nil
         } else if key.hasPrefix("p:"), let project = app.repo(String(key.dropFirst(2))) {
             title = app.projectName(project.id) ?? project.name
             subtitle = app.projectPlace(project)
@@ -157,6 +160,7 @@ final class CardModel {
             repo = project
             muteIds = [project.id]
             server = RemoteHost.of(project.path)?.host
+            folder = nil
         } else if key.hasPrefix("w:"), let worktree = app.worktree(String(key.dropFirst(2))) {
             let project = app.repo(worktree.repoId)
             // A project's own screen has no name of its own: the row stands for the project.
@@ -174,6 +178,7 @@ final class CardModel {
             let alone = app.worktrees.filter { $0.repoId == worktree.repoId && !$0.archived }.count == 1
             muteIds = [worktree.id] + (alone ? [worktree.repoId] : [])
             server = project.flatMap { RemoteHost.of($0.path)?.host }
+            folder = app.gitFolder(of: worktree.id)?.id
         } else {
             return nil
         }
@@ -185,14 +190,18 @@ final class CardModel {
             watched.key = agent.id
             return watched
         }
+        if let folder {
+            let git = Watched(.git, in: app)
+            git.key = folder
+            watches.append(git)
+            app.extensions.all.ci?.carded(folder)
+        }
         Task {
             if let repo {
                 worktrees = await app.quiet(RepoWorktreeSizes(id: repo.id)) ?? []
                 return
             }
             if !agentOnly {
-                changes = await app.quiet(GitLineStats(id: workspaceId))
-                if let branchPR = await app.quiet(GitHubBranchPR(worktreeId: workspaceId)) ?? nil { pr = branchPR }
                 pages = ServedPages.list(printed: [], ports: await app.quiet(PortsList(worktreeId: workspaceId)) ?? [])
             }
             guard agentOnly, let agent = agents.first else { return }
@@ -222,7 +231,10 @@ final class CardModel {
         if parts == nil, let agent = agents.first { parts = await app.quiet(SessionContextParts(id: agent.id)) ?? nil }
     }
 
-    func stop() { watches = [] }
+    func stop() {
+        watches = []
+        if folder != nil { app.extensions.all.ci?.carded(nil) }
+    }
 
     /// Compact Now, once the ring turns orange, while the agent is at its prompt (a question's menu would take the text).
     var compact: (() -> Void)? {
@@ -267,7 +279,7 @@ struct CardView: View {
                 servers.section(host, model.closeCard)
             }
             if let repo = model.repo { WorktreeSizes(items: model.worktrees, root: repo.path) }
-            if let pr = model.pr { PRLine(pr: pr) }
+            if let folder = model.folder, let pr = model.app.extensions.all.ci?.card(folder) { pr }
             if let changes = model.changes, changes.totalAdded + changes.totalRemoved > 0 {
                 (Text("Not committed  ")
                     + Text(changes.totalAdded > 0 ? "+\(changes.totalAdded)" : "").foregroundColor(.textGreen)
@@ -351,36 +363,6 @@ struct CardView: View {
             return try AttributedString(
                 markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))
         } catch { return AttributedString(text) }   // not Markdown: as written
-    }
-}
-
-/// "#123 Fix login · Open · ✓ 5 checks": a PR in GitHub's own colours (open green, draft grey, merged purple, closed red).
-struct PRLine: View {
-    let pr: GitHub.PullRequest
-    var body: some View {
-        let state = pr.isDraft ? String(localized: "Draft") : pr.state.capitalized
-        let color: Color =
-            state == String(localized: "Draft")
-            ? .secondary : state == "Merged" ? .textPurple : state == "Closed" ? .textRed : .textGreen
-        let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Image(systemName: state == "Merged" ? "arrow.triangle.merge" : "arrow.triangle.pull").foregroundStyle(
-                    color)
-                Text("#\(pr.number)").font(.ui(12).monospacedDigit())
-                Text(pr.title).font(.ui(12)).lineLimit(1)
-            }
-            HStack(spacing: 6) {
-                Text(state).foregroundStyle(color)
-                if failed > 0 {
-                    Text("✕ \(failed) failing").foregroundStyle(Color.textRed)
-                } else if pending > 0 {
-                    Text("● \(pending) running").foregroundStyle(Color.textOrange)
-                } else if passed > 0 {
-                    Text("✓ checks passed").foregroundStyle(Color.textGreen)
-                }
-            }.font(.ui(11))
-        }
     }
 }
 

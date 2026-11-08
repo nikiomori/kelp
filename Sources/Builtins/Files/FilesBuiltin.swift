@@ -101,7 +101,7 @@ extension Builtins {
                         group: "Language servers",
                         requires: "editor.lsp"),
                     s(SettingKeys.markdownMode, "Default Markdown mode", "enum",
-                        options: ["preview", "edit", "split"], group: "Markdown")
+                        options: ["preview", "edit", "split"], look: "segments", group: "Markdown")
                 ], order: 70)
         ]
         let ts = LanguageSpec.Server(

@@ -211,7 +211,6 @@ extension Workbench {
             let model = app
             await model.waitForConnection()   // opened at launch
             guard let rid = await repoAdd(path, model)?.id else { return }
-            await model.refresh()
             let ws = model.repo(rid).map(model.workspaces(of:)) ?? []
             if let screen = ws.first(where: { $0.id == workspaceId }) ?? ws.first { show(workspace: screen.id) }
         }
@@ -357,8 +356,12 @@ extension Workbench {
             }
             chat = await app.call(request)
         }
-        await app.refresh()
-        if let chat { focus(session: chat.id) } else { show(workspace: id) }
+        if let chat {
+            app.upsert(chat)
+            focus(session: chat.id)
+        } else {
+            show(workspace: id)
+        }
     }
 }
 
@@ -588,29 +591,5 @@ package struct GitFix {
         guard let text = await app.call(RecipeRender(id: wid, name: recipe, vars: vars)) else { return false }
         await app.call(SessionSend(id: sid, text: text, enter: false))
         return true
-    }
-}
-
-@MainActor
-package struct PRActions {
-    let app: AppModel
-    package init(_ app: AppModel) { self.app = app }
-
-    /// Pushes and opens a PR; title and body come from the branch's commits.
-    package func create(worktree wid: String) {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Create a pull request?")
-        alert.informativeText = String(
-            localized: "Pushes \(app.worktree(wid)?.branch ?? "the branch") and opens a PR titled from its commits.")
-        alert.addButton(withTitle: String(localized: "Create"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-            guard let url = await app.call(GitHubPRCreate(worktreeId: wid))?.url else { return }
-            Banner.show(
-                url.isEmpty
-                    ? String(localized: "Pull request created") : String(localized: "Pull request created: \(url)"))
-            if let link = URL(string: url), !url.isEmpty { app.workbench.open(link.absoluteString) }
-        }
     }
 }

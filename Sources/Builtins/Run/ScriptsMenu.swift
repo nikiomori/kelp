@@ -159,11 +159,12 @@ final class ScriptsMenu: NSObject, NSMenuDelegate {
             app.workbench.closeTab(uri: TabURI.session(sid), remember: false)
         }
         starting += 1
-        let session = await app.call(method)
+        let made = await app.call(method)
         starting -= 1
-        guard let sid = session?.id else { return false }
+        guard let session = made else { return false }
+        let sid = session.id
         state.active[sid] = RunState.Run(workspace: wid, choice: choice, url: state.early.removeValue(forKey: sid))
-        await app.refresh()
+        app.upsert(session)
         if hidden {
             hide(sid)
             return true

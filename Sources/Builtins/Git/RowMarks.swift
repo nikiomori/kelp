@@ -2,17 +2,19 @@ import AppKit
 import Core
 import KelpKit
 
-/// What Git marks beside a folder in the sidebar, the ⌃Tab switcher and the branch chip (`FolderCI`): its CI, and a PR
-/// that merged (`MergedPR`). Every folder the sidebar lists is watched for CI (while a run goes, else every 2 minutes);
-/// the branch chip and its popover read the same CI for the folder on screen. The app's one, as a part
-/// (`AppModel.part`).
+/// What Git marks beside a folder in the sidebar, the ⌃Tab switcher and the window bar (`FolderCI`): its CI, its
+/// branch's PR (`PullRequests`), and a PR that merged (`MergedPR`). Every folder the sidebar lists is watched for CI
+/// (while a run goes, else every 2 minutes) and for its PR (gh, once a minute); the branch chip and its popover read
+/// the same CI for the folder on screen, a hover card the PR of its folder. The app's one, as a part (`AppModel.part`).
 @MainActor @Observable
 final class RowMarks {
     static func of(_ app: AppModel) -> RowMarks { app.part { RowMarks(app: app) } }
 
     private let app: AppModel
     var prs: [String: GitHub.PullRequest] { app.latest(PREvent.self).byKey.compactMapValues(\.pr) }
-    @ObservationIgnored private var following: Set<String> = []
+    @ObservationIgnored private var following: [WatchTopic: Set<String>] = [:]
+    /// The folder whose hover card is open: its PR is read while it is, beside the folders' badges or without them.
+    var carded: String?
     @ObservationIgnored private var readPRs: [String: GitHub.PullRequest] = [:]
     @ObservationIgnored private var states: [String: CIRuns.State] = [:]
     @ObservationIgnored private var branches: [String: BranchInfo] = [:]
@@ -24,7 +26,7 @@ final class RowMarks {
     init(app: AppModel) {
         self.app = app
         track(owner: self) { [weak self] in
-            self?.wanted() ?? []
+            self?.wanted() ?? [:]
         } changed: { [weak self] in
             self?.follow($0)
         }
@@ -55,24 +57,29 @@ final class RowMarks {
         readPRs = readPRs.merging(now) { $1 }   // a folder not read for a moment is still the same PR's
     }
 
-    /// CI beside folders off: only the folder on screen's CI, for the branch chip and its popover. Git turned off (no
-    /// CI marks from it): none.
-    private func wanted() -> Set<String> {
+    /// CI beside folders off: only the folder on screen's CI, for the branch chip and its popover. Settings ›
+    /// Appearance › Changes and pull requests off: only the PR of a folder whose card is open, gh isn't asked for the
+    /// rest. Git turned off (no marks from it): none.
+    private func wanted() -> [WatchTopic: Set<String>] {
         let settings = app.settings
-        guard app.extensions.all.ci != nil else { return [] }
+        guard app.extensions.all.ci != nil else { return [:] }
         var ci = settings[SettingKeys.ciSidebar] ? app.gitFolders : []
         if settings[SettingKeys.ciBranchChip] != "off" || settings[SettingKeys.ciPopover],
             let here = app.gitFolder(of: app.workbench.workspaceId)
         {
             ci.insert(here.id)
         }
-        return ci
+        let prs = (settings[SettingKeys.gitBadges] ? app.gitFolders : []).union(carded.map { [$0] } ?? [])
+        return [.ci: ci, .pr: prs]
     }
 
-    private func follow(_ ids: Set<String>) {
-        for id in ids.subtracting(following) { app.watch(.ci, id) }
-        for id in following.subtracting(ids) { app.unwatch(.ci, id) }
-        following = ids
+    private func follow(_ now: [WatchTopic: Set<String>]) {
+        for topic in Set(now.keys).union(following.keys) {
+            let ids = now[topic] ?? [], had = following[topic] ?? []
+            for id in ids.subtracting(had) { app.watch(topic, id) }
+            for id in had.subtracting(ids) { app.unwatch(topic, id) }
+        }
+        following = now
     }
 }
 
@@ -137,8 +144,10 @@ extension RowMarks {
         }
     }
 
-    /// The branch chip's menu: where its CI shows.
-    func menuItems(_ menu: NSMenu) {
+    /// The branch chip's menu: Create Pull Request while the branch has none, and where its CI shows.
+    func menuItems(_ menu: NSMenu, worktree: String?) {
+        PullRequests.menuItems(menu, worktree: worktree, app)
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
         menu.addChoices(SettingKeys.ciBranchChip, app, heading: String(localized: "CI on the Chip"))
         menu.addToggle(SettingKeys.ciPopover, app, title: String(localized: "CI in the Popover"))
         menu.addItem(.separator())
@@ -174,7 +183,7 @@ extension RowMarks {
 
     /// A push from anywhere (a terminal, an agent) starts CI: look for its run now, not on the next 2-minute read.
     private func pushes(_ now: [String: BranchInfo]) {
-        for id in following {
+        for id in following[.ci] ?? [] {
             if let new = now[id], let old = branches[id], new.pushed(since: old) { app.watchAgain(.ci, id) }
         }
         branches = now

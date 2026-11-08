@@ -314,7 +314,7 @@ struct SettingRow: View {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
                 if let summary = spec.description { Text(loc(summary)) }
             }
-        case "enum" where SettingPictures.keys.contains(spec.key):
+        case "enum" where spec.look == "pictures":
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
                 TileHeading(title: { title }, about: spec.description.map(loc))
                 PictureGrid(
@@ -323,7 +323,7 @@ struct SettingRow: View {
                     label: { Self.label(spec.key, $0, app) })
             }
             .padding(.vertical, Metrics.lineGap)
-        case "enum" where Self.segmented.contains(spec.key):
+        case "enum" where spec.look == "segments":
             // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
             let options = Self.shown(Self.options(spec, app), string() ?? "")
             LabeledContent {
@@ -373,13 +373,6 @@ struct SettingRow: View {
         }
     }
 
-    /// Two or three short choices seen side by side, as macOS shows them, instead of behind a menu.
-    static let segmented: Set<String> = [
-        SettingKeys.onWaiting.key, SettingKeys.onFinish.key, SettingKeys.onError.key, SettingKeys.keepAwake.key,
-        SettingKeys.usageLimits.key, SettingKeys.sidebarOrder.key, SettingKeys.markdownMode.key,
-        SettingKeys.inspectorIcons.key, SettingKeys.inspectorIconsPosition.key
-    ]
-
     /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
     /// installed), which would otherwise leave the picker blank.
     static func shown(_ options: [String], _ current: String) -> [String] {
@@ -396,7 +389,8 @@ struct SettingRow: View {
         }
     }
 
-    /// Option values made readable (agent ids → names, theme ids → names).
+    /// Option values made readable: what's installed by its name (agents, themes, icon themes), the rest as the
+    /// setting's declaration calls them (`SettingSpec.labels`).
     static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
         switch key {
         case SettingKeys.defaultAgent.key: return app.catalog.name(value)
@@ -407,82 +401,9 @@ struct SettingRow: View {
                     ? String(localized: "Ghostty config")
                     : app.themes.themes.first { $0.id == value }?.name ?? value
         case SettingKeys.iconTheme.key: return app.fileIcons.themes.first { $0.id == value }?.label ?? value
-        case SettingKeys.dockStripComesFor.key:
-            return [
-                "questions": String(localized: "Questions"), "failures": String(localized: "Questions and Failures"),
-                "all": String(localized: "Anything New")
-            ][value] ?? value
-        case SettingKeys.dockStrip.key:
-            return [
-                "needed": String(localized: "When Needed"), "always": String(localized: "Always"),
-                "off": String(localized: "Never")
-            ][value] ?? value
-        case SettingKeys.dockIcon.key:
-            return [
-                "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
-                "icon": String(localized: "App Icon")
-            ][value] ?? value
-        case SettingKeys.terminalOpacity.key: return value == "theme" ? String(localized: "From Theme") : "\(value)%"
-        case SettingKeys.artifactsWhere.key:
-            return [
-                "agent": String(localized: "Agent’s Own When It Has One"),
-                "local": String(localized: "Always on This Mac")
-            ][value] ?? value
-        case SettingKeys.skillBrowser.key:
-            return [
-                "auto": String(localized: "In Web Projects"), "on": String(localized: "Always"),
-                "off": String(localized: "Never")
-            ][value] ?? value
-        case SettingKeys.keepAwake.key:
-            return [
-                "agents": String(localized: "While Agents Work"), "always": String(localized: "Always"),
-                "off": String(localized: "Never")
-            ][value] ?? value
-        // Each language in its own words, so it can be found whichever language Kelp is in.
-        case SettingKeys.language.key:
-            return ["en": "English", "ru": "Русский"][value] ?? String(localized: "Match System")
-        case SettingKeys.rowHeight.key where value == "system": return String(localized: "Match System")
-        case SettingKeys.agentDetail.key where value == "needsYou": return String(localized: "When They Need You")
-        case SettingKeys.agentIcons.key where value == "others": return String(localized: "Other Agents Only")
-        case SettingKeys.projectColor.key:
-            return value == "card" ? String(localized: "Filled Card") : String(localized: "On the Icon")
-        case SettingKeys.serverLook.key:
-            let said = [
-                "stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
-                "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")
-            ]
-            return said[value] ?? value
-        case SettingKeys.ciBranchChip.key:
-            let said = [
-                "icon": String(localized: "In Place of the Branch Icon"), "end": String(localized: "After the Counts"),
-                "off": String(localized: "Off")
-            ]
-            return said[value] ?? value
-        case SettingKeys.inspectorIconsPosition.key:
-            return value == "bottom" ? String(localized: "Under the Panel") : String(localized: "Beside the Tabs")
-        case SettingKeys.usageLimits.key:
-            return value == "all" ? String(localized: "All Agents") : String(localized: "Fullest Limit")
-        case SettingKeys.alertAt.key: return value == "off" ? String(localized: "Off") : "\(value)%"
-        case SettingKeys.sidebarOrder.key:
-            return value == "active" ? String(localized: "Agents First") : String(localized: "As You Arrange Them")
-        case SettingKeys.onFinish.key, SettingKeys.onWaiting.key, SettingKeys.onError.key:
-            return [
-                "sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"),
-                "off": String(localized: "Off")
-            ][value] ?? value
-        case SettingKeys.quietUnder.key:
-            return value == "0" ? String(localized: "Off") : String(localized: "\(value) Seconds")
-        case SettingKeys.hibernateMinutes.key:
-            let minutes = Int(value) ?? -1
-            return minutes == 0
-                ? String(localized: "Never")
-                : minutes == 60
-                    ? String(localized: "After 1 Hour")
-                    : minutes > 0 && minutes % 60 == 0
-                        ? String(localized: "After \(minutes / 60) Hours") : String(localized: "After \(value) Minutes")
-        case SettingKeys.remindAfter.key:
-            return value == "off" ? String(localized: "Off") : String(localized: "After \(value) Minutes")
-        default: return loc(value.prefix(1).uppercased() + value.dropFirst())
+        default:
+            return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.labels?[value]
+                ?? loc(value.prefix(1).uppercased() + value.dropFirst())
         }
     }
 

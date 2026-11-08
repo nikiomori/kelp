@@ -3,12 +3,12 @@ import DesignKit
 import SwiftUI
 
 /// Choices about how something looks, shown as what they look like: a small drawing per option, picked like a theme,
-/// instead of its name in a menu. The value written is the option, as from the menu.
+/// instead of its name in a menu (`SettingSpec.look`). The value written is the option, as from the menu.
 enum SettingPictures {
+    /// What the shell draws; a built-in draws its own settings' (`SettingsSection.pictures`).
     static let keys: Set<String> = [
         SettingKeys.textSize.key, SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
-        SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.dockIcon.key, SettingKeys.dockStrip.key,
-        SettingKeys.cursorStyle.key
+        SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.dockIcon.key, SettingKeys.cursorStyle.key
     ]
 }
 
@@ -99,10 +99,9 @@ private struct PictureArt: View {
         case SettingKeys.projectColor.key: projectRow
         case SettingKeys.serverLook.key: serverRow
         case SettingKeys.dockIcon.key: dockIcon
-        case SettingKeys.dockStrip.key: dockStrip
         case SettingKeys.cursorStyle.key: cursor
         case SettingKeys.defaultAgent.key: agent
-        default: EmptyView()
+        default: app.extensions.all.settings.lazy.compactMap { $0.pictures[key] }.first?(option)
         }
     }
 
@@ -241,36 +240,6 @@ private struct PictureArt: View {
                     .offset(x: 3, y: 3)
                 }
             }
-    }
-
-    /// The bottom of a screen: the Dock, and over it the strip with a question (when needed) or every agent's dot (always).
-    private var dockStrip: some View {
-        VStack(spacing: 4) {
-            Spacer()
-            if option != "off" {
-                HStack(spacing: 3) {
-                    if option == "needed" {
-                        Circle().fill(Color.textOrange).frame(width: 5, height: 5)
-                        line(30, .white.opacity(0.8))
-                    } else {
-                        ForEach([Color.textGreen, .textGreen, .textOrange], id: \.self) {
-                            Circle().fill($0).frame(width: 5, height: 5)
-                        }
-                    }
-                }
-                .padding(.horizontal, 6).frame(height: 13)
-                .background(
-                    Color.black.opacity(0.75), in: RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous))
-            }
-            RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous).fill(Color.primary.opacity(0.18))
-                .frame(height: 9).padding(.horizontal, 18)
-        }
-        .padding(.bottom, 5)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            LinearGradient(
-                colors: [Color.accentColor.opacity(0.35), Color.accentColor.opacity(0.12)], startPoint: .top,
-                endPoint: .bottom))
     }
 
     /// In the terminal's own colors, as the sample above it.

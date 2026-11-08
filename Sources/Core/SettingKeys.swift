@@ -67,6 +67,8 @@ public enum SettingKeys {
     public static let branchPrefix = Setting("git.branchPrefix", "")
     public static let worktreesFolder = Setting("worktrees.folder", "")
     public static let ciBranchChip = Setting("workbench.ci.branchChip", "icon")
+    /// "+6 −2" and "#128" beside folders: the shell's changes, Git's pull requests.
+    public static let gitBadges = Setting("workbench.sidebar.gitBadges", true)
 
     // Extensions
     /// nil: settings.json has no list yet, so the built-ins off by default are off.

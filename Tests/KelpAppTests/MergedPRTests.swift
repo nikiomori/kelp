@@ -1,7 +1,9 @@
+import AppKit
 import Core
 import Testing
 
 @testable import BuiltinGit
+@testable import KelpKit
 
 private func pr(_ n: Int, _ state: String) -> GitHub.PullRequest {
     GitHub.PullRequest(
@@ -20,4 +22,18 @@ private func pr(_ n: Int, _ state: String) -> GitHub.PullRequest {
     #expect(MergedPR.next(base: "main", working: false, uncommitted: 0) == .switchTo("main"))
     #expect(MergedPR.next(base: "main", working: true, uncommitted: 3) == .agentWorking)
     #expect(MergedPR.next(base: "main", working: false, uncommitted: 3) == .uncommitted(3))
+}
+
+/// A branch's PR is Git's mark: "#12" beside its folder from what's pushed, and no mark at all with Git off.
+@MainActor @Test func aPullRequestMarkIsGits() {
+    _ = testHome
+    _ = NSApplication.shared   // reload applies the theme to NSApp
+    let m = AppModel(builtins: [Builtins.git])
+    m.extensions.reload()
+    m.land(PREvent(worktree: "w1", pr: pr(12, "OPEN")))
+    #expect(m.extensions.all.ci?.pr("w1")?.title.string == "#12")
+    #expect(m.extensions.all.ci?.pr("w2") == nil)
+    let off = AppModel(builtins: [])
+    off.extensions.reload()
+    #expect(off.extensions.all.ci == nil)
 }

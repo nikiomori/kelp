@@ -23,8 +23,7 @@ final class NoProject: NSObject {
 
     /// Made the first time (the daemon's), so the row is there before anyone asks.
     func ensure() async {
-        guard !app.repos.contains(where: Self.holds), await app.quiet(ScratchEnsure()) != nil else { return }
-        await app.refresh()
+        if !app.repos.contains(where: Self.holds) { _ = await app.quiet(ScratchEnsure()) }
     }
 
     /// A new chat on it, in the main window, from wherever you are.

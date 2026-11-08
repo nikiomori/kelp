@@ -4,7 +4,7 @@ Kelp is a native shell around two things: a **daemon** that owns everything stat
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
 command palette and settings. Each feature is a built-in of its own: the branch's sync and the CI
-marks are Git's, the plan limits and the agent strip are Agents', the run menu is Run's and the
+and pull request marks are Git's, the plan limits (the Dock's usage face too) and the agent strip are Agents', the run menu is Run's and the
 server cards are Servers'. The shell gives them places to show up in: the contributions below.
 
 ```
@@ -70,7 +70,7 @@ server cards are Servers'. The shell gives them places to show up in: the contri
 | panels | right inspector (selector icons) |
 | editors | center tab types, listed in each pane's "+" menu and the empty workspace |
 | commands | command palette (⇧⌘P), menus, key bindings, `kelp run <id>` |
-| settings | Settings window (generated forms) and `~/.kelp/settings.json` |
+| settings | Settings window (generated forms) and `~/.kelp/settings.json`; a row says what its options are called and how they show (`labels`, `look`), a built-in's pictured setting brings its drawings (`pictures`), so the window names no built-in's key |
 | themes | Appearance settings; build the window round the terminal and editor, and color all three |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
@@ -78,12 +78,13 @@ server cards are Servers'. The shell gives them places to show up in: the contri
 | sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on; a `foot` one under all the rest (the plan limits) |
 | sessionMarks (built-ins only) | a mark on an agent's row for where it runs something of the built-in's (a machine) |
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
-| ci (built-ins only) | a folder's CI mark beside its sidebar row, in ⌃Tab and on the branch chip: what it says, where a click goes, the chip menu's CI items (Git's) |
+| ci (built-ins only) | a folder's CI and pull request marks beside its sidebar row, in ⌃Tab and on the window bar ("#12"): what they say, where a click goes, the PR in its hover card, the branch chip menu's Create Pull Request and CI items (Git's); none, and no CI or PR shows |
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |
 | planNotes (built-ins only) | the note beside each agent where agents are chosen ("92 % · 3:40pm"), in the "+" menu and the empty workspace |
 | servers (built-ins only) | the sidebar's server cards: the header over a host's projects, its menu, a remote project's menu items and hover card (Servers); none, and remote projects are plain rows |
 | launched (built-ins only) | run once when Kelp has started, its window up: what a built-in keeps going by itself (Agents' strip over the Dock) |
 | dockMenu (built-ins only) | items of its own in the Dock icon's menu, under New Chat (hide the agent strip for an hour, or bring it back) |
+| dockUsage (built-ins only) | the Dock icon's Plan Usage face, the fullest limit (Agents'); none, and the plain icon |
 | runs (built-ins only) | what runs in a workspace (Run): the window bar's run chip and the page it serves, the Run menu's project commands, a run's tab (its look, port and Hide in Run Menu), the "+" menu's and the empty workspace's Run rows, the hover card's pages, a run's printed page, a new workspace's setup; none, and every session is a row and a tab |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
@@ -161,7 +162,9 @@ workspace DB: each `KELP_HOME` has its own, and removing a workspace removes its
 
 The app doesn't ask the daemon again and again: it watches. Records come as they change — `event.session`,
 `event.repo`, `event.worktree`, `event.removed` (every write of the store reports itself, `Store.changed`; a deleted
-session too) — and the lists are read once, at connect. The client decodes each event once, on its reader thread, as
+session too) — and the lists are read once, at connect. An action doesn't read them again: a record its handler
+writes goes out on the caller's connection before the reply, so the caller finds it in the lists when the reply lands
+(a session's reply goes in as it is, `upsert`). The client decodes each event once, on its reader thread, as
 its type (`RPCClient.onEvent`); the main actor gets the value. Its writes are queued, so the main thread never waits on
 the socket. A new connection hears no broadcast until its first request: it may be `kelp attach`'s byte stream.
 What has no record of its own is a topic a view watches while it's on screen (`watch.start` / `watch.stop`, `WatchTopic`): a workspace's git (read when its files change, FSEvents in the daemon), its

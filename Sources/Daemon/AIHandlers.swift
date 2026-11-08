@@ -34,6 +34,8 @@ extension SessionMove: Handled {
             }
             if let ls = sessions.existing(id) {
                 _ = ls.update { $0.worktreeId = worktreeId }
+                // Before the reply, as a record written here would be: the app finds it on its new screen.
+                sessions.notify(ls.snapshot)
                 sessions.publish(ls)
             } else {
                 try sessions.change(id) { $0.worktreeId = worktreeId }

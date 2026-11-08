@@ -15,6 +15,15 @@ final class LimitWatch {
     /// The app's one.
     static func of(_ app: AppModel) -> LimitWatch { app.part { LimitWatch(app: app) } }
 
+    /// The Dock icon's Plan Usage face: the fullest limit read in the last half hour, orange from the warning level.
+    static func dockFace(_ app: AppModel) -> DockFace? {
+        guard let fullest = app.latest(LimitsEvent.self)?.usage.fresh().map(\.limit.percent).max() else { return nil }
+        return dockFace(fullest, warnAt: app.settings.usageAlertAt)
+    }
+    static func dockFace(_ percent: Double, warnAt: Int?) -> DockFace {
+        .usage(percent: Int(percent.rounded()), high: warnAt.map { percent >= Double($0) } ?? false)
+    }
+
     /// Each reading as it lands: the forecast takes every one.
     func landed(_ e: any Pushed) {
         guard let limits = e as? LimitsEvent else { return }
@@ -114,4 +123,9 @@ final class LimitWatch {
         content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
         Notifications.notifyUser(app, "unused-\(key)", content)
     }
+}
+
+extension SettingsStore {
+    /// The share of a plan limit that alerts; nil: never ("off").
+    var usageAlertAt: Int? { Int(self[SettingKeys.alertAt]) }
 }

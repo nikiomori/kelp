@@ -2,32 +2,27 @@ import AppKit
 import Core
 import DesignKit
 
-/// What the sidebar shows beside a folder: lines not committed yet and the branch's PR (its CI is Git's: `FolderCI`).
-/// Workspaces share their project's folder, so the project row carries it; a workspace on its own branch (a worktree)
-/// carries its own. Every folder the sidebar lists is watched: the daemon pushes its git when its files change and its
-/// PR (gh, once a minute).
+/// What the sidebar shows beside a folder: lines not committed yet (its PR and CI are Git's: `FolderCI`). Workspaces
+/// share their project's folder, so the project row carries it; a workspace on its own branch (a worktree) carries its
+/// own. Every folder the sidebar lists is watched: the daemon pushes its git when its files change.
 @MainActor @Observable
 package final class RowBadges {
     private let app: AppModel
-    /// Worktree id → changes / its branch's PR (observed through AppModel).
+    /// Worktree id → changes (observed through AppModel).
     var stats: [String: LineStats] { app.latest(GitEvent.self).byKey.compactMapValues(\.stats) }
-    var prs: [String: GitHub.PullRequest] { app.latest(PREvent.self).byKey.compactMapValues(\.pr) }
-    @ObservationIgnored private var following: [WatchTopic: Set<String>] = [:]
+    @ObservationIgnored private var following: Set<String> = []
 
     init(app: AppModel) {
         self.app = app
         track(owner: self) { [weak self] in
-            self?.wanted() ?? [:]
+            self?.wanted() ?? []
         } changed: { [weak self] in
             self?.follow($0)
         }
     }
 
-    /// Settings › Appearance › Changes and pull requests off: no git or PR is watched for the badges, gh isn't asked.
-    private func wanted() -> [WatchTopic: Set<String>] {
-        let badges = app.settings[SettingKeys.gitBadges] ? folders : []
-        return [.git: badges, .pr: badges]
-    }
+    /// Settings › Appearance › Changes and pull requests off: no git is watched for the badges.
+    private func wanted() -> Set<String> { app.settings[SettingKeys.gitBadges] ? folders : [] }
 
     /// Every folder the sidebar lists: each project's own and each workspace's on a branch of its own.
     var folders: Set<String> {
@@ -36,12 +31,9 @@ package final class RowBadges {
                 + app.worktrees.compactMap { folder(workspace: $0.id)?.id })
     }
 
-    private func follow(_ now: [WatchTopic: Set<String>]) {
-        for (topic, ids) in now {
-            let had = following[topic] ?? []
-            for id in ids.subtracting(had) { app.watch(topic, id) }
-            for id in had.subtracting(ids) { app.unwatch(topic, id) }
-        }
+    private func follow(_ now: Set<String>) {
+        for id in now.subtracting(following) { app.watch(.git, id) }
+        for id in following.subtracting(now) { app.unwatch(.git, id) }
         following = now
     }
 
@@ -84,32 +76,6 @@ package final class RowBadges {
                     string: (result.length > 0 ? " " : "") + text, attributes: [.font: font, .foregroundColor: color]))
         }
         return result
-    }
-
-    /// "#12" in the PR's state colour; its checks are the folder's CI mark (`FolderCI`), the tooltip counts them.
-    static func pr(_ pr: GitHub.PullRequest?) -> (NSAttributedString, String)? {
-        guard let pr else { return nil }
-        let number = pr.number, state = pr.isDraft ? "DRAFT" : pr.state
-        let color: NSColor =
-            state == "DRAFT"
-            ? .secondaryLabelColor : state == "MERGED" ? .textPurple : state == "CLOSED" ? .textRed : .textGreen
-        let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
-        let label = NSAttributedString(
-            string: "#\(number)", attributes: [.font: NSFont.uiDigits(11, weight: .medium), .foregroundColor: color])
-        let checks =
-            failed > 0
-            ? String(localized: "\(failed) checks failing")
-            : pending > 0
-                ? String(localized: "\(pending) checks running")
-                : passed > 0 ? String(localized: "checks passed") : String(localized: "no checks")
-        let said =
-            switch state {
-            case "DRAFT": String(localized: "draft")
-            case "MERGED": String(localized: "merged")
-            case "CLOSED": String(localized: "closed")
-            default: String(localized: "open")
-            }
-        return (label, String(localized: "Pull request #\(number) · \(said) · \(checks)") + "\n" + pr.title)
     }
 }
 

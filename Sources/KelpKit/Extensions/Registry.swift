@@ -137,6 +137,12 @@ package struct SettingSpec: Codable, Identifiable {
     /// The rest, behind a ⓘ beside the title (and found by search): the description stays a line, not a paragraph.
     var help: String?
     var options: [String]?
+    /// What each option is called where it's chosen ("needed" → "When Needed"), said where the setting is declared; an
+    /// option not named here shows as its value, capitalized.
+    var labels: [String: String]?
+    /// How its options show: "segments", side by side (two or three short ones); "pictures", a drawing each (the
+    /// shell's, or its section's `pictures`). Nil: a menu.
+    var look: String?
     /// `[lowest, highest]` a number can be: the stepper stops there, and a value out of it in settings.json counts as the nearest end.
     var range: [Double]?
     /// A heading over this row and the ones after it that share it ("Sidebar"); nil: the section's first, untitled group.
@@ -170,7 +176,8 @@ package struct SettingsSection: Identifiable {
         keywords: [String] = [],
         fillsPane: Bool = false,
         order: Int = 100,
-        previews: [String: @MainActor () -> AnyView] = [:]
+        previews: [String: @MainActor () -> AnyView] = [:],
+        pictures: [String: @MainActor (_ option: String) -> AnyView] = [:]
     ) {
         self.id = id
         self.title = title
@@ -181,6 +188,7 @@ package struct SettingsSection: Identifiable {
         self.fillsPane = fillsPane
         self.order = order
         self.previews = previews
+        self.pictures = pictures
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
@@ -204,6 +212,8 @@ package struct SettingsSection: Identifiable {
     var custom: (@MainActor () -> AnyView)?
     /// Over a group of rows (by its heading), what they change, as it is now (`SettingPreview`).
     var previews: [String: @MainActor () -> AnyView]
+    /// A pictured setting's option drawn (`look` "pictures"), by its key: a built-in's own setting, drawn by it.
+    var pictures: [String: @MainActor (_ option: String) -> AnyView]
 }
 
 /// A file icon theme in VS Code's format (see IconTheme).
@@ -264,11 +274,11 @@ package struct BranchActions {
     }
 }
 
-/// A folder's CI in one mark, from the built-in that watches it (Git): beside the folder's sidebar row and in the ⌃Tab
-/// switcher, on the branch chip, what it says, where a click on it goes, and the chip menu's CI items. Read under
-/// observation: they must not do work.
+/// A folder's CI and pull request as marks, from the built-in that watches them (Git): beside the folder's sidebar row
+/// and in the ⌃Tab switcher, on the window bar's chips, what they say, where a click goes, the PR in the folder's hover
+/// card, and the branch chip's menu. Read under observation: they must not do work.
 package struct FolderCI {
-    /// Every folder's mark beside its row: the rows follow this, not each CI read.
+    /// Every folder's CI mark beside its row: the rows follow this, not each CI read.
     package let rows: @MainActor () -> [String: CIRuns.State]
     package let row: @MainActor (_ folder: String) -> CIRuns.State?
     /// On the branch chip: the mark, and whether it sits at the title's end (else in the branch glyph's place).
@@ -276,14 +286,24 @@ package struct FolderCI {
     /// "CI: Failed · Tests, Deploy", for tooltips and VoiceOver.
     package let line: @MainActor (_ folder: String) -> String?
     package let open: @MainActor (_ folder: String) -> Void
-    package let menu: @MainActor (NSMenu) -> Void
+    /// The branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, the CI items.
+    package let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
+    /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, and its page.
+    package let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, url: String)?
+    /// The pull request in full, in the folder's hover card (nil: none).
+    package let card: @MainActor (_ folder: String) -> AnyView?
+    /// The folder whose hover card is open, nil once it closes: its pull request is read meanwhile.
+    package let carded: @MainActor (_ folder: String?) -> Void
     package init(
         rows: @escaping @MainActor () -> [String: CIRuns.State],
         row: @escaping @MainActor (String) -> CIRuns.State?,
         chip: @escaping @MainActor (String) -> (state: CIRuns.State, atEnd: Bool)?,
         line: @escaping @MainActor (String) -> String?,
         open: @escaping @MainActor (String) -> Void,
-        menu: @escaping @MainActor (NSMenu) -> Void
+        menu: @escaping @MainActor (NSMenu, String?) -> Void,
+        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, url: String)?,
+        card: @escaping @MainActor (String) -> AnyView?,
+        carded: @escaping @MainActor (String?) -> Void
     ) {
         self.rows = rows
         self.row = row
@@ -291,6 +311,9 @@ package struct FolderCI {
         self.line = line
         self.open = open
         self.menu = menu
+        self.pr = pr
+        self.card = card
+        self.carded = carded
     }
 }
 
@@ -375,7 +398,8 @@ package struct Contributions {
     package var sessionMarks: [@MainActor (Session) -> SessionMark?] = []
     /// The branch chip's actions: one built-in's (the first that has them); none, and the chip only shows the branch.
     package var branch: BranchActions?
-    /// The CI mark on folders' rows and the branch chip: one built-in's (the first that has it); none, and no CI shows.
+    /// The CI and PR marks on folders' rows and the window bar: one built-in's (the first that has them); none, and no
+    /// CI or pull request shows.
     package var ci: FolderCI?
     /// Each reading the daemon pushes, as it lands (not only the latest: a limit's pace takes every one).
     package var pushed: [@MainActor (any Pushed) -> Void] = []
@@ -387,6 +411,8 @@ package struct Contributions {
     package var launched: [@MainActor () -> Void] = []
     /// Items of its own in the Dock icon's menu, under New Chat.
     package var dockMenu: [@MainActor (NSMenu) -> Void] = []
+    /// The Dock icon's face when it shows Plan Usage (nil: nothing to show): one built-in's; none, and the plain icon.
+    package var dockUsage: (@MainActor () -> DockFace?)?
     /// What runs in a workspace: its chip, the Run menu, its tabs and pages: one built-in's (the first that has it).
     package var runs: ProjectRuns?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
@@ -478,6 +504,7 @@ package final class ExtensionRegistry {
             merged.servers = merged.servers ?? c.servers
             merged.launched += c.launched
             merged.dockMenu += c.dockMenu
+            merged.dockUsage = merged.dockUsage ?? c.dockUsage
             merged.runs = merged.runs ?? c.runs
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }

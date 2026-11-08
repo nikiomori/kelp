@@ -67,14 +67,11 @@ package final class DockIcon {
         m.setSubmenu(answers, for: item)
     }
 
-    /// With nothing to show the plain icon stands in: no agents, or an agent without a plan's numbers.
+    /// With nothing to show the plain icon stands in: no agents, or no plan's numbers (the built-in that reads plan
+    /// limits says them: `Contributions.dockUsage`).
     static func face(_ app: AppModel) -> DockFace {
         switch app.settings[SettingKeys.dockIcon] {
-        case "usage":
-            guard let limits = app.latest(LimitsEvent.self)?.usage,
-                let fullest = limits.fresh().map(\.limit.percent).max()
-            else { return .icon }
-            return usage(fullest, warnAt: app.settings.usageAlertAt)
+        case "usage": return app.extensions.all.dockUsage?() ?? .icon
         case "agents":
             let cells = cells(onSidebar(app))
             return cells.isEmpty ? .icon : .agents(cells)
@@ -85,10 +82,6 @@ package final class DockIcon {
     /// In a workspace on the sidebar: an archived one isn't loaded.
     private static func onSidebar(_ app: AppModel) -> [Session] {
         app.sessions.filter { app.worktree($0.worktreeId).map { !$0.archived } == true }
-    }
-
-    static func usage(_ percent: Double, warnAt: Int?) -> DockFace {
-        .usage(percent: Int(percent.rounded()), high: warnAt.map { percent >= Double($0) } ?? false)
     }
 
     /// The agents in the order to deal with them.

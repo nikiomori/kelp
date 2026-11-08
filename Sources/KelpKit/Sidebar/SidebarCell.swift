@@ -285,7 +285,9 @@ final class SidebarCell: NSTableCellView {
         if let folder { app.workbench.open(TabURI.diff(folder.id), workspace: folder.id) }
     }
     @objc private func openPR() {
-        if let folder, let url = app.rowBadges.prs[folder.id]?.url { app.workbench.open(url, workspace: folder.id) }
+        if let folder, let url = app.extensions.all.ci?.pr(folder.id)?.url {
+            app.workbench.open(url, workspace: folder.id)
+        }
     }
     @objc private func openCI() { if let folder { app.extensions.all.ci?.open(folder.id) } }
 
@@ -294,7 +296,7 @@ final class SidebarCell: NSTableCellView {
         let badgeFolder = app.settings[SettingKeys.gitBadges] ? folder : nil,
             stats = badgeFolder.flatMap { app.rowBadges.stats[$0.id] }
         let changeCounts = RowBadges.changes(stats)
-        let prBadge = badgeFolder.flatMap { RowBadges.pr(app.rowBadges.prs[$0.id]) }
+        let prBadge = badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
         counts = changeCounts
         showChanges()
         if changeCounts != nil, let stats {
@@ -303,8 +305,8 @@ final class SidebarCell: NSTableCellView {
             changes.setAccessibilityLabel(changes.toolTip)
         }
         if let prBadge {
-            pr.attributedTitle = prBadge.0
-            pr.toolTip = prBadge.1
+            pr.attributedTitle = prBadge.title
+            pr.toolTip = prBadge.tip
         }
         let state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         ciMark.state = state

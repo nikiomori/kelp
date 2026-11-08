@@ -44,13 +44,14 @@ package enum Builtins {
     /// A row in Settings for a declared setting: its key and default are the declaration's.
     package static func s<Value>(
         _ setting: Setting<Value>, _ title: String, _ type: String, _ desc: String? = nil, help: String? = nil,
-        options: [String]? = nil, range: [Double]? = nil, group: String? = nil, hidden: Bool? = nil,
-        requires: String? = nil, placeholder: String? = nil, perLanguage: Bool? = nil
+        options: [String]? = nil, labels: [String: String]? = nil, look: String? = nil, range: [Double]? = nil,
+        group: String? = nil, hidden: Bool? = nil, requires: String? = nil, placeholder: String? = nil,
+        perLanguage: Bool? = nil
     ) -> SettingSpec {
         SettingSpec(
             key: setting.key, title: title, type: type, default: setting.fallback.setting, description: desc,
-            help: help, options: options, range: range, group: group, hidden: hidden, requires: requires,
-            placeholder: placeholder, perLanguage: perLanguage)
+            help: help, options: options, labels: labels, look: look, range: range, group: group, hidden: hidden,
+            requires: requires, placeholder: placeholder, perLanguage: perLanguage)
     }
 
     package static let appearance = Builtin(
@@ -73,12 +74,15 @@ package enum Builtins {
                         "Everything but code.",
                         help:
                             "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
-                        options: ["normal", "large", "larger"]),
+                        options: ["normal", "large", "larger"], look: "pictures"),
                     s(SettingKeys.terminalOpacity, "Terminal opacity", "enum",
                         "The desktop shows through the terminals, in any theme.",
                         help:
                             "Under 100% the desktop shows through the terminals, and through the window around them, in any theme.",
-                        options: ["theme", "100", "90", "80", "70", "60", "50", "40"])
+                        options: ["theme", "100", "90", "80", "70", "60", "50", "40"],
+                        labels: Dictionary(uniqueKeysWithValues: ["100", "90", "80", "70", "60", "50", "40"].map {
+                            ($0, "\($0)%")
+                        }).merging(["theme": String(localized: "From Theme")]) { $1 })
                 ] + sidebar + inspector + [
                     s(SettingKeys.sideBySideButton, "Agents side by side button", "boolean",
                         "In the title bar, with two agents or more; ⌃⌘T works either way.",
@@ -100,7 +104,9 @@ package enum Builtins {
                 id: "general", title: "General", icon: "gearshape",
                 specs: [
                     s(SettingKeys.language, "Language", "enum", "Takes effect the next time Kelp opens.",
-                        options: ["system", "en", "ru"])
+                        // Each language in its own words, so it can be found whichever language Kelp is in.
+                        options: ["system", "en", "ru"],
+                        labels: ["system": String(localized: "Match System"), "en": "English", "ru": "Русский"])
                 ], custom: { AnyView(GeneralSettings()) }, keywords: ["Updates", "Background", "Login Items"], order: 5),
             SettingsSection(
                 id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
@@ -114,9 +120,10 @@ package enum Builtins {
         s(SettingKeys.hiddenPanels, "Panels", "panels", "Drag an icon in the inspector to move it.",
             group: "Inspector"),
         s(SettingKeys.inspectorIconsPosition, "Panel icons", "enum", options: ["top", "bottom"],
-            group: "Inspector"),
+            labels: ["top": String(localized: "Beside the Tabs"), "bottom": String(localized: "Under the Panel")],
+            look: "segments", group: "Inspector"),
         s(SettingKeys.inspectorIcons, "Icon alignment", "enum", options: ["left", "center", "right"],
-            group: "Inspector"),
+            look: "segments", group: "Inspector"),
         s(SettingKeys.inspectorAutoHide, "Auto-hide inspector", "boolean",
             "Comes in while the pointer is at the window's right edge.",
             group: "Inspector")
@@ -130,13 +137,16 @@ package enum Builtins {
         s(SettingKeys.rowHeight, "Row height", "enum",
             nil,
             help: "Match System follows Sidebar icon size in System Settings › Appearance.",
-            options: ["system", "compact", "regular", "large"], group: "Sidebar"),
+            options: ["system", "compact", "regular", "large"], labels: ["system": String(localized: "Match System")],
+            look: "pictures", group: "Sidebar"),
         s(SettingKeys.agentDetail, "Show what an agent asks", "enum",
             "A second line under an agent: its question, or what went wrong.",
-            options: ["needsYou", "always", "never"], group: "Sidebar"),
+            options: ["needsYou", "always", "never"], labels: ["needsYou": String(localized: "When They Need You")],
+            look: "pictures", group: "Sidebar"),
         s(SettingKeys.agentIcons, "Agent icons", "enum",
             "Other Agents Only hides the default agent's icon.",
-            options: ["others", "always", "never"], group: "Sidebar"),
+            options: ["others", "always", "never"], labels: ["others": String(localized: "Other Agents Only")],
+            group: "Sidebar"),
         s(SettingKeys.gitBadges, "Changes and pull requests", "boolean",
             "“+6 −2” and “#128” beside folders.",
             help: "“+6 −2” and “#128” beside folders. Off also stops checking GitHub for them.", group: "Sidebar"),
@@ -144,12 +154,20 @@ package enum Builtins {
             nil,
             help:
                 "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
-            options: ["icon", "card"], group: "Sidebar"),
+            options: ["icon", "card"],
+            labels: ["icon": String(localized: "On the Icon"), "card": String(localized: "Filled Card")],
+            look: "pictures", group: "Sidebar"),
         s(SettingKeys.serverLook, "Servers", "enum",
             nil, help: "How a server's card shows that its projects run on another machine.",
-            options: ["stripes", "sparse", "fade", "icon"], group: "Sidebar"),
+            options: ["stripes", "sparse", "fade", "icon"],
+            labels: [
+                "stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),
+                "fade": String(localized: "Stripes by the Icon"), "icon": String(localized: "Under the Icon")
+            ], look: "pictures", group: "Sidebar"),
         s(SettingKeys.sidebarOrder, "Project order", "enum",
             "Agents First moves rows as agents start and stop.",
-            options: ["manual", "active"], group: "Sidebar")
+            options: ["manual", "active"],
+            labels: ["manual": String(localized: "As You Arrange Them"), "active": String(localized: "Agents First")],
+            look: "segments", group: "Sidebar")
     ]
 }

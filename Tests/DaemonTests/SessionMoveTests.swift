@@ -2,6 +2,7 @@ import Core
 import Foundation
 import GitKit
 import Testing
+import os
 
 @testable import Daemon
 
@@ -28,6 +29,25 @@ import Testing
         try await c.call("session.move", .obj(["id": .string(s.id), "worktreeId": .string(branch.id)]))
     }
     #expect(try await now()?.worktreeId == workspace.id)
+}
+
+/// The moved record reaches the caller before the reply: the app finds the agent on its new screen as the reply lands,
+/// without reading the list again.
+@Test func aMoveIsHeardBeforeItsReply() async throws {
+    let (d, c, _, repo) = try await world()
+    defer { d.stop() }
+    let workspace: Worktree = try await c.call(
+        "workspace.create", .obj(["repoId": .string(repo.id)]), as: Worktree.self)
+    let first = try #require(
+        try await c.call("worktree.list", .obj(["repoId": .string(repo.id)]), as: [Worktree].self).first {
+            $0.id != workspace.id
+        })
+    let s: Session = try await c.call(
+        "session.create", .obj(["worktreeId": .string(first.id), "command": "sleep 60"]), as: Session.self)
+    let heard = OSAllocatedUnfairLock<String?>(initialState: nil)
+    c.onEvent = { e in if let e = e as? Session, e.id == s.id { heard.withLock { $0 = e.worktreeId } } }
+    _ = try await c.call("session.move", .obj(["id": .string(s.id), "worktreeId": .string(workspace.id)]))
+    #expect(heard.withLock { $0 } == workspace.id)
 }
 
 /// New Chat on Branch asks for no name: the first prompt gives one to the group and the branch, in any language.

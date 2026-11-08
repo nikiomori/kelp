@@ -247,8 +247,8 @@ final class WorkspaceSwitcher {
         } else {
             changes.isHidden = true
         }
-        if let badge = folder.flatMap({ RowBadges.pr(app.rowBadges.prs[$0.id]) }) {
-            pr.attributedStringValue = badge.0
+        if let badge = folder.flatMap({ app.extensions.all.ci?.pr($0.id) }) {
+            pr.attributedStringValue = badge.title
         } else {
             pr.isHidden = true
         }

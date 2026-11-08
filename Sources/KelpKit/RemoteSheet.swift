@@ -193,7 +193,6 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
             }
             UserDefaults.standard.set(hostName, forKey: "remote.host")
             close()
-            await app.refresh()
             if let rid = result.value?.id, let repo = app.repo(rid), let workspace = app.workspaces(of: repo).first {
                 app.workbench.show(workspace: workspace.id)
             }

@@ -405,7 +405,7 @@ package final class AppModel {
     }
 
     /// One at a time: two lists asked for together could come back the older last. A caller gets a list read after it asked.
-    package func refresh() async {
+    func refresh() async {
         if let running = refreshTask {
             refreshAgain = true
             await running.value

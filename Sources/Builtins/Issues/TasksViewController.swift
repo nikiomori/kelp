@@ -427,7 +427,6 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                         else {
                             return
                         }
-                        await app.refresh()
                         app.workbench.show(workspace: made.worktree.id)
                     }
                 })

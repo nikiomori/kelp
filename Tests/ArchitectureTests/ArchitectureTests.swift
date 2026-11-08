@@ -117,8 +117,8 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // (`NewTabChoices.Action`, its keys), what the run code reads of the shell (UIState's subscript, a menu item's image
     // and note, hiding a tab, a tab in the background, the window's content, a screen's name) and which sessions have no
     // tab (`isHidden`); the shell's `ScriptsMenu`, `app.scripts` and `runFile` went.
-    #expect(declared <= 402, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 402, "fewer now (\(declared)): lower the ceiling")
+    #expect(declared <= 401, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 401, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

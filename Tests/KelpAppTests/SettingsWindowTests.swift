@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import Testing
 
 @testable import BuiltinAgents
@@ -57,9 +58,19 @@ import Testing
     // One row per key: the Dock icon sat in two sections with two defaults.
     let keys = sections.flatMap(\.specs).map(\.key)
     #expect(Set(keys).count == keys.count)
-    // A drawn choice is an enum row somewhere: a renamed key would leave its pictures drawing nothing.
-    let enums = Set(sections.flatMap(\.specs).filter { $0.type == "enum" }.map(\.key))
-    #expect(SettingPictures.keys.subtracting(enums).isEmpty)
+    // A drawn choice is an enum row, and every one has its drawings, the shell's or its section's: a renamed key would
+    // leave its pictures drawing nothing.
+    let pictured = sections.flatMap(\.specs).filter { $0.look == "pictures" }
+    #expect(pictured.allSatisfy { $0.type == "enum" })
+    #expect(Set(pictured.map(\.key)) == SettingPictures.keys.union(sections.flatMap(\.pictures.keys)))
+    // What an option is called comes from where its setting is declared, the window naming no built-in's key.
+    #expect(SettingRow.label(SettingKeys.dockStrip.key, "needed", m) == "When Needed")
+    #expect(SettingRow.label(SettingKeys.ciBranchChip.key, "icon", m) == "In Place of the Branch Icon")
+    #expect(SettingRow.label(SettingKeys.serverLook.key, "fade", m) == "Stripes by the Icon")
+    #expect(SettingRow.label(SettingKeys.alertAt.key, "80", m) == "80%")
+    #expect(SettingRow.label(SettingKeys.hibernateMinutes.key, "240", m) == "After 4 Hours")
+    #expect(SettingRow.label(SettingKeys.usageLimits.key, "all", m) == "All Agents")
+    #expect(SettingRow.label(SettingKeys.textSize.key, "large", m) == "Large")   // not named: its value, capitalized
 }
 
 /// The welcome's agents: the chosen one first, the best-known after, one row at most.

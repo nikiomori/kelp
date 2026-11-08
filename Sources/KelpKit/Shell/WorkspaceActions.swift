@@ -260,7 +260,6 @@ package struct WorkspaceActions {
             }
             // Refused (an agent wrote something at the last moment): back to what's still there.
             if await app.call(WorktreeRemove(id: worktree.id)) == nil { app.workbench.show(workspace: worktree.id) }
-            await app.refresh()
         }
     }
 
@@ -302,7 +301,7 @@ package struct WorkspaceActions {
         panel.directoryURL = URL(fileURLWithPath: (repo.path as NSString).deletingLastPathComponent)
         let chosen = { (resp: NSApplication.ModalResponse) in
             guard resp == .OK, let url = panel.url else { return }
-            Task { if await app.call(RepoRelocate(id: repo.id, path: url.path)) != nil { await app.refresh() } }
+            Task { await app.call(RepoRelocate(id: repo.id, path: url.path)) }
         }
         if let host = NSApp.mainWindow {
             panel.beginSheetModal(for: host, completionHandler: chosen)
@@ -323,7 +322,6 @@ package struct WorkspaceActions {
     func move(_ chats: [String], to id: String) async {
         let from = Set(chats.compactMap { app.session($0)?.worktreeId }).subtracting([id])
         for sid in chats { await app.call(SessionMove(id: sid, worktreeId: id)) }
-        await app.refresh()
         if let sid = chats.first { app.workbench.focus(session: sid) }
         for wid in from { app.workbench.window?.editors.chatsLeft(wid) }
     }
@@ -358,7 +356,6 @@ package struct WorkspaceActions {
             await app.workbench.keepClosedTabs(of: group, on: next)
             // The agent that just ended may have left something after all: then it stays, as above.
             if await app.call(WorktreeRemove(id: id)) == nil { app.workbench.show(workspace: id) }
-            await app.refresh()
         }
     }
 
@@ -415,7 +412,6 @@ package struct WorkspaceActions {
                     await model.call(WorktreeArchive(id: id))
                 }
             }
-            await model.refresh()
         }
     }
 
@@ -431,7 +427,6 @@ package struct WorkspaceActions {
                 app.workbench.show(workspace: other.id)
             }
             if await app.call(WorktreeArchive(id: worktree.id)) != nil {
-                await app.refresh()
                 Banner.show(
                     String(localized: "“\(worktree.displayName)” archived. Window › Archived Groups brings it back."))
             }
@@ -441,7 +436,6 @@ package struct WorkspaceActions {
     func unarchive(_ id: String) {
         Task {
             await app.call(WorktreeUnarchive(id: id))
-            await app.refresh()
             app.workbench.show(workspace: id)
         }
     }

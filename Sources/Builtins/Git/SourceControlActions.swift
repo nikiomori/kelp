@@ -292,7 +292,11 @@ extension SourceControlController {
             guard let outcome = await app.call(GitMerge(id: wid)) else { return }
             if outcome.merged {
                 Banner.show(String(localized: "Merged"))
-                await app.refresh()
+                // The base moved in the project's own folder: its git and this branch's are read again now.
+                let project = app.worktree(wid).flatMap { w in
+                    app.worktrees.first { $0.repoId == w.repoId && $0.path == app.repo(w.repoId)?.path }
+                }
+                for id in [wid, project?.id].compactMap({ $0 }) { app.watchAgain(.git, id) }
                 return
             }
             let files = outcome.conflicts

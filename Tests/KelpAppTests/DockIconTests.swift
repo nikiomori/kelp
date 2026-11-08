@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Testing
 
+@testable import BuiltinAgents
 @testable import KelpKit
 
 private func session(_ status: AgentStatus, unread: Bool = false, parent: String? = nil, agent: String = "claude")
@@ -25,9 +26,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, parent: String
 }
 
 @MainActor @Test func thePlanOnTheDockIconTurnsAtTheWarningLevel() {
-    #expect(DockIcon.usage(79.6, warnAt: 80) == .usage(percent: 80, high: false))   // reads 80, is under it
-    #expect(DockIcon.usage(80, warnAt: 80) == .usage(percent: 80, high: true))
-    #expect(DockIcon.usage(99, warnAt: nil) == .usage(percent: 99, high: false))   // warnings are off
+    #expect(LimitWatch.dockFace(79.6, warnAt: 80) == .usage(percent: 80, high: false))   // reads 80, is under it
+    #expect(LimitWatch.dockFace(80, warnAt: 80) == .usage(percent: 80, high: true))
+    #expect(LimitWatch.dockFace(99, warnAt: nil) == .usage(percent: 99, high: false))   // warnings are off
 }
 
 @MainActor @Test func theDockMenuAnswersAPermissionWithoutOpeningKelp() async throws {
