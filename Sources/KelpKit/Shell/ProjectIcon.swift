@@ -27,11 +27,21 @@ package enum ProjectIcon {
             view.shadow = nil
             return
         }
-        let image = image(for: repo, app: app)
+        let image = image(for: repo, app: app), color = app.arrangement.iconColor(folder: repo)
+        // The same project's colour changed where it shows (a dot of its menu under the pointer, a pick, the pointer
+        // gone): it fades over, and a colour coming flares. A row reused for another project just shows it.
+        let recolored =
+            initial && showing.object(forKey: view) as String? == repo && view.shadow?.shadowColor != color?.glow
+        if recolored { view.crossfade(color == nil ? Motion.fast * 2 / 3 : Motion.fast) }
         if initial || cache[repo] != nil { view.image = image }
         looking[repo]?.append(Weak(view: view, showing: view.image))
-        if initial { halo(on: view, app.arrangement.iconColor(folder: repo)) }
+        guard initial else { return }
+        showing.setObject(repo as NSString, forKey: view)
+        halo(on: view, color)
+        if recolored, color != nil { flare(view) }
     }
+    /// Which project each view showed last.
+    private static let showing = NSMapTable<NSImageView, NSString>.weakToStrongObjects()
 
     /// The Icon style's mark: the project's colour glows around its icon, whatever colours that has itself.
     private static func halo(on view: NSImageView, _ color: ProjectColor?) {
@@ -43,6 +53,17 @@ package enum ProjectIcon {
             glow.shadowBlurRadius = Metrics.iconGlow
             return glow
         }
+    }
+
+    /// A glow coming comes wider and settles to its own blur, so the row being coloured is plain to see.
+    private static func flare(_ view: NSImageView) {
+        guard !Motion.reduced, let layer = view.layer else { return }
+        let blur = CAKeyframeAnimation(keyPath: "shadowRadius")   // NSShadow's blur is the layer's radius, one to one
+        blur.values = [0, Metrics.iconGlow * 1.8, Metrics.iconGlow]
+        blur.keyTimes = [0, 0.4, 1]
+        blur.duration = Motion.appear
+        blur.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(blur, forKey: "flare")
     }
 
     /// The project's icon, or its initial while the icon is looked for off the main thread (dozens of folders listed, on

@@ -7,15 +7,28 @@ import DesignKit
 final class ColorSwatches: NSView {
     private static let side: CGFloat = 18, gap: CGFloat = 4, inset: CGFloat = 12, height: CGFloat = 26   // a dot lines up with the items' text
 
+    private let colors: [ProjectColor?] = [nil] + ProjectColor.allCases
+    private var swatches: [Swatch] = []
+    private let previewing: (ProjectColor?) -> Void, left: () -> Void
     let pick: (ProjectColor?) -> Void
+    /// The dot under the pointer. The row is one area, the nearest dot taking the gaps between: a dot of its own each, the
+    /// preview went back to the saved colour over every gap, and the row flashed it between two dots.
+    private var under: Int? {
+        didSet {
+            guard under != oldValue else { return }
+            for (index, swatch) in swatches.enumerated() { swatch.hovering = index == under }
+            if let under { previewing(colors[under]) } else { left() }
+        }
+    }
 
     /// `previewing` is told the colour under the pointer, `left` that the pointer has gone from the dots.
     init(
         chosen: ProjectColor?, previewing: @escaping (ProjectColor?) -> Void, left: @escaping () -> Void,
         pick: @escaping (ProjectColor?) -> Void
     ) {
+        self.previewing = previewing
+        self.left = left
         self.pick = pick
-        let colors: [ProjectColor?] = [nil] + ProjectColor.allCases
         let width = 2 * Self.inset + CGFloat(colors.count) * Self.side + CGFloat(colors.count - 1) * Self.gap
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: Self.height))
         for (index, color) in colors.enumerated() {
@@ -24,80 +37,142 @@ final class ColorSwatches: NSView {
                 width: Self.side,
                 height: Self.side)
             let swatch = Swatch(frame: frame, color: color, chosen: color != nil && color == chosen)
-            swatch.entered = { previewing(color) }
-            swatch.exited = left
-            swatch.pressed = { [weak self] in
-                pick(color)
-                self?.enclosingMenuItem?.menu?.cancelTracking()
-            }
+            swatch.pressed = { [weak self] in self?.choose(index) }
             addSubview(swatch)
+            swatches.append(swatch)
         }
+        // Events reach a menu's views while it tracks, whatever the app's state, so not `.activeInActiveApp`.
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect], owner: self)
+        )
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private func index(at event: NSEvent) -> Int {
+        let x = convert(event.locationInWindow, from: nil).x
+        let slot = Int(((x - Self.inset + Self.gap / 2) / (Self.side + Self.gap)).rounded(.down))
+        return min(max(slot, 0), colors.count - 1)
+    }
+    private func choose(_ index: Int) {
+        pick(colors[index])
+        enclosingMenuItem?.menu?.cancelTracking()
+    }
+
+    override func mouseEntered(with event: NSEvent) { under = index(at: event) }
+    override func mouseMoved(with event: NSEvent) { under = index(at: event) }
+    override func mouseExited(with event: NSEvent) { under = nil }
+    override func mouseUp(with event: NSEvent) { choose(index(at: event)) }
+    override func rightMouseUp(with event: NSEvent) { choose(index(at: event)) }   // the menu came with a right-click, held and let go here
 }
 
-/// One dot, a little bigger under the pointer. nil is None: an empty ring with a stroke through it.
+/// One dot: under the pointer it grows with a little spring and glows in its own colour. nil is None: an empty ring with
+/// a stroke through it. A layer of its own, so it scales about its centre.
 @MainActor
 private final class Swatch: NSView {
+    private static let diameter: CGFloat = 14, grown: CGFloat = 16
     private let color: ProjectColor?, chosen: Bool
-    var entered: () -> Void = {}, exited: () -> Void = {}, pressed: () -> Void = {}
-    private var hovering = false { didSet { needsDisplay = true } }
+    private let dot = CAShapeLayer(), tick = CAShapeLayer()
+    var pressed: () -> Void = {}
+    var hovering = false { didSet { if hovering != oldValue { grow() } } }
 
     init(frame: NSRect, color: ProjectColor?, chosen: Bool) {
         self.color = color
         self.chosen = chosen
         super.init(frame: frame)
-        // Events reach a menu's views while it tracks, whatever the app's state, so not `.activeInActiveApp`.
-        addTrackingArea(
-            NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+        wantsLayer = true
+        let side = Self.diameter, box = CGRect(x: 0, y: 0, width: side, height: side)
+        dot.frame = CGRect(x: (frame.width - side) / 2, y: (frame.height - side) / 2, width: side, height: side)
+        if color == nil {   // None
+            let path = CGMutablePath()
+            path.addEllipse(in: box.insetBy(dx: 0.5, dy: 0.5))
+            path.move(to: CGPoint(x: 3, y: 3))
+            path.addLine(to: CGPoint(x: side - 3, y: side - 3))
+            dot.path = path
+            dot.lineWidth = 1
+        } else {
+            dot.path = CGPath(ellipseIn: box, transform: nil)
+            dot.shadowPath = dot.path
+            dot.shadowOffset = .zero
+            dot.shadowRadius = 3
+            dot.shadowOpacity = 0
+        }
+        if chosen {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: side / 2 - 3.5, y: side / 2))
+            path.addLine(to: CGPoint(x: side / 2 - 1, y: side / 2 - 2.5))
+            path.addLine(to: CGPoint(x: side / 2 + 3.5, y: side / 2 + 2.5))
+            tick.path = path
+            tick.fillColor = nil
+            tick.lineWidth = 1.8
+            tick.lineCap = .round
+            tick.lineJoin = .round
+            dot.addSublayer(tick)
+        }
+        layer?.addSublayer(dot)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(color?.title ?? String(localized: "None"))
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with event: NSEvent) {
-        hovering = true
-        entered()
-    }
-    override func mouseExited(with event: NSEvent) {
-        hovering = false
-        exited()
-    }
-    override func mouseUp(with event: NSEvent) { pressed() }
-    override func rightMouseUp(with event: NSEvent) { pressed() }   // the menu came with a right-click, held and let go here
+    /// The row takes the pointer (ColorSwatches.under), the gaps between dots too.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override func accessibilityPerformPress() -> Bool {
         pressed()
         return true
     }
 
-    override func draw(_ dirty: NSRect) {
-        let diameter: CGFloat = hovering ? 16 : 14
-        let dot = NSRect(
-            x: (bounds.width - diameter) / 2, y: (bounds.height - diameter) / 2, width: diameter, height: diameter)
-        guard let color else {
-            NSColor.secondaryLabelColor.setStroke()
-            let ring = NSBezierPath(ovalIn: dot.insetBy(dx: 0.5, dy: 0.5))
-            ring.lineWidth = 1
-            ring.stroke()
-            let stroke = NSBezierPath()
-            stroke.move(to: NSPoint(x: dot.minX + 3, y: dot.minY + 3))
-            stroke.line(to: NSPoint(x: dot.maxX - 3, y: dot.maxY - 3))
-            stroke.lineWidth = 1
-            stroke.stroke()
-            return
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {   // the menu's appearance is current here
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if let color {
+            dot.fillColor = color.color.cgColor
+            dot.shadowColor = color.color.cgColor
+        } else {
+            dot.fillColor = nil
+            dot.strokeColor = NSColor.secondaryLabelColor.cgColor
         }
-        color.color.setFill()
-        NSBezierPath(ovalIn: dot).fill()
-        guard chosen else { return }
-        NSColor.windowBackgroundColor.setStroke()   // dark on the pale dots of a dark menu, pale on the deep ones of a light one
-        let tick = NSBezierPath()
-        tick.move(to: NSPoint(x: dot.midX - 3.5, y: dot.midY))
-        tick.line(to: NSPoint(x: dot.midX - 1, y: dot.midY - 2.5))
-        tick.line(to: NSPoint(x: dot.midX + 3.5, y: dot.midY + 2.5))
-        tick.lineWidth = 1.8
-        tick.lineCapStyle = .round
-        tick.lineJoinStyle = .round
-        tick.stroke()
+        // Dark on the pale dots of a dark menu, pale on the deep ones of a light one.
+        tick.strokeColor = NSColor.windowBackgroundColor.cgColor
+        CATransaction.commit()
+    }
+
+    /// 14 → 16 pt with a spring a touch past it, and its glow, over `Motion.fast`; back in two thirds of that.
+    private func grow() {
+        let scale = hovering ? Self.grown / Self.diameter : 1, glow: Float = hovering && color != nil ? 0.8 : 0
+        let fromScale =
+            dot.presentation()?.value(forKeyPath: "transform.scale") ?? dot.value(forKeyPath: "transform.scale")
+        let fromGlow = dot.presentation()?.shadowOpacity ?? dot.shadowOpacity
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        dot.setValue(scale, forKeyPath: "transform.scale")
+        dot.shadowOpacity = glow
+        CATransaction.commit()
+        guard !Motion.reduced else { return }
+        let size = CABasicAnimation(keyPath: "transform.scale")
+        if hovering {
+            let spring = CASpringAnimation(keyPath: "transform.scale")
+            spring.mass = 1
+            spring.stiffness = 500
+            spring.damping = 20
+            spring.duration = spring.settlingDuration
+            spring.fromValue = fromScale
+            spring.toValue = scale
+            dot.add(spring, forKey: "size")
+        } else {
+            size.fromValue = fromScale
+            size.toValue = scale
+            size.duration = Motion.fast * 2 / 3
+            size.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            dot.add(size, forKey: "size")
+        }
+        let shine = CABasicAnimation(keyPath: "shadowOpacity")
+        shine.fromValue = fromGlow
+        shine.toValue = glow
+        shine.duration = hovering ? Motion.fast : Motion.fast * 2 / 3
+        shine.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        dot.add(shine, forKey: "glow")
     }
 }
