@@ -154,10 +154,13 @@ public enum Subprocess {
 
     /// When `pid` started (µs since 1970); nil once there's no such process.
     public static func started(_ pid: pid_t) -> UInt64? {
+        bsdinfo(pid).map { $0.pbi_start_tvsec * 1_000_000 + $0.pbi_start_tvusec }
+    }
+
+    private static func bsdinfo(_ pid: pid_t) -> proc_bsdinfo? {
         var info = proc_bsdinfo()
         let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
-        return info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec
+        return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size ? info : nil
     }
 
     /// Its parent's pid; nil once there's no such process. By sysctl, which reads another account's process too
@@ -175,10 +178,7 @@ public enum Subprocess {
 
     /// Its controlling terminal's device; nil for none (a program started by launchd, or `setsid`), or no such process.
     public static func terminal(_ pid: pid_t) -> UInt32? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size, info.e_tdev != UInt32.max else { return nil }
-        return info.e_tdev
+        bsdinfo(pid).map(\.e_tdev).flatMap { $0 == UInt32.max ? nil : $0 }
     }
 
     /// The user it runs as; nil once there's no such process. By sysctl: proc_pidinfo refuses another account's process.
@@ -215,12 +215,7 @@ public enum Subprocess {
 
     /// Ended, not reaped yet: nothing left to stop. Asked of sysctl: `proc_pidinfo` has no answer for a zombie, so it
     /// never said yes, and `stopTreeNow` waited out its grace for one.
-    public static func isZombie(_ pid: pid_t) -> Bool {
-        var info = kinfo_proc()
-        var size = MemoryLayout<kinfo_proc>.size
-        var mib = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
-        return sysctl(&mib, 4, &info, &size, nil, 0) == 0 && size > 0 && info.kp_proc.p_stat == SZOMB
-    }
+    public static func isZombie(_ pid: pid_t) -> Bool { kinfo(pid).map { $0.kp_proc.p_stat == SZOMB } ?? false }
 
     /// `pid` and its descendants, parents before children.
     public static func tree(_ pid: pid_t) -> [pid_t] {

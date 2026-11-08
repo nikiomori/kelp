@@ -136,7 +136,9 @@ extension GitHubChecks: Handled {
 }
 extension GitHubFailedLog: Handled {
     func handle(_ forges: Forges) throws -> String {
-        try GitHub.failedLog(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, runId: runId ?? 0)
+        try CIRuns.report(
+            cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, run: runId ?? 0, attempt: nil
+        ).forAgent
     }
 }
 extension GitHubReviewComments: Handled {

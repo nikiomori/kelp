@@ -154,17 +154,14 @@ extension Git {
             }
         }
         if info.current == nil {
-            let symbolic = try run(["symbolic-ref", "--short", "-q", "HEAD"], cwd: path, ok: [0, 1], remotes: remotes)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let symbolic = try line(["symbolic-ref", "--short", "-q", "HEAD"], cwd: path, ok: [0, 1], remotes: remotes)
             info.current = Git.isRevision(symbolic) ? symbolic : nil
-            info.head = (try? run(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes))?.trimmingCharacters(
-                in: .whitespacesAndNewlines)
+            info.head = try? line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
         }
         // No upstream (never pushed, or its branch deleted): ahead is what's on no remote yet, as the graph marks it.
         if info.upstream == nil, info.current != nil, info.head != nil, !info.remote.isEmpty,
             let count = Int(
-                (try? run(["rev-list", "--count", "HEAD", "--not", "--remotes"], cwd: path, remotes: remotes))?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+                (try? line(["rev-list", "--count", "HEAD", "--not", "--remotes"], cwd: path, remotes: remotes)) ?? "")
         {
             info.ahead = count
         }

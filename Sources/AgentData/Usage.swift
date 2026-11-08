@@ -8,12 +8,7 @@ public struct TokenCounts: Codable, Sendable, Equatable {
             input: lhs.input + rhs.input, output: lhs.output + rhs.output,
             cacheWrite: lhs.cacheWrite + rhs.cacheWrite, cacheRead: lhs.cacheRead + rhs.cacheRead)
     }
-    public static func += (lhs: inout Self, rhs: Self) {
-        lhs.input += rhs.input
-        lhs.output += rhs.output
-        lhs.cacheWrite += rhs.cacheWrite
-        lhs.cacheRead += rhs.cacheRead
-    }
+    public static func += (lhs: inout Self, rhs: Self) { lhs = lhs + rhs }
 }
 
 /// USD per million tokens.

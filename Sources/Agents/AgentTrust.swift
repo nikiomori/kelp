@@ -71,10 +71,4 @@ public enum AgentTrust {
             try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
         }
     }
-
-    /// Symlinks resolved where the folder exists (/tmp is /private/tmp), no trailing slash.
-    public static func normal(_ folder: String) -> String {
-        let real = Paths.real(folder) ?? folder
-        return real.count > 1 && real.hasSuffix("/") ? String(real.dropLast()) : real
-    }
 }

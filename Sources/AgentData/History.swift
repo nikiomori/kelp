@@ -251,9 +251,7 @@ enum JSONL {
     /// ISO-8601 string (with or without fractional seconds) or epoch seconds.
     static func date(_ value: Any?) -> Date? {
         if let seconds = value as? NSNumber { return Date(timeIntervalSince1970: seconds.doubleValue) }
-        guard let string = value as? String else { return nil }
-        return (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string))
-            ?? (try? Date.ISO8601FormatStyle().parse(string))
+        return (value as? String).flatMap(CIRuns.date)
     }
 
     /// Text a human typed: a string or the text blocks of a content array, minus injected `<tag>` and AGENTS.md blocks.

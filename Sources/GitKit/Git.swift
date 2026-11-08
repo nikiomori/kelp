@@ -32,6 +32,15 @@ extension Git {
                 remotes: remotes), as: UTF8.self)
     }
 
+    /// `run`'s output without the newline it ends with (and any space around it): a hash, a name, a path, a count.
+    public static func line(
+        _ args: [String], cwd: String, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
+        env extra: [String: String] = [:], remotes: Remotes = .none
+    ) throws -> String {
+        try run(args, cwd: cwd, executable: executable, ok: ok, env: extra, remotes: remotes)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// `run`, its output as the bytes git wrote (a diff of a file that isn't UTF-8 goes back to `git apply` unchanged).
     /// More than `Subprocess.outputLimit` of it is an error: nothing here works on a part as if it were the whole.
     @discardableResult
@@ -136,8 +145,7 @@ extension Git {
     static func literal(_ files: [String]) -> [String] { files.map { ":(literal)" + $0 } }
 
     public static func root(of path: String, remotes: Remotes = .none) throws -> String {
-        try run(["rev-parse", "--show-toplevel"], cwd: path, remotes: remotes).trimmingCharacters(
-            in: .whitespacesAndNewlines)
+        try line(["rev-parse", "--show-toplevel"], cwd: path, remotes: remotes)
     }
 
     /// A branch name Kelp may pass to git as a revision: never one that reads as an option. Git won't create such a
@@ -157,9 +165,8 @@ extension Git {
 
     /// Default branch: origin/HEAD if set, else current branch of the main checkout.
     public static func defaultBranch(repo: String, remotes: Remotes = .none) -> String {
-        if let ref = try? run(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd: repo, remotes: remotes) {
-            let branch = String(
-                ref.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 != "/" }).dropFirst())
+        if let ref = try? line(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd: repo, remotes: remotes) {
+            let branch = String(ref.drop(while: { $0 != "/" }).dropFirst())
             if isRevision(branch) { return branch }
         }
         for branch in ["main", "master"]
@@ -180,8 +187,7 @@ extension Git {
             if name == ".invalid" { name = "" }   // a reftable repository's stub HEAD: the real one is in its tables
         }
         if name.isEmpty {
-            name = try run(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes).trimmingCharacters(
-                in: .whitespacesAndNewlines)
+            name = try line(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes)
         }
         guard isRevision(name) else {
             throw GitError(

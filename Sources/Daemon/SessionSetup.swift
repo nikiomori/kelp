@@ -192,8 +192,7 @@ final class SessionSetup: Sendable {
         // out in it.)
         var project: String?
         if let wid = worktreeId, let worktree = try? store.worktree(wid), let repo = try? store.repo(worktree.repoId),
-            AgentTrust.normal(cwd) == AgentTrust.normal(worktree.path)
-                || AgentTrust.normal(cwd).hasPrefix(AgentTrust.normal(worktree.path) + "/"),
+            IDE.inside(cwd, worktree.path),
             !AgentConfig.changed(worktree.path, base: repo.baseBranch, remotes: remotes)
         {
             project = repo.path

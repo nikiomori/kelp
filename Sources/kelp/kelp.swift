@@ -32,7 +32,6 @@ let usage = """
       hook <working|waiting|done>          (called by agent hooks inside a session)
       report <working|blocked|done|error|idle|clear> [message] [--progress 0-100] [--kind permission|question|auth]
                                            inside a session: what you're doing, on your row and tab
-      install | uninstall                  launchd agent for the daemon
       github prs|issues [--filter mine|review] | checks [pr] | pr-create [--title t] [--draft] | pr-merge | issue <n> [--send]
       linear login <key> | tasks | start <ENG-123> [--send]
                                            issue / start: the brief is typed into the new agent, not sent (--send sends it)
@@ -154,18 +153,6 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
     fail("no repo here; pass --repo <id> or run `kelp repo add`")
 }
 
-func plist() -> String {
-    """
-    <?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-    <plist version="1.0"><dict>
-      <key>Label</key><string>dev.kelp.daemon</string>
-      <key>ProgramArguments</key><array><string>\(daemonBinary())</string></array>
-      <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
-    </dict></plist>
-    """
-}
-
 @main struct Main {
     static func main() async {
         if CommandLine.arguments.count > 2, CommandLine.arguments[1] == "__ctty" { ctty() }
@@ -177,17 +164,6 @@ func plist() -> String {
         let cmd = args.removeFirst()
         do {
             switch cmd {
-            case "install":
-                let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
-                    "Library/LaunchAgents/dev.kelp.daemon.plist")
-                try plist().write(to: plistURL, atomically: true, encoding: .utf8)
-                _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["load", plistURL.path])
-                print("installed \(plistURL.path)")
-            case "uninstall":
-                let plistURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
-                    "Library/LaunchAgents/dev.kelp.daemon.plist")
-                _ = try? Process.run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["unload", plistURL.path])
-                try? FileManager.default.removeItem(at: plistURL)
             case "attach":
                 let detachKey = has("--detach")
                 guard let id = args.first else { fail("kelp attach <session>") }

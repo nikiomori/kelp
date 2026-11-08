@@ -11,8 +11,7 @@ extension Git {
         if remotes.of(cwd) != nil {
             throw GitError(args: ["add", "-A"], status: 1, stderr: "Snapshots aren't taken in remote projects.")
         }
-        let rel = try run(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes).trimmingCharacters(
-            in: .whitespacesAndNewlines)
+        let rel = try line(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes)
         let real = URL(fileURLWithPath: rel, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).path
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-index-\(UUID().uuidString)").path
         defer { try? FileManager.default.removeItem(atPath: copy) }
@@ -32,8 +31,7 @@ extension Git {
             quiet + ["add", "-A"]
                 + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 }),
             cwd: cwd, env: env, remotes: remotes)
-        return try run(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes).trimmingCharacters(
-            in: .whitespacesAndNewlines)
+        return try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
     }
 
     /// Files changed since a snapshot, with line counts ("Changed 3 files +40 −5" after an agent's turn).

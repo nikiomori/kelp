@@ -242,19 +242,23 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     static func problems(_ params: JSONValue) -> (path: String, found: [CodeProblem])? {
         guard let uri = params["uri"]?.string, let path = URL(string: uri)?.path else { return nil }
         let found = (params["diagnostics"]?.array ?? []).compactMap { diagnostic -> CodeProblem? in
-            guard let start = diagnostic["range"]?["start"], let end = diagnostic["range"]?["end"],
-                let line = start["line"]?.int, let column = start["character"]?.int,
-                let endLine = end["line"]?.int, let endColumn = end["character"]?.int,
-                let message = diagnostic["message"]?.string
-            else { return nil }
+            guard let span = span(diagnostic["range"]), let message = diagnostic["message"]?.string else { return nil }
             let severity = diagnostic["severity"]?.int ?? 1
             return severity <= 2
                 ? CodeProblem(
-                    line: line, column: column, endLine: endLine, endColumn: endColumn, isError: severity == 1,
-                    message: message)
+                    line: span.line, column: span.column, endLine: span.endLine, endColumn: span.endColumn,
+                    isError: severity == 1, message: message)
                 : nil
         }
         return (path, found)
+    }
+
+    /// An LSP range's start and end, nil when any of the four is missing.
+    private static func span(_ range: JSONValue?) -> (line: Int, column: Int, endLine: Int, endColumn: Int)? {
+        guard let start = range?["start"], let end = range?["end"], let line = start["line"]?.int,
+            let column = start["character"]?.int, let endLine = end["line"]?.int, let endColumn = end["character"]?.int
+        else { return nil }
+        return (line, column, endLine, endColumn)
     }
 
     static func uri(_ path: String) -> JSONValue { .string(URL(fileURLWithPath: path).absoluteString) }
@@ -357,12 +361,11 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     static func completions(_ result: JSONValue) -> [CodeCompletion] {
         func edit(_ textEdit: JSONValue, text: String? = nil) -> CodeEdit? {
-            guard let range = textEdit["range"] ?? textEdit["replace"], let line = range["start"]?["line"]?.int,
-                let column = range["start"]?["character"]?.int,
-                let endLine = range["end"]?["line"]?.int, let endColumn = range["end"]?["character"]?.int,
+            guard let span = span(textEdit["range"] ?? textEdit["replace"]),
                 let newText = text ?? textEdit["newText"]?.string
             else { return nil }
-            return CodeEdit(line: line, column: column, endLine: endLine, endColumn: endColumn, text: newText)
+            return CodeEdit(
+                line: span.line, column: span.column, endLine: span.endLine, endColumn: span.endColumn, text: newText)
         }
         let items = (result.array ?? result["items"]?.array ?? []).sorted {
             ($0["sortText"]?.string ?? "") < ($1["sortText"]?.string ?? "")
@@ -446,12 +449,9 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     static func fileEdits(_ edit: JSONValue) -> [CodeFileEdit] {
         func edits(_ list: JSONValue?) -> [CodeEdit] {
             (list?.array ?? []).compactMap { textEdit in
-                guard let start = textEdit["range"]?["start"], let end = textEdit["range"]?["end"],
-                    let line = start["line"]?.int, let column = start["character"]?.int,
-                    let endLine = end["line"]?.int, let endColumn = end["character"]?.int,
-                    let text = textEdit["newText"]?.string
-                else { return nil }
-                return CodeEdit(line: line, column: column, endLine: endLine, endColumn: endColumn, text: text)
+                guard let span = span(textEdit["range"]), let text = textEdit["newText"]?.string else { return nil }
+                return CodeEdit(
+                    line: span.line, column: span.column, endLine: span.endLine, endColumn: span.endColumn, text: text)
             }
         }
         var out: [CodeFileEdit] = []

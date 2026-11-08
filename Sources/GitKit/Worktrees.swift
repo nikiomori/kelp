@@ -60,9 +60,7 @@ extension Git {
                 try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes)
             } catch { throw github }
         }
-        func line(_ args: [String]) throws -> String {
-            try run(args, cwd: repo, ok: [0, 1], remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        func line(_ args: [String]) throws -> String { try Git.line(args, cwd: repo, ok: [0, 1], remotes: remotes) }
         let head = try line(["rev-parse", "FETCH_HEAD"])
         // Kept past its branch (`holdsPullRequest`): a workspace made later on top of it is the PR's code too.
         try run(["update-ref", "refs/kelp/pr/\(number)", head], cwd: repo, remotes: remotes)
@@ -326,17 +324,17 @@ extension Git {
 
     /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (no commits yet: 0).
     public static func commitsOnNoBranch(_ path: String, remotes: Remotes = .none) -> Int {
-        let out = try? run(
+        let out = try? line(
             ["rev-list", "--count", "HEAD", "--not", "--branches", "--remotes"], cwd: path, remotes: remotes)
-        return Int(out?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") ?? 0
+        return Int(out ?? "") ?? 0
     }
 
     /// Commits on `branch` that no other local branch and no remote branch has: what deleting it would lose.
     public static func onlyOnBranch(repo: String, _ branch: String, remotes: Remotes = .none) throws -> Int {
         // --exclude before --branches takes the branch's name without refs/heads/ (with it, nothing is excluded).
-        let out = try run(
+        let out = try line(
             ["rev-list", "--count", "refs/heads/" + branch, "--not", "--exclude=" + branch, "--branches", "--remotes"],
             cwd: repo, remotes: remotes)
-        return Int(out.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        return Int(out) ?? 0
     }
 }

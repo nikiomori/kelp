@@ -63,7 +63,8 @@ extension CIRuns {
     /// Every step of a job.
     public static func fullLog(cwd: String, job: Int) throws -> String {
         if GitLab.isGitLab(cwd: cwd) {
-            return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd))
+            return readable(
+                String(bytes: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd), encoding: .utf8) ?? "")
         }
         return readable(
             String(decoding: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), as: UTF8.self))
@@ -81,20 +82,15 @@ extension CIRuns {
     }
 
     private static func failedText(cwd: String, job: Int) throws -> String {
-        if GitLab.isGitLab(cwd: cwd) {
-            return wholeLog(trace: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd))
-        }
-        let failed =
-            (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap {
+        if !GitLab.isGitLab(cwd: cwd),
+            let failed = (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap({
                 String(bytes: $0, encoding: .utf8)
-            } ?? ""
-        if !failed.isEmpty { return readable(failed) }
-        return readable(
-            String(bytes: try GitHub.gh(["run", "view", "--job", String(job), "--log"], cwd: cwd), encoding: .utf8)
-                ?? "")
+            }), !failed.isEmpty
+        {
+            return readable(failed)
+        }
+        return try fullLog(cwd: cwd, job: job)
     }
-
-    private static func wholeLog(trace: Data) -> String { readable(String(bytes: trace, encoding: .utf8) ?? "") }
 
     /// gh writes every log line as "job⇥step⇥timestamp text": keep the text, with a "▸ step" line where each step
     /// begins, and drop terminal color codes and the runner's ##[group] markers.

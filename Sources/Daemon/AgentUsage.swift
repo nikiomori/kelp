@@ -22,7 +22,7 @@ final class AgentUsage: Sendable {
     let agentHomes = OSAllocatedUnfairLock(
         initialState: (claude: ClaudeHistory.defaultRoot, codex: CodexHistory.defaultRoot))
     /// Latest Claude plan usage by kind ("weekly", "session"…), as printed by Claude Code.
-    let claudeLimits = OSAllocatedUnfairLock<[String: (reading: ClaudeLimits.Reading, at: Date)]>(initialState: [:])
+    let claudeLimits = OSAllocatedUnfairLock<[String: UsageGet.Limit]>(initialState: [:])
     /// From the agents' own /usage screens, by agent id (UsageProbe).
     let plans = OSAllocatedUnfairLock<[String: PlanState]>(initialState: [:])
     /// Codex's limits as its app server last gave them, and when it was last asked (UsageProbe).
@@ -50,7 +50,13 @@ final class AgentUsage: Sendable {
     }
 
     func recordLimits(_ readings: [ClaudeLimits.Reading]) {
-        claudeLimits.withLock { for reading in readings { $0[reading.kind] = (reading, Date()) } }
+        let now = Date().timeIntervalSince1970
+        claudeLimits.withLock {
+            for var reading in readings {
+                reading.observedAt = now
+                $0[reading.kind] = reading
+            }
+        }
     }
 
     /// Default roots plus each account profile's config dir.
@@ -213,17 +219,12 @@ final class AgentUsage: Sendable {
         refreshPlansIfStale()
         refreshCodexIfStale()
         let plans = self.plans.withLock { $0 }
-        result.plans = plans.filter { !$0.value.readings.isEmpty }.mapValues { plan in
-            plan.readings.map { UsageGet.Limit(kind: $0.kind, percent: $0.percent, resets: $0.resets) }
-        }
+        result.plans = plans.filter { !$0.value.readings.isEmpty }.mapValues(\.readings)
         // When each plan was last read: an old reading is shown as old, not as today's.
         result.plansReadAt = plans.compactMapValues { s in s.readAt.map(\.timeIntervalSince1970) }
-        let fresh = claudeLimits.withLock { $0 }.values.filter { Date().timeIntervalSince($0.at) < 12 * 3600 }
-        result.claudeLimits = fresh.sorted { $0.reading.kind < $1.reading.kind }.map { limit in
-            UsageGet.Limit(
-                kind: limit.reading.kind, percent: limit.reading.percent, resets: limit.reading.resets,
-                observedAt: limit.at.timeIntervalSince1970)
-        }
+        let now = Date().timeIntervalSince1970
+        result.claudeLimits = claudeLimits.withLock { $0 }.values.filter { now - ($0.observedAt ?? 0) < 12 * 3600 }
+            .sorted { $0.kind < $1.kind }
         return result
     }
 

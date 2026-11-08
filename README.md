@@ -212,7 +212,6 @@ kelp vm run linux -- make test                         # in a machine, in this p
 kelp artifact new doc "Release plan"                   # a page in .kelp/artifacts, opened beside you
 kelp diff | commit "msg" | merge | push
 kelp ext search | install <id>                         # the extension library
-kelp install                                           # run the daemon as a LaunchAgent
 kelp schema session.create                             # the daemon's API; --openrpc for all of it
 ```
 

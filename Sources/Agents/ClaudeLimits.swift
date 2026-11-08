@@ -1,13 +1,11 @@
+import Core
 import Foundation
 
 /// Claude Code prints plan usage in its UI ("You've used 80% of your weekly limit · resets Oct 20 at 5am (Europe/…)").
 /// There's no other local source for those percentages, so sessions read them from their own output.
 public enum ClaudeLimits {
-    public struct Reading: Equatable, Sendable {
-        public var kind: String   // "weekly", "session", "5-hour", "Opus weekly"…
-        public var percent: Double
-        public var resets: String?
-    }
+    /// `kind`: "weekly", "session", "5-hour", "Opus weekly"…; `observedAt` is nil from a parse.
+    public typealias Reading = UsageGet.Limit
 
     private static let used = try? NSRegularExpression(
         pattern:

@@ -47,8 +47,7 @@ extension GitHub {
     /// For Settings: is gh installed, and who is signed in (nil: not signed in, or no network to ask).
     public static func account() -> (installed: Bool, user: String?) {
         guard let exe = ghPath else { return (false, nil) }
-        let login = (try? Git.run(["api", "user", "--jq", ".login"], cwd: NSHomeDirectory(), executable: exe))?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let login = try? Git.line(["api", "user", "--jq", ".login"], cwd: NSHomeDirectory(), executable: exe)
         return (true, login?.isEmpty == false ? login : nil)
     }
 
@@ -108,11 +107,6 @@ extension GitHub {
             return try parseChecks(
                 gh(["pr", "checks", String(pr), "--json", "name,state,link,bucket,workflow"], cwd: cwd))
         } catch let error as GitHubError where error.stderr.contains("no checks reported") { return [] }
-    }
-
-    /// Failed-step logs of a workflow run, last ~12 KB.
-    public static func failedLog(cwd: String, runId: Int) throws -> String {
-        try CIRuns.report(cwd: cwd, run: runId, attempt: nil).forAgent
     }
 
     /// Inline review comments plus non-empty top-level review bodies.

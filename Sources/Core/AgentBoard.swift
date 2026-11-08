@@ -16,7 +16,7 @@ public enum AgentBoard {
             return repos.first { $0.id == repo }?.name
         }
         func rank(_ session: Session) -> Int { order.firstIndex(of: session.status) ?? order.count }
-        let running = sessions.filter { isAgent($0) && order.contains($0.status) }
+        let running = sessions.filter { $0.isAgent && order.contains($0.status) }
         return running.sorted { (rank($0), $0.createdAt, $0.id) < (rank($1), $1.createdAt, $1.id) }.map { session in
             let title =
                 (session.parent.flatMap { byId[$0] }.map { $0.displayTitle + " › " } ?? "") + session.displayTitle
@@ -30,11 +30,7 @@ public enum AgentBoard {
 
     /// Agents stopped to save memory: nothing happens in them, so they're counted, not listed.
     public static func paused(_ sessions: [Session]) -> Int {
-        sessions.filter { isAgent($0) && $0.status == .paused }.count
-    }
-
-    private static func isAgent(_ session: Session) -> Bool {
-        session.agent != nil && session.agent != "shell" && session.agent != "custom"
+        sessions.filter { $0.isAgent && $0.status == .paused }.count
     }
 
     /// Titles and summaries come from what agents print: on a real terminal an escape in them would be obeyed.

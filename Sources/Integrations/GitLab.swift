@@ -27,14 +27,12 @@ public enum GitLab {
 
     /// The checkout's origin is a GitLab (gitlab.com or a host with "gitlab" in its name).
     public static func isGitLab(cwd: String) -> Bool {
-        isGitLab(remote: (try? Git.run(["remote", "get-url", "origin"], cwd: cwd)) ?? "")
+        isGitLab(remote: (try? Git.line(["remote", "get-url", "origin"], cwd: cwd)) ?? "")
     }
 
     /// By the host only: github.com/someone/gitlab-ci-local is a GitHub repository.
     public static func isGitLab(remote: String) -> Bool {
-        guard let host = Git.webRepo(remote.trimmingCharacters(in: .whitespacesAndNewlines))?.0.lowercased() else {
-            return false
-        }
+        guard let host = Git.webRepo(remote)?.0.lowercased() else { return false }
         return host.split(separator: ".").contains { $0.hasPrefix("gitlab") }
     }
 

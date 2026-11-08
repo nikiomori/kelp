@@ -38,8 +38,7 @@ extension Git {
             try run(["add", "-A"], cwd: path, remotes: remotes)
         }
         try run(["commit", "-q"] + (amend ? ["--amend"] : []) + ["-m", message], cwd: path, remotes: remotes)
-        return try run(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes).trimmingCharacters(
-            in: .whitespacesAndNewlines)
+        return try line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
     }
 
     public struct MergeResult: Sendable, Equatable {

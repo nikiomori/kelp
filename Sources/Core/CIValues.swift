@@ -89,10 +89,10 @@ public enum CIRuns {
         public var shortSHA: String? { sha.map { String($0.prefix(7)) } }
     }
 
+    /// ISO-8601, with or without fractional seconds. Transcripts' parsing calls it for every line too.
     public static func date(_ iso: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(iso))
+            ?? (try? Date.ISO8601FormatStyle().parse(iso))
     }
 
     /// From `from` to `to`, or to now for what is still going.
