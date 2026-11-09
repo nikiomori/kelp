@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// Rows as text to copy or save: TSV (what a spreadsheet pastes), CSV, JSON (an object a row), a Markdown table, or

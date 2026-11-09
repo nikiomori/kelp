@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// What the rows and buttons do: stage, commit, sync, branches, and the context menu.

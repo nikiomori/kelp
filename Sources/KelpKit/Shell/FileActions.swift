@@ -1,6 +1,7 @@
 // A file handed to an agent or copied as a link, and a failed git step handed to an agent to fix.
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// A file (or lines in it) handed to an agent or copied as a link.

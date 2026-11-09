@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// What Git marks beside a folder in the sidebar, the ⌃Tab switcher and the window bar (`FolderCI`): its CI, its

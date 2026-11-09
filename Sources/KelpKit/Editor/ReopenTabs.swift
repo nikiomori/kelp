@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// ⇧⌘T: a tab closed by hand comes back in its place. A file at its line; an agent resuming its conversation; a terminal

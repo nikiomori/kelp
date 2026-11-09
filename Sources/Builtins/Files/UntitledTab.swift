@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import EditorKit
 import KelpKit
 import WorkbenchKit

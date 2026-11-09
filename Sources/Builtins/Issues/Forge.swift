@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// The project's GitHub / GitLab / Bitbucket: its pages in the browser, and gh / glab set up when they're missing.

@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 @preconcurrency import UserNotifications   // its center and settings aren't marked Sendable
 
 /// Banner + dock badge when an agent finishes or waits; clicking opens the right pane.

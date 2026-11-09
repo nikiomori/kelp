@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// Entry points everything uses to act on the window: open URIs, switch workspaces, focus agents.

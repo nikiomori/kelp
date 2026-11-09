@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// Unsaved files ask before what would drop them: quitting, or closing, archiving or removing their workspace.
 @MainActor

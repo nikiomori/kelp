@@ -1,8 +1,8 @@
 import AppKit
 
-package final class ClosureButton: NSButton {
+public final class ClosureButton: NSButton {
     private var handler: (() -> Void)?
-    package convenience init(title: String, action: @escaping () -> Void) {
+    public convenience init(title: String, action: @escaping () -> Void) {
         self.init(frame: .zero)
         self.title = title
         handler = action
@@ -14,8 +14,8 @@ package final class ClosureButton: NSButton {
 
 /// A menu item's or control's action as a closure; AppKit sends actions on the main thread.
 @MainActor
-package final class ClosureTarget: NSObject {
+public final class ClosureTarget: NSObject {
     let handler: @MainActor () -> Void
-    package init(_ handler: @escaping @MainActor () -> Void) { self.handler = handler }
-    @objc package func fire() { handler() }
+    public init(_ handler: @escaping @MainActor () -> Void) { self.handler = handler }
+    @objc public func fire() { handler() }
 }

@@ -129,22 +129,3 @@ extension TabContent {
     package func command(_ name: String) async -> String? { nil }
     package func goTo(line: Int) {}
 }
-
-/// SF Symbol image helper used by tabs and menus; a few names get Kelp's own drawing instead (Glyph).
-/// One image per name and label: an image equals only itself, so a fresh one on every call made each tab, chip and
-/// row icon look changed on every session event (the tab strip's "nothing changed" check never held).
-extension NSImage {
-    package static func symbol(_ name: String, _ label: String? = nil) -> NSImage {
-        let key = "\(name)\u{0}\(label ?? "")" as NSString
-        if let known = symbolCache.object(forKey: key) { return known }
-        let made =
-            Glyph.image(name).map { glyph in
-                glyph.accessibilityDescription = label
-                return glyph
-            }
-            ?? NSImage(systemSymbolName: name, accessibilityDescription: label) ?? NSImage()
-        symbolCache.setObject(made, forKey: key)
-        return made
-    }
-}
-nonisolated(unsafe) let symbolCache = NSCache<NSString, NSImage>()   // NSCache is thread-safe; images handed out aren't changed

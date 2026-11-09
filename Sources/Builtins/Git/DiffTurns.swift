@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 /// The agent's turns, newest first, beside the "Agent's Last Turn" source: each one's start is kept by the daemon

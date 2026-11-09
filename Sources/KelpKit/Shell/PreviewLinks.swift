@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import WebKit
 import WorkbenchKit
 

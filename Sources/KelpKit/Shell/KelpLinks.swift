@@ -1,6 +1,7 @@
 // What comes from outside the window: kelp:// links, and the ui.* requests agents send.
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// `kelp://` links (from a browser, a script, another app). Looking things up is free; adding a project, or opening a file

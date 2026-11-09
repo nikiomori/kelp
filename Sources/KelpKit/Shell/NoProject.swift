@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import Core
+import DesignKit
 
 /// Chats outside any project: "Chats", the last row of the sidebar, over a folder of Kelp's own (~/.kelp/scratch)
 /// where each agent gets a folder of its own for its task. A quick question, a one-off script, something in Downloads.

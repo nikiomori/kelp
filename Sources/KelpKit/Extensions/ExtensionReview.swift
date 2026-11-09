@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// The look before an extension from GitHub goes in: what it can run on this Mac, in a sheet. And the same look before
 /// one that's there (written by an agent, changed since) runs anything (`ExtensionTrust`).

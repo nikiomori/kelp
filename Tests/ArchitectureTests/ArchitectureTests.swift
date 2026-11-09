@@ -125,8 +125,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // reads went internal), reaches the palette through `openQuickly` / `showTmuxSessions` (QuickOpen is the shell's),
     // conforms the pushed kinds only it reads (activity, PRs, files, artifacts, commands), keeps what only it does
     // (`copyWebLink`, `RemoteHost.containing`), and a session's tab menu is `addSessionItems`' too.
-    #expect(declared <= 327, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 327, "fewer now (\(declared)): lower the ceiling")
+    // 327 → 299: the generic parts with no shell state moved to DesignKit, public (closure targets, `Debounce`, `pin` /
+    // `stacked`, `track`, the menu item helpers, `NSImage.symbol` with its glyphs, awaited sheets, `shortAgo` / `bytes`).
+    #expect(declared <= 299, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 299, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -374,7 +376,6 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Agents/LimitWatch.swift":
             "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset",
         "KelpKit/Parking.swift": "a park for an hour ends when its hour is up, which nothing announces",
-        "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
         "Builtins/Agents/StripCard.swift":
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift":
@@ -483,14 +484,14 @@ func codeOnly(_ s: String) -> String {
 
 /// Sizes come from DesignKit, not from a number at the call. Each count is a ceiling that only goes down: what's left is a
 /// tile's fixed glyph, an icon row's point size, radii concentric with another (9 in a row, 14 and 16 in glass), and
-/// `NSImage.symbol` itself with the colourful icons that need a weight.
+/// the colourful icons that need a weight (`NSImage.symbol` itself is DesignKit's).
 @Test func chromeTakesItsSizesFromDesignKit() throws {
     let chrome = ["Sources/KelpKit", "Sources/Builtins"]
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 1)
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 1)
-    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 2)
-    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 2, "fewer now: lower the ceiling")
+    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 1)
+    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
     let styles = try matches(
         #"\.font\(\.(headline|subheadline|caption|footnote|title|body|callout)"#, in: chrome + ["Sources/EditorKit"])
@@ -501,7 +502,7 @@ func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 61, "KelpKit": 52, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
+        "Daemon": 61, "KelpKit": 51, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
         "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 12, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 1, "DesignKit": 0

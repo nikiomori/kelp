@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// `kelp browser`: an agent's command, done in a page tab of its workspace. That workspace needn't be on screen, only

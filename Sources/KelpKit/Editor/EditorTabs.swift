@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// Opening, selecting, cycling, splitting and closing tabs.

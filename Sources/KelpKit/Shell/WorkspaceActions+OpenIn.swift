@@ -1,6 +1,7 @@
 // Open In and Locate: the editors this Mac has, and the menu items that show where a thing is.
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 extension WorkspaceActions {

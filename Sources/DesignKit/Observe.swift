@@ -4,7 +4,7 @@ import Observation
 /// Calls `changed` now (unless `now` is false: the first value is already shown) and whenever `value` changes
 /// (Observation for AppKit code). With an `owner` (a tab, say), it stops once the owner is gone.
 @MainActor
-package func track<T: Equatable>(
+public func track<T: Equatable>(
     owner: AnyObject? = nil, now: Bool = true, _ value: @escaping @MainActor () -> T,
     changed: @escaping @MainActor (T) -> Void
 ) {

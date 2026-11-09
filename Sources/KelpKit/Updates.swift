@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import Sparkle
 
 /// An update Sparkle downloaded by itself and has ready to go. Nothing interrupts: `UpdatePill` and the Kelp menu offer it,

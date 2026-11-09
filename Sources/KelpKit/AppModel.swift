@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 import WorkbenchKit
 
 /// UI-side mirror of daemon state (observable: views follow what they read with `track`, and redraw only on its change).

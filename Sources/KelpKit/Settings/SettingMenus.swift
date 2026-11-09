@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 
 /// A setting as menu items, worded as Settings words it: how a part of the window looks, changed on the part itself.
 /// Pointing at a choice shows it (`tryOn`), a click keeps it, leaving goes back; what starts work (a check that asks
