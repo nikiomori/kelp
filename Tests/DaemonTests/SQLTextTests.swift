@@ -42,6 +42,9 @@ import Testing
     #expect(try SQLText.single("SELECT $1, price$ FROM t", .postgres) != "")
     #expect(try SQLText.single("SELECT 'it''s; fine' # note; here", .mysql) != "")
     #expect(try SQLText.single("SELECT 1 -- note; here", .sqlite) != "")
+    // Appwrite's SQL is Kelp's own, read one way: a \ is a character, $id a column.
+    #expect(try SQLText.single("UPDATE t SET note = 'C:\\' WHERE $id = 'x;y'", .appwrite) != "")
+    #expect(throws: DatabaseFailure.self) { try SQLText.single("DELETE FROM t; DELETE FROM u", .appwrite) }
 }
 
 /// What reaches past a Postgres database to its server (a program through COPY, its files, others' sessions) is

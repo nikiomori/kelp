@@ -253,7 +253,8 @@ state saved, `kelp-vm` gone), and wakes on the next command. Making one (downloa
 ## Databases
 `db.*` runs every statement in kelpd: Postgres and MySQL over their own protocols at an address kelpd reaches (or a
 port forwarded over SSH), through `psql`/`mysql` in a compose container that publishes no port, SQLite in kelpd (GRDB),
-DuckDB through `duckdb -safe`. No password reaches an agent. A database's `agentAccess` says what agents may do there:
+DuckDB through `duckdb -safe`, Appwrite over its REST API (a narrow SQL Kelp translates, `AppwriteWire`). No password
+reaches an agent. A database's `agentAccess` says what agents may do there:
 nothing (hidden), read (in a read-only transaction, a read-only file), ask (the change is tried and rolled back, then
 asked on the agent's row like a permission dialog), or change freely; a production one is read-only. The table tab's
 edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, `db.schema` and `db.query` (the last in
