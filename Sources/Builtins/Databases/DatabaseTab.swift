@@ -41,6 +41,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let details = DatabaseDetails()
     let filters = DatabaseFilters()
     let empty = EmptyStateView()
+    /// Over the whole tab until the database is open: connecting, or why it isn't and what to do.
+    let gate = EmptyStateView()
+    let loading = DatabaseLoading()
+    /// Turning in the foot while a page is read (past half a second).
+    let busy = NSProgressIndicator()
+    let whole = NSStackView()
     let capsule = NSTextField(labelWithString: "")
     let capsuleBox = NSView()
     let part = NSSegmentedControl(
@@ -123,7 +129,6 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         } changed: { [weak self] known in
             guard known, let self, !self.started else { return }
             self.started = true
-            Task { await self.askVersion() }
             Task { await self.loadQueries() }
         }
         Task { await loadTables() }
@@ -164,12 +169,14 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         grid.scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
-        let whole = NSStackView(views: [sidebar.view, Self.divider(), center, Self.divider(), details.view])
+        whole.setViews([sidebar.view, Self.divider(), center, Self.divider(), details.view], in: .leading)
         whole.spacing = 0
         whole.alignment = .height
         whole.distribution = .fill
         center.setContentHuggingPriority(.init(1), for: .horizontal)
         view.pin(whole)
+        gate.place(in: view)
+        view.pin(loading)
         empty.place(in: grid.scroll)
         arrange()
     }
@@ -231,8 +238,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         changes.font = .ui(11, weight: .medium)
         changes.textColor = .textOrange
+        busy.style = .spinning
+        busy.controlSize = .small
+        busy.isDisplayedWhenStopped = false
         return Bar.foot(
-            [part, addRow, status], [changes, showSQL, discard, save, ask, saveQuery, columnsButton, previous, next])
+            [part, addRow, busy, status],
+            [changes, showSQL, discard, save, ask, saveQuery, columnsButton, previous, next])
     }
 
     private func buildAskBar() {
@@ -346,12 +357,20 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     // MARK: Loading
 
     func loadTables() async {
+        let first = schema.tables.isEmpty && version == nil
+        if first { connecting() }
         let (read, error) = await app.tryCall(
             DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
+        reading?.cancel()
+        loading.hide()
         guard let read else {
+            if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
             empty.showError(String(localized: "Can't read \(address.name)"), text: error)
             return
         }
+        whole.isHidden = false
+        gate.show(nil)
+        if version == nil { Task { await askVersion() } }   // after: one connection asks macOS for a password, not two
         schema = read
         sidebar.schema = read
         let named = address.table.flatMap { name in tables.first { $0.name == name } }

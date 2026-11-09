@@ -194,6 +194,11 @@ enum PostgresWire {
         case .authMechanismRequiresPassword: return DatabaseWire.noPassword(db)
         case .sslUnsupported: return DatabaseFailure.failed("\(db.name) doesn't offer SSL, and it's required.")
         case .queryCancelled: return DatabaseFailure.failed("\(db.name) cancelled it.")
+        case .serverClosedConnection where psql.underlying == nil, .connectionError where psql.underlying == nil:
+            // PostgresNIO's word for a connection that never got an answer (its connect timed out)
+            return DatabaseFailure.failed(
+                "\(db.name) didn't answer at \(db.host ?? "?"):\(db.port ?? 5432): it's off, or a VPN or SSH is needed."
+            )
         default:
             let said = psql.underlying.map { "\($0)" } ?? "\(psql.code)"
             // NIO's "connect(descriptor:addr:size:): Connection refused (errno: 61)": the reason, as psql says it

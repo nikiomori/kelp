@@ -381,6 +381,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
         "Builtins/Databases/DatabaseForm.swift": "typing settles before Add Database connects to check it",
         "Builtins/Databases/DatabaseTab+Table.swift": "a read says Reading… only past half a second: a quick one doesn't flicker",
+        "Builtins/Databases/DatabaseTab+Opening.swift": "Connecting to … shows past half a second: a quick open doesn't flicker",
         "Builtins/Git/CommitCard.swift":
             "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
         "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",

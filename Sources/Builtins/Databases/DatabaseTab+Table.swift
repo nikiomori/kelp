@@ -28,6 +28,7 @@ extension DatabaseTab {
         startReading()
         let result = await query(sql, limit: Self.pageSize)
         reading?.cancel()
+        busy.stopAnimation(nil)
         guard let result else { return }
         grid.editable = !primary.isEmpty
         grid.source = (name, engine)
@@ -44,11 +45,12 @@ extension DatabaseTab {
     }
 
     /// "Reading…" in the foot only once half a second has gone: a quick read doesn't flicker.
-    private func startReading() {
+    func startReading() {
         reading?.cancel()
         reading = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
             self?.status.stringValue = String(localized: "Reading…")
+            self?.busy.startAnimation(nil)
         }
     }
 

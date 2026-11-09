@@ -152,8 +152,12 @@ extension DatabaseTab {
 
     private func execute(_ sql: String) {
         guard !sql.isEmpty else { return NSSound.beep() }
+        startReading()
         Task {
-            guard let result = await query(sql) else { return }
+            let result = await query(sql)
+            reading?.cancel()
+            busy.stopAnimation(nil)
+            guard let result else { return }
             grid.show(columns: result.columns, rows: result.rows)
             empty.show(
                 result.columns.isEmpty
