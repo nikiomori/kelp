@@ -17,6 +17,7 @@ extension BrowserTab: WKDownloadDelegate {
             noteLog("[blocked] \(url.absoluteString): another site than the one the user let the agent use")
             return (.cancel, preferences)
         }
+        if action.shouldPerformDownload { downloadDecided = Date() }
         return (action.shouldPerformDownload ? .download : .allow, preferences)
     }
 
@@ -60,6 +61,7 @@ extension BrowserTab: WKDownloadDelegate {
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename name: String)
         async -> URL?
     {
+        downloadDecided = nil
         // The user's pages ask once per site, as Safari does: a page can't fill ~/Downloads unasked.
         if !agentAnswers, let host = response.url?.host ?? web.url?.host, !Self.downloadsAllowed.contains(host) {
             guard await Self.allowDownloads(from: host) else { return nil }
@@ -111,6 +113,7 @@ extension BrowserTab: WKDownloadDelegate {
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        downloadDecided = nil
         let name =
             downloading.removeValue(forKey: ObjectIdentifier(download))?.to.lastPathComponent
             ?? String(localized: "a file")
