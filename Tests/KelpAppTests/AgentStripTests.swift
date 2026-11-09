@@ -106,6 +106,7 @@ private func session(
     let rig = try await AppRig()
     _ = NSApplication.shared
     let strip = AgentStrip(app: rig.app)
+    strip.front = { false }   // behind another app, whatever another test brings forward
     strip.start()
     #expect(!strip.isShowing)
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
