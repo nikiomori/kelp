@@ -314,7 +314,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     var engine: DatabaseInfo.Engine { database?.engine ?? .sqlite }
 
     func capsuleChanged() {
-        let db = database, stage = db?.stage ?? .local
+        let db = database
         let place: String? =
             switch mode {
             case .table(let t): t
@@ -328,7 +328,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         ]
         capsule.stringValue = parts.compactMap { $0 }.joined(separator: " · ")
         // The environment as the databases list shows it, a tag; the rest quiet. A whole red line read as an error.
-        capsuleBox.setViews([DatabaseLook.stageChip(stage), capsule, NSView()], in: .leading)
+        capsuleBox.setViews([db.flatMap(DatabaseLook.stageChip), capsule, NSView()].compactMap { $0 }, in: .leading)
     }
 
     private func askVersion() async {

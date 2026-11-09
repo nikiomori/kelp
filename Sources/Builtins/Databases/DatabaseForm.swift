@@ -23,7 +23,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let why = DatabaseSheet.small("")
     private let status = NSTextField(wrappingLabelWithString: "")
     private let add = NSButton()
-    private var nameTyped = false, productionTouched = false
+    private var nameTyped = false
     private var checking: Task<Void, Never>?
     private(set) var view = NSView()
     /// A new one starts at its host (or file); one pasted, picked or edited at its password.
@@ -131,7 +131,6 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         stage.action = #selector(stageClicked)
         let start = editing?.stage ?? db.stage
         stage.selectedSegment = DatabaseInfo.Stage.allCases.firstIndex(of: start) ?? 0
-        productionTouched = editing != nil || db.environment != nil
         let settings = SheetForm.grid([
             (String(localized: "Name"), name), (String(localized: "Keep in"), place),
             (String(localized: "Environment"), stage), ("", why), (String(localized: "Agents"), agents)
@@ -246,13 +245,10 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         return database.stringValue.isEmpty ? host.stringValue : database.stringValue
     }
 
-    /// Production follows where it is until the user sets it; the line beside it says why.
+    /// The environment is only what the user picks (never guessed from the host); the line beside it says what it means.
     @objc private func changed() {
         let db = typed
         let elsewhere = db.map { $0.ssh != nil || $0.host.map { !Self.onThisMac($0) } ?? false } ?? false
-        if !productionTouched {
-            stage.selectedSegment = DatabaseInfo.Stage.allCases.firstIndex(of: elsewhere ? .production : .local) ?? 0
-        }
         let picked = DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)]
         why.stringValue = Self.why(picked, elsewhere: elsewhere)
         whyRow?.isHidden = why.stringValue.isEmpty   // the grid's row, or its gap stays
@@ -261,7 +257,6 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     }
 
     @objc private func stageClicked() {
-        productionTouched = true
         let free = DatabaseInfo.Access.allCases.firstIndex(of: .free) ?? 3
         if DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)] == .staging, agents.selectedSegment == free {
             agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: .ask) ?? 2
@@ -272,16 +267,16 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     /// What the environment means for agents, and a word when one elsewhere isn't Production.
     static func why(_ stage: DatabaseInfo.Stage, elsewhere: Bool) -> String {
         switch stage {
-        case .production:
-            return elsewhere
-                ? String(localized: "Not on this Mac: agents only read it.") : String(localized: "Agents only read it.")
+        case .production: return String(localized: "Agents only read it; your own changes ask first.")
         case .staging: return String(localized: "Agents ask before each change, at most.")
-        default: return elsewhere ? String(localized: "Not on this Mac: is it a copy you may break?") : ""
+        default: return elsewhere ? String(localized: "Not on this Mac: pick Production if it is one.") : ""
         }
     }
 
-    static func onThisMac(_ host: String) -> Bool {
-        ["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"].contains(host.lowercased())
+    nonisolated static func onThisMac(_ host: String) -> Bool {
+        let host = host.lowercased()
+        return ["localhost", "::1", "0.0.0.0", "host.docker.internal"].contains(host) || host.hasPrefix("127.")
+            || host.hasSuffix(".localhost")
     }
 
     // MARK: Checking

@@ -74,7 +74,9 @@ extension Databases {
                 outcome.imported.append(try saveInLibrary(q.worktreeId, db, password: password))   // nil keeps one kept
                 taken.insert(name)
                 if password != nil { outcome.withPasswords += 1 } else if db.passwordIn != nil { outcome.later += 1 }
-                if q.useHere { _ = try use(q.worktreeId, name, access: db.production || db.ssh != nil ? .read : nil) }
+                if q.useHere {
+                    _ = try use(q.worktreeId, name, access: db.production || DatabaseFind.isRemote(db) ? .read : nil)
+                }
             } catch let error as RPCError {
                 outcome.skipped.append("\(entry.imported.database.name): \(error.message)")
             }

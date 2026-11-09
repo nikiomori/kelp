@@ -181,10 +181,7 @@ enum DatabaseFind {
                 ["DATABASE", "DB", "POSTGRES", "PG", "MYSQL", "SQLITE"].contains(where: key.contains)
             else { continue }
             let value = unquoted(String(line[line.index(after: eq)...]))
-            if var db = url(value, source: source, root: root) {
-                db.database.production = isProduction(db.database)
-                found.append(db)
-            }
+            if let db = url(value, source: source, root: root) { found.append(db) }
         }
         return found
     }
@@ -419,11 +416,11 @@ enum DatabaseFind {
 
     // MARK: Names
 
-    /// Not on this Mac, or named for production.
-    static func isProduction(_ db: DatabaseInfo) -> Bool {
-        let named = [db.name, db.source ?? "", db.database ?? ""].contains { $0.lowercased().contains("prod") }
-        guard let host = db.host, !db.engine.isFile else { return named }
-        return named || !isLocal(host)
+    /// A server that isn't this Mac: agents only read it until the user says otherwise. Production is only ever the
+    /// user's word (Environment), never guessed from a host, a name or an `.env.production`.
+    static func isRemote(_ db: DatabaseInfo) -> Bool {
+        guard !db.engine.isFile else { return false }
+        return db.ssh != nil || db.host.map { !isLocal($0) } ?? false
     }
 
     /// A host that is this Mac (or its Docker's): a loopback address, or this Mac's own name. Not any `.local` name
@@ -457,10 +454,7 @@ enum DatabaseFind {
                 n += 1
             }
             item.database.name = name
-            if !item.database.engine.isFile || item.database.production {
-                item.database.production = isProduction(item.database)
-            }
-            if item.database.production { item.database.access = .read }
+            if isRemote(item.database) { item.database.access = .read }
             names.insert(name)
             kept.append(item)
         }

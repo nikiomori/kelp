@@ -39,7 +39,7 @@ public final class Store: Sendable {
         try Self.migrator.migrate(db)
     }
 
-    private static var migrator: DatabaseMigrator {
+    static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
             try db.create(table: "repo") { table in
@@ -274,6 +274,28 @@ public final class Store: Sendable {
             try db.create(table: "databaseLibrary") { t in
                 t.primaryKey("id", .text)   // its name
                 t.column("json", .text).notNull()
+            }
+        }
+        // Production is the user's word only: the marks Kelp guessed from a host or a name go, once. Kelp didn't keep
+        // who set a mark, so all go; a server elsewhere stays read only for agents through its access.
+        migrator.registerMigration("database.productionByHand") { db in
+            for table in ["database", "databaseLibrary"] {
+                for row in try Row.fetchAll(db, sql: "SELECT id, json FROM \(table)") {
+                    let id: String = row["id"], json: String = row["json"]
+                    guard
+                        var info = Log.store.attempt(
+                            "reading the saved database \(id)",
+                            {
+                                try JSONDecoder().decode(DatabaseInfo.self, from: Data(json.utf8))
+                            }),
+                        info.production
+                    else { continue }
+                    info.production = false
+                    if info.environment == .production { info.environment = nil }
+                    if DatabaseFind.isRemote(info), info.access == .ask || info.access == .free { info.access = .read }
+                    let out = String(decoding: try JSONEncoder().encode(info), as: UTF8.self)
+                    try db.execute(sql: "UPDATE \(table) SET json = ? WHERE id = ?", arguments: [out, id])
+                }
             }
         }
         return migrator

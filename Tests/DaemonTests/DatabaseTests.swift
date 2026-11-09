@@ -70,7 +70,7 @@ private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args
             == .failed("fe_sendauth: no password supplied"))
 }
 
-@Test func envURLsAreFoundAndAProductionOneIsReadOnly() {
+@Test func envURLsAreFoundAndOneElsewhereIsReadOnlyButNotProduction() {
     let text = """
         # the app's
         DATABASE_URL="postgres://app:p%40ss@localhost:5432/app_dev"
@@ -80,10 +80,10 @@ private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args
     let found = DatabaseFind.unique(DatabaseFind.env(text, source: ".env", root: "/p"))
     #expect(found.count == 2)
     #expect(found[0].database.name == "app_dev" && found[0].password == "p@ss" && !found[0].database.production)
-    #expect(found[1].database.production && found[1].database.access == .read && found[1].database.port == 3306)
+    #expect(!found[1].database.production && found[1].database.access == .read && found[1].database.port == 3306)
     let prod = DatabaseFind.unique(
         DatabaseFind.env("DATABASE_URL=postgres://u@localhost/shop", source: ".env.production", root: "/p"))
-    #expect(prod.first?.database.production == true)
+    #expect(prod.first?.database.production == false)   // a file's name isn't the user's word
     let sqlite = DatabaseFind.env("DATABASE_URL=file:./dev.db", source: ".env", root: "/p")
     #expect(sqlite.first?.database.path == "/p/dev.db" && sqlite.first?.database.name == "dev")
 }

@@ -62,7 +62,6 @@ extension Databases {
         }
         var db = mine.database
         db.access = access ?? (db.host.map(DatabaseFind.isLocal) == false ? .read : db.access)
-        db.production = db.production || (db.host.map { !DatabaseFind.isLocal($0) } ?? false) && db.ssh == nil
         db.group = nil
         return try save(worktreeId, db, password: mine.password)
     }

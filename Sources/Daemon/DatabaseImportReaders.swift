@@ -384,8 +384,8 @@ enum ImportReaders {
         return (alias, key ? "An SSH key of its own: give \(host) an IdentityFile in ~/.ssh/config." : nil)
     }
 
-    /// Production when the app says so, or when it isn't on this Mac and the app doesn't call it a test or staging
-    /// one. TablePlus' "local" and DBeaver's "dev" are what a new connection gets there: they say nothing.
+    /// The environment the user gave it in that app, and only that: Production is never guessed from where it is.
+    /// TablePlus' "local" and DBeaver's "dev" are what a new connection gets there: they say nothing.
     @discardableResult
     static func production(_ db: inout DatabaseInfo, tag: String?, app: String) -> String? {
         let tag = tag?.lowercased() ?? ""
@@ -393,25 +393,12 @@ enum ImportReaders {
             db.set(stage: .production)
             return "Production in \(app): agents only read it."
         }
-        let said: DatabaseInfo.Stage? =
-            ["development", "dev"].contains(tag)
-            ? .development : ["staging", "testing", "test"].contains(tag) ? .staging : nil
-        let remote = db.ssh != nil || db.host.map { !isThisMac($0) } ?? false
-        if remote, said == nil {
-            db.set(stage: .production)
-            return tag == "local"
-                ? "\(app) calls it local, as it does every new connection: Production here until you say otherwise."
-                : "Not on this Mac: Production until you say otherwise."
+        if ["development", "dev"].contains(tag) {
+            db.set(stage: .development)
+        } else if ["staging", "testing", "test"].contains(tag) {
+            db.set(stage: .staging)
         }
-        db.set(stage: said ?? .local)
         return nil
-    }
-
-    /// Stricter than a project's files (where a bare "db" is a compose service): an app's "db-prod" is a host elsewhere.
-    static func isThisMac(_ host: String) -> Bool {
-        let host = host.lowercased()
-        return ["localhost", "::1", "0.0.0.0", "host.docker.internal"].contains(host) || host.hasPrefix("127.")
-            || host.hasSuffix(".localhost")
     }
 
     /// A keychain item as `DatabaseInfo.passwordIn` keeps it.

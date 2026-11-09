@@ -94,6 +94,11 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         } changed: { [weak self] _ in
             self?.reload()
         }
+        track(owner: self) { [app] in
+            app.workbench.focusedTab
+        } changed: { [weak self] _ in
+            self?.markOpen()
+        }
     }
     /// The field starts where the rows' badges do: the list's cells sit past its own edge.
     override func viewDidLayout() {
@@ -163,9 +168,24 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             ),
             buttons: [addButton])
         table.reloadData()
+        markOpen()
         alignSearch()
         checkHealth(databases)
         if libraryOpen { checkLibrary(library) }
+    }
+
+    /// The database the focused tab shows, picked in the list: the tab and its row read as one.
+    private func markOpen() {
+        let open = app.workbench.focusedTab.flatMap(DatabaseURI.init)
+        let index = rows.firstIndex { row in
+            guard case .database(let db, _) = row, let open else { return false }
+            return open.worktree == workspace && open.name == db.name
+        }
+        if let index {
+            if table.selectedRow != index { table.selectRowIndexes([index], byExtendingSelection: false) }
+        } else if table.selectedRow >= 0 {
+            table.deselectAll(nil)
+        }
     }
 
     /// A database's row, and what's wrong with it under it; found by its name, address or environment.

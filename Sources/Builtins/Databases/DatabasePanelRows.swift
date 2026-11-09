@@ -70,7 +70,7 @@ struct DatabasePanelRows {
             hovered.append(use)
             first.append(use)
         }
-        first.append(DatabaseLook.stageChip(db.stage))
+        if let chip = DatabaseLook.stageChip(db) { first.append(chip) }
         let top = NSStackView(views: first)
         top.spacing = Metrics.gap
         let detail = label(Self.place(db) ?? DatabaseLook.engine(db.engine), font: .ui(11), color: .secondaryLabelColor)
@@ -99,9 +99,9 @@ struct DatabasePanelRows {
     /// The project's own list when it has none: agents here reach no database until one is used here.
     func hint() -> NSView {
         let said = label(
-            String(localized: "None yet: agents here reach none."), font: .ui(11), color: .secondaryLabelColor)
+            String(localized: "Agents in this project see no database."), font: .ui(11), color: .secondaryLabelColor)
         let row = line([said, NSView()], inset: Metrics.inset, trailing: Metrics.insetTrailing)
-        row.toolTip = String(localized: "Use one of All My Databases here (Use Here on its row), or add one with +.")
+        row.toolTip = String(localized: "Point at one of All My Databases and click Use Here, or add one with +.")
         return row
     }
 
@@ -134,12 +134,12 @@ struct DatabasePanelRows {
         .compactMap { $0 }.joined(separator: "\n")
     }
 
-    /// "db.example.com : app_dev" (as TablePlus lists it), "through box", or a file's name.
+    /// "db.example.com/app_dev" (as its address says it), "via box", or a file's name.
     static func place(_ db: DatabaseInfo) -> String? {
         if db.engine.isFile { return db.path.map { ($0 as NSString).lastPathComponent } }
-        // "webdb" over "host : webdb" says its name twice: the host alone
+        // "webdb" over "host/webdb" says its name twice: the host alone
         let database = db.database?.caseInsensitiveCompare(shownName(db)) == .orderedSame ? nil : db.database
-        let at = [db.host, database].compactMap { $0 }.joined(separator: " : ")
+        let at = [db.host, database].compactMap { $0 }.joined(separator: "/")
         return [at.isEmpty ? nil : at, db.ssh.map { String(localized: "via \($0)") }].compactMap { $0 }
             .joined(separator: " ")
     }

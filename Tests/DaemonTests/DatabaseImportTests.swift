@@ -102,8 +102,8 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     return out.prefix(moved)
 }
 
-/// Each app's connections come in as Kelp keeps them: engines it doesn't speak left out, a production tag or a host
-/// elsewhere made Production, an SSH tunnel kept with what Kelp can't say about it, groups as groups.
+/// Each app's connections come in as Kelp keeps them: engines it doesn't speak left out, the user's production tag made
+/// Production (a host elsewhere isn't), an SSH tunnel kept with what Kelp can't say about it, groups as groups.
 @Test func eachAppsConnectionsReadAsKelpKeepsThem() throws {
     let home = try fixtureHome()
     defer { try? FileManager.default.removeItem(at: home) }
@@ -111,8 +111,7 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     #expect(tp.map(\.database.name) == ["analytics", "reports", "gis@pg-prod-ro"])   // Redis isn't Kelp's
     #expect(tp[0].database.production && tp[0].database.group == "Work" && tp[0].database.user == "ro")
     #expect(tp[1].database.ssh == "me@box" && tp[1].note?.contains("port 2222") == true)
-    #expect(tp[1].database.production && tp[1].database.stage == .production)   // through SSH: "local" is TablePlus' default
-    #expect(tp[1].note?.contains("calls it local") == true)
+    #expect(!tp[1].database.production && tp[1].database.environment == nil)   // "local" is TablePlus' default: says nothing
 
     let dbeaver = ImportReaders.read("dbeaver", home: home, file: nil)
     #expect(dbeaver.map(\.imported.database.name) == ["events", "shop"])
@@ -124,14 +123,14 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
 
     let grip = ImportReaders.read("datagrip", home: home, file: nil).map(\.imported)
     #expect(grip.first?.database.host == "db.example.com" && grip.first?.database.user == "airflow")
-    #expect(grip.first?.database.group == "airflow" && grip.first?.database.production == true)
+    #expect(grip.first?.database.group == "airflow" && grip.first?.database.production == false)
 
     let pgpass = ImportReaders.read("pgpass", home: home, file: nil)
     #expect(pgpass.count == 1 && pgpass.first?.imported.database.database == "app_dev")
     let pw = try pgpass.first?.secret?()
     #expect(pw?.password == "pw1")
     let service = ImportReaders.read("pgservice", home: home, file: nil).first?.imported.database
-    #expect(service?.name == "billing" && service?.ssl == "require" && service?.production == true)
+    #expect(service?.name == "billing" && service?.ssl == "require" && service?.production == false)
     let my = ImportReaders.read("mycnf", home: home, file: nil)
     let root = try my.first?.secret?()
     #expect(my.first?.imported.database.port == 3307 && root?.password == "rootpw")

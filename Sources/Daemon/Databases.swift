@@ -79,14 +79,14 @@ final class Databases: Sendable {
         var all = found.map { item -> DatabaseConnection in
             var db = item.database
             // What the user said of it holds while it's the same place: a pulled .env that aims `app` at another host
-            // is a new database, production again if it isn't this Mac.
+            // is a new database, read only for agents again if it isn't this Mac.
             if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database,
                 Self.samePlace(mine, db)
             {
                 db.access = mine.access
                 db.production = mine.production
                 db.environment = mine.environment
-            } else if !db.production {
+            } else if !DatabaseFind.isRemote(db) {
                 db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
             }
             let container = item.service.flatMap { service in

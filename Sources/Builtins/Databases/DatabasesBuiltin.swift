@@ -196,8 +196,20 @@ enum DatabaseLook {
         }
     }
 
-    /// "LOCAL", "DEV", "STAGING", "PROD" on a tinted capsule, wherever a database is listed.
-    @MainActor static func stageChip(_ stage: DatabaseInfo.Stage) -> NSView {
+    /// The environment a list shows: what the user said, else Local for a file or this Mac's server. A server elsewhere
+    /// nobody tagged shows none (Production is only ever the user's word; Local there would be wrong).
+    static func shownStage(_ db: DatabaseInfo) -> DatabaseInfo.Stage? {
+        if db.production { return .production }
+        if let said = db.environment { return said }
+        guard !db.engine.isFile, db.ssh != nil || db.host.map({ !DatabaseForm.onThisMac($0) }) == true else {
+            return .local
+        }
+        return nil
+    }
+
+    /// "LOCAL", "DEV", "STAGING", "PROD" on a tinted capsule, wherever a database is listed; none when nobody said.
+    @MainActor static func stageChip(_ db: DatabaseInfo) -> NSView? {
+        guard let stage = shownStage(db) else { return nil }
         let word: String =
             switch stage {
             case .local: String(localized: "LOCAL")

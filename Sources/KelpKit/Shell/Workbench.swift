@@ -50,7 +50,7 @@ package final class Workbench {
     init(app: AppModel) { self.app = app }
     package var focusedSession: String?
     /// The tab with focus in the workspace on screen (its URI): the sidebar marks its agent's row.
-    var focusedTab: String?
+    package internal(set) var focusedTab: String?
     var focusedFile: String?
     /// The workspace on screen puts its agents side by side as they open (the title bar's button, ⌃⌘T).
     var sideBySide = true

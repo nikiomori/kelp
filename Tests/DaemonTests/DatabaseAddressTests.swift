@@ -1,6 +1,7 @@
 import Agents
 import Core
 import Foundation
+import GRDB
 import Testing
 
 @testable import Daemon
@@ -8,7 +9,7 @@ import Testing
 // Where a project's files may aim Kelp's connections and the user's secrets.
 
 /// What the user let agents do with a found database stays with its address: a pulled .env that aims the same name at
-/// another host is production again, read-only for agents.
+/// another host is read-only for agents again (not production: only the user says that).
 @Test func aFoundDatabasesSettingsDontFollowItsNameToAnotherHost() async throws {
     let w = try await world()
     defer { w.d.stop() }
@@ -22,11 +23,11 @@ import Testing
     #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).first?.access == .free)
     try "DATABASE_URL=postgres://app@db.example.com:5432/app\n".write(toFile: env, atomically: true, encoding: .utf8)
     let moved = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
-    #expect(moved.name == "app" && moved.production && moved.agentAccess == .read)
+    #expect(moved.name == "app" && !moved.production && moved.agentAccess == .read)
 }
 
 /// This Mac is a loopback address or its own name; a `.local` name, one without a dot and an IPv6 address elsewhere
-/// are someone else's: no ~/.pgpass for them, and they count as production.
+/// are someone else's: no ~/.pgpass for them, and agents only read them until the user says otherwise.
 @Test func onlyLoopbackAndThisMacsNameAreThisMac() {
     for host in ["localhost", "127.0.0.1", "127.0.1.1", "::1", "[::1]", "host.docker.internal", "app.localhost"] {
         #expect(DatabaseFind.isLocal(host), "\(host)")
@@ -36,7 +37,7 @@ import Testing
         #expect(!PgPass.mayUse(for: DatabaseInfo(name: "app", engine: .postgres, source: ".env"), host: host))
     }
     let found = DatabaseInfo(name: "app", engine: .postgres, source: ".env", host: "pg.local", database: "app")
-    #expect(DatabaseFind.isProduction(found))
+    #expect(DatabaseFind.isRemote(found))
 }
 
 /// A Postgres behind an SSH host is that host's: its "localhost" isn't this Mac's, so Kelp doesn't copy it here.
@@ -74,4 +75,32 @@ import Testing
     #expect(await why()?.contains("once the user opens it") == true)
     await #expect(throws: RPCError.self) { try await w.c.call(read) }   // the user's: dialled, nobody there
     #expect(await why()?.contains("once the user opens it") == false)
+}
+
+/// Production marks kept before they were the user's word only go once; a server elsewhere stays read only for agents.
+@Test func guessedProductionMarksGoOnceAndElsewhereStaysReadOnly() throws {
+    let queue = try DatabaseQueue()
+    try Store.migrator.migrate(queue, upTo: "databaseLibrary")
+    var remote = DatabaseInfo(name: "bi", engine: .postgres, host: "db.example.com", access: .ask)
+    remote.set(stage: .production)
+    var local = DatabaseInfo(name: "app", engine: .postgres, host: "localhost", access: .free, production: true)
+    local.environment = .production
+    let staged = DatabaseInfo(name: "dev", engine: .postgres, host: "dev.example.com", access: .ask)
+    try queue.write { db in
+        for info in [remote, local, staged] {
+            try db.execute(
+                sql: "INSERT INTO databaseLibrary (id, json) VALUES (?, ?)",
+                arguments: [info.name, String(decoding: try JSONEncoder().encode(info), as: UTF8.self)])
+        }
+    }
+    try Store.migrator.migrate(queue)
+    let after = try queue.read { db in
+        try String.fetchAll(db, sql: "SELECT json FROM databaseLibrary ORDER BY id").map {
+            try JSONDecoder().decode(DatabaseInfo.self, from: Data($0.utf8))
+        }
+    }
+    #expect(after.map(\.name) == ["app", "bi", "dev"])
+    #expect(after.allSatisfy { !$0.production && $0.environment == nil })
+    #expect(after[0].access == .free && after[1].access == .read)
+    #expect(after[2].access == .ask)   // not marked before: left as it was
 }
