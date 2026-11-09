@@ -5,8 +5,8 @@ import EditorKit
 import KelpKit
 
 /// "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out as TablePlus and TablePro lay a database out: on the
-/// left its items, saved queries and history (`DatabaseSidebar`); on top a capsule in the colour of its environment
-/// that says where you are, and the filter's rows under it (⇧⌘F); in the middle a table's rows, a run's, or a query
+/// left its items, saved queries and history (`DatabaseSidebar`); on top its environment's tag (PROD in red) and,
+/// quieter, where you are, and the filter's rows under it (⇧⌘F); in the middle a table's rows, a run's, or a query
 /// of the user's own; at the foot everything about the table shown (Data / Structure, + Row, how many, the changes,
 /// Columns, pages); on the right its details (`DatabaseDetails`). While an agent asks to change this database, a bar
 /// over it all says who and how much, with Deny / Allow.
@@ -48,7 +48,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let busy = NSProgressIndicator()
     let whole = NSStackView()
     let capsule = NSTextField(labelWithString: "")
-    let capsuleBox = NSView()
+    let capsuleBox = NSStackView()
     let part = NSSegmentedControl(
         labels: [String(localized: "Data"), String(localized: "Structure")], trackingMode: .selectOne, target: nil,
         action: nil)
@@ -188,21 +188,14 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         return line
     }
 
-    /// Where you are, in the environment's colour: "Production · PostgreSQL 16.4 · AGR_GIS · public.orders".
+    /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders"; a click, its menu.
     private func capsuleBar() -> NSView {
-        capsule.font = .ui(11.5, weight: .semibold)
+        capsule.font = .ui(11.5, weight: .medium)
+        capsule.textColor = .secondaryLabelColor
         capsule.lineBreakMode = .byTruncatingMiddle
         capsule.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        capsuleBox.wantsLayer = true
-        capsuleBox.layer?.cornerRadius = Metrics.radiusLG + 1   // a capsule: half its height
-        capsule.translatesAutoresizingMaskIntoConstraints = false
-        capsuleBox.addSubview(capsule)
-        NSLayoutConstraint.activate([
-            capsule.leadingAnchor.constraint(equalTo: capsuleBox.leadingAnchor, constant: 10),
-            capsule.trailingAnchor.constraint(equalTo: capsuleBox.trailingAnchor, constant: -10),
-            capsule.centerYAnchor.constraint(equalTo: capsuleBox.centerYAnchor),
-            capsuleBox.heightAnchor.constraint(equalToConstant: 22)
-        ])
+        capsuleBox.spacing = Metrics.gap
+        capsuleBox.heightAnchor.constraint(equalToConstant: 22).isActive = true
         let menuClick = NSClickGestureRecognizer(target: self, action: #selector(capsuleClicked))
         capsuleBox.addGestureRecognizer(menuClick)
         capsuleBox.toolTip = String(localized: "Its menu: environment, what agents may do, address")
@@ -329,13 +322,13 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             case .query: String(localized: "Query")
             }
         let parts = [
-            DatabaseLook.title(stage), version ?? db.map { DatabaseLook.engine($0.engine) },
+            version ?? db.map { DatabaseLook.engine($0.engine) },
             db?.database ?? db?.path.map { ($0 as NSString).lastPathComponent } ?? address.name,
             db?.ssh.map { String(localized: "via \($0)") }, place
         ]
         capsule.stringValue = parts.compactMap { $0 }.joined(separator: " · ")
-        capsule.textColor = DatabaseLook.color(stage)
-        capsuleBox.layer?.backgroundColor = DatabaseLook.color(stage).withAlphaComponent(0.14).cgColor
+        // The environment as the databases list shows it, a tag; the rest quiet. A whole red line read as an error.
+        capsuleBox.setViews([DatabaseLook.stageChip(stage), capsule, NSView()], in: .leading)
     }
 
     private func askVersion() async {
@@ -427,6 +420,11 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     static func rows(_ n: Int, changed: Bool = false) -> String {
         let count = n == 1 ? String(localized: "1 row") : String(localized: "\(n.formatted()) rows")
         return changed ? count + " " + String(localized: "changed") : count
+    }
+
+    /// "84 ms", "1.5 s": how long a read took.
+    nonisolated static func took(_ ms: Int) -> String {
+        ms < 1000 ? "\(ms) ms" : (Double(ms) / 1000).formatted(.number.precision(.fractionLength(1))) + " s"
     }
 
     static func summary(_ run: DatabaseRun) -> String {
@@ -530,8 +528,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         for v in [save, discard, showSQL] { v.isHidden = edits == 0 }
         let picked = grid.selectedRows.count, agent = agentToAsk
         ask.isHidden = picked == 0 || agent == nil || edits > 0 || mode == .query
-        if let agent {
-            ask.title = String(localized: "Ask \(app.catalog.name(agent.agent)) About \(Self.rows(picked))")
+        if let agent {   // short: the count is the selection on screen, and in the tooltip
+            let name = app.catalog.name(agent.agent)
+            ask.title = String(localized: "Ask \(name)")
+            ask.image = app.catalog.icon(agent.agent, size: 14)
+            ask.imagePosition = .imageLeading
+            ask.toolTip = String(localized: "Ask \(name) about \(Self.rows(picked))")
         }
         detailsChanged()
     }

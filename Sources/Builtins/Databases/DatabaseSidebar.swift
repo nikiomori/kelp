@@ -70,7 +70,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         schemaPicker.controlSize = .small
         schemaPicker.target = self
         schemaPicker.action = #selector(schemaPicked)
-        let add = IconButton(.symbol("plus"), tip: String(localized: "New Query")) { [weak self] in
+        let add = IconButton(.symbol("square.and.pencil"), tip: String(localized: "New Query")) { [weak self] in
             self?.onNewQuery()
         }
         let top = NSStackView(views: [part])
@@ -123,12 +123,16 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case 2:
             out = runs.filter { find.isEmpty || $0.sql.lowercased().contains(find) }.map(Row.run)
         default:
+            // As Finder sorts: "1_weather" before "10_weather".
+            func ordered(_ a: String, _ b: String) -> Bool { a.localizedStandardCompare(b) == .orderedAscending }
             let functions = (schema.functions ?? []).filter { find.isEmpty || $0.lowercased().contains(find) }
-            let views = inSchema.filter { $0.kind == "view" && fits($0) }
-            let tables = inSchema.filter { $0.kind != "view" && fits($0) }
+                .sorted(by: ordered)
+            let views = inSchema.filter { $0.kind == "view" && fits($0) }.sorted { ordered($0.name, $1.name) }
+            let tables = inSchema.filter { $0.kind != "view" && fits($0) }.sorted { ordered($0.name, $1.name) }
             for (title, items) in [
-                (String(localized: "Functions"), functions.map(Row.function)),
-                (String(localized: "Views"), views.map(Row.table)), (String(localized: "Tables"), tables.map(Row.table))
+                (String(localized: "Tables"), tables.map(Row.table)),
+                (String(localized: "Views"), views.map(Row.table)),
+                (String(localized: "Functions"), functions.map(Row.function))
             ] where !items.isEmpty {
                 let open = !folded.contains(title) || !find.isEmpty
                 out.append(.section(title, count: items.count, open: open))
@@ -181,12 +185,15 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             let icon = symbol(t.kind == "view" ? "eye" : "tablecells")
             if t.kind == "view" { icon.contentTintColor = .systemPurple }
             let name = text(t.name.split(separator: ".").last.map(String.init) ?? t.name, font: .uiMono(11.5))
+            name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": names differ at their ends
             let row = line([icon, name, NSView()], inset: 20)
             row.toolTip = [t.name, t.rows.map { String(localized: "\($0) rows") }, t.comment].compactMap { $0 }
                 .joined(separator: "\n")
             return row
         case .function(let name):
-            return line([symbol("function"), text(name, font: .uiMono(11.5)), NSView()], inset: 20)
+            let label = text(name, font: .uiMono(11.5))
+            label.lineBreakMode = .byTruncatingMiddle
+            return line([symbol("function"), label, NSView()], inset: 20)
         case .newQuery:
             return line([symbol("plus"), text(String(localized: "New Query"), font: .ui(12)), NSView()], inset: 8)
         case .saved(let q):

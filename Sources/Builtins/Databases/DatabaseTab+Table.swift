@@ -80,7 +80,7 @@ extension DatabaseTab {
         }
         if filters.isActive { words.append(String(localized: "filtered")) }
         if !grid.editable { words.append(String(localized: "a view: read only")) }
-        words.append("\(ms) ms")
+        words.append(Self.took(ms))
         status.stringValue = words.joined(separator: " · ")
         previous.isEnabled = page > 0
         next.isEnabled = shown == Self.pageSize && (total.map { first + shown < $0 } ?? true)

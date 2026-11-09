@@ -164,7 +164,7 @@ extension DatabaseTab {
                     ? String(localized: "Done") : result.rows.isEmpty ? String(localized: "No Rows") : nil)
             status.stringValue =
                 (result.changed.map { String(localized: "\($0) rows changed") }
-                    ?? String(localized: "\(result.total) rows")) + " · \(result.ms) ms"
+                    ?? String(localized: "\(result.total) rows")) + " · " + Self.took(result.ms)
             await loadTables()   // a CREATE or a DROP changes the list
         }
     }

@@ -41,6 +41,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     private(set) var rows: [[String?]] = []
     /// The table's columns by name, when the rows are a table's: types and keys for the header.
     private(set) var info: [String: DatabaseSchema.Column] = [:]
+    /// Columns of numbers (by index): they, and their headers, stand right.
+    private var numeric: Set<Int> = []
     var edits = DatabaseEdits()
     var editable = false
     /// Rows an agent's last change touched (by index), and that agent's colour.
@@ -98,6 +100,12 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         self.info = Dictionary(info.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         edits.clear()
         marked = []
+        numeric = Set(
+            columns.indices.filter { i in
+                if let type = self.info[columns[i]]?.type { return Self.isNumber(type) }
+                let values = rows.prefix(200).compactMap { $0.indices.contains(i) ? $0[i] : nil }
+                return !values.isEmpty && values.allSatisfy { Double($0) != nil }
+            })
         for column in table.tableColumns.reversed() { table.removeTableColumn(column) }
         let index = NSTableColumn(identifier: .init("#"))
         index.width = 44
@@ -105,7 +113,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.addTableColumn(index)
         for (i, name) in columns.enumerated() {
             let column = NSTableColumn(identifier: .init(String(i)))
-            column.headerCell.attributedStringValue = header(name)
+            column.headerCell.attributedStringValue = header(name, right: numeric.contains(i))
             column.headerToolTip = describe(name)
             let longest = rows.prefix(60).map { ($0.indices.contains(i) ? $0[i] : nil)?.count ?? 4 }.max() ?? 0
             let fk = self.info[name]?.references == nil ? 0 : 3
@@ -119,9 +127,13 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     /// "id int8 ⚿", "user_id int8 → users": the name, then its type and keys quieter.
     /// The name only, and a key's mark: the type, NOT NULL and what it refers to are in its tooltip and Structure.
-    private func header(_ name: String) -> NSAttributedString {
+    private func header(_ name: String, right: Bool) -> NSAttributedString {
         let text = NSMutableAttributedString(
-            string: name, attributes: [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.labelColor])
+            string: name,
+            attributes: [
+                .font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.labelColor,
+                .paragraphStyle: Self.aligned(right ? .right : .left)
+            ])
         if info[name]?.primary == true {
             let mark = NSTextAttachment()
             mark.image = NSImage.symbol("key.fill", String(localized: "primary key")).withSymbolConfiguration(
@@ -208,7 +220,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         if let value {
             field.stringValue = value.replacingOccurrences(of: "\n", with: "⏎")
             field.font = font
-            field.alignment = Double(value) != nil ? .right : .left
+            field.alignment = numeric.contains(column) ? .right : .left
             field.toolTip = value.count > 40 ? value : nil
         } else {
             field.stringValue = new ? String(localized: "DEFAULT") : "NULL"
@@ -220,7 +232,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
                 string: field.stringValue,
                 attributes: [
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue, .foregroundColor: NSColor.textRed,
-                    .font: field.font ?? .ui(12)
+                    .font: field.font ?? .ui(12), .paragraphStyle: Self.aligned(field.alignment)
                 ])
         } else if editable {
             field.isEditable = true
@@ -255,7 +267,27 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             NSAttributedString(
                 string: new ? "+" : String(row + 1),
                 attributes: [.font: NSFont.uiDigits(11), .foregroundColor: NSColor.tertiaryLabelColor]))
+        // An attributed string keeps its own alignment: the field's `.right` doesn't reach it.
+        text.addAttribute(
+            .paragraphStyle, value: Self.aligned(.right), range: NSRange(location: 0, length: text.length))
         return text
+    }
+
+    private static func aligned(_ alignment: NSTextAlignment) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.alignment = alignment
+        style.lineBreakMode = .byTruncatingTail
+        return style
+    }
+
+    /// "integer", "double precision", "numeric(10,2)", "int unsigned", "REAL": a number type, by its first word.
+    /// Not "interval" or "point".
+    nonisolated static func isNumber(_ type: String) -> Bool {
+        let word = type.lowercased().prefix { $0.isLetter || $0.isNumber }
+        return [
+            "int", "integer", "int2", "int4", "int8", "smallint", "bigint", "tinyint", "mediumint", "float", "float4",
+            "float8", "double", "real", "numeric", "decimal", "number", "serial", "smallserial", "bigserial", "money"
+        ].contains(String(word))
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) { onChange() }

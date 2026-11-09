@@ -128,9 +128,17 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     }
 
     private func rowField(_ index: Int, _ name: String, _ value: String?, _ column: DatabaseSchema.Column?) -> NSView {
-        let head = small(
-            [name, column?.type.lowercased(), column?.primary == true ? "key" : nil].compactMap { $0 }
+        // The name gives way in its middle; the type stays whole at the right edge.
+        let title = small(name)
+        title.lineBreakMode = .byTruncatingMiddle
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let kind = small(
+            [column?.type.lowercased(), column?.primary == true ? "key" : nil].compactMap { $0 }
                 .joined(separator: " · "))
+        kind.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let head = NSStackView(views: [title, NSView(), kind])
+        head.spacing = Metrics.gap
+        head.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
         var parts: [NSView] = [head]
         if let ref = column?.references, let value, case let p = ref.split(separator: "."), p.count == 2 {
             let link = ClosureButton(title: "\(value) → \(p[0])") { [weak self] in

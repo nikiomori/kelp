@@ -73,3 +73,16 @@ import Testing
     #expect(ResultText.condition("note", nil, equal: true, engine: .postgres) == #""note" IS NULL"#)
     #expect(ResultText.condition("s", "it's", equal: false, engine: .mysql) == "`s` <> 'it''s'")
 }
+
+/// Number columns stand right, found by their type ("interval" starts with "int", "point" ends with it: neither is
+/// one); the read time turns into seconds past one.
+@Test func numberColumnsAreFoundByType() {
+    for type in ["integer", "double precision", "numeric(10,2)", "int unsigned", "REAL", "bigserial", "float8"] {
+        #expect(ResultGrid.isNumber(type), "\(type)")
+    }
+    for type in ["interval", "point", "text", "character varying(20)", "timestamp with time zone", "json"] {
+        #expect(!ResultGrid.isNumber(type), "\(type)")
+    }
+    #expect(DatabaseTab.took(84) == "84 ms")
+    #expect(DatabaseTab.took(1513).hasSuffix(" s") && DatabaseTab.took(1513).contains("1"))
+}
