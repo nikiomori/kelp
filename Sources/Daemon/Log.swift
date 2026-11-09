@@ -12,16 +12,3 @@ enum Log {
     static let session = Logger(subsystem: "dev.kelp.daemon", category: "session")
     static let vm = Logger(subsystem: "dev.kelp.daemon", category: "vm")
 }
-
-extension Logger {
-    /// `body`'s value, or nil with the error in this log: for what may fail without stopping the caller (a cleanup, a
-    /// best-effort write), but must not fail unseen as a bare `try?` would.
-    @discardableResult
-    func attempt<T>(_ what: @autoclosure () -> String, _ body: () throws -> T) -> T? {
-        do { return try body() } catch {
-            let what = what()
-            self.error("\(what, privacy: .public): \(error)")
-            return nil
-        }
-    }
-}
