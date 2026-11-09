@@ -16,7 +16,7 @@ extension Main {
             // A session outside every workspace would run where no tab or sidebar row shows it.
             if let ref = flag("--worktree") {
                 request.worktreeId = try await resolve(c, ref, "worktree.list")
-            } else if let worktree = try? await currentWorktree(c) {
+            } else if let worktree = try await worktreeHere(c) {
                 request.worktreeId = worktree.id
             } else {
                 fail(

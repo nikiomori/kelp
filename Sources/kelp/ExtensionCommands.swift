@@ -49,10 +49,7 @@ extension Main {
         case "update":
             let library = try await c.call(ExtensionLibrary())
             var found = false
-            for f
-                in (try? FileManager.default.contentsOfDirectory(at: Paths.extensions, includingPropertiesForKeys: nil))
-                ?? []
-            {
+            for f in FileManager.default.items(in: Paths.extensions) {
                 guard let source = IDE.extensionSource(f), let id = manifest(f)["id"]?.string,
                     args.first.map({ $0 == id }) ?? true
                 else { continue }

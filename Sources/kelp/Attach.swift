@@ -8,19 +8,21 @@ enum Attach {
     /// agent that asked for the kitty keyboard.
     static func run(_ sessionId: String, detachKey: Bool = false) -> Never {
         let socket = ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path
-        guard let fd = try? Unix.connect(socket, patience: 2) else {
-            fail("kelp attach: daemon not reachable at \(socket)")
+        let fd: Int32
+        do { fd = try Unix.connect(socket, patience: 2) } catch {
+            fail("kelp attach: daemon not reachable at \(socket): \(error)")
         }
         var ws = winsize()   // a paused agent wakes at this size, so its first screen isn't drawn for another width
         let size: [String: JSONValue] =
             ioctl(1, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0
             ? ["cols": .int(Int(ws.ws_col)), "rows": .int(Int(ws.ws_row))] : [:]
-        guard
-            let req = try? Wire.line(
+        let req: Data
+        do {
+            req = try Wire.line(
                 RPCRequest(
                     id: nil, method: "session.stream",
                     params: .object(["id": .string(sessionId)].merging(size) { a, _ in a })))
-        else { exit(1) }
+        } catch { fail("kelp attach: \(error)") }
         Unix.writeAll(fd, req)
 
         // Raw mode: every key goes to the agent as typed; the agent's terminal handles echo and line editing.

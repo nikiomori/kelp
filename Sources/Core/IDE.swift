@@ -38,7 +38,7 @@ public enum IDE {
     public static func open(_ target: String, split: String?, cwd: String, focus: Bool = false, client: RPCClient)
         async throws -> Delivered
     {
-        let found = try? await workspace(cwd: cwd, client: client)
+        let found = try await workspace(cwd: cwd, client: client)
         return try await client.call(
             UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: found?.id))
     }
@@ -49,7 +49,7 @@ public enum IDE {
         client: RPCClient
     ) async throws -> Worktree? {
         let all = try await client.call(WorktreeList())
-        let own = session == nil ? nil : (try? await client.call(SessionList()))?.first { $0.id == session }?.worktreeId
+        let own = session == nil ? nil : try await client.call(SessionList()).first { $0.id == session }?.worktreeId
         return workspace(cwd: cwd, among: all, own: own)
     }
 
@@ -89,10 +89,10 @@ public enum IDE {
     public static func extensions(client: RPCClient, dir: URL) async throws -> JSONValue {
         if let shown = try await client.call(UIStateGet())["extensions"] { return shown }
         let disabled = try await disabledExtensions(client: client)
-        let folders = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        let folders = FileManager.default.items(in: dir)
         return .array(
             folders.sorted { $0.path < $1.path }.compactMap { folder in
-                guard let data = try? Data(contentsOf: folder.appendingPathComponent("extension.json")) else {
+                guard let data = Data(contentsIfAny: folder.appendingPathComponent("extension.json")) else {
                     return nil
                 }
                 let id = folder.lastPathComponent
@@ -152,16 +152,14 @@ public enum IDE {
         ]
         let bundles = dirs.lazy.compactMap { $0.flatMap { Bundle(url: $0.appendingPathComponent("Kelp_Core.bundle")) } }
         let found = bundles.compactMap { $0.url(forResource: name, withExtension: ext) }
-        return found.first.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+        return found.first.flatMap { String(contentsIfAny: $0) }
     }
     private final class BundleToken {}
 
     /// EXTENSIONS.md, rewritten when missing or older than this build's guide.
     public static func writeGuide(in dir: URL) throws {
         let guide = dir.appendingPathComponent("EXTENSIONS.md")
-        guard !extensionGuide.isEmpty, (try? String(contentsOf: guide, encoding: .utf8)) != extensionGuide else {
-            return
-        }
+        guard !extensionGuide.isEmpty, String(contentsIfAny: guide) != extensionGuide else { return }
         try Paths.ensure(dir)
         try extensionGuide.write(to: guide, atomically: true, encoding: .utf8)
     }

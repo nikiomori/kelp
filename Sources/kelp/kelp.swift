@@ -112,7 +112,10 @@ func connect() throws -> RPCClient {
     process.executableURL = URL(fileURLWithPath: daemonBinary())
     process.standardOutput = FileHandle.nullDevice
     process.standardError = FileHandle.nullDevice
-    try? process.run()
+    do { try process.run() } catch {
+        throw RPCError.internalError(
+            "couldn't start the Kelp daemon (\(daemonBinary())): \(error.localizedDescription)")
+    }
     for _ in 0..<50 {
         usleep(100_000)
         if let client = try? RPCClient(socket: Paths.socket.path) { return client }
@@ -139,10 +142,12 @@ func jsonOrText(_ s: String) -> JSONValue {
 
 /// The workspace the current directory is in; an agent's own one (KELP_SESSION) when several share the folder.
 func currentWorktree(_ c: RPCClient) async throws -> Worktree {
-    guard let worktree = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c) else {
-        throw RPCError.invalidParams("not inside a kelp worktree")   // throws: callers use try? to fall back
-    }
+    guard let worktree = try await worktreeHere(c) else { throw RPCError.invalidParams("not inside a kelp worktree") }
     return worktree
+}
+/// nil outside every workspace: for a command with somewhere else to go then. A daemon that didn't answer is an error.
+func worktreeHere(_ c: RPCClient) async throws -> Worktree? {
+    try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c)
 }
 func currentWorktreeID(_ c: RPCClient) async throws -> String { try await currentWorktree(c).id }
 func currentRepoID(_ c: RPCClient) async throws -> String {
@@ -154,7 +159,7 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
     })?.id {
         return id
     }
-    if let id = (try? await currentWorktree(c))?.repoId { return id }
+    if let id = try await worktreeHere(c)?.repoId { return id }
     fail("no repo here; pass --repo <id> or run `kelp repo add`")
 }
 
