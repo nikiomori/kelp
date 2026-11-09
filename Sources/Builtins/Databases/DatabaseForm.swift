@@ -66,10 +66,13 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         }
         host.stringValue = db.host ?? ""
         port.stringValue = db.port.map(String.init) ?? ""
-        port.placeholderString = engine == .postgres ? "5432" : "3306"
+        let appwrite = engine == .appwrite
+        port.placeholderString = appwrite ? "" : engine == .postgres ? "5432" : "3306"
+        if appwrite { host.placeholderString = "https://appwrite.example.com" }
         port.widthAnchor.constraint(equalToConstant: 64).isActive = true
         user.stringValue = db.user ?? ""
-        user.placeholderString = engine == .postgres ? NSUserName() : "root"
+        user.placeholderString =
+            appwrite ? String(localized: "Project ID") : engine == .postgres ? NSUserName() : "root"
         password.stringValue = address.password ?? ""
         password.placeholderString =
             editing?.passwordIn != nil
@@ -91,8 +94,10 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             let line = NSStackView(views: [host, port])
             line.spacing = Metrics.gap
             rows += [
-                (String(localized: "Host"), line), (String(localized: "User"), user),
-                (String(localized: "Password"), password), (String(localized: "Database"), database)
+                (appwrite ? String(localized: "Endpoint") : String(localized: "Host"), line),
+                (appwrite ? String(localized: "Project ID") : String(localized: "User"), user),
+                (appwrite ? String(localized: "API Key") : String(localized: "Password"), password),
+                (String(localized: "Database"), database)
             ]
         }
         var parts: [NSView] = [heading, SheetForm.grid(rows)]
@@ -204,7 +209,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             let server = host.stringValue.trimmingCharacters(in: .whitespaces)
             guard !server.isEmpty else { return nil }
             db.host = server
-            db.port = Int(port.stringValue) ?? (engine == .postgres ? 5432 : 3306)
+            db.port = Int(port.stringValue) ?? (engine == .appwrite ? nil : engine == .postgres ? 5432 : 3306)
             db.user = user.stringValue.isEmpty ? nil : user.stringValue
             db.database = database.stringValue.isEmpty ? nil : database.stringValue
             db.ssh = sshOn.state == .on && !ssh.stringValue.isEmpty ? ssh.stringValue : nil

@@ -69,7 +69,7 @@ struct DatabaseEdits: Equatable {
         func one(_ row: Int) -> String {
             if keyed { return " WHERE " + match(row) }
             switch engine {
-            case .mysql: return " WHERE " + match(row) + " LIMIT 1"
+            case .mysql, .appwrite: return " WHERE " + match(row) + " LIMIT 1"   // Appwrite always has its $id
             case .postgres: return " WHERE ctid = (SELECT ctid FROM \(name) WHERE \(match(row)) LIMIT 1)"
             case .sqlite, .duckdb: return " WHERE rowid = (SELECT rowid FROM \(name) WHERE \(match(row)) LIMIT 1)"
             }

@@ -137,6 +137,7 @@ enum DatabaseLook {
         case .postgres: "Postgres"
         case .mysql: "MySQL"
         case .duckdb: "DuckDB"
+        case .appwrite: "Appwrite"
         }
     }
 
@@ -148,6 +149,7 @@ enum DatabaseLook {
             case .mysql: ("00758F", "My", false)
             case .sqlite: ("4A7BAB", "SQ", false)
             case .duckdb: ("E8C400", "DK", true)
+            case .appwrite: ("FD366E", "AW", false)
             }
         nonisolated(unsafe) let text = NSAttributedString(
             string: letters,

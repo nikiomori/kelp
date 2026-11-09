@@ -90,6 +90,9 @@ extension Databases {
             case .mysql where near.database.host != nil:
                 version = try await MySQLWire.version(near)
                 databases = try await MySQLWire.databases(near)
+            case .appwrite:
+                version = try await AppwriteWire.version(near)
+                databases = try await AppwriteWire.databases(near)
             default: break
             }
             return DatabaseCheckResult(
@@ -198,6 +201,7 @@ enum DatabaseLook {
         case .postgres: "Postgres"
         case .mysql: "MySQL"
         case .duckdb: "DuckDB"
+        case .appwrite: "Appwrite"
         }
     }
 }

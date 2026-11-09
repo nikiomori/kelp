@@ -44,6 +44,7 @@ enum DatabaseEngines {
             switch (c.database.engine, c.database.host) {
             case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql) }
             case (.duckdb, _): try await off.run { try DuckDBRun.read(path(c), sql, timeout: timeout) }
+            case (.appwrite, _): try await AppwriteWire.read(c, sql)
             case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
             case (.mysql, .some): try await MySQLWire.read(c, sql, timeout: timeout)
             case (.postgres, nil): try await off.run { try PostgresRun.read(c, sql, timeout: timeout) }
@@ -73,6 +74,7 @@ enum DatabaseEngines {
         switch (c.database.engine, c.database.host) {
         case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
         case (.duckdb, _): try await off.run { try DuckDBRun.trial(path(c), sql) }
+        case (.appwrite, _): try await AppwriteWire.trial(c, sql)
         case (.postgres, .some): try await PostgresWire.trial(c, sql)
         case (.mysql, .some): try await MySQLWire.trial(c, sql)
         case (.postgres, nil): try await off.run { try PostgresRun.trial(c, sql) }
@@ -84,6 +86,7 @@ enum DatabaseEngines {
         switch (c.database.engine, c.database.host) {
         case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql) }
         case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql) }
+        case (.appwrite, _): try await AppwriteWire.write(c, sql)
         case (.postgres, .some): try await PostgresWire.write(c, sql)
         case (.mysql, .some): try await MySQLWire.write(c, sql)
         case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql) }
@@ -105,6 +108,7 @@ enum DatabaseEngines {
                     path(c), readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: writeTimeout)
                 return 0
             }
+        case (.appwrite, _): return try await AppwriteWire.apply(c, statements)
         case (.postgres, .some): return try await PostgresWire.apply(c, statements)
         case (.mysql, .some): return try await MySQLWire.apply(c, statements)
         case (.postgres, nil), (.mysql, nil):
@@ -120,6 +124,7 @@ enum DatabaseEngines {
             switch (c.database.engine, c.database.host) {
             case (.sqlite, _): try await off.run { try SQLiteRun.schema(path(c)) }
             case (.duckdb, _): try await off.run { try DuckDBRun.schema(path(c)) }
+            case (.appwrite, _): try await AppwriteWire.schema(c)
             case (.postgres, .some): try await PostgresWire.schema(c)
             case (.mysql, .some): try await MySQLWire.schema(c)
             case (.postgres, nil): try await off.run { try PostgresRun.schema(c) }

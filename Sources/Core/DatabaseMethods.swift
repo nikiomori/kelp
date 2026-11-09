@@ -7,7 +7,9 @@ import Foundation
 /// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
 public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public enum Engine: String, Codable, Sendable, CaseIterable {
-        case sqlite, postgres, mysql, duckdb
+        /// Appwrite: a project's database over its REST API (host: the endpoint, user: the project's ID, password: an
+        /// API key), its rows read and changed by a narrow SQL Kelp translates.
+        case sqlite, postgres, mysql, duckdb, appwrite
 
         /// A file on disk rather than a server.
         public var isFile: Bool { self == .sqlite || self == .duckdb }

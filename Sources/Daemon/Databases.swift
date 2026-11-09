@@ -230,7 +230,8 @@ final class Databases: Sendable {
             db.database = copied
             db.source = nil
             return try save(worktreeId, db, password: c.password)
-        case .mysql: throw RPCError.invalidParams("Kelp copies SQLite files and Postgres databases, not MySQL's.")
+        case .mysql, .appwrite:
+            throw RPCError.invalidParams("Kelp copies SQLite files and Postgres databases, not \(name)'s engine.")
         }
     }
 

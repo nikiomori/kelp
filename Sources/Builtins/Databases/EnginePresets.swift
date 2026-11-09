@@ -21,6 +21,12 @@ struct EnginePreset {
         .init(name: "SQLite", letters: "Sl", color: "4A7BAB", engine: .sqlite, port: nil),
         .init(name: "DuckDB", letters: "Du", color: "1C1C1E", engine: .duckdb, port: nil),
         .init(
+            name: "Appwrite", letters: "Aw", color: "FD366E", engine: .appwrite, port: nil,
+            hint:
+                "Endpoint: your Appwrite's address. Project ID: the project's Settings. API key: Overview › API keys, "
+                + "with databases.read, tables.read, rows.read and rows.write. No SQL there: Kelp turns its pages, "
+                + "filters and edits into Appwrite's queries."),
+        .init(
             name: "Supabase", letters: "Sb", color: "3ECF8E", dark: true, engine: .postgres, port: 5432,
             ssl: "require", hint: "Project Settings › Database › Connection string (or the pooler's, port 6543).",
             speaks: "Postgres"),

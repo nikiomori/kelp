@@ -1043,7 +1043,8 @@
           "sqlite",
           "postgres",
           "mysql",
-          "duckdb"
+          "duckdb",
+          "appwrite"
         ],
         "type" : "string"
       },
