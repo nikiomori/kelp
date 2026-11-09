@@ -229,3 +229,35 @@ private func tempRoot() throws -> URL {
     #expect(Artifacts.items(root: root.path).first { $0.url == url }?.type == "design")
     #expect(try String(contentsOfFile: copy, encoding: .utf8) == "<div>board</div>")
 }
+
+/// A page published before Kelp kept copies gets one from its chat's transcript: the calls whose answer names it,
+/// replayed in order (the page, then an edit), once.
+@Test func artifactPagesAreRecoveredFromTheTranscript() throws {
+    let root = try tempRoot(), url = "https://claude.ai/artifact/old"
+    _ = try Artifacts.addNative(url: url, title: "Old", type: "page", root: root.path, session: "S1")
+    func call(_ id: String, _ tool: String, _ input: String) -> String {
+        #"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"\#(id)","#
+            + #""name":"mcp__claude-artifacts__\#(tool)","input":\#(input)}]}}"#
+    }
+    func answer(_ id: String, _ text: String) -> String {
+        #"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"\#(id)","#
+            + #""content":[{"type":"text","text":"\#(text)"}]}]}}"#
+    }
+    let lines = [
+        call("a", "publish_version", #"{"content":"<p>one two</p>"}"#), answer("a", #"{\"url\":\"\#(url)\"}"#),
+        call("b", "publish_version", #"{"content":"<p>someone else's</p>"}"#),
+        answer("b", "https://claude.ai/artifact/other"),
+        call("c", "edit_version", #"{"edits":[{"old_text":"two","new_text":"three"}]}"#), answer("c", url)
+    ]
+    let transcript = root.appendingPathComponent("s1.jsonl")
+    try lines.joined(separator: "\n").write(to: transcript, atomically: true, encoding: .utf8)
+    var asked: [String] = []
+    let find: (String) -> URL? = { id in
+        asked.append(id)
+        return transcript
+    }
+    #expect(Artifacts.recoverPages(root: root.path, transcript: find) == 1)
+    let item = try #require(Artifacts.items(root: root.path).first)
+    #expect(try String(contentsOfFile: try #require(item.preview), encoding: .utf8) == "<p>one three</p>")
+    #expect(Artifacts.recoverPages(root: root.path, transcript: find) == 0 && asked == ["S1"])   // looked for once
+}

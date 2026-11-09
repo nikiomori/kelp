@@ -16,6 +16,8 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     public var versions: [ArtifactVersion]?
     /// A page on a service: when its agent last published it again (nil: only once).
     public var updated: Date?
+    /// A page on a service published before Kelp kept copies: its chat's transcript was read for it (`recoverPages`).
+    public var recovered: Bool?
 
     public init(
         type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil,
@@ -275,7 +277,7 @@ public enum Artifacts {
     ]
 
     /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
-    private static func strings(in value: JSONValue) -> [String] {
+    static func strings(in value: JSONValue) -> [String] {
         switch value {
         case .string(let text): return [text]
         case .array(let array): return array.flatMap(strings)

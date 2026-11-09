@@ -1,3 +1,4 @@
+import AgentData
 import Core
 import Foundation
 import GitKit
@@ -102,21 +103,7 @@ extension Daemon {
                     ignored: try? await ask(FilesIgnored(id: key)))
             } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
             return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
-        case .artifacts:
-            // Read on this Mac: a remote project's folder here holds only its marker. Every page is read, so off the pool;
-            // a failed read sends nothing, and the panel keeps what it had rather than going empty.
-            let store = store, remotes = remotes
-            do {
-                let items = try await offload {
-                    try store.worktree(key).flatMap {
-                        remotes.of($0.path) == nil ? Artifacts.items(root: $0.path) : []
-                    } ?? []
-                }
-                return (line(ArtifactsEvent(worktree: key, items: items)), nil)
-            } catch {
-                Log.session.error("reading workspace \(key) for its artifacts: \(error)")
-                return (nil, nil)
-            }
+        case .artifacts: return (await artifacts(key), nil)
         case .databases:
             // Its files are read again (a .env or compose file may have changed); what ran is in memory.
             do { return (line(try await ask(DatabaseActivity(worktreeId: key))), nil) } catch {
@@ -141,6 +128,36 @@ extension Daemon {
             do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: key)))), again) } catch {
                 return (nil, again)
             }
+        }
+    }
+
+    /// A workspace's artifacts, read on this Mac (a remote project's folder here holds only its marker). Every page
+    /// is read, so off the pool; a failed read sends nothing, and the panel keeps what it had rather than going empty.
+    /// Pages published before Kelp kept copies get theirs from their chats' transcripts after the list went out: what
+    /// that writes pushes it again, with previews.
+    private func artifacts(_ key: String) async -> Data? {
+        let store = store, remotes = remotes
+        do {
+            let (root, items) = try await offload {
+                try store.worktree(key).flatMap { worktree -> (String?, [ArtifactItem]) in
+                    remotes.of(worktree.path) == nil ? (worktree.path, Artifacts.items(root: worktree.path)) : (nil, [])
+                } ?? (nil, [])
+            }
+            if let root {
+                Task {
+                    do {
+                        _ = try await offload {
+                            Artifacts.recoverPages(root: root) { ClaudeHistory.transcript(id: $0) }
+                        }
+                    } catch {
+                        Log.session.error("looking for old artifacts' pages in \(root): \(error)")
+                    }
+                }
+            }
+            return line(ArtifactsEvent(worktree: key, items: items))
+        } catch {
+            Log.session.error("reading workspace \(key) for its artifacts: \(error)")
+            return nil
         }
     }
 

@@ -68,4 +68,73 @@ extension Artifacts {
         case nil: return
         }
     }
+
+    /// Pages on a service published before Kelp kept copies: what the chat that made each sent, replayed in order
+    /// from its transcript (`transcript`: the file of a session's conversation), once per page. Each is marked first,
+    /// so a run that starts meanwhile (the marks are writes the folder's watch hears) leaves it alone; each transcript
+    /// is read once, for all of its chat's pages. Returns how many got a copy.
+    @discardableResult
+    public static func recoverPages(root: String, transcript: (String) -> URL?) -> Int {
+        var bySession: [String: [(folder: URL, record: ArtifactRecord)]] = [:]
+        for (slug, record) in list(root: root) where record.url != nil && record.recovered != true {
+            let folder = dir(root: root).appendingPathComponent(slug)
+            guard fileStat(folder.appendingPathComponent(pageCopy).path) == nil, let session = record.session else {
+                continue
+            }
+            var marked = record
+            marked.recovered = true
+            do { try save(marked, in: folder) } catch { continue }   // unwritable: tried again at the next list
+            bySession[session, default: []].append((folder, marked))
+        }
+        var got = 0
+        for (session, pages) in bySession {
+            let sent = transcript(session).map { publishes(of: Set(pages.compactMap(\.record.url)), in: $0) } ?? [:]
+            for (folder, record) in pages {
+                let calls = sent[record.url ?? ""] ?? []
+                do {
+                    for call in calls { try keepPage(call.page, in: folder) }
+                    if calls.contains(where: \.canvas), record.type == "page" {
+                        var design = record
+                        design.type = Kind.design.rawValue
+                        try save(design, in: folder)
+                    }
+                } catch { continue }
+                if fileStat(folder.appendingPathComponent(pageCopy).path) != nil { got += 1 }
+            }
+        }
+        return got
+    }
+
+    /// The publishing calls in a transcript whose answers name one of `urls`, in order, by page. Lines are picked by
+    /// their bytes; only a publishing call or an answer naming a page is decoded.
+    static func publishes(of urls: Set<String>, in file: URL) -> [String: [(page: PublishedPage?, canvas: Bool)]] {
+        guard let data = small(file.path, limit: 512 << 20) else { return [:] }
+        let marks = (publishers + ["claude.ai/artifact/"]).map { Data($0.utf8) }
+        var calls: [String: (tool: String, input: JSONValue?)] = [:]
+        var found: [String: [(page: PublishedPage?, canvas: Bool)]] = [:]
+        var start = data.startIndex
+        while start < data.endIndex {
+            let end = data[start...].firstIndex(of: 0x0A) ?? data.endIndex
+            let line = data[start..<end]
+            start = end + 1
+            guard marks.contains(where: { line.range(of: $0) != nil }) else { continue }
+            let entry: JSONValue
+            do { entry = try JSONDecoder().decode(JSONValue.self, from: line) } catch { continue }
+            for part in entry["message"]?["content"]?.array ?? [] {
+                if part["type"]?.string == "tool_use", let id = part["id"]?.string, let tool = part["name"]?.string,
+                    publishers.contains(where: tool.hasSuffix)
+                {
+                    calls[id] = (tool, part["input"])
+                } else if part["type"]?.string == "tool_result", let id = part["tool_use_id"]?.string,
+                    let call = calls[id]
+                {
+                    let text = strings(in: part["content"] ?? .null)
+                    for url in urls where text.contains(where: { $0.contains(url) }) {
+                        found[url, default: []].append(sentPage(tool: call.tool, input: call.input))
+                    }
+                }
+            }
+        }
+        return found
+    }
 }

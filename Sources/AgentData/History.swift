@@ -35,6 +35,17 @@ public enum ClaudeHistory {
             .first { FileManager.default.fileExists(atPath: $0.path) && !isScripted($0) }.flatMap(parse)
     }
 
+    /// A conversation's file by its id, whichever folder it was started in; nil if there's none.
+    public static func transcript(id: String, root: URL = defaultRoot) -> URL? {
+        let folders: [URL]
+        do { folders = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) } catch {
+            return nil
+        }
+        let names = Set([id, id.lowercased()]).map { $0 + ".jsonl" }
+        return folders.lazy.flatMap { folder in names.map { folder.appendingPathComponent($0) } }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
     /// The folder of `cwd`'s conversations under `root`.
     public static func folder(cwd: String, root: URL = defaultRoot) -> URL {
         let real = Paths.real(cwd) ?? cwd   // "/private" kept, as Claude does
