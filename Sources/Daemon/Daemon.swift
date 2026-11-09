@@ -98,7 +98,9 @@ public final class Daemon: Sendable {
     public static func startFailed(_ error: Error, root: URL) -> String {
         let why = error.rpcMessage
         Log.start.fault("kelpd didn't start: \(why, privacy: .public)")
-        try? Data((why + "\n").utf8).write(to: Paths.daemonError(in: root))
+        Log.start.attempt("saving why kelpd didn't start") {
+            try Data((why + "\n").utf8).write(to: Paths.daemonError(in: root))
+        }
         return why
     }
 
@@ -184,12 +186,7 @@ public final class Daemon: Sendable {
         settingsEvents.watch()
         let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
         ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
-        ticker.setEventHandler { [self] in
-            sessions.live.all.forEach { $0.tick() }
-            sessions.applyKeepAwake()
-            sessions.hibernateIdle()
-            sessions.updates.restartOutdated()
-        }
+        ticker.setEventHandler { [self] in sessions.tick() }
         let prune = DispatchSource.makeTimerSource(queue: .global(qos: .background))
         prune.schedule(deadline: .now() + 60, repeating: 86400)   // ended sessions past `keepEnded`
         prune.setEventHandler { [self] in sessions.pruneEnded() }
@@ -207,7 +204,7 @@ public final class Daemon: Sendable {
         workspaces.headQueue.async { [weak self] in
             if self?.running.withLock({ $0.accept != nil }) == true { self?.workspaces.followHeads() }
         }
-        try? FileManager.default.removeItem(at: Paths.daemonError(in: root))   // an earlier failure is over
+        FileManager.default.removeIfAny(Paths.daemonError(in: root))   // an earlier failure is over
         Log.start.info("kelpd \(getpid()) serves \(self.socketPath, privacy: .public)")
     }
 
@@ -492,7 +489,9 @@ public final class Daemon: Sendable {
             client.send(Data("kelp: \(error.rpcMessage)\r\n".utf8))
             return
         }
-        if sessions.existing(session) == nil, (try? store.session(session))?.status == .exited {
+        if sessions.existing(session) == nil,
+            store.look("session \(session)", { try $0.session(session) })?.status == .exited
+        {
             client.send(
                 TerminalReplies.withoutQueries(
                     (try? sessions.liveSessionOrLog(session, bytes: LiveSession.ringLimit)) ?? Data()))
@@ -502,7 +501,7 @@ public final class Daemon: Sendable {
         let ls: LiveSession
         do { ls = try sessions.liveSession(session, cols: cols, rows: rows) } catch {
             // One Kelp has that didn't wake says why (its agent's CLI gone, its folder deleted), here and in the log.
-            guard (try? store.session(session)) != nil else {
+            guard store.look("session \(session)", { try $0.session(session) }) != nil else {
                 client.send(Data("kelp: no such session\r\n".utf8))
                 return
             }
@@ -542,7 +541,8 @@ public final class Daemon: Sendable {
         // queued inside the session's lock, which `Handled` can't express.
         if req.method == SessionAttach.name, !req.isNotification,
             let sid = (try? SessionAttach.checked(req.params ?? .null, self, conn: client.id))?.id,
-            sessions.existing(sid) != nil || (try? store.session(sid)).flatMap({ $0 }).map(sessions.isPaused) == true
+            sessions.existing(sid) != nil
+                || store.look("session \(sid)", { try $0.session(sid) }).map(sessions.isPaused) == true
         {
             // A wake that fails says why, once: falling through would wake it a second time, in the slow lane.
             let ls: LiveSession

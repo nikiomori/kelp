@@ -14,6 +14,17 @@ extension Sessions {
         tmuxName(session) != nil || manifests.first { $0.id == session.agent }?.resumeArgs.isEmpty == false
     }
 
+    /// The ticker's round (every 0.5 s): the live sessions with something to do, then what spans them all (sleep, pauses
+    /// and updates are for sessions at rest too, and read flags only). How many sessions were ticked.
+    @discardableResult
+    func tick() -> Int {
+        let ticked = live.all.count { $0.tick() }
+        applyKeepAwake()
+        hibernateIdle()
+        updates.restartOutdated()
+        return ticked
+    }
+
     /// Pause agents that have sat idle for `hibernateMinutes` with nobody watching. Not one that asks something: the pause would
     /// end the question unanswered, and its row, Needs You until then, would say Paused. `now`: the ticker's clock; a
     /// test moves it instead of waiting.

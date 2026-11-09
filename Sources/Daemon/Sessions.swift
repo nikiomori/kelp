@@ -110,8 +110,8 @@ final class Sessions: Sendable {
         let bytes = max(0, min(bytes, 16 << 20))
         if let ls = existing(id) { return ls.tail(bytes) }
         // Only a session Kelp has: the id names a file, and "../../x" would name any .log the user can read.
-        guard (try? store.session(id)) != nil,
-            let data = Data(tailOf: root.appendingPathComponent("history/\(id).log"), bytes: bytes)
+        guard store.look("session \(id)", { try $0.session(id) }) != nil,
+            let data = Data(tail: bytes, of: root.appendingPathComponent("history/\(id).log"))
         else {
             throw RPCError.invalidParams("no history for \(id)")
         }

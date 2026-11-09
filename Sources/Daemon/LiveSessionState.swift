@@ -477,6 +477,16 @@ extension LiveSession {
             record.awaiting = nil
         }
 
+        /// Nothing a tick would do (`LiveSession.tick`): no status a quiet screen or a silent hook moves on (working,
+        /// waiting), nothing timed (the start-up wait, text or a report to type, a menu being walked, an interrupt watched,
+        /// a continue, hooks awaited, a quiet working row) and nothing the record hasn't been told.
+        var atRest: Bool {
+            startedUp && pendingPrompts.isEmpty && reports.isEmpty && steering == nil && interruptArmed == nil
+                && lineSentUp == nil && record.continueAt == nil && record.quietSince == nil && kelpQuestions.isEmpty
+                && asking.isEmpty && detector.status != .working && detector.status != .waiting
+                && (detector.status == record.status || record.status == .exited)
+        }
+
         /// The detector's status into the record; the record when it changed. Ended is final: a hook or a keystroke that
         /// arrives after the exit doesn't bring the session back.
         mutating func sync() -> Session? {

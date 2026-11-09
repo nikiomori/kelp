@@ -189,7 +189,7 @@ final class LiveSession: Sendable {
     /// The log's own last `ringLimit` bytes, read from the file, become the log: after a wake the ring holds only what was
     /// printed since, and trimming to that would drop most of what the session showed before its pause. Its new size.
     private static func trimmed(_ log: FileHandle?, _ url: URL) -> Int? {
-        guard let log, let tail = Data(tailOf: url, bytes: ringLimit) else { return nil }
+        guard let log, let tail = Data(tail: ringLimit, of: url) else { return nil }
         let trimmed: Void? = Log.session.attempt("trimming \(url.lastPathComponent)") {
             try log.truncate(atOffset: 0)
             try log.write(contentsOf: tail)
@@ -329,7 +329,7 @@ final class LiveSession: Sendable {
         // the previous turn's (which credited it with that turn's changes), and snapshots can't land out of order.
         turnWork.async { [weak self] in
             if starting {
-                let tree = try? Git.snapshotTree(cwd, remotes: remotes)
+                let tree = try? Git.snapshotTree(cwd, remotes: remotes)   // none in a folder without git
                 self?.state.withLock { $0.turnTree = tree }
                 if let tree, let keep = self?.callbacks.turnStarted {
                     let head = Log.session.attempt("a turn's HEAD") {
@@ -350,7 +350,11 @@ final class LiveSession: Sendable {
         }
     }
 
-    func tick() {
+    /// What time moves on: a quiet screen settling its status, text waiting to be typed, the timers. Whether there was
+    /// anything to do: a session at rest (`State.atRest`) costs a look under its lock and no more.
+    @discardableResult
+    func tick() -> Bool {
+        guard !state.withLock({ $0.atRest }) else { return false }
         steer()
         state.withLock { st in
             st.detector.tick()
@@ -389,6 +393,7 @@ final class LiveSession: Sendable {
                     &st)
             }
         }
+        return true
     }
 
     /// Bytes into the program after anything Kelp is still typing (`sends`): a key never lands between a send's text and its Enter.
@@ -597,7 +602,7 @@ extension LiveSession {
         modes: String, bytes: Int, pending: [Handover.Prompt] = [], reports: [String] = [],
         status: Handover.Status? = nil
     ) {
-        let history = bytes > 0 ? Data(tailOf: logURL, bytes: bytes) ?? Data() : Data()
+        let history = bytes > 0 ? Data(tail: bytes, of: logURL) ?? Data() : Data()
         state.withLock { st in
             st.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
             st.reports = reports
