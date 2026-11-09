@@ -352,16 +352,20 @@ private func count(_ path: String, _ sql: String) throws -> Int {
 }
 
 /// A server that doesn't answer is said so, with how to start one a compose file runs.
-@Test func aDatabaseThatDoesntAnswerSaysHowToStartIt() {
+@Test func aDatabaseThatDoesntAnswerSaysHowToStartIt() async {
     let db = DatabaseInfo(name: "app_dev", engine: .postgres, source: "compose.yaml", host: "localhost", port: 5499)
-    #expect(
-        throws: DatabaseFailure.failed(
-            "app_dev doesn't answer at postgres://localhost:5499/. Is it running? docker compose up -d starts what "
-                + "compose.yaml runs.")
-    ) {
-        try DatabaseEngines.explained(DatabaseConnection(database: db)) { () throws -> Int in
+    let said = DatabaseFailure.failed(
+        "app_dev doesn't answer at postgres://localhost:5499/. Is it running? docker compose up -d starts what "
+            + "compose.yaml runs.")
+    let c = DatabaseConnection(database: db)
+    await #expect(throws: said) {
+        try await DatabaseEngines.explained(c) { () async throws -> Int in
             throw DatabaseFailure.failed("connection to server at \"localhost\", port 5499 failed: Connection refused")
         }
+    }
+    // Kelp's own client, at a port nothing listens on, says it the same way
+    await #expect(throws: said) {
+        try await DatabaseEngines.explained(c) { try await PostgresWire.read(c, "SELECT 1", timeout: 5) }
     }
 }
 
@@ -443,4 +447,18 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     _ = try await w.c.call(SessionHook(id: agent.id, event: "done", hookName: "Stop"))
     await #expect(throws: RPCError.self) { try await second.value }
     #expect(try await waitFor { try w.d.store.session(agent.id)?.summary.hasPrefix("Allow") == false })
+}
+
+/// ~/.pgpass as libpq reads it: the first line that fits, `*` for any, `localhost` for this Mac's addresses, escapes.
+@Test func pgpassLinesFitAsLibpqReadsThem() {
+    let file = """
+        # comment
+        db.example.com:5432:app:app:remote
+        localhost:55432:*:app:local\\:pw
+        *:*:*:*:any
+        """
+    #expect(PgPass.match(file, host: "127.0.0.1", port: 55432, database: "x", user: "app") == "local:pw")
+    #expect(PgPass.match(file, host: "db.example.com", port: 5432, database: "app", user: "app") == "remote")
+    #expect(PgPass.match(file, host: "other", port: 1, database: "d", user: "u") == "any")
+    #expect(PgPass.match("h:1:d:u:p", host: "h", port: 2, database: "d", user: "u") == nil)
 }

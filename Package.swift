@@ -22,6 +22,9 @@ let package = Package(
         .package(url: "https://github.com/CodeEditApp/CodeEditLanguages", from: "0.1.20"),
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.25.0"),
         .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.9.0"),
+        // Postgres and MySQL spoken by kelpd itself: no psql or mysql needed on the Mac
+        .package(url: "https://github.com/vapor/postgres-nio", from: "1.21.0"),
+        .package(url: "https://github.com/vapor/mysql-nio", from: "1.7.0"),
     ],
     targets: [
         .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json"),   // docs link to both
@@ -31,7 +34,8 @@ let package = Package(
         .target(name: "GitKit", dependencies: ["Core"]),
         .target(name: "Agents", dependencies: ["Core"]),
         .target(name: "AgentData", dependencies: ["Core"]),
-        .target(name: "Daemon", dependencies: ["Core", "GitKit", "Agents", "Integrations", "AgentData", "LSPKit", .product(name: "GRDB", package: "GRDB.swift")]),
+        .target(name: "Daemon", dependencies: ["Core", "GitKit", "Agents", "Integrations", "AgentData", "LSPKit", .product(name: "GRDB", package: "GRDB.swift"),
+                                               .product(name: "PostgresNIO", package: "postgres-nio"), .product(name: "MySQLNIO", package: "mysql-nio")]),
         .target(name: "TerminalKit", dependencies: ["Core", "GhosttyKit"], linkerSettings: ghosttyLinks),
         .executableTarget(name: "kelpd", dependencies: ["Daemon"]),
         .executableTarget(name: "kelp", dependencies: ["Core"]),

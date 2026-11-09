@@ -22,6 +22,8 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var host: String?, port: Int?, database: String?, user: String?
     /// A SQLite database's file, absolute.
     public var path: String?
+    /// TLS to the server, libpq's words: "disable", "require"; nil or "prefer": when the server offers it.
+    public var ssl: String?
     public var access: Access
     /// Agents only read it, whatever `access` says: on a host that isn't this Mac, or named so.
     public var production: Bool
@@ -30,7 +32,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
 
     public init(
         name: String, engine: Engine, source: String? = nil, host: String? = nil, port: Int? = nil,
-        database: String? = nil, user: String? = nil, path: String? = nil, access: Access = .ask,
+        database: String? = nil, user: String? = nil, path: String? = nil, ssl: String? = nil, access: Access = .ask,
         production: Bool = false
     ) {
         self.name = name
@@ -41,6 +43,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         self.database = database
         self.user = user
         self.path = path
+        self.ssl = ssl
         self.access = access
         self.production = production
     }

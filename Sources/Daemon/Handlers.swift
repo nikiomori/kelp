@@ -308,7 +308,8 @@ extension Daemon {
             + Methods.integrationMethods + Methods.projectMethods
             + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
             + Methods.vmMethods + Methods.databaseMethods
-        let async = Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods + [DatabaseQuery.self]
+        let async =
+            Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods + Methods.databaseAsyncMethods
         let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }()

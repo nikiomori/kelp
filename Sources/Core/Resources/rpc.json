@@ -941,6 +941,10 @@
             "description" : "The file it was found in, relative to the project (\"compose.yaml\", \".env.production\"); nil: added by hand.",
             "type" : "string"
           },
+          "ssl" : {
+            "description" : "TLS to the server, libpq's words: \"disable\", \"require\"; nil or \"prefer\": when the server offers it.",
+            "type" : "string"
+          },
           "user" : {
             "type" : "string"
           }

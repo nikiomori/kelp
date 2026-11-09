@@ -7,15 +7,18 @@ import Testing
 @testable import Daemon
 
 // Against real servers, when asked for: KELP_TEST_POSTGRES=<port> (a Postgres on localhost, user app, password secret,
-// database app_dev, with the orders and users tables of `DatabaseTests`), KELP_TEST_COMPOSE=1 (Docker with the images
-// postgres:16-alpine and mariadb:10.11 on this Mac). Off by default: CI has neither.
+// database app_dev, with the orders and users tables of `DatabaseTests` and `kinds`, one row of each type the test
+// lists), KELP_TEST_MYSQL=<port> (a MariaDB or MySQL on localhost, root password root, database shop),
+// KELP_TEST_COMPOSE=1 (Docker with the images postgres:16-alpine and mariadb:10.11 on this Mac). Off by default: CI
+// has neither.
 
 private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])
 private let env = ProcessInfo.processInfo.environment
 
-/// psql on this Mac: the schema with its keys, rows with NULL apart from "", an agent's change tried (RETURNING), asked,
-/// allowed and made; one statement only; read only refuses; the server's own error comes through.
-@Test(.enabled(if: env["KELP_TEST_POSTGRES"] != nil)) func postgresThroughPsql() async throws {
+/// Kelp's own Postgres client: the schema with its keys, rows with NULL apart from "", each type as psql writes it, an
+/// agent's change tried (RETURNING), asked, allowed and made; one statement only; read only refuses; the server's own
+/// error comes through.
+@Test(.enabled(if: env["KELP_TEST_POSTGRES"] != nil)) func postgresThroughItsOwnClient() async throws {
     let port = env["KELP_TEST_POSTGRES"] ?? ""
     let w = try await world(agents: [bot])
     defer { w.d.stop() }
@@ -38,6 +41,17 @@ private let env = ProcessInfo.processInfo.environment
     let read = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "SELECT id, note FROM orders ORDER BY id"))
     #expect(read.columns == ["id", "note"] && read.rows == [["1", nil], ["2", ""], ["3", "x"]])
+    // Kelp speaks the protocol itself (binary values): each type written as psql writes it
+    let kinds = try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "SELECT * FROM kinds"))
+    #expect(
+        kinds.rows.first == [
+            "42.50", "-0.000123", "1.5", "2026-11-09 03:51:49.12", "2026-11-09 03:51:49+00", "1999-12-31", "13:05:00.5",
+            "1 year 2 mons 3 days 04:05:06", #"{"a": [1, 2]}"#, #"{"b":1}"#, "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+            "\\xdeadbeef", "{1,2,NULL}", #"{"a b",c}"#, "192.168.0.1/24", "t", "$12.34"
+        ])
+    let none = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "SELECT id, note FROM orders WHERE false"))
+    #expect(none.columns == ["id", "note"] && none.rows.isEmpty)   // the columns of no rows
 
     let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
     let change = DatabaseQuery(
@@ -90,6 +104,47 @@ private let env = ProcessInfo.processInfo.environment
     } catch let error as RPCError {
         #expect(error.message.contains("\"nothing\" does not exist"))
     }
+}
+
+/// MySQL or MariaDB at a port: Kelp's own client reads, refuses a change in a read-only transaction, counts a trial's.
+@Test(.enabled(if: env["KELP_TEST_MYSQL"] != nil)) func mysqlThroughItsOwnClient() async throws {
+    let port = env["KELP_TEST_MYSQL"] ?? ""
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    try "DATABASE_URL=mysql://root:root@localhost:\(port)/shop\n".write(
+        toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
+    func run(_ sql: String) async throws -> QueryResult {
+        try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: sql))
+    }
+    var ready = false
+    _ = try await waitFor(60) {   // the server takes a few seconds after its container starts
+        do { ready = try await run("SELECT 1").rows == [["1"]] } catch { ready = false }
+        return ready
+    }
+    #expect(ready)
+    _ = try await run("DROP TABLE IF EXISTS t")
+    _ = try await run("CREATE TABLE t (id INT PRIMARY KEY, v VARCHAR(9), d DECIMAL(6,2))")
+    #expect(try await run("INSERT INTO t VALUES (1, 'a\\tb', 4.5), (2, NULL, 0)").changed == 2)
+    let rows = try await run("SELECT id, v, d FROM t ORDER BY id")
+    #expect(rows.columns == ["id", "v", "d"] && rows.rows == [["1", "a\tb", "4.50"], ["2", nil, "0.00"]])
+    #expect(try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "shop")).tables.first?.name == "t")
+
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let dbs = w.d.workspaces.databases
+    let asked = Task {
+        try await dbs.query(
+            DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE t SET v = 'z'"), origin: agent.id)
+    }
+    var question = ""
+    #expect(
+        try await waitFor(15) {
+            question = try w.d.store.session(agent.id)?.summary ?? ""
+            return question.hasPrefix("Allow")
+        })
+    #expect(question == "Allow changing 2 rows in shop?")
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
+    #expect(try await asked.value.changed == 2)
 }
 
 /// A compose project's Postgres and MariaDB with no port published: Kelp runs their clients in their containers.

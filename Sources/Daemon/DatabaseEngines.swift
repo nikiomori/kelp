@@ -23,32 +23,35 @@ struct DatabaseRows: Equatable, Sendable {
     var changed: Int?
 }
 
-/// Runs statements on a database: SQLite in kelpd (GRDB), Postgres and MySQL through their own clients (`psql`,
-/// `mysql`), found on the login PATH or where Homebrew and Postgres.app keep them. A read runs in a read-only
-/// transaction (a read-only file for SQLite), so the database itself refuses a change; a trial runs a change and rolls
-/// it
-/// back; a write runs it on its own. One statement each (`SQLText.single`).
+/// Runs statements on a database: SQLite in kelpd (GRDB), Postgres and MySQL over their own protocols
+/// (`DatabaseWire`) at an address kelpd reaches, or through their clients inside the compose container that runs them
+/// when there's no such address (`docker exec`). A read runs in a read-only transaction (a read-only file for SQLite),
+/// so the database itself refuses a change; a trial runs a change and rolls it back; a write runs it on its own. One
+/// statement each (`SQLText.single`). What blocks (GRDB, a client run) goes to `off`, never the cooperative pool.
 enum DatabaseEngines {
     /// Rows kept of a result; more are counted up to `countLimit`.
     static let keep = 1000, countLimit = 100_000
     /// A read's time limit, and a change's.
     static let readTimeout: TimeInterval = 15, writeTimeout: TimeInterval = 300
 
-    /// `timeout`: seconds the server may take (Postgres and MySQL stop it there).
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout) throws -> DatabaseRows
+    /// `timeout`: seconds the server may take (Postgres stops it there).
+    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout, off: Slots)
+        async throws -> DatabaseRows
     {
-        try explained(c) {
-            switch c.database.engine {
-            case .sqlite: try SQLiteRun.read(path(c), sql)
-            case .postgres: try PostgresRun.read(c, sql, timeout: timeout)
-            case .mysql: try MySQLRun.read(c, sql, timeout: timeout)
+        try await explained(c) {
+            switch (c.database.engine, c.database.host) {
+            case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql) }
+            case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
+            case (.mysql, .some): try await MySQLWire.read(c, sql, timeout: timeout)
+            case (.postgres, nil): try await off.run { try PostgresRun.read(c, sql, timeout: timeout) }
+            case (.mysql, nil): try await off.run { try MySQLRun.read(c, sql, timeout: timeout) }
             }
         }
     }
 
     /// A server that isn't up, said with how to start it when a compose file runs it.
-    static func explained<T>(_ c: DatabaseConnection, _ body: () throws -> T) throws -> T {
-        do { return try body() } catch DatabaseFailure.failed(let text)
+    static func explained<T>(_ c: DatabaseConnection, _ body: () async throws -> T) async throws -> T {
+        do { return try await body() } catch DatabaseFailure.failed(let text)
             where text.contains("Connection refused") || text.contains("Can't connect")
         {
             let start =
@@ -63,28 +66,34 @@ enum DatabaseEngines {
     }
 
     /// The change made and rolled back: what it touched, and the rows it would leave when it can say (RETURNING).
-    static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        switch c.database.engine {
-        case .sqlite: try SQLiteRun.trial(path(c), sql)
-        case .postgres: try PostgresRun.trial(c, sql)
-        case .mysql: try MySQLRun.trial(c, sql)
+    static func trial(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
+        switch (c.database.engine, c.database.host) {
+        case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
+        case (.postgres, .some): try await PostgresWire.trial(c, sql)
+        case (.mysql, .some): try await MySQLWire.trial(c, sql)
+        case (.postgres, nil): try await off.run { try PostgresRun.trial(c, sql) }
+        case (.mysql, nil): try await off.run { try MySQLRun.trial(c, sql) }
         }
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        switch c.database.engine {
-        case .sqlite: try SQLiteRun.write(path(c), sql)
-        case .postgres: try PostgresRun.write(c, sql)
-        case .mysql: try MySQLRun.write(c, sql)
+    static func write(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
+        switch (c.database.engine, c.database.host) {
+        case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql) }
+        case (.postgres, .some): try await PostgresWire.write(c, sql)
+        case (.mysql, .some): try await MySQLWire.write(c, sql)
+        case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql) }
+        case (.mysql, nil): try await off.run { try MySQLRun.write(c, sql) }
         }
     }
 
-    static func schema(_ c: DatabaseConnection, table: String?) throws -> DatabaseSchema {
-        let schema: DatabaseSchema = try explained(c) {
-            switch c.database.engine {
-            case .sqlite: try SQLiteRun.schema(path(c))
-            case .postgres: try PostgresRun.schema(c)
-            case .mysql: try MySQLRun.schema(c)
+    static func schema(_ c: DatabaseConnection, table: String?, off: Slots) async throws -> DatabaseSchema {
+        let schema: DatabaseSchema = try await explained(c) {
+            switch (c.database.engine, c.database.host) {
+            case (.sqlite, _): try await off.run { try SQLiteRun.schema(path(c)) }
+            case (.postgres, .some): try await PostgresWire.schema(c)
+            case (.mysql, .some): try await MySQLWire.schema(c)
+            case (.postgres, nil): try await off.run { try PostgresRun.schema(c) }
+            case (.mysql, nil): try await off.run { try MySQLRun.schema(c) }
             }
         }
         guard let table else { return schema }
@@ -95,29 +104,21 @@ enum DatabaseEngines {
         return DatabaseSchema(tables: one)
     }
 
-    private static func path(_ c: DatabaseConnection) throws -> String {
+    static func path(_ c: DatabaseConnection) throws -> String {
         guard let path = c.database.path, FileManager.default.fileExists(atPath: path) else {
             throw DatabaseFailure.failed("\(c.database.name)'s file isn't there: \(c.database.path ?? "no path").")
         }
         return path
     }
 
-    /// How to run the client, and where it reaches the server: this Mac's own at the database's host and port, else inside
-    /// the container compose runs it in (`docker exec`, its port there), with `secret` (the password's variable) passed
-    /// from the environment, never on the command line.
-    static func invocation(_ c: DatabaseConnection, _ name: String, also: [String], secret: String) throws -> (
+    /// How to run the client inside the container compose runs the database in (`docker exec`, its port there), with
+    /// `secret` (the password's variable) passed from the environment, never on the command line. A database with an
+    /// address is spoken to directly (`DatabaseWire`).
+    static func invocation(_ c: DatabaseConnection, _ name: String, secret: String) throws -> (
         argv: [String], host: String, port: Int
     ) {
-        var missing: DatabaseFailure?
-        if let host = c.database.host {
-            do { return ([try client(name, also: also)], host, c.database.port ?? 0) } catch let failure
-                as DatabaseFailure
-            {
-                missing = failure
-            }
-        }
         guard let service = c.container else {
-            throw missing ?? DatabaseFailure.failed("\(c.database.name) has no address to reach it at.")
+            throw DatabaseFailure.failed("\(c.database.name) has no address to reach it at.")
         }
         let docker = try client(
             "docker", also: ["/usr/local/bin", "/opt/homebrew/bin", "/Applications/Docker.app/Contents/Resources/bin"])
@@ -144,8 +145,7 @@ enum DatabaseEngines {
         if let found = also.map({ $0 + "/" + name }).first(where: FileManager.default.isExecutableFile(atPath:)) {
             return found
         }
-        let hint = ["psql": "brew install libpq", "mysql": "brew install mysql-client"][name] ?? "install it"
-        throw DatabaseFailure.failed("\(name) isn't installed, and Kelp talks to this database through it: \(hint).")
+        throw DatabaseFailure.failed("\(name) isn't installed, and Kelp reaches this database through it.")
     }
 
     /// A value as text: numbers as SQLite gives them, a blob as its size.
@@ -274,11 +274,6 @@ enum PostgresRun {
     static let marker = "--kelp-7f3e9c--"
     /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.
     static let null = "\u{1}NULL\u{1}"
-    static let folders = [
-        "/opt/homebrew/opt/libpq/bin", "/usr/local/opt/libpq/bin",
-        "/Applications/Postgres.app/Contents/Versions/latest/bin",
-        "/opt/homebrew/bin", "/usr/local/bin"
-    ]
 
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
         let out = try run(
@@ -313,38 +308,40 @@ enum PostgresRun {
         return section(out.last ?? "")
     }
 
+    private static let other = "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')"
+    static let schemaColumns = """
+        SELECT CASE WHEN c.table_schema = 'public' THEN c.table_name ELSE c.table_schema || '.' || c.table_name END,
+          c.column_name, c.data_type, c.is_nullable,
+          EXISTS (SELECT 1 FROM information_schema.table_constraints t JOIN information_schema.key_column_usage k
+            ON k.constraint_name = t.constraint_name AND k.table_schema = t.table_schema
+            WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = c.table_schema
+            AND t.table_name = c.table_name AND k.column_name = c.column_name),
+          (SELECT u.table_name || '.' || u.column_name FROM information_schema.table_constraints t
+            JOIN information_schema.key_column_usage k ON k.constraint_name = t.constraint_name
+              AND k.table_schema = t.table_schema
+            JOIN information_schema.constraint_column_usage u ON u.constraint_name = t.constraint_name
+              AND u.constraint_schema = t.table_schema
+            WHERE t.constraint_type = 'FOREIGN KEY' AND t.table_schema = c.table_schema
+            AND t.table_name = c.table_name AND k.column_name = c.column_name LIMIT 1)
+        FROM information_schema.columns c WHERE c.table_schema \(other)
+        ORDER BY c.table_schema, c.table_name, c.ordinal_position
+        """
+    static let schemaCounts = """
+        SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
+          CASE WHEN c.reltuples < 0 THEN s.n_live_tup ELSE c.reltuples::bigint END   -- -1: never analyzed
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
+        """
+    static let schemaIndexes = """
+        SELECT CASE WHEN schemaname = 'public' THEN tablename ELSE schemaname || '.' || tablename END,
+          indexname || ' ' || substring(indexdef from '\\((.*)\\)$')
+        FROM pg_indexes WHERE schemaname \(other) ORDER BY indexname
+        """
     static func schema(_ c: DatabaseConnection) throws -> DatabaseSchema {
-        let other = "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')"
-        let columns = """
-            SELECT CASE WHEN c.table_schema = 'public' THEN c.table_name ELSE c.table_schema || '.' || c.table_name END,
-              c.column_name, c.data_type, c.is_nullable,
-              EXISTS (SELECT 1 FROM information_schema.table_constraints t JOIN information_schema.key_column_usage k
-                ON k.constraint_name = t.constraint_name AND k.table_schema = t.table_schema
-                WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = c.table_schema
-                AND t.table_name = c.table_name AND k.column_name = c.column_name),
-              (SELECT u.table_name || '.' || u.column_name FROM information_schema.table_constraints t
-                JOIN information_schema.key_column_usage k ON k.constraint_name = t.constraint_name
-                  AND k.table_schema = t.table_schema
-                JOIN information_schema.constraint_column_usage u ON u.constraint_name = t.constraint_name
-                  AND u.constraint_schema = t.table_schema
-                WHERE t.constraint_type = 'FOREIGN KEY' AND t.table_schema = c.table_schema
-                AND t.table_name = c.table_name AND k.column_name = c.column_name LIMIT 1)
-            FROM information_schema.columns c WHERE c.table_schema \(other)
-            ORDER BY c.table_schema, c.table_name, c.ordinal_position
-            """
-        let counts = """
-            SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
-              c.reltuples::bigint
-            FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
-            """
-        let indexes = """
-            SELECT CASE WHEN schemaname = 'public' THEN tablename ELSE schemaname || '.' || tablename END,
-              indexname || ' ' || substring(indexdef from '\\((.*)\\)$')
-            FROM pg_indexes WHERE schemaname \(other) ORDER BY indexname
-            """
         let out = try run(
-            c, ["BEGIN TRANSACTION READ ONLY", columns, counts, indexes], timeout: DatabaseEngines.readTimeout + 10)
+            c, ["BEGIN TRANSACTION READ ONLY", schemaColumns, schemaCounts, schemaIndexes],
+            timeout: DatabaseEngines.readTimeout + 10)
         guard out.count >= 3 else { throw DatabaseFailure.failed("psql said nothing of the tables.") }
         return DatabaseSchemaBuilder.build(
             columns: section(out[out.count - 3]).rows, counts: section(out[out.count - 2]).rows,
@@ -354,7 +351,7 @@ enum PostgresRun {
     /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them.
     static func run(_ c: DatabaseConnection, _ commands: [String], timeout: TimeInterval) throws -> [String] {
         let db = c.database
-        let (client, host, port) = try DatabaseEngines.invocation(c, "psql", also: folders, secret: "PGPASSWORD")
+        let (client, host, port) = try DatabaseEngines.invocation(c, "psql", secret: "PGPASSWORD")
         var argv =
             client + [
                 "-X", "-w", "--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1", "-h", host, "-p", String(port),
@@ -478,13 +475,9 @@ enum CSV {
 
 // MARK: MySQL
 
-/// Untested against a real server so far: written from mysql's documented batch output.
+/// mysql inside a compose container (`docker exec`): its batch output.
 enum MySQLRun {
     static let marker = "kelp_7f3e9c"
-    static let folders = [
-        "/opt/homebrew/opt/mysql-client/bin", "/usr/local/opt/mysql-client/bin", "/opt/homebrew/bin", "/usr/local/bin",
-        "/usr/local/mysql/bin"
-    ]
 
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
         // No server-side limit: MySQL names it max_execution_time, MariaDB max_statement_time, and each refuses the
@@ -516,22 +509,23 @@ enum MySQLRun {
         return rows
     }
 
+    private static let here = "table_schema = DATABASE()"
+    static let schemaColumns = """
+        SELECT c.table_name, c.column_name, c.column_type, c.is_nullable, c.column_key = 'PRI',
+          (SELECT CONCAT(k.referenced_table_name, '.', k.referenced_column_name)
+           FROM information_schema.key_column_usage k
+           WHERE k.table_schema = c.table_schema AND k.table_name = c.table_name AND k.column_name = c.column_name
+           AND k.referenced_table_name IS NOT NULL LIMIT 1)
+        FROM information_schema.columns c WHERE c.\(here) ORDER BY c.table_name, c.ordinal_position
+        """
+    static let schemaCounts = "SELECT table_name, table_rows FROM information_schema.tables WHERE \(here)"
+    static let schemaIndexes = """
+        SELECT table_name, CONCAT(index_name, ' (', GROUP_CONCAT(column_name ORDER BY seq_in_index), ')')
+        FROM information_schema.statistics WHERE \(here) GROUP BY table_name, index_name
+        """
+
     static func schema(_ c: DatabaseConnection) throws -> DatabaseSchema {
-        let here = "table_schema = DATABASE()"
-        let columns = """
-            SELECT c.table_name, c.column_name, c.column_type, c.is_nullable, c.column_key = 'PRI',
-              (SELECT CONCAT(k.referenced_table_name, '.', k.referenced_column_name)
-               FROM information_schema.key_column_usage k
-               WHERE k.table_schema = c.table_schema AND k.table_name = c.table_name AND k.column_name = c.column_name
-               AND k.referenced_table_name IS NOT NULL LIMIT 1)
-            FROM information_schema.columns c WHERE c.\(here) ORDER BY c.table_name, c.ordinal_position
-            """
-        let counts = "SELECT table_name, table_rows FROM information_schema.tables WHERE \(here)"
-        let indexes = """
-            SELECT table_name, CONCAT(index_name, ' (', GROUP_CONCAT(column_name ORDER BY seq_in_index), ')')
-            FROM information_schema.statistics WHERE \(here) GROUP BY table_name, index_name
-            """
-        let out = try run(c, [columns, counts, indexes], timeout: DatabaseEngines.readTimeout + 10)
+        let out = try run(c, [schemaColumns, schemaCounts, schemaIndexes], timeout: DatabaseEngines.readTimeout + 10)
         guard out.count >= 3 else { throw DatabaseFailure.failed("mysql said nothing of the tables.") }
         return DatabaseSchemaBuilder.build(
             columns: section(out[out.count - 3]).rows, counts: section(out[out.count - 2]).rows,
@@ -542,7 +536,7 @@ enum MySQLRun {
     /// them.
     static func run(_ c: DatabaseConnection, _ statements: [String], timeout: TimeInterval) throws -> [String] {
         let db = c.database
-        let (client, host, port) = try DatabaseEngines.invocation(c, "mysql", also: folders, secret: "MYSQL_PWD")
+        let (client, host, port) = try DatabaseEngines.invocation(c, "mysql", secret: "MYSQL_PWD")
         // localhost would mean its Unix socket to mysql: the server's port is asked for by address.
         var argv =
             client + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]

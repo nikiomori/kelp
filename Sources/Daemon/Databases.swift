@@ -165,19 +165,20 @@ final class Databases: Sendable {
     }
 
     /// A copy for the workspace's branch (`DatabaseCopy`): the copy as it's listed now.
-    func copy(_ worktreeId: String, _ name: String) throws -> DatabaseInfo {
+    func copy(_ worktreeId: String, _ name: String) async throws -> DatabaseInfo {
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.invalidParams("No workspace \(worktreeId).")
         }
         guard remotes.of(worktree.path) == nil else {
             throw RPCError.invalidParams("A remote project's databases stay on its host: Kelp copies them only here.")
         }
-        let c = try connection(worktreeId, name, agent: false), suffix = Self.slug(worktree.branch)
+        let c = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
+        let suffix = Self.slug(worktree.branch)
         guard !c.database.production else {
             throw RPCError.invalidParams("\(name) is production: Kelp doesn't copy it.")
         }
         switch c.database.engine {
-        case .sqlite: return try copyFile(c, worktree, suffix: suffix)
+        case .sqlite: return try await offloads.run { [self] in try copyFile(c, worktree, suffix: suffix) }
         case .postgres:
             guard let host = c.database.host, DatabaseFind.isLocal(host), let database = c.database.database else {
                 throw RPCError.invalidParams(
@@ -187,8 +188,9 @@ final class Databases: Sendable {
             var maintenance = c   // a template can't have anyone connected, this connection included
             maintenance.database.database = "postgres"
             do {
-                _ = try DatabaseEngines.write(
-                    maintenance, "CREATE DATABASE \(Self.quoted(copied)) TEMPLATE \(Self.quoted(database))")
+                _ = try await DatabaseEngines.write(
+                    maintenance, "CREATE DATABASE \(Self.quoted(copied)) TEMPLATE \(Self.quoted(database))",
+                    off: offloads)
             } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
             var db = c.database
             db.name = name + "_" + suffix
@@ -311,7 +313,7 @@ final class Databases: Sendable {
         do {
             let started = Date()
             let timeout = max(1, sessions.settings[SettingKeys.databaseTimeout])
-            let rows = try await offloads.run { try DatabaseEngines.read(c, sql, timeout: timeout) }
+            let rows = try await DatabaseEngines.read(c, sql, timeout: timeout, off: offloads)
             return finish(q, &run, rows, started: started)
         } catch DatabaseFailure.change {
             switch access {
@@ -334,7 +336,7 @@ final class Databases: Sendable {
             case .free:
                 let started = Date()
                 do {
-                    let rows = try await offloads.run { try DatabaseEngines.write(c, sql) }
+                    let rows = try await DatabaseEngines.write(c, sql, off: offloads)
                     run.state = .done
                     return finish(q, &run, rows, started: started)
                 } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
@@ -375,7 +377,7 @@ final class Databases: Sendable {
             return false
         }
         var trial: DatabaseRows?
-        do { trial = try await offloads.run { try DatabaseEngines.trial(c, sql) } } catch DatabaseFailure.failed(
+        do { trial = try await DatabaseEngines.trial(c, sql, off: offloads) } catch DatabaseFailure.failed(
             let why)
         {
             // It can't be tried in a transaction (CREATE INDEX CONCURRENTLY, MySQL's DDL): asked all the same.
@@ -412,9 +414,11 @@ final class Databases: Sendable {
         return "Allow \(short) in \(database)?"
     }
 
-    func schema(_ worktreeId: String, _ name: String, table: String?, agent: Bool) throws -> DatabaseSchema {
-        let c = try reach(connection(worktreeId, name, agent: agent), worktreeId)
-        do { return try DatabaseEngines.schema(c, table: table) } catch let failure as DatabaseFailure {
+    func schema(_ worktreeId: String, _ name: String, table: String?, agent: Bool) async throws -> DatabaseSchema {
+        let c = try await offloads.run { [self] in try reach(connection(worktreeId, name, agent: agent), worktreeId) }
+        do { return try await DatabaseEngines.schema(c, table: table, off: offloads) } catch let failure
+            as DatabaseFailure
+        {
             throw RPCError.invalidParams(failure.message)
         }
     }
@@ -427,9 +431,9 @@ extension DatabaseList: Handled {
     }
 }
 
-extension DatabaseSchemaRead: Handled {
-    func handle(_ dbs: Databases) throws -> DatabaseSchema {
-        try dbs.schema(worktreeId, database, table: table, agent: dbs.agent(origin: Sessions.asker) != nil)
+extension DatabaseSchemaRead: AsyncHandled {
+    func handle(_ dbs: Databases) async throws -> DatabaseSchema {
+        try await dbs.schema(worktreeId, database, table: table, agent: dbs.agent(origin: Sessions.asker) != nil)
     }
 }
 
@@ -448,8 +452,8 @@ extension DatabaseRemove: Handled {
     }
 }
 
-extension DatabaseCopy: Handled {
-    func handle(_ dbs: Databases) throws -> DatabaseInfo { try dbs.copy(worktreeId, database) }
+extension DatabaseCopy: AsyncHandled {
+    func handle(_ dbs: Databases) async throws -> DatabaseInfo { try await dbs.copy(worktreeId, database) }
 }
 
 extension DatabaseActivity: Handled {
@@ -462,8 +466,10 @@ extension DatabaseResultRead: Handled {
 
 extension Methods {
     static let databaseMethods: [any Handled.Type] = [
-        DatabaseList.self, DatabaseSchemaRead.self, DatabaseSave.self, DatabaseRemove.self, DatabaseCopy.self,
-        DatabaseActivity.self,
-        DatabaseResultRead.self
+        DatabaseList.self, DatabaseSave.self, DatabaseRemove.self, DatabaseActivity.self, DatabaseResultRead.self
+    ]
+    /// What talks to a server: off the handlers' threads, over its own connection.
+    static let databaseAsyncMethods: [any AsyncHandled.Type] = [
+        DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self
     ]
 }
