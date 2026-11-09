@@ -242,7 +242,8 @@ private func count(_ path: String, _ sql: String) throws -> Int {
             run = try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first {
                 $0.state == .asks && $0.id != last
             }
-            return run != nil
+            // its run is noted a moment before its row asks
+            return try run != nil && w.d.store.session(agent.id)?.summary.hasPrefix("Allow") == true
         }
         return (try w.d.store.session(agent.id)?.summary ?? "", run?.id ?? "")
     }

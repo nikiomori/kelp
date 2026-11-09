@@ -85,12 +85,18 @@ extension SessionSetup {
     /// UI state: an agent here ran `kelp browser` once, so this project has pages to look at from now on.
     static func browserUsedKey(_ repo: String) -> String { "browser.used.\(repo)" }
 
-    /// Whether the chat's project has a database Kelp knows of: found in its files, or added by hand (`Databases`).
+    /// Whether the chat's project has a database Kelp knows of, as `kelp db list` would list it: found in its folder or,
+    /// on a branch, in the project's (an untracked SQLite file stays there), or added by hand. A remote project's files
+    /// are read on its host only when asked for (`Databases.onHost`): it gets the skill, which says when there are none.
     func hasDatabases(worktreeId: String?) -> Bool {
         guard let id = worktreeId,
             let worktree = Log.store.attempt("the workspace \(id)", { try store.worktree(id) }) ?? nil
         else { return false }
-        if remotes.of(worktree.path) == nil, !DatabaseFind.find(in: worktree.path).isEmpty { return true }
+        if remotes.of(worktree.path) != nil { return true }
+        let project =
+            Log.store.attempt("the project \(worktree.repoId)") { try store.repo(worktree.repoId)?.path } ?? nil
+        let folders = [worktree.path] + [project].compactMap { $0 }.filter { $0 != worktree.path }
+        if folders.contains(where: { !DatabaseFind.find(in: $0).isEmpty }) { return true }
         let byHand = Log.store.attempt("the project's databases") {
             try store.db.read { try SavedDatabase.filter(Column("repoId") == worktree.repoId).fetchCount($0) }
         }

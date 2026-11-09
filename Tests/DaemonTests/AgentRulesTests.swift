@@ -659,7 +659,12 @@ private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String
             .session(mine.id), DatabaseQuery(worktreeId: elsewhere.id, database: "db", sql: "SELECT 1"), false,
             "not on another's"
         ),
-        (.session(mine.id), DatabaseList(worktreeId: elsewhere.id), true, "which databases there are: a read"),
+        (.session(mine.id), DatabaseList(worktreeId: r.wt.id), true, "which databases its workspace has"),
+        (.session(mine.id), DatabaseList(worktreeId: elsewhere.id), false, "not another workspace's"),
+        (
+            .session(mine.id), DatabaseSchemaRead(worktreeId: elsewhere.id, database: "db"), false,
+            "nor their tables"
+        ),
         (
             .session(mine.id), DatabaseApply(worktreeId: r.wt.id, database: "db", statements: ["DELETE FROM t"]),
             false, "the table tab's edits are the user's: no question asked"

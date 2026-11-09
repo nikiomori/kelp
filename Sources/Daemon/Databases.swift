@@ -429,6 +429,13 @@ final class Databases: Sendable {
             throw RPCError.invalidParams(failure.message)
         }
         if forAgent, let why = SQLText.pastTheDatabase(sql, c.database.engine) { throw RPCError.refused(why) }
+        if forAgent, c.database.production, c.database.engine == .postgres, try await superuser(c) {
+            throw RPCError.refused(
+                "\(c.database.name) is production, and Kelp reaches it as a superuser, whom a read-only "
+                    + "transaction doesn't stop: the user can connect it as a role that only reads (Edit…); until "
+                    + "then agents can't use it."
+            )
+        }
         let id = UUID().uuidString, session = asker ?? nil
         var run = DatabaseRun(id: id, database: c.database.name, sql: sql, session: session, at: Date(), state: .done)
         let access = forAgent ? c.database.agentAccess : .free
@@ -466,6 +473,15 @@ final class Databases: Sendable {
                 } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
             }
         } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
+    }
+
+    /// Whether Postgres takes the connection's role for a superuser: what a read-only transaction and Kelp's text check
+    /// leave open (a server's files, other sessions) is then the server's own.
+    private func superuser(_ c: DatabaseConnection) async throws -> Bool {
+        do {
+            let asked = "SELECT current_setting('is_superuser')"
+            return try await DatabaseEngines.read(c, asked, timeout: 5, off: offloads).rows.first?.first == "on"
+        } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
     }
 
     private func finish(

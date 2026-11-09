@@ -53,5 +53,5 @@ import Testing
         .map { try String(contentsOfFile: folder + "/" + $0, encoding: .utf8) }.joined()
     let untested = AgentRules.methods.compactMap { Daemon.methods[$0] }.map { String(describing: $0) }
         .filter { !text.contains($0 + "(") }.sorted()
-    #expect(untested.count == 104, "\(untested.count) without a row: \(untested.joined(separator: ", "))")
+    #expect(untested.count == 103, "\(untested.count) without a row: \(untested.joined(separator: ", "))")
 }

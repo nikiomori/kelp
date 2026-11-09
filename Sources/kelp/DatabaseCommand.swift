@@ -28,23 +28,20 @@ extension Main {
                 DatabaseSchemaRead(worktreeId: worktree.id, database: name, table: args.first))
             print(text(schema, columns: args.first != nil || schema.tables.count <= 8))
         case "query":
-            let json = has("--json"), limit = flag("--limit").flatMap(Int.init)
+            let json = has("--json"), limit = limitFlag()
             guard !args.isEmpty else { fail("kelp db query \"SELECT …\" [--db name] [--limit 200] [--json]") }
             let name = try await database(named, worktree.id, c)
+            let sql = args.joined(separator: " ")
             let result = try await c.call(
-                DatabaseQuery(worktreeId: worktree.id, database: name, sql: args.joined(separator: " "), limit: limit))
+                DatabaseQuery(worktreeId: worktree.id, database: name, sql: sql, limit: limit))
             if json {
-                for row in result.rows {
-                    show(
-                        JSONValue.object(
-                            Dictionary(
-                                zip(result.columns, row.map { $0.map(JSONValue.string) ?? .null }),
-                                uniquingKeysWith: { a, _ in a })))
-                }
-            } else if !result.columns.isEmpty {
-                print(table(result.columns, result.rows.map { $0.map { cell($0) } }))
+                // One object a line (`jq` reads them as they come); the footer goes to stderr, out of the rows' way
+                for row in result.rows { print(line(Self.object(result.columns, row))) }
+                FileHandle.standardError.write(Data((footer(result, sql: sql, limit: limit) + "\n").utf8))
+            } else {
+                if !result.columns.isEmpty { print(table(result.columns, result.rows.map { $0.map { cell($0) } })) }
+                print(footer(result, sql: sql, limit: limit))
             }
-            print(footer(result))
         case "copy":   // the user's: a copy for this workspace's branch (not for agents: `db.copy` isn't theirs)
             let name = try await database(args.first ?? named, worktree.id, c)
             let copy = try await c.call(DatabaseCopy(worktreeId: worktree.id, database: name))
@@ -108,13 +105,52 @@ extension Main {
         return ([line(header)] + rows.map(line)).joined(separator: "\n")
     }
 
-    static func footer(_ r: QueryResult) -> String {
-        if let changed = r.changed, r.columns.isEmpty {
-            return "\(changed) \(changed == 1 ? "row" : "rows") changed · \(r.ms) ms"
+    /// `--limit`: a count, or the command fails rather than read it as the default.
+    static func limitFlag() -> Int? {
+        guard let text = flag("--limit") else { return nil }
+        guard let limit = Int(text), limit >= 0 else { fail("--limit takes a count of rows: --limit 500") }
+        return limit
+    }
+
+    /// A row as a JSON object: a column named twice (`a.id, b.id`) keeps both, the second as `id_2`.
+    static func object(_ columns: [String], _ row: [String?]) -> JSONValue {
+        var object: [String: JSONValue] = [:]
+        for (column, value) in zip(columns, row) {
+            var key = column, n = 2
+            while object[key] != nil {
+                key = "\(column)_\(n)"
+                n += 1
+            }
+            object[key] = value.map(JSONValue.string) ?? .null
         }
-        let rows = r.total == 1 ? "1 row" : "\(r.total) rows"
-        let cut = r.rows.count < r.total ? ", the first \(r.rows.count) shown (--limit for more)" : ""
-        return "\(rows)\(cut) · \(r.ms) ms"
+        return .object(object)
+    }
+
+    /// Compact JSON on one line.
+    static func line(_ value: JSONValue) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        do { return String(decoding: try encoder.encode(value), as: UTF8.self) } catch { return "null" }
+    }
+
+    /// What it did: the rows a change touched (with the rows it returned, when it says them), else the rows read and
+    /// how many of them are shown, and how to see more.
+    static func footer(_ r: QueryResult, sql: String, limit: Int?) -> String {
+        if let changed = r.changed {
+            let verb = sql.trimmingCharacters(in: .whitespacesAndNewlines).prefix { $0.isLetter }.uppercased()
+            guard changed > 0 || ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE", "WITH"].contains(verb) else {
+                return "Done · \(r.ms) ms"   // DDL: it changed what the database is, no rows
+            }
+            let rows = changed == 1 ? "1 row" : "\(changed) rows"
+            return "\(rows) changed" + (r.columns.isEmpty ? "" : " (those rows above)") + " · \(r.ms) ms"
+        }
+        let counted = r.total >= QueryResult.counted ? "\(r.total)+ rows" : r.total == 1 ? "1 row" : "\(r.total) rows"
+        guard r.rows.count < r.total else { return "\(counted) · \(r.ms) ms" }
+        let more =
+            r.rows.count >= QueryResult.kept && (limit ?? 0) > r.rows.count
+            ? "Kelp keeps \(QueryResult.kept) at most: narrow it with WHERE, or page with LIMIT and OFFSET"
+            : "--limit for more"
+        return "\(counted), the first \(r.rows.count) shown (\(more)) · \(r.ms) ms"
     }
 
     /// Tables a line each with their rows; with `columns`, each column under its table.

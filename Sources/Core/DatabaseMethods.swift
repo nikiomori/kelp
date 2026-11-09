@@ -111,6 +111,8 @@ public struct QueryResult: Codable, Sendable, Equatable {
     /// Rows a change touched; nil for a read.
     public var changed: Int?
     public var ms: Int
+    /// Rows kept of a result, and how far they're counted past that: `total` stops there.
+    public static let kept = 1000, counted = 100_000
     public init(id: String, columns: [String], rows: [[String?]], total: Int, changed: Int? = nil, ms: Int) {
         self.id = id
         self.columns = columns

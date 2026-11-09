@@ -64,7 +64,8 @@ enum DuckDBRun {
             columns: section(out[0]).rows, counts: section(out[1]).rows, indexes: section(out[2]).rows)
     }
 
-    /// The statements as a script on stdin, a marker printed after each; it stops at the first error (`-bail`).
+    /// The statements as a script on stdin, a marker printed after each (its `;` on a line of its own: a statement's
+    /// last line can be a `--` comment); it stops at the first error (`-bail`).
     /// `-safe`: no dot-command that reaches past the file (`.shell`, `.open`, `.read`) and no file but this one
     /// (ATTACH, COPY, read_csv), locked against a SET that would lift it; `-no-agent` keeps the CSV whatever AI_AGENT
     /// says.
@@ -76,7 +77,7 @@ enum DuckDBRun {
         let argv =
             [duckdb, "-safe", "-no-agent", "-bail", "-csv", "-nullvalue", PostgresRun.null]
             + (readOnly ? ["-readonly"] : []) + [path]
-        let script = (changes ? ".changes on\n" : "") + statements.map { $0 + ";\n.print " + marker + "\n" }.joined()
+        let script = (changes ? ".changes on\n" : "") + statements.map { $0 + "\n;\n.print " + marker + "\n" }.joined()
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: DatabaseEngines.environment([:]), stdin: Data(script.utf8),
             timeLimit: timeout + 5, limit: DatabaseEngines.outputLimit)

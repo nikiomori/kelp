@@ -149,8 +149,10 @@ enum SQLText {
 
     /// What reaches past a Postgres database to the server it runs on, and a read-only transaction lets through: COPY
     /// (to a file or a program), a DO block (whose EXECUTE builds a statement no text check sees), the functions that
-    /// read or write the server's files or end others' sessions. Refused to agents with why; nil: none of it. A text
-    /// check, so a function of the database's own can still do these: the role it connects as bounds that.
+    /// read or write the server's files or end others' sessions, and the built-in ones that run a query given as text
+    /// (`query_to_xml('pg_read' || '_file(…)', …)`, `ts_stat`), which no text check reads. Refused to agents with why;
+    /// nil: none of it. A text check, so a function of the database's own can still do these: the role it connects as
+    /// bounds that (a production database refuses agents a superuser, `Databases.query`).
     static func pastTheDatabase(_ sql: String, _ engine: DatabaseInfo.Engine) -> String? {
         // DuckDB's -safe holds it to its file; MySQL's FILE privilege is the role's
         guard engine == .postgres else { return nil }
@@ -160,10 +162,11 @@ enum SQLText {
         default: break
         }
         let pattern =
-            #"\b(lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|"#
-            + #"pg_file_write|pg_terminate_backend|pg_cancel_backend|pg_reload_conf|pg_rotate_logfile|dblink\w*)\b"#
+            #"\b(lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_\w+|pg_stat_file|pg_promote|"#
+            + #"pg_file_write|pg_terminate_backend|pg_cancel_backend|pg_reload_conf|pg_rotate_logfile|dblink\w*|"#
+            + #"query_to_xml\w*|query_to_xmlschema|ts_stat|ts_rewrite)\b"#
         guard let found = sql.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else { return nil }
-        return "\(sql[found].lowercased()) reaches past the database to its server: Kelp doesn't run it for agents."
+        return "\(sql[found].lowercased()) can reach past the database to its server: Kelp doesn't run it for agents."
     }
 
     /// Whether it may run as a read, the database refusing a change in its read-only transaction. Not MySQL's DDL nor
@@ -185,7 +188,7 @@ enum SQLText {
         guard ["UPDATE", "DELETE", "INSERT"].contains(verb(statement)),
             code(statement).range(of: #"\breturning\b"#, options: [.regularExpression, .caseInsensitive]) == nil
         else { return nil }
-        return statement + " RETURNING *"
+        return statement + "\nRETURNING *"   // a line of its own: the statement can end in a -- comment
     }
 }
 

@@ -39,7 +39,7 @@ struct DatabaseRows: Equatable, Sendable {
 /// statement each (`SQLText.single`). What blocks (GRDB, a client run) goes to `off`, never the cooperative pool.
 enum DatabaseEngines {
     /// Rows kept of a result; more are counted up to `countLimit`.
-    static let keep = 1000, countLimit = 100_000
+    static let keep = QueryResult.kept, countLimit = QueryResult.counted
     /// A read's time limit, and a change's.
     static let readTimeout: TimeInterval = 15, writeTimeout: TimeInterval = 300
     /// What Kelp reads of a client's output: an answer past it is refused whole, never read as fewer rows.
@@ -482,7 +482,8 @@ enum MySQLRun {
 
     /// The statement and, right after it (anything between would reset it), the rows it changed.
     static let changedColumn = "kelp_changed"
-    static func counted(_ sql: String) -> String { sql + ";\nSELECT ROW_COUNT() AS " + changedColumn }
+    /// Its `;` on a line of its own: a statement's last line can be a `--` comment.
+    static func counted(_ sql: String) -> String { sql + "\n;\nSELECT ROW_COUNT() AS " + changedColumn }
 
     /// What `counted` printed: the statement's rows, if any, then a table of one count.
     static func withCount(_ text: String) -> DatabaseRows {

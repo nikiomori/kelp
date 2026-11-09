@@ -121,9 +121,14 @@ enum SQLiteRun {
                     tables: try names.map { name in
                         let view = views.contains(name)   // a view has no keys or indexes of its own
                         let keys = view ? [] : try db.foreignKeys(on: name)
-                        let columns = try db.columns(in: name).map { column in
+                        let all = try db.columns(in: name)
+                        // INTEGER PRIMARY KEY is the rowid: never NULL, NOT NULL said or not (another key type can be)
+                        let rowid = all.filter { $0.primaryKeyIndex > 0 }.count == 1
+                        let columns = all.map { column in
                             DatabaseSchema.Column(
-                                name: column.name, type: column.type, nullable: !column.isNotNull,
+                                name: column.name, type: column.type,
+                                nullable: !column.isNotNull
+                                    && !(rowid && column.primaryKeyIndex > 0 && column.type.uppercased() == "INTEGER"),
                                 primary: column.primaryKeyIndex > 0,
                                 references: keys.first { $0.originColumns.contains(column.name) }.map {
                                     $0.destinationTable + "." + ($0.destinationColumns.first ?? "")
