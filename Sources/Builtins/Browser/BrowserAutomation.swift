@@ -151,8 +151,15 @@ extension BrowserTab {
             viewport = CGSize(width: wh[0], height: wh[1])
         }
         if web.window == nil { sized() } else { view.layoutSubtreeIfNeeded() }   // off screen, layout would size it to nothing
-        // A timer, not a frame: a page off screen draws none.
-        let now = try await run("await new Promise(r => setTimeout(r, 100)); return innerWidth + 'x' + innerHeight")
+        // The page takes its new size a moment later, longer on a busy Mac: wait until it says so (2 s at most). A timer,
+        // not a frame: a page off screen draws none.
+        let size = web.window == nil ? web.frame.size : web.bounds.size
+        let now = try await run(
+            """
+            const end = Date.now() + 2000
+            while ((innerWidth != w || innerHeight != h) && Date.now() < end) await new Promise(r => setTimeout(r, 50))
+            return innerWidth + 'x' + innerHeight
+            """, ["w": Int(size.width / web.pageZoom), "h": Int(size.height / web.pageZoom)])
         return try await settled(["viewport": .string(now as? String ?? "")])
     }
 
@@ -191,7 +198,9 @@ extension BrowserTab {
         try await Task.sleep(for: .milliseconds(150))   // a navigation the action started has begun
         let end = Date().addingTimeInterval(within)
         // A download the action started is waited for too, so its answer says where the file is.
-        while web.isLoading || !downloading.isEmpty, Date() < end { try await Task.sleep(for: .milliseconds(100)) }
+        while web.isLoading || !downloading.isEmpty || downloadComing, Date() < end {
+            try await Task.sleep(for: .milliseconds(100))
+        }
         var answer = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) {
             $1
         }

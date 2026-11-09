@@ -45,6 +45,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored var dialogs: [String] = []
     /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
     @ObservationIgnored var downloading: [ObjectIdentifier: (to: URL, source: URL?, page: URL?)] = [:]
+    /// When WebKit last decided a navigation is a download that has no destination yet: an action's answer waits for it
+    /// (5 s at most, in case it never starts), since on a busy Mac it can begin after the answer's first look.
+    @ObservationIgnored var downloadDecided: Date?
+    var downloadComing: Bool { downloadDecided.map { Date().timeIntervalSince($0) < 5 } ?? false }
     /// What the agent's page downloaded since the last action's answer said it.
     @ObservationIgnored var downloads: [String] = []
     /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
