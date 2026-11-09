@@ -249,6 +249,9 @@ final class TabButton: NSControl, NSDraggingSource {
         edgeGlow.radius = layer?.cornerRadius ?? Metrics.radiusSM   // the glow follows the capsule
     }
     override func mouseEntered(with event: NSEvent) {
+        // A peeking sidebar or inspector lies over the tabs in the same window, and the tab's tracking area still fires:
+        // its card would hang off that panel's row, its Continue typing into this tab's agent.
+        guard window?.contentView?.hitTest(event.locationInWindow)?.isDescendant(of: self) == true else { return }
         hover = true
         if let key = item?.card { strip?.hoverCard?.hover(key, rect: bounds, in: self) }
     }

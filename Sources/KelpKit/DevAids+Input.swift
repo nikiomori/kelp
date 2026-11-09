@@ -33,7 +33,9 @@ import WorkbenchKit
             while let view = candidate, view.trackingAreas.isEmpty { candidate = view.superview }
             guard let target = candidate,
                 let event = NSEvent.enterExitEvent(
-                    with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0,
+                    with: .mouseEntered,
+                    location: target.convert(NSPoint(x: target.bounds.midX, y: target.bounds.midY), to: nil),
+                    modifierFlags: [], timestamp: 0,
                     windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil)
             else {
                 print("HOVER nothing tracks", text)
