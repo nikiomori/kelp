@@ -37,3 +37,19 @@ import Testing
     let found = DatabaseInfo(name: "app", engine: .postgres, source: ".env", host: "pg.local", database: "app")
     #expect(DatabaseFind.isProduction(found))
 }
+
+/// A Postgres behind an SSH host is that host's: its "localhost" isn't this Mac's, so Kelp doesn't copy it here.
+@Test func aPostgresBehindAnSSHHostIsntCopiedOnThisMac() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let branch = try await workspace(w, "fix/orders")
+    var db = DatabaseInfo(name: "app", engine: .postgres, host: "localhost", port: 5432, database: "app")
+    db.ssh = "bastion"
+    _ = try await w.c.call(DatabaseSave(worktreeId: branch.id, database: db))
+    do {
+        _ = try await w.c.call(DatabaseCopy(worktreeId: branch.id, database: "app"))
+        Issue.record("copied")
+    } catch let error as RPCError {
+        #expect(error.message.contains("on this Mac"), "\(error.message)")
+    }
+}

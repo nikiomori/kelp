@@ -234,12 +234,17 @@ final class Databases: Sendable {
         switch c.database.engine {
         case .sqlite, .duckdb: return try await offloads.run { [self] in try copyFile(c, worktree, suffix: suffix) }
         case .postgres:
-            guard let host = c.database.host, DatabaseFind.isLocal(host), let database = c.database.database else {
+            // Behind an SSH host, "localhost" is that host's: not this Mac's
+            guard let host = c.database.host, DatabaseFind.isLocal(host), c.database.ssh == nil,
+                let database = c.database.database
+            else {
                 throw RPCError.invalidParams(
                     "Kelp copies a Postgres on this Mac that publishes its port; \(name) doesn't.")
             }
+            // Its password as a query would have it: one still in another app's keychain is read now
+            let near = try await offloads.run { [self] in try reach(c, worktreeId) }
             let copied = database + "_" + suffix
-            var maintenance = c   // a template can't have anyone connected, this connection included
+            var maintenance = near   // a template can't have anyone connected, this connection included
             maintenance.database.database = "postgres"
             do {
                 _ = try await DatabaseEngines.write(
@@ -250,7 +255,8 @@ final class Databases: Sendable {
             db.name = name + "_" + suffix
             db.database = copied
             db.source = nil
-            do { return try save(worktreeId, db, password: c.password) } catch {
+            let password = near.password, kept = db
+            do { return try await offloads.run { [self] in try save(worktreeId, kept, password: password) } } catch {
                 // Not kept, so not left behind: the next copy would find it "already exists"
                 do {
                     _ = try await DatabaseEngines.write(
