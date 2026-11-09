@@ -426,12 +426,19 @@ enum DatabaseFind {
         return named || !isLocal(host)
     }
 
-    /// A host that is this Mac (or its Docker's).
+    /// A host that is this Mac (or its Docker's): a loopback address, or this Mac's own name. Not any `.local` name
+    /// (whoever answers for it on the network) nor a name without a dot (a compose service's, a search domain's host).
     static func isLocal(_ host: String) -> Bool {
-        let host = host.lowercased()
-        return ["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"].contains(host)
-            || host.hasSuffix(".local") || host.hasSuffix(".localhost") || !host.contains(".")
+        let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
+            || host.hasPrefix("127.") || host.hasSuffix(".localhost")
     }
+    /// gethostname, not ProcessInfo.hostName: no DNS lookup.
+    private static let thisMac: String = {
+        var name = [CChar](repeating: 0, count: 256)
+        guard gethostname(&name, name.count) == 0 else { return "localhost" }
+        return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self).lowercased()
+    }()
 
     /// One entry per place: the same server, port and database found twice (compose and .env) is kept once, the first;
     /// two places under one name get "-2", "-3".
