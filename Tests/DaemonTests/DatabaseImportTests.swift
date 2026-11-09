@@ -68,6 +68,9 @@ private func fixtureHome() throws -> URL {
           <data-source source="LOCAL" name="bi" uuid="u-2">
             <driver-ref>postgresql</driver-ref><jdbc-url>jdbc:postgresql://bi.example.com:5432/postgres</jdbc-url>
           </data-source>
+          <data-source source="LOCAL" name="dwh" uuid="u-3">
+            <driver-ref>postgresql</driver-ref><jdbc-url>jdbc:postgresql://dwh.example.com:5432/warehouse</jdbc-url>
+          </data-source>
         </component></project>
         """)
     try write(
@@ -81,6 +84,9 @@ private func fixtureHome() throws -> URL {
           </data-source>
           <data-source name="bi" uuid="u-2"><schema-mapping><introspection-scope>
             <node kind="database" qname="reports"><node kind="schema" negative="1" /></node>
+          </introspection-scope></schema-mapping></data-source>
+          <data-source name="dwh" uuid="u-3"><schema-mapping><introspection-scope>
+            <node kind="database"><node kind="schema"><name qname="public" /></node></node>
           </introspection-scope></schema-mapping></data-source>
         </component></project>
         """)
@@ -134,8 +140,9 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     let grip = ImportReaders.read("datagrip", home: home, file: nil).map(\.imported)
     #expect(grip.first?.database.host == "db.example.com" && grip.first?.database.user == "airflow")
     #expect(grip.first?.database.group == "airflow" && grip.first?.database.production == false)
-    // The URL's database when DataGrip shows it ("@"); the one other it shows when it doesn't
-    #expect(grip.map(\.database.database) == ["airflow", "reports"])
+    // The URL's database when DataGrip shows it ("@"); the one other it shows when it doesn't; a schema's
+    // name is no database
+    #expect(grip.map(\.database.database) == ["airflow", "reports", "warehouse"])
 
     let pgpass = ImportReaders.read("pgpass", home: home, file: nil)
     #expect(pgpass.count == 1 && pgpass.first?.imported.database.database == "app_dev")

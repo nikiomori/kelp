@@ -242,13 +242,12 @@ enum ImportReaders {
             db.group = element.attribute(forName: "group-name")?.stringValue ?? group
             let mine = optional { try local?.nodes(forXPath: "//data-source[@uuid='\(uuid)']") }?.first as? XMLElement
             db.user = mine?.elements(forName: "user-name").first?.stringValue ?? db.user
-            // A URL to "postgres" whose tables DataGrip shows from one other database: that one ("@" is the URL's).
+            // A URL to one database (often "postgres") whose tables DataGrip shows from one other: that one
+            // ("@" is the URL's). Only the database nodes' own names: a <name> deeper down is a schema's.
+            let scope = ".//introspection-scope//node[@kind='database' and not(@negative)]"
             let shown = Set(
-                (optional {
-                    try mine?.nodes(
-                        forXPath: ".//introspection-scope//node[@kind='database' and not(@negative)]"
-                            + "/descendant-or-self::*[self::node[@kind='database'] or self::name]/@qname")
-                } ?? []).compactMap(\.stringValue))
+                (optional { try mine?.nodes(forXPath: "\(scope)/@qname | \(scope)/name/@qname") } ?? [])
+                    .compactMap(\.stringValue))
             if shown.count == 1, let only = shown.first, only != "@" { db.database = only }
             var note: String?
             if let ssh = mine?.elements(forName: "ssh-properties").first,
