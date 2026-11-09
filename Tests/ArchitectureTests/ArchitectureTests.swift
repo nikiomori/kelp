@@ -379,6 +379,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Issues/CIRunRow.swift": "a running job's time goes on, counted from when it began",
         "Builtins/Files/FileTab.swift": "typing settles before the language server hears it",
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
+        "Builtins/Databases/DatabaseForm.swift": "typing settles before Add Database connects to check it",
         "Builtins/Git/CommitCard.swift":
             "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
         "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",
@@ -694,7 +695,8 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
-        "Builtins/Files/Preview.swift": (2, "an image's bytes, shown")
+        "Builtins/Files/Preview.swift": (2, "an image's bytes, shown"),
+        "Builtins/Databases/DatabaseForm.swift": (1, "the Host names of ~/.ssh/config, offered for SSH")
     ]
     let all = try matches(
         #"FileManager\.default\.(contents|createFile|moveItem|trashItem|copyItem|removeItem|createDirectory|fileExists|isWritableFile"#

@@ -461,8 +461,11 @@ extension AppDelegate {
             let label = spec.hasPrefix("2:") ? String(spec.dropFirst(2)) : spec
             let window =
                 main.attachedSheet.flatMap { sheet in
-                    sheet.contentView?.allSubviews(of: NSButton.self).contains { $0.title == label } == true
-                        ? sheet : nil
+                    let inside = sheet.contentView
+                    let named =
+                        inside?.allSubviews(of: NSButton.self).contains { $0.title == label } == true
+                        || inside?.allSubviews(of: NSTextField.self).contains { $0.stringValue == label } == true
+                    return named ? sheet : nil
                 } ?? main
             guard let root = window.contentView?.superview else { return }
             // An app in the background: its sheet's first click would only make it key.

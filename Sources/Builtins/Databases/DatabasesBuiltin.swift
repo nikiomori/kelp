@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 
 extension Builtins {
@@ -123,6 +124,53 @@ enum DatabaseLook {
         case .mysql: "MySQL"
         case .duckdb: "DuckDB"
         }
+    }
+
+    /// The engine's mark: its colour (as its project draws it) with two letters, the size of a row's icon.
+    @MainActor static func badge(_ e: DatabaseInfo.Engine, size: CGFloat = 12) -> NSImage {
+        let (hex, letters, dark): (String, String, Bool) =
+            switch e {
+            case .postgres: ("336791", "PG", false)
+            case .mysql: ("00758F", "My", false)
+            case .sqlite: ("4A7BAB", "SQ", false)
+            case .duckdb: ("E8C400", "DK", true)
+            }
+        nonisolated(unsafe) let text = NSAttributedString(
+            string: letters,
+            attributes: [.font: NSFont.ui(size * 0.42, weight: .bold), .foregroundColor: dark ? NSColor.black : .white])
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+            (NSColor(hex: hex) ?? .systemBlue).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: size / 4, yRadius: size / 4).fill()
+            guard size >= 16 else { return true }
+            let fit = text.size()
+            text.draw(at: NSPoint(x: rect.midX - fit.width / 2, y: rect.midY - fit.height / 2))
+            return true
+        }
+        image.accessibilityDescription = engine(e)
+        return image
+    }
+
+    /// The app's own icon where it's installed, else a symbol: for Import's rows.
+    @MainActor static func appIcon(_ source: String) -> NSImage {
+        let bundles = [
+            "tableplus": "com.tinyapp.TablePlus", "dbeaver": "org.jkiss.dbeaver.core.product",
+            "datagrip": "com.jetbrains.datagrip", "sequelace": "com.sequel-ace.sequel-ace",
+            "beekeeper": "io.beekeeperstudio.desktop", "dbgate": "org.dbgate", "pgadmin": "org.pgadmin.pgadmin4",
+            "navicat": "com.navicat.NavicatPremium"
+        ]
+        if let id = bundles[source], let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return .symbol(source.hasPrefix("pg") || source == "mycnf" ? "doc.text" : symbol)
+    }
+
+    /// "PROD", red: a production database, wherever it's listed.
+    @MainActor static func productionChip() -> NSTextField {
+        let chip = NSTextField(labelWithString: String(localized: "PROD"))
+        chip.font = .ui(9, weight: .bold)
+        chip.textColor = .systemRed
+        chip.toolTip = String(localized: "Production: agents only read it.")
+        return chip
     }
 
     /// What agents may do, in a word for a chip.
