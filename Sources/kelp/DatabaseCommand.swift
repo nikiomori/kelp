@@ -93,8 +93,8 @@ extension Main {
 
     /// Columns padded to their widest cell (up to 40), two spaces apart.
     static func table(_ header: [String], _ rows: [[String]]) -> String {
-        let widths = header.indices.map { i in
-            min(40, ([header[i]] + rows.map { i < $0.count ? $0[i] : "" }).map(\.count).max() ?? 0)
+        let widths = header.indices.map { column in
+            min(40, ([header[column]] + rows.map { column < $0.count ? $0[column] : "" }).map(\.count).max() ?? 0)
         }
         func line(_ cells: [String]) -> String {
             cells.enumerated().map { i, cell in
@@ -159,15 +159,17 @@ extension Main {
 
     /// Tables a line each with their rows; with `columns`, each column under its table.
     static func text(_ schema: DatabaseSchema, columns: Bool) -> String {
-        schema.tables.map { t in
-            let head = t.name + (t.rows.map { "  \($0) rows" } ?? "")
+        schema.tables.map { table in
+            let head = table.name + (table.rows.map { "  \($0) rows" } ?? "")
             guard columns else { return head }
-            let cols = t.columns.map { c in
-                let marks = [c.primary ? "pk" : nil, c.nullable ? "null" : nil, c.references.map { "→ " + $0 }]
-                    .compactMap { $0 }.joined(separator: " ")
-                return "  " + [c.name, c.type, marks].filter { !$0.isEmpty }.joined(separator: "  ")
+            let cols = table.columns.map { column in
+                let marks = [
+                    column.primary ? "pk" : nil, column.nullable ? "null" : nil, column.references.map { "→ " + $0 }
+                ]
+                .compactMap { $0 }.joined(separator: " ")
+                return "  " + [column.name, column.type, marks].filter { !$0.isEmpty }.joined(separator: "  ")
             }
-            let indexes = t.indexes.isEmpty ? [] : ["  indexes: " + t.indexes.joined(separator: ", ")]
+            let indexes = table.indexes.isEmpty ? [] : ["  indexes: " + table.indexes.joined(separator: ", ")]
             return ([head] + cols + indexes).joined(separator: "\n")
         }.joined(separator: columns ? "\n\n" : "\n")
     }

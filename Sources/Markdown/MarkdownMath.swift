@@ -59,20 +59,20 @@ struct MarkdownMath {
         let chars = Array(line)
         var out = "", i = 0
         while i < chars.count {
-            let c = chars[i]
-            if c == "\\", i + 1 < chars.count {
-                out.append(contentsOf: [c, chars[i + 1]])
+            let char = chars[i]
+            if char == "\\", i + 1 < chars.count {
+                out.append(contentsOf: [char, chars[i + 1]])
                 i += 2
-            } else if c == "`" {
+            } else if char == "`" {
                 let run = chars[i...].prefix { $0 == "`" }.count
                 let close = codeEnd(chars, from: i + run, run: run)
                 out += String(chars[i..<(close ?? i + run)])
                 i = close ?? i + run
-            } else if c == "$", let (tex, display, next) = formula(chars, at: i) {
+            } else if char == "$", let (tex, display, next) = formula(chars, at: i) {
                 out += mark(tex, display: display)
                 i = next
             } else {
-                out.append(c)
+                out.append(char)
                 i += 1
             }
         }
@@ -81,15 +81,15 @@ struct MarkdownMath {
 
     /// Past the backtick run of `run` that closes a code span opened before `start`.
     private func codeEnd(_ chars: [Character], from start: Int, run: Int) -> Int? {
-        var i = start
-        while i < chars.count {
-            guard chars[i] == "`" else {
-                i += 1
+        var index = start
+        while index < chars.count {
+            guard chars[index] == "`" else {
+                index += 1
                 continue
             }
-            let length = chars[i...].prefix { $0 == "`" }.count
-            if length == run { return i + length }
-            i += length
+            let length = chars[index...].prefix { $0 == "`" }.count
+            if length == run { return index + length }
+            index += length
         }
         return nil
     }
@@ -98,12 +98,12 @@ struct MarkdownMath {
     /// `$…$` opens before a non-space and closes after one, not before a digit: "$5 and $6" stays money.
     private func formula(_ chars: [Character], at start: Int) -> (String, Bool, Int)? {
         let text = String(chars[start...])
-        if let m = text.prefixMatch(of: /\$`([^`]+)`\$/) { return (String(m.1), false, start + m.0.count) }
-        if let m = text.prefixMatch(of: /\$\$(.+?)\$\$/) { return (String(m.1), true, start + m.0.count) }
-        guard let m = text.prefixMatch(of: /\$((?:\\.|[^\\$])+?)\$(?!\d)/),
-            m.1.first?.isWhitespace == false, m.1.last?.isWhitespace == false
+        if let match = text.prefixMatch(of: /\$`([^`]+)`\$/) { return (String(match.1), false, start + match.0.count) }
+        if let match = text.prefixMatch(of: /\$\$(.+?)\$\$/) { return (String(match.1), true, start + match.0.count) }
+        guard let match = text.prefixMatch(of: /\$((?:\\.|[^\\$])+?)\$(?!\d)/),
+            match.1.first?.isWhitespace == false, match.1.last?.isWhitespace == false
         else { return nil }
-        return (String(m.1), false, start + m.0.count)
+        return (String(match.1), false, start + match.0.count)
     }
 
     private mutating func mark(_ tex: String, display: Bool) -> String {
