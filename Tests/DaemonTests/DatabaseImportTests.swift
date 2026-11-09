@@ -65,13 +65,23 @@ private func fixtureHome() throws -> URL {
           <data-source source="LOCAL" name="airflow@prod" uuid="u-1">
             <driver-ref>postgresql</driver-ref><jdbc-url>jdbc:postgresql://db.example.com:5432/airflow</jdbc-url>
           </data-source>
+          <data-source source="LOCAL" name="bi" uuid="u-2">
+            <driver-ref>postgresql</driver-ref><jdbc-url>jdbc:postgresql://bi.example.com:5432/postgres</jdbc-url>
+          </data-source>
         </component></project>
         """)
     try write(
         "DataGripProjects/airflow/.idea/dataSources.local.xml",
         """
         <project version="4"><component name="dataSourceStorageLocal">
-          <data-source name="airflow@prod" uuid="u-1"><user-name>airflow</user-name></data-source>
+          <data-source name="airflow@prod" uuid="u-1"><user-name>airflow</user-name>
+            <schema-mapping><introspection-scope><node negative="1">
+              <node kind="database"><name qname="@" /><name qname="audit" /></node>
+            </node></introspection-scope></schema-mapping>
+          </data-source>
+          <data-source name="bi" uuid="u-2"><schema-mapping><introspection-scope>
+            <node kind="database" qname="reports"><node kind="schema" negative="1" /></node>
+          </introspection-scope></schema-mapping></data-source>
         </component></project>
         """)
     try write(".pgpass", "# mine\nlocalhost:5432:app_dev:app:pw1\n*:*:*:*:any\n")
@@ -124,6 +134,8 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     let grip = ImportReaders.read("datagrip", home: home, file: nil).map(\.imported)
     #expect(grip.first?.database.host == "db.example.com" && grip.first?.database.user == "airflow")
     #expect(grip.first?.database.group == "airflow" && grip.first?.database.production == false)
+    // The URL's database when DataGrip shows it ("@"); the one other it shows when it doesn't
+    #expect(grip.map(\.database.database) == ["airflow", "reports"])
 
     let pgpass = ImportReaders.read("pgpass", home: home, file: nil)
     #expect(pgpass.count == 1 && pgpass.first?.imported.database.database == "app_dev")
