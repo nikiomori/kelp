@@ -152,7 +152,8 @@ enum SQLText {
     /// read or write the server's files or end others' sessions. Refused to agents with why; nil: none of it. A text
     /// check, so a function of the database's own can still do these: the role it connects as bounds that.
     static func pastTheDatabase(_ sql: String, _ engine: DatabaseInfo.Engine) -> String? {
-        guard engine == .postgres else { return nil }   // DuckDB's -safe holds it to its file; MySQL's FILE is the role's
+        // DuckDB's -safe holds it to its file; MySQL's FILE privilege is the role's
+        guard engine == .postgres else { return nil }
         switch verb(sql) {
         case "COPY": return "COPY reaches the server's files and programs: read with SELECT instead."
         case "DO": return "A DO block runs statements Kelp can't read first: run each as a statement of its own."
