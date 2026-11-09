@@ -47,9 +47,9 @@ import Testing
     m.extensions.reload()
     let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
     #expect(
-        sections.prefix(10).map(\.id) == [
-            "general", "appearance", "agents", "catalog", "notifications", "terminal", "editor", "git", "integrations",
-            "keyboard"
+        sections.prefix(11).map(\.id) == [
+            "general", "appearance", "agents", "catalog", "notifications", "terminal", "editor", "databases", "git",
+            "integrations", "keyboard"
         ])
     let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it

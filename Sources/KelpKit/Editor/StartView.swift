@@ -62,7 +62,6 @@ final class StartView: NSView {
         folder.isHidden = folder.stringValue.isEmpty
 
         let agents = NewTabChoices.agents(app)
-        let open = NewTabChoices.open(app, w) { [weak self] in self?.onOpen?("terminal:") }
         let hint = NSTextField(labelWithString: String(localized: "A file, an agent or a command: ⌘P"))
         hint.font = .ui(12)
         hint.textColor = .secondaryLabelColor
@@ -72,7 +71,17 @@ final class StartView: NSView {
         if let field { views += [field, planBar] }
         let agentsHead = Self.heading(String(localized: "Agents")), openHead = Self.heading(String(localized: "Open"))
         let agentList = agents.isEmpty ? StartCard(rows: installRows()) : tiles(agents)
-        let openCard = StartCard(rows: open.map(StartRow.init), columns: 2)
+        // Made again when what it offers changes (Database, once the workspace's databases are read).
+        let openCard = NSStackView()
+        let choices = { [weak self] in NewTabChoices.open(app, w) { self?.onOpen?("terminal:") } }
+        track(owner: openCard) {
+            choices().map(\.title)
+        } changed: { [weak openCard] _ in
+            guard let openCard else { return }
+            let card = StartCard(rows: choices().map(StartRow.init), columns: 2)
+            openCard.setViews([card], in: .top)
+            card.widthAnchor.constraint(equalTo: openCard.widthAnchor).isActive = true
+        }
         let run = RunGroup(app: app, workspace: w.id)
         views += [agentsHead, agentList, openHead, openCard, run, hint]
         let stack = NSStackView(views: views)

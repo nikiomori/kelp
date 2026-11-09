@@ -269,6 +269,13 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).count == 1)   // the user still sees it
     _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "shop"))
     #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).first?.access == .ask)   // back as it was found
+    // Settings › Databases: what agents may do with a found one, and how many rows they get.
+    _ = try await w.c.call(SettingsSet(key: SettingKeys.databaseAccess.key, value: .string("free")))
+    _ = try await w.c.call(SettingsSet(key: SettingKeys.databaseRows.key, value: .int(1)))
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).first?.access == .free)
+    let few = try await dbs.query(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1 UNION SELECT 2"), origin: agent.id)
+    #expect(few.rows.count == 1 && few.total == 2)
 }
 
 /// One added by hand keeps its password in the keychain, never in what's sent.

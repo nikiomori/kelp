@@ -31,8 +31,6 @@ final class Databases: Sendable {
     let store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots
     /// Runs kept per workspace (newest first), and the rows of the latest of them.
     static let keptRuns = 100, keptResults = 30
-    /// Rows an agent gets unless it asks for more.
-    static let agentRows = 200
 
     private struct Kept {
         var runs: [DatabaseRun] = []
@@ -65,6 +63,8 @@ final class Databases: Sendable {
             if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database {
                 db.access = mine.access
                 db.production = mine.production
+            } else if !db.production {
+                db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
             }
             return DatabaseConnection(database: db, password: item.password)
         }
@@ -182,7 +182,8 @@ final class Databases: Sendable {
         let access = forAgent ? c.database.agentAccess : .free
         do {
             let started = Date()
-            let rows = try await offloads.run { try DatabaseEngines.read(c, sql) }
+            let timeout = max(1, sessions.settings[SettingKeys.databaseTimeout])
+            let rows = try await offloads.run { try DatabaseEngines.read(c, sql, timeout: timeout) }
             return finish(q, &run, rows, started: started)
         } catch DatabaseFailure.change {
             switch access {
@@ -224,7 +225,7 @@ final class Databases: Sendable {
         run.ms = ms
         note(q.worktreeId, run, result: result)
         var sent = result
-        sent.rows = Array(result.rows.prefix(max(0, q.limit ?? Self.agentRows)))
+        sent.rows = Array(result.rows.prefix(max(0, q.limit ?? Int(sessions.settings[SettingKeys.databaseRows]))))
         return sent
     }
 

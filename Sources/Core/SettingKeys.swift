@@ -28,6 +28,11 @@ public enum SettingKeys {
     public static let skillArtifacts = Setting("agents.skills.artifacts", true)
     public static let skillVM = Setting("agents.skills.vm", true)
     public static let skillDatabases = Setting("agents.skills.databases", true)
+    /// What agents may do with a database Kelp found, until its own menu says otherwise: "read", "ask" or "free".
+    public static let databaseAccess = Setting("databases.agents", "ask")
+    /// Rows a statement gives an agent unless it asks for more; seconds a read may take.
+    public static let databaseRows = Setting<Double>("databases.agentRows", 200)
+    public static let databaseTimeout = Setting<Double>("databases.timeout", 15)
     /// "auto", "on" or "off"; true and false before it was a choice.
     public static let skillBrowser = Setting("agents.skills.browser", "auto")
 

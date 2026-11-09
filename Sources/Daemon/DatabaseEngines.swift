@@ -27,12 +27,14 @@ enum DatabaseEngines {
     /// A read's time limit, and a change's.
     static let readTimeout: TimeInterval = 15, writeTimeout: TimeInterval = 300
 
-    static func read(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
+    /// `timeout`: seconds the server may take (Postgres and MySQL stop it there).
+    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout) throws -> DatabaseRows
+    {
         try explained(c) {
             switch c.database.engine {
             case .sqlite: try SQLiteRun.read(path(c), sql)
-            case .postgres: try PostgresRun.read(c, sql)
-            case .mysql: try MySQLRun.read(c, sql)
+            case .postgres: try PostgresRun.read(c, sql, timeout: timeout)
+            case .mysql: try MySQLRun.read(c, sql, timeout: timeout)
             }
         }
     }
@@ -223,14 +225,10 @@ enum PostgresRun {
         "/opt/homebrew/bin", "/usr/local/bin"
     ]
 
-    static func read(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
+    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
         let out = try run(
-            c,
-            [
-                "BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'",
-                sql
-            ],
-            timeout: DatabaseEngines.readTimeout + 10)
+            c, ["BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(timeout))s'", sql],
+            timeout: timeout + 10)
         return section(out.last ?? "")
     }
 
@@ -406,13 +404,10 @@ enum MySQLRun {
         "/usr/local/mysql/bin"
     ]
 
-    static func read(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
+    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
         let out = try run(
-            c,
-            [
-                "SET SESSION max_execution_time = \(Int(DatabaseEngines.readTimeout * 1000))",
-                "START TRANSACTION READ ONLY", sql
-            ], timeout: DatabaseEngines.readTimeout + 10)
+            c, ["SET SESSION max_execution_time = \(Int(timeout * 1000))", "START TRANSACTION READ ONLY", sql],
+            timeout: timeout + 10)
         return section(out.last ?? "")
     }
 

@@ -54,7 +54,7 @@ package enum NewTabChoices {
                 })
         }
         let ctx = IDEContext.of(app)
-        for editor in app.extensions.all.editors {
+        for editor in app.extensions.all.editors where editor.available?(ctx) ?? true {
             all.append(
                 Action(title: editor.label, symbol: editor.icon, key: app.extensions.key(editor.id)) {
                     editor.open(ctx, in: app)

@@ -81,11 +81,13 @@ package struct EditorSpec: Identifiable {
         id: String,
         title: String,
         icon: String,
+        available: (@MainActor (IDEContext) -> Bool)? = nil,
         uri: @escaping @MainActor (IDEContext) -> String?
     ) {
         self.id = id
         self.title = title
         self.icon = icon
+        self.available = available
         self.uri = uri
     }
     package let id: String, title: String, icon: String
@@ -93,6 +95,8 @@ package struct EditorSpec: Identifiable {
     var label: String { loc(title) }
     /// The tab it opens (nil: none here, as for a workspace that has no changes to review).
     let uri: @MainActor (IDEContext) -> String?
+    /// Whether "+" and the empty workspace offer it here (nil: everywhere), as Database only where there is one.
+    let available: (@MainActor (IDEContext) -> Bool)?
 
     @MainActor package func open(_ ctx: IDEContext, in app: AppModel) {
         if let target = uri(ctx) { app.workbench.open(target) }
