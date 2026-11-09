@@ -105,23 +105,24 @@ enum ResultText {
 extension ResultGrid: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        if let header = table.headerView, menu === header.menu { return headerMenu(menu, header) }
         let row = table.clickedRow, column = table.clickedColumn - 1   // the first column is the rows' numbers
         guard row >= 0, row < count else { return }
         if !table.selectedRowIndexes.contains(row) { table.selectRowIndexes([row], byExtendingSelection: false) }
         let picked = selectedRows, read = row < rows.count
-        if read, rows[row].indices.contains(column), let source {
+        if read, rows[row].indices.contains(column), source != nil {
             let value = rows[row][column], name = columns[column]
             let shown = value.map { $0.count > 24 ? String($0.prefix(23)) + "…" : $0 }
             if let shown {
                 menu.add(String(localized: "Rows Where \(name) = \(shown)")) { [weak self] in
-                    self?.onFilter(ResultText.condition(name, value, equal: true, engine: source.engine))
+                    self?.onFilter(name, .equal, value)
                 }
                 menu.add(String(localized: "Rows Where \(name) ≠ \(shown)")) { [weak self] in
-                    self?.onFilter(ResultText.condition(name, value, equal: false, engine: source.engine))
+                    self?.onFilter(name, .notEqual, value)
                 }
             } else {
                 menu.add(String(localized: "Rows Where \(name) Is NULL")) { [weak self] in
-                    self?.onFilter(ResultText.condition(name, nil, equal: true, engine: source.engine))
+                    self?.onFilter(name, .isNull, nil)
                 }
             }
             menu.addItem(.separator())
@@ -163,5 +164,45 @@ extension ResultGrid: NSMenuDelegate {
         menu.add(
             picked.count > 1 ? String(localized: "Delete \(picked.count) Rows") : String(localized: "Delete Row")
         ) { [weak self] in self?.deleteSelected() }
+    }
+}
+
+extension ResultGrid {
+    /// A column's header: its order, hiding it (and bringing all back), its width.
+    func headerMenu(_ menu: NSMenu, _ header: NSTableHeaderView) {
+        let at = header.convert(header.window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil)
+        let index = header.column(at: at)
+        guard table.tableColumns.indices.contains(index), let i = Int(table.tableColumns[index].identifier.rawValue),
+            columns.indices.contains(i)
+        else { return }
+        let column = table.tableColumns[index], name = columns[i]
+        for (title, up) in [(String(localized: "Sort Ascending"), true), (String(localized: "Sort Descending"), false)]
+        {
+            menu.add(title) { [weak self] in
+                self?.orders = [(name, up)]
+                self?.indicate()
+                self?.onSort()
+            }
+        }
+        if !orders.isEmpty {
+            menu.add(String(localized: "Don’t Sort")) { [weak self] in
+                self?.orders = []
+                self?.indicate()
+                self?.onSort()
+            }
+        }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Hide \(name)")) { column.isHidden = true }
+        if table.tableColumns.contains(where: \.isHidden) {
+            menu.add(String(localized: "Show All Columns")) { [weak self] in
+                self?.table.tableColumns.forEach { $0.isHidden = false }
+            }
+        }
+        menu.add(String(localized: "Size to Fit")) { [weak self] in self?.sizeToFit(column) }
+        menu.add(String(localized: "Size All Columns to Fit")) { [weak self] in
+            self?.table.tableColumns.dropFirst().forEach { self?.sizeToFit($0) }
+        }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Copy Name")) { copyText(name) }
     }
 }

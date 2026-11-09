@@ -1,0 +1,296 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+
+/// The database tab's left column, as TablePlus' and TablePro's: Items (Functions, Views and Tables of the schema
+/// picked at its foot, each section folding, names in the editor's font), Queries (saved ones, New Query), History
+/// (what agents and the user ran here). A search over it finds by name, and a table by its columns too.
+@MainActor
+final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
+    enum Row {
+        case section(String, count: Int, open: Bool)
+        case table(DatabaseSchema.Table), function(String)
+        case newQuery, saved(SavedQuery), run(DatabaseRun)
+    }
+    struct SavedQuery: Codable, Equatable {
+        var name: String, sql: String
+    }
+
+    let view = NSView()
+    private let part = NSSegmentedControl(
+        labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")],
+        trackingMode: .selectOne, target: nil, action: nil)
+    private let search = NSSearchField()
+    let list = NSTableView()
+    private let schemaPicker = NSPopUpButton()
+    private var rows: [Row] = []
+    private var folded: Set<String> = [String(localized: "Functions")]
+    private let app: AppModel
+
+    var schema = DatabaseSchema(tables: []) {
+        didSet { schemasChanged() }
+    }
+    var runs: [DatabaseRun] = [] {
+        didSet { if part.selectedSegment == 2 { reload() } }
+    }
+    var saved: [SavedQuery] = [] {
+        didSet { if part.selectedSegment == 1 { reload() } }
+    }
+    /// The table on screen: selected in the list.
+    var current: String? {
+        didSet { select() }
+    }
+    var onTable: (String, _ pin: Bool) -> Void = { _, _ in }
+    var onNewQuery: () -> Void = {}
+    var onSaved: (SavedQuery) -> Void = { _ in }
+    var onForget: (SavedQuery) -> Void = { _ in }
+    var onRun: (DatabaseRun, _ toEditor: Bool) -> Void = { _, _ in }
+    var onAsk: (String) -> Void = { _ in }
+
+    init(app: AppModel) {
+        self.app = app
+        super.init()
+        part.selectedSegment = 0
+        part.controlSize = .small
+        part.target = self
+        part.action = #selector(partChanged)
+        search.placeholderString = String(localized: "Search")
+        search.controlSize = .small
+        search.delegate = self
+        let scroll = list.plainList("s")
+        list.dataSource = self
+        list.delegate = self
+        list.target = self
+        list.action = #selector(clicked)
+        list.doubleAction = #selector(doubleClicked)
+        list.menu = NSMenu()
+        list.menu?.delegate = self
+        list.setDraggingSourceOperationMask(.copy, forLocal: false)
+        schemaPicker.controlSize = .small
+        schemaPicker.target = self
+        schemaPicker.action = #selector(schemaPicked)
+        let add = IconButton(.symbol("plus"), tip: String(localized: "New Query")) { [weak self] in
+            self?.onNewQuery()
+        }
+        let top = NSStackView(views: [part])
+        top.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 0, bottom: 0, right: 0)
+        let find = NSStackView(views: [search])
+        find.edgeInsets = NSEdgeInsets(
+            top: Metrics.gap, left: Metrics.gapWide, bottom: Metrics.gap, right: Metrics.gapWide)
+        let foot = NSStackView(views: [add, NSView(), schemaPicker])
+        foot.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gap)
+        foot.heightAnchor.constraint(equalToConstant: Metrics.statusBar + 4).isActive = true
+        let column = NSStackView(views: [top, find, scroll, foot])
+        column.orientation = .vertical
+        column.spacing = 0
+        for v in [find, scroll, foot] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
+        view.pin(column)
+        view.widthAnchor.constraint(equalToConstant: 232).isActive = true
+    }
+
+    // MARK: What it lists
+
+    /// "public" and the other schemas, from the tables' "schema.name"; the default one first.
+    private func schemasChanged() {
+        let others = Set(
+            schema.tables.compactMap { $0.name.contains(".") ? String($0.name.split(separator: ".")[0]) : nil })
+        let picked = schemaPicker.titleOfSelectedItem
+        schemaPicker.removeAllItems()
+        schemaPicker.addItems(withTitles: [String(localized: "default")] + others.sorted())
+        schemaPicker.isHidden = others.isEmpty
+        if let picked, schemaPicker.itemTitles.contains(picked) { schemaPicker.selectItem(withTitle: picked) }
+        reload()
+    }
+
+    private var inSchema: [DatabaseSchema.Table] {
+        let picked = schemaPicker.indexOfSelectedItem <= 0 ? nil : schemaPicker.titleOfSelectedItem
+        return schema.tables.filter { t in
+            let own = t.name.contains(".") ? String(t.name.split(separator: ".")[0]) : nil
+            return own == picked
+        }
+    }
+
+    func reload() {
+        let find = search.stringValue.lowercased()
+        func fits(_ t: DatabaseSchema.Table) -> Bool {
+            find.isEmpty || t.name.lowercased().contains(find) || t.columns.contains { $0.name.lowercased() == find }
+        }
+        var out: [Row] = []
+        switch part.selectedSegment {
+        case 1:
+            out = [.newQuery] + saved.filter { find.isEmpty || $0.name.lowercased().contains(find) }.map(Row.saved)
+        case 2:
+            out = runs.filter { find.isEmpty || $0.sql.lowercased().contains(find) }.map(Row.run)
+        default:
+            let functions = (schema.functions ?? []).filter { find.isEmpty || $0.lowercased().contains(find) }
+            let views = inSchema.filter { $0.kind == "view" && fits($0) }
+            let tables = inSchema.filter { $0.kind != "view" && fits($0) }
+            for (title, items) in [
+                (String(localized: "Functions"), functions.map(Row.function)),
+                (String(localized: "Views"), views.map(Row.table)), (String(localized: "Tables"), tables.map(Row.table))
+            ] where !items.isEmpty {
+                let open = !folded.contains(title) || !find.isEmpty
+                out.append(.section(title, count: items.count, open: open))
+                if open { out += items }
+            }
+        }
+        rows = out
+        list.reloadData()
+        select()
+    }
+
+    private func select() {
+        guard let current,
+            let index = rows.firstIndex(where: { if case .table(let t) = $0 { t.name == current } else { false } })
+        else { return list.deselectAll(nil) }
+        list.selectRowIndexes([index], byExtendingSelection: false)
+        list.scrollRowToVisible(index)
+    }
+
+    @objc private func partChanged() { reload() }
+    @objc private func schemaPicked() { reload() }
+    func controlTextDidChange(_ n: Notification) { reload() }
+
+    /// ⌘F in the list's column: its search.
+    func focusSearch() { search.window?.makeFirstResponder(search) }
+
+    // MARK: Rows
+
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        switch rows[row] {
+        case .run, .saved: TextSize.of(Metrics.rowTwoLine)
+        default: TextSize.of(20)
+        }
+    }
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        if case .section = rows[row] { return false }
+        return true
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+        switch rows[row] {
+        case .section(let title, let count, let open):
+            let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
+            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
+            chevron.contentTintColor = .tertiaryLabelColor
+            return line([chevron, text(title, font: .ui(12, weight: .medium)), NSView(), digits(count)], inset: 6)
+        case .table(let t):
+            let icon = symbol(t.kind == "view" ? "eye" : "tablecells")
+            if t.kind == "view" { icon.contentTintColor = .systemPurple }
+            let name = text(t.name.split(separator: ".").last.map(String.init) ?? t.name, font: .uiMono(11.5))
+            let row = line([icon, name, NSView()], inset: 20)
+            row.toolTip = [t.name, t.rows.map { String(localized: "\($0) rows") }, t.comment].compactMap { $0 }
+                .joined(separator: "\n")
+            return row
+        case .function(let name):
+            return line([symbol("function"), text(name, font: .uiMono(11.5)), NSView()], inset: 20)
+        case .newQuery:
+            return line([symbol("plus"), text(String(localized: "New Query"), font: .ui(12)), NSView()], inset: 8)
+        case .saved(let q):
+            return twoLines(symbol("doc.text"), q.name, q.sql)
+        case .run(let run):
+            let who = run.session.flatMap(app.session)
+            let icon = NSImageView(image: who.flatMap { app.catalog.icon($0.agent, size: 14) } ?? .symbol("person"))
+            icon.contentTintColor = .secondaryLabelColor
+            let first = run.sql.split(whereSeparator: \.isNewline).joined(separator: " ")
+            return twoLines(
+                icon, first,
+                [
+                    who.map { app.catalog.name($0.agent) } ?? String(localized: "You"), shortAgo(run.at),
+                    DatabasePanelRows.outcome(run)
+                ].joined(separator: " · "), mono: true)
+        }
+    }
+
+    private func twoLines(_ icon: NSImageView, _ top: String, _ under: String, mono: Bool = false) -> NSView {
+        let a = text(top, font: mono ? .uiMono(11) : .ui(12))
+        let b = text(under, font: mono ? .ui(10.5) : .uiMono(10.5), color: .secondaryLabelColor)
+        let words = NSStackView(views: [a, b])
+        words.orientation = .vertical
+        words.alignment = .leading
+        words.spacing = Metrics.lineGap
+        let row = line([icon, words, NSView()], inset: 8)
+        row.toolTip = top + "\n" + under
+        return row
+    }
+
+    private func line(_ views: [NSView], inset: CGFloat) -> NSView {
+        let stack = NSStackView(views: views)
+        stack.spacing = Metrics.gap
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: 8)
+        return stack
+    }
+    private func symbol(_ name: String) -> NSImageView {
+        let icon = NSImageView(image: .symbol(name))
+        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
+        icon.contentTintColor = .secondaryLabelColor
+        return icon
+    }
+    private func text(_ s: String, font: NSFont, color: NSColor = .labelColor) -> NSTextField {
+        let field = NSTextField(labelWithString: s)
+        field.font = font
+        field.textColor = color
+        field.lineBreakMode = .byTruncatingTail
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+    private func digits(_ n: Int) -> NSTextField {
+        text(n.formatted(), font: .uiDigits(11), color: .tertiaryLabelColor)
+    }
+
+    // MARK: Clicks
+
+    /// A table opens in the tab itself (it replaces the one shown); a double click keeps it in a tab of its own.
+    @objc private func clicked() {
+        guard rows.indices.contains(list.clickedRow) else { return }
+        switch rows[list.clickedRow] {
+        case .section(let title, _, _):
+            if folded.remove(title) == nil { folded.insert(title) }
+            reload()
+        case .table(let t): onTable(t.name, NSEvent.modifierFlags.contains(.command))
+        case .newQuery: onNewQuery()
+        case .saved(let q): onSaved(q)
+        case .run(let run): onRun(run, NSEvent.modifierFlags.contains(.option))
+        case .function: break
+        }
+    }
+
+    @objc private func doubleClicked() {
+        guard rows.indices.contains(list.clickedRow), case .table(let t) = rows[list.clickedRow] else { return }
+        onTable(t.name, true)
+    }
+
+    /// A table dragged out (onto an agent's terminal) is its name and where to read it.
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
+        guard case .table(let t) = rows[row] else { return nil }
+        return t.name as NSString
+    }
+}
+
+extension DatabaseSidebar: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        guard rows.indices.contains(list.clickedRow) else { return }
+        switch rows[list.clickedRow] {
+        case .table(let t):
+            menu.add(String(localized: "Open")) { [weak self] in self?.onTable(t.name, false) }
+            menu.add(String(localized: "Open in a Tab of Its Own")) { [weak self] in self?.onTable(t.name, true) }
+            menu.add(String(localized: "Ask an Agent About \(t.name)")) { [weak self] in self?.onAsk(t.name) }
+            menu.addItem(.separator())
+            menu.add(String(localized: "Copy Name")) { copyText(t.name) }
+        case .saved(let q):
+            menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(q) }
+            menu.add(String(localized: "Copy SQL")) { copyText(q.sql) }
+            menu.addItem(.separator())
+            menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(q) }
+        case .run(let run):
+            menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
+            menu.add(String(localized: "Put in the Editor")) { [weak self] in self?.onRun(run, true) }
+            menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
+        default: break
+        }
+    }
+}

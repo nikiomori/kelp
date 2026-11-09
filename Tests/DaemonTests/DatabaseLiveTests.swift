@@ -37,6 +37,9 @@ private let env = ProcessInfo.processInfo.environment
     #expect(orders.columns.map(\.name) == ["id", "user_id", "status", "note"])
     #expect(orders.columns[0].primary && orders.columns[1].references == "users.id" && !orders.columns[2].nullable)
     #expect(orders.indexes.contains { $0.hasPrefix("orders_status") } && orders.rows == 3)
+    #expect(orders.comment == "Customer orders" && (orders.bytes ?? 0) > 0 && orders.kind == nil)
+    let whole = try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "app_dev"))
+    #expect(whole.tables.first { $0.name == "paid_orders" }?.kind == "view" && whole.functions == ["add_one"])
 
     let read = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "SELECT id, note FROM orders ORDER BY id"))

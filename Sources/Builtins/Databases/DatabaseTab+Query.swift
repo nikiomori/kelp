@@ -44,7 +44,6 @@ extension DatabaseTab {
 
     func startedQuery() {
         arrange()
-        heading.stringValue = String(localized: "Query")
         if editor.textView.string.isEmpty, let first = tables.first {
             editor.textView.string = "SELECT * FROM " + DatabaseEdits.name(first.name, engine) + " LIMIT 100;"
         }
@@ -95,6 +94,55 @@ extension DatabaseTab {
     }
 
     @objc func runQuery() { execute(statementAtCursor()) }
+
+    // MARK: Saved queries (state.get/set: "db.queries/<project>/<database>")
+
+    private var queriesKey: String {
+        let library = app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == address.name }
+        let project = library == true ? "~" : app.worktree(address.worktree)?.repoId ?? address.worktree
+        return "db.queries/\(project)/\(address.name)"
+    }
+
+    func loadQueries() async {
+        guard let value = await app.quiet(StateGet(key: queriesKey)), case .array(let items) = value else { return }
+        sidebar.saved = items.compactMap { item in
+            guard case .object(let o) = item, case .string(let name)? = o["name"], case .string(let sql)? = o["sql"]
+            else { return nil }
+            return DatabaseSidebar.SavedQuery(name: name, sql: sql)
+        }
+    }
+
+    private func storeQueries(_ list: [DatabaseSidebar.SavedQuery]) {
+        sidebar.saved = list
+        let value = JSONValue.array(list.map { .object(["name": .string($0.name), "sql": .string($0.sql)]) })
+        Task { _ = await app.call(StateSet(key: queriesKey, value: value)) }
+    }
+
+    /// Save Query…: the statement under a name, in the list's Queries.
+    @objc func keepQuery() {
+        let sql = editor.textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sql.isEmpty else { return NSSound.beep() }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Save the query as")
+        let name = NSTextField(string: sql.split(whereSeparator: \.isNewline).first.map { String($0.prefix(40)) } ?? "")
+        name.frame = NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: 22)
+        alert.accessoryView = name
+        alert.addButton(withTitle: String(localized: "Save"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        Task {
+            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            let title = name.stringValue.trimmingCharacters(in: .whitespaces)
+            storeQueries(
+                sidebar.saved.filter { $0.name != title } + [.init(name: title.isEmpty ? sql : title, sql: sql)])
+        }
+    }
+
+    func openSaved(_ q: DatabaseSidebar.SavedQuery) {
+        editor.textView.string = q.sql
+        Task { await leave(to: .query) }
+    }
+
+    func forget(_ q: DatabaseSidebar.SavedQuery) { storeQueries(sidebar.saved.filter { $0 != q }) }
 
     /// The plan, as the engine says it.
     @objc func explainQuery() {

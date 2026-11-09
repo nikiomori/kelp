@@ -4,15 +4,14 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// "db:<workspace>/<name>[?run=<id>|?table=<name>]". On the left the database's tables, New Query and the latest runs
-/// (anyone's). On the right a table, as Data (pages of rows with their types, an order, a filter, edits saved together,
-/// a row's inspector) or Structure (its columns, keys and indexes); a run's rows (an agent's query, or the change it
-/// asks to make); or a query of the user's own in Kelp's editor. Over it all, while an agent asks to change this
-/// database: who, how much, Deny / Allow.
+/// "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out as TablePlus and TablePro lay a database out: on the
+/// left its items, saved queries and history (`DatabaseSidebar`); on top a capsule in the colour of its environment
+/// that says where you are, and the filter's rows under it (⇧⌘F); in the middle a table's rows, a run's, or a query
+/// of the user's own; at the foot everything about the table shown (Data / Structure, + Row, how many, the changes,
+/// Columns, pages); on the right its details (`DatabaseDetails`). While an agent asks to change this database, a bar
+/// over it all says who and how much, with Deny / Allow.
 @MainActor
-final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NSTableViewDelegate,
-    NSSearchFieldDelegate
-{
+final class DatabaseTab: NSObject, KelpKit.TabContent {
     enum Mode: Equatable {
         case table(String), run(String), query
 
@@ -25,10 +24,6 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
             return nil
         }
     }
-    /// The left list: the tables, then the latest runs.
-    enum Item {
-        case section(String), table(DatabaseSchema.Table), newQuery, run(DatabaseRun)
-    }
 
     let uri: String
     let view = NSView()
@@ -39,34 +34,43 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     let app: AppModel
     let address: DatabaseURI
     var mode: Mode
-    var tables: [DatabaseSchema.Table] = []
-    var items: [Item] = []
-    let tableList = NSTableView()
+    var schema = DatabaseSchema(tables: [])
+    var tables: [DatabaseSchema.Table] { schema.tables }
+    let sidebar: DatabaseSidebar
     let grid = ResultGrid()
-    let inspector = RowInspector()
+    let details = DatabaseDetails()
+    let filters = DatabaseFilters()
     let empty = EmptyStateView()
-    let heading = NSTextField(labelWithString: "")
+    let capsule = NSTextField(labelWithString: "")
+    let capsuleBox = NSView()
     let part = NSSegmentedControl(
         labels: [String(localized: "Data"), String(localized: "Structure")], trackingMode: .selectOne, target: nil,
         action: nil)
-    let filter = NSSearchField()
     let sqlText = NSTextField(wrappingLabelWithString: "")
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))
     let status = NSTextField(labelWithString: "")
+    let changes = NSTextField(labelWithString: "")
     let askBar = NSStackView()
     let askText = NSTextField(labelWithString: "")
     var asking: DatabaseRun?
+    /// The server's version, once asked (for the capsule).
+    var version: String?
+    /// The first event came: what waited on it was asked for.
+    var started = false
     /// The user picked what to show: the first table, shown once the list is read, no longer takes over.
     var chosen = false
     /// The page of a table's rows shown, and how many a page holds.
     var page = 0
     static let pageSize = 200
-    /// Rows the table has with the filter on, when it was counted (nil: the planner's guess, or none).
+    /// Rows the table has with the filter on, when it was counted.
     var counted: Int?
+    /// While rows are read: said only past half a second, so a quick read doesn't flicker.
+    var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
     lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
     lazy var explain = NSButton(title: String(localized: "Explain"), target: self, action: #selector(explainQuery))
-    lazy var save = NSButton(title: "", target: self, action: #selector(saveEdits))
+    lazy var saveQuery = NSButton(title: String(localized: "Save Query…"), target: self, action: #selector(keepQuery))
+    lazy var save = NSButton(title: String(localized: "Save"), target: self, action: #selector(saveEdits))
     lazy var showSQL = NSButton(title: String(localized: "Show SQL"), target: self, action: #selector(showEdits))
     lazy var discard = NSButton(
         title: String(localized: "Discard"), target: self, action: #selector(discardEdits))
@@ -77,17 +81,19 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     lazy var next = IconButton(.symbol("chevron.right"), tip: String(localized: "Next Rows")) { [weak self] in
         self?.turn(1)
     }
-    lazy var addRow = IconButton(.symbol("plus"), tip: String(localized: "Add a Row")) { [weak self] in
-        self?.grid.addRow()
-    }
+    lazy var addRow = ClosureButton(title: String(localized: "Row")) { [weak self] in self?.grid.addRow() }
+    lazy var columnsButton = ClosureButton(title: String(localized: "Columns")) { [weak self] in self?.columnsMenu() }
     lazy var reload = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Read Again")) { [weak self] in
         self?.refresh()
     }
-    lazy var showInspector = IconButton(.symbol("sidebar.right"), tip: String(localized: "Show the Row (Space)")) {
-        [weak self] in self?.toggleInspector()
+    lazy var filterToggle = IconButton(
+        .symbol("line.3.horizontal.decrease.circle"), tip: String(localized: "Filters (⇧⌘F)")
+    ) { [weak self] in self?.toggleFilters() }
+    lazy var detailsToggle = IconButton(.symbol("sidebar.right"), tip: String(localized: "Details")) { [weak self] in
+        self?.details.view.isHidden.toggle()
     }
-    lazy var copyAs = IconButton(.symbol("doc.on.doc"), tip: String(localized: "Copy or Export Rows")) { [weak self] in
-        self?.copyMenu()
+    lazy var copyAs = IconButton(.symbol("square.and.arrow.up"), tip: String(localized: "Copy or Export Rows")) {
+        [weak self] in self?.copyMenu()
     }
 
     init(uri: String, app: AppModel) {
@@ -95,13 +101,30 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         self.app = app
         address = DatabaseURI(uri) ?? DatabaseURI(worktree: "", name: "")
         mode = address.run.map(Mode.run) ?? .query
+        sidebar = DatabaseSidebar(app: app)
         super.init()
         build()
+        wire()
         watched.key = address.worktree
         track(owner: self) { [app, address] in
             app.latest(DatabasesEvent.self, address.worktree)?.runs.filter { $0.database == address.name }
         } changed: { [weak self] _ in
             self?.runsChanged()
+        }
+        track(owner: self) { [app] in
+            app.settings[SettingKeys.databaseDensity]
+        } changed: { [weak self] density in
+            self?.grid.density = density
+            self?.grid.table.reloadData()
+        }
+        // The workspace's databases come with its first event: then the capsule's version and the saved queries.
+        track(owner: self) { [app, address] in
+            app.latest(DatabasesEvent.self, address.worktree) != nil
+        } changed: { [weak self] known in
+            guard known, let self, !self.started else { return }
+            self.started = true
+            Task { await self.askVersion() }
+            Task { await self.loadQueries() }
         }
         Task { await loadTables() }
         if case .run(let id) = mode { Task { await showRun(id) } }
@@ -122,34 +145,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     // MARK: Layout
 
     private func build() {
-        let left = tableList.plainList("t")
-        tableList.dataSource = self
-        tableList.delegate = self
-        tableList.target = self
-        tableList.action = #selector(listPicked)
-        left.widthAnchor.constraint(equalToConstant: 210).isActive = true
-
-        heading.font = .ui(12, weight: .semibold)
-        heading.lineBreakMode = .byTruncatingTail
-        heading.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        part.selectedSegment = 0
-        part.target = self
-        part.action = #selector(partChanged)
-        part.controlSize = .small
-        part.setContentHuggingPriority(.required, for: .horizontal)
-        filter.placeholderString = String(localized: "Filter: a WHERE condition")
-        filter.sendsWholeSearchString = true
-        filter.target = self
-        filter.action = #selector(filtered)
-        filter.recentsAutosaveName = "db.filter." + address.name
-        filter.maximumRecents = 8
-        run.keyEquivalent = "\r"
-        run.keyEquivalentModifierMask = .command
-        for button in [run, explain] {   // not stretched over the bar once the filter hides
-            button.setContentHuggingPriority(.required, for: .horizontal)
-        }
-        let bar = Bar.content(
-            [heading, part], [filter, run, explain, addRow, reload, copyAs, showInspector], stretching: filter)
+        let top = capsuleBar()
+        filters.view.setContentHuggingPriority(.required, for: .vertical)
         sqlText.font = .uiMono(11)
         sqlText.textColor = .secondaryLabelColor
         sqlText.maximumNumberOfLines = 3
@@ -157,55 +154,85 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         let sqlBox = NSStackView(views: [sqlText])
         sqlBox.edgeInsets = NSEdgeInsets(top: 6, left: Metrics.inset, bottom: 6, right: Metrics.inset)
         buildEditor()
-
-        status.font = .uiDigits(11)
-        status.textColor = .secondaryLabelColor
-        status.lineBreakMode = .byTruncatingTail
-        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        save.bezelStyle = .push
-        save.keyEquivalent = "s"
-        save.keyEquivalentModifierMask = .command
-        for button in [discard, ask, showSQL] { button.bezelStyle = .accessoryBarAction }
-        let foot = Bar.foot([previous, next, status], [ask, showSQL, discard, save])
-        grid.onChange = { [weak self] in self?.footChanged() }
-        grid.onSort = { [weak self] _ in self?.sorted() }
-        grid.onFilter = { [weak self] condition in self?.filterBy(condition) }
-        inspector.onClose = { [weak self] in self?.toggleInspector() }
-        grid.table.onSpace = { [weak self] in
-            if self?.mode.table != nil || self?.mode.isRun == true { self?.toggleInspector() }
-        }
-        grid.table.onDelete = { [weak self] in
-            if self?.grid.editable == true { self?.grid.deleteSelected() } else { NSSound.beep() }
-        }
-        inspector.onFollow = { [weak self] table, column, value in self?.follow(table, column, value) }
-        inspector.view.isHidden = true
-
         buildAskBar()
-        let rows = NSStackView(views: [grid.scroll, inspector.view])
-        rows.spacing = 0
-        rows.alignment = .height
-        grid.scroll.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let right = NSStackView(views: [askBar, bar, sqlBox, editor.view, rows, foot])
-        right.orientation = .vertical
-        right.spacing = 0
-        right.detachesHiddenViews = true
-        for v in [askBar, bar, sqlBox, editor.view, rows, foot] {
-            v.widthAnchor.constraint(equalTo: right.widthAnchor).isActive = true
+        let foot = footBar()
+        let center = NSStackView(views: [askBar, top, filters.view, sqlBox, editor.view, grid.scroll, foot])
+        center.orientation = .vertical
+        center.spacing = 0
+        center.detachesHiddenViews = true
+        for v in [askBar, top, filters.view, sqlBox, editor.view, grid.scroll, foot] {
+            v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
-        rows.setContentHuggingPriority(.defaultLow, for: .vertical)
-        let divider = NSBox()
-        divider.boxType = .separator
-        divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        left.setContentHuggingPriority(.required, for: .horizontal)
-        let whole = NSStackView(views: [left, divider, right])
+        grid.scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
+        let whole = NSStackView(views: [sidebar.view, Self.divider(), center, Self.divider(), details.view])
         whole.spacing = 0
         whole.alignment = .height
         whole.distribution = .fill
-        whole.setHuggingPriority(.defaultLow, for: .horizontal)
-        right.setContentHuggingPriority(.init(1), for: .horizontal)
+        center.setContentHuggingPriority(.init(1), for: .horizontal)
         view.pin(whole)
         empty.place(in: grid.scroll)
         arrange()
+    }
+
+    static func divider() -> NSView {
+        let line = NSBox()
+        line.boxType = .separator
+        line.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        return line
+    }
+
+    /// Where you are, in the environment's colour: "Production · PostgreSQL 16.4 · AGR_GIS · public.orders".
+    private func capsuleBar() -> NSView {
+        capsule.font = .ui(11.5, weight: .semibold)
+        capsule.lineBreakMode = .byTruncatingMiddle
+        capsule.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        capsuleBox.wantsLayer = true
+        capsuleBox.layer?.cornerRadius = Metrics.radiusLG + 1   // a capsule: half its height
+        capsule.translatesAutoresizingMaskIntoConstraints = false
+        capsuleBox.addSubview(capsule)
+        NSLayoutConstraint.activate([
+            capsule.leadingAnchor.constraint(equalTo: capsuleBox.leadingAnchor, constant: 10),
+            capsule.trailingAnchor.constraint(equalTo: capsuleBox.trailingAnchor, constant: -10),
+            capsule.centerYAnchor.constraint(equalTo: capsuleBox.centerYAnchor),
+            capsuleBox.heightAnchor.constraint(equalToConstant: 22)
+        ])
+        let menuClick = NSClickGestureRecognizer(target: self, action: #selector(capsuleClicked))
+        capsuleBox.addGestureRecognizer(menuClick)
+        capsuleBox.toolTip = String(localized: "Its menu: environment, what agents may do, address")
+        for button in [run, explain] { button.setContentHuggingPriority(.required, for: .horizontal) }
+        filterToggle.keyEquivalent = "f"
+        filterToggle.keyEquivalentModifierMask = [.command, .shift]
+        run.keyEquivalent = "\r"
+        run.keyEquivalentModifierMask = .command
+        return Bar.content(
+            [capsuleBox], [run, explain, reload, filterToggle, copyAs, detailsToggle], stretching: capsuleBox)
+    }
+
+    private func footBar() -> NSView {
+        part.selectedSegment = 0
+        part.controlSize = .small
+        part.target = self
+        part.action = #selector(partChanged)
+        part.setContentHuggingPriority(.required, for: .horizontal)
+        addRow.image = .symbol("plus")
+        addRow.imagePosition = .imageLeading
+        for button in [addRow, columnsButton, discard, showSQL, ask, saveQuery] {
+            button.bezelStyle = .accessoryBarAction
+            button.controlSize = .small
+        }
+        save.bezelStyle = .push
+        save.controlSize = .small
+        save.keyEquivalent = "s"
+        save.keyEquivalentModifierMask = .command
+        status.font = .uiDigits(11)
+        status.textColor = .secondaryLabelColor
+        status.alignment = .center
+        status.lineBreakMode = .byTruncatingTail
+        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        changes.font = .ui(11, weight: .medium)
+        changes.textColor = .textOrange
+        return Bar.foot(
+            [part, addRow, status], [changes, showSQL, discard, save, ask, saveQuery, columnsButton, previous, next])
     }
 
     private func buildAskBar() {
@@ -228,152 +255,52 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         askBar.isHidden = true
     }
 
-    /// What each mode shows: a table its part, filter, pages and row tools; a run its SQL; a query its editor.
+    /// The parts that talk to each other.
+    private func wire() {
+        grid.density = app.settings[SettingKeys.databaseDensity]
+        grid.onChange = { [weak self] in self?.footChanged() }
+        grid.onSort = { [weak self] in self?.sorted() }
+        grid.onFilter = { [weak self] column, op, value in self?.filters.add(column: column, op: op, value: value) }
+        grid.onFollow = { [weak self] column, value in self?.followKey(column, value) }
+        grid.table.onSpace = { [weak self] in
+            self?.details.view.isHidden = false
+            self?.details.show(.row)
+        }
+        grid.table.onDelete = { [weak self] in
+            if self?.grid.editable == true { self?.grid.deleteSelected() } else { NSSound.beep() }
+        }
+        filters.onApply = { [weak self] _ in self?.filtered() }
+        sidebar.onTable = { [weak self] name, pin in self?.openTable(name, pin: pin) }
+        sidebar.onNewQuery = { [weak self] in Task { await self?.leave(to: .query) } }
+        sidebar.onSaved = { [weak self] q in self?.openSaved(q) }
+        sidebar.onForget = { [weak self] q in self?.forget(q) }
+        sidebar.onRun = { [weak self] run, toEditor in self?.openRun(run, toEditor: toEditor) }
+        sidebar.onAsk = { [weak self] table in self?.askAbout(table) }
+        details.onEdit = { [weak self] column, value in self?.editFromDetails(column, value) }
+        details.onFollow = { [weak self] table, column, value in self?.follow(table, column, value) }
+        details.onRun = { [weak self] run in Task { await self?.leave(to: .run(run.id)) } }
+        details.onAsk = { [weak self] in if let t = self?.mode.table { self?.askAbout(t) } }
+    }
+
+    /// What each mode shows: a table its part, filters and the row tools; a run its SQL; a query its editor.
     func arrange() {
         let table = mode.table != nil, data = table && part.selectedSegment == 0
         part.isHidden = !table
-        filter.isHidden = !data
-        for v in [addRow, previous, next] { v.isHidden = !data }
+        filterToggle.isHidden = !data
+        if !data { filters.view.isHidden = true }
+        for v in [previous, next, columnsButton] as [NSView] { v.isHidden = !data }
         addRow.isHidden = !data || !grid.editable
         reload.isHidden = mode.isRun
-        showInspector.isHidden = mode == .query || (table && !data)
-        copyAs.isHidden = false
         run.isHidden = mode != .query
         explain.isHidden = mode != .query
+        saveQuery.isHidden = mode != .query
         sqlText.superview?.isHidden = !mode.isRun
         editor.view.isHidden = mode != .query
-        if mode == .query || (table && !data) { inspector.view.isHidden = true }
+        capsuleChanged()
         footChanged()
     }
 
-    // MARK: The left list
-
-    func loadTables() async {
-        let (schema, error) = await app.tryCall(
-            DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
-        guard let schema else {
-            empty.showError(String(localized: "Can't read \(address.name)"), text: error)
-            return
-        }
-        tables = schema.tables
-        listChanged()
-        let named = address.table.flatMap { name in tables.first { $0.name == name } }
-        if mode == .query, address.run == nil, !chosen, let first = named ?? tables.first {
-            if let row = items.firstIndex(where: { if case .table(let t) = $0 { t.name == first.name } else { false } })
-            {
-                tableList.selectRowIndexes([row], byExtendingSelection: false)
-            }
-            mode = .table(first.name)
-            await showTable(first.name)
-        }
-    }
-
-    /// Tables, then New Query and the latest runs of this database.
-    func listChanged() {
-        // An agent's runs and any change: the tab's own reads of a page aren't history.
-        let runs = (app.latest(DatabasesEvent.self, address.worktree)?.runs ?? []).filter {
-            $0.database == address.name && ($0.session != nil || $0.changed != nil)
-        }
-        items =
-            [.section(String(localized: "Tables"))] + tables.map(Item.table)
-            + [.section(String(localized: "Queries")), .newQuery] + runs.prefix(20).map(Item.run)
-        tableList.reloadData()
-    }
-
-    func numberOfRows(in tableView: NSTableView) -> Int { items.count }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
-        if case .section = items[row] { return false }
-        return true
-    }
-    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        if case .section = items[row] { return TextSize.of(Metrics.rowSection) }
-        return TextSize.of(Metrics.row)
-    }
-
-    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
-        switch items[row] {
-        case .section(let title):
-            let label = NSTextField(labelWithString: title.uppercased())
-            label.font = .ui(11, weight: .semibold)
-            label.textColor = .tertiaryLabelColor
-            return line([label, NSView()])
-        case .table(let t):
-            return line([symbol("tablecells"), text(t.name), NSView(), digits(t.rows.map { $0.formatted() } ?? "")])
-        case .newQuery:
-            return line([
-                symbol("chevron.left.forwardslash.chevron.right"), text(String(localized: "New Query")), NSView()
-            ])
-        case .run(let run):
-            let who = run.session.flatMap(app.session)
-            let icon = NSImageView(image: who.flatMap { app.catalog.icon($0.agent, size: 12) } ?? .symbol("person"))
-            icon.contentTintColor = .secondaryLabelColor
-            let sql = text(run.sql.split(whereSeparator: \.isNewline).joined(separator: " "), mono: true)
-            sql.toolTip = run.sql
-            return line([icon, sql, NSView(), digits(shortAgo(run.at))])
-        }
-    }
-
-    private func line(_ views: [NSView]) -> NSView {
-        let stack = NSStackView(views: views)
-        stack.spacing = Metrics.gap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
-        return stack
-    }
-    private func symbol(_ name: String) -> NSImageView {
-        let icon = NSImageView(image: .symbol(name))
-        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-        icon.contentTintColor = .secondaryLabelColor
-        return icon
-    }
-    private func text(_ s: String, mono: Bool = false) -> NSTextField {
-        let name = NSTextField(labelWithString: s)
-        name.font = mono ? .uiMono(11) : .ui(12)
-        name.lineBreakMode = .byTruncatingTail
-        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return name
-    }
-    private func digits(_ s: String) -> NSTextField {
-        let count = NSTextField(labelWithString: s)
-        count.font = .uiDigits(11)
-        count.textColor = .tertiaryLabelColor
-        return count
-    }
-
-    /// A table shows its rows, New Query the editor, a run its rows; ⌥ on a run puts its SQL in the editor.
-    @objc private func listPicked() {
-        guard items.indices.contains(tableList.clickedRow) else { return }
-        switch items[tableList.clickedRow] {
-        case .section: return
-        case .table(let t): Task { await leave(to: .table(t.name)) }
-        case .newQuery: Task { await leave(to: .query) }
-        case .run(let run):
-            if NSEvent.modifierFlags.contains(.option) {
-                editor.textView.string = run.sql
-                Task { await leave(to: .query) }
-            } else {
-                Task { await leave(to: .run(run.id)) }
-            }
-        }
-    }
-
-    /// Away from edits only once they're saved or dropped.
-    func leave(to next: Mode) async {
-        if isEdited, await !close() { return }
-        chosen = true
-        mode = next
-        filter.stringValue = ""
-        grid.order = nil
-        page = 0
-        part.selectedSegment = 0
-        switch next {
-        case .table(let name): await showTable(name)
-        case .run(let id): await showRun(id)
-        case .query: startedQuery()
-        }
-    }
-
-    // MARK: Runs
+    // MARK: The capsule
 
     var database: DatabaseInfo? {
         let event = app.latest(DatabasesEvent.self, address.worktree)
@@ -382,15 +309,70 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     }
     var engine: DatabaseInfo.Engine { database?.engine ?? .sqlite }
 
+    func capsuleChanged() {
+        let db = database, stage = db?.stage ?? .local
+        let place: String? =
+            switch mode {
+            case .table(let t): t
+            case .run: String(localized: "an agent’s run")
+            case .query: String(localized: "Query")
+            }
+        let parts = [
+            DatabaseLook.title(stage), version ?? db.map { DatabaseLook.engine($0.engine) },
+            db?.database ?? db?.path.map { ($0 as NSString).lastPathComponent } ?? address.name,
+            db?.ssh.map { String(localized: "via \($0)") }, place
+        ]
+        capsule.stringValue = parts.compactMap { $0 }.joined(separator: " · ")
+        capsule.textColor = DatabaseLook.color(stage)
+        capsuleBox.layer?.backgroundColor = DatabaseLook.color(stage).withAlphaComponent(0.14).cgColor
+    }
+
+    private func askVersion() async {
+        guard let db = database else { return }
+        let check = await app.quiet(DatabaseCheck(worktreeId: address.worktree, database: db), timeout: 30)
+        version = check?.version
+        capsuleChanged()
+    }
+
+    @objc private func capsuleClicked() {
+        guard let db = database else { return }
+        let menu = NSMenu()
+        let library =
+            app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == db.name } ?? false
+        DatabaseMenu.fill(menu, db, app: app, worktreeId: address.worktree, library: library)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: capsuleBox.bounds.height + 4), in: capsuleBox)
+    }
+
+    // MARK: Loading
+
+    func loadTables() async {
+        let (read, error) = await app.tryCall(
+            DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
+        guard let read else {
+            empty.showError(String(localized: "Can't read \(address.name)"), text: error)
+            return
+        }
+        schema = read
+        sidebar.schema = read
+        let named = address.table.flatMap { name in tables.first { $0.name == name } }
+        if mode == .query, address.run == nil, !chosen,
+            let first = named ?? tables.first(where: { $0.kind != "view" })
+        {
+            mode = .table(first.name)
+            await showTable(first.name)
+        }
+    }
+
+    // MARK: Runs
+
     func record(_ id: String) -> DatabaseRun? {
         app.latest(DatabasesEvent.self, address.worktree)?.runs.first { $0.id == id }
     }
 
     func showRun(_ id: String) async {
         arrange()
+        sidebar.current = nil
         let record = record(id)
-        let who = record?.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "You")
-        heading.stringValue = [who, record.map { shortAgo($0.at) }].compactMap { $0 }.joined(separator: " · ")
         sqlText.stringValue = record?.sql ?? ""
         let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: id)) ?? nil
         grid.editable = false
@@ -403,12 +385,14 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
                 String(localized: "Not Kept"), symbol: "clock",
                 text: String(localized: "Kelp keeps the rows of the latest runs only."))
         } else if result?.columns.isEmpty == true, let changed = record?.changed, record?.state == .done {
-            empty.show(String(localized: "\(changed) Rows Changed"), symbol: "checkmark.circle")
+            empty.show(Self.rows(changed, changed: true).capitalizedFirst, symbol: "checkmark.circle")
         } else {
             empty.show(
                 result?.rows.isEmpty == true && result?.columns.isEmpty == false ? String(localized: "No Rows") : nil)
         }
-        status.stringValue = record.map(Self.summary) ?? ""
+        let who = record?.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "You")
+        status.stringValue = [who, record.map { shortAgo($0.at) }, record.map(Self.summary)].compactMap { $0 }
+            .joined(separator: " · ")
         footChanged()
     }
 
@@ -420,23 +404,26 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         }
     }
 
-    /// "200 rows · 12 ms", "1 204 rows would change", "3 rows changed".
+    /// "1 row", "200 rows", "3 rows changed": the plural right.
+    static func rows(_ n: Int, changed: Bool = false) -> String {
+        let count = n == 1 ? String(localized: "1 row") : String(localized: "\(n.formatted()) rows")
+        return changed ? count + " " + String(localized: "changed") : count
+    }
+
     static func summary(_ run: DatabaseRun) -> String {
         switch run.state {
         case .asks:
-            return run.changed.map { String(localized: "\($0) rows would change: shown as they would be") }
+            return run.changed.map { rows($0) + " " + String(localized: "would change: shown as they would be") }
                 ?? String(localized: "Waits for your answer")
         case .done:
-            let what =
-                run.changed.map { String(localized: "\($0) rows changed") }
-                ?? String(localized: "\(run.rows ?? 0) rows")
+            let what = run.changed.map { rows($0, changed: true) } ?? rows(run.rows ?? 0)
             return [what, run.ms.map { "\($0) ms" }].compactMap { $0 }.joined(separator: " · ")
         default: return run.error ?? ""
         }
     }
 
     /// The runs of this database changed: the bar follows the one that asks, a run shown takes its new state, the
-    /// list its latest runs.
+    /// list and the details their latest.
     private func runsChanged() {
         let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs.filter { $0.database == address.name } ?? []
         let was = asking
@@ -446,12 +433,15 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
             let who =
                 asking.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "An agent")
             askText.stringValue =
-                asking.changed.map { String(localized: "\(who) wants to change \($0) rows in \(address.name)") }
+                asking.changed.map { String(localized: "\(who) wants to change \(Self.rows($0)) in \(address.name)") }
                 ?? String(localized: "\(who) wants to change \(address.name)")
             askText.toolTip = asking.sql
         }
         if case .run(let id) = mode, was?.id == id, asking?.id != id { Task { await showRun(id) } }
-        listChanged()
+        // An agent's runs and any change: the tab's own reads of a page aren't history.
+        sidebar.runs = runs.filter { $0.session != nil || $0.changed != nil }
+        detailsChanged()
+        capsuleChanged()
     }
 
     @objc private func showAsked() {
@@ -463,6 +453,15 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     private func answer(_ action: String) {
         guard let session = asking?.session else { return }
         Notifications.answer(app, session, action, question: app.session(session)?.summary)
+    }
+
+    private func openRun(_ run: DatabaseRun, toEditor: Bool) {
+        guard toEditor else {
+            Task { await leave(to: .run(run.id)) }
+            return
+        }
+        editor.textView.string = run.sql
+        Task { await leave(to: .query) }
     }
 
     /// The user's statement, as theirs: a change runs without a question. Its error shows where the rows would.
@@ -477,20 +476,49 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         return result
     }
 
+    /// Away from edits only once they're saved or dropped.
+    func leave(to next: Mode) async {
+        if isEdited, await !close() { return }
+        chosen = true
+        mode = next
+        grid.orders = []
+        page = 0
+        part.selectedSegment = 0
+        if next.table == nil { filters.clear() }
+        switch next {
+        case .table(let name): await showTable(name)
+        case .run(let id): await showRun(id)
+        case .query: startedQuery()
+        }
+    }
+
+    /// A table in this tab (it replaces the one shown), or in a tab of its own.
+    private func openTable(_ name: String, pin: Bool) {
+        if pin {
+            app.workbench.open(DatabaseURI(worktree: address.worktree, name: address.name, table: name).uri)
+        } else {
+            filters.clear()
+            Task { await leave(to: .table(name)) }
+        }
+    }
+
     // MARK: The foot and the agent
 
     func footChanged() {
         let edits = grid.edits.count
-        save.title = String(localized: "Save \(edits) Changes")
+        changes.stringValue =
+            edits == 0 ? "" : edits == 1 ? String(localized: "1 change") : String(localized: "\(edits) changes")
         for v in [save, discard, showSQL] { v.isHidden = edits == 0 }
         let picked = grid.selectedRows.count, agent = agentToAsk
-        ask.isHidden = picked == 0 || agent == nil || edits > 0
-        if let agent { ask.title = String(localized: "Ask \(app.catalog.name(agent.agent)) About \(picked) Rows") }
-        if !inspector.view.isHidden { inspect() }
+        ask.isHidden = picked == 0 || agent == nil || edits > 0 || mode == .query
+        if let agent {
+            ask.title = String(localized: "Ask \(app.catalog.name(agent.agent)) About \(Self.rows(picked))")
+        }
+        detailsChanged()
     }
 
     /// The chat a run came from, else the one in focus, else the workspace's last agent still there.
-    private var agentToAsk: Session? {
+    var agentToAsk: Session? {
         if case .run(let id) = mode, let sid = record(id)?.session, let s = app.session(sid), s.status != .exited {
             return s
         }
@@ -509,7 +537,15 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         guard let agent = agentToAsk else { return }
         let picked = Array(grid.selectedRows.prefix(50))
         let source = mode.table.map { String(localized: "the table \($0)") } ?? sqlText.stringValue
-        let text = "Rows of \(address.name) (\(source)):\n" + grid.text(picked) + "\n"
+        send("Rows of \(address.name) (\(source)):\n" + grid.text(picked) + "\n", to: agent)
+    }
+
+    private func askAbout(_ table: String) {
+        guard let agent = agentToAsk else { return NSSound.beep() }
+        send("About " + DatabasesPanel.mention(table, in: address.name) + ": ", to: agent)
+    }
+
+    private func send(_ text: String, to agent: Session) {
         Task {
             guard await app.call(SessionSend(id: agent.id, text: text, enter: false)) != nil else { return }
             app.workbench.focus(session: agent.id)

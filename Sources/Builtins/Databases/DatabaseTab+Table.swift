@@ -4,35 +4,52 @@ import DesignKit
 import KelpKit
 import UniformTypeIdentifiers
 
-/// A table's Data (a page of rows in the order and with the filter asked for, edits saved together, the rows an
-/// agent's last change touched marked) and its Structure (columns, keys, indexes, a CREATE TABLE to copy).
+/// A table's Data (a page of rows in the order and with the filters asked for, edits saved together, the rows an
+/// agent's last change touched marked) and its Structure (columns, keys, indexes; CREATE TABLE in the details).
 extension DatabaseTab {
     var current: DatabaseSchema.Table? { mode.table.flatMap { name in tables.first { $0.name == name } } }
 
     func showTable(_ name: String) async {
         arrange()
-        heading.stringValue = name
+        sidebar.current = name
         guard part.selectedSegment == 0 else { return showStructure() }
         let info = current?.columns ?? [], primary = info.filter(\.primary).map(\.name)
+        filters.use(columns: info.isEmpty ? grid.columns : info.map(\.name), engine: engine)
         var sql = "SELECT * FROM " + DatabaseEdits.name(name, engine)
-        let condition = filter.stringValue.trimmingCharacters(in: .whitespaces)
+        let condition = filters.condition
         if !condition.isEmpty { sql += " WHERE " + condition }
-        if let order = grid.order {
-            sql += " ORDER BY " + DatabaseEdits.name(order.column, engine) + (order.ascending ? " ASC" : " DESC")
+        if !grid.orders.isEmpty {
+            sql +=
+                " ORDER BY "
+                + grid.orders.map { DatabaseEdits.name($0.column, engine) + ($0.ascending ? " ASC" : " DESC") }
+                .joined(separator: ", ")
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
-        guard let result = await query(sql, limit: Self.pageSize) else { return }
+        startReading()
+        let result = await query(sql, limit: Self.pageSize)
+        reading?.cancel()
+        guard let result else { return }
         grid.editable = !primary.isEmpty
         grid.source = (name, engine)
-        let order = grid.order
+        let orders = grid.orders
         grid.show(columns: result.columns, rows: result.rows, info: info)
-        grid.order = order
+        grid.orders = orders
+        grid.indicate()
         empty.show(result.rows.isEmpty ? String(localized: "No Rows") : nil, symbol: "tablecells")
         arrange()
         counted = nil
         if !condition.isEmpty { await count(name, condition) }
-        pageChanged(shown: result.rows.count)
+        pageChanged(shown: result.rows.count, ms: result.ms)
         await mark(name, primary: primary)
+    }
+
+    /// "Reading…" in the foot only once half a second has gone: a quick read doesn't flicker.
+    private func startReading() {
+        reading?.cancel()
+        reading = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            self?.status.stringValue = String(localized: "Reading…")
+        }
     }
 
     /// With a filter on, how many rows it leaves: counted (the server stops a count that takes too long).
@@ -42,17 +59,24 @@ extension DatabaseTab {
         counted = (answer?.rows.first?.first ?? nil).flatMap { Int($0) }
     }
 
-    /// "201–400 of ≈ 1 204 000 · 14 ms", ‹ › where there's more.
-    func pageChanged(shown: Int) {
+    /// "1–200 of ≈ 12 408 rows · filtered · 14 ms", ‹ › where there's more.
+    func pageChanged(shown: Int, ms: Int) {
         let first = page * Self.pageSize
-        let total = counted ?? (filter.stringValue.isEmpty ? current?.rows : nil)
+        let total = counted ?? (filters.isActive ? nil : current?.rows)
         let exact = counted != nil || engine.isFile
-        let of = total.map { String(localized: "of") + " " + (exact ? "" : "≈ ") + $0.formatted() } ?? ""
-        let range =
-            shown == 0 ? String(localized: "No rows") : "\((first + 1).formatted())–\((first + shown).formatted())"
-        status.stringValue =
-            [range, of].filter { !$0.isEmpty }.joined(separator: " ")
-            + (grid.editable ? "" : " · " + String(localized: "no primary key: read only"))
+        var words: [String] = []
+        if shown == 0 {
+            words.append(String(localized: "No rows"))
+        } else {
+            let range = "\((first + 1).formatted())–\((first + shown).formatted())"
+            words.append(
+                total.map { range + " " + String(localized: "of") + " " + (exact ? "" : "≈ ") + Self.rows($0) }
+                    ?? range)
+        }
+        if filters.isActive { words.append(String(localized: "filtered")) }
+        if !grid.editable { words.append(String(localized: "no primary key: read only")) }
+        words.append("\(ms) ms")
+        status.stringValue = words.joined(separator: " · ")
         previous.isEnabled = page > 0
         next.isEnabled = shown == Self.pageSize && (total.map { first + shown < $0 } ?? true)
     }
@@ -77,21 +101,36 @@ extension DatabaseTab {
         Task { await showTable(name) }
     }
 
-    @objc func filtered() {
+    func filtered() {
         guard let name = mode.table else { return }
         page = 0
         Task { await showTable(name) }
     }
 
-    /// From a cell's menu: the condition in the filter, and the rows it leaves.
-    func filterBy(_ condition: String) {
-        filter.stringValue = condition
-        filtered()
+    func toggleFilters() {
+        filters.view.isHidden.toggle()
+        if !filters.view.isHidden {
+            filters.use(columns: current?.columns.map(\.name) ?? grid.columns, engine: engine)
+        }
     }
 
     @objc func partChanged() {
         guard let name = mode.table else { return }
         Task { await showTable(name) }
+    }
+
+    /// Columns: each one shown or hidden, and all back.
+    func columnsMenu() {
+        let menu = NSMenu()
+        for column in grid.table.tableColumns.dropFirst() {
+            guard let i = Int(column.identifier.rawValue), grid.columns.indices.contains(i) else { continue }
+            menu.add(grid.columns[i]) { column.isHidden.toggle() }.state = column.isHidden ? .off : .on
+        }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Show All")) { [weak self] in
+            self?.grid.table.tableColumns.forEach { $0.isHidden = false }
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
     // MARK: An agent's last change
@@ -100,10 +139,11 @@ extension DatabaseTab {
     private func mark(_ name: String, primary: [String]) async {
         guard !primary.isEmpty else { return }
         let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs ?? []
+        let short = name.split(separator: ".").last.map { $0.lowercased() } ?? name
         guard
             let last = runs.first(where: {
                 $0.database == address.name && $0.session != nil && $0.state == .done && ($0.changed ?? 0) > 0
-                    && $0.sql.lowercased().contains(name.split(separator: ".").last.map { $0.lowercased() } ?? name)
+                    && $0.sql.lowercased().contains(short)
             }),
             let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: last.id)) ?? nil
         else { return }
@@ -127,18 +167,23 @@ extension DatabaseTab {
         guard let t = current else { return }
         grid.editable = false
         grid.source = nil
-        let rows = t.columns.map { c -> [String?] in
-            [c.name, c.type, c.nullable ? "yes" : "no", c.primary ? "primary" : "", c.references ?? ""]
+        var rows = t.columns.map { c -> [String?] in
+            [c.name, c.type, c.nullable ? "yes" : "no", c.primary ? "primary key" : "", c.references ?? ""]
         }
+        if !t.indexes.isEmpty { rows += [["", "", "", "", ""]] + t.indexes.map { ["index", $0, "", "", ""] } }
         grid.show(
             columns: [
                 String(localized: "column"), String(localized: "type"), String(localized: "null"),
                 String(localized: "key"), String(localized: "refers to")
             ], rows: rows)
         empty.show(nil)
-        let indexes = t.indexes.map { String(localized: "index") + " " + $0 }
-        status.stringValue = ([String(localized: "\(t.columns.count) columns")] + indexes).joined(separator: " · ")
-        status.toolTip = t.indexes.joined(separator: "\n")
+        let columns =
+            t.columns.count == 1 ? String(localized: "1 column") : String(localized: "\(t.columns.count) columns")
+        let indexes =
+            t.indexes.isEmpty
+            ? nil
+            : t.indexes.count == 1 ? String(localized: "1 index") : String(localized: "\(t.indexes.count) indexes")
+        status.stringValue = [columns, indexes].compactMap { $0 }.joined(separator: " · ")
         footChanged()
     }
 
@@ -158,19 +203,56 @@ extension DatabaseTab {
         return "CREATE TABLE " + DatabaseEdits.name(t.name, engine) + " (\n" + lines.joined(separator: ",\n") + "\n);"
     }
 
+    // MARK: Details
+
+    /// The right column follows the table, the selected row and this table's agent runs.
+    func detailsChanged() {
+        details.table = current
+        details.definition = current.map(definition) ?? ""
+        let picked = grid.selectedRows.first
+        details.row = picked.map { ($0, grid.columns, grid.rows[$0]) }
+        details.editable = grid.editable && mode.table != nil && part.selectedSegment == 0
+        let short = mode.table.flatMap { $0.split(separator: ".").last.map { $0.lowercased() } }
+        let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs ?? []
+        details.runs = runs.filter { run in
+            run.database == address.name && run.session != nil
+                && short.map { run.sql.lowercased().contains($0) } != false
+        }
+        details.agentName = agentToAsk.map { app.catalog.name($0.agent) }
+        details.show(picked == nil ? nil : .row)
+    }
+
+    /// A field edited in the details: the same edit as in its cell.
+    func editFromDetails(_ column: Int, _ value: String?) {
+        guard let row = grid.selectedRows.first, grid.rows.indices.contains(row) else { return }
+        let old = grid.rows[row].indices.contains(column) ? grid.rows[row][column] : nil
+        grid.edits.set(row: row, column: column, to: value, was: old)
+        grid.changed(rows: [row])
+    }
+
+    /// A foreign key's arrow in a cell: the table it names, at that row.
+    func followKey(_ column: String, _ value: String) {
+        guard let ref = current?.columns.first(where: { $0.name == column })?.references else { return }
+        let p = ref.split(separator: ".")
+        guard p.count == 2 else { return }
+        follow(String(p[0]), String(p[1]), value)
+    }
+
+    /// That table, filtered to that row.
+    func follow(_ table: String, _ column: String, _ value: String) {
+        let target = tables.first { $0.name == table || $0.name.hasSuffix("." + table) }?.name ?? table
+        Task {
+            await leave(to: .table(target))
+            filters.add(column: column, op: .equal, value: value)
+        }
+    }
+
     // MARK: Copy and export
 
     func copyMenu() {
         let menu = NSMenu()
-        if let t = current, part.selectedSegment == 1 {
-            menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in
-                if let self { copyText(definition(t)) }
-            }
-            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-            return
-        }
         let picked = grid.selectedRows.isEmpty ? Array(grid.rows.indices) : grid.selectedRows
-        let what = grid.selectedRows.isEmpty ? String(localized: "the Page") : String(localized: "\(picked.count) Rows")
+        let what = grid.selectedRows.isEmpty ? String(localized: "the Page") : Self.rows(picked.count).capitalizedFirst
         for format in ResultText.Format.allCases {
             menu.add(String(localized: "Copy \(what) as \(format.rawValue)")) { [weak self] in
                 guard let self else { return }
@@ -206,29 +288,6 @@ extension DatabaseTab {
             do { try body.write(to: url, atomically: true, encoding: .utf8) } catch {
                 Banner.show(String(localized: "Couldn't save \(url.lastPathComponent): \(error.localizedDescription)"))
             }
-        }
-    }
-
-    // MARK: The row's inspector
-
-    func toggleInspector() {
-        inspector.view.isHidden.toggle()
-        if !inspector.view.isHidden { inspect() }
-    }
-
-    func inspect() {
-        let row = grid.selectedRows.first
-        inspector.show(
-            row: row, columns: grid.columns, values: row.map { grid.rows[$0] } ?? [],
-            info: Dictionary((current?.columns ?? []).map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a }))
-    }
-
-    /// A foreign key's value: that table, filtered to that row.
-    func follow(_ table: String, _ column: String, _ value: String) {
-        let target = tables.first { $0.name == table || $0.name.hasSuffix("." + table) }?.name ?? table
-        Task {
-            await leave(to: .table(target))
-            filterBy(ResultText.condition(column, value, equal: true, engine: engine))
         }
     }
 
@@ -274,7 +333,7 @@ extension DatabaseTab {
             }
             grid.edits.clear()
             await showTable(name)
-            status.stringValue += " · " + String(localized: "\(done.changed ?? 0) rows saved")
+            status.stringValue += " · " + Self.rows(done.changed ?? 0) + " " + String(localized: "saved")
         }
     }
 }

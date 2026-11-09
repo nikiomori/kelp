@@ -33,6 +33,8 @@ public enum SettingKeys {
     /// Rows a statement gives an agent unless it asks for more; seconds a read may take.
     public static let databaseRows = Setting<Double>("databases.agentRows", 200)
     public static let databaseTimeout = Setting<Double>("databases.timeout", 15)
+    /// The rows of a table: "compact" (20 pt, as TablePlus), "normal" (24), "comfortable" (28).
+    public static let databaseDensity = Setting("databases.density", "compact")
     /// "auto", "on" or "off"; true and false before it was a choice.
     public static let skillBrowser = Setting("agents.skills.browser", "auto")
 

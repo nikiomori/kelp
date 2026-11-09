@@ -47,13 +47,22 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     var marked = Set<Int>()
     var markColor = NSColor.systemOrange
     /// The order asked for: a column and whether it goes up.
-    var order: (column: String, ascending: Bool)?
+    /// The order asked for: columns, each up or down; the first counts most.
+    var orders: [(column: String, ascending: Bool)] = []
     /// An edit was made or undone, or the selection changed.
     var onChange: () -> Void = {}
     /// A header was clicked: the order to read the rows in next (nil: as they come).
-    var onSort: ((String, Bool)?) -> Void = { _ in }
+    var onSort: () -> Void = {}
+    /// A foreign key's arrow: that column's value, to follow.
+    var onFollow: (_ column: String, _ value: String) -> Void = { _, _ in }
+    /// Rows' height and the cells' font, as Settings › Databases says.
+    var density = "compact" {
+        didSet { table.rowHeight = TextSize.of(Self.height(density)) }
+    }
+    static func height(_ density: String) -> CGFloat { density == "comfortable" ? 28 : density == "normal" ? 24 : 20 }
+    private var font: NSFont { .uiMono(density == "comfortable" ? 12.5 : 11.5) }
     /// "Rows Where …" from a cell's menu: a WHERE condition.
-    var onFilter: (String) -> Void = { _ in }
+    var onFilter: (_ column: String, _ op: DatabaseFilters.Condition, _ value: String?) -> Void = { _, _, _ in }
     /// The table and engine the rows are of, for Copy as INSERT and the filters' quoting.
     var source: (table: String, engine: DatabaseInfo.Engine)?
     /// Rows a table shows at most.
@@ -68,9 +77,11 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.columnAutoresizingStyle = .noColumnAutoresizing
         table.gridStyleMask = []   // the rows draw the columns' lines (GridRowView)
         table.style = .plain
-        table.rowHeight = TextSize.of(22)
+        table.rowHeight = TextSize.of(Self.height(density))
         table.menu = NSMenu()
         table.menu?.delegate = self
+        table.headerView?.menu = NSMenu()
+        table.headerView?.menu?.delegate = self
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
@@ -97,8 +108,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             column.headerCell.attributedStringValue = header(name)
             column.headerToolTip = describe(name)
             let longest = rows.prefix(60).map { ($0.indices.contains(i) ? $0[i] : nil)?.count ?? 4 }.max() ?? 0
-            let type = self.info[name].map { $0.type.count + 2 } ?? 0
-            column.width = min(320, max(60, CGFloat(max(longest, name.count + type)) * 7 + 22))
+            let fk = self.info[name]?.references == nil ? 0 : 3
+            column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * 7.2 + 18))
             column.minWidth = 40
             table.addTableColumn(column)
         }
@@ -107,24 +118,16 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     /// "id int8 ⚿", "user_id int8 → users": the name, then its type and keys quieter.
+    /// The name only, and a key's mark: the type, NOT NULL and what it refers to are in its tooltip and Structure.
     private func header(_ name: String) -> NSAttributedString {
         let text = NSMutableAttributedString(
             string: name, attributes: [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.labelColor])
-        guard let c = info[name] else { return text }
-        let quiet: [NSAttributedString.Key: Any] = [.font: NSFont.ui(10), .foregroundColor: NSColor.tertiaryLabelColor]
-        text.append(NSAttributedString(string: " " + c.type.lowercased(), attributes: quiet))
-        if c.primary {
-            let key = NSImage.symbol("key.fill", String(localized: "primary key"))
+        if info[name]?.primary == true {
             let mark = NSTextAttachment()
-            mark.image = key.withSymbolConfiguration(
+            mark.image = NSImage.symbol("key.fill", String(localized: "primary key")).withSymbolConfiguration(
                 .init(pointSize: 8, weight: .regular).applying(.init(hierarchicalColor: .systemOrange)))
-            text.append(NSAttributedString(string: " ", attributes: quiet))
+            text.append(NSAttributedString(string: " "))
             text.append(NSAttributedString(attachment: mark))
-        }
-        if let ref = c.references {
-            text.append(
-                NSAttributedString(
-                    string: " → " + (ref.split(separator: ".").first.map(String.init) ?? ref), attributes: quiet))
         }
         return text
     }
@@ -137,29 +140,36 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         ].compactMap { $0 }.joined(separator: " · ")
     }
 
-    private func indicate() {
+    func indicate() {
         for column in table.tableColumns {
             let name = Int(column.identifier.rawValue).flatMap { columns.indices.contains($0) ? columns[$0] : nil }
-            let image = order.flatMap { o in
-                name == o.column
-                    ? NSImage(named: o.ascending ? "NSAscendingSortIndicator" : "NSDescendingSortIndicator") : nil
+            let image = orders.first { $0.column == name }.flatMap { o in
+                NSImage(named: o.ascending ? "NSAscendingSortIndicator" : "NSDescendingSortIndicator")
             }
             table.setIndicatorImage(image, in: column)
         }
     }
 
-    /// Up, then down, then as they come.
+    /// Up, then down, then as they come; ⌥-click adds a column to the order instead of starting over.
     func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
         guard let i = Int(tableColumn.identifier.rawValue), columns.indices.contains(i) else { return }
-        let name = columns[i]
-        order =
-            switch order {
-            case let o? where o.column == name && o.ascending: (name, false)
-            case let o? where o.column == name: nil
-            default: (name, true)
-            }
+        let name = columns[i], adding = NSEvent.modifierFlags.contains(.option)
+        let was = orders.first { $0.column == name }
+        if !adding { orders.removeAll { $0.column != name } }
+        switch was {
+        case let o? where o.ascending: orders = orders.map { $0.column == name ? (name, false) : $0 }
+        case .some: orders.removeAll { $0.column == name }
+        case nil: orders.append((name, true))
+        }
         indicate()
-        onSort(order)
+        onSort()
+    }
+
+    /// As wide as its widest value on screen, within reason.
+    func sizeToFit(_ column: NSTableColumn) {
+        guard let i = Int(column.identifier.rawValue), columns.indices.contains(i) else { return }
+        let longest = rows.prefix(200).map { ($0.indices.contains(i) ? $0[i] : nil)?.count ?? 4 }.max() ?? 0
+        column.width = min(600, max(48, CGFloat(max(longest, columns[i].count)) * 7.2 + 24))
     }
 
     // MARK: Cells
@@ -197,12 +207,12 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             : edits.value(row: row, column: column) ?? read
         if let value {
             field.stringValue = value.replacingOccurrences(of: "\n", with: "⏎")
-            field.font = Double(value) != nil ? .uiDigits(12) : .ui(12)
+            field.font = font
             field.alignment = Double(value) != nil ? .right : .left
             field.toolTip = value.count > 40 ? value : nil
         } else {
-            field.stringValue = new ? String(localized: "default") : "NULL"
-            field.font = .ui(12)
+            field.stringValue = new ? String(localized: "DEFAULT") : "NULL"
+            field.font = NSFontManager.shared.convert(.uiMono(10.5), toHaveTrait: .italicFontMask)
             field.textColor = .tertiaryLabelColor
         }
         if !new, edits.deleted.contains(row) {
@@ -221,7 +231,18 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             field.drawsBackground = true
             field.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.25)
         }
-        return field
+        // A foreign key: an arrow at the cell's end follows it to the row it names.
+        let name = columns.indices.contains(column) ? columns[column] : ""
+        guard let value, info[name]?.references != nil, !new else { return field }
+        let follow = IconButton(.symbol("arrow.forward"), tip: String(localized: "Open the Row It Refers To")) {
+            [weak self] in self?.onFollow(name, value)
+        }
+        follow.symbolConfiguration = .chrome(Metrics.iconTiny)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let cell = NSStackView(views: [field, follow])
+        cell.spacing = 2
+        cell.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 2)
+        return cell
     }
 
     private func number(_ row: Int, new: Bool) -> NSAttributedString {
