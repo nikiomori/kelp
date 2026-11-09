@@ -270,6 +270,12 @@ public final class Store: Sendable {
                 t.column("json", .text).notNull()   // the Database, as sent
             }
         }
+        migrator.registerMigration("databaseLibrary") { db in   // "All my projects": no project's
+            try db.create(table: "databaseLibrary") { t in
+                t.primaryKey("id", .text)   // its name
+                t.column("json", .text).notNull()
+            }
+        }
         return migrator
     }
 

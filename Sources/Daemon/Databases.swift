@@ -111,12 +111,16 @@ final class Databases: Sendable {
         return found
     }
 
-    /// Where this Mac reaches it: a remote project's server through a port forwarded over the shared connection (as a
-    /// page's port is, `Forwards`), which dials when there's none. Anything else as it is.
+    /// Where this Mac reaches it: a server behind an SSH host (`ssh`), or a remote project's, through a port forwarded
+    /// over the shared connection (as a page's port is, `Forwards`), which dials when there's none. Anything else as it
+    /// is.
     func reach(_ c: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
-        guard !c.database.engine.isFile, let host = c.database.host, let port = c.database.port,
-            let path = try store.worktree(worktreeId)?.path, let remote = remotes.of(path)
-        else { return c }
+        guard !c.database.engine.isFile, let host = c.database.host, let port = c.database.port else { return c }
+        let through = try c.database.ssh.map { ssh in
+            guard RemoteHost.isHost(ssh) else { throw RPCError.invalidParams("\(ssh) isn't an SSH host's name.") }
+            return remotes.host(ssh, path: "/")
+        }
+        guard let remote = try through ?? store.worktree(worktreeId).flatMap({ remotes.of($0.path) }) else { return c }
         let here = try sessions.processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
         var near = c
         near.database.host = "localhost"
@@ -124,16 +128,22 @@ final class Databases: Sendable {
         return near
     }
 
-    /// The one named `name`, as `caller` may see it: an agent isn't told of a hidden one.
+    /// The one named `name`, as `caller` may see it: an agent isn't told of a hidden one, nor of "All my projects".
     func connection(_ worktreeId: String, _ name: String, agent: Bool) throws -> DatabaseConnection {
         let all = try connections(worktreeId).filter { !agent || $0.database.agentAccess != .hidden }
         if let one = all.first(where: { $0.database.name == name }) { return one }
+        if !agent, let mine = try libraryConnection(name) { return mine }
         let names = all.map(\.database.name).joined(separator: ", ")
         throw RPCError.invalidParams(
             all.isEmpty ? "This project has no databases Kelp knows of." : "No database \(name). There are: \(names).")
     }
 
     func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?) throws -> DatabaseInfo {
+        try save(worktreeId, database, password: password, library: false)
+    }
+
+    func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?, library: Bool) throws -> DatabaseInfo {
+        if library { return try saveInLibrary(worktreeId, database, password: password) }
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.invalidParams("No workspace \(worktreeId).")
         }
@@ -245,10 +255,12 @@ final class Databases: Sendable {
 
     static func quoted(_ name: String) -> String { "\"" + name.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
 
-    func remove(_ worktreeId: String, _ name: String) throws {
-        guard let worktree = try store.worktree(worktreeId) else { return }
-        let id = worktree.repoId + "/" + name
-        _ = try store.db.write { try SavedDatabase.deleteOne($0, key: id) }
+    func remove(_ worktreeId: String, _ name: String, library: Bool = false) throws {
+        guard let repo = library ? Self.libraryRepo : try store.worktree(worktreeId)?.repoId else { return }
+        let id = repo + "/" + name
+        _ = try store.db.write {
+            try library ? LibraryDatabase.deleteOne($0, key: name) : SavedDatabase.deleteOne($0, key: id)
+        }
         Keychain.delete(Self.account(id))
         touch(worktreeId)
     }
@@ -258,7 +270,7 @@ final class Databases: Sendable {
     func activity(_ worktreeId: String) throws -> DatabasesEvent {
         DatabasesEvent(
             worktree: worktreeId, databases: try connections(worktreeId).map(\.database),
-            runs: kept.withLock { $0[worktreeId]?.runs ?? [] })
+            runs: kept.withLock { $0[worktreeId]?.runs ?? [] }, library: try library())
     }
 
     func result(_ worktreeId: String, _ id: String) -> QueryResult? {
@@ -448,12 +460,15 @@ extension DatabaseQuery: AsyncHandled {
 }
 
 extension DatabaseSave: Handled {
-    func handle(_ dbs: Databases) throws -> DatabaseInfo { try dbs.save(worktreeId, database, password: password) }
+    func handle(_ dbs: Databases) throws -> DatabaseInfo {
+        let secret = try password ?? container.map { try dbs.containerPassword($0, database.engine) } ?? nil
+        return try dbs.save(worktreeId, database, password: secret, library: library ?? false)
+    }
 }
 
 extension DatabaseRemove: Handled {
     func handle(_ dbs: Databases) throws -> Done {
-        try dbs.remove(worktreeId, name)
+        try dbs.remove(worktreeId, name, library: library ?? false)
         return Done()
     }
 }
@@ -472,10 +487,11 @@ extension DatabaseResultRead: Handled {
 
 extension Methods {
     static let databaseMethods: [any Handled.Type] = [
-        DatabaseList.self, DatabaseSave.self, DatabaseRemove.self, DatabaseActivity.self, DatabaseResultRead.self
+        DatabaseList.self, DatabaseSave.self, DatabaseRemove.self, DatabaseActivity.self, DatabaseResultRead.self,
+        DatabaseUse.self
     ]
     /// What talks to a server: off the handlers' threads, over its own connection.
     static let databaseAsyncMethods: [any AsyncHandled.Type] = [
-        DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self
+        DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self, DatabaseCheck.self, DatabaseContainers.self
     ]
 }

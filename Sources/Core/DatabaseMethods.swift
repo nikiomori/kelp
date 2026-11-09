@@ -27,6 +27,10 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var path: String?
     /// TLS to the server, libpq's words: "disable", "require"; nil or "prefer": when the server offers it.
     public var ssl: String?
+    /// A host of ~/.ssh/config the server is reached through (a port forwarded over Kelp's shared connection).
+    public var ssh: String?
+    /// The group it was kept in where it came from (TablePlus' group, DBeaver's folder), for "All my projects".
+    public var group: String?
     public var access: Access
     /// Agents only read it, whatever `access` says: on a host that isn't this Mac, or named so.
     public var production: Bool
@@ -189,26 +193,36 @@ public struct DatabaseQuery: RPCMethod {
 }
 
 /// Adds a database by hand, or changes one (what agents may do, production): by name. A found one keeps its address;
-/// `password`, for one added by hand, goes to the login keychain ("" deletes it, nil keeps it).
+/// `password`, for one added by hand, goes to the login keychain ("" deletes it, nil keeps it). `library`: kept in
+/// "All my projects" instead of the workspace's project, where no agent sees it. `container`: a running container's id
+/// (`db.containers`) whose environment holds the password.
 public struct DatabaseSave: InternalMethod {
     public static let name = "db.save"
     public typealias Result = DatabaseInfo
     public var worktreeId: String, database: DatabaseInfo, password: String?
-    public init(worktreeId: String, database: DatabaseInfo, password: String? = nil) {
+    public var library: Bool?, container: String?
+    public init(
+        worktreeId: String, database: DatabaseInfo, password: String? = nil, library: Bool? = nil,
+        container: String? = nil
+    ) {
         self.worktreeId = worktreeId
         self.database = database
         self.password = password
+        self.library = library
+        self.container = container
     }
 }
 
-/// Forgets one added by hand and its password; a found one goes back to how it was found.
+/// Forgets one added by hand and its password; a found one goes back to how it was found. `library`: one of "All my
+/// projects".
 public struct DatabaseRemove: InternalMethod {
     public static let name = "db.remove"
     public typealias Result = Done
-    public var worktreeId: String, name: String
-    public init(worktreeId: String, name: String) {
+    public var worktreeId: String, name: String, library: Bool?
+    public init(worktreeId: String, name: String, library: Bool? = nil) {
         self.worktreeId = worktreeId
         self.name = name
+        self.library = library
     }
 }
 
@@ -248,9 +262,12 @@ public struct DatabaseResultRead: InternalMethod {
 public struct DatabasesEvent: RPCEvent, Equatable {
     public static let name = "event.databases"
     public var worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun]
-    public init(worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun]) {
+    /// "All my projects": the user's own, which no agent sees until one is used in a project (`db.use`).
+    public var library: [DatabaseInfo]?
+    public init(worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun], library: [DatabaseInfo]? = nil) {
         self.worktree = worktree
         self.databases = databases
         self.runs = runs
+        self.library = library
     }
 }

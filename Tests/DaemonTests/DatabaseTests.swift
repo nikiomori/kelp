@@ -505,3 +505,58 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     }
     #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first?.state == .refused)
 }
+
+/// "All my projects": kept apart from every project, opened by the user, unseen by agents until used in a project,
+/// which copies it there with its password.
+@Test func theLibraryIsTheUsersUntilUsedInAProject() async throws {
+    let w = try await world(agents: [AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try shopDB(in: NSTemporaryDirectory() + "kelp-lib-\(UUID().uuidString)")
+    let saved = try await w.c.call(
+        DatabaseSave(
+            worktreeId: wt.id, database: DatabaseInfo(name: "shop", engine: .sqlite, path: path, access: .free),
+            library: true))
+    #expect(saved.source == nil)
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).isEmpty)   // not the project's
+    #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).library?.map(\.name) == ["shop"])
+    let read = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT count(*) FROM orders"))
+    #expect(read.rows == [["3"]])   // the user opens it from any workspace
+
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let dbs = w.d.workspaces.databases
+    await #expect(throws: RPCError.self) {
+        try await dbs.query(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1"), origin: agent.id)
+    }
+    _ = try await w.c.call(DatabaseUse(worktreeId: wt.id, name: "shop"))
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).map(\.name) == ["shop"])
+    let seen = try await dbs.query(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT count(*) FROM users"), origin: agent.id)
+    #expect(seen.rows == [["1"]])
+    _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "shop", library: true))
+    #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).library == [])
+}
+
+/// The sheet's check: what's there, or the server's words; a container's published port read from `docker ps`.
+@Test func theSheetChecksWhatIsTypedAndReadsDockersPorts() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try shopDB(in: NSTemporaryDirectory() + "kelp-check-\(UUID().uuidString)")
+    let ok = try await w.c.call(
+        DatabaseCheck(worktreeId: wt.id, database: DatabaseInfo(name: "x", engine: .sqlite, path: path)))
+    #expect(ok.version == "SQLite" && ok.tables == 2 && ok.databases.isEmpty)
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(
+            DatabaseCheck(
+                worktreeId: wt.id, database: DatabaseInfo(name: "x", engine: .postgres, host: "localhost", port: 5499)))
+    }
+    // Docker's running ones: whatever runs on this Mac (none on CI), each with an address and no password
+    let running = try await w.c.call(DatabaseContainers())
+    #expect(running.allSatisfy { $0.database.host == "localhost" && $0.database.port != nil })
+    #expect(Databases.published("0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp", 5432) == 55432)
+    #expect(Databases.published("5432/tcp", 5432) == nil)
+    #expect(Databases.engine(image: "postgis/postgis:16-3.4") == .postgres)
+    #expect(Databases.engine(image: "mariadb:10.11") == .mysql && Databases.engine(image: "redis:7") == nil)
+}

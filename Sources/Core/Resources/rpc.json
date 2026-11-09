@@ -907,6 +907,34 @@
         ],
         "type" : "object"
       },
+      "DatabaseCheckResult" : {
+        "properties" : {
+          "databases" : {
+            "description" : "The server's databases, for the sheet's pop-up; empty for a file.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "ms" : {
+            "type" : "integer"
+          },
+          "tables" : {
+            "type" : "integer"
+          },
+          "version" : {
+            "description" : "\"Postgres 16.4\", \"MariaDB 10.11.9\", \"SQLite\", \"DuckDB\".",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "databases",
+          "ms",
+          "tables",
+          "version"
+        ],
+        "type" : "object"
+      },
       "DatabaseInfo" : {
         "description" : "A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.",
         "properties" : {
@@ -918,6 +946,10 @@
           },
           "engine" : {
             "$ref" : "#/components/schemas/DatabaseInfo.Engine"
+          },
+          "group" : {
+            "description" : "The group it was kept in where it came from (TablePlus' group, DBeaver's folder), for \"All my projects\".",
+            "type" : "string"
           },
           "host" : {
             "type" : "string"
@@ -939,6 +971,10 @@
           },
           "source" : {
             "description" : "The file it was found in, relative to the project (\"compose.yaml\", \".env.production\"); nil: added by hand.",
+            "type" : "string"
+          },
+          "ssh" : {
+            "description" : "A host of ~/.ssh/config the server is reached through (a port forwarded over Kelp's shared connection).",
             "type" : "string"
           },
           "ssl" : {
@@ -1107,6 +1143,13 @@
         "description" : "A watched workspace's databases and their latest runs, newest first: pushed when one runs or a database changes.",
         "properties" : {
           "databases" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseInfo"
+            },
+            "type" : "array"
+          },
+          "library" : {
+            "description" : "\"All my projects\": the user's own, which no agent sees until one is used in a project (`db.use`).",
             "items" : {
               "$ref" : "#/components/schemas/DatabaseInfo"
             },
@@ -2943,6 +2986,31 @@
           "kind",
           "name",
           "source"
+        ],
+        "type" : "object"
+      },
+      "RunningDatabase" : {
+        "properties" : {
+          "container" : {
+            "description" : "Docker's id and name for it (\"shop-db-1\"), and its image (\"postgres:16\").",
+            "type" : "string"
+          },
+          "database" : {
+            "$ref" : "#/components/schemas/DatabaseInfo",
+            "description" : "Its address as this Mac reaches it, the user and database its environment names."
+          },
+          "image" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "container",
+          "database",
+          "image",
+          "name"
         ],
         "type" : "object"
       },
@@ -5182,6 +5250,59 @@
       "x-internal" : true
     },
     {
+      "description" : "Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases. Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any.",
+      "name" : "db.check",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/DatabaseInfo"
+          }
+        },
+        {
+          "name" : "password",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseCheckResult"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Postgres, MySQL and MariaDB containers running in Docker that publish their port: what the sheet offers to use.",
+      "name" : "db.containers",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/RunningDatabase"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "A copy of a database for the workspace's branch, to change without touching the project's own: a SQLite file goes into the branch's folder (where Kelp finds it under the same name), a Postgres on this Mac becomes `<database>_<branch>` (CREATE DATABASE … TEMPLATE, which needs nobody connected to it). Not a production one, MySQL's, or a remote host's.",
       "name" : "db.copy",
       "paramStructure" : "by-name",
@@ -5274,10 +5395,17 @@
       }
     },
     {
-      "description" : "Forgets one added by hand and its password; a found one goes back to how it was found.",
+      "description" : "Forgets one added by hand and its password; a found one goes back to how it was found. `library`: one of \"All my projects\".",
       "name" : "db.remove",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "name" : "library",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
         {
           "name" : "name",
           "required" : true,
@@ -5330,15 +5458,29 @@
       "x-internal" : true
     },
     {
-      "description" : "Adds a database by hand, or changes one (what agents may do, production): by name. A found one keeps its address; `password`, for one added by hand, goes to the login keychain (\"\" deletes it, nil keeps it).",
+      "description" : "Adds a database by hand, or changes one (what agents may do, production): by name. A found one keeps its address; `password`, for one added by hand, goes to the login keychain (\"\" deletes it, nil keeps it). `library`: kept in \"All my projects\" instead of the workspace's project, where no agent sees it. `container`: a running container's id (`db.containers`) whose environment holds the password.",
       "name" : "db.save",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "name" : "container",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
         {
           "name" : "database",
           "required" : true,
           "schema" : {
             "$ref" : "#/components/schemas/DatabaseInfo"
+          }
+        },
+        {
+          "name" : "library",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
           }
         },
         {
@@ -5397,6 +5539,41 @@
           "$ref" : "#/components/schemas/DatabaseSchema"
         }
       }
+    },
+    {
+      "description" : "One of \"All my projects\" used in the workspace's project: its agents see it from now on, as `access` says.",
+      "name" : "db.use",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "access",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/DatabaseInfo.Access"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Downloads an extension from GitHub (`IDE.librarySource` reads the forms) into a new temporary folder named by its id, with `.kelp-source.json` saying where it came from. Nothing is installed: the caller shows what it runs, then moves it in (`IDE.installExtension`).",
