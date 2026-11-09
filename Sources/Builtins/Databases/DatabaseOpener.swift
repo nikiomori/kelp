@@ -103,7 +103,7 @@ final class DatabaseOpener: NSObject, NSTableViewDataSource, NSTableViewDelegate
         let uri =
             switch items[row] {
             case .database(let db): DatabaseURI(worktree: worktreeId, name: db.name).uri
-            case .table(let db, let t): DatabaseURI(worktree: worktreeId, name: db, table: t.name).uri
+            case .table(let db, let table): DatabaseURI(worktree: worktreeId, name: db, table: table.name).uri
             }
         window.sheetParent?.endSheet(window, returnCode: .OK)
         app.workbench.open(uri)
@@ -123,11 +123,11 @@ final class DatabaseOpener: NSObject, NSTableViewDataSource, NSTableViewDelegate
             views = [NSImageView(image: DatabaseLook.badge(db.engine, size: 18))]
             views.append(stacked([name, detail]))
             views += [NSView()] + [DatabaseLook.stageChip(db)].compactMap { $0 }
-        case .table(let db, let t):
-            name = NSTextField(labelWithString: t.name)
+        case .table(let db, let table):
+            name = NSTextField(labelWithString: table.name)
             name.font = .uiMono(12)
             detail = NSTextField(
-                labelWithString: [db, t.rows.map { String(localized: "\($0) rows") }].compactMap { $0 }
+                labelWithString: [db, table.rows.map { String(localized: "\($0) rows") }].compactMap { $0 }
                     .joined(separator: " · "))
             let icon = NSImageView(image: .symbol("tablecells"))
             icon.contentTintColor = .secondaryLabelColor

@@ -9,50 +9,15 @@ import WorkbenchKit
 /// while it's open. ⇧↩ opens the choice in a split. A setting with choices (Color Theme, File Icon Theme, on/off…) lists them
 /// right here, the one in effect ticked; for looks, moving through them tries each on, ↩ keeps it, esc goes back.
 @MainActor
-package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
+final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     let app: AppModel
     init(app: AppModel) {
         self.app = app
         super.init()
     }
 
-    struct Item {
-        let kind: String
-        let icon: String
-        let title: String
-        let detail: String
-        let action: () -> Void
-        /// ⇧↩: the same thing in a split to the right (files, agents, tabs).
-        var split: (() -> Void)?
-        /// An agent's: its state where the icon goes, as on its tab.
-        var session: Session?
-        /// A setting with choices: its value now, on the right; choosing it lists the choices here.
-        var value: String?
-        /// One of those choices: the value it sets, whether it's in effect, and its theme's colors.
-        var choice: JSONValue?
-        var checked = false
-        var image: NSImage?
-        /// A file's path, ready for fuzzy matching.
-        var fuzzy: ProjectFiles.FuzzyPath?
-        /// A command's shortcut, at the end of its title's line as in a menu.
-        var key = ""
-        /// Run from here lately: on top of ⇧⌘P's empty list, under Recently Used.
-        var recent = false
-    }
-    /// A setting's choices on screen: the key, the value to go back to, whether moving tries them on, the query to return to.
-    struct Choosing {
-        let key: String
-        let saved: JSONValue?
-        let tries: Bool
-        let query: String
-    }
     var choosing: Choosing?
-    /// A list row: a group's heading ("Files", "Agents"…) while searching, or an item.
-    enum Row {
-        case heading(String), item(Item)
-        var isItem: Bool { if case .item = self { true } else { false } }
-    }
-    private var rows: [Row] = []
+    var rows: [Row] = []
     /// The file's symbols while ⌘P is open (`QuickOpenPrefixes`).
     var symbols: (path: String, items: [Item])?
     var symbolLoad: Task<Void, Never>?
@@ -60,15 +25,15 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     var panel: QuickPanel!
     /// What the empty field shows, made once per opening so rows don't move under the pointer.
     var recents: [Item] = []
-    private var showingRecents = false
+    var showingRecents = false
     /// Fading away (`hide`).
-    private var hiding = false
+    var hiding = false
     var prSearch: Task<Void, Never>?
     var filesLoad: Task<Void, Never>?
     /// The typed query's matches being scored; the next keystroke cancels it.
-    private var scoring: Task<Void, Never>?
+    var scoring: Task<Void, Never>?
     let field = PaletteField()
-    private let table = PaletteTable()
+    let table = PaletteTable()
     let keys = Keycaps()
     var all: [Item] = []
     var commandsOnly = false
@@ -79,7 +44,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     var tmuxLoad: Task<Void, Never>?
 
     /// `text`: what the field starts with (":" for Go to Line).
-    package func show(commandsOnly: Bool, text: String = "") {
+    func show(commandsOnly: Bool, text: String = "") {
         if panel == nil { build() }
         self.commandsOnly = commandsOnly
         symbols = nil
@@ -104,14 +69,14 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
             panel.alphaValue = 1
         }
         guard let window = anchor?.window ?? NSApp.mainWindow else { return show() }
-        let size = panel.frame.size, f = window.frame
+        let size = panel.frame.size, windowFrame = window.frame
         guard let pill = anchor, pill.window === window, !pill.isHiddenOrHasHiddenAncestor else {
-            panel.setFrameOrigin(NSPoint(x: f.midX - size.width / 2, y: f.maxY - size.height - 120))
+            panel.setFrameOrigin(NSPoint(x: windowFrame.midX - size.width / 2, y: windowFrame.maxY - size.height - 120))
             return show()
         }
         let pillFrame = window.convertToScreen(pill.convert(pill.bounds, to: nil))
-        let x = min(max(pillFrame.midX - size.width / 2, f.minX + 8), f.maxX - size.width - 8)
-        let end = NSRect(x: x, y: pillFrame.maxY + 6 - size.height, width: size.width, height: size.height)
+        let left = min(max(pillFrame.midX - size.width / 2, windowFrame.minX + 8), windowFrame.maxX - size.width - 8)
+        let end = NSRect(x: left, y: pillFrame.maxY + 6 - size.height, width: size.width, height: size.height)
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             panel.setFrame(end, display: false)
             return show()
@@ -135,7 +100,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     /// The palette's own list (not a setting's choices), with `query` typed.
-    private func list(query: String) {
+    func list(query: String) {
         stopChoosing()
         tmuxLoad?.cancel()
         tmux = nil
@@ -289,7 +254,7 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
     }
 
     @objc private func filterAction() { filter() }
-    package func controlTextDidChange(_ obj: Notification) {
+    func controlTextDidChange(_ obj: Notification) {
         // ">" first, as in VS Code: the commands, with what follows it.
         if !commandsOnly, choosing == nil, tmux == nil, field.stringValue.hasPrefix(">") {
             commandsOnly = true
@@ -386,216 +351,5 @@ package final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDeleg
         }
         tryOn()   // the same row index can hold another choice now, so no selection-change call comes
     }
-    package func tableViewSelectionDidChange(_ n: Notification) { tryOn() }
-
-    private static func group(_ it: Item) -> String {
-        if it.recent { return "Recently Used" }
-        return [
-            "File": "Files", "Agent": "Chats", "Terminal": "Terminals", "Command": "Commands", "Setting": "Settings",
-            "Group": "Groups",
-            "Server": "Servers", "Tab": "Tabs"
-        ][it.kind]
-            ?? it.kind
-    }
-
-    /// The commands and settings run from the palette last, newest first; kept per Mac, five of them.
-    static let usedKey = "quickOpen.recentCommands"
-    private static func usedID(_ it: Item) -> String { [it.kind, it.detail, it.title].joined(separator: " › ") }
-    /// Of `pool`, the ones run lately that the menus still offer, in the order they were run.
-    static func recentlyUsed(_ pool: [Item]) -> [Item] {
-        (UserDefaults.standard.stringArray(forKey: usedKey) ?? []).compactMap { id in
-            guard var it = pool.first(where: { usedID($0) == id }) else { return nil }
-            it.recent = true
-            return it
-        }
-    }
-    static func remember(_ it: Item) {
-        guard it.kind == "Command" || it.kind == "Setting" else { return }
-        let defaults = UserDefaults.standard, id = usedID(it)
-        defaults.set(
-            Array(([id] + (defaults.stringArray(forKey: usedKey) ?? []).filter { $0 != id }).prefix(5)), forKey: usedKey
-        )
-    }
-
-    package func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
-        switch sel {
-        case #selector(NSResponder.moveDown(_:)):
-            move(1)
-            return true
-        case #selector(NSResponder.moveUp(_:)):
-            move(-1)
-            return true
-        case #selector(NSResponder.insertNewline(_:)):
-            let split = NSApp.currentEvent?.modifierFlags.contains(.shift) == true
-            // ↩ right after typing picks from what was typed, once it's scored.
-            if let pending = scoring {
-                Task {
-                    await pending.value
-                    choose(split: split)
-                }
-            } else {
-                choose(split: split)
-            }
-            return true
-        case #selector(NSResponder.deleteBackward(_:))
-        where commandsOnly && choosing == nil && field.stringValue.isEmpty:
-            commandsOnly = false   // ⌫ past the start: back to everything, as deleting VS Code's ">"
-            list(query: "")
-            return true
-        case #selector(NSResponder.cancelOperation(_:)):
-            if let setting = choosing {
-                list(query: setting.query)
-                return true
-            }   // a setting's choices: back to the list, the old value back
-            hide()
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-            return true   // back to the terminal
-        default: return false
-        }
-    }
-    /// Up and down skip the groups' headings.
-    private func move(_ d: Int) {
-        var row = table.selectedRow + d
-        while rows.indices.contains(row), case .heading = rows[row] { row += d }
-        guard rows.indices.contains(row) else { return }
-        table.selectRowIndexes([row], byExtendingSelection: false)
-        table.scrollRowToVisible(row)
-    }
-    @objc private func activate() { choose(split: false) }
-    private func choose(split: Bool) {
-        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
-        guard rows.indices.contains(row), case .item(let it) = rows[row] else { return }
-        Self.remember(it)
-        if it.value != nil {
-            it.action()
-            return
-        }   // a setting with choices lists them; the palette stays
-        choosing = nil   // the choice is kept: closing mustn't put the old value back
-        hide()
-        NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-        if split, let openSplit = it.split { openSplit() } else { it.action() }
-    }
-    @objc private func panelResignedKey(_ n: Notification) {
-        stopChoosing()
-        hide()
-    }
-
-    package func numberOfRows(in t: NSTableView) -> Int { rows.count }
-    package func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool {
-        if case .item = rows[row] { true } else { false }
-    }
-    package func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat {
-        TextSize.of(rows[row].isItem ? Metrics.rowMenu : Metrics.row)
-    }
-    package func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        guard case .item(let it) = rows[row] else {
-            guard case .heading(let group) = rows[row] else { return nil }
-            let heading = NSTextField(labelWithString: loc(group))
-            heading.font = .ui(11, weight: .semibold)
-            heading.textColor = .secondaryLabelColor
-            let header = NSStackView(views: [heading])
-            header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
-            return header
-        }
-        let img = NSImageView(
-            image: it.image ?? (it.kind == "File" ? app.fileIcons.image(it.title) : NSImage.symbol(it.icon, it.kind)))
-        img.contentTintColor = .secondaryLabelColor
-        // An agent: its state while there's something to see (as on its tab), else its own icon.
-        let lead: NSView
-        if let session = it.session,
-            [.working, .waiting, .error].contains(session.status) || (session.status == .done && session.unread)
-        {
-            let mark = StatusMark(size: 14)
-            mark.status = session.status
-            mark.unread = session.unread
-            mark.waitsForCommand = session.waitsForCommand
-            let box = NSView()
-            mark.translatesAutoresizingMaskIntoConstraints = false
-            box.addSubview(mark)
-            NSLayoutConstraint.activate([
-                mark.centerXAnchor.constraint(equalTo: box.centerXAnchor),
-                mark.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-                box.heightAnchor.constraint(equalToConstant: 18)
-            ])
-            lead = box
-        } else {
-            if let session = it.session, let icon = app.catalog.icon(session.agent, size: 18) { img.image = icon }
-            lead = img
-        }
-        let t1 = NSTextField(labelWithString: "")
-        t1.attributedStringValue = Self.highlighted(it.title, field.stringValue)
-        t1.lineBreakMode = .byTruncatingTail
-        let t2 = NSTextField(labelWithString: it.detail)
-        t2.font = .ui(12)
-        t2.textColor = .secondaryLabelColor
-        t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
-        // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
-        let index = rows[..<row].filter { if case .item = $0 { true } else { false } }.count
-        let shortcut = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
-        let kind = NSTextField(
-            labelWithString: shortcut + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? ""))
-        kind.font = .ui(11)
-        kind.textColor = .secondaryLabelColor
-        // The choice in effect: a tick at the end, as in a menu.
-        let tick = NSImageView(image: .symbol("checkmark", String(localized: "Current")))
-        tick.contentTintColor = .themeAccent
-        tick.isHidden = !it.checked
-        // A command's shortcut: at the end of the title's line, as in a menu.
-        let key = NSTextField(labelWithString: it.key)
-        key.font = .ui(12)
-        key.textColor = .secondaryLabelColor
-        key.isHidden = it.key.isEmpty
-        key.setContentCompressionResistancePriority(.required, for: .horizontal)
-        key.setContentHuggingPriority(.required, for: .horizontal)
-        // One line, as Xcode's Open Quickly: the name, then where it is in grey, which gives way first.
-        t1.setContentCompressionResistancePriority(.init(260), for: .horizontal)
-        t1.setContentHuggingPriority(.required, for: .horizontal)
-        t2.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        t2.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
-        let stack = NSStackView(views: [lead, t1, t2, key, kind, tick])
-        stack.spacing = 10
-        stack.distribution = .fill
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 12)
-        lead.widthAnchor.constraint(equalToConstant: 18).isActive = true
-        for v in [kind, tick] { v.setContentHuggingPriority(.required, for: .horizontal) }
-        let cell = PaletteCell()   // its words turn light on the accent
-        cell.pin(stack)
-        return cell
-    }
-
-}
-
-extension QuickOpen {
-    /// The title with what was typed in bold: each word of the query where it first occurs.
-    static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
-        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(13)])
-        for word in query.split(separator: " ") where !word.isEmpty {
-            let range = (title as NSString).range(of: String(word), options: .caseInsensitive)
-            if range.location != NSNotFound {
-                text.addAttribute(.font, value: NSFont.ui(13, weight: .bold), range: range)
-            }
-        }
-        return text
-    }
-}
-
-extension QuickOpen {
-    /// Away, a little quicker than it came; what was chosen happens at once, without waiting for this.
-    func hide() {
-        guard panel.isVisible, !hiding else { return }
-        guard !Motion.reduced else { return panel.orderOut(nil) }
-        hiding = true
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.fast
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            panel.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            MainActor.assumeIsolated {   // AppKit runs it on the main thread
-                guard let self, self.hiding else { return }   // opened again meanwhile
-                self.hiding = false
-                self.panel.orderOut(nil)
-                self.panel.alphaValue = 1
-            }
-        }
-    }
+    func tableViewSelectionDidChange(_ n: Notification) { tryOn() }
 }

@@ -50,8 +50,8 @@ final class ColorSwatches: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     private func index(at event: NSEvent) -> Int {
-        let x = convert(event.locationInWindow, from: nil).x
-        let slot = Int(((x - Self.inset + Self.gap / 2) / (Self.side + Self.gap)).rounded(.down))
+        let pointer = convert(event.locationInWindow, from: nil).x
+        let slot = Int(((pointer - Self.inset + Self.gap / 2) / (Self.side + Self.gap)).rounded(.down))
         return min(max(slot, 0), colors.count - 1)
     }
     private func choose(_ index: Int) {

@@ -12,7 +12,7 @@ import WebKit
 final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
     let url: URL
-    private let app: AppModel
+    let app: AppModel
     private let web = WKWebView()
     private let links: PreviewLinks
     /// Where Kelp's scripts for the preview run (the page's own don't: `PreviewLinks`), and the only world `kelpSync` hears.
@@ -217,7 +217,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     /// Script for the page whose answer nobody waits for (the async evaluateJavaScript traps on an undefined result).
-    private func runJS(_ js: String) { web.evaluateJavaScript(js, in: nil, in: Self.world, completionHandler: nil) }
+    func runJS(_ js: String) { web.evaluateJavaScript(js, in: nil, in: Self.world, completionHandler: nil) }
 
     @objc private func scrolled() {
         if !selectionBar.isHidden { placeSelectionBar() }
@@ -334,57 +334,6 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     @objc private func modeChanged() { applyMode() }
-
-    // MARK: a review's answers
-
-    /// The chat that made this page (a review's answers go back to it, and questions about it), while it's there.
-    private var pageAuthor: Session? {
-        Artifacts.record(in: url.deletingLastPathComponent())?.session.flatMap(app.session).flatMap {
-            $0.status == .exited ? nil : $0
-        }
-    }
-
-    /// A pick or a note goes into the file (the agent reads its answers there); Send types the line saying them into
-    /// the chat that wrote it, or, once that has ended, into the agent on screen for the user to send.
-    private func answer(_ kind: String, point: String, value: String) {
-        switch kind {
-        case "pick":
-            editor.apply(
-                text: Review.pick(editor.text, point: point, option: value), selection: NSRange(location: 0, length: 0))
-        case "note":
-            editor.apply(
-                text: Review.note(editor.text, point: point, note: value), selection: NSRange(location: 0, length: 0))
-        default: break
-        }
-        Task {
-            guard await saveFile?() != false else { return }
-            guard kind == "send" else { return }
-            let line = Review(editor.text).answer(file: Artifacts.projectPath(url.path))
-            guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
-            guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
-            let sent = String(localized: "Sent to \(author.title)")
-            runJS("kelpReviewSent(\(Self.jsString(sent)))")
-        }
-    }
-
-    /// Text selected on the page, quoted into the chat that made it (else the agent on screen), not sent: the user asks.
-    private func ask(about quote: String) {
-        let quoted = quote.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.joined(
-            separator: " ")
-        guard !quoted.isEmpty else { return }
-        let shown = quoted.count > 400 ? String(quoted.prefix(399)) + "…" : quoted
-        let line = "About “\(shown)” in \(Artifacts.projectPath(url.path)):"
-        guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
-        Task { await app.call(SessionSend(id: author.id, text: line + " ", enter: false)) }
-        app.workbench.focus(session: author.id)
-    }
-
-    /// A JavaScript string literal.
-    private static func jsString(_ text: String) -> String {
-        "\""
-            + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n") + "\""
-    }
 
     /// ⇧⌘V: source → split → preview → source (split is skipped while the pane is too narrow for it).
     func cycleMode() {

@@ -7,7 +7,7 @@ import WorkbenchKit
 extension QuickOpen {
     /// File › Attach to tmux Session, the "+" menu: the sessions tmux has on this workspace's machine, the last used first.
     /// Typing filters them by name, and a name that isn't one starts that session. Each opens as a terminal attached to it.
-    package func showTmux() {
+    func showTmux() {
         guard let wid = app.workbench.workspaceId else {
             NSSound.beep()
             return

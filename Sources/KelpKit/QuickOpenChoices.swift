@@ -46,14 +46,14 @@ extension QuickOpen {
             NSGraphicsContext.saveGraphicsState()
             tile.addClip()
             let stripe = rect.width / CGFloat(max(themes.count, 1))
-            for (i, t) in themes.enumerated() {
-                let x = CGFloat(i) * stripe, terminal = t.terminal
+            for (index, theme) in themes.enumerated() {
+                let left = CGFloat(index) * stripe, terminal = theme.terminal
                 color(terminal?.background).setFill()
-                NSRect(x: x, y: 0, width: stripe, height: rect.height).fill()
+                NSRect(x: left, y: 0, width: stripe, height: rect.height).fill()
                 color(terminal?.foreground).setFill()
-                NSRect(x: x + 3, y: 5, width: (stripe - 6) * 0.9, height: 2).fill()
+                NSRect(x: left + 3, y: 5, width: (stripe - 6) * 0.9, height: 2).fill()
                 color(terminal?.palette?.dropFirst(4).first).setFill()
-                NSRect(x: x + 3, y: 10, width: (stripe - 6) * 0.6, height: 2).fill()
+                NSRect(x: left + 3, y: 10, width: (stripe - 6) * 0.6, height: 2).fill()
             }
             NSGraphicsContext.restoreGraphicsState()
             NSColor.separatorColor.setStroke()

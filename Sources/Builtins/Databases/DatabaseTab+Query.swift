@@ -26,8 +26,8 @@ extension DatabaseTab {
         let tableWords = tables.map {
             CodeEditor.Completion(label: $0.name, detail: $0.rows.map { "\($0) rows" }, insert: $0.name, kind: "class")
         }
-        let columnWords = named.flatMap { t in
-            t.columns.map {
+        let columnWords = named.flatMap { table in
+            table.columns.map {
                 CodeEditor.Completion(label: $0.name, detail: $0.type.lowercased(), insert: $0.name, kind: "field")
             }
         }
@@ -65,12 +65,12 @@ extension DatabaseTab {
         var start = 0, quote: unichar?
         var bounds: [(Int, Int)] = []
         for i in 0..<text.length {
-            let c = text.character(at: i)
-            if let q = quote {
-                if c == q { quote = nil }
-            } else if c == 39 || c == 34 {   // ' "
-                quote = c
-            } else if c == 59 {   // ;
+            let char = text.character(at: i)
+            if let opening = quote {
+                if char == opening { quote = nil }
+            } else if char == 39 || char == 34 {   // ' "
+                quote = char
+            } else if char == 59 {   // ;
                 bounds.append((start, i))
                 start = i + 1
             }
@@ -106,7 +106,8 @@ extension DatabaseTab {
     func loadQueries() async {
         guard let value = await app.quiet(StateGet(key: queriesKey)), case .array(let items) = value else { return }
         sidebar.saved = items.compactMap { item in
-            guard case .object(let o) = item, case .string(let name)? = o["name"], case .string(let sql)? = o["sql"]
+            guard case .object(let fields) = item, case .string(let name)? = fields["name"],
+                case .string(let sql)? = fields["sql"]
             else { return nil }
             return DatabaseSidebar.SavedQuery(name: name, sql: sql)
         }

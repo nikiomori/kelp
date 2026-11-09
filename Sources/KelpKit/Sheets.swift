@@ -37,7 +37,7 @@ package struct AgentActions {
     let app: AppModel
     package init(_ app: AppModel) { self.app = app }
 
-    package func rename(_ sid: String) {
+    func rename(_ sid: String) {
         let cur = app.session(sid)?.title ?? ""
         Task {
             guard
@@ -82,24 +82,30 @@ package struct AgentActions {
         }
     }
 
-    /// "Hand Off to ▸ Codex": a new agent in the same workspace gets what this one did (its conversation, or the
-    /// terminal's text) as a brief typed into its prompt, not sent. ⌥ hands over the full transcript instead of the latest part.
-    /// What a session's row offers wherever it shows outside its project's list: Needs You, Activity.
-    package func addSessionItems(to m: NSMenu, _ sid: String) {
+    /// What a session's row offers wherever it shows outside its project's list (Activity); with `lastTurn`, its tab's
+    /// menu: the changes of its last turn after Copy Context, Restart last and no Stop.
+    package func addSessionItems(to m: NSMenu, _ sid: String, lastTurn: (@MainActor () -> Void)? = nil) {
         m.add(String(localized: "Rename…")) { rename(sid) }
-        if app.session(sid)?.agent != "shell" {
+        if app.session(sid)?.agent != "shell" {   // a terminal has no conversation to copy or hand over
             m.setSubmenu(
                 handoffMenu(sid),
                 for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
             addFork(to: m, sid)
             m.add(String(localized: "Copy Context")) { copyContext(sid) }
+            if let lastTurn { m.add(String(localized: "Changes in Its Last Turn"), lastTurn) }
+        }
+        guard lastTurn == nil else {
+            m.add(String(localized: "Restart")) { restart(sid) }
+            return
         }
         m.addItem(.separator())
         m.add(String(localized: "Restart")) { restart(sid) }
         m.add(String(localized: "Stop…")) { stop([sid]) }
     }
 
-    package func handoffMenu(_ sid: String) -> NSMenu {
+    /// "Hand Off to ▸ Codex": a new agent in the same workspace gets what this one did (its conversation, or the
+    /// terminal's text) as a brief typed into its prompt, not sent. ⌥ hands over the full transcript instead of the latest part.
+    func handoffMenu(_ sid: String) -> NSMenu {
         let menu = NSMenu()
         for a in app.catalog.installed(app.catalog.all) {
             menu.add(a.name) { handoff(sid, to: a.id, full: false) }.image = app.catalog.icon(a.id)
@@ -128,7 +134,7 @@ package struct AgentActions {
     static let forkable: Set = ["claude", "codex"]
 
     /// "Fork Chat", for an agent that can: a new chat beside it going on from a copy of its conversation.
-    package func addFork(to m: NSMenu, _ sid: String) {
+    func addFork(to m: NSMenu, _ sid: String) {
         guard let agent = app.session(sid)?.agent, Self.forkable.contains(agent) else { return }
         m.add(String(localized: "Fork Chat")) { fork(sid) }
     }
@@ -141,7 +147,7 @@ package struct AgentActions {
         }
     }
 
-    package func copyContext(_ sid: String) {
+    func copyContext(_ sid: String) {
         Task {
             guard let context = await app.call(SessionContext(id: sid)) else { return }
             copyText(context)

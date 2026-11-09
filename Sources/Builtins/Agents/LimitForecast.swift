@@ -11,19 +11,19 @@ struct LimitForecast {
 
     static func key(_ agent: String, _ kind: String) -> String { agent + "|" + kind }
 
-    mutating func record(_ u: UsageGet.Result, now: Date = Date()) {
-        for r in u.fresh(now: now) {
-            let l = r.limit, key = Self.key(r.agent, l.kind)
+    mutating func record(_ usage: UsageGet.Result, now: Date = Date()) {
+        for reading in usage.fresh(now: now) {
+            let limit = reading.limit, key = Self.key(reading.agent, limit.kind)
             var series = samples[key] ?? []
             if let last = series.last {
-                if l.percent < last.percent {
+                if limit.percent < last.percent {
                     series = []
                 }   // its window reset
                 else if now.timeIntervalSince(last.at) < 120 {
                     continue
                 }   // one push per read is enough
             }
-            series.append((now, l.percent))
+            series.append((now, limit.percent))
             samples[key] = series.filter { now.timeIntervalSince($0.at) <= Self.span }
         }
     }

@@ -37,10 +37,10 @@ enum ResultText {
     }
 
     static func csv(_ columns: [String], _ rows: [[String?]]) -> String {
-        func field(_ s: String?) -> String {
-            guard let s else { return "" }
-            return s.contains(where: { ",\"\n\r".contains($0) })
-                ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : s
+        func field(_ value: String?) -> String {
+            guard let value else { return "" }
+            return value.contains(where: { ",\"\n\r".contains($0) })
+                ? "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : value
         }
         return ([columns.map(field).joined(separator: ",")] + rows.map { $0.map(field).joined(separator: ",") })
             .joined(separator: "\n") + "\n"
@@ -172,10 +172,11 @@ extension ResultGrid {
     func headerMenu(_ menu: NSMenu, _ header: NSTableHeaderView) {
         let at = header.convert(header.window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil)
         let index = header.column(at: at)
-        guard table.tableColumns.indices.contains(index), let i = Int(table.tableColumns[index].identifier.rawValue),
-            columns.indices.contains(i)
+        guard table.tableColumns.indices.contains(index),
+            let columnIndex = Int(table.tableColumns[index].identifier.rawValue),
+            columns.indices.contains(columnIndex)
         else { return }
-        let column = table.tableColumns[index], name = columns[i]
+        let column = table.tableColumns[index], name = columns[columnIndex]
         for (title, up) in [(String(localized: "Sort Ascending"), true), (String(localized: "Sort Descending"), false)]
         {
             menu.add(title) { [weak self] in

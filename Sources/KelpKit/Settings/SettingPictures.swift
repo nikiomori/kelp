@@ -351,11 +351,11 @@ private struct Stripes: View {
     var body: some View {
         Canvas { context, size in
             var path = Path()
-            var x = -size.height
-            while x < size.width {
-                path.move(to: CGPoint(x: x, y: size.height))
-                path.addLine(to: CGPoint(x: x + size.height, y: 0))
-                x += side
+            var start = -size.height
+            while start < size.width {
+                path.move(to: CGPoint(x: start, y: size.height))
+                path.addLine(to: CGPoint(x: start + size.height, y: 0))
+                start += side
             }
             context.stroke(path, with: .color(.primary.opacity(0.18)), lineWidth: 1)
         }

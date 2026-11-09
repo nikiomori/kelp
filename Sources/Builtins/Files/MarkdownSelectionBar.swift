@@ -31,9 +31,9 @@ final class MarkdownSelectionBar: NSView {
         let size = frame.size, gap: CGFloat = 6
         let above = container.isFlipped ? selection.minY - gap - size.height : selection.maxY + gap
         let fits = container.isFlipped ? above >= 0 : above + size.height <= container.bounds.height
-        let y = fits ? above : container.isFlipped ? selection.maxY + gap : selection.minY - gap - size.height
-        let x = min(max(selection.minX, 4), container.bounds.width - size.width - 4)
-        setFrameOrigin(NSPoint(x: x, y: y))
+        let originY = fits ? above : container.isFlipped ? selection.maxY + gap : selection.minY - gap - size.height
+        let originX = min(max(selection.minX, 4), container.bounds.width - size.width - 4)
+        setFrameOrigin(NSPoint(x: originX, y: originY))
         isHidden = false
     }
 }

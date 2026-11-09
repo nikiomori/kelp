@@ -182,10 +182,10 @@ private struct MiniWindow: View {
             case .motes:
                 Canvas { ctx, size in
                     for index in 0..<14 {
-                        let x = CGFloat((index * 37) % 100) / 100 * size.width,
-                            y = CGFloat((index * 53) % 100) / 100 * size.height, diameter = CGFloat(index % 3) + 1.5
+                        let left = CGFloat((index * 37) % 100) / 100 * size.width,
+                            top = CGFloat((index * 53) % 100) / 100 * size.height, diameter = CGFloat(index % 3) + 1.5
                         ctx.fill(
-                            Path(ellipseIn: CGRect(x: x, y: y, width: diameter, height: diameter)),
+                            Path(ellipseIn: CGRect(x: left, y: top, width: diameter, height: diameter)),
                             with: .color((colors.first ?? .white).opacity(0.6)))
                     }
                 }

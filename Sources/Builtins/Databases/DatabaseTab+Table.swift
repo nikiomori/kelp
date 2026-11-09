@@ -141,8 +141,8 @@ extension DatabaseTab {
     func columnsMenu() {
         let menu = NSMenu()
         for column in grid.table.tableColumns.dropFirst() {
-            guard let i = Int(column.identifier.rawValue), grid.columns.indices.contains(i) else { continue }
-            menu.add(grid.columns[i]) { column.isHidden.toggle() }.state = column.isHidden ? .off : .on
+            guard let index = Int(column.identifier.rawValue), grid.columns.indices.contains(index) else { continue }
+            menu.add(grid.columns[index]) { column.isHidden.toggle() }.state = column.isHidden ? .off : .on
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Show All")) { [weak self] in
@@ -171,8 +171,9 @@ extension DatabaseTab {
         guard theirs.count == primary.count, mine.count == primary.count else { return }
         let keys = Set(result.rows.map { row in theirs.map { row.indices.contains($0) ? row[$0] ?? "" : "" } })
         grid.marked = Set(
-            grid.rows.indices.filter { r in
-                keys.contains(mine.map { grid.rows[r].indices.contains($0) ? grid.rows[r][$0] ?? "" : "" })
+            grid.rows.indices.filter { rowIndex in
+                keys.contains(
+                    mine.map { grid.rows[rowIndex].indices.contains($0) ? grid.rows[rowIndex][$0] ?? "" : "" })
             })
         guard !grid.marked.isEmpty else { return }
         grid.changed()
@@ -183,13 +184,16 @@ extension DatabaseTab {
     // MARK: Structure
 
     private func showStructure() {
-        guard let t = current else { return }
+        guard let table = current else { return }
         grid.editable = false
         grid.source = nil
-        var rows = t.columns.map { c -> [String?] in
-            [c.name, c.type, c.nullable ? "yes" : "no", c.primary ? "primary key" : "", c.references ?? ""]
+        var rows = table.columns.map { column -> [String?] in
+            [
+                column.name, column.type, column.nullable ? "yes" : "no", column.primary ? "primary key" : "",
+                column.references ?? ""
+            ]
         }
-        if !t.indexes.isEmpty { rows += [["", "", "", "", ""]] + t.indexes.map { ["index", $0, "", "", ""] } }
+        if !table.indexes.isEmpty { rows += [["", "", "", "", ""]] + table.indexes.map { ["index", $0, "", "", ""] } }
         grid.show(
             columns: [
                 String(localized: "column"), String(localized: "type"), String(localized: "null"),
@@ -197,29 +201,33 @@ extension DatabaseTab {
             ], rows: rows)
         empty.show(nil)
         let columns =
-            t.columns.count == 1 ? String(localized: "1 column") : String(localized: "\(t.columns.count) columns")
+            table.columns.count == 1
+            ? String(localized: "1 column") : String(localized: "\(table.columns.count) columns")
         let indexes =
-            t.indexes.isEmpty
+            table.indexes.isEmpty
             ? nil
-            : t.indexes.count == 1 ? String(localized: "1 index") : String(localized: "\(t.indexes.count) indexes")
+            : table.indexes.count == 1
+                ? String(localized: "1 index") : String(localized: "\(table.indexes.count) indexes")
         status.stringValue = [columns, indexes].compactMap { $0 }.joined(separator: " · ")
         footChanged()
     }
 
     /// CREATE TABLE as the columns read: what an agent or a migration starts from.
-    func definition(_ t: DatabaseSchema.Table) -> String {
+    func definition(_ table: DatabaseSchema.Table) -> String {
         let lines =
-            t.columns.map { c in
-                "  " + DatabaseEdits.name(c.name, engine) + " " + c.type + (c.nullable ? "" : " NOT NULL")
-                    + (c.references.map { r in
-                        let p = r.split(separator: ".")
-                        return p.count == 2
-                            ? " REFERENCES " + DatabaseEdits.name(String(p[0]), engine) + "(\(p[1]))" : ""
+            table.columns.map { column in
+                "  " + DatabaseEdits.name(column.name, engine) + " " + column.type
+                    + (column.nullable ? "" : " NOT NULL")
+                    + (column.references.map { reference in
+                        let parts = reference.split(separator: ".")
+                        return parts.count == 2
+                            ? " REFERENCES " + DatabaseEdits.name(String(parts[0]), engine) + "(\(parts[1]))" : ""
                     } ?? "")
             }
-            + [t.columns.filter(\.primary).map { DatabaseEdits.name($0.name, engine) }].filter { !$0.isEmpty }
+            + [table.columns.filter(\.primary).map { DatabaseEdits.name($0.name, engine) }].filter { !$0.isEmpty }
             .map { "  PRIMARY KEY (" + $0.joined(separator: ", ") + ")" }
-        return "CREATE TABLE " + DatabaseEdits.name(t.name, engine) + " (\n" + lines.joined(separator: ",\n") + "\n);"
+        return "CREATE TABLE " + DatabaseEdits.name(table.name, engine) + " (\n" + lines.joined(separator: ",\n")
+            + "\n);"
     }
 
     // MARK: Details
@@ -253,9 +261,9 @@ extension DatabaseTab {
     /// A foreign key's arrow in a cell: the table it names, at that row.
     func followKey(_ column: String, _ value: String) {
         guard let ref = current?.columns.first(where: { $0.name == column })?.references else { return }
-        let p = ref.split(separator: ".")
-        guard p.count == 2 else { return }
-        follow(String(p[0]), String(p[1]), value)
+        let parts = ref.split(separator: ".")
+        guard parts.count == 2 else { return }
+        follow(String(parts[0]), String(parts[1]), value)
     }
 
     /// That table, filtered to that row.
@@ -285,10 +293,10 @@ extension DatabaseTab {
                 self?.export(format, picked)
             }
         }
-        if let t = current {
+        if let table = current {
             menu.addItem(.separator())
             menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in
-                if let self { copyText(definition(t)) }
+                if let self { copyText(definition(table)) }
             }
         }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
@@ -330,9 +338,9 @@ extension DatabaseTab {
     }
 
     private func pending() -> [String]? {
-        guard let name = mode.table, let t = current else { return nil }
+        guard let name = mode.table, let table = current else { return nil }
         return grid.edits.statements(
-            table: name, engine: engine, columns: grid.columns, primary: t.columns.filter(\.primary).map(\.name),
+            table: name, engine: engine, columns: grid.columns, primary: table.columns.filter(\.primary).map(\.name),
             rows: grid.rows)
     }
 

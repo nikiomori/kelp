@@ -3,183 +3,17 @@ import Core
 import DesignKit
 import KelpKit
 
-/// One workspace on the strip: the state that wants you most among its agents, and the agent that is about.
-struct StripItem: Equatable {
-    var workspace: String, name: String
-    var repo: String?
-    var cell: DockFace.Cell
-    var session: String
-    /// Each of its agents, "state · title", the one above first with its words: what the tile's one mark leaves out. The state
-    /// leads, so a long title is what gets cut.
-    var agents: [String] = []
-    /// What it says: what the agent asks, what failed or what it did; while they work, just that and how many (their chats'
-    /// titles are in the tip), so a pill that says what to do and one that says nothing to do don't read alike.
-    var words: String?
-    var since: Date
-}
-
-/// Where the strip stands: a corner of a screen, or the middle of its foot or head. It snaps to the nearest after a drag, as a
-/// picture-in-picture window does, and widens away from its corner when a pill opens. Kept per Mac: it's about this Mac's screens.
-enum StripCorner: String, CaseIterable {
-    case bottom, bottomLeft, bottomRight, top, topLeft, topRight
-    var isTop: Bool { [.top, .topLeft, .topRight].contains(self) }
-    var isLeft: Bool { self == .bottomLeft || self == .topLeft }
-    var isRight: Bool { self == .bottomRight || self == .topRight }
-}
-
-struct StripPlace: Equatable {
-    var corner: StripCorner
-    var display: UInt32?
-    /// Hidden behind this side, `y` up from the foot of the screen's visible part.
-    var edge: StripEdge?
-    var y: CGFloat = 0
-
-    private static let key = "agents.dockStrip.place"
-    static func load() -> StripPlace? {
-        guard let saved = UserDefaults.standard.dictionary(forKey: key),
-            let corner = (saved["corner"] as? String).flatMap(StripCorner.init)
-        else { return nil }
-        return StripPlace(
-            corner: corner, display: (saved["display"] as? NSNumber)?.uint32Value,
-            edge: (saved["edge"] as? String).flatMap(StripEdge.init),
-            y: (saved["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
-    }
-    static func save(_ place: StripPlace?) {
-        guard let place else {
-            UserDefaults.standard.removeObject(forKey: key)
-            return
-        }
-        var saved: [String: Any] = ["corner": place.corner.rawValue, "y": Double(place.y)]
-        saved["display"] = place.display
-        saved["edge"] = place.edge?.rawValue
-        UserDefaults.standard.set(saved, forKey: key)
-    }
-}
-
-/// What the strip shows, without a window.
-@MainActor
-enum StripModel {
-    /// How long finished work stays after it's been seen in Kelp: time to get to it from the strip.
-    static let recent: TimeInterval = 600
-
-    /// What an agent says on the strip: as on the Dock's icon, but finished work stays a while once read.
-    static func cell(_ s: Session, now: Date) -> DockFace.Cell? {
-        if let dockCell = DockIcon.cell(s) { return dockCell }
-        let finished = s.isChat && s.parent == nil && s.shownStatus == .done
-        return finished && now.timeIntervalSince(s.statusAt ?? .distantPast) < recent ? .done : nil
-    }
-
-    /// In a workspace, work going on comes before work finished: a project is done once nothing in it works, as an agent waits
-    /// for the ones it started. Across workspaces finished work opens first (`opened`): it's news, work isn't.
-    private nonisolated static let inWorkspace: [DockFace.Cell] = [.asks, .failed, .working, .done]
-
-    static func status(_ c: DockFace.Cell) -> AgentStatus {
-        switch c {
-        case .asks: .waiting
-        case .failed: .error
-        case .working: .working
-        case .done: .done
-        }
-    }
-
-    static func items(
-        _ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()
-    ) -> [StripItem] {
-        workspaces.compactMap { workspace in
-            func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) {
-                (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt)
-            }
-            let own = sessions.filter { $0.worktreeId == workspace.id }.compactMap { session in
-                cell(session, now: now).map { (session, $0) }
-            }
-            .sorted { rank($0) < rank($1) }
-            guard let (lead, worst) = own.first else { return nil }
-            let says = lead.summary.isEmpty ? nil : lead.summary, busy = own.count { $0.1 == .working }
-            let words =
-                switch worst {
-                case .asks: says ?? String(localized: "Needs your input")
-                case .failed: says ?? String(localized: "Failed")
-                case .done: says.map { String(localized: "Done: \($0)") } ?? String(localized: "Done")
-                case .working where busy > 1: String(localized: "Working: \(busy)")
-                case .working: String(localized: "Working")
-                }
-            let said = worst == .working ? status(worst).words : brief(words)
-            let agents =
-                ["\(said) · \(lead.displayTitle)"]
-                + own.dropFirst().map { "\(status($0.1).words) · \($0.0.displayTitle)" }
-            return StripItem(
-                workspace: workspace.id, name: workspace.name, repo: workspace.repo, cell: worst, session: lead.id,
-                agents: agents,
-                words: words,
-                since: lead.statusAt ?? lead.createdAt)
-        }
-    }
-
-    /// The one that opens into a pill, so the strip always says something in words: the oldest question, else what failed,
-    /// what finished, what works. The others stay tiles where they are, and say theirs under the pointer.
-    static func opened(_ items: [StripItem]) -> String? {
-        items.min { ($0.cell, $0.since) < ($1.cell, $1.since) }?.workspace
-    }
-
-    /// `front`: Kelp is the active app, and its window already says all this. `comesFor`: what brings it up (When Needed):
-    /// a finished agent can wait for a look, and it would otherwise keep the strip up all day in another app.
-    static func shows(_ items: [StripItem], mode: String?, comesFor: String?, front: Bool) -> Bool {
-        guard !front, mode != "off" else { return false }
-        guard mode == "needed" else { return !items.isEmpty }   // Always, the default: it's where you see them working
-        let loudest: DockFace.Cell =
-            switch comesFor {
-            case "questions": .asks
-            case "all": .done
-            default: .failed
-            }
-        return items.contains { $0.cell != .working && $0.cell <= loudest }
-    }
-
-    /// The pill's words: what a command is, without the variables set before it. Only here, for a glance: the card beside Allow
-    /// says the whole command, as `LD_PRELOAD=… npm test` isn't `npm test`.
-    static func brief(_ words: String) -> String {
-        guard words.hasPrefix("Allow ") else { return words }
-        let parts = words.dropFirst(6).split(separator: " ", omittingEmptySubsequences: true)
-        let rest = parts.drop { $0.range(of: #"^[A-Za-z_][A-Za-z0-9_]*=\S*$"#, options: .regularExpression) != nil }
-        return rest.isEmpty ? words : "Allow " + rest.joined(separator: " ")
-    }
-
-    /// From the screen's edges.
-    static let margin: CGFloat = 8
-
-    /// At its corner, whole on the screen.
-    static func frame(_ size: NSSize, in area: NSRect, at corner: StripCorner) -> NSRect {
-        let x =
-            corner.isLeft
-            ? area.minX + margin : corner.isRight ? area.maxX - size.width - margin : area.midX - size.width / 2
-        let y = corner.isTop ? area.maxY - size.height - margin : area.minY + margin
-        return NSRect(x: x, y: y, width: size.width, height: size.height)
-    }
-
-    /// The corner a strip let go here goes to.
-    static func corner(nearest frame: NSRect, in area: NSRect) -> StripCorner {
-        func gap(_ c: StripCorner) -> CGFloat {
-            let at = Self.frame(frame.size, in: area, at: c)
-            return hypot(at.midX - frame.midX, at.midY - frame.midY)
-        }
-        return StripCorner.allCases.min { gap($0) < gap($1) } ?? .bottom
-    }
-
-    /// A question put off: it comes back as a new one when the agent's state changes.
-    static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
-}
-
 /// A strip of workspaces over the Dock, for when Kelp is behind another app: their agents at a glance, the one that asks opened
 /// into a pill, and a click answers from a card with Kelp left where it is. It starts at the foot of the visible screen and under the Dock's level:
 /// a Dock that stays reserves its room, and a hidden one slides over the strip and away. Dragged, it goes to the nearest corner.
 @MainActor
 final class AgentStrip {
-    private struct State: Equatable { var items: [StripItem], mode: String?, comesFor: String?, fullScreen: Bool }
+    struct State: Equatable { var items: [StripItem], mode: String?, comesFor: String?, fullScreen: Bool }
     /// After Kelp goes behind: a quick trip to another app and back doesn't flash the strip.
     private static let settle: TimeInterval = 0.6
 
     private let app: AppModel
-    private var state = State(items: [], mode: nil, comesFor: nil, fullScreen: true)
+    var state = State(items: [], mode: nil, comesFor: nil, fullScreen: true)
     /// Put off with Later, until the agent's state changes.
     private var putOff: Set<String> = []
     /// Hidden for a while (a call, a talk); it isn't kept: a restart brings it back.
@@ -188,22 +22,22 @@ final class AgentStrip {
     private var settling: Timer?
     /// Just answered: the next question follows in the card.
     private var goesOn = false
-    private var place = StripPlace.load()
-    private var corner: StripCorner { place?.corner ?? .bottom }
-    private var tip: StripTip?
+    var place = StripPlace.load()
+    var corner: StripCorner { place?.corner ?? .bottom }
+    var tip: StripTip?
     /// When finished work read in Kelp leaves the strip.
     private var expiry: Timer?
     private var tipTimer: Timer?
     /// Hidden behind an edge, it's all out while the pointer is on it.
-    private var peeking = false
+    var peeking = false
     private var peekTimer: Timer?
-    private let line = StripLine()
+    let line = StripLine()
     /// The questions and failures a line has told of, so each comes out of the edge once.
     private var told: Set<String> = []
     private let glint = StripGlint()
     private var glintSide: [NSLayoutConstraint] = []
-    private var panel: StripPanel?
-    private let row = StripRow()
+    var panel: StripPanel?
+    let row = StripRow()
     private var buttons: [String: StripButton] = [:]
     private var card: StripCard?
     private var observers: [NSObjectProtocol] = []
@@ -294,7 +128,7 @@ final class AgentStrip {
         refresh()
     }
 
-    private func refresh() {
+    func refresh() {
         let live = Set(app.sessions.map(StripModel.key))
         putOff.formIntersection(live)
         state = Self.state(app, putOff: putOff)
@@ -336,7 +170,7 @@ final class AgentStrip {
     }
 
     /// The handle and its sign, on the side away from the edge it hides behind.
-    private func showEdge(hidden: Bool) {
+    func showEdge(hidden: Bool) {
         let edge = place?.edge
         if glint.superview == nil {
             row.addSubview(glint)
@@ -369,7 +203,7 @@ final class AgentStrip {
     }
 
     /// The pointer on a hidden strip brings it all out at once; off it, it goes back after a moment.
-    private func hoverStrip(_ on: Bool) {
+    func hoverStrip(_ on: Bool) {
         row.pointerOn = on
         peekTimer?.invalidate()
         guard place?.edge != nil, on != peeking, on || card == nil else { return }
@@ -397,7 +231,7 @@ final class AgentStrip {
         }
     }
 
-    private func peek(_ on: Bool) {
+    func peek(_ on: Bool) {
         peekTimer?.invalidate()
         guard place?.edge != nil, on != peeking else { return }
         peeking = on
@@ -486,7 +320,7 @@ final class AgentStrip {
         card = newCard
     }
 
-    private func closeCard() {
+    func closeCard() {
         card?.close()
         card = nil
         if peeking, !row.pointerOn { hoverStrip(false) }
@@ -530,109 +364,4 @@ final class AgentStrip {
             && StripModel.shows(state.items, mode: state.mode, comesFor: state.comesFor, front: NSApp.isActive)
     }
 
-    /// Let go after a drag: it goes to the nearest corner of the screen it's on; a card it left behind goes.
-    func dropped() {
-        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
-        let area = screen.visibleFrame
-        if let edge = StripModel.edge(dropped: panel.frame, in: area), Self.outer(edge, of: screen) {
-            moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
-            return
-        }
-        let corner = StripModel.corner(nearest: panel.frame, in: area)
-        moved(
-            to: corner == .bottom && screen == NSScreen.main
-                ? nil : StripPlace(corner: corner, display: Self.number(of: screen)))
-    }
-
-    /// From the menu: behind the side of its screen it's nearer, where it stands.
-    private func tuck() {
-        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
-        let area = screen.visibleFrame
-        let nearer: StripEdge = panel.frame.midX > area.midX ? .right : .left
-        guard let edge = [nearer, nearer == .right ? .left : .right].first(where: { Self.outer($0, of: screen) }) else {
-            return
-        }
-        moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
-    }
-
-    /// At the height it stands; the corner is the one it would take by that side.
-    private static func place(behind edge: StripEdge, of screen: NSScreen, at frame: NSRect) -> StripPlace {
-        StripPlace(
-            corner: edge == .right ? .bottomRight : .bottomLeft, display: number(of: screen), edge: edge,
-            y: frame.minY - screen.visibleFrame.minY)
-    }
-
-    /// The screen most of it is on: one pushed past an edge has no `screen` of its own.
-    private static func screen(under frame: NSRect) -> NSScreen? {
-        NSScreen.screens.max { $0.frame.intersection(frame).width < $1.frame.intersection(frame).width }
-            ?? NSScreen.main
-    }
-
-    private static func outer(_ edge: StripEdge, of screen: NSScreen) -> Bool {
-        StripModel.outer(edge, of: screen.frame, among: NSScreen.screens.filter { $0 != screen }.map(\.frame))
-    }
-
-    private func moved(to place: StripPlace?) {
-        self.place = place
-        StripPlace.save(place)
-        peeking = false
-        closeCard()
-        tip?.hide()
-        line.hide()
-        refresh()
-    }
-
-    private static func number(of screen: NSScreen) -> UInt32? {
-        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
-    }
-
-    /// Where it was put, or else the screen the pointer is on when it comes up: the one being looked at, as the Dock's can't be told.
-    private func screen(appearing: Bool, of p: NSPanel) -> NSScreen? {
-        if let display = place?.display, let put = NSScreen.screens.first(where: { Self.number(of: $0) == display }) {
-            return put
-        }
-        let mouse = NSEvent.mouseLocation
-        return (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : p.screen)
-            ?? NSScreen.main
-    }
-
-    private func put(appearing: Bool) {
-        let window = panel ?? makePanel()
-        guard let area = screen(appearing: appearing, of: window)?.visibleFrame, let content = window.contentView else {
-            return
-        }
-        content.layoutSubtreeIfNeeded()
-        let size = NSSize(width: content.fittingSize.width, height: StripButton.stripHeight)
-        let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
-        let frame = behind ?? StripModel.frame(size, in: area, at: corner)
-        guard appearing else {
-            // nothing moved: no animation to run
-            guard window.frame != frame || window.alphaValue != 1 else { return }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Motion.duration(Motion.appear)
-                window.animator().setFrame(frame, display: true)
-                window.animator().alphaValue = 1
-            }
-            return
-        }
-        window.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8), display: false)
-        window.alphaValue = 0
-        window.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.appear)
-            window.animator().setFrame(frame, display: true)
-            window.animator().alphaValue = 1
-        }
-    }
-
-    private func makePanel() -> StripPanel {
-        row.spacing = 2
-        showEdge(hidden: place?.edge != nil)
-        row.onHover = { [weak self] on in self?.hoverStrip(on) }
-        row.onClick = { [weak self] in self?.peek(true) }
-        let made = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
-        made.onDropped = { [weak self] in self?.dropped() }
-        panel = made
-        return made
-    }
 }

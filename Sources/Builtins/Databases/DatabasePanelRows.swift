@@ -248,12 +248,12 @@ struct DatabasePanelRows {
     }
 
     private func stack(_ views: [NSView]) -> NSStackView {
-        let s = NSStackView(views: views)
-        s.orientation = .vertical
-        s.alignment = .leading
-        s.spacing = Metrics.lineGap
-        s.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return s
+        let column = NSStackView(views: views)
+        column.orientation = .vertical
+        column.alignment = .leading
+        column.spacing = Metrics.lineGap
+        column.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return column
     }
 
     private func label(_ text: String, font: NSFont, color: NSColor = .labelColor) -> NSTextField {

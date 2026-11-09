@@ -92,11 +92,11 @@ final class AgentStack: NSView {
 
     override func layout() {
         super.layout()
-        let y = (bounds.height - Self.side) / 2
-        for (index, face) in faces.enumerated() { face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step, y: y)) }
-        let x = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + 6
+        let top = (bounds.height - Self.side) / 2
+        for (index, face) in faces.enumerated() { face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step, y: top)) }
+        let moreX = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + 6
         more.frame = NSRect(
-            x: x, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
+            x: moreX, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
             height: more.intrinsicContentSize.height)
     }
 }

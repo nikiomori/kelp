@@ -121,8 +121,12 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1 so an agent tab's menu offers Fork Chat as the row's does (`addFork`).
     // 2026-11-09: what no built-in used went internal (the compiler said which), the plan limits' words moved into Agents
     // (`LimitStop`, `PlanNote`; the shell keeps `PlanWords`, the places they show), and the raw client went (`notify`).
-    #expect(declared <= 368, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 368, "fewer now (\(declared)): lower the ceiling")
+    // 2026-11-09, 368 → 327: a built-in hands its contributions over in one `Contributions(…)` (the vars no built-in
+    // reads went internal), reaches the palette through `openQuickly` / `showTmuxSessions` (QuickOpen is the shell's),
+    // conforms the pushed kinds only it reads (activity, PRs, files, artifacts, commands), keeps what only it does
+    // (`copyWebLink`, `RemoteHost.containing`), and a session's tab menu is `addSessionItems`' too.
+    #expect(declared <= 327, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 327, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -306,9 +310,9 @@ func codeOnly(_ s: String) -> String {
     #expect(
         callers == [
             "Sources/KelpKit/DevAids.swift", "Sources/KelpKit/Editor/EditorArea.swift",
-            "Sources/KelpKit/Extensions/DeclarativeExtension.swift",
-            "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/WindowParts.swift",
-            "Sources/KelpKit/Shell/WorkbenchActions.swift"
+            "Sources/KelpKit/Extensions/ExtActions.swift",
+            "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/EditorHost.swift",
+            "Sources/KelpKit/Shell/KelpLinks.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"
         ])
 }
 
@@ -371,7 +375,7 @@ func codeOnly(_ s: String) -> String {
             "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset",
         "KelpKit/Parking.swift": "a park for an hour ends when its hour is up, which nothing announces",
         "KelpKit/Shell/Latency.swift": "\"Loading…\" only once a wait is long enough to notice",
-        "Builtins/Agents/AgentStripViews.swift":
+        "Builtins/Agents/StripCard.swift":
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
         "KelpKit/Shell/WorkspaceSwitcher.swift":
             "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
@@ -379,7 +383,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
         "Builtins/Agents/CommandsBar.swift": "a running command's time goes on (\"12s\" becomes \"13s\")",
         "Builtins/Issues/CIRunRow.swift": "a running job's time goes on, counted from when it began",
-        "Builtins/Files/FileTab.swift": "typing settles before the language server hears it",
+        "Builtins/Files/FileTab+Saving.swift": "typing settles before the language server hears it",
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
         "Builtins/Databases/DatabaseForm.swift": "typing settles before Add Database connects to check it",
         "Builtins/Databases/DatabaseTab+Table.swift": "a read says Reading… only past half a second: a quick one doesn't flicker",
@@ -686,8 +690,9 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/ExtPages.swift": (1, "an extension's own page, served to its web view"),
         "KelpKit/Extensions/AgentSkills.swift": (4, "the skills Kelp gives agents, in Kelp's home"),
         "KelpKit/Shell/Help.swift": (1, "the guide, written to Kelp's home"),
-        "KelpKit/Shell/WorkbenchActions.swift": (3, "a dropped or linked path: a file, a folder, or nothing"),
-        "KelpKit/Shell/WorkspaceActions.swift": (1, "whether Open In was handed a file or a folder"),
+        "KelpKit/Shell/WorkbenchActions.swift": (1, "a dropped path: a file, a folder, or nothing"),
+        "KelpKit/Shell/KelpLinks.swift": (2, "a linked path: a file, a folder, or nothing"),
+        "KelpKit/Shell/WorkspaceActions+OpenIn.swift": (1, "whether Open In was handed a file or a folder"),
         "KelpKit/Shell/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
         "Builtins/Machines/Machines.swift": (
@@ -695,9 +700,8 @@ func codeOnly(_ s: String) -> String {
             "whether this Mac has Xcode (the apps in /Applications, and each one's developer folder), for the Add menu's iOS machine"
         ),
         "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
-        "Builtins/Browser/BrowserTab.swift": (
-            2, "a local page, shown: it reloads as its folder changes; a page's screenshot"
-        ),
+        "Builtins/Browser/BrowserTab.swift": (1, "a local page, shown: it reloads as its folder changes"),
+        "Builtins/Browser/BrowserTab+Design.swift": (1, "a page's screenshot"),
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),

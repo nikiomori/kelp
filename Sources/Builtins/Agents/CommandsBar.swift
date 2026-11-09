@@ -13,7 +13,7 @@ import WorkbenchKit
 @MainActor
 final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     /// One row: a command with a terminal, or one the shell tool ran.
-    private enum Item {
+    enum Item {
         case run(Session), command(AgentCommand)
         var started: Date {
             switch self {
@@ -23,18 +23,18 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         }
     }
 
-    private let app: AppModel
-    private let session: String
+    let app: AppModel
+    let session: String
     private let watched: Watched
     private let header = Header()
     private let grip = Grip()
-    private let table = NSTableView()
+    let table = NSTableView()
     private let scroll = NSScrollView()
     private let consoleBox = NSView()
     private var height: NSLayoutConstraint?, listHeight: NSLayoutConstraint?, consoleHeight: NSLayoutConstraint?
-    private var commands: [AgentCommand] = []
+    var commands: [AgentCommand] = []
     private var runs: [Session] = []
-    private var items: [Item] = []
+    var items: [Item] = []
     /// The last line each run printed.
     private var tails: [String: String] = [:]
     private var finalTails: Set<String> = []
@@ -48,7 +48,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     var onClosed: (() -> Void)?
     /// Ticks while one runs, for its time.
     private var clock: Timer?
-    private let popover = NSPopover()
+    let popover = NSPopover()
     /// Rows the list shows before it scrolls, alone and over a console.
     private static let shownRows = 8, rowsOverConsole = 4
     private static var rowHeight: CGFloat { TextSize.of(Metrics.row) }
@@ -166,7 +166,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     }
 
     /// The run the folded line speaks of: the newest still running, else the last thing it ran if that's a run.
-    private var current: Session? {
+    var current: Session? {
         runs.last { $0.status != .exited } ?? { if case .run(let run)? = items.last { run } else { nil } }()
     }
 
@@ -186,7 +186,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     }
 
     /// `s` in the console. The keys stay where they are; a click in it takes them, Esc gives them back.
-    private func open(_ s: Session) {
+    func open(_ s: Session) {
         guard console?.sessionId != s.id else { return }
         console?.removeFromSuperview()
         let pane = PaneView(session: s, app: app, embedded: true)
@@ -212,8 +212,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         escape = nil
     }
 
-    private func stop(_ s: Session) { Task { await app.call(SessionKill(id: s.id)) } }
-    private func moveToTab(_ s: Session) {
+    func stop(_ s: Session) { Task { await app.call(SessionKill(id: s.id)) } }
+    func moveToTab(_ s: Session) {
         if console?.sessionId == s.id { fold(true) }
         app.workbench.openInTab(s.id)
         show(runs: runs.filter { $0.id != s.id })
@@ -229,7 +229,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         layOut()
     }
 
-    private func layOut(animated: Bool = false) {
+    func layOut(animated: Bool = false) {
         var list: CGFloat = 0, shown: CGFloat = 0
         if unfolded {
             let rows =
@@ -345,84 +345,6 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         }   // no clock for a tab out of sight
     }
 
-    @objc private func clickedRow() { showItem(table.clickedRow) }
-    private func showItem(_ row: Int) {
-        guard items.indices.contains(row) else { return }
-        switch items[row] {
-        case .run(let run):
-            open(run)
-            layOut(animated: true)
-        case .command(let command) where command.command.hasPrefix("kelp db query"):
-            Task {
-                if await !openDatabaseRun(command) { showOutput(command, row: row) }
-            }
-        case .command(let command): showOutput(command, row: row)
-        }
-    }
-
-    private func showOutput(_ command: AgentCommand, row: Int) {
-        popover.contentViewController = CommandOutput(command)
-        popover.show(relativeTo: table.rect(ofRow: row), of: table, preferredEdge: .minY)
-    }
-
-    /// A statement it ran with `kelp db query`: its rows in the database's tab, found among what ran on the workspace's
-    /// databases (`db.activity`, newest first) as the first of this agent's since the command started. False when it
-    /// isn't there (the daemon restarted since, or it didn't get as far as running).
-    private func openDatabaseRun(_ command: AgentCommand) async -> Bool {
-        guard let wid = app.session(session)?.worktreeId,
-            let activity = await app.quiet(DatabaseActivity(worktreeId: wid))
-        else { return false }
-        let end = (command.ended ?? Date()).addingTimeInterval(1)
-        guard
-            let run = activity.runs.last(where: {
-                $0.session == session && $0.at >= command.started.addingTimeInterval(-1) && $0.at <= end
-            })
-        else { return false }
-        app.workbench.open(DatabaseTabURI.uri(worktree: wid, name: run.database, run: run.id))
-        return true
-    }
-
-    /// A command's row.
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let row = table.clickedRow
-        guard items.indices.contains(row) else { return }
-        switch items[row] {
-        case .run(let run): add(run: run, to: menu)
-        case .command(let command):
-            menu.add(String(localized: "Show Output")) { [weak self] in self?.showOutput(command, row: row) }
-            addCopy(to: menu, command.command)
-        }
-    }
-    private func add(run: Session, to menu: NSMenu) {
-        menu.add(String(localized: "Open in Tab")) { [weak self] in self?.moveToTab(run) }
-        if run.status != .exited { menu.add(String(localized: "Stop")) { [weak self] in self?.stop(run) } }
-        addCopy(to: menu, run.argv.last ?? run.command)
-    }
-    private func addCopy(to menu: NSMenu, _ command: String) {
-        menu.add(String(localized: "Copy Command")) {
-            copyText(command)
-        }
-    }
-    /// The bar's own line: its last command, and the way to turn the shell tool's commands off.
-    private func headerMenu() -> NSMenu {
-        let menu = NSMenu(), app = app
-        if let run = current {
-            add(run: run, to: menu)
-        } else if let last = commands.last {
-            addCopy(to: menu, last.command)
-        }
-        if menu.numberOfItems > 0 { menu.addItem(.separator()) }
-        if !commands.isEmpty {
-            menu.add(String(localized: "Hide Commands Bar")) {
-                app.settings.set(SettingKeys.commandsBar, false)
-                Banner.show(String(localized: "The commands bar is hidden. Settings › Agents brings it back."))
-            }
-        }
-        menu.addSettingsLink(String(localized: "Agents Settings…"), section: "agents", app)
-        return menu
-    }
-
     func numberOfRows(in t: NSTableView) -> Int { items.count }
     func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
@@ -432,173 +354,5 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         case .command(let command): cell.show(command, now: Date())
         }
         return cell
-    }
-}
-
-/// The bar's own line: the last command or the count, what can be done to a run under the pointer, and a chevron. A click
-/// folds or unfolds.
-@MainActor
-private final class Header: PointerControl {
-    let row = CommandRow(), chevron = NSImageView()
-    let stop = PointerButton(), toTab = PointerButton()
-    var press: () -> Void = {}
-    var contextMenu: (() -> NSMenu?)?
-    private var run: Session?, always = false
-    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
-
-    init() {
-        super.init(frame: .zero)
-        chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-        chevron.contentTintColor = .secondaryLabelColor
-        for (b, title) in [(stop, String(localized: "Stop")), (toTab, String(localized: "Open in Tab"))] {
-            b.title = title
-            b.font = .ui(11)
-            b.padding = Metrics.gap
-            b.restFill = .fillHover
-            b.isHidden = true
-        }
-        let stack = NSStackView(views: [row, stop, toTab, chevron])
-        stack.spacing = Metrics.gap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: Metrics.inset)
-        pin(stack)
-        setAccessibilityElement(true)
-        setAccessibilityRole(.button)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override func clicked() { press() }
-
-    func showActions(for run: Session?, always: Bool) {
-        self.run = run
-        self.always = always
-        refreshPointer()
-    }
-    override func showPointer(hovering: Bool, pressed: Bool) {
-        super.showPointer(hovering: hovering, pressed: pressed)
-        toTab.isHidden = run == nil || !(hovering || always)
-        stop.isHidden = toTab.isHidden || run?.status == .exited
-    }
-}
-
-/// The console's top edge: dragged, the console takes more of the pane or less. The terminal over it gets one resize, at
-/// the end.
-@MainActor
-private final class Grip: NSView {
-    var dragged: (CGFloat) -> Void = { _ in }
-    private var last: CGFloat = 0
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeUpDown) }
-    override func mouseDown(with e: NSEvent) {
-        GhosttyTerminalView.holdSize(true)
-        last = e.locationInWindow.y
-    }
-    override func mouseDragged(with e: NSEvent) {
-        dragged(e.locationInWindow.y - last)
-        last = e.locationInWindow.y
-    }
-    override func mouseUp(with e: NSEvent) { GhosttyTerminalView.holdSize(false) }
-}
-
-/// One command: its mark, the agent's words for it, what it runs in grey, and how long it took or has been running.
-@MainActor
-final class CommandRow: NSTableCellView {
-    static let id = NSUserInterfaceItemIdentifier("command")
-    private let mark = StatusMark(size: 12)
-    private let server = NSImageView(image: .symbol("play.fill", String(localized: "Serving a page")))
-    /// The agent's words for it (else the command, else a title); then the command.
-    private let lead = NSTextField(labelWithString: ""), command = NSTextField(labelWithString: ""),
-        time = NSTextField(labelWithString: "")
-    /// The mark's room, so the commands line up; a count goes without it.
-    private let slot = NSView()
-
-    init() {
-        super.init(frame: .zero)
-        identifier = Self.id
-        command.font = .uiMono(11)
-        command.textColor = .secondaryLabelColor
-        time.font = .uiDigits(11)
-        time.textColor = .secondaryLabelColor
-        for l in [lead, command] { l.lineBreakMode = .byTruncatingTail }
-        lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // short of room, the command goes first
-        command.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        command.setContentHuggingPriority(.init(1), for: .horizontal)   // the time sits at the right
-        server.symbolConfiguration = .chrome(Metrics.iconTiny)
-        server.contentTintColor = .systemGreen
-        server.isHidden = true
-        for v in [server, mark] { v.translatesAutoresizingMaskIntoConstraints = false }
-        slot.translatesAutoresizingMaskIntoConstraints = false
-        slot.addSubview(mark)
-        slot.addSubview(server)
-        NSLayoutConstraint.activate([
-            slot.widthAnchor.constraint(equalToConstant: 12), slot.heightAnchor.constraint(equalToConstant: 12),
-            mark.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-            mark.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
-            server.centerXAnchor.constraint(equalTo: slot.centerXAnchor),
-            server.centerYAnchor.constraint(equalTo: slot.centerYAnchor)
-        ])
-        let stack = NSStackView(views: [slot, lead, command, time])
-        stack.spacing = Metrics.gapWide
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        pin(stack)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    /// A command with a terminal: its name, what it last printed, or how it ended. Green ▶ while it serves a page.
-    func show(run: Session, tail: String?, page: Int?, now: Date) {
-        let live = run.status != .exited, serving = live && page != nil
-        let status = live ? AgentStatus.working : Self.status(exit: run.exitCode)
-        mark.status = serving ? nil : status
-        server.isHidden = !serving
-        slot.isHidden = false
-        lead.font = .ui(11, weight: .medium)
-        lead.stringValue = run.displayTitle
-        command.textColor = status == .error ? .textRed : .secondaryLabelColor
-        command.stringValue = serving ? "localhost:\(page ?? 0)" : live ? tail ?? "" : Self.ending(run, tail: tail)
-        time.stringValue = shortSpan(
-            (live ? now : run.statusAt ?? now).timeIntervalSince(run.createdAt), units: 2, smallest: .second)
-        toolTip = run.argv.last ?? run.command
-    }
-
-    /// Exit 0 ✓, a signal it was stopped with (SIGINT, SIGKILL, SIGTERM) a grey ✕, anything else a failure.
-    static func status(exit code: Int?) -> AgentStatus {
-        switch code {
-        case 0?: .done
-        case 130?, 137?, 143?: .exited
-        default: .error
-        }
-    }
-
-    private static func ending(_ s: Session, tail: String?) -> String {
-        guard status(exit: s.exitCode) != .exited else { return String(localized: "Stopped") }
-        let code = String(localized: "exit code \(s.exitCode ?? 0)")
-        return s.exitCode == 0 ? code : [code, tail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-    }
-
-    /// `c`, or (none) just `title`.
-    func show(_ c: AgentCommand?, title: String = "", now: Date) {
-        mark.status = c.map(Self.status)
-        server.isHidden = true
-        slot.isHidden = c == nil
-        command.textColor = .secondaryLabelColor
-        let words = c?.description.flatMap { $0.isEmpty ? nil : $0 }
-        lead.font = c == nil ? .ui(11, weight: .semibold) : words == nil ? .uiMono(11) : .ui(11)
-        lead.stringValue = words ?? c?.shortCommand ?? title
-        command.stringValue = words == nil ? "" : c?.shortCommand ?? ""   // empty, it still pushes the time to the right
-        time.stringValue = c.map { Self.time($0, now: now) } ?? ""
-        toolTip = c.map { [$0.description, $0.command].compactMap { $0 }.joined(separator: "\n") }
-    }
-
-    /// Running spins; a fine end is a grey ✓, a failure red, one stopped a grey ✕. One moved to the background started fine.
-    static func status(_ c: AgentCommand) -> AgentStatus {
-        switch c.outcome {
-        case nil: .working
-        case .ok?, .background?: .done
-        case .failed?: .error
-        case .stopped?: .exited
-        }
-    }
-
-    /// "12s", "1m 5s"; "in the background" for one whose end isn't told.
-    static func time(_ c: AgentCommand, now: Date) -> String {
-        if c.outcome == .background { return String(localized: "in the background") }
-        return shortSpan((c.ended ?? now).timeIntervalSince(c.started), units: 2, smallest: .second)
     }
 }

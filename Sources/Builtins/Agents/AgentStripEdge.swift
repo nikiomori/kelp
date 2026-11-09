@@ -37,13 +37,13 @@ extension StripModel {
 
     /// Behind `edge` with its sliver out, or all of it out (`out`: the pointer on it); `y` up from the area's foot.
     static func tucked(_ size: NSSize, in area: NSRect, edge: StripEdge, y: CGFloat, out: Bool) -> NSRect {
-        let x =
+        let originX =
             switch edge {
             case .right: out ? area.maxX - size.width - margin : area.maxX - sliver
             case .left: out ? area.minX + margin : area.minX + sliver - size.width
             }
         let top = max(area.minY + margin, min(area.minY + y, area.maxY - size.height - margin))
-        return NSRect(x: x, y: top, width: size.width, height: size.height)
+        return NSRect(x: originX, y: top, width: size.width, height: size.height)
     }
 
     /// Between a strip that's out and the edge it came from: a pointer pushed against the edge, still on it in all but name.
@@ -152,8 +152,8 @@ final class StripLine {
         content?.layoutSubtreeIfNeeded()
         let size = NSSize(width: content?.fittingSize.width ?? 0, height: Self.height)
         // Beside the sliver, which is the strip's inner end: the rest of it is past the edge.
-        let x = edge == .right ? strip.minX - Metrics.gapWide - size.width : strip.maxX + Metrics.gapWide
-        let frame = NSRect(x: x, y: strip.midY - size.height / 2, width: size.width, height: size.height)
+        let originX = edge == .right ? strip.minX - Metrics.gapWide - size.width : strip.maxX + Metrics.gapWide
+        let frame = NSRect(x: originX, y: strip.midY - size.height / 2, width: size.width, height: size.height)
         let from = Motion.reduced ? 0 : (edge == .right ? 1 : -1) * StripModel.handle
         panel.setFrame(frame.offsetBy(dx: from, dy: 0), display: false)
         panel.alphaValue = 0

@@ -110,8 +110,8 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     private var inSchema: [DatabaseSchema.Table] {
         let picked = schemaPicker.indexOfSelectedItem <= 0 ? nil : schemaPicker.titleOfSelectedItem
-        return schema.tables.filter { t in
-            let own = t.name.contains(".") ? String(t.name.split(separator: ".")[0]) : nil
+        return schema.tables.filter { table in
+            let own = table.name.contains(".") ? String(table.name.split(separator: ".")[0]) : nil
             return own == picked
         }
     }
@@ -151,7 +151,9 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     private func select() {
         guard let current,
-            let index = rows.firstIndex(where: { if case .table(let t) = $0 { t.name == current } else { false } })
+            let index = rows.firstIndex(where: {
+                if case .table(let table) = $0 { table.name == current } else { false }
+            })
         else { return list.deselectAll(nil) }
         list.selectRowIndexes([index], byExtendingSelection: false)
         list.scrollRowToVisible(index)
@@ -183,14 +185,16 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
             chevron.contentTintColor = .tertiaryLabelColor
             return line([chevron, text(title, font: .ui(12, weight: .medium)), NSView(), digits(count)], inset: 6)
-        case .table(let t):
-            let icon = symbol(t.kind == "view" ? "eye" : "tablecells")
-            if t.kind == "view" { icon.contentTintColor = .systemPurple }
-            let name = text(t.name.split(separator: ".").last.map(String.init) ?? t.name, font: .uiMono(11.5))
+        case .table(let table):
+            let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
+            if table.kind == "view" { icon.contentTintColor = .systemPurple }
+            let name = text(table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(11.5))
             name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": names differ at their ends
             let row = line([icon, name, NSView()], inset: 20)
-            row.toolTip = [t.name, t.rows.map { String(localized: "\($0) rows") }, t.comment].compactMap { $0 }
-                .joined(separator: "\n")
+            row.toolTip = [table.name, table.rows.map { String(localized: "\($0) rows") }, table.comment].compactMap {
+                $0
+            }
+            .joined(separator: "\n")
             return row
         case .function(let name):
             let label = text(name, font: .uiMono(11.5))
@@ -198,8 +202,8 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             return line([symbol("function"), label, NSView()], inset: 20)
         case .newQuery:
             return line([symbol("plus"), text(String(localized: "New Query"), font: .ui(12)), NSView()], inset: 8)
-        case .saved(let q):
-            return twoLines(symbol("doc.text"), q.name, q.sql)
+        case .saved(let query):
+            return twoLines(symbol("doc.text"), query.name, query.sql)
         case .run(let run):
             let who = run.session.flatMap(app.session)
             let icon = NSImageView(image: who.flatMap { app.catalog.icon($0.agent, size: 14) } ?? .symbol("person"))
@@ -215,9 +219,9 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     private func twoLines(_ icon: NSImageView, _ top: String, _ under: String, mono: Bool = false) -> NSView {
-        let a = text(top, font: mono ? .uiMono(11) : .ui(12))
-        let b = text(under, font: mono ? .ui(10.5) : .uiMono(10.5), color: .secondaryLabelColor)
-        let words = NSStackView(views: [a, b])
+        let title = text(top, font: mono ? .uiMono(11) : .ui(12))
+        let detail = text(under, font: mono ? .ui(10.5) : .uiMono(10.5), color: .secondaryLabelColor)
+        let words = NSStackView(views: [title, detail])
         words.orientation = .vertical
         words.alignment = .leading
         words.spacing = Metrics.lineGap
@@ -259,23 +263,23 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case .section(let title, _, _):
             if folded.remove(title) == nil { folded.insert(title) }
             reload()
-        case .table(let t): onTable(t.name, NSEvent.modifierFlags.contains(.command))
+        case .table(let table): onTable(table.name, NSEvent.modifierFlags.contains(.command))
         case .newQuery: onNewQuery()
-        case .saved(let q): onSaved(q)
+        case .saved(let query): onSaved(query)
         case .run(let run): onRun(run, NSEvent.modifierFlags.contains(.option))
         case .function: break
         }
     }
 
     @objc private func doubleClicked() {
-        guard rows.indices.contains(list.clickedRow), case .table(let t) = rows[list.clickedRow] else { return }
-        onTable(t.name, true)
+        guard rows.indices.contains(list.clickedRow), case .table(let table) = rows[list.clickedRow] else { return }
+        onTable(table.name, true)
     }
 
     /// A table dragged out (onto an agent's terminal) is its name and where to read it.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
-        guard case .table(let t) = rows[row] else { return nil }
-        return t.name as NSString
+        guard case .table(let table) = rows[row] else { return nil }
+        return table.name as NSString
     }
 }
 
@@ -284,18 +288,18 @@ extension DatabaseSidebar: NSMenuDelegate {
         menu.removeAllItems()
         guard rows.indices.contains(list.clickedRow) else { return }
         switch rows[list.clickedRow] {
-        case .table(let t):
-            menu.add(String(localized: "Open")) { [weak self] in self?.onTable(t.name, false) }
-            menu.add(String(localized: "Open in a Tab of Its Own")) { [weak self] in self?.onTable(t.name, true) }
-            menu.add(String(localized: "Ask an Agent About \(t.name)")) { [weak self] in self?.onAsk(t.name) }
+        case .table(let table):
+            menu.add(String(localized: "Open")) { [weak self] in self?.onTable(table.name, false) }
+            menu.add(String(localized: "Open in a Tab of Its Own")) { [weak self] in self?.onTable(table.name, true) }
+            menu.add(String(localized: "Ask an Agent About \(table.name)")) { [weak self] in self?.onAsk(table.name) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Copy Name")) { copyText(t.name) }
-            menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in self?.onCopyCreate(t.name) }
-        case .saved(let q):
-            menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(q) }
-            menu.add(String(localized: "Copy SQL")) { copyText(q.sql) }
+            menu.add(String(localized: "Copy Name")) { copyText(table.name) }
+            menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in self?.onCopyCreate(table.name) }
+        case .saved(let query):
+            menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(query) }
+            menu.add(String(localized: "Copy SQL")) { copyText(query.sql) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(q) }
+            menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(query) }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
             menu.add(String(localized: "Put in the Editor")) { [weak self] in self?.onRun(run, true) }

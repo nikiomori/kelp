@@ -85,26 +85,26 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Table
 
     private func tablePart() {
-        guard let t = table else { return add(note(String(localized: "No Table Shown"))) }
-        add(field(String(localized: "Name"), t.name, mono: true))
-        if t.kind == "view" { add(field(String(localized: "Kind"), String(localized: "View"))) }
-        if let rows = t.rows { add(field(String(localized: "Rows"), "≈ " + rows.formatted())) }
-        if let bytes = t.bytes {
+        guard let table else { return add(note(String(localized: "No Table Shown"))) }
+        add(field(String(localized: "Name"), table.name, mono: true))
+        if table.kind == "view" { add(field(String(localized: "Kind"), String(localized: "View"))) }
+        if let rows = table.rows { add(field(String(localized: "Rows"), "≈ " + rows.formatted())) }
+        if let bytes = table.bytes {
             add(
                 field(
                     String(localized: "Size, with indexes"),
                     ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)))
         }
-        if let comment = t.comment { add(field(String(localized: "Comment"), comment)) }
-        let keys = t.columns.filter(\.primary).map(\.name)
+        if let comment = table.comment { add(field(String(localized: "Comment"), comment)) }
+        let keys = table.columns.filter(\.primary).map(\.name)
         add(
             field(
                 String(localized: "Columns"),
-                "\(t.columns.count)" + (keys.isEmpty ? "" : " · key " + keys.joined(separator: ", "))))
-        let refs = t.columns.compactMap { c in c.references.map { "\(c.name) → \($0)" } }
+                "\(table.columns.count)" + (keys.isEmpty ? "" : " · key " + keys.joined(separator: ", "))))
+        let refs = table.columns.compactMap { column in column.references.map { "\(column.name) → \($0)" } }
         if !refs.isEmpty { add(field(String(localized: "Refers to"), refs.joined(separator: "\n"), mono: true)) }
-        if !t.indexes.isEmpty {
-            add(field(String(localized: "Indexes"), t.indexes.joined(separator: "\n"), mono: true))
+        if !table.indexes.isEmpty {
+            add(field(String(localized: "Indexes"), table.indexes.joined(separator: "\n"), mono: true))
         }
     }
 
@@ -136,9 +136,9 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         head.spacing = Metrics.gap
         head.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
         var parts: [NSView] = [head]
-        if let ref = column?.references, let value, case let p = ref.split(separator: "."), p.count == 2 {
-            let link = ClosureButton(title: "\(value) → \(p[0])") { [weak self] in
-                self?.onFollow(String(p[0]), String(p[1]), value)
+        if let ref = column?.references, let value, case let target = ref.split(separator: "."), target.count == 2 {
+            let link = ClosureButton(title: "\(value) → \(target[0])") { [weak self] in
+                self?.onFollow(String(target[0]), String(target[1]), value)
             }
             link.isBordered = false
             link.contentTintColor = .linkColor

@@ -7,9 +7,9 @@ import Core
 @MainActor
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// macOS lets Kelp show banners (false: they're off in System Settings).
-    private var allowed = true
-    private let center: UNUserNotificationCenter? = Bundle.main.bundleIdentifier != nil ? .current() : nil   // needs an app bundle
-    private let app: AppModel
+    var allowed = true
+    let center: UNUserNotificationCenter? = Bundle.main.bundleIdentifier != nil ? .current() : nil   // needs an app bundle
+    let app: AppModel
     init(app: AppModel) {
         self.app = app
         super.init()
@@ -184,66 +184,6 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         alert { [self] in
             center?.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
             if !allowed, NSApp.isActive { Banner.show(content.body, action: action, title: content.title) }
-        }
-    }
-
-    /// macOS can switch Kelp's banners off (System Settings › Notifications): say so once, instead of failing silently.
-    /// Called at launch and when Kelp comes to the front.
-    func checkAllowed() {
-        center?.getNotificationSettings { settings in
-            let off = settings.authorizationStatus == .denied || settings.alertSetting == .disabled
-            Task { @MainActor in
-                self.allowed = !off
-                let defaults = UserDefaults.standard
-                guard off else {
-                    defaults.removeObject(forKey: "notifications.warnedOff")
-                    return
-                }
-                guard !defaults.bool(forKey: "notifications.warnedOff") else { return }
-                defaults.set(true, forKey: "notifications.warnedOff")
-                Banner.show(
-                    String(
-                        localized:
-                            "Notifications for Kelp are turned off in System Settings, so you won't hear when an agent needs you."
-                    ), style: .error,
-                    action: (
-                        String(localized: "Open Settings"),
-                        {
-                            let id = Bundle.main.bundleIdentifier ?? ""
-                            if let url = URL(
-                                string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")
-                            {
-                                PreviewLinks.openOutside(url)
-                            }
-                        }
-                    ))
-            }
-        }
-    }
-
-    /// Settings › Notifications' "Send Test Notification": a banner now, or `false` when macOS has them turned off for Kelp.
-    func sendTest(_ done: @escaping @MainActor (Bool) -> Void) {
-        guard let center else {
-            done(false)
-            return
-        }
-        Task {
-            let settings = await center.notificationSettings()
-            let off = settings.authorizationStatus == .denied || settings.alertSetting == .disabled
-            if !off {
-                let content = UNMutableNotificationContent()
-                content.title = String(localized: "Kelp can reach you")
-                content.body = String(localized: "This is how you'll hear that an agent finished or needs you.")
-                content.sound = .default
-                do {
-                    try await center.add(UNNotificationRequest(identifier: "kelp-test", content: content, trigger: nil))
-                } catch {
-                    Banner.show(
-                        String(localized: "macOS didn't take the notification: \(error.localizedDescription)"),
-                        style: .error)
-                }
-            }
-            done(!off)
         }
     }
 
@@ -435,102 +375,5 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         posted[s.id] = rid
         NSApp.requestUserAttention(.informationalRequest)
         if !again { remind(of: s) }
-    }
-
-    /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt (or its
-    /// Continue, `QuickReply.goOn`). A question
-    /// with a menu of its own (AskUserQuestion) has neither: typed text would wait behind the menu.
-    static func category(_ s: Session) -> String? {
-        s.asksPermission ? "permission" : QuickReply.fits(s) ? "reply" : nil
-    }
-
-    nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
-        if let uri = r.notification.request.content.userInfo["uri"] as? String {
-            await MainActor.run {
-                NSApp.activate()
-                app.workbench.open(uri)
-            }
-            return
-        }
-        guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
-        let action = r.actionIdentifier
-        let reply = action == "goOn" ? QuickReply.goOn.text : (r as? UNTextInputNotificationResponse)?.userText
-        let all = r.notification.request.content.userInfo["sessions"] as? [String] ?? [id]
-        let question = r.notification.request.content.userInfo["question"] as? String
-        await MainActor.run {
-            if action == "continue" {
-                Notifications.goOn(app, all)
-                return
-            }
-            if action == "reply" || action == "goOn", let reply,
-                !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            {
-                // Sent without Kelp coming forward; refused (a half-typed line in its prompt), the agent is shown with the banner.
-                Task {
-                    if await app.call(SessionSend(id: id, text: reply, enter: true)) == nil {
-                        NSApp.activate()
-                        app.workbench.focus(session: id)
-                    }
-                }
-                return
-            }
-            guard action == "allow" || action == "deny" else {
-                NSApp.activate()
-                app.workbench.focus(session: id)
-                return
-            }
-            answer(id, action, question: question)
-        }
-    }
-
-    /// Answered without Kelp coming forward; if that menu is gone (answered in the terminal, another one up), show the agent.
-    func answer(_ id: String, _ action: String, question: String?) {
-        Task {
-            let ok = await app.call(SessionChoose(id: id, answer: action, question: question)) ?? false
-            if !ok {
-                NSApp.activate()
-                app.workbench.focus(session: id)
-            }
-        }
-    }
-    nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification) async
-        -> UNNotificationPresentationOptions
-    {
-        [.banner, .sound]
-    }
-}
-
-extension Session {
-    /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
-    /// Only one whose question shows all of it gets Allow / Deny where it's shown (`Hooks.shownWhole`).
-    package var asksPermission: Bool {
-        let summary = summary.lowercased()
-        return status == .waiting && ["permission", "approve", "allow"].contains { summary.contains($0) }
-            && Hooks.shownWhole(self.summary)
-    }
-}
-
-/// What the built-ins ask of the shell's notifications (`Notifier`, the running app's).
-@MainActor
-package enum Notifications {
-    /// A built-in's notification, under the shell's rules: held while you type, and a banner in Kelp (with `action` as
-    /// its button) when macOS has them turned off. `id` is its own: one added again under the same id may show silently.
-    package static func notifyUser(
-        _ app: AppModel, _ id: String, _ content: UNNotificationContent,
-        action: (title: String, run: @MainActor () -> Void)? = nil
-    ) {
-        app.notifier?.postAlert(id, content, action: action)
-    }
-
-    /// The Continue of a "limitReset" notification: "continue" to each of `ids` that still stands where the limit left
-    /// it (one the user went on with meanwhile isn't told twice).
-    package static func goOn(_ app: AppModel, _ ids: [String]) {
-        let still = ids.filter { id in app.session(id).map { [.done, .error].contains($0.status) } ?? false }
-        Task { for id in still { _ = await app.call(SessionSend(id: id, text: "continue", enter: true)) } }
-    }
-
-    /// A permission answered from outside Kelp's window (the agent strip's card), as from its banner.
-    package static func answer(_ app: AppModel, _ id: String, _ action: String, question: String?) {
-        app.notifier?.answer(id, action, question: question)
     }
 }

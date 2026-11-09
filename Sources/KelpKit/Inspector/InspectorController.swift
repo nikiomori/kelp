@@ -15,20 +15,20 @@ final class InspectorController: NSViewController {
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
-    private let selector = CapsuleStack()
+    let selector = CapsuleStack()
     /// What the row's constraints hold: the glass around `selector` on macOS 26, else `selector` itself.
     private lazy var bar: NSView = Self.glass(around: selector)
-    private var buttons: [NSButton] = []
+    var buttons: [NSButton] = []
     private var counts: [CountBadge] = []   // one per button
-    private let more = PanelIcon("chevron.right.2", String(localized: "More Panels"))
+    let more = PanelIcon("chevron.right.2", String(localized: "More Panels"))
     private let moreBadge = CountBadge()
     /// Panels whose icon went into the » menu (not the ones hidden from the row's menu).
-    private var folded: [Int] = []
+    var folded: [Int] = []
     /// A dot's key once its panel was shown with it: the dot stays off until the key changes.
     private var seen: [String: String] = [:]
     private var polls: [Task<Void, Never>] = []
     private let host = NSView()   // clips: see showSelected
-    private var panels: [PanelSpec] = []
+    var panels: [PanelSpec] = []
     private var made: [String: NSViewController] = [:]
     /// Settings › Appearance › Inspector icons: one of these holds the row (left, centered, right).
     private var align: [String: NSLayoutConstraint] = [:]
@@ -263,51 +263,6 @@ final class InspectorController: NSViewController {
         ])
     }
 
-    /// As many icons as the inspector's width holds, in the row's order; the rest go into the » menu. The shown
-    /// panel's icon stays in the row, in the last slot, so the row always says where you are.
-    private func fold() {
-        let hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
-        let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0   // as showSelected picks it
-        let order = selector.arrangedSubviews.compactMap { v in buttons.firstIndex { $0 === v } }
-            .filter { !hidden.contains(panels[$0].id) }
-        let room = view.bounds.width - 2 * Metrics.insetTrailing - Metrics.iconGap
-        let fits = max(1, Int(room / (Metrics.segment.width + Metrics.iconGap)))
-        var shown = order
-        if order.count > fits {
-            shown = Array(order.prefix(fits - 1))   // and the »
-            if !shown.contains(current) {
-                if shown.isEmpty { shown = [current] } else { shown[shown.count - 1] = current }
-            }
-        }
-        let next = order.filter { !shown.contains($0) }
-        if more.isHidden != next.isEmpty { more.isHidden = next.isEmpty }
-        for (i, b) in buttons.enumerated() {
-            let off = !shown.contains(i)
-            if b.isHidden != off { b.isHidden = off }
-        }
-        if next != folded {
-            folded = next
-            more.toolTip =
-                next.isEmpty
-                ? nil : String(localized: "More Panels: \(next.map { loc(panels[$0].title) }.joined(separator: ", "))")
-            showCounts()
-        }
-    }
-
-    @objc private func showMore(_ b: NSButton) {
-        let menu = NSMenu()
-        for i in folded {
-            let panel = panels[i],
-                item = NSMenuItem(title: loc(panel.title), action: #selector(selected(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = i
-            item.image = .symbol(panel.icon, loc(panel.title))
-            if let badge = panel.badge?(), badge.count > 0 { item.badge = NSMenuItemBadge(count: badge.count) }
-            menu.addItem(item)
-        }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
-    }
-
     /// A reload may have changed what a folder extension's panel shows (an agent edits it, then `kelp ext reload`):
     /// those are made again. Built-in panels stay as they are.
     private func forgetFolderPanels() {
@@ -319,7 +274,7 @@ final class InspectorController: NSViewController {
         }
     }
 
-    private func showCounts() {
+    func showCounts() {
         let onScreen = view.window != nil && !view.isHiddenOrHasHiddenAncestor
         var folds: [PanelBadge] = []
         for (i, p) in panels.enumerated() where counts.indices.contains(i) {
@@ -337,7 +292,7 @@ final class InspectorController: NSViewController {
         moreBadge.badge = folds.isEmpty ? nil : PanelBadge(alert: folds.contains(where: \.alert))
     }
 
-    @objc private func selected(_ sender: Any) {
+    @objc func selected(_ sender: Any) {
         guard let tag = (sender as? NSButton)?.tag ?? (sender as? NSMenuItem)?.tag, panels.indices.contains(tag) else {
             return
         }
@@ -366,77 +321,12 @@ final class InspectorController: NSViewController {
         app.settings.set(SettingKeys.panelOrder, order)
     }
 
-    /// The row's right-click menu (on an icon or the band around it): which icons show, where the row sits, auto-hide.
-    private func rowMenu(_ e: NSEvent) -> NSMenu? {
-        let point = view.convert(e.locationInWindow, from: nil)
-        let band = view.bounds.height - WindowBar.height
-        guard
-            (band - TabStrip.height(app.settings)...band).contains(point.y)
-                || (selector.frame.minY...selector.frame.maxY).contains(point.y)
-        else { return nil }
-        let settings = app.settings, hidden = Set(settings[SettingKeys.hiddenPanels] ?? []), menu = NSMenu()
-        menu.addItem(.sectionHeader(title: String(localized: "Icons")))
-        for panel in panels {
-            menu.addItem(item(loc(panel.title), #selector(toggleIcon(_:)), panel.id, on: !hidden.contains(panel.id)))
-        }
-        let at = settings[SettingKeys.inspectorIconsPosition] == "bottom" ? "bottom" : "top"
-        menu.addItem(.sectionHeader(title: String(localized: "Position")))
-        for v in ["top", "bottom"] {
-            let choice = (SettingKeys.inspectorIconsPosition.key, v)
-            menu.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), choice, on: at == v))
-        }
-        let side =
-            ["left", "right"].contains(settings[SettingKeys.inspectorIcons])
-            ? settings[SettingKeys.inspectorIcons] : "center"
-        menu.addItem(.sectionHeader(title: String(localized: "Alignment")))
-        for v in ["left", "center", "right"] {
-            menu.addItem(
-                item(loc(v.capitalized), #selector(setChoice(_:)), (SettingKeys.inspectorIcons.key, v), on: side == v))
-        }
-        menu.addItem(.separator())
-        menu.addItem(
-            item(
-                String(localized: "Auto-Hide Inspector"), #selector(toggleAutoHide), nil,
-                on: settings[SettingKeys.inspectorAutoHide]))
-        menu.addSettingsLink(String(localized: "Inspector Settings…"), section: "appearance", group: "Inspector", app)
-        return menu
-    }
-
-    private func item(_ title: String, _ action: Selector, _ value: Any?, on: Bool) -> NSMenuItem {
-        let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        menuItem.target = self
-        menuItem.representedObject = value
-        menuItem.state = on ? .on : .off
-        return menuItem
-    }
-
-    @objc private func toggleIcon(_ i: NSMenuItem) {
-        guard let id = i.representedObject as? String else { return }
-        var hidden = app.settings[SettingKeys.hiddenPanels] ?? []
-        if let index = hidden.firstIndex(of: id) { hidden.remove(at: index) } else { hidden.append(id) }
-        app.settings.set(SettingKeys.hiddenPanels, hidden.isEmpty ? nil : hidden)
-        // Hiding the shown panel's icon shows the first panel that still has one.
-        let shown = panels.first { $0.id == app.workbench.inspectorPanel } ?? panels.first
-        if shown?.id == id, hidden.contains(id), let next = panels.first(where: { !hidden.contains($0.id) }) {
-            app.workbench.inspectorPanel = next.id
-        }
-    }
-
-    @objc private func setChoice(_ i: NSMenuItem) {
-        guard let (key, v) = i.representedObject as? (String, String) else { return }
-        app.settings.set(key, .string(v))
-    }
-
-    @objc private func toggleAutoHide() {
-        app.settings.set(SettingKeys.inspectorAutoHide, !app.settings[SettingKeys.inspectorAutoHide])
-    }
-
     /// Shows a panel by id (menus and commands use this too).
     func show(panel id: String) { app.workbench.inspectorPanel = id }
     /// A panel already built (they're built when first shown).
     func built(_ id: String) -> NSViewController? { made[id] }
 
-    private func showSelected() {
+    func showSelected() {
         guard !panels.isEmpty else {
             host.subviews.forEach { $0.removeFromSuperview() }
             return
@@ -469,175 +359,4 @@ final class InspectorController: NSViewController {
             vc.view.leadingAnchor.constraint(equalTo: host.leadingAnchor), follow
         ])
     }
-}
-
-/// The inspector's view: a right-click on the icon row's band opens the row's menu.
-private final class InspectorView: NSView {
-    var rowMenu: ((NSEvent) -> NSMenu?)?
-    /// On screen: in a window and not collapsed (a collapsed split view item is hidden).
-    var onShow: (() -> Void)?
-    /// After a resize: how many icons fit.
-    var onLayout: (() -> Void)?
-    override func layout() {
-        super.layout()
-        onLayout?()
-    }
-    override func menu(for e: NSEvent) -> NSMenu? { rowMenu?(e) }
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        onShow?()
-    }
-    override func viewDidUnhide() {
-        super.viewDidUnhide()
-        onShow?()
-    }
-}
-
-extension InspectorController {
-    /// macOS 26: the row in a glass capsule (the capsule's own fill off); earlier, the row's soft fill alone.
-    static func glass(around row: CapsuleStack) -> NSView {
-        guard #available(macOS 26, *) else { return row }
-        let capsule = NSGlassEffectView()
-        capsule.cornerRadius = Metrics.segmentCapsule / 2
-        row.filled = false
-        row.translatesAutoresizingMaskIntoConstraints = false
-        capsule.contentView = row
-        NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: capsule.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
-            row.topAnchor.constraint(equalTo: capsule.topAnchor),
-            row.bottomAnchor.constraint(equalTo: capsule.bottomAnchor)
-        ])
-        return capsule
-    }
-}
-
-/// A soft capsule behind a row of icons: the inspector's panels, a pane's new-agent and "+" buttons.
-final class CapsuleStack: NSStackView {
-    /// Off inside glass, which is the capsule then.
-    var filled = true { didSet { needsDisplay = true } }
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = filled ? NSColor.fillRest.cgColor : nil }
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = bounds.height / 2
-    }
-}
-
-/// A panel's icon, a segment of the capsule: a click shows the panel, a drag moves the icon along the row (`moved`
-/// with the pointer's x in the row, `dropped` on release). The shown panel's icon sits on the grey of a chosen row.
-final class PanelIcon: NSButton {
-    var moved: ((CGFloat) -> Void)?
-    var dropped: (() -> Void)?
-    var contextMenu: ((NSEvent) -> NSMenu?)?
-    private var hover = false { didSet { needsDisplay = true } }
-
-    convenience init(_ symbol: String, _ label: String) {
-        self.init(frame: .zero)
-        image = .symbol(symbol, label)
-        imagePosition = .imageOnly
-        title = ""
-        toolTip = label
-        isBordered = false
-        setButtonType(.pushOnPushOff)
-        wantsLayer = true
-        symbolConfiguration = .chrome(Metrics.segmentPoint)
-        imageScaling = .scaleProportionallyDown
-        addTrackingArea(
-            NSTrackingArea(
-                rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
-    }
-
-    override var state: NSControl.StateValue { didSet { needsDisplay = true } }
-    override var isHighlighted: Bool { didSet { needsDisplay = true } }
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {
-        let on = state == .on
-        // Chosen is one grey everywhere (sidebar rows, tabs, Settings), in glass too: a white bubble said it a second way.
-        fadeBackground(to: on || isHighlighted ? .fillSelected : hover ? .fillHover : nil, held: isHighlighted)   // held, it darkens
-        contentTintColor = on ? .labelColor : .secondaryLabelColor
-    }
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = bounds.height / 2
-    }
-    /// The frame is the pill: AppKit's alignment insets made Files' 29 pt tall where the others are 24 (as PointerButton).
-    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
-    /// The count badge sits over the pill's corner; a button clips to its rounded layer (and sets this back to true on display).
-    override var clipsToBounds: Bool {
-        get { false }
-        set {}
-    }
-    override func mouseEntered(with e: NSEvent) { hover = true }
-    override func mouseExited(with e: NSEvent) { hover = false }
-
-    override func menu(for e: NSEvent) -> NSMenu? { contextMenu?(e) }
-
-    override func mouseDown(with e: NSEvent) {
-        if e.modifierFlags.contains(.control), let shown = menu(for: e) {
-            return NSMenu.popUpContextMenu(shown, with: e, for: self)
-        }
-        guard let window, let row = superview else { return super.mouseDown(with: e) }
-        isHighlighted = true
-        defer { isHighlighted = false }
-        var dragging = false, at = e.locationInWindow
-        while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
-            at = next.locationInWindow
-            if next.type == .leftMouseUp { break }
-            guard dragging || abs(at.x - e.locationInWindow.x) > 3 else { continue }
-            dragging = true
-            isHighlighted = false
-            moved?(row.convert(at, from: nil).x)
-        }
-        if dragging {
-            dropped?()
-        } else if bounds.contains(convert(at, from: nil)) {
-            pressBounce()
-            sendAction(action, to: target)
-        }
-    }
-}
-
-/// A panel's mark on its icon (`PanelBadge`): a grey capsule with the number, or a dot; red for a failure.
-final class CountBadge: NSView {
-    var badge: PanelBadge? {
-        didSet {
-            guard badge != oldValue else { return }
-            isHidden = badge == nil
-            invalidateIntrinsicContentSize()
-            needsDisplay = true
-        }
-    }
-    private var text: NSAttributedString? {
-        guard let count = badge?.count, count > 0 else { return nil }
-        return NSAttributedString(
-            string: count > 99 ? "99+" : "\(count)",
-            attributes: [.font: NSFont.uiDigits(10, weight: .semibold), .foregroundColor: NSColor.white])
-    }
-    init() {
-        super.init(frame: .zero)
-        isHidden = true
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override var intrinsicContentSize: NSSize {
-        guard let label = text else { return NSSize(width: 7, height: 14) }   // a dot, centred where the number's capsule would be
-        return NSSize(width: max(14, ceil(label.size().width) + 7), height: 14)
-    }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to the icon
-    override func draw(_ r: NSRect) {
-        (badge?.alert == true ? NSColor.systemRed : NSColor.systemGray).setFill()
-        guard let label = text else { return NSBezierPath(ovalIn: NSRect(x: 0, y: 3, width: 7, height: 7)).fill() }
-        NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
-        let size = label.size()
-        label.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2))
-    }
-}
-
-/// SwiftUI panel in an AppKit host.
-@MainActor
-func hosting<V: View>(_ v: V) -> NSViewController {
-    // Filling the panel from the top: content shorter than the panel would otherwise float in its middle.
-    let host = NSHostingController(rootView: v.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top))
-    host.sizingOptions = []   // a panel fills the space it's given; it must never resize the window to its ideal size
-    return host
 }

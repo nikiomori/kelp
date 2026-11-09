@@ -345,11 +345,11 @@ final class ProjectCard: NSView {
     /// The stripes' lines across `rect`, as the pattern draws them.
     private static func lines(in rect: CGRect, side: CGFloat = 6) -> CGPath {
         let path = CGMutablePath()
-        var x = -rect.height
-        while x < rect.width {
-            path.move(to: CGPoint(x: x, y: 0))
-            path.addLine(to: CGPoint(x: x + rect.height, y: rect.height))
-            x += side
+        var start = -rect.height
+        while start < rect.width {
+            path.move(to: CGPoint(x: start, y: 0))
+            path.addLine(to: CGPoint(x: start + rect.height, y: rect.height))
+            start += side
         }
         return path
     }

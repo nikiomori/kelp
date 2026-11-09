@@ -293,8 +293,8 @@ extension SourceControlController {
             if outcome.merged {
                 Banner.show(String(localized: "Merged"))
                 // The base moved in the project's own folder: its git and this branch's are read again now.
-                let project = app.worktree(wid).flatMap { w in
-                    app.worktrees.first { $0.repoId == w.repoId && $0.path == app.repo(w.repoId)?.path }
+                let project = app.worktree(wid).flatMap { worktree in
+                    app.worktrees.first { $0.repoId == worktree.repoId && $0.path == app.repo(worktree.repoId)?.path }
                 }
                 for id in [wid, project?.id].compactMap({ $0 }) { app.watchAgain(.git, id) }
                 return

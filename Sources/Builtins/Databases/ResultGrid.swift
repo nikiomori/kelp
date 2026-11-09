@@ -101,9 +101,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         edits.clear()
         marked = []
         numeric = Set(
-            columns.indices.filter { i in
-                if let type = self.info[columns[i]]?.type { return Self.isNumber(type) }
-                let values = rows.prefix(200).compactMap { $0.indices.contains(i) ? $0[i] : nil }
+            columns.indices.filter { columnIndex in
+                if let type = self.info[columns[columnIndex]]?.type { return Self.isNumber(type) }
+                let values = rows.prefix(200).compactMap { $0.indices.contains(columnIndex) ? $0[columnIndex] : nil }
                 return !values.isEmpty && values.allSatisfy { Double($0) != nil }
             })
         for column in table.tableColumns.reversed() { table.removeTableColumn(column) }
@@ -145,18 +145,19 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     private func describe(_ name: String) -> String {
-        guard let c = info[name] else { return name }
+        guard let column = info[name] else { return name }
         return [
-            "\(name): \(c.type)", c.nullable ? nil : "NOT NULL", c.primary ? String(localized: "primary key") : nil,
-            c.references.map { String(localized: "refers to \($0)") }
+            "\(name): \(column.type)", column.nullable ? nil : "NOT NULL",
+            column.primary ? String(localized: "primary key") : nil,
+            column.references.map { String(localized: "refers to \($0)") }
         ].compactMap { $0 }.joined(separator: " · ")
     }
 
     func indicate() {
         for column in table.tableColumns {
             let name = Int(column.identifier.rawValue).flatMap { columns.indices.contains($0) ? columns[$0] : nil }
-            let image = orders.first { $0.column == name }.flatMap { o in
-                NSImage(named: o.ascending ? "NSAscendingSortIndicator" : "NSDescendingSortIndicator")
+            let image = orders.first { $0.column == name }.flatMap { order in
+                NSImage(named: order.ascending ? "NSAscendingSortIndicator" : "NSDescendingSortIndicator")
             }
             table.setIndicatorImage(image, in: column)
         }
@@ -164,12 +165,14 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     /// Up, then down, then as they come; ⌥-click adds a column to the order instead of starting over.
     func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
-        guard let i = Int(tableColumn.identifier.rawValue), columns.indices.contains(i) else { return }
-        let name = columns[i], adding = NSEvent.modifierFlags.contains(.option)
+        guard let columnIndex = Int(tableColumn.identifier.rawValue), columns.indices.contains(columnIndex) else {
+            return
+        }
+        let name = columns[columnIndex], adding = NSEvent.modifierFlags.contains(.option)
         let was = orders.first { $0.column == name }
         if !adding { orders.removeAll { $0.column != name } }
         switch was {
-        case let o? where o.ascending: orders = orders.map { $0.column == name ? (name, false) : $0 }
+        case let order? where order.ascending: orders = orders.map { $0.column == name ? (name, false) : $0 }
         case .some: orders.removeAll { $0.column == name }
         case nil: orders.append((name, true))
         }
@@ -179,9 +182,10 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     /// As wide as its widest value on screen, within reason.
     func sizeToFit(_ column: NSTableColumn) {
-        guard let i = Int(column.identifier.rawValue), columns.indices.contains(i) else { return }
-        let longest = rows.prefix(200).map { ($0.indices.contains(i) ? $0[i] : nil)?.count ?? 4 }.max() ?? 0
-        column.width = min(600, max(48, CGFloat(max(longest, columns[i].count)) * 7.2 + 24))
+        guard let columnIndex = Int(column.identifier.rawValue), columns.indices.contains(columnIndex) else { return }
+        let longest =
+            rows.prefix(200).map { ($0.indices.contains(columnIndex) ? $0[columnIndex] : nil)?.count ?? 4 }.max() ?? 0
+        column.width = min(600, max(48, CGFloat(max(longest, columns[columnIndex].count)) * 7.2 + 24))
     }
 
     // MARK: Cells

@@ -11,27 +11,27 @@ extension Builtins {
         "kelp.machines", "Machines", "Kelp's virtual machines: what runs in each, its ports and folders.",
         icon: "shippingbox"
     ) { app in
-        var contributions = Contributions()
-        contributions.tabs = [TabProvider(schemes: ["vm"]) { MachineTab(uri: $0, app: app) }]
-        contributions.sidebarSections = [
-            SidebarSection(id: "machines") {
-                // Kelp's virtual machines, once there's one
-                let view = NSHostingView(rootView: MachinesView(app: app))
-                view.sizingOptions = [.intrinsicContentSize]
-                return view
-            }
-        ]
-        // An agent running a command in a machine (`kelp vm run`) says so on its row.
-        contributions.sessionMarks = [
-            { session in
-                Machines.machineList(app).first { $0.sessions?.contains(session.id) == true }
-                    .map {
-                        SessionMark(
-                            symbol: "shippingbox", tip: String(localized: "Runs a command in \($0.machine.name)"))
-                    }
-            }
-        ]
-        return contributions
+        return Contributions(
+            tabs: [TabProvider(schemes: ["vm"]) { MachineTab(uri: $0, app: app) }],
+            sidebarSections: [
+                SidebarSection(id: "machines") {
+                    // Kelp's virtual machines, once there's one
+                    let view = NSHostingView(rootView: MachinesView(app: app))
+                    view.sizingOptions = [.intrinsicContentSize]
+                    return view
+                }
+            ],
+            // An agent running a command in a machine (`kelp vm run`) says so on its row.
+            sessionMarks: [
+                { session in
+                    Machines.machineList(app).first { $0.sessions?.contains(session.id) == true }
+                        .map {
+                            SessionMark(
+                                symbol: "shippingbox", tip: String(localized: "Runs a command in \($0.machine.name)"))
+                        }
+                }
+            ]
+        )
     }
 }
 

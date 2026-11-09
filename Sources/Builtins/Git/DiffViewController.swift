@@ -85,7 +85,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         return (editorFont.ascender - editorFont.descender + editorFont.leading).rounded(.up) + 4
     }
     /// Side by side when chosen and there's room for two columns; a narrow pane shows it inline (like VS Code).
-    private var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
+    var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
     private var narrow = false
 
     static let hatch = NSColor(
@@ -206,9 +206,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     private let bar = Bar.content([])
-    private var split: NSSplitView?
-    private var fileList: NSView?
-    private var positioned = false
+    var split: NSSplitView?
+    var fileList: NSView?
+    var positioned = false
     override func viewDidLayout() {
         super.viewDidLayout()
         placeFileList()
@@ -317,7 +317,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         asking += 1
         reload()
     }
-    private var askCommit = false
+    var askCommit = false
     @objc private func layoutChanged() {
         UserDefaults.standard.set(!sideBySide, forKey: "diff.inline")
         setColumns()
@@ -330,297 +330,19 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         reload()
     }
 
-    func diffRequest() -> GitDiff {
-        var query = request()
-        query.ignoreSpace = hidesSpace ? true : nil
-        return query
-    }
-    private func request() -> GitDiff {
-        let id = worktreeId ?? ""
-        if let single {
-            return single.commit.map { GitDiff(id: id, source: "commit", file: single.file, commit: $0) }
-                ?? GitDiff(id: id, source: single.source, file: single.file)
-        }
-        switch source.indexOfSelectedItem {
-        case 1: return GitDiff(id: id, source: "unstaged")
-        case 2: return GitDiff(id: id, source: "staged")
-        case 3: return GitDiff(id: id, source: "branch")
-        case 4: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
-        case 5:
-            // The agent whose turns the picker lists, not whichever has the focus by now.
-            let listed = (turnPop.itemArray.first?.representedObject as? SessionTurns.Mark)?.session
-            var turn = GitDiff(id: id, source: "turn", session: listed ?? FileActions(app).targetAgent?.id ?? "")
-            turn.turn = chosenTurn
-            return turn
-        default: return GitDiff(id: id, source: "all")
-        }
-    }
+    /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
+    var builds = 0
 
     /// One read at a time: what asks meanwhile (git events, a click) makes one more read after it, not one each. A caller
     /// gets a diff read after it asked.
-    private var reading: Task<Void, Never>?
-    private var readAgain = false
+    var reading: Task<Void, Never>?
+    var readAgain = false
     /// Counts changes to what's asked (another source or workspace): a read of the old one drops its answer.
-    private var asking = 0
+    var asking = 0
     /// What the diff on screen was read from: a git event that leaves it as it was reads nothing.
-    private var basis: GitDiff.Basis?
-
-    func load() async {
-        if let running = reading {
-            readAgain = true
-            await running.value
-            return
-        }
-        let task = Task {
-            repeat {
-                readAgain = false
-                await loadOnce()
-            } while readAgain
-            reading = nil   // with the last check: no await between, so a later caller starts a new one
-        }
-        reading = task
-        await task.value
-    }
+    var basis: GitDiff.Basis?
 
     /// Reads so far: tests see a burst of events make one more, not one each.
-    private(set) var reads = 0
+    var reads = 0
 
-    private func loadOnce() async {
-        reads += 1
-        guard let wid = worktreeId else {
-            builds += 1
-            diffs = []
-            rows = []
-            table.reloadData()
-            files.reloadData()
-            return
-        }
-        if single == nil, source.indexOfSelectedItem == 4, askCommit {
-            askCommit = false   // before asking: a load that starts while the question is up doesn't ask again
-            let log = await app.call(GitLog(id: wid, all: true)) ?? []   // the user picked "a commit": a banner if git can't list them
-            let menu = NSMenu()
-            for commit in log.prefix(30) {
-                let item = menu.addItem(withTitle: "\(commit.hash)  \(commit.subject)", action: nil, keyEquivalent: "")
-                item.representedObject = commit.hash
-            }
-            let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26))
-            pop.menu = menu
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Review which commit?")
-            alert.accessoryView = pop
-            alert.addButton(withTitle: String(localized: "Show"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(alert) == .alertFirstButtonReturn {
-                commitHash = pop.selectedItem?.representedObject as? String
-            } else {
-                source.selectItem(at: 0)
-                commitHash = nil
-            }
-        }
-        askCommit = false
-        let agent = FileActions(app).targetAgent?.id   // read once: the focus can move during the reads below
-        if single == nil, source.indexOfSelectedItem == 5, agent == nil {
-            builds += 1
-            diffs = []
-            rows = []
-            words = [:]
-            files.reloadData()
-            table.reloadData()
-            status.stringValue = String(localized: "No agent on this screen")
-            return
-        }
-        if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? agent : nil) }
-        let asked = asking, request = diffRequest()
-        basis = request.basis(app.latest(GitEvent.self, wid))
-        let result = await app.tryCall(request)
-        let newDiffs = result.value ?? []
-        var ch: [FileChange] = [], cm: [DiffComment] = []
-        if single == nil, result.error == nil {   // the files' letters and the comments: the diff above already said what failed
-            // The letters as pushed for this workspace (a review tab watches it), else asked.
-            if let pushed = app.latest(GitEvent.self, wid)?.changes {
-                ch = pushed
-            } else {
-                ch = await app.quiet(GitStatus(id: wid)) ?? []
-            }
-            cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
-        }
-        if newDiffs != diffs { opened = [:] }   // lines opened between changes may have moved
-        let grammars = newDiffs == diffs ? [:] : DiffColors.grammars(newDiffs)   // the same diff keeps its colours
-        async let parsed = Task.detached { DiffColors.spans(newDiffs, grammars: grammars) }.value
-        let layout = sideBySide, built = await buildRows(newDiffs, cm, sideBySide: layout)
-        let printed = await Task.detached {
-            Dictionary(newDiffs.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a }
-        }.value
-        let spans = await parsed
-        // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
-        guard asked == asking, wid == worktreeId else { return }
-        builds += 1   // rows a layout change is still building are the old diff's
-        if newDiffs != diffs {
-            position.stringValue = ""
-            syntax = spans
-        }   // "Change 3 of 17" counted another diff
-        diffs = newDiffs
-        prints = printed
-        changes = ch
-        comments = cm
-        readViewed()
-        (rows, words) = built
-        placeDraft()
-        files.reloadData()
-        reloadKeepingDraft()
-        if !find.needle.isEmpty { search(find.needle, step: false) }
-        if layout != sideBySide { rebuildRows() }   // the layout changed while these were built
-        if let error = result.error {
-            status.stringValue = error
-            return
-        }   // why there's nothing, not "0 files"
-        status.stringValue = statusText()
-    }
-
-    /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
-    private var builds = 0
-
-    // MARK: table
-    func numberOfRows(in t: NSTableView) -> Int { t === files ? diffs.count : rows.count }
-
-    /// The file list's rows light up under the pointer as every inspector list's do; the diff's own rows don't.
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
-        if t === files { return ListRowView() }
-        let rowView = DiffLineRowView()   // a line shows a "+" under the pointer, for a comment on it
-        rowView.onPlus = shownLine(row) != nil && worktreeId != nil ? { [weak self] in self?.openDraft(at: row) } : nil
-        return rowView
-    }
-
-    func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
-        let app = self.app
-        if t === files { return fileRow(row) }
-        let id = col?.identifier.rawValue ?? ""
-        let first = id == "t" || id == "l" || col == nil   // nil: a hunk header, one view across the row
-        switch rows[row] {
-        case .draft: return draftCard()
-        case .comment(let comment): return commentRow(comment)
-        case .diff(let diffRow):
-            switch diffRow {
-            case .file(let path, let added, let removed): return fileBand(path, added: added, removed: removed)
-            case .binary(let path):
-                return label(
-                    first ? String(localized: "Binary file \(path) not shown") : "", font: font,
-                    color: .secondaryLabelColor)
-            case .tooLarge(let path):
-                let said = label(
-                    first ? String(localized: "\(path) is too large to show here") : "", font: font,
-                    color: .secondaryLabelColor)
-                guard first, let uri = alone(path) else { return said }
-                said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-                let open = ClosureButton(title: String(localized: "Open Changes")) { app.workbench.open(uri) }
-                open.bezelStyle = .push
-                open.controlSize = .small
-                let stack = NSStackView(views: [said, open])
-                stack.spacing = 8
-                return stack
-            case .gap(let file, let from, let count, let context):
-                return first ? gapRow(file: file, from: from, lines: count, context: context) : band("")
-            case .hunk(let file, let hunk, let header):
-                return first ? hunkRow(file: file, hunk: hunk, header: header) : band("")
-            case .line(let file, let line):
-                switch id {
-                case "on": return number(line.oldLine, kind: line.kind)
-                case "nn": return number(line.newLine, kind: line.kind)
-                default: return codeCell(line, file: file, marker: true)
-                }
-            case .pair(let file, let left, let right):
-                switch id {
-                case "on": return left.map { number($0.oldLine, kind: $0.kind) } ?? filler()
-                case "nn": return right.map { number($0.newLine, kind: $0.kind) } ?? filler()
-                case "l": return left.map { codeCell($0, file: file, marker: false) } ?? filler()
-                default: return right.map { codeCell($0, file: file, marker: false) } ?? filler()
-                }
-            }
-        }
-    }
-
-    /// A hunk's header spans both sides, its buttons at the row's end, rather than ending halfway in an empty strip.
-    /// A hunk's header and a file's band run across the row.
-    func tableView(_ t: NSTableView, isGroupRow row: Int) -> Bool {
-        guard t === table, rows.indices.contains(row) else { return false }
-        switch rows[row] {
-        case .diff(.hunk), .diff(.file), .draft, .comment: return true
-        default: return false
-        }
-    }
-    func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { t === table ? height(of: row) : t.rowHeight }
-
-}
-
-extension DiffViewController {
-    /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
-    private func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> (
-        [ReviewRow], [String: NSRange]
-    ) {
-        let one = single != nil, open = opened
-        return await Task.detached {
-            (
-                DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open),
-                DiffRows.changedWords(d)
-            )
-        }.value
-    }
-
-    func rebuildRows() {
-        builds += 1
-        let generation = builds, currentDiffs = diffs, cm = comments, layout = sideBySide
-        Task {
-            let built = await buildRows(currentDiffs, cm, sideBySide: layout)
-            guard generation == builds else { return }
-            if fadesNextLoad { table.crossfade(Motion.base) }
-            fadesNextLoad = false
-            (rows, words) = built
-            placeDraft()
-            reloadKeepingDraft()
-            if !find.needle.isEmpty { search(find.needle, step: false) }
-        }
-    }
-
-    /// Source Control beside the tab lists the same files: the tab's own list steps aside meanwhile, and comes back
-    /// where it was when the inspector closes or shows another panel. One file's tab has none.
-    func placeFileList() {
-        let hide = single != nil || app.workbench.panelBeside == "git.changes"
-        guard let list = fileList, let split, list.isHidden != hide else { return }
-        list.isHidden = hide
-        split.adjustSubviews()
-        if !hide { positioned = false }   // at its width again on the next layout
-    }
-
-    /// Whether the hunks shown are the staged diff's (Unstage) or the unstaged one's (Stage); nil where they're neither
-    /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
-    /// nothing staged, and the staged one's for a file with nothing left unstaged.
-    func hunksStaged(_ f: Int) -> Bool? {
-        if hidesSpace { return nil }
-        if let single {
-            return single.commit == nil && (single.source == "unstaged" || single.source == "staged")
-                ? single.source == "staged" : nil
-        }
-        switch source.indexOfSelectedItem {
-        case 1: return false
-        case 2: return true
-        case 0:
-            guard diffs.indices.contains(f) else { return nil }
-            guard let change = changes.first(where: { $0.path == diffs[f].path }), change.staged else { return false }
-            return change.unstaged ? nil : true
-        default: return nil
-        }
-    }
-
-    /// One file of the review in a tab of its own, which has room for a whole file's changes; nil for the agent's last turn.
-    private func alone(_ path: String) -> String? {
-        guard single == nil, let wid = worktreeId else { return nil }
-        switch source.indexOfSelectedItem {
-        case 1: return DiffTab.uri(wid, file: path, source: "unstaged")
-        case 2: return DiffTab.uri(wid, file: path, source: "staged")
-        case 3: return DiffTab.uri(wid, file: path, source: "branch")
-        case 4: return DiffTab.uri(wid, file: path, commit: commitHash ?? "HEAD")
-        case 5: return nil
-        default: return DiffTab.uri(wid, file: path, source: "all")
-        }
-    }
 }

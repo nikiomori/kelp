@@ -47,12 +47,12 @@ final class DockFaceView: NSView {
         let more = rest > 0 ? label("+\(rest)", size: 26, color: .white) : nil
         let span = CGFloat(marks.count) * Self.mark + CGFloat(marks.count - 1) * Self.gap
         let inner = pill(width: span + (more.map { $0.size().width + Self.gap } ?? 0))
-        var x = inner.minX
+        var left = inner.minX
         for cell in marks {
-            mark(cell, at: NSRect(x: x, y: inner.midY - Self.mark / 2, width: Self.mark, height: Self.mark))
-            x += Self.mark + Self.gap
+            mark(cell, at: NSRect(x: left, y: inner.midY - Self.mark / 2, width: Self.mark, height: Self.mark))
+            left += Self.mark + Self.gap
         }
-        more?.draw(at: NSPoint(x: x, y: inner.midY - (more?.size().height ?? 0) / 2))
+        more?.draw(at: NSPoint(x: left, y: inner.midY - (more?.size().height ?? 0) / 2))
     }
 
     /// Lays the pill, and says where its content goes.

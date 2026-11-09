@@ -12,7 +12,7 @@ final class PaneView: NSView {
     let sessionId: String
     let app: AppModel
     /// None once it let go of its attach (`letGo`), until it's shown again.
-    private var ghostty: GhosttyTerminalView?
+    var ghostty: GhosttyTerminalView?
     private let endedLabel = NSTextField(labelWithString: String(localized: "Session ended"))
     private let restartButton = NSButton()
     /// Under the output, which it must not cover: that the session stopped, and what to do about it. No height while it runs.
@@ -353,53 +353,6 @@ final class PaneView: NSView {
         return menu
     }
 
-    // MARK: find (Edit › Find reaches the pane through the responder chain)
-    private var findBar: FindCard?
-
-    @objc func performFindPanelAction(_ sender: Any?) {
-        guard let terminal = ghostty else { return }
-        switch NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) {
-        case .next?: terminal.perform(action: "navigate_search:next")
-        case .previous?: terminal.perform(action: "navigate_search:previous")
-        // Ghostty answers with start_search and the text
-        case .setFindString?: terminal.perform(action: "search_selection")
-        default: showFind(nil)
-        }
-    }
-
-    private func showFind(_ needle: String?) {
-        guard let terminal = ghostty else { return }
-        let bar =
-            findBar
-            ?? {
-                let card = FindCard()
-                card.onSearch = { terminal.perform(action: "search:" + $0) }
-                card.onStep = { terminal.perform(action: "navigate_search:" + ($0 ? "next" : "previous")) }
-                card.onClose = { [weak self] in
-                    terminal.perform(action: "end_search")
-                    self?.focus()
-                }
-                card.translatesAutoresizingMaskIntoConstraints = false
-                addSubview(card)
-                NSLayoutConstraint.activate([
-                    card.topAnchor.constraint(equalTo: terminal.topAnchor, constant: 8),
-                    card.trailingAnchor.constraint(equalTo: terminal.trailingAnchor, constant: -14)
-                ])
-                findBar = card
-                return card
-            }()
-        bar.begin(needle)
-    }
-
-    private func searchEvent(_ event: GhosttyTerminalView.SearchEvent) {
-        switch event {
-        case .started(let needle): showFind(needle)
-        case .ended: findBar?.isHidden = true
-        case .total(let count): findBar?.total = count
-        case .selected(let count): findBar?.selected = count
-        }
-    }
-
     @objc private func closeTapped() { onClose?(self) }
     /// Resume on a paused pane attaches again (and so wakes the agent); otherwise the session starts over.
     @objc private func restartTapped() {
@@ -410,6 +363,8 @@ final class PaneView: NSView {
             onRestart?(self)
         }
     }
+
+    var findBar: FindCard?
 
     // MARK: drops: files/images/text into the agent's prompt
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }

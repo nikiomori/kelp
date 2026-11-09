@@ -97,3 +97,21 @@ extension FileTab {
             text: codeEdit.text)
     }
 }
+
+/// A file's (or its lines') link on its forge, copied: from its tab's menu, the Files panel's and Copy Web Link.
+@MainActor
+func copyWebLink(_ app: AppModel, _ path: String, lines: ClosedRange<Int>? = nil) {
+    Task {
+        guard let url = await app.call(GitWebURL(path: path, start: lines?.lowerBound, end: lines?.upperBound))
+        else { return }
+        copyText(url)
+        Banner.show(String(localized: "Link copied"))
+    }
+}
+
+extension RemoteHost {
+    /// The remote project a file is in, as this app's home keeps them (KELP_HOME/remote).
+    static func containing(_ path: String) -> (folder: String, remote: RemoteHost, remotePath: String)? {
+        Remotes(home: Paths.root).containing(path)
+    }
+}

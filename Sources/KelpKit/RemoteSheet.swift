@@ -8,9 +8,6 @@ extension RemoteHost {
     package static func of(_ dir: String) -> RemoteHost? {
         dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil
     }
-    package static func containing(_ path: String) -> (folder: String, remote: RemoteHost, remotePath: String)? {
-        Remotes(home: Paths.root).containing(path)
-    }
 }
 
 /// Open a project over SSH in two steps: connect to the host (ssh's own reason if Kelp can't), then pick the folder

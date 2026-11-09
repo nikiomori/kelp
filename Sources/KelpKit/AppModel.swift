@@ -50,7 +50,7 @@ package final class AppModel {
     /// The agents it offers (see `AgentCatalog`), and file icons in the theme it's set to: views over the parts above.
     package var catalog: AgentCatalog { AgentCatalog(app: self) }
     package var fileIcons: FileIcon { FileIcon(app: self) }
-    @ObservationIgnored private(set) package lazy var quickOpen = QuickOpen(app: self)
+    @ObservationIgnored private(set) lazy var quickOpen = QuickOpen(app: self)
     @ObservationIgnored private(set) lazy var noProject = NoProject(app: self)
     @ObservationIgnored private(set) lazy var switcher = WorkspaceSwitcher(app: self)
     /// What a built-in keeps once per app (its windows, what it asked about), made when first asked for: the app holds
@@ -614,10 +614,10 @@ package final class AppModel {
     package func notify<M: RPCMethod>(on queue: DispatchQueue? = nil, _ message: @escaping @Sendable () -> M?) {
         let client = client
         guard let queue else {
-            if let m = message() { client?.notify(m) }
+            if let made = message() { client?.notify(made) }
             return
         }
-        queue.async { if let m = message() { client?.notify(m) } }
+        queue.async { if let made = message() { client?.notify(made) } }
     }
 
     package func worktree(_ id: String?) -> Worktree? { worktrees.first { $0.id == id } }

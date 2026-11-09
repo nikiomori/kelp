@@ -19,11 +19,11 @@ final class WindowBar: NSView {
     /// Right of the search: the run parts (`ProjectRuns.bar`), the cup, side by side.
     private let tools = NSStackView()
     private var runParts: [any WindowBarItem] = []
-    private let app: AppModel
-    private let back = NSButton.titlebar("chevron.left", String(localized: "Back"), tip: "")
-    private let forward = NSButton.titlebar("chevron.right", String(localized: "Forward"), tip: "")
-    private let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
-    private let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
+    let app: AppModel
+    let back = NSButton.titlebar("chevron.left", String(localized: "Back"), tip: "")
+    let forward = NSButton.titlebar("chevron.right", String(localized: "Forward"), tip: "")
+    let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
+    let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
     /// The branch chip: the workspace on screen's git, as the daemon pushes it (ChangedFiles watches it).
     private var info: BranchInfo? { app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.branches }
 
@@ -34,7 +34,7 @@ final class WindowBar: NSView {
     private var closedAt = Date.distantPast
 
     /// None over a page: the project and branch beside it would be the workspace's behind it.
-    private var worktree: Worktree? { app.workbench.page == nil ? app.worktree(app.workbench.workspaceId) : nil }
+    var worktree: Worktree? { app.workbench.page == nil ? app.worktree(app.workbench.workspaceId) : nil }
     /// The folder the sidebar keeps the pull request and CI for: a workspace shares its project's.
     private var badgeFolder: Worktree? { app.rowBadges.folder(of: app.workbench.workspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
@@ -48,7 +48,7 @@ final class WindowBar: NSView {
     /// The mark and its place, from the built-in that has CI (`FolderCI`); none, and the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
     /// The branch's pull request, from the built-in that has them (`FolderCI`); none, and no PR chip.
-    private var prMark: (title: NSAttributedString, tip: String, url: String)? {
+    var prMark: (title: NSAttributedString, tip: String, url: String)? {
         badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
     }
     /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
@@ -353,94 +353,6 @@ final class WindowBar: NSView {
         popover.show(relativeTo: branch.bounds, of: branch, preferredEdge: .maxY)
     }
 
-    /// The setting ("always", "agents", "off"), or "working": agents keep the Mac awake right now (as the daemon counts them).
-    /// "hidden" once the button's right-click hid it, whatever the mode.
-    private static func awakeMode(_ app: AppModel) -> String {
-        let mode = app.settings[SettingKeys.keepAwake]
-        let working = app.sessions.contains { $0.isChat && $0.status == .working }
-        return !app.settings[SettingKeys.awakeButton]
-            ? "hidden" : mode == "agents" && working ? "working" : mode
-    }
-
-    /// The cup right of the search, always there so the switch can be found: empty while the Mac may sleep, steaming while
-    /// agents keep it awake, orange while it's on for good. A click is Keep Mac Awake (also in the Tools menu); a right-click
-    /// picks the mode or hides it.
-    private func showAwake(_ mode: String) {
-        let app = self.app
-        awake.isHidden = mode == "hidden"
-        let (symbol, tip) =
-            switch mode {
-            case "always": ("cup.and.heat.waves.fill", String(localized: "The Mac stays awake until you click here"))
-            case "working":
-                (
-                    "cup.and.heat.waves",
-                    String(localized: "The Mac stays awake while agents work. Click to keep it awake always")
-                )
-            default: ("cup.and.saucer", String(localized: "The Mac can sleep. Click to keep it awake"))
-            }
-        let cup = NSImage.symbol(symbol, String(localized: "Keep Mac Awake"))   // a recessed button ignores contentTintColor
-        awake.image = mode == "always" ? cup.withSymbolConfiguration(.init(paletteColors: [.systemOrange])) : cup
-        awake.toolTip = tip
-        let menu = NSMenu()
-        for (choice, title) in [
-            ("agents", String(localized: "While agents work")), ("always", String(localized: "Always")),
-            ("off", String(localized: "Never"))
-        ] {
-            menu.add(title) { app.settings.set(SettingKeys.keepAwake, choice) }.state =
-                (mode == "working" ? "agents" : mode) == choice ? .on : .off
-        }
-        menu.addItem(.separator())
-        Self.addHide(to: menu, SettingKeys.awakeButton, app)
-        awake.menu = menu
-    }
-
-    /// A title-bar button's right-click: off by its setting, which Settings › Window turns back on.
-    private static func addHide(to menu: NSMenu, _ setting: Setting<Bool>, _ app: AppModel) {
-        menu.add(String(localized: "Hide Button")) {
-            app.settings.set(setting, false)
-            Banner.show(String(localized: "The button is hidden. Settings › Window brings it back."))
-        }
-    }
-
-    /// Agents that tile side by side in a workspace, as `EditorArea.arrange` picks them: below two the button does nothing.
-    static func liveAgents(_ app: AppModel, in wid: String?) -> Int {
-        app.sessions.filter {
-            $0.worktreeId == wid && !["shell", "custom"].contains($0.agent) && ![.exited, .paused].contains($0.status)
-        }.count
-    }
-
-    /// The arrows say where they go; with nothing that way they grey out.
-    private func showNav(back to: String?, forward ahead: String?) {
-        for (arrow, name, title, key) in [
-            (back, to, String(localized: "Back"), "⌃⌘←"), (forward, ahead, String(localized: "Forward"), "⌃⌘→")
-        ] {
-            arrow.isEnabled = name != nil
-            arrow.toolTip = name.map { "\(title): \($0) (\(key))" } ?? "\(title) (\(key))"
-        }
-    }
-    @objc private func goBack() { app.workbench.goBack(-1) }
-    @objc private func goForward() { app.workbench.goBack(1) }
-
-    @objc private func toggleAwake() { app.extensions.command("power.keepAwake")?.run([:]) }
-
-    /// The filled symbol while the workspace puts its agents side by side; a click shows them as tabs in one pane, and
-    /// back. Only with two agents or more; a right-click hides it (Settings › Window brings it back).
-    /// On: the filled symbol in the accent (the label colour with Graphite), no fill behind it; off: its outline alone.
-    private func showSideBySide(_ on: Bool) {
-        let image = NSImage.symbol(
-            on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))
-        sideBySide.image = on ? image.withSymbolConfiguration(.init(paletteColors: [.emphasis])) : image   // a recessed button ignores contentTintColor
-        sideBySide.toolTip =
-            on
-            ? String(localized: "Agents side by side. Click to show them as tabs (⌃⌘T)")
-            : String(localized: "Agents as tabs. Click to put them side by side (⌃⌘T)")
-    }
-    @objc private func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
-
-    @objc private func openPR() {
-        guard let url = prMark?.url else { return }
-        app.workbench.open(url, workspace: worktree?.id)
-    }
 }
 
 extension WindowBar: NSPopoverDelegate {
@@ -469,58 +381,4 @@ extension WindowBar: NSMenuDelegate {
         let app = app
         for (index, name) in app.workbench.places(step).prefix(10) { menu.add(name) { app.workbench.go(to: index) } }
     }
-}
-
-/// Open Quickly as a place to click: it looks like a search field and opens the ⌘P palette (files, agents, commands).
-@MainActor
-final class SearchPill: PointerControl {
-    private let glass = NSImageView(image: .symbol("magnifyingglass", ""))
-    private let label = NSTextField(labelWithString: ""), key = NSTextField(labelWithString: "⌘P")
-    private let full = String(localized: "Files, agents, commands"), short = String(localized: "Search")
-    private let app: AppModel
-
-    init(app: AppModel) {
-        self.app = app
-        super.init(frame: .zero)
-        restFill = .fillRest   // a field's ground; under the pointer a step darker, held darker still
-        glass.symbolConfiguration = .chrome(Metrics.iconSmall)
-        glass.contentTintColor = .secondaryLabelColor
-        label.textColor = .secondaryLabelColor
-        label.lineBreakMode = .byTruncatingTail
-        label.setContentCompressionResistancePriority(.init(200), for: .horizontal)
-        key.textColor = .tertiaryLabelColor
-        let row = NSStackView(views: [glass, label, NSView(), key])
-        row.spacing = 6
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 9, bottom: 0, right: 10)
-        pin(row)
-        toolTip = String(localized: "Open Quickly (⌘P)")
-        setAccessibilityElement(true)
-        setAccessibilityRole(.button)
-        setAccessibilityLabel(String(localized: "Open Quickly"))
-        track(owner: self) {
-            app.themes.chromeText
-        } changed: { [weak self] _ in
-            self?.label.font = .ui(12)
-            self?.key.font = .ui(11)
-            self?.needsLayout = true
-        }
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = bounds.height / 2
-        // Short of room, "Search" rather than "Files, a…". The room is the pill's, so the choice doesn't feed back on itself.
-        let room = bounds.width - 19 - glass.frame.width - key.frame.width - 18
-        let text = (full as NSString).size(withAttributes: [.font: label.font ?? .ui(12)]).width <= room ? full : short
-        if label.stringValue != text { label.stringValue = text }
-    }
-    /// The whole pill takes the click; in the title bar its label would move the window instead.
-    override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
-    /// The palettes grow out of it (QuickOpen.present).
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window != nil { app.quickOpen.anchor = self }
-    }
-    override func clicked() { app.quickOpen.show(commandsOnly: false) }
 }

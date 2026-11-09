@@ -67,10 +67,12 @@ package final class RowBadges {
         guard !mine.isEmpty else { return [:] }
         var out: [String: [String]] = [:], seen: Set<String> = [me.path]
         for (other, event) in events.sorted(by: { $0.key < $1.key }) {
-            guard let w = app.worktree(other), w.repoId == me.repoId, !w.archived, seen.insert(w.path).inserted else {
+            guard let worktree = app.worktree(other), worktree.repoId == me.repoId, !worktree.archived,
+                seen.insert(worktree.path).inserted
+            else {
                 continue
             }
-            for path in mine.intersection(touched(event)) { out[path, default: []].append(w.branch) }
+            for path in mine.intersection(touched(event)) { out[path, default: []].append(worktree.branch) }
         }
         return out
     }
