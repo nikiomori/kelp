@@ -9,8 +9,27 @@ extension NSPasteboard.PasteboardType { static let kelpTab = NSPasteboard.Pasteb
 /// inspector's panel icons.
 @MainActor
 final class TabStrip: NSView {
-    /// Room around the tabs: they don't run into the strip's edges or the pane dividers.
-    static let height: CGFloat = 40
+    /// Room around the tabs: they don't run into the strip's edges or the pane dividers. The sidebar's and inspector's
+    /// band in the same row is as tall.
+    static func height(compact: Bool) -> CGFloat { compact ? 32 : 40 }
+    @MainActor static func height(_ settings: SettingsStore) -> CGFloat {
+        height(compact: settings[SettingKeys.tabHeight] == "compact")
+    }
+    /// Settings › Appearance › Tab height: Compact, 24 pt tabs in a 32 pt strip.
+    var low = false {
+        didSet {
+            guard low != oldValue else { return }
+            tall.constant = Self.height(compact: low)
+            addHeights.forEach { $0.constant = low ? 20 : 24 }
+            buttons.forEach { $0.low = low }
+            measured = nil
+            needsLayout = true
+        }
+    }
+    private lazy var tall = heightAnchor.constraint(equalToConstant: Self.height(compact: false))
+    private lazy var addHeights = [
+        add.heightAnchor.constraint(equalToConstant: 24), newAgent.heightAnchor.constraint(equalToConstant: 24)
+    ]
     struct Item: Equatable {
         let id: String
         var title: String
@@ -169,7 +188,7 @@ final class TabStrip: NSView {
         lead.priority = .init(249)
         addLead = lead
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Self.height),
+            tall,
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
             trailing.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             scroll.topAnchor.constraint(equalTo: topAnchor),
@@ -182,12 +201,12 @@ final class TabStrip: NSView {
             trailing.centerYAnchor.constraint(equalTo: centerYAnchor),
             adds.centerYAnchor.constraint(equalTo: centerYAnchor),
             overflow.widthAnchor.constraint(equalToConstant: 18), add.widthAnchor.constraint(equalToConstant: 24),
-            add.heightAnchor.constraint(equalToConstant: 24),
-            newAgent.widthAnchor.constraint(equalToConstant: 24), newAgent.heightAnchor.constraint(equalToConstant: 24),
+            newAgent.widthAnchor.constraint(equalToConstant: 24),
             sep.leadingAnchor.constraint(equalTo: leadingAnchor),
             sep.trailingAnchor.constraint(equalTo: trailingAnchor),
             sep.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+        NSLayoutConstraint.activate(addHeights)
         // Like Safari: tabs narrow (titles truncate, down to their minimum) before the strip has to scroll.
         // Below the split view's holding priority (250): a full strip must never move the divider.
         let fit = stack.widthAnchor.constraint(lessThanOrEqualTo: scroll.widthAnchor)
@@ -258,6 +277,7 @@ final class TabStrip: NSView {
         let button = TabButton()
         button.strip = self
         button.compact = compact
+        button.low = low
         return button
     }
 

@@ -73,14 +73,23 @@ final class InspectorController: NSViewController {
         ]
         align.values.forEach { $0.priority = .defaultHigh }
         // Level with the tabs, the full height of their strip; or as tall, under the panel.
+        let band = [
+            bar.centerYAnchor.constraint(equalTo: under.topAnchor),
+            bar.centerYAnchor.constraint(equalTo: root.bottomAnchor),
+            rowSep.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            sep.bottomAnchor.constraint(equalTo: under.topAnchor)
+        ]
+        // As tall as the tab strips beside it (Settings › Appearance › Tab height).
+        track(owner: self) { [app] in TabStrip.height(app.settings) } changed: { height in
+            zip(band, [height / 2, -height / 2, -height, height]).forEach { $0.constant = $1 }
+        }
         top = [
-            bar.centerYAnchor.constraint(equalTo: under.topAnchor, constant: TabStrip.height / 2),
+            band[0],
             host.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             host.topAnchor.constraint(equalTo: sep.bottomAnchor)
         ]
         bottom = [
-            bar.centerYAnchor.constraint(equalTo: root.bottomAnchor, constant: -TabStrip.height / 2),
-            rowSep.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -TabStrip.height),
+            band[1], band[2],
             host.bottomAnchor.constraint(equalTo: rowSep.topAnchor),
             host.topAnchor.constraint(equalTo: under.topAnchor)
         ]
@@ -91,7 +100,7 @@ final class InspectorController: NSViewController {
             panelTitle.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Metrics.inset),
             panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -48),   // clear of the toggle
             panelTitle.centerYAnchor.constraint(equalTo: root.topAnchor, constant: WindowBar.height / 2),
-            sep.bottomAnchor.constraint(equalTo: under.topAnchor, constant: TabStrip.height),
+            band[3],
             sep.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             sep.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             rowSep.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -355,7 +364,7 @@ final class InspectorController: NSViewController {
         let point = view.convert(e.locationInWindow, from: nil)
         let band = view.bounds.height - WindowBar.height
         guard
-            (band - TabStrip.height...band).contains(point.y)
+            (band - TabStrip.height(app.settings)...band).contains(point.y)
                 || (selector.frame.minY...selector.frame.maxY).contains(point.y)
         else { return nil }
         let settings = app.settings, hidden = Set(settings[SettingKeys.hiddenPanels] ?? []), menu = NSMenu()

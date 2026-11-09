@@ -82,6 +82,10 @@ package enum Builtins {
                             + "while the tabs fit and turns Compact when they don't. Also in a tab's right-click menu.",
                         options: ["auto", "regular", "compact"], labels: ["auto": String(localized: "Automatic")],
                         look: "pictures"),
+                    s(SettingKeys.tabHeight, "Tab height", "enum",
+                        "Compact gives a pane 8 pt more room under its tabs.",
+                        help: "Compact tabs are 24 pt in a 32 pt strip. Also in a tab's right-click menu.",
+                        options: ["regular", "compact"], look: "pictures"),
                     s(SettingKeys.terminalOpacity, "Terminal opacity", "enum",
                         "The desktop shows through the terminals, in any theme.",
                         help:

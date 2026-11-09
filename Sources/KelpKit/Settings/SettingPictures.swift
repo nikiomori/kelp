@@ -7,7 +7,8 @@ import SwiftUI
 enum SettingPictures {
     /// What the shell draws; a built-in draws its own settings' (`SettingsSection.pictures`).
     static let keys: Set<String> = [
-        SettingKeys.textSize.key, SettingKeys.tabWidth.key, SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
+        SettingKeys.textSize.key, SettingKeys.tabWidth.key, SettingKeys.tabHeight.key,
+        SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
         SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.dockIcon.key, SettingKeys.cursorStyle.key
     ]
 }
@@ -95,6 +96,7 @@ private struct PictureArt: View {
         switch key {
         case SettingKeys.textSize.key: textSize
         case SettingKeys.tabWidth.key: tabs
+        case SettingKeys.tabHeight.key: tabBand(option == "compact" ? 16 : 20)
         case SettingKeys.rowHeight.key: rows(["compact": 24, "regular": 28, "large": 32][option] ?? 28)
         case SettingKeys.agentDetail.key: agentRow
         case SettingKeys.projectColor.key: projectRow
@@ -153,6 +155,22 @@ private struct PictureArt: View {
             }
         }
         .padding(.horizontal, 12).frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The strip at its height, halved, over a pane's first lines: a lower one leaves the pane more.
+    private func tabBand(_ band: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 2) {
+                ForEach(0..<3, id: \.self) { index in
+                    Capsule().fill(Color.primary.opacity(index == 0 ? 0.14 : 0.06)).frame(width: 30, height: band - 6)
+                }
+            }
+            .frame(height: band)
+            Rectangle().fill(Color.primary.opacity(0.15)).frame(height: 1)
+            ForEach(0..<3, id: \.self) { _ in line(50, Color.primary.opacity(0.25)) }
+        }
+        .padding(.horizontal, 12).padding(.top, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     /// Three rows at the sidebar's own heights, halved.

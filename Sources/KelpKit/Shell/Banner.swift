@@ -76,7 +76,7 @@ package enum Banner {
                 equalTo: card.topAnchor,
                 constant: (card === content
                     ? WindowBar.height
-                    : TabStrip.height + TextSize.of(Metrics.contentBar)) + Metrics.gapWide),
+                    : TabStrip.height(compact: false) + TextSize.of(Metrics.contentBar)) + Metrics.gapWide),
             column.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -Metrics.inset),
             column.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -2 * Metrics.inset)
         ])

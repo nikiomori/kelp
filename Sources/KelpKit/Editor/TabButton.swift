@@ -33,6 +33,9 @@ final class TabButton: NSControl, NSDraggingSource {
     /// The title keeps about twelve letters however many tabs there are (six when compact); the rest scroll and are in
     /// the ▾ menu.
     private lazy var titleMin = title.widthAnchor.constraint(greaterThanOrEqualToConstant: 0)
+    private lazy var tall = heightAnchor.constraint(equalToConstant: 28)
+    /// Settings › Appearance › Tab height: Compact.
+    var low = false { didSet { tall.constant = low ? 24 : 28 } }
     private lazy var widest = widthAnchor.constraint(lessThanOrEqualToConstant: 300)
     private lazy var narrowest = widthAnchor.constraint(greaterThanOrEqualToConstant: 76)
     private lazy var comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
@@ -86,7 +89,7 @@ final class TabButton: NSControl, NSDraggingSource {
         content = row
         pin(edgeGlow)   // over the row, as the pane's ring is over its content; clicks go through it
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 28), widest, narrowest,
+            tall, widest, narrowest,
             slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16)
         ])
         // Below the strip's `fit` (245): a squeezed tab truncates its title with "…" (the row never clips it). Under that

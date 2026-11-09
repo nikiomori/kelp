@@ -129,7 +129,8 @@ extension OneAtATime {
         let agent = area.layout.add("session:s1"), page = area.layout.add(TabURI.file("/tmp/a.html")),
             web = area.layout.add("https://example.com")
         func titles(_ id: String) -> [String] { area.tabMenu(id).items.map { $0.isSeparatorItem ? "-" : $0.title } }
-        let splits = ["Split Right", "Split Down", "-", "Close Tab", "Close Other Tabs"], width = ["-", "Tab Width"]
+        let splits = ["Split Right", "Split Down", "-", "Close Tab", "Close Other Tabs"]
+        let width = ["-", "Tab Width", "Tab Height"]
         #expect(
             titles(agent.id) == ["Rename…", "Hand Off to", "Copy Context", "Changes in Its Last Turn", "Restart", "-"]
                 + splits + ["Close Tabs to the Right"] + width)

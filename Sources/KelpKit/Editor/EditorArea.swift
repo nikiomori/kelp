@@ -74,6 +74,11 @@ package final class EditorArea: NSViewController {
         } changed: { [weak self] width in
             self?.groupViews.values.forEach { $0.strip.tabWidth = width }
         }
+        track(owner: self, now: false) {
+            app.settings[SettingKeys.tabHeight] == "compact"
+        } changed: { [weak self] low in
+            self?.groupViews.values.forEach { $0.strip.low = low }
+        }
         // The empty workspace lists the agents that work, with their icons; rebuild it when either changes.
         track(owner: self) {
             app.availability.ids
@@ -248,6 +253,7 @@ package final class EditorArea: NSViewController {
         group.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
         group.strip.hoverCard = tabCard
         group.strip.tabWidth = app.settings[SettingKeys.tabWidth]
+        group.strip.low = app.settings[SettingKeys.tabHeight] == "compact"
         group.strip.onDropTab = { [weak self] id, index in
             guard let self else { return }
             if layout.group(of: id) != gid { arrangedByHand() }   // into another pane's strip, not reordering its own

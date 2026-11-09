@@ -21143,6 +21143,50 @@
           }
         }
       }
+    },
+    "Tab height": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота вкладок"
+          }
+        }
+      }
+    },
+    "Tab Height": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота вкладок"
+          }
+        }
+      }
+    },
+    "Compact gives a pane 8 pt more room under its tabs.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компактные оставляют панели на 8 pt больше места под вкладками."
+          }
+        }
+      }
+    },
+    "Compact tabs are 24 pt in a 32 pt strip. Also in a tab's right-click menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компактные вкладки — 24 pt в полосе 32 pt. Ещё есть в меню вкладки по правому клику."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

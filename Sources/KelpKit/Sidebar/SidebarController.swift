@@ -158,10 +158,14 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             root.addSubview(part)
         }
         addTrailing = add.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6)
+        let addY = add.centerYAnchor.constraint(equalTo: root.topAnchor)
+        track(owner: self) { [app] in TabStrip.height(app.settings) } changed: { band in
+            addY.constant = WindowBar.height + band / 2
+        }
         sectionsTrailing = machines.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         NSLayoutConstraint.activate([
             // Under the traffic lights, in the window's second row: level with the tab strips and the inspector's panel icons.
-            add.centerYAnchor.constraint(equalTo: root.topAnchor, constant: WindowBar.height + TabStrip.height / 2),
+            addY,
             addTrailing,
             // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),

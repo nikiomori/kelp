@@ -7,6 +7,8 @@ extension SettingKeys {
     static let terminalOpacity = Setting("terminal.opacity", "theme")
     /// "regular", "compact", or "auto" (compact once the tabs no longer fit).
     static let tabWidth = Setting("workbench.tabWidth", "auto")
+    /// "regular" (28 pt tabs in a 40 pt strip) or "compact" (24 in 32); the sidebar's and inspector's band follows.
+    static let tabHeight = Setting("workbench.tabHeight", "regular")
     static let sideBySideButton = Setting("workbench.sideBySideButton", true)
     static let awakeButton = Setting("workbench.awakeButton", true)
     @MainActor static let iconTheme = Setting("workbench.iconTheme", FileIcon.standard)

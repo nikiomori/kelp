@@ -266,6 +266,7 @@ extension EditorArea {
         close(String(localized: "Close Tabs to the Right"), Array(tabs.drop { $0.id != id }.dropFirst()))
         menu.addItem(.separator())
         menu.addChoiceMenu(SettingKeys.tabWidth, app, title: String(localized: "Tab Width"))
+        menu.addChoiceMenu(SettingKeys.tabHeight, app, title: String(localized: "Tab Height"))
         return menu
     }
 
