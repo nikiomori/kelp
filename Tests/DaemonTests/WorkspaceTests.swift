@@ -17,7 +17,8 @@ import Testing
     try #require(w.d.sessions.existing(s.id)).noteTurn(.working)
     #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
     let refs = { try Git.run(["for-each-ref", "refs/kelp/turns/"], cwd: w.repo.path) }
-    #expect(try !refs().isEmpty)
+    // The turn is listed before its snapshot's ref is written (git, off the turn's queue): waited for, not assumed
+    #expect(try await waitFor(10) { try !refs().isEmpty })
     try Git.run(["worktree", "lock", wt.path], cwd: w.repo.path)
     await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: wt.id)) }
     #expect(try !refs().isEmpty)
