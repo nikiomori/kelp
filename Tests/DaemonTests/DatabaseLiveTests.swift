@@ -227,6 +227,46 @@ private let env = ProcessInfo.processInfo.environment
     #expect(question == "Allow changing 2 rows in shop?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
     #expect(try await asked.value.changed == 2)
+
+    // The table tab's edits through each container's client: one transaction, so a failure leaves none of them done,
+    // and the rows each changed are counted.
+    _ = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "CREATE TABLE p (id INT PRIMARY KEY, v TEXT)"))
+    _ = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "INSERT INTO p VALUES (1, 'z'), (2, 'z')"))
+    for name in ["shop", "app_dev"] {
+        let table = name == "shop" ? "t" : "p"
+        await #expect(throws: RPCError.self, "\(name)") {
+            try await w.c.call(
+                DatabaseApply(
+                    worktreeId: wt.id, database: name,
+                    statements: ["UPDATE \(table) SET v = 'q' WHERE id = 1", "INSERT INTO \(table) VALUES (1, 'dup')"]))
+        }
+        let kept = try await w.c.call(
+            DatabaseQuery(worktreeId: wt.id, database: name, sql: "SELECT v FROM \(table) WHERE id = 1"))
+        #expect(kept.rows == [["z"]], "\(name): the first edit was rolled back")
+        let saved = try await w.c.call(
+            DatabaseApply(
+                worktreeId: wt.id, database: name,
+                statements: ["UPDATE \(table) SET v = 'q' WHERE id = 1", "DELETE FROM \(table) WHERE id = 2"]))
+        #expect(saved.changed == 2, "\(name)")
+    }
+    // A keyless row of a partitioned table, as the tab finds it: each partition has a row at ctid (0,1), so only
+    // (tableoid, ctid) names one.
+    for sql in [
+        "CREATE TABLE pp (k INT, v TEXT) PARTITION BY LIST (k)",
+        "CREATE TABLE pp1 PARTITION OF pp FOR VALUES IN (1)", "CREATE TABLE pp2 PARTITION OF pp FOR VALUES IN (2)",
+        "INSERT INTO pp VALUES (1, 'a'), (2, 'b')"
+    ] {
+        _ = try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: sql))
+    }
+    let one = try await w.c.call(
+        DatabaseApply(
+            worktreeId: wt.id, database: "app_dev",
+            statements: [
+                "DELETE FROM pp WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM pp WHERE v::text = 'a' LIMIT 1)"
+            ]))
+    #expect(one.changed == 1)
 }
 
 /// Synchronous, for a `defer`: the test's containers and their volumes go.

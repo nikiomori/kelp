@@ -94,28 +94,17 @@ enum DatabaseEngines {
         }
     }
 
-    /// The user's edits, all or none: one transaction where Kelp holds the connection; through a container's client,
-    /// one after another (a failure stops the rest).
+    /// The user's edits, all or none, in one transaction: the rows they changed. Through a container's client too: a
+    /// failure stops it before COMMIT, and the session it ends rolls back.
     static func apply(_ c: DatabaseConnection, _ statements: [String], off: Slots) async throws -> Int {
         switch (c.database.engine, c.database.host) {
-        case (.sqlite, _):
-            return try await off.run {
-                try SQLiteRun.apply(path(c), statements)
-            }
-        case (.duckdb, _):
-            return try await off.run {
-                _ = try DuckDBRun.run(
-                    path(c), readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: writeTimeout)
-                return 0
-            }
-        case (.appwrite, _): return try await AppwriteWire.apply(c, statements)
-        case (.postgres, .some): return try await PostgresWire.apply(c, statements)
-        case (.mysql, .some): return try await MySQLWire.apply(c, statements)
-        case (.postgres, nil), (.mysql, nil):
-            // ponytail: a container's client gets them one by one; a transaction there needs a script of its own
-            var changed = 0
-            for sql in statements { changed += try await write(c, sql, off: off).changed ?? 0 }
-            return changed
+        case (.sqlite, _): try await off.run { try SQLiteRun.apply(path(c), statements) }
+        case (.duckdb, _): try await off.run { try DuckDBRun.apply(path(c), statements) }
+        case (.appwrite, _): try await AppwriteWire.apply(c, statements)
+        case (.postgres, .some): try await PostgresWire.apply(c, statements)
+        case (.mysql, .some): try await MySQLWire.apply(c, statements)
+        case (.postgres, nil): try await off.run { try PostgresRun.apply(c, statements) }
+        case (.mysql, nil): try await off.run { try MySQLRun.apply(c, statements) }
         }
     }
 
@@ -364,6 +353,12 @@ enum PostgresRun {
         return section(out.last ?? "")
     }
 
+    /// BEGIN, the statements, COMMIT: ON_ERROR_STOP ends psql at the first failure, its session rolling back.
+    static func apply(_ c: DatabaseConnection, _ statements: [String]) throws -> Int {
+        let out = try run(c, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
+        return out.dropLast().map { section($0).changed ?? 0 }.reduce(0, +)
+    }
+
     private static let other = "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')"
     static let schemaColumns = """
         SELECT CASE WHEN c.table_schema = 'public' THEN c.table_name ELSE c.table_schema || '.' || c.table_name END,
@@ -430,7 +425,8 @@ enum PostgresRun {
             argv += ["-c", command]
         }
         let env = DatabaseEngines.environment([
-            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password
+            // UTC as over the wire (`PostgresText`): a row found by its values compares the same text
+            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password, "PGTZ": "UTC"
         ])
         let out = try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout, limit: 32 << 20)
         guard out.status == 0, !out.timedOut else {
@@ -561,6 +557,13 @@ enum MySQLRun {
     static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
         let out = try run(c, [counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
         return out.last.map(withCount) ?? DatabaseRows()
+    }
+
+    /// One script: mysql stops at the first error (no --force), so COMMIT never comes and its session rolls back.
+    static func apply(_ c: DatabaseConnection, _ statements: [String]) throws -> Int {
+        let out = try run(
+            c, ["START TRANSACTION"] + statements.map(counted) + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
+        return out.dropFirst().dropLast().map { withCount($0).changed ?? 0 }.reduce(0, +)
     }
 
     /// The statement and, right after it (anything between would reset it), the rows it changed.

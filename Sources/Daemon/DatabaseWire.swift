@@ -135,7 +135,8 @@ enum PostgresWire {
             host: host, port: db.port ?? 5432, username: user, password: password, database: db.database,
             tls: db.ssl == "disable" ? .disable : db.ssl == "require" ? .require(context) : .prefer(context))
         config.options.connectTimeout = .seconds(8)
-        config.options.additionalStartupParameters = [("application_name", "kelp")]
+        // UTC: timestamptz as `PostgresText` writes it, so a row found by its values (`::text`) compares the same
+        config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
         let conn: PostgresConnection
         do {
             conn = try await PostgresConnection.connect(

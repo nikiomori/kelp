@@ -516,6 +516,21 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     let change = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'y' WHERE id > 1"))
     #expect(change.changed == 2)
+    // The tab's edits: one transaction, the rows each changed counted (DuckDB prints no count of its own).
+    let saved = try await w.c.call(
+        DatabaseApply(
+            worktreeId: wt.id, database: "shop",
+            statements: ["UPDATE orders SET note = 'z' WHERE id = 1", "DELETE FROM orders WHERE id = 99"]))
+    #expect(saved.changed == 1)
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(
+            DatabaseApply(
+                worktreeId: wt.id, database: "shop",
+                statements: ["UPDATE orders SET note = 'w' WHERE id = 1", "INSERT INTO orders VALUES (1, 1, 'dup')"]))
+    }
+    let after = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT note FROM orders WHERE id = 1"))
+    #expect(after.rows == [["z"]])
     // -safe: no file but this one, and no dot-command reaching past it.
     #expect(throws: DatabaseFailure.self) {
         try DuckDBRun.read(path, "SELECT * FROM read_csv('/etc/passwd')", timeout: 10)

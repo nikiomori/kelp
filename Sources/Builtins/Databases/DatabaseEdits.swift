@@ -70,7 +70,9 @@ struct DatabaseEdits: Equatable {
             if keyed { return " WHERE " + match(row) }
             switch engine {
             case .mysql, .appwrite: return " WHERE " + match(row) + " LIMIT 1"   // Appwrite always has its $id
-            case .postgres: return " WHERE ctid = (SELECT ctid FROM \(name) WHERE \(match(row)) LIMIT 1)"
+            case .postgres:
+                // ctid is unique within one table only: a partitioned or inherited one has a row of that ctid in each
+                return " WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM \(name) WHERE \(match(row)) LIMIT 1)"
             case .sqlite, .duckdb: return " WHERE rowid = (SELECT rowid FROM \(name) WHERE \(match(row)) LIMIT 1)"
             }
         }
@@ -91,10 +93,12 @@ struct DatabaseEdits: Equatable {
         return deletes + updates + inserts
     }
 
-    /// A table or column name, quoted for the engine: "orders", `orders` in MySQL; "public.orders" as two parts.
+    /// A table or column name, quoted for the engine: "orders", `orders` in MySQL. Postgres names a table outside
+    /// public by its schema ("audit.orders", as its schema lists it): two parts; elsewhere a "." is the name's own.
     static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String {
         let quote: Character = engine == .mysql ? "`" : "\""
-        return name.split(separator: ".").map { part in
+        let parts = engine == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
+        return parts.map { part in
             String(quote) + part.replacingOccurrences(of: String(quote), with: String(quote) + String(quote))
                 + String(quote)
         }.joined(separator: ".")

@@ -17,14 +17,16 @@ import Testing
     // No primary key: the row found by all its values, one row touched
     #expect(
         edits.statements(table: "t", engine: .postgres, columns: ["a", "b", "c"], primary: [], rows: rows) == [
-            #"UPDATE "t" SET "b" = 'o''k', "c" = NULL WHERE ctid = (SELECT ctid FROM "t" WHERE "a"::text = '2' AND "#
+            #"UPDATE "t" SET "b" = 'o''k', "c" = NULL WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM "t" "#
+                + #"WHERE "a"::text = '2' AND "#
                 + #""b"::text = 'it''s' AND "c"::text = 'x' LIMIT 1)"#
         ])
     #expect(
         edits.statements(table: "t", engine: .mysql, columns: ["a", "b", "c"], primary: [], rows: rows) == [
             "UPDATE `t` SET `b` = 'o''k', `c` = NULL WHERE `a` = '2' AND `b` = 'it''s' AND `c` = 'x' LIMIT 1"
         ])
-    #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public`.`my``t`")
+    #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public.my``t`")   // a "." of MySQL's is the name's
+    #expect(DatabaseEdits.name("audit.my\"t", .postgres) == #""audit"."my""t""#)
     #expect(DatabaseEdits.literal(#"a\b"#, .mysql) == #"'a\\b'"#)
 }
 

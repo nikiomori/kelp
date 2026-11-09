@@ -28,6 +28,17 @@ enum DuckDBRun {
         return rows
     }
 
+    /// The user's edits in one transaction (-bail stops before COMMIT): the rows each changed, as `.changes` prints
+    /// them.
+    static func apply(_ path: String, _ statements: [String]) throws -> Int {
+        let out = try run(
+            path, readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout,
+            changes: true)
+        return out.compactMap { section in
+            section.firstMatch(of: /changes:\s+(\d+)/).flatMap { Int($0.1) }
+        }.reduce(0, +)
+    }
+
     static let schemaColumns = """
         SELECT c.table_name, c.column_name, c.data_type, c.is_nullable,
           EXISTS (SELECT 1 FROM duckdb_constraints() k WHERE k.table_name = c.table_name
@@ -54,14 +65,18 @@ enum DuckDBRun {
     }
 
     /// The statements as a script on stdin, a marker printed after each; it stops at the first error (`-bail`).
-    /// `-safe`: no dot-command that reaches past the file (`.shell`, `.open`, `.read`) and no file but this one (ATTACH,
-    /// COPY, read_csv), locked against a SET that would lift it; `-no-agent` keeps the CSV whatever AI_AGENT says.
-    static func run(_ path: String, readOnly: Bool, _ statements: [String], timeout: TimeInterval) throws -> [String] {
+    /// `-safe`: no dot-command that reaches past the file (`.shell`, `.open`, `.read`) and no file but this one
+    /// (ATTACH, COPY, read_csv), locked against a SET that would lift it; `-no-agent` keeps the CSV whatever AI_AGENT
+    /// says.
+    /// `changes`: each statement followed by the rows it changed ("changes: 1   total_changes: 3").
+    static func run(
+        _ path: String, readOnly: Bool, _ statements: [String], timeout: TimeInterval, changes: Bool = false
+    ) throws -> [String] {
         let duckdb = try DatabaseEngines.client("duckdb", also: ["/opt/homebrew/bin", "/usr/local/bin"])
         let argv =
             [duckdb, "-safe", "-no-agent", "-bail", "-csv", "-nullvalue", PostgresRun.null]
             + (readOnly ? ["-readonly"] : []) + [path]
-        let script = statements.map { $0 + ";\n.print " + marker + "\n" }.joined()
+        let script = (changes ? ".changes on\n" : "") + statements.map { $0 + ";\n.print " + marker + "\n" }.joined()
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: DatabaseEngines.environment([:]), stdin: Data(script.utf8),
             timeLimit: timeout + 5, limit: 32 << 20)

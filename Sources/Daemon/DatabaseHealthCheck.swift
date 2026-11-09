@@ -97,7 +97,7 @@ extension DatabaseStart: AsyncHandled {
 }
 
 extension Databases {
-    /// The tab's edits, as the user's: each statement one (SQLText.single), all in one transaction.
+    /// The tab's edits, as the user's: each statement one (SQLText.single), all in one transaction (`apply`).
     func apply(_ q: DatabaseApply) async throws -> QueryResult {
         guard !q.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
         let (wid, name) = (q.worktreeId, q.database)
