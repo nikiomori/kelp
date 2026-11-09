@@ -36,7 +36,8 @@ enum MySQLWire {
             result.changed = try await changed(conn)
             guard let allowed else { return result }
             guard result.changed == allowed else {
-                _ = try await run(conn, "ROLLBACK")
+                // A ROLLBACK that fails (the connection gone) rolls back all the same: the count is what's said
+                await DatabaseWire.close { _ = try await run(conn, "ROLLBACK") }
                 throw DatabaseEngines.notAsAllowed(result.changed, allowed)
             }
             _ = try await run(conn, "COMMIT")

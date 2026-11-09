@@ -172,7 +172,8 @@ extension SettingsSet: Handled {
     static let usersOnly = [
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
         SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,
-        SettingKeys.databaseAccess.key   // what agents may do to the databases found: the Allow it would lift
+        SettingKeys.databaseAccess.key,   // what agents may do to the databases found: the Allow it would lift
+        SettingKeys.databaseTimeout.key   // how long an agent's read may hold a database
     ]
     var notForAgents: String? {
         Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"

@@ -68,11 +68,16 @@ import Testing
 @Test func whatReachesPastAMySQLDatabaseIsNamed() {
     for sql in [
         "SELECT * FROM users INTO OUTFILE '/tmp/u.csv'", "SELECT 0x3c3f INTO\nDUMPFILE '/var/www/x.php'",
-        "SELECT load_file ('/etc/passwd')", "LOAD DATA LOCAL INFILE '/etc/hosts' INTO TABLE t"
+        "SELECT load_file ('/etc/passwd')", "LOAD DATA LOCAL INFILE '/etc/hosts' INTO TABLE t",
+        // a comment is a space to MySQL: split by one, it's the same statement
+        "SELECT * FROM t INTO/**/OUTFILE '/tmp/x'", "SELECT LOAD_FILE/* x */('/etc/passwd')",
+        "SELECT 1 INTO -- x\nDUMPFILE '/tmp/y'", "SELECT 1 INTO#x\nOUTFILE '/tmp/z'",
+        "LOAD/**/DATA INFILE 'x' INTO TABLE t"
     ] {
         #expect(SQLText.pastTheDatabase(sql, .mysql) != nil, "\(sql)")
     }
     #expect(SQLText.pastTheDatabase("SELECT outfile, load_files FROM t", .mysql) == nil)
+    #expect(SQLText.uncommented("SELECT a/* x */FROM t -- y\n", SQLText.Reading()) == "SELECT a FROM t  ")
 }
 
 /// A MySQL read through its client sets the server's own time limit by the name this server has (MySQL's in ms,

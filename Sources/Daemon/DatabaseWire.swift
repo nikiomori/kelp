@@ -144,7 +144,8 @@ enum PostgresWire {
             try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             let result = try await command(conn, sql)
             guard result.changed == allowed else {
-                try await run(conn, "ROLLBACK")
+                // A ROLLBACK that fails (the connection gone) rolls back all the same: the count is what's said
+                await DatabaseWire.close { try await run(conn, "ROLLBACK") }
                 throw DatabaseEngines.notAsAllowed(result.changed, allowed)
             }
             try await run(conn, "COMMIT")

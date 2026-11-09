@@ -27,7 +27,35 @@ enum SQLText {
     /// The statements, each trimmed, empty ones (a trailing ";", only a comment) dropped.
     static func statements(_ sql: String, _ reading: Reading = Reading()) -> [String] {
         let chars = Array(sql)
-        var parts: [String] = [], start = 0, i = 0
+        var parts: [String] = [], start = 0
+        walk(chars, reading, comment: { _ in }) { at in
+            parts.append(String(chars[start..<at]))
+            start = at + 1
+        }
+        if start < chars.count { parts.append(String(chars[start...])) }
+        return parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !code($0).isEmpty }
+    }
+
+    /// The statement with each comment a space, as its engine reads it (`reading`): what a text check reads, since
+    /// the engine takes `INTO/**/OUTFILE` as `INTO OUTFILE`.
+    static func uncommented(_ sql: String, _ reading: Reading) -> String {
+        let chars = Array(sql)
+        var out = "", from = 0
+        walk(
+            chars, reading,
+            comment: { range in
+                out += String(chars[from..<range.lowerBound]) + " "
+                from = range.upperBound
+            }
+        ) { _ in }
+        return out + String(chars[from...])
+    }
+
+    /// Reads `chars` as `reading` says, skipping quotes: each comment's range, and each ";" that ends a statement.
+    private static func walk(
+        _ chars: [Character], _ reading: Reading, comment: (Range<Int>) -> Void, ends: (Int) -> Void
+    ) {
+        var i = 0
         func at(_ index: Int) -> Character? { index < chars.count ? chars[index] : nil }
         func skip(to end: String, from index: Int) -> Int {
             let target = Array(end)
@@ -75,9 +103,17 @@ enum SQLText {
                 }
                 i = end + 1
             case "-" where next == "-" && (!reading.mysql || at(i + 2).map { $0.isWhitespace } ?? true):
+                let from = i
                 i = skip(to: "\n", from: i + 2)
-            case "#" where reading.mysql: i = skip(to: "\n", from: i + 1)
-            case "/" where next == "*": i = endOfComment(from: i + 2)
+                comment(from..<i)
+            case "#" where reading.mysql:
+                let from = i
+                i = skip(to: "\n", from: i + 1)
+                comment(from..<i)
+            case "/" where next == "*":
+                let from = i
+                i = endOfComment(from: i + 2)
+                comment(from..<i)
             case "$" where reading.dollar && !afterWord:
                 // $$ or $tag$: a Postgres dollar-quoted string, to the same tag (a tag doesn't start with a digit).
                 var end = i + 1
@@ -92,14 +128,11 @@ enum SQLText {
                     i += 1
                 }
             case ";":
-                parts.append(String(chars[start..<i]))
-                start = i + 1
+                ends(i)
                 i += 1
             default: i += 1
             }
         }
-        if start < chars.count { parts.append(String(chars[start...])) }
-        return parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !code($0).isEmpty }
     }
 
     /// The statement without its comments, for telling what it is.
@@ -159,6 +192,14 @@ enum SQLText {
     /// nil: none of it. A text check, so a function of the database's own can still do these: the role it connects as
     /// bounds that (a production database refuses agents a superuser, `Databases.query`).
     static func pastTheDatabase(_ sql: String, _ engine: DatabaseInfo.Engine) -> String? {
+        // Read as the engine reads it, each comment a space: every way it may (`Reading.of`)
+        for reading in Reading.of(engine) {
+            if let why = pastTheDatabase(read: uncommented(sql, reading), engine) { return why }
+        }
+        return nil
+    }
+
+    private static func pastTheDatabase(read sql: String, _ engine: DatabaseInfo.Engine) -> String? {
         // DuckDB's -safe holds it to its file
         if engine == .mysql { return pastTheMySQLDatabase(sql) }
         guard engine == .postgres else { return nil }

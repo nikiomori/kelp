@@ -127,4 +127,11 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     #expect(asked("UPDATE ONLY items SET a = 1") == "Allow changing 2 rows of items in app?")
     let ddl = Databases.question("CREATE TABLE t (a int)", database: "app", changed: 0)
     #expect(ddl == "Allow CREATE TABLE t (a int) in app?")
+    // A long one says it's cut, and where the rest is: what's allowed from the Dock isn't only its first line
+    let body = (1...20).map { "  PERFORM step\($0);" }.joined(separator: "\n")
+    let function = Databases.question(
+        "CREATE FUNCTION tidy() RETURNS void AS $$\nBEGIN\n\(body)\nEND $$ LANGUAGE plpgsql", database: "app",
+        changed: nil)
+    #expect(function.hasPrefix("Allow CREATE FUNCTION tidy() RETURNS void AS $$ BEGIN PERFORM step1;"))
+    #expect(function.hasSuffix("(23 lines, whole in Databases) in app?"))
 }

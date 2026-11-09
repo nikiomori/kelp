@@ -678,6 +678,10 @@ private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String
             "nor lift the Allow for every database found"
         ),
         (
+            .session(mine.id), SettingsSet(key: SettingKeys.databaseTimeout.key, value: .double(300)), false,
+            "nor give its reads longer to hold a database"
+        ),
+        (
             .session(mine.id), WatchStart(.databases, r.wt.id), false,
             "the databases' activity is the user's (hidden ones, All My Projects, their statements)"
         ),

@@ -221,9 +221,13 @@ extension Databases {
             let rows = "\(changed) \(changed == 1 ? "row" : "rows")"
             return "Allow changing \(rows)\(table(sql).map { " of \($0)" } ?? "") in \(database)?"
         }
-        let line = SQLText.code(sql).split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
-        let short = line.count > 80 ? String(line.prefix(79)) + "…" : line
-        return "Allow \(short) in \(database)?"
+        // The whole statement on one line; one too long to read there says it's cut, and where the rest is
+        let code = SQLText.code(sql)
+        let whole = code.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard whole.count > 160 else { return "Allow \(whole) in \(database)?" }
+        let lines = code.split(whereSeparator: \.isNewline).count
+        let rest = lines > 1 ? "\(lines) lines" : "\(whole.count) characters"
+        return "Allow \(whole.prefix(140))… (\(rest), whole in Databases) in \(database)?"
     }
 
     /// The table a change names: UPDATE orders, DELETE FROM "orders", INSERT OR REPLACE INTO public.orders.
