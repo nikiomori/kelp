@@ -306,6 +306,12 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     let few = try await dbs.query(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1 UNION SELECT 2"), origin: agent.id)
     #expect(few.rows.count == 1 && few.total == 2)
+    // Past what Settings offers (settings.json, an agent's `kelp settings set`): held to it, not a trap in kelpd.
+    _ = try await w.c.call(SettingsSet(key: SettingKeys.databaseRows.key, value: .double(1e300)))
+    _ = try await w.c.call(SettingsSet(key: SettingKeys.databaseTimeout.key, value: .double(1e300)))
+    let all = try await dbs.query(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1 UNION SELECT 2"), origin: agent.id)
+    #expect(all.rows.count == 2)
 }
 
 /// One added by hand keeps its password in the keychain, never in what's sent.

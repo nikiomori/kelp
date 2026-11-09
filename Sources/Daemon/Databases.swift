@@ -389,7 +389,8 @@ final class Databases: Sendable {
         let access = forAgent ? c.database.agentAccess : .free
         do {
             let started = Date()
-            let timeout = max(1, sessions.settings[SettingKeys.databaseTimeout])
+            // As Settings offers them: settings.json (or an agent's `kelp settings set`) can say anything
+            let timeout = min(300, max(1, sessions.settings[SettingKeys.databaseTimeout]))
             guard SQLText.mayTryAsRead(sql, c.database.engine) else { throw DatabaseFailure.change }
             let rows = try await DatabaseEngines.read(c, sql, timeout: timeout, off: offloads)
             return finish(q, &run, rows, started: started)
@@ -440,7 +441,9 @@ final class Databases: Sendable {
         // The user's own reads (a page of a table, a count) keep no rows: nothing reads them again
         note(q.worktreeId, run, result: run.session == nil && rows.changed == nil ? nil : result)
         var sent = result
-        sent.rows = Array(result.rows.prefix(max(0, q.limit ?? Int(sessions.settings[SettingKeys.databaseRows]))))
+        let rows =
+            q.limit ?? Int(min(Double(DatabaseEngines.keep), max(0, sessions.settings[SettingKeys.databaseRows])))
+        sent.rows = Array(result.rows.prefix(max(0, rows)))
         return sent
     }
 
