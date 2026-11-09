@@ -57,6 +57,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.menu = NSMenu()
         table.menu?.delegate = self
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
+        table.registerForDraggedTypes([.fileURL])   // a .sqlite or .duckdb file dropped in: Add Database with it
         search.placeholderString = String(localized: "Find a Table")
         search.delegate = self
         search.controlSize = .small
@@ -263,6 +264,33 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         return Self.mention(t.name, in: key) as NSString
     }
 
+    func tableView(
+        _ tableView: NSTableView, validateDrop info: any NSDraggingInfo, proposedRow row: Int,
+        proposedDropOperation op: NSTableView.DropOperation
+    ) -> NSDragOperation {
+        Self.droppedFile(info) == nil ? [] : .copy
+    }
+
+    func tableView(
+        _ tableView: NSTableView, acceptDrop info: any NSDraggingInfo, row: Int,
+        dropOperation: NSTableView.DropOperation
+    ) -> Bool {
+        guard let path = Self.droppedFile(info) else { return false }
+        let address: DatabaseAddress
+        do { address = try DatabaseAddress.parse(path) } catch { return false }   // a path always reads: never here
+        let wid = workspace, app = app
+        Task { await DatabaseSheet.run(app, worktreeId: wid, adding: address) }
+        return true
+    }
+
+    private static func droppedFile(_ info: any NSDraggingInfo) -> String? {
+        let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
+        return urls.first {
+            ["sqlite", "sqlite3", "db", "db3", "duckdb", "ddb"].contains($0.pathExtension.lowercased())
+        }?
+        .path
+    }
+
     static func mention(_ table: String, in key: String) -> String {
         let db = key.hasPrefix("~") ? String(key.dropFirst()) : key
         return "the table \(table) in \(db) (kelp db schema \(db) \(table))"
@@ -399,6 +427,14 @@ enum DatabaseMenu {
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Address")) { copyText(db.address) }
+        if !db.engine.isFile {   // another database of the same server: the form, filled in, under a new name
+            menu.add(String(localized: "Duplicate…")) {
+                var copy = db
+                copy.name = ""
+                copy.source = nil
+                Task { await DatabaseSheet.run(app, worktreeId: worktreeId, adding: DatabaseAddress(database: copy)) }
+            }
+        }
         if db.source == nil {
             menu.add(String(localized: "Edit…")) {
                 Task { await DatabaseSheet.run(app, worktreeId: worktreeId, editing: db) }

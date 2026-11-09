@@ -35,6 +35,13 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         _ = await runSheet(sheet.window)
     }
 
+    /// Straight to the form, filled in: a file dropped on the panel, a database duplicated.
+    static func run(_ app: AppModel, worktreeId: String, adding address: DatabaseAddress) async {
+        let sheet = DatabaseSheet(app: app, worktreeId: worktreeId)
+        sheet.openForm(address)
+        _ = await runSheet(sheet.window)
+    }
+
     private init(app: AppModel, worktreeId: String) {
         self.app = app
         self.worktreeId = worktreeId

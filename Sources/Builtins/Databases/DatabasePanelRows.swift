@@ -79,7 +79,29 @@ struct DatabasePanelRows {
             }
             views.append(access)
         }
-        return line(views, inset: Metrics.gap, trailing: Metrics.insetTrailing)
+        let row = line(views, inset: Metrics.gap, trailing: Metrics.insetTrailing)
+        row.toolTip = card(db, health: health)
+        return row
+    }
+
+    /// Where it is, whether it answers, who ran something on it last and when.
+    private func card(_ db: DatabaseInfo, health: DatabaseHealth?) -> String {
+        let runs = app.latest(DatabasesEvent.self, panel.workspace)?.runs.filter { $0.database == db.name } ?? []
+        let last = runs.first.map { run in
+            let who = run.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "You")
+            return String(localized: "Last: \(who), \(shortAgo(run.at))")
+        }
+        let state: String? =
+            switch health?.state {
+            case .ok: String(localized: "Answers")
+            case .some: health?.reason
+            case nil: nil
+            }
+        return [
+            db.address, db.ssh.map { String(localized: "through \($0)") }, state, last,
+            String(localized: "Agents: \(DatabaseLook.title(db.agentAccess))")
+        ]
+        .compactMap { $0 }.joined(separator: "\n")
     }
 
     /// Under a database that doesn't answer: why, and Start when compose can start it.
