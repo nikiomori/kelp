@@ -24,6 +24,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     }
 
     private let app: AppModel
+    private let session: String
     private let watched: Watched
     private let header = Header()
     private let grip = Grip()
@@ -55,6 +56,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     /// `watch`: an agent, whose hooks and commands fill it; a terminal's bar stays empty.
     init(session: String, app: AppModel, watch: Bool) {
         self.app = app
+        self.session = session
         watched = Watched(.commands, in: app)
         super.init(frame: .zero)
         let line = NSBox()
@@ -350,10 +352,35 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         case .run(let run):
             open(run)
             layOut(animated: true)
-        case .command(let command):
-            popover.contentViewController = CommandOutput(command)
-            popover.show(relativeTo: table.rect(ofRow: row), of: table, preferredEdge: .minY)
+        case .command(let command) where command.command.hasPrefix("kelp db query"):
+            Task {
+                if await !openDatabaseRun(command) { showOutput(command, row: row) }
+            }
+        case .command(let command): showOutput(command, row: row)
         }
+    }
+
+    private func showOutput(_ command: AgentCommand, row: Int) {
+        popover.contentViewController = CommandOutput(command)
+        popover.show(relativeTo: table.rect(ofRow: row), of: table, preferredEdge: .minY)
+    }
+
+    /// A statement it ran with `kelp db query`: its rows in the database's tab, found among what ran on the workspace's
+    /// databases (`db.activity`, newest first) as the first of this agent's since the command started. False when it
+    /// isn't there (the daemon restarted since, or it didn't get as far as running).
+    private func openDatabaseRun(_ command: AgentCommand) async -> Bool {
+        guard let wid = app.session(session)?.worktreeId,
+            let activity = await app.quiet(DatabaseActivity(worktreeId: wid))
+        else { return false }
+        let end = (command.ended ?? Date()).addingTimeInterval(1)
+        guard
+            let run = activity.runs.last(where: {
+                $0.session == session && $0.at >= command.started.addingTimeInterval(-1) && $0.at <= end
+            })
+        else { return false }
+        let name = run.database.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? run.database
+        app.workbench.open("db:\(wid)/\(name)?run=\(run.id)")
+        return true
     }
 
     /// A command's row.
@@ -364,7 +391,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         switch items[row] {
         case .run(let run): add(run: run, to: menu)
         case .command(let command):
-            menu.add(String(localized: "Show Output")) { [weak self] in self?.showItem(row) }
+            menu.add(String(localized: "Show Output")) { [weak self] in self?.showOutput(command, row: row) }
             addCopy(to: menu, command.command)
         }
     }
