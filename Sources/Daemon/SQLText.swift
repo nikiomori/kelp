@@ -150,16 +150,22 @@ enum SQLText {
     /// What reaches past a Postgres database to the server it runs on, and a read-only transaction lets through: COPY
     /// (to a file or a program), a DO block (whose EXECUTE builds a statement no text check sees), the functions that
     /// read or write the server's files or end others' sessions, and the built-in ones that run a query given as text
-    /// (`query_to_xml('pg_read' || '_file(…)', …)`, `ts_stat`), which no text check reads. Refused to agents with why;
+    /// (`query_to_xml('pg_read' || '_file(…)', …)`, `ts_stat`), which no text check reads, and a name spelled in
+    /// Unicode escapes (`U&"…"`), which the check couldn't read either. Refused to agents with why;
     /// nil: none of it. A text check, so a function of the database's own can still do these: the role it connects as
     /// bounds that (a production database refuses agents a superuser, `Databases.query`).
     static func pastTheDatabase(_ sql: String, _ engine: DatabaseInfo.Engine) -> String? {
-        // DuckDB's -safe holds it to its file; MySQL's FILE privilege is the role's
+        // DuckDB's -safe holds it to its file
+        if engine == .mysql { return pastTheMySQLDatabase(sql) }
         guard engine == .postgres else { return nil }
         switch verb(sql) {
         case "COPY": return "COPY reaches the server's files and programs: read with SELECT instead."
         case "DO": return "A DO block runs statements Kelp can't read first: run each as a statement of its own."
         default: break
+        }
+        // U&"pg_read_fil\0065": a name spelled in escapes, which no word check reads
+        if sql.range(of: #"\bU&\s*["']"#, options: [.regularExpression, .caseInsensitive]) != nil {
+            return "Kelp doesn't run U&'…' or U&\"…\" for agents: write the name or text as it is."
         }
         let pattern =
             #"\b(lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_\w+|pg_stat_file|pg_promote|"#
@@ -167,6 +173,14 @@ enum SQLText {
             + #"query_to_xml\w*|query_to_xmlschema|ts_stat|ts_rewrite)\b"#
         guard let found = sql.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else { return nil }
         return "\(sql[found].lowercased()) can reach past the database to its server: Kelp doesn't run it for agents."
+    }
+
+    /// MySQL's own way past the database to the server's files, which a read-only transaction lets through with the
+    /// FILE privilege: SELECT … INTO OUTFILE / DUMPFILE, LOAD_FILE(), LOAD DATA … INFILE.
+    private static func pastTheMySQLDatabase(_ sql: String) -> String? {
+        let pattern = #"\b(INTO\s+(OUTFILE|DUMPFILE)|LOAD_FILE\s*\(|LOAD\s+(DATA|XML)\b)"#
+        guard sql.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil else { return nil }
+        return "It reads or writes the server's files: Kelp doesn't run it for agents."
     }
 
     /// Whether it may run as a read, the database refusing a change in its read-only transaction. Not MySQL's DDL nor

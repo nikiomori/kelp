@@ -54,12 +54,25 @@ import Testing
         "COPY (SELECT 1) TO PROGRAM 'sh -c id'", "copy t from '/etc/passwd'",
         "DO $$ BEGIN EXECUTE 'CO' || 'PY t TO PROGRAM ''id'''; END $$", "SELECT lo_export(1, '/tmp/x')",
         "SELECT pg_catalog.PG_READ_FILE('/etc/passwd')", "SELECT pg_terminate_backend(pid) FROM pg_stat_activity",
-        "SELECT * FROM dblink('host=x', 'SELECT 1') AS t(a int)"
+        "SELECT * FROM dblink('host=x', 'SELECT 1') AS t(a int)", #"SELECT U&"pg_read_fil\0065"('/etc/passwd')"#,
+        #"SELECT u& "pg_ls_di!0072" UESCAPE '!' ('/')"#
     ] {
         #expect(SQLText.pastTheDatabase(sql, .postgres) != nil, "\(sql)")
     }
     #expect(SQLText.pastTheDatabase("SELECT copy, program FROM t WHERE note = 'do it'", .postgres) == nil)
     #expect(SQLText.pastTheDatabase("COPY t TO 'x.csv'", .duckdb) == nil)   // -safe holds DuckDB to its file
+}
+
+/// MySQL's way to the server's files with the FILE privilege, which a read-only transaction lets through, is refused
+/// to agents; a column named like it isn't.
+@Test func whatReachesPastAMySQLDatabaseIsNamed() {
+    for sql in [
+        "SELECT * FROM users INTO OUTFILE '/tmp/u.csv'", "SELECT 0x3c3f INTO\nDUMPFILE '/var/www/x.php'",
+        "SELECT load_file ('/etc/passwd')", "LOAD DATA LOCAL INFILE '/etc/hosts' INTO TABLE t"
+    ] {
+        #expect(SQLText.pastTheDatabase(sql, .mysql) != nil, "\(sql)")
+    }
+    #expect(SQLText.pastTheDatabase("SELECT outfile, load_files FROM t", .mysql) == nil)
 }
 
 /// A MySQL read through its client sets the server's own time limit by the name this server has (MySQL's in ms,
