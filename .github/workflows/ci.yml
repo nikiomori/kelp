@@ -24,9 +24,11 @@ jobs:
         include:
           - name: Build and test
             cache: tests
-            build: swift build --manifest-cache local --build-tests
+            # Built by the test run itself: each `swift` start loads the package again, and each build copies the Swift
+            # libraries into every test bundle and signs them, nothing compiled or not: 40 s for a second one.
+            build: "true"
             # One at a time: the app's tests share one main thread, and side by side their waits ran out on a busy one
-            test: swift test --manifest-cache local --skip-build --no-parallel --skip DaemonTests   # those: the job below
+            test: swift test --manifest-cache local --no-parallel --skip DaemonTests   # those: the job below
           - name: Release build
             cache: release
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
@@ -36,7 +38,11 @@ jobs:
           - name: Daemon under Thread Sanitizer
             cache: tsan
             # Only what DaemonTests needs, sanitized: kelp and kelpd too (the PTY tests run them), not the app.
-            build: for p in DaemonTests kelp kelpd; do swift build --manifest-cache local --sanitize=thread --product $p; done
+            # tmux (Kelp's tmux terminals, a pane's caller: those tests skip without it) installs while the build runs.
+            build: |
+              (command -v tmux || brew install tmux) & tmux=$!
+              for p in DaemonTests kelp kelpd; do swift build --manifest-cache local --sanitize=thread --product $p; done
+              wait $tmux
             # `swift test --skip-build` wants every test bundle built, so its helper runs this one as swift test would.
             # Limit: the helper is SwiftPM's own, not an interface; if it moves, use `swift test --sanitize=thread`.
             test: |
@@ -49,8 +55,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
-      # The tmux tests (Kelp's tmux terminals, a pane's caller) skip without it.
-      - run: command -v tmux || brew install tmux
+      # SwiftPM keys its manifest cache by the whole environment, and a runner's differs in every step (GITHUB_SHA, the
+      # step's own files): every `swift` compiled each package's manifest again, 12 s on three cores. This one is the same,
+      # so a variable a build or a test run needs is named here: nothing else of the workflow's reaches them.
+      - name: swift with the same environment every time
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/swift" <<EOF
+          #!/bin/sh
+          exec env -i HOME="$HOME" USER="$USER" SHELL="$SHELL" TMPDIR="$TMPDIR" PATH="$PATH" \\
+            IgnoreFileSystemDeviceInodeChanges=$IgnoreFileSystemDeviceInodeChanges \\
+            SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH=$SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH /usr/bin/swift "\$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/swift"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT).
       - id: ghostty
         uses: actions/cache/restore@v4
