@@ -106,6 +106,9 @@ final class AgentStrip {
     /// Whether Kelp is the app in front, where the strip steps aside. A test's own: another test running beside it
     /// may bring the test process to the front.
     var front: () -> Bool = { NSApp.isActive }
+    /// Whether it moves and fades, or is where it ends at once: a test's own, as a main thread busy with other tests runs
+    /// no animation to its end.
+    var animates = true
     var panelForTests: NSPanel? { panel }
     var isOff: Bool { app.settings[SettingKeys.dockStrip] == "off" }
 
@@ -352,6 +355,11 @@ final class AgentStrip {
         tip?.hide()
         line.hide()
         guard let panel, panel.isVisible else { return }
+        guard animates else {
+            panel.alphaValue = 0
+            panel.orderOut(nil)
+            return
+        }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Motion.duration(Motion.fast)
             panel.animator().alphaValue = 0

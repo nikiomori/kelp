@@ -73,6 +73,7 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         _ = NSApplication.shared
         let strip = AgentStrip(app: rig.app)
         strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
         defer { StripPlace.save(nil) }
         strip.start()
         rig.app.sessions = [session(rig.workspace.id, .working)]
@@ -102,6 +103,7 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         _ = NSApplication.shared
         let strip = AgentStrip(app: rig.app)
         strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
         defer { StripPlace.save(nil) }
         strip.start()
         rig.app.sessions = [session(rig.workspace.id, .working)]

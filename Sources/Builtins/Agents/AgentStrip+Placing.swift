@@ -80,6 +80,12 @@ extension AgentStrip {
         let size = NSSize(width: content.fittingSize.width, height: StripButton.stripHeight)
         let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
         let frame = behind ?? StripModel.frame(size, in: area, at: corner)
+        guard animates else {   // where it ends, at once
+            window.setFrame(frame, display: true)
+            window.alphaValue = 1
+            if appearing { window.orderFrontRegardless() }
+            return
+        }
         guard appearing else {
             // nothing moved: no animation to run
             guard window.frame != frame || window.alphaValue != 1 else { return }
