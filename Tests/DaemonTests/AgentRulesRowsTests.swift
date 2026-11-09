@@ -33,9 +33,15 @@ import Testing
         (typed, SessionMarkRead(id: theirs.id), false, "nor marks read what the user started"),
         (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set")
     ]
+    try expectRows(w.d, table)
+}
+
+/// Each row's call allowed or refused by the rules (`RPCError.refused`), not by any error: a missing record or a store's
+/// would pass for a refusal.
+func expectRows(_ daemon: Daemon, _ table: [(Caller, any Answered, Bool, String)]) throws {
     for (caller, m, allowed, why) in table {
         var refused = false
-        do { try w.d.allow(m, conn: 0, caller: caller) } catch let e as RPCError where e.isRefusal {
+        do { try daemon.allow(m, conn: 0, caller: caller) } catch let e as RPCError where e.isRefusal {
             refused = true
         } catch {
             Issue.record("\(why): not a refusal but \(error)")
@@ -45,7 +51,7 @@ import Testing
 }
 
 /// Each method agents may call has a row in a rules table (AgentRules*Tests.swift), so taking it off the list fails
-/// one: those without are counted, a ceiling that only goes down (lower it when a row is added).
+/// one: none is without.
 @Test func eachMethodAgentsMayCallHasARow() throws {
     let folder = (#filePath as NSString).deletingLastPathComponent
     let text = try FileManager.default.contentsOfDirectory(atPath: folder)
@@ -53,5 +59,5 @@ import Testing
         .map { try String(contentsOfFile: folder + "/" + $0, encoding: .utf8) }.joined()
     let untested = AgentRules.methods.compactMap { Daemon.methods[$0] }.map { String(describing: $0) }
         .filter { !text.contains($0 + "(") }.sorted()
-    #expect(untested.count == 103, "\(untested.count) without a row: \(untested.joined(separator: ", "))")
+    #expect(untested.isEmpty, "\(untested.count) without a row: \(untested.joined(separator: ", "))")
 }
