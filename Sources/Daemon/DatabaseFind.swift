@@ -19,19 +19,41 @@ enum DatabaseFind {
 
     /// Every database the files at `root` name, each name once.
     static func find(in root: String) -> [FoundDatabase] {
-        var found: [FoundDatabase] = []
-        for name in composeFiles {
-            if let text = read(root, name) { found += compose(text, source: name) }
+        let envs = names(in: root).filter { $0 == ".env" || $0.hasPrefix(".env.") }.sorted()
+        let files = (composeFiles + envs + ["config/database.yml"]).compactMap { name in
+            read(root, name).map { (name, $0) }
         }
-        let envs = names(in: root).filter { $0 == ".env" || $0.hasPrefix(".env.") }
-        for name in envs.sorted() where !name.hasSuffix(".example") && !name.hasSuffix(".sample") {
-            if let text = read(root, name) { found += env(text, source: name, root: root) }
+        return unique(parse(files, root: root) + sqliteFiles(in: root))
+    }
+
+    /// What files of the project say, by their path in it: compose files, .env files, config/database.yml.
+    static func parse(_ files: [(name: String, text: String)], root: String) -> [FoundDatabase] {
+        files.flatMap { name, text -> [FoundDatabase] in
+            if composeFiles.contains(name) { return compose(text, source: name) }
+            if name == "config/database.yml" { return rails(text, source: name, root: root) }
+            guard name == ".env" || name.hasPrefix(".env."), !name.hasSuffix(".example"), !name.hasSuffix(".sample")
+            else { return [] }
+            return env(text, source: name, root: root)
         }
-        if let text = read(root, "config/database.yml") {
-            found += rails(text, source: "config/database.yml", root: root)
+    }
+
+    /// The shell line that prints those files on a remote project's host, each after a record separator and its name:
+    /// what `parse(remote:)` reads back. SQLite files there aren't looked for (they can't be opened from here).
+    static func remoteScript(_ path: String) -> String {
+        let names = (composeFiles + [".env", ".env.*", "config/database.yml"]).joined(separator: " ")
+        return
+            "cd \(RemoteHost.cdArg(path)) 2>/dev/null && for f in \(names); do "
+            + "[ -f \"$f\" ] && printf '\\036%s\\n' \"$f\""
+            + " && head -c 1048576 \"$f\"; done; true"
+    }
+
+    static func parse(remote output: String, root: String) -> [FoundDatabase] {
+        let files = output.split(separator: "\u{1e}").compactMap { part -> (name: String, text: String)? in
+            let lines = part.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+            guard lines.count == 2 else { return nil }
+            return (String(lines[0]), String(lines[1]))
         }
-        found += sqliteFiles(in: root)
-        return unique(found)
+        return unique(parse(files, root: root))
     }
 
     /// Whether a changed file can change what `find` says.

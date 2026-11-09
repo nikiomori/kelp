@@ -310,3 +310,19 @@ private func count(_ path: String, _ sql: String) throws -> Int {
         }
     }
 }
+
+/// A remote project's files are printed on its host by one shell line and read back here: run by this Mac's shell, in a
+/// folder with a compose file and a .env, it finds both (and no SQLite file, which can't be opened from here).
+@Test func aRemoteProjectsFilesAreReadInOneGo() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    try FileManager.default.createDirectory(atPath: dir + "/db", withIntermediateDirectories: true)
+    try "services:\n  db:\n    image: postgres:16\n    ports:\n      - \"5432:5432\"\n".write(
+        toFile: dir + "/compose.yaml", atomically: true, encoding: .utf8)
+    try "DATABASE_URL=mysql://app:pw@localhost/shop\n".write(toFile: dir + "/.env", atomically: true, encoding: .utf8)
+    try Data("SQLite format 3\0".utf8).write(to: URL(fileURLWithPath: dir + "/db/x.sqlite3"))
+    let out = try Subprocess.run(
+        ["/bin/sh", "-c", DatabaseFind.remoteScript(dir)], cwd: "/", env: ["PATH": "/usr/bin:/bin"], timeLimit: 10)
+    let found = DatabaseFind.parse(remote: String(decoding: out.stdout, as: UTF8.self), root: dir)
+    #expect(found.map(\.database.engine) == [.postgres, .mysql])
+    #expect(found.map(\.database.source) == ["compose.yaml", ".env"] && found[1].password == "pw")
+}

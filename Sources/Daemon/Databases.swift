@@ -37,6 +37,8 @@ final class Databases: Sendable {
         var results: [String: QueryResult] = [:]
     }
     private let kept = OSAllocatedUnfairLock(initialState: [String: Kept]())
+    /// A remote project's databases as its host's files said them, and when: read again after a minute.
+    private let onHosts = OSAllocatedUnfairLock(initialState: [String: (at: Date, found: [FoundDatabase])]())
 
     init(store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots) {
         self.store = store
@@ -49,12 +51,11 @@ final class Databases: Sendable {
     // MARK: Which
 
     /// The workspace's databases with their passwords: found in its folder, changed or added by hand in its project.
-    /// Limit: a remote project's are not looked for (its files are on the host).
     func connections(_ worktreeId: String) throws -> [DatabaseConnection] {
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.invalidParams("No workspace \(worktreeId).")
         }
-        let found = remotes.of(worktree.path) == nil ? DatabaseFind.find(in: worktree.path) : []
+        let found = remotes.of(worktree.path).map { onHost($0, worktreeId) } ?? DatabaseFind.find(in: worktree.path)
         let saved = try store.db.read {
             try SavedDatabase.filter(Column("repoId") == worktree.repoId).fetchAll($0)
         }
@@ -76,6 +77,34 @@ final class Databases: Sendable {
     }
 
     static func account(_ id: String) -> String { "db:" + id }
+
+    /// A remote project's databases, from its files read on the host in one go over the shared connection. Never dials:
+    /// with no connection open, what was read last (or nothing). SQLite files there aren't looked for.
+    private func onHost(_ remote: RemoteHost, _ worktreeId: String) -> [FoundDatabase] {
+        let last = onHosts.withLock { $0[worktreeId] }
+        if let last, Date().timeIntervalSince(last.at) < 60 { return last.found }
+        guard remote.connection != nil,
+            let printed = Subprocess.printed(
+                [remote.ssh] + remote.sshArgs(tty: false) + [DatabaseFind.remoteScript(remote.path)],
+                path: "/usr/bin:/bin", timeout: 20)
+        else { return last?.found ?? [] }
+        let found = DatabaseFind.parse(remote: printed, root: remote.path)
+        onHosts.withLock { $0[worktreeId] = (Date(), found) }
+        return found
+    }
+
+    /// Where this Mac reaches it: a remote project's server through a port forwarded over the shared connection (as a
+    /// page's port is, `Forwards`), which dials when there's none. Anything else as it is.
+    func reach(_ c: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
+        guard c.database.engine != .sqlite, let host = c.database.host, let port = c.database.port,
+            let path = try store.worktree(worktreeId)?.path, let remote = remotes.of(path)
+        else { return c }
+        let here = try sessions.processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
+        var near = c
+        near.database.host = "localhost"
+        near.database.port = here
+        return near
+    }
 
     /// The one named `name`, as `caller` may see it: an agent isn't told of a hidden one.
     func connection(_ worktreeId: String, _ name: String, agent: Bool) throws -> DatabaseConnection {
@@ -175,7 +204,9 @@ final class Databases: Sendable {
 
     func query(_ q: DatabaseQuery, origin: String?) async throws -> QueryResult {
         let asker = agent(origin: origin), forAgent = asker != nil
-        let c = try connection(q.worktreeId, q.database, agent: forAgent)
+        let (wid, name) = (q.worktreeId, q.database)
+        // Off the pool: a remote project's are read on its host, and reached through a forwarded port.
+        let c = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
         let sql = try SQLText.single(q.sql)
         let id = UUID().uuidString, session = asker ?? nil
         var run = DatabaseRun(id: id, database: c.database.name, sql: sql, session: session, at: Date(), state: .done)
@@ -191,9 +222,9 @@ final class Databases: Sendable {
                 run.state = .refused
                 run.error = "\(c.database.name) is read-only for agents."
                 note(q.worktreeId, run)
-                let others = try connections(q.worktreeId).filter {
-                    $0.database.agentAccess == .ask || $0.database.agentAccess == .free
-                }.map(\.database.name)
+                let others = try await offloads.run { [self] in
+                    try connections(wid).filter { [.ask, .free].contains($0.database.agentAccess) }.map(\.database.name)
+                }
                 throw RPCError.refused(
                     "\(c.database.name) is read-only for agents: ask the user to run it"
                         + (others.isEmpty ? "." : ", or try it on \(others.joined(separator: " or ")).")
@@ -285,7 +316,7 @@ final class Databases: Sendable {
     }
 
     func schema(_ worktreeId: String, _ name: String, table: String?, agent: Bool) throws -> DatabaseSchema {
-        let c = try connection(worktreeId, name, agent: agent)
+        let c = try reach(connection(worktreeId, name, agent: agent), worktreeId)
         do { return try DatabaseEngines.schema(c, table: table) } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
