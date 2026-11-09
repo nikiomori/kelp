@@ -247,7 +247,9 @@ extension AgentUsage {
             Log.session.error("codex app-server didn't start: \(error)")
             return nil
         }
+        let exited = OSAllocatedUnfairLock(initialState: false)
         pty.onOutput = { out.append($0) }
+        pty.onExit = { _ in exited.withLock { $0 = true } }   // gone without an answer (no Codex there): no wait
         pty.start()
         open?.add(pty)
         defer {
@@ -271,7 +273,7 @@ extension AgentUsage {
                     || notification.map { message["method"] as? String == $0 }
                         ?? (message["id"] as? Int == 2 && message["result"] != nil)
             }
-            return answer != nil
+            return answer != nil || exited.withLock { $0 }
         }
         return answer
     }
