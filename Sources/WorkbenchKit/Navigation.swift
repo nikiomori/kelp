@@ -139,3 +139,19 @@ public struct WorkspaceClosing: Equatable, Sendable {
         return rows.dropFirst(index + 1).first ?? rows[..<index].last
     }
 }
+
+/// ⌃Tab's list, as ⌘Tab's: the screen you're on first, then the others by when they were last on screen, then those
+/// never on screen by their agents' last stir, newest first. A workspace's id or a server's page ("host:<name>"); what
+/// isn't in `live` (closed, archived, a server no project is on anymore) is left out.
+public enum RecentScreens {
+    public static func order(
+        current: String?, recent: [String], stirred: [(id: String, at: Date)], live: Set<String>
+    ) -> [String] {
+        var out: [String] = []
+        let rest = stirred.sorted { $0.at > $1.at }.map(\.id)
+        for id in [current].compactMap({ $0 }) + recent + rest where live.contains(id) && !out.contains(id) {
+            out.append(id)
+        }
+        return out
+    }
+}

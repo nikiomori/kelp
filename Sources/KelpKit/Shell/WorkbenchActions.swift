@@ -20,6 +20,7 @@ extension Workbench {
         guard workspaceId != id || page != nil || window?.editors.current == nil else { return }
         page = nil
         workspaceId = id
+        noteShown()
         if remember { history.visit(id) }
         window?.showWorkspace(id)
     }
@@ -28,6 +29,7 @@ extension Workbench {
     func show(page uri: String) {
         guard page != uri, window?.showPage(uri) == true else { return }
         page = uri
+        noteShown()
     }
 
     /// ⌃⌘← / ⌃⌘→: the workspace shown before / after this one (closed ones are skipped).

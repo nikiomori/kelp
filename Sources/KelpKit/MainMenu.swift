@@ -252,9 +252,10 @@ extension AppDelegate {
         win.addItem(withTitle: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
         win.addItem(.separator())
         b.add(win, "agents.nextNeedingYou", "agents.usage", "workbench.scratch", "workspace.switch")
-        let back = win.add("", key: "\t") { app.extensions.run("workspace.switch", ["by": -1]) }
+        let back = win.add(String(localized: "Previous Screen"), key: "\t") {
+            app.extensions.run("workspace.switch", ["by": -1])
+        }
         back.keyEquivalentModifierMask = [.control, .shift]
-        b.hide(back)
         b.add(win, "workspace.next", "workspace.previous", "workspace.back", "workspace.forward")
         for n in 1...9 {
             b.add(win, "workspace.select.\(n)").forEach {

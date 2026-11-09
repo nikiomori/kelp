@@ -1,11 +1,13 @@
 import AppKit
 import Core
 import DesignKit
+import WorkbenchKit
 
-/// ⌃Tab, like ⌘Tab for apps: hold ⌃ and press Tab to walk the workspaces you used last (⇧ goes back, ↑↓ and the pointer
-/// too), let go or click to switch; Esc stays. A quick ⌃Tab flips to the previous workspace without showing it. The one on
-/// screen isn't listed, so the first row is where you were before. Each row says what's there: project and branch,
-/// changes not committed, the pull request, and the agent that matters most (what it's doing and its last words).
+/// ⌃Tab, like ⌘Tab for apps: hold ⌃ and press Tab to walk the screens you used last (⇧ goes back, ↑↓ and the pointer
+/// too, 1–9 picks a row at once), let go or click to switch; Esc stays. A quick ⌃Tab flips to the previous screen
+/// without showing it. The screen you're on is the first row, dimmed, so the next one is where you were before. Its
+/// rows are the sidebar's: the status, the project's icon, the name, and one line of what's there (what the agent says,
+/// or a server's load). Servers' pages are screens too.
 @MainActor
 final class WorkspaceSwitcher {
     let app: AppModel
@@ -13,116 +15,81 @@ final class WorkspaceSwitcher {
     private var panel: NSPanel?
     private var monitor: Any?
     private var resigned: NSObjectProtocol?
-    private var items: [Worktree] = []
+    /// Workspace ids and servers' pages ("host:<name>"), as `RecentScreens` orders them.
+    private var items: [String] = []
     private var index = 0
     private var rows: [NSView] = []
     private var pointerFrom: NSPoint?
+    var isOpen: Bool { panel != nil }
+    /// The keys under the list, for the first few times it's opened on this Mac.
+    private static let hintsKey = "switcherHintsShown"
 
-    /// The menu's ⌃Tab / ⌃⇧Tab: opens it. While it's open its key monitor steps, and the menu, which still gets the key,
-    /// would step a second time.
+    /// The menu's ⌃Tab / ⌃⇧Tab: opens it. While it's open its key monitor steps, and the menu, which still gets the
+    /// key, would step a second time.
     func step(_ by: Int) {
         guard panel == nil else { return }
-        open()
-        index = by > 0 ? -1 : 0   // ⌃Tab lands on the first row, ⌃⇧Tab on the last
-        move(by)
+        // ⌃⇧Tab can reach ⌃Tab's item (a menu matches Tab with ⇧ too), and the command runs after the key's event:
+        // ⇧ still held says which way.
+        let by = NSEvent.modifierFlags.contains(.shift) ? -1 : by
+        let first = open()
+        guard items.count > first else { return close(beep: true) }
+        index = by > 0 ? first : items.count - 1   // ⌃Tab lands on where you were before, ⌃⇧Tab on the last row
+        highlight()
+        if !NSEvent.modifierFlags.contains(.control) { commit() }   // already let go: a quick flip
+    }
+
+    /// 1–9 while it's open (⌃1–9 too, when the menu gets the key first): that row.
+    func pick(_ number: Int) {
+        guard items.indices.contains(number) else { return NSSound.beep() }
+        index = number
+        commit()
     }
 
     private func move(_ by: Int) {
         guard !items.isEmpty else { return }
         index = (index + by + items.count) % items.count
         highlight()
-        if !NSEvent.modifierFlags.contains(.control) { commit() }   // already let go: a quick flip
     }
 
-    private func open() {
+    /// Lists the screens and puts the panel up; the first row that isn't the one on screen.
+    private func open() -> Int {
         let model = app, wb = app.workbench
-        let live = app.workbench.workspacesInOrder
-        // Ones not on screen since Kelp started keeping the order: by their agents' last stir, else when they were made.
-        let stirred = live.map { worktree in
+        let current = wb.page ?? wb.workspaceId
+        let workspaces = wb.workspacesInOrder
+        let servers = app.extensions.all.servers == nil ? [] : app.remoteHosts.map(TabURI.server)
+        // Ones not on screen since Kelp started keeping the order: by their agents' last stir, else when they were
+        // made.
+        let stirred = workspaces.map { worktree in
             (
-                worktree.id,
-                model.sessions.filter { $0.worktreeId == worktree.id }.map { $0.statusAt ?? $0.createdAt }.max()
+                id: worktree.id,
+                at: model.sessions.filter { $0.worktreeId == worktree.id }.map { $0.statusAt ?? $0.createdAt }.max()
                     ?? worktree.createdAt
             )
         }
-        var order: [String] = []
-        for id in wb.recentWorkspaces + stirred.sorted(by: { $0.1 > $1.1 }).map(\.0)
-        where id != wb.workspaceId && !order.contains(id) && live.contains(where: { $0.id == id }) {
-            order.append(id)
-        }
-        items = order.compactMap { model.worktree($0) }   // by id: a bare `model.worktree` picks worktree(holding:)
-        guard !items.isEmpty, let window = app.workbench.window?.window else {
-            items = []
-            NSSound.beep()
-            return
-        }
+        items = RecentScreens.order(
+            current: current, recent: wb.recentWorkspaces, stirred: stirred,
+            live: Set(workspaces.map(\.id) + servers))
+        let first = items.first == current ? 1 : 0
+        guard items.count > first, let window = app.workbench.window?.window else { return first }
         pointerFrom = NSEvent.mouseLocation
-
-        let list = NSStackView()
-        list.orientation = .vertical
-        list.spacing = 2
-        list.alignment = .leading
-        list.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
-        rows = items.map { row($0) }
-        rows.forEach {
-            list.addArrangedSubview($0)
-            $0.widthAnchor.constraint(equalTo: list.widthAnchor, constant: -12).isActive = true
-        }
-        list.widthAnchor.constraint(equalToConstant: 520).isActive = true
-        let doc = FlippedView()
-        doc.pin(list)
-        // The pointer selects (its moves reach the monitor even though the panel never becomes key).
-        doc.addTrackingArea(
-            NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: doc))
-        let scroll = NSScrollView()
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.scrollerStyle = .overlay   // a legacy scroller would take the rows' right edge
-        scroll.documentView = doc
-        doc.translatesAutoresizingMaskIntoConstraints = false
-        // At most 440 pt (eight two-line rows) and never past the window; more scroll.
-        NSLayoutConstraint.activate([
-            doc.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-            doc.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-            scroll.widthAnchor.constraint(equalToConstant: 520),
-            scroll.heightAnchor.constraint(
-                equalToConstant: min(list.fittingSize.height, 440, max(window.frame.height - 80, 160)))
-        ])
-        let fx = NSVisualEffectView()
-        fx.material = .popover   // as Quick Open's
-        fx.state = .active
-        fx.wantsLayer = true
-        fx.layer?.cornerRadius = Metrics.radiusXL
-        fx.layer?.cornerCurve = .continuous
-        fx.layer?.borderWidth = 1   // an edge, as menus have, so it holds against a window of the same grey
-        fx.effectiveAppearance.performAsCurrentDrawingAppearance {
-            fx.layer?.borderColor = NSColor.separatorColor.cgColor
-        }
-        fx.pin(scroll)
+        rows = items.enumerated().map { offset, id in row(id, number: offset, here: offset == 0 && first == 1) }
+        let card = SwitcherCard(rows: rows, hint: Self.hint(), maxHeight: max(window.frame.height - 80, 160))
         let floating = NSPanel(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         floating.isOpaque = false
         floating.backgroundColor = .clear
         floating.hasShadow = true
         floating.level = .popUpMenu
-        floating.contentView = fx
-        fx.layoutSubtreeIfNeeded()
-        let size = fx.fittingSize, windowFrame = window.frame
-        var frame = NSRect(
-            x: windowFrame.midX - size.width / 2, y: windowFrame.midY - size.height / 2 + windowFrame.height * 0.1,
-            width: size.width,
-            height: size.height)
-        if let visible = window.screen?.visibleFrame {   // a window partly off screen keeps it on screen
-            frame.origin.x = min(max(frame.minX, visible.minX), visible.maxX - frame.width)
-            frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
-        }
-        floating.setFrame(frame, display: true)
+        floating.contentView = card
+        card.layoutSubtreeIfNeeded()
+        floating.setFrame(Self.frame(card.fittingSize, over: window), display: true)
         panel = floating
         // On screen once ⌃ is held a moment, as ⌘Tab: a quick ⌃Tab flips without the panel flashing up.
         _ = Task { [weak self] in
             try await Task.sleep(for: .milliseconds(120))
-            if self?.panel === floating { window.addChildWindow(floating, ordered: .above) }
+            guard self?.panel === floating else { return }
+            window.addChildWindow(floating, ordered: .above)
+            UserDefaults.standard.set(UserDefaults.standard.integer(forKey: Self.hintsKey) + 1, forKey: Self.hintsKey)
         }
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) {
             [weak self] event in self?.handle(event) ?? event
@@ -133,6 +100,26 @@ final class WorkspaceSwitcher {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }   // queue: .main
         }
+        return first
+    }
+
+    /// Over the window's middle, a little high, and on screen when the window is partly off it.
+    private static func frame(_ size: NSSize, over window: NSWindow) -> NSRect {
+        let windowFrame = window.frame
+        var frame = NSRect(
+            x: windowFrame.midX - size.width / 2, y: windowFrame.midY - size.height / 2 + windowFrame.height * 0.1,
+            width: size.width, height: size.height)
+        if let visible = window.screen?.visibleFrame {
+            frame.origin.x = min(max(frame.minX, visible.minX), visible.maxX - frame.width)
+            frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
+        }
+        return frame
+    }
+
+    /// The keys, the first five times it shows: after that the hand knows them.
+    private static func hint() -> String? {
+        UserDefaults.standard.integer(forKey: hintsKey) >= 5
+            ? nil : String(localized: "⇥ next · ⇧⇥ back · 1–9 go there · esc stay")
     }
 
     private func handle(_ event: NSEvent) -> NSEvent? {
@@ -141,6 +128,10 @@ final class WorkspaceSwitcher {
             return event
         }
         if event.type != .keyDown { return mouse(event) }
+        if let number = Int(event.charactersIgnoringModifiers ?? ""), (1...9).contains(number) {
+            pick(number)
+            return nil
+        }
         switch event.keyCode {
         case 48: move(event.modifierFlags.contains(.shift) ? -1 : 1)   // Tab
         case 125: move(1)   // ↓
@@ -158,7 +149,8 @@ final class WorkspaceSwitcher {
             if event.type == .leftMouseDown { close() }
             return event
         }
-        // A move picks once it's a real one: the panel opens under the pointer, and brushing the trackpad shouldn't take the pick.
+        // A move picks once it's a real one: the panel opens under the pointer, and brushing the trackpad shouldn't
+        // take the pick.
         if event.type == .mouseMoved, let from = pointerFrom {
             guard hypot(NSEvent.mouseLocation.x - from.x, NSEvent.mouseLocation.y - from.y) > 10 else { return nil }
             pointerFrom = nil
@@ -178,12 +170,18 @@ final class WorkspaceSwitcher {
     }
 
     private func commit() {
-        let pick = items.indices.contains(index) ? items[index].id : nil
+        let pick = items.indices.contains(index) ? items[index] : nil
         close()
-        if let pick { app.workbench.show(workspace: pick) }
+        guard let pick else { return }
+        if TabURI.scheme(pick) == "host" {
+            app.workbench.openServer(TabURI.body(pick))
+        } else {
+            app.workbench.show(workspace: pick)
+        }
     }
 
-    private func close() {
+    private func close(beep: Bool = false) {
+        if beep { NSSound.beep() }
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         if let resigned { NotificationCenter.default.removeObserver(resigned) }
@@ -194,6 +192,7 @@ final class WorkspaceSwitcher {
         }
         panel = nil
         rows = []
+        items = []
     }
 
     private func highlight() {
@@ -211,103 +210,12 @@ final class WorkspaceSwitcher {
         for (offset, row) in rows.enumerated() { row.fadeBackground(to: offset == index ? .fillSelected : nil) }
     }
 
-    /// Status | project | name, place, badges, when — and the agent the mark is for on a second line, when there is one.
-    private func row(_ worktree: Worktree) -> NSView {
-        let model = app
-        let agents = model.sessions.filter { $0.worktreeId == worktree.id && $0.isChat && $0.status != .exited }
-        let top = AgentStatus.mostUrgent(agents.map(SidebarCell.shownStatus))
-        let lead = agents.filter { SidebarCell.shownStatus($0) == top }.max {
-            ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)
-        }
-        let mark = StatusMark(size: 14)
-        mark.status = top
-        mark.unread = agents.contains { SidebarCell.shownStatus($0) == top && $0.unread }
-        mark.waitsForCommand = lead?.waitsForCommand ?? false
-        mark.announces = false   // the row's label says the state
-
-        let icon = NSImageView(image: .symbol("folder"))
-        if let project = model.repo(worktree.repoId) { ProjectIcon.show(project.path, in: icon, app: model) }
-        icon.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        icon.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        let name = label(
-            model.groupName(worktree) ?? model.projectName(worktree.repoId) ?? worktree.displayName,
-            .ui(13, weight: .semibold))
-        let repo = model.repo(worktree.repoId)
-        // The branch even for the project's own folder: two projects' "Workspace 1" tell apart.
-        let place = label(
-            [model.projectName(repo?.id), worktree.branch == worktree.displayName ? nil : worktree.branch].compactMap {
-                $0
-            }.joined(
-                separator: " · "),
-            .ui(12), secondary: true)
-        let folder = app.rowBadges.folder(of: worktree.id)
-        let changes = label("", .uiDigits(11)), pr = label("", .uiDigits(11))
-        if let counts = folder.flatMap({ RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) }) {
-            changes.attributedStringValue = counts
-        } else {
-            changes.isHidden = true
-        }
-        if let badge = folder.flatMap({ app.extensions.all.ci?.pr($0.id) }) {
-            pr.attributedStringValue = badge.title
-        } else {
-            pr.isHidden = true
-        }
-        let when = label(shortAgo(lead.map { $0.statusAt ?? $0.createdAt }), .uiDigits(11), secondary: true)
-        when.alignment = .right
-        when.setContentCompressionResistancePriority(.required, for: .horizontal)   // a long name truncates, not the time
-        when.widthAnchor.constraint(greaterThanOrEqualToConstant: 30).isActive = true   // the times line up
-        let gap = NSView()
-        gap.setContentHuggingPriority(.init(1), for: .horizontal)
-        let ci = CIMark()
-        ci.state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
-        let top1 = NSStackView(views: [name, place, gap, changes, pr, ci, when])
-        top1.distribution = .fill   // the gap takes the slack: the badges sit at the right edge
-        top1.spacing = 6
-        for part in [changes, pr, ci] { top1.setCustomSpacing(8, after: part) }
-        top1.alignment = .firstBaseline
-        top1.detachesHiddenViews = true
-
-        // "Claude Code · Needs your input — Which test runner?  +1 more": the agent the mark is for.
-        let others = agents.count - 1
-        let said = lead.map { session in
-            [app.catalog.displayName(session) + " · " + session.statusWords, session.summary].filter { !$0.isEmpty }
-                .joined(
-                    separator: " — ")
-                + (others > 0 ? "  " + String(localized: "+\(others) more") : "")
-        }
-        let detail = label(said ?? "", .ui(12), secondary: true)
-        detail.isHidden = said == nil   // no agents: one line
-        let text = NSStackView(views: [top1, detail])
-        text.orientation = .vertical
-        text.alignment = .leading
-        text.spacing = 2
-        text.detachesHiddenViews = true
-        top1.widthAnchor.constraint(equalTo: text.widthAnchor).isActive = true
-
-        text.setContentHuggingPriority(.init(1), for: .horizontal)
-        let slot = NSView()   // no agents hides the mark; its column stays, so the names line up
-        slot.pin(mark)
-        let line = NSStackView(views: [slot, icon, text])
-        line.distribution = .fill
-        line.spacing = 10
-        line.alignment = .centerY
-        line.edgeInsets = NSEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
-        line.wantsLayer = true
-        line.layer?.cornerRadius = Metrics.radiusMD
-        line.setAccessibilityElement(true)
-        line.setAccessibilityLabel(
-            [worktree.displayName, place.stringValue, said, when.stringValue].compactMap { $0 }.filter { !$0.isEmpty }
-                .joined(
-                    separator: ", "))
-        return line
-    }
-
-    private func label(_ text: String, _ font: NSFont, secondary: Bool = false) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = font
-        field.textColor = secondary ? .secondaryLabelColor : .labelColor
-        field.lineBreakMode = .byTruncatingTail
-        field.setContentCompressionResistancePriority(secondary ? .defaultLow : .init(400), for: .horizontal)
-        return field
+    /// One screen's row: a server's page or a workspace's.
+    private func row(_ id: String, number: Int, here: Bool) -> NSView {
+        let parts =
+            TabURI.scheme(id) == "host"
+            ? SwitcherRow.server(TabURI.body(id), app: app)
+            : app.worktree(id).map { SwitcherRow.workspace($0, app: app) }
+        return (parts ?? SwitcherRow(name: NSAttributedString(string: id))).view(number: number, here: here)
     }
 }

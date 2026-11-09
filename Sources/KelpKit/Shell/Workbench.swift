@@ -33,16 +33,19 @@ package final class Workbench {
     package var workspaceId: String? {
         didSet {
             app.uiState["workbench.lastWorkspace"] = workspaceId.map(JSONValue.string)
-            if let id = workspaceId {
-                app.uiState["workbench.recentWorkspaces"] = .array(
-                    ([id] + recentWorkspaces.filter { $0 != id }).prefix(50).map(JSONValue.string))
-            }
         }
+    }
+    /// What's on screen now goes to the front of ⌃Tab's order: the server's page over a workspace, else the workspace.
+    func noteShown() {
+        guard let id = page ?? workspaceId else { return }
+        app.uiState["workbench.recentWorkspaces"] = .array(
+            ([id] + recentWorkspaces.filter { $0 != id }).prefix(50).map(JSONValue.string))
     }
     /// A page that is a place of its own, a server's ("host:<name>"): it fills the editor area, with no tabs, until a
     /// workspace is shown again. `workspaceId` stays the one it was shown over.
     package internal(set) var page: String?
-    /// Workspaces by when they were last on screen, latest first, kept across launches: ⌃Tab's order.
+    /// Workspaces and servers' pages by when they were last on screen, latest first, kept across launches: ⌃Tab's
+    /// order.
     var recentWorkspaces: [String] { app.uiState.strings("workbench.recentWorkspaces") }
     init(app: AppModel) { self.app = app }
     package var focusedSession: String?

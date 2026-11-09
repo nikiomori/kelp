@@ -79,3 +79,13 @@ private func twoPanes() throws -> (WorkspaceLayout, left: String, right: String,
             ],
             toward: .maxX) == "a")   // equal distance: stable
 }
+
+@Test func ctrlTabListsTheScreenOnFirstThenTheRecentThenTheStirred() {
+    let now = Date()
+    let order = RecentScreens.order(
+        current: "b", recent: ["a", "b", "gone", "host:atlas"],
+        stirred: [(id: "c", at: now), (id: "d", at: now.addingTimeInterval(60)), (id: "a", at: now)],
+        live: ["a", "b", "c", "d", "host:atlas"])
+    #expect(order == ["b", "a", "host:atlas", "d", "c"])   // closed ones out, none twice
+    #expect(RecentScreens.order(current: nil, recent: [], stirred: [], live: ["a"]).isEmpty)
+}

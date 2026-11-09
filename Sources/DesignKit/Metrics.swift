@@ -60,6 +60,7 @@ public enum Metrics {
     public static let sheetWidth: CGFloat = 480
     public static let alertAccessory: CGFloat = 400   // the fields a question sheet holds
     public static let formLabel: CGFloat = 96   // a field's name beside it, right-aligned
+    public static let switcherWidth: CGFloat = 440   // the ⌃Tab switcher's card
 }
 
 extension NSImage.SymbolConfiguration {

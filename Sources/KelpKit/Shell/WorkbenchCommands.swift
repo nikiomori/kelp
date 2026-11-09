@@ -77,7 +77,7 @@ extension Builtins {
                 if let worktree = editor(app)?.worktree { WorkspaceActions(app).close(worktree) }
             },
             // ⌃Tab walks the workspaces used last (⌃⇧Tab: `{"by": -1}`).
-            CommandSpec(id: "workspace.switch", title: "Switch Group", key: "ctrl+tab") { args in
+            CommandSpec(id: "workspace.switch", title: "Recent Screens", key: "ctrl+tab") { args in
                 app.switcher.step(args["by"]?.int ?? 1)
             },
             cmd("workspace.next", "Next Group", "ctrl+cmd+down") { app.workbench.showWorkspace(offset: 1) },
@@ -96,7 +96,12 @@ extension Builtins {
         }
         contributions.commands += (1...9).map { number in
             cmd("workspace.select.\(number)", "Group \(number)", "ctrl+\(number)") {
-                app.workbench.showWorkspace(number: number)
+                // With ⌃Tab's list open, its rows' numbers: the menu may get ⌃1–9 before the list's own keys do.
+                if app.switcher.isOpen {
+                    app.switcher.pick(number)
+                } else {
+                    app.workbench.showWorkspace(number: number)
+                }
             }
         }
         return contributions
