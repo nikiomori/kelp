@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GRDB
 import Testing
 import os
 
@@ -37,4 +38,21 @@ import os
         total: 5000, ms: 0)
     let kept = Databases.trimmed(many)
     #expect(kept.rows.count == Databases.keptBytes / 10_000 && kept.total == 5000)
+}
+
+/// A change to a SQLite file stops at its time as a read does, and is undone: the tab isn't told it failed while it
+/// lands later.
+@Test func aSQLiteChangeStopsAtItsTimeAndIsUndone() throws {
+    let path = NSTemporaryDirectory() + "kelp-slow-\(UUID().uuidString).sqlite"
+    let queue = try SQLiteRun.open(path, readOnly: false)
+    #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
+        try SQLiteRun.stopped(queue, after: 0.3) {
+            try queue.inDatabase { db in
+                try db.execute(
+                    sql: "CREATE TABLE big AS WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) "
+                        + "SELECT x FROM r")
+            }
+        }
+    }
+    #expect(try queue.read { try $0.tableExists("big") } == false)
 }

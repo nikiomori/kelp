@@ -214,21 +214,17 @@ enum SQLiteRun {
         return try DatabaseQueue(path: path, configuration: config)
     }
 
-    /// Stopped at `timeout` (`interrupt`, from another thread): a runaway join doesn't keep its slot.
+    /// Each stopped at its time (`interrupt`, from another thread): a runaway join or UPDATE doesn't keep its slot, nor
+    /// outlast the call that waits for it. SQLite undoes a statement it stops.
     static func read(_ path: String, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
         try run {
             let queue = try open(path, readOnly: true)
-            let stop = DispatchWorkItem { queue.interrupt() }
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
-            defer { stop.cancel() }
-            do {
-                return try queue.read { db in
+            return try stopped(queue, after: timeout) {
+                try queue.read { db in
                     let statement = try db.makeStatement(sql: sql)
                     guard statement.isReadonly else { throw DatabaseFailure.change }
                     return try rows(statement)
                 }
-            } catch let error as DatabaseError where error.resultCode == .SQLITE_INTERRUPT {
-                throw DatabaseFailure.failed("It took more than \(Int(timeout)) s.")
             }
         }
     }
@@ -236,12 +232,15 @@ enum SQLiteRun {
     static func trial(_ path: String, _ sql: String) throws -> DatabaseRows {
         try run {
             var result = DatabaseRows()
-            try open(path, readOnly: false).inDatabase { db in
-                try db.inTransaction {
-                    let statement = try db.makeStatement(sql: SQLText.returning(sql) ?? sql)
-                    result = try rows(statement)
-                    result.changed = db.changesCount
-                    return .rollback
+            let queue = try open(path, readOnly: false)
+            try stopped(queue, after: DatabaseEngines.readTimeout) {
+                try queue.inDatabase { db in
+                    try db.inTransaction {
+                        let statement = try db.makeStatement(sql: SQLText.returning(sql) ?? sql)
+                        result = try rows(statement)
+                        result.changed = db.changesCount
+                        return .rollback
+                    }
                 }
             }
             return result
@@ -250,10 +249,13 @@ enum SQLiteRun {
 
     static func write(_ path: String, _ sql: String) throws -> DatabaseRows {
         try run {
-            try open(path, readOnly: false).inDatabase { db in
-                var result = try rows(try db.makeStatement(sql: sql))
-                result.changed = db.changesCount
-                return result
+            let queue = try open(path, readOnly: false)
+            return try stopped(queue, after: DatabaseEngines.writeTimeout) {
+                try queue.inDatabase { db in
+                    var result = try rows(try db.makeStatement(sql: sql))
+                    result.changed = db.changesCount
+                    return result
+                }
             }
         }
     }
@@ -261,14 +263,26 @@ enum SQLiteRun {
     static func apply(_ path: String, _ statements: [String]) throws -> Int {
         try run {
             var changed = 0
-            try open(path, readOnly: false).inTransaction { db in
-                for sql in statements {
-                    try db.execute(sql: sql)
-                    changed += db.changesCount
+            let queue = try open(path, readOnly: false)
+            try stopped(queue, after: DatabaseEngines.writeTimeout) {
+                try queue.inTransaction { db in
+                    for sql in statements {
+                        try db.execute(sql: sql)
+                        changed += db.changesCount
+                    }
+                    return .commit
                 }
-                return .commit
             }
             return changed
+        }
+    }
+
+    static func stopped<T>(_ queue: DatabaseQueue, after timeout: TimeInterval, _ body: () throws -> T) throws -> T {
+        let stop = DispatchWorkItem { queue.interrupt() }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
+        defer { stop.cancel() }
+        do { return try body() } catch let error as DatabaseError where error.resultCode == .SQLITE_INTERRUPT {
+            throw DatabaseFailure.failed("It took more than \(Int(timeout)) s.")
         }
     }
 
