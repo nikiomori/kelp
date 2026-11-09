@@ -34,6 +34,8 @@ final class ArtifactCard {
         web.layer?.cornerRadius = Metrics.radiusSM
         web.layer?.masksToBounds = true
         web.setValue(false, forKey: "drawsBackground")
+        web.widthAnchor.constraint(equalToConstant: Self.size.width).isActive = true
+        web.heightAnchor.constraint(equalToConstant: Self.size.height).isActive = true
         return web
     }()
     private var loading: Task<Void, Never>?
@@ -105,8 +107,6 @@ final class ArtifactCard {
         var views: [NSView] = []
         if let preview = item.preview {
             views.append(web)
-            web.widthAnchor.constraint(equalToConstant: Self.size.width).isActive = true
-            web.heightAnchor.constraint(equalToConstant: Self.size.height).isActive = true
             load(preview, dark: web.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
         }
         views += [title, line(made.compactMap { $0 }.joined(separator: " · "))]
@@ -117,7 +117,8 @@ final class ArtifactCard {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.lineGap
-        stack.setCustomSpacing(Metrics.gap + 2, after: web)
+        // A page published before Kelp kept copies has no picture: the card is its title alone.
+        if item.preview != nil { stack.setCustomSpacing(Metrics.gap + 2, after: web) }
         stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 10, right: 8)
         stack.widthAnchor.constraint(equalToConstant: Self.size.width + 16).isActive = true
         return stack
