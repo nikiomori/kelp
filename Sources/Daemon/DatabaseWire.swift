@@ -66,19 +66,24 @@ enum DatabaseWire {
         late: @escaping @Sendable () -> Void
     ) async throws -> T {
         let waiting = OSAllocatedUnfairLock<CheckedContinuation<T, any Error>?>(initialState: nil)
-        @Sendable func give(_ result: Result<T, any Error>) {
+        /// Whether it was the first to answer.
+        @Sendable func give(_ result: Result<T, any Error>) -> Bool {
             let continuation = waiting.withLock { held in
                 defer { held = nil }
                 return held
             }
             continuation?.resume(with: result)
+            return continuation != nil
         }
         return try await withCheckedThrowingContinuation { continuation in
             waiting.withLock { $0 = continuation }
-            future.whenComplete { give($0) }
-            future.eventLoop.scheduleTask(in: .milliseconds(Int64(seconds * 1000))) {
-                late()
-                give(.failure(DatabaseFailure.failed("No answer from \(db.name) in \(Int(seconds.rounded(.up))) s.")))
+            let timer = future.eventLoop.scheduleTask(in: .milliseconds(Int64(seconds * 1000))) {
+                let said = "No answer from \(db.name) in \(Int(seconds.rounded(.up))) s."
+                if give(.failure(DatabaseFailure.failed(said))) { late() }
+            }
+            future.whenComplete { result in
+                timer.cancel()
+                _ = give(result)
             }
         }
     }
@@ -392,21 +397,22 @@ enum MySQLWire {
         let db = c.database
         let conn: MySQLConnection
         do { conn = try await open(c) } catch { throw failure(error, db) }
-        let id: String?
-        do { id = try await run(conn, "SELECT CONNECTION_ID()").rows.first?.first ?? nil } catch {
-            await DatabaseWire.close { try await conn.close().get() }
-            throw failure(error, db)
-        }
+        // The connection's id, asked first inside the call's time: what a second connection stops when it runs out
+        let id = OSAllocatedUnfairLock<String?>(initialState: nil)
         let stopped = OSAllocatedUnfairLock(initialState: false)
         do {
             let result = try await DatabaseWire.within(
                 seconds, db,
                 close: {
-                    let killed = await kill(id, c)
-                    stopped.withLock { $0 = killed }
                     await DatabaseWire.close { try await conn.close().get() }
+                    let killed = await kill(id.withLock { $0 }, c)
+                    stopped.withLock { $0 = killed }
                 }
-            ) { try await body(conn) }
+            ) {
+                let asked = try await run(conn, "SELECT CONNECTION_ID()").rows.first?.first ?? nil
+                id.withLock { $0 = asked }
+                return try await body(conn)
+            }
             await DatabaseWire.close { try await conn.close().get() }
             return result
         } catch DatabaseFailure.failed(let said) where said.hasPrefix("No answer from") {
@@ -423,6 +429,8 @@ enum MySQLWire {
     }
 
     static let handshakeTimeout: TimeInterval = 10
+    /// A KILL QUERY's handshake, and then its answer: what a call past its time adds to it, at most twice this.
+    static let killTimeout: TimeInterval = 3
 
     static func open(_ c: DatabaseConnection, handshake: TimeInterval = handshakeTimeout) async throws
         -> MySQLConnection
@@ -449,12 +457,12 @@ enum MySQLWire {
     private static func kill(_ id: String?, _ c: DatabaseConnection) async -> Bool {
         guard let id, Int(id) != nil else { return false }
         do {
-            let conn = try await open(c)
+            let conn = try await open(c, handshake: killTimeout)
             var said: (any Error)?
             // A server that didn't answer the call may not answer this either: it has a time of its own
             do {
                 _ = try await DatabaseWire.within(
-                    handshakeTimeout, c.database, close: { await DatabaseWire.close { try await conn.close().get() } }
+                    killTimeout, c.database, close: { await DatabaseWire.close { try await conn.close().get() } }
                 ) { try await run(conn, "KILL QUERY \(id)") }
             } catch { said = error }
             await DatabaseWire.close { try await conn.close().get() }
