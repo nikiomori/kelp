@@ -308,7 +308,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     static func summary(_ run: DatabaseRun) -> String {
         switch run.state {
         case .asks:
-            return run.changed.map { String(localized: "\($0) rows would change: these are them after") }
+            return run.changed.map { String(localized: "\($0) rows would change: shown as they would be") }
                 ?? String(localized: "Waits for your answer")
         case .done:
             let what =
