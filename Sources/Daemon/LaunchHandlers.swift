@@ -113,39 +113,85 @@ extension SessionHandoff: Handled {
         if sessions.remotes.of(old.cwd) != nil {
             throw RPCError.invalidParams("Handoff isn't available for remote projects yet.")
         }
-        let transcript = try Self.file(of: old, full: full == true, sessions)
+        let target = agent ?? old.agent
+        var manifest = try sessions.setup.manifest(target, command: nil)
+        let file = sessions.agentUsage.conversationFile(of: old, live: sessions.existing(old.id))
+        let conversation = file.flatMap(Conversation.init(file:))
+        let uncommitted = Self.uncommitted(old.cwd, sessions)
+        let ask = prompt ?? "Continue the task where the previous agent left off."
         var launch = Sessions.Launch(self)
-        launch.prompt =
-            "Read \(transcript.path) — the transcript of the previous agent session in this project. "
-            + (prompt ?? "Continue the task where the previous agent left off.")
         launch.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
-        return try sessions.spawn(
-            cwd: old.cwd, manifest: sessions.setup.manifest(agent ?? old.agent, command: nil),
-            worktreeId: old.worktreeId,
-            launch)
+        if let opened = try native(old, file: file, conversation, uncommitted: uncommitted, sessions) {
+            manifest.args += opened
+            launch.prompt = ask
+        } else {
+            let brief = try Self.brief(of: old, conversation, limit: limit, uncommitted: uncommitted, sessions)
+            launch.prompt = "Read \(brief.path) — the transcript of the previous agent session in this project. " + ask
+        }
+        return try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
     }
 
-    /// Transcript of a session written to ~/.kelp/handoff/<id>.md for the next agent to read. The agent's own
-    /// conversation (what was asked and answered: Claude Code, Codex, pi) when there is one; otherwise the terminal's text.
-    private static func file(of session: Session, full: Bool, _ sessions: Sessions) throws -> URL {
-        let limit = full ? 400_000 : 40_000
+    private var limit: Int { full == true ? 400_000 : 40_000 }
+
+    /// What `agent` starts with to open the conversation as its own; nil when it can't, and it reads the brief instead.
+    /// Codex imports a Claude Code transcript itself, as a thread it resumes (only into the default account: another
+    /// account's Codex wouldn't find it). pi and oh-my-pi open a session of theirs Kelp writes, which they go on in.
+    private func native(
+        _ old: Session, file: URL?, _ conversation: Conversation?, uncommitted: String, _ sessions: Sessions
+    ) throws -> [String]? {
+        switch agent ?? old.agent {
+        case "codex" where old.agent == "claude" && profile == nil:
+            return file.flatMap { sessions.agentUsage.codexThread(importing: $0, cwd: old.cwd) }.map { ["resume", $0] }
+        case let target? where target == "pi" || target == "omp":
+            guard let conversation else { return nil }
+            let session = try conversation.piSession(
+                cwd: old.cwd, agent: old.agent ?? "agent", limit: limit, uncommitted: uncommitted)
+            // One per hand-off: the agent writes on in it, and an earlier one may still be open.
+            let path = try Self.handoffFile("\(old.id)-\(UUID().uuidString.prefix(8).lowercased()).jsonl", sessions)
+            try session.write(to: path, atomically: true, encoding: .utf8)
+            return [target == "pi" ? "--session" : "--resume", path.path]
+        default: return nil
+        }
+    }
+
+    /// A session's conversation written to ~/.kelp/handoff/<id>.md for the next agent to read: the agent's own
+    /// (what was asked and answered, what it changed and ran: Claude Code, Codex, pi) when there is one; otherwise the
+    /// terminal's text. Both with what git says is uncommitted.
+    private static func brief(
+        of session: Session, _ conversation: Conversation?, limit: Int, uncommitted: String, _ sessions: Sessions
+    ) throws -> URL {
         let body: String
-        if let transcript = sessions.agentUsage.conversationFile(of: session, live: sessions.existing(session.id)),
-            let talk = AgentUsage.conversation(transcript: transcript, limit: limit), !talk.isEmpty
-        {
-            body = talk
+        if let conversation {
+            body = conversation.markdown(limit: limit, uncommitted: uncommitted)
         } else {
             let printed = try sessions.liveSessionOrLog(session.id, bytes: limit)
             // Lossy on purpose, see session.context.
             // swiftlint:disable:next optional_data_string_conversion
-            body = "```\n" + StatusDetector.stripANSI(String(decoding: printed, as: UTF8.self)) + "\n```"
+            body = [
+                "```\n" + StatusDetector.stripANSI(String(decoding: printed, as: UTF8.self)) + "\n```",
+                Conversation().notes(uncommitted: uncommitted)
+            ].filter { !$0.isEmpty }.joined(separator: "\n\n")
         }
-        let dir = sessions.root.appendingPathComponent("handoff")
-        try Paths.ensure(dir)
-        let file = dir.appendingPathComponent("\(session.id).md")
+        let file = try handoffFile("\(session.id).md", sessions)
         try ("# Previous session (\(session.agent ?? "agent"), \(session.cwd))\n\n" + body + "\n").write(
             to: file, atomically: true, encoding: .utf8)
         return file
+    }
+
+    private static func handoffFile(_ name: String, _ sessions: Sessions) throws -> URL {
+        let dir = sessions.root.appendingPathComponent("handoff")
+        try Paths.ensure(dir)
+        return dir.appendingPathComponent(name)
+    }
+
+    /// `git status --short` in `cwd`, its first 60 lines.
+    private static func uncommitted(_ cwd: String, _ sessions: Sessions) -> String {
+        do {
+            let status = try Git.run(["status", "--short"], cwd: cwd, remotes: sessions.remotes)
+            return status.split(separator: "\n").prefix(60).joined(separator: "\n")
+        } catch {
+            return ""   // not a repository: nothing to say
+        }
     }
 }
 

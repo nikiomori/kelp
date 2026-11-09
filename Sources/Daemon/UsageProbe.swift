@@ -223,10 +223,11 @@ extension AgentUsage {
 
     /// One question to `codex app-server` started with `args` (`-c` pairs): its answer (result or error), nil if none
     /// came. The app server quits as soon as its input closes, before answering, so it gets a terminal like the /usage
-    /// probes and is stopped once it has answered.
+    /// probes and is stopped once it has answered. `until`: a notification that says the work asked for is done (an
+    /// import's), what's returned then instead of the result; an error is still the answer.
     static func askCodex(
         path: String, args: [String] = [], method: String, params: String? = nil, open: OpenProbes? = nil,
-        within seconds: TimeInterval = 20
+        within seconds: TimeInterval = 20, until notification: String? = nil
     ) -> [String: Any]? {
         let out = ScreenBuffer()
         let pty: PTY
@@ -256,7 +257,11 @@ extension AgentUsage {
             answer = text.split(whereSeparator: \.isNewline).lazy.compactMap {
                 try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]
             }
-            .first { $0["id"] as? Int == 2 && ($0["result"] != nil || $0["error"] != nil) }
+            .first { message in
+                message["id"] as? Int == 2 && message["error"] != nil
+                    || notification.map { message["method"] as? String == $0 }
+                        ?? (message["id"] as? Int == 2 && message["result"] != nil)
+            }
             return answer != nil
         }
         return answer

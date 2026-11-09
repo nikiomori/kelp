@@ -478,7 +478,7 @@ final class NoteBox: @unchecked Sendable {
         })
 }
 
-/// A hand-off brief is the conversation itself: what was asked and answered, not tool output.
+/// A hand-off brief is the conversation itself: what was asked and answered, not tool output; one side's blocks are one turn.
 @Test func handoffBriefFromTranscript() throws {
     let u = tmp().appendingPathComponent("t.jsonl")
     let lines = [
@@ -489,8 +489,8 @@ final class NoteBox: @unchecked Sendable {
         #"{"type":"assistant","message":{"content":[{"type":"text","text":"Done: login.html"}]}}"#
     ]
     try lines.joined(separator: "\n").write(to: u, atomically: true, encoding: .utf8)
-    let brief = try #require(AgentUsage.conversation(transcript: u, limit: 10_000))
-    #expect(brief == "## You\n\nAdd a login page\n\n## Agent\n\nI'll add it.\n\n## Agent\n\nDone: login.html")
+    let brief = try #require(Conversation(file: u)).markdown(limit: 10_000)
+    #expect(brief == "## You\n\nAdd a login page\n\n## Agent\n\nI'll add it.\n\nDone: login.html")
 }
 
 /// Codex's rollout and pi's session read the same way: only what was said, not injected context or tool calls.
@@ -513,9 +513,93 @@ final class NoteBox: @unchecked Sendable {
         #"{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"Fixed"}]}}"#
     ].joined(separator: "\n").write(to: pi, atomically: true, encoding: .utf8)
     for file in [codex, pi] {
-        #expect(
-            AgentUsage.conversation(transcript: file, limit: 10_000) == "## You\n\nFix the build\n\n## Agent\n\nFixed")
+        #expect(Conversation(file: file)?.markdown(limit: 10_000) == "## You\n\nFix the build\n\n## Agent\n\nFixed")
     }
+}
+
+/// Beside the words: the files each agent changed, the commands it ran (each once, latest last) and its last plan.
+@Test func handoffNotesFromToolCalls() throws {
+    let claude = tmp().appendingPathComponent("c.jsonl"), codex = tmp().appendingPathComponent("x.jsonl")
+    let pi = tmp().appendingPathComponent("p.jsonl")
+    try [
+        #"{"type":"user","message":{"content":"Go"}}"#,
+        #"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/p/a.swift"}},{"type":"tool_use","name":"Bash","input":{"command":"swift test"}},{"type":"tool_use","name":"Write","input":{"file_path":"/p/b.swift"}},{"type":"tool_use","name":"Bash","input":{"command":"ls"}},{"type":"tool_use","name":"Bash","input":{"command":"swift test"}},{"type":"tool_use","name":"TodoWrite","input":{"todos":[{"content":"Edit","status":"completed"},{"content":"Test","status":"in_progress"},{"content":"Ship","status":"pending"}]}}]}}"#
+    ].joined(separator: "\n").write(to: claude, atomically: true, encoding: .utf8)
+    try [
+        #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Go"}]}}"#,
+        #"{"type":"response_item","payload":{"type":"function_call","name":"update_plan","arguments":"{\"plan\":[{\"step\":\"Edit\",\"status\":\"completed\"}]}"}}"#,
+        #"{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"CommandExecution","command":["/bin/zsh","-lc","make"],"parsed_cmd":[{"type":"unknown","cmd":"make"}]}}}"#,
+        #"{"type":"event_msg","payload":{"type":"item_completed","item":{"type":"FileChange","changes":{"/p/b.swift":{},"/p/a.swift":{}}}}}"#
+    ].joined(separator: "\n").write(to: codex, atomically: true, encoding: .utf8)
+    try [
+        #"{"type":"message","message":{"role":"user","content":[{"type":"text","text":"Go"}]}}"#,
+        #"{"type":"message","message":{"role":"assistant","content":[{"type":"toolCall","name":"edit","arguments":{"path":"/p/a.swift"}},{"type":"toolCall","name":"bash","arguments":{"command":"make"}}]}}"#
+    ].joined(separator: "\n").write(to: pi, atomically: true, encoding: .utf8)
+    let c = try #require(Conversation(file: claude)), x = try #require(Conversation(file: codex))
+    let p = try #require(Conversation(file: pi))
+    #expect(c.changed == ["/p/a.swift", "/p/b.swift"] && c.commands == ["ls", "swift test"])
+    #expect(c.plan == ["[x] Edit", "[~] Test", "[ ] Ship"])
+    #expect(x.changed == ["/p/a.swift", "/p/b.swift"] && x.commands == ["make"] && x.plan == ["[x] Edit"])
+    #expect(p.changed == ["/p/a.swift"] && p.commands == ["make"])
+    let brief = c.markdown(limit: 10_000, uncommitted: " M a.swift")
+    #expect(
+        brief.hasPrefix("## Its plan\n\n[x] Edit")
+            && brief.contains("## Files it changed\n\n- /p/a.swift\n- /p/b.swift"))
+    #expect(
+        brief.contains("- `swift test`") && brief.contains("```\n M a.swift\n```") && brief.hasSuffix("## You\n\nGo"))
+}
+
+/// Cut to its limit, a brief still starts with the task: the first turn, then the newest, "…" for what's between.
+@Test func handoffBriefKeepsTheTask() throws {
+    var talk = Conversation()
+    talk.turns =
+        [.init(user: true, text: "THE TASK")]
+        + (1...50).map { .init(user: $0 % 2 == 0, text: "turn \($0) " + String(repeating: "x", count: 90)) }
+    let kept = talk.kept(limit: 400)
+    #expect(kept.first?.text == "THE TASK" && kept.last == talk.turns.last && kept.count < talk.turns.count)
+    #expect(kept.map(\.text.count).reduce(0, +) <= 400 + kept.count)
+    #expect(talk.markdown(limit: 400).hasPrefix("## You\n\nTHE TASK\n\n…\n\n## "))
+}
+
+/// The pi session a hand-off writes: a header, then one message per turn each the child of the one before, the
+/// answers as another program's, and the notes last as a message the model reads.
+@Test func handoffPiSession() throws {
+    var talk = Conversation()
+    talk.turns = [.init(user: true, text: "Add login"), .init(user: false, text: "Done")]
+    talk.changed = ["/p/login.html"]
+    let lines = try talk.piSession(cwd: "/p", agent: "claude", limit: 10_000, uncommitted: "")
+        .split(separator: "\n").map {
+            try #require(JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any])
+        }
+    #expect(lines.map { $0["type"] as? String } == ["session", "message", "message", "custom_message"])
+    #expect(lines[0]["version"] as? Int == 3 && lines[0]["cwd"] as? String == "/p")
+    #expect(lines[1]["parentId"] is NSNull && lines[2]["parentId"] as? String == lines[1]["id"] as? String)
+    #expect(lines[3]["parentId"] as? String == lines[2]["id"] as? String)
+    let answer = try #require(lines[2]["message"] as? [String: Any])
+    #expect(answer["role"] as? String == "assistant" && answer["provider"] as? String == "claude")
+    #expect(answer["usage"] != nil && answer["stopReason"] as? String == "stop")
+    #expect((lines[3]["content"] as? String)?.contains("- /p/login.html") == true)
+}
+
+/// An unchanged transcript Codex imported before comes back as the thread its import ledger names.
+@Test func codexImportLedger() throws {
+    let dir = tmp(), ledger = dir.appendingPathComponent("imports.json"),
+        transcript = dir.appendingPathComponent("s.jsonl")
+    let records: [[String: Any]] = [
+        ["source_path": "/elsewhere.jsonl", "imported_thread_id": "other"],
+        ["source_path": transcript.path, "imported_thread_id": "thread-1"]
+    ]
+    try JSONSerialization.data(withJSONObject: ["records": records]).write(to: ledger)
+    #expect(AgentUsage.importedThread(of: transcript, ledger: ledger) == "thread-1")
+    #expect(AgentUsage.importedThread(of: dir.appendingPathComponent("none.jsonl"), ledger: ledger) == nil)
+}
+
+/// A wake of a pi or oh-my-pi a hand-off started goes on in the session file it opened, not in "latest here".
+@Test func handedOffPiResumesItsFile() {
+    let pi = AgentManifest.presets.first { $0.id == "pi" }, omp = AgentManifest.presets.first { $0.id == "omp" }
+    #expect(pi?.resuming(["pi", "--session", "/h/x.jsonl"]) == ["pi", "--session", "/h/x.jsonl"])
+    #expect(omp?.resuming(["omp", "--resume", "/h/x.jsonl"]) == ["omp", "--resume", "/h/x.jsonl"])
+    #expect(pi?.resuming(["pi"]) == ["pi", "--continue"])
 }
 
 /// pi keeps a folder's conversations under its real path with "/" as "-": the newest written since the session began.

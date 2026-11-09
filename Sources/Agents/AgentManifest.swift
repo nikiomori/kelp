@@ -318,9 +318,12 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         // their variables make them report anyway.
         .init(
             id: "pi", name: "Pi", command: "pi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
-            resumeArgs: ["--continue"]),
+            resumeArgs: ["--continue"], resumeIdFlag: "--session"),
         .init(id: "amp", name: "Amp", command: "amp"),
-        .init(id: "omp", name: "oh-my-pi", command: "omp", modelFlag: "--model", resumeArgs: ["--continue"]),
+        // A hand-off opens a session file (`--session` / `--resume <file>`): a wake goes on in it, not in "latest here".
+        .init(
+            id: "omp", name: "oh-my-pi", command: "omp", modelFlag: "--model", resumeArgs: ["--continue"],
+            resumeIdFlag: "--resume"),
         .init(id: "fx", name: "fx", command: "fx", hooks: .herdr, modelFlag: "--model", resumeArgs: ["--continue"]),
         // Others people run; Kelp offers whichever of these actually work on this Mac (AgentAvailability).
         .init(id: "grok", name: "Grok", command: "grok", modelFlag: "--model", resumeArgs: ["--continue"]),

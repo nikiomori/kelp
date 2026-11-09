@@ -280,7 +280,8 @@ final class AgentUsage: Sendable {
     }
 
     /// The file `session`'s agent keeps its conversation in, for the agents whose files Kelp can tell apart: Claude Code,
-    /// Codex (the rollout it has open, else the newest begun here since it started), pi and oh-my-pi.
+    /// Codex (the rollout it has open, else the newest begun here since it started), pi and oh-my-pi (the one a hand-off
+    /// opened it with, else the newest written here since it started).
     func conversationFile(of session: Session, live: LiveSession?) -> URL? {
         switch session.agent {
         case "claude": return live.flatMap(transcript(of:)) ?? transcript(of: session)
@@ -291,6 +292,12 @@ final class AgentUsage: Sendable {
             }
             .first
         case let agent?:
+            let argv = session.argv
+            if let flag = argv.firstIndex(where: { $0 == "--session" || $0 == "--resume" }), flag + 1 < argv.count,
+                argv[flag + 1].hasSuffix(".jsonl")
+            {
+                return URL(fileURLWithPath: argv[flag + 1])
+            }
             return UsageFormat(rawValue: agent).flatMap(\.defaultRoot).flatMap {
                 PiHistory.newest(cwd: session.cwd, since: session.createdAt, root: $0)
             }
@@ -298,41 +305,44 @@ final class AgentUsage: Sendable {
         }
     }
 
-    /// "## You / ## Agent" turns from a Claude Code, Codex or pi conversation file, newest kept when it's longer than
-    /// `limit`. Only what was said: tool calls, their results, reasoning and injected context are left out.
-    static func conversation(transcript url: URL, limit: Int) -> String? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        var turns: [String] = []
-        for line in data.split(separator: 0x0A) {
-            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                let (role, content) = said(entry)
-            else { continue }
-            let text =
-                (content as? String)
-                ?? ((content as? [[String: Any]]) ?? []).compactMap { $0["text"] as? String }.joined(separator: "\n")
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            // tool results, system notes and Codex's AGENTS.md aren't the conversation
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("<"), !trimmed.hasPrefix("# AGENTS.md") else { continue }
-            turns.append("## \(role == "user" ? "You" : "Agent")\n\n\(trimmed)")
+    /// The Codex thread a Claude Code transcript becomes, imported by Codex itself (its app server's
+    /// `externalAgentConfig/import`, what its /import does): the whole conversation, tool calls included. One imported
+    /// before and unchanged since isn't imported again: its thread is the one Codex's import ledger names. Nil when Codex
+    /// can't (not installed, or a transcript outside ~/.claude/projects, which it doesn't look in).
+    func codexThread(importing transcript: URL, cwd: String) -> String? {
+        let item: [String: Any] = [
+            "itemType": "SESSIONS", "description": "Kelp hand-off",
+            "details": ["sessions": [["path": transcript.path, "cwd": cwd]]]
+        ]
+        guard let codex = Log.session.attempt("finding codex", { try LoginPath.resolve("codex") }),
+            let params = Log.session.attempt(
+                "writing the import", { try JSONSerialization.data(withJSONObject: ["migrationItems": [item]]) })
+        else { return nil }
+        let done = Self.askCodex(
+            path: codex, method: "externalAgentConfig/import", params: String(bytes: params, encoding: .utf8),
+            open: openProbes, within: 60, until: "externalAgentConfig/import/completed")
+        let results = (done?["params"] as? [String: Any])?["itemTypeResults"] as? [[String: Any]] ?? []
+        if let thread = results.lazy.flatMap({ $0["successes"] as? [[String: Any]] ?? [] }).first?["target"] as? String
+        {
+            return thread
         }
-        var out = turns.joined(separator: "\n\n")
-        if out.count > limit { out = "…\n\n" + String(out.suffix(limit)) }
-        return out
+        guard done?["params"] != nil, results.allSatisfy({ ($0["failures"] as? [Any] ?? []).isEmpty }) else {
+            Log.session.error("Codex didn't import \(transcript.path): \(done.map { "\($0)" } ?? "no answer in 60 s")")
+            return nil
+        }
+        let home = agentHomes.withLock { $0.codex }.deletingLastPathComponent()
+        return Self.importedThread(
+            of: transcript, ledger: home.appendingPathComponent("external_agent_session_imports.json"))
     }
 
-    /// Who said what in one line: Claude Code's `{type: user|assistant, message}`, pi's `{type: message, message: {role}}`,
-    /// Codex's `{payload: {type: message, role}}`. Nil for anything else (Codex's developer notes, pi's system prompt).
-    private static func said(_ entry: [String: Any]) -> (role: String, content: Any?)? {
-        let message = entry["message"] as? [String: Any], payload = entry["payload"] as? [String: Any]
-        let (role, content): (String?, Any?) =
-            switch entry["type"] as? String {
-            case let type? where type == "user" || type == "assistant": (type, message?["content"])
-            case "message": (message?["role"] as? String, message?["content"])
-            case "response_item" where payload?["type"] as? String == "message":
-                (payload?["role"] as? String, payload?["content"])
-            default: (nil, nil)
-            }
-        guard let role, role == "user" || role == "assistant" else { return nil }
-        return (role, content)
+    /// The thread Codex's import ledger says `transcript` became.
+    static func importedThread(of transcript: URL, ledger: URL) -> String? {
+        let object = Log.session.attempt("reading Codex's import ledger") {
+            try JSONSerialization.jsonObject(with: Data(contentsOf: ledger)) as? [String: Any]
+        }
+        let real = transcript.resolvingSymlinksInPath().path
+        return (object??["records"] as? [[String: Any]] ?? []).last {
+            ($0["source_path"] as? String).map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path } == real
+        }?["imported_thread_id"] as? String
     }
 }
