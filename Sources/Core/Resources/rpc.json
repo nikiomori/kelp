@@ -974,6 +974,10 @@
           "engine" : {
             "$ref" : "#/components/schemas/DatabaseInfo.Engine"
           },
+          "environment" : {
+            "$ref" : "#/components/schemas/DatabaseInfo.Stage",
+            "description" : "Its environment as the user (or the app it came from) said; nil: Production when `production`, else Local."
+          },
           "group" : {
             "description" : "The group it was kept in where it came from (TablePlus' group, DBeaver's folder), for \"All my projects\".",
             "type" : "string"
@@ -1040,6 +1044,16 @@
           "postgres",
           "mysql",
           "duckdb"
+        ],
+        "type" : "string"
+      },
+      "DatabaseInfo.Stage" : {
+        "description" : "Which kind of database it is, as TablePlus and TablePro tag theirs: its colour everywhere it shows (green, blue, orange, red). Production is the one agents only read.",
+        "enum" : [
+          "local",
+          "development",
+          "staging",
+          "production"
         ],
         "type" : "string"
       },

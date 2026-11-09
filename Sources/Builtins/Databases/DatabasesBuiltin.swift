@@ -54,6 +54,10 @@ extension Builtins {
                 ], keywords: ["SQL", "Postgres", "MySQL", "SQLite"], order: 75)
         ]
         contributions.commands = [
+            cmd("databases.open", "Open Database…", "ctrl+cmd+k") {
+                guard let workspace = app.workbench.workspaceId else { return NSSound.beep() }
+                Task { await DatabaseOpener.run(app, worktreeId: workspace) }
+            },
             cmd("databases.add", "Add Database…") {
                 guard let workspace = app.workbench.workspaceId else {
                     NSSound.beep()
@@ -169,12 +173,55 @@ enum DatabaseLook {
         return .symbol(source.hasPrefix("pg") || source == "mycnf" ? "doc.text" : symbol)
     }
 
-    /// "PROD", red: a production database, wherever it's listed.
-    @MainActor static func productionChip() -> NSTextField {
-        let chip = NSTextField(labelWithString: String(localized: "PROD"))
-        chip.font = .ui(9, weight: .bold)
-        chip.textColor = .systemRed
-        chip.toolTip = String(localized: "Production: agents only read it.")
+    /// The environment's word, as a menu and a segment say it.
+    static func title(_ stage: DatabaseInfo.Stage) -> String {
+        switch stage {
+        case .local: String(localized: "Local")
+        case .development: String(localized: "Development")
+        case .staging: String(localized: "Staging")
+        case .production: String(localized: "Production")
+        }
+    }
+
+    /// Green, blue, orange, red: as TablePlus and TablePro colour theirs.
+    static func color(_ stage: DatabaseInfo.Stage) -> NSColor {
+        switch stage {
+        case .local: .systemGreen
+        case .development: .systemBlue
+        case .staging: .systemOrange
+        case .production: .systemRed
+        }
+    }
+
+    /// "LOCAL", "DEV", "STAGING", "PROD" on a tinted capsule, wherever a database is listed.
+    @MainActor static func stageChip(_ stage: DatabaseInfo.Stage) -> NSView {
+        let word: String =
+            switch stage {
+            case .local: String(localized: "LOCAL")
+            case .development: String(localized: "DEV")
+            case .staging: String(localized: "STAGING")
+            case .production: String(localized: "PROD")
+            }
+        let label = NSTextField(labelWithString: word)
+        label.font = .ui(9, weight: .bold)
+        label.textColor = color(stage)
+        let chip = NSView()
+        chip.wantsLayer = true
+        chip.layer?.cornerRadius = Metrics.radiusXS
+        chip.layer?.backgroundColor = color(stage).withAlphaComponent(0.16).cgColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        chip.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 5),
+            label.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -5),
+            label.topAnchor.constraint(equalTo: chip.topAnchor, constant: 1),
+            label.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -1)
+        ])
+        chip.toolTip =
+            stage == .production
+            ? String(localized: "Production: agents only read it.") : String(localized: "\(title(stage)) database")
+        chip.setContentHuggingPriority(.required, for: .horizontal)
+        chip.setContentCompressionResistancePriority(.required, for: .horizontal)
         return chip
     }
 

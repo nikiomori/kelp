@@ -75,6 +75,7 @@ final class Databases: Sendable {
             if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database {
                 db.access = mine.access
                 db.production = mine.production
+                db.environment = mine.environment
             } else if !db.production {
                 db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
             }
@@ -177,10 +178,11 @@ final class Databases: Sendable {
             throw RPCError.invalidParams("Kelp found a database named \(name) already: give this one another name.")
         }
         if let found {   // a found one keeps where it is; only what agents may do changes
-            let access = db.access, production = db.production
+            let access = db.access, production = db.production, environment = db.environment
             db = found.database
             db.access = access
             db.production = production
+            db.environment = environment
         }
         let entry = try SavedDatabase(repoId: worktree.repoId, database: db, byHand: found == nil)
         try store.db.write { try entry.save($0) }

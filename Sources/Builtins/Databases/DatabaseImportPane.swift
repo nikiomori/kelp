@@ -134,7 +134,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         let words = DatabaseSheet.column([name, detail], spacing: Metrics.lineGap)
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [check, NSImageView(image: DatabaseLook.badge(db.engine, size: 16)), words, NSView()]
-        if db.production { views.append(DatabaseLook.productionChip()) }
+        views.append(DatabaseLook.stageChip(db.stage))
         let line = NSStackView(views: views)
         line.spacing = Metrics.gapWide
         line.alignment = .centerY

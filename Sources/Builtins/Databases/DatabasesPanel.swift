@@ -3,10 +3,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Databases panel, most urgent first: an agent's change that waits for the user (Allow in the row), then the
-/// project's databases, each with a dot that says whether it answers, what agents may do with it as an icon, and its
-/// schemas and tables a click away; then All My Projects (the user's own, folded) and what was run lately (folded,
-/// by agent). Over it, a field that finds a table in any of them. A database opens its tab, a table its rows.
+/// The Databases panel: connections, as TablePlus' left column. Most urgent first: an agent's change that waits for
+/// the user (Allow in the row), then the project's databases (name, environment, "host : database", a dot that says
+/// whether it answers, what agents may do as an icon), All My Projects, and what was run lately (by agent). Over it, a
+/// field that finds a database and the one +. A database opens its tab, where its tables are.
 @MainActor
 final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate,
     NSSearchFieldDelegate
@@ -16,8 +16,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case asks(DatabaseRun)
         case database(DatabaseInfo, library: Bool)
         case problem(DatabaseInfo, DatabaseHealth)
-        case schema(database: String, name: String)
-        case table(database: String, DatabaseSchema.Table, depth: Int)
         case run(DatabaseRun)
     }
     enum Heading: Equatable {
@@ -34,8 +32,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     var workspace: String { app.workbench.workspaceId ?? "" }
 
     /// What the user unfolded, and what Kelp read for it.
-    private var expanded = Set<String>(), libraryOpen = false, activityOpen = true
-    private var schemas: [String: DatabaseSchema] = [:]
+    private var libraryOpen = true, activityOpen = true
     private var health: [String: DatabaseHealth] = [:]
     /// All My Projects' dots, read once the section is open.
     private var libraryHealth: [String: DatabaseHealth] = [:], libraryCheckedFor: [String] = []
@@ -61,7 +58,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.menu?.delegate = self
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
         table.registerForDraggedTypes([.fileURL])   // a .sqlite or .duckdb file dropped in: Add Database with it
-        search.placeholderString = String(localized: "Find a Table")
+        search.placeholderString = String(localized: "Find a Database")
         search.delegate = self
         search.controlSize = .small
         search.sendsSearchStringImmediately = true
@@ -87,8 +84,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         track(owner: self) { [app] in
             app.workbench.workspaceId
         } changed: { [weak self] _ in
-            self?.expanded = []
-            self?.schemas = [:]
             self?.checkedFor = []
             self?.watchShown()
         }
@@ -158,29 +153,13 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         if libraryOpen { checkLibrary(library) }
     }
 
-    /// A database's row, what's wrong with it, and its schemas and tables when it's unfolded (or a table's name is
-    /// searched for).
+    /// A database's row, and what's wrong with it under it; found by its name, address or environment.
     private func rows(of db: DatabaseInfo, library: Bool, find: String) -> [Row] {
-        let key = Self.key(db.name, library: library)
-        let tables = schemas[key]?.tables ?? []
-        let matching = find.isEmpty ? tables : tables.filter { $0.name.lowercased().contains(find) }
-        if !find.isEmpty, matching.isEmpty, !db.name.lowercased().contains(find) { return [] }
+        let words = [db.name, db.address, DatabaseLook.title(db.stage), db.group ?? ""].joined(separator: " ")
+        if !find.isEmpty, !words.lowercased().contains(find) { return [] }
         var out: [Row] = [.database(db, library: library)]
         if let h = library ? libraryHealth[db.name] : health[db.name], h.state != .ok, h.state != .unknown {
             out.append(.problem(db, h))
-        }
-        guard expanded.contains(key) || !find.isEmpty else { return out }
-        // "public.orders" is "orders"; other schemas are folders of their own when there's more than one.
-        let bySchema = Dictionary(grouping: matching) { t in
-            t.name.contains(".") ? String(t.name.split(separator: ".")[0]) : ""
-        }
-        if bySchema.count <= 1 {
-            out += matching.map { .table(database: key, $0, depth: 1) }
-        } else {
-            for schema in bySchema.keys.sorted() {
-                out.append(.schema(database: key, name: schema.isEmpty ? "public" : schema))
-                out += (bySchema[schema] ?? []).map { .table(database: key, $0, depth: 2) }
-            }
         }
         return out
     }
@@ -213,35 +192,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    func toggle(_ db: DatabaseInfo, library: Bool) {
-        let key = Self.key(db.name, library: library)
-        if expanded.remove(key) == nil {
-            expanded.insert(key)
-            if schemas[key] == nil { load(db.name, key: key) }
-        }
-        reload()
-    }
-
-    private func load(_ name: String, key: String) {
-        let wid = workspace
-        Task {
-            guard let schema = await app.quiet(DatabaseSchemaRead(worktreeId: wid, database: name)) else { return }
-            schemas[key] = schema
-            reload()
-        }
-    }
-
-    func controlTextDidChange(_ n: Notification) {
-        // A table is looked for in every database: read the ones not read yet.
-        if !search.stringValue.isEmpty {
-            let event = app.latest(DatabasesEvent.self, workspace)
-            for db in event?.databases ?? [] where schemas[db.name] == nil && health[db.name]?.state != .down {
-                schemas[db.name] = DatabaseSchema(tables: [])
-                load(db.name, key: db.name)
-            }
-        }
-        reload()
-    }
+    func controlTextDidChange(_ n: Notification) { reload() }
 
     private lazy var addButton = NSButton(
         title: String(localized: "Add Database…"), target: self, action: #selector(addDatabase))
@@ -256,7 +207,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .heading, .problem, .schema: false
+        case .heading, .problem: false
         default: true
         }
     }
@@ -265,7 +216,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .heading: TextSize.of(Metrics.rowSection)
         case .database, .asks: TextSize.of(Metrics.rowTwoLine)
         case .problem: TextSize.of(Metrics.row) - 4
-        case .schema, .table, .run: TextSize.of(Metrics.row)
+        case .run: TextSize.of(Metrics.row)
         }
     }
 
@@ -275,20 +226,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .heading(let h): parts.heading(h, libraryOpen: libraryOpen, activityOpen: activityOpen, only: only)
         case .asks(let run): parts.asks(run)
         case .database(let db, let library):
-            parts.database(
-                db, library: library, open: expanded.contains(Self.key(db.name, library: library)),
-                health: library ? libraryHealth[db.name] : health[db.name])
+            parts.database(db, library: library, health: library ? libraryHealth[db.name] : health[db.name])
         case .problem(let db, let h): parts.problem(db, h)
-        case .schema(_, let name): parts.schema(name)
-        case .table(_, let t, let depth): parts.table(t, depth: depth)
         case .run(let run): parts.ran(run)
         }
-    }
-
-    /// A table dragged out (onto an agent's terminal, a note) is its name and where to read it.
-    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
-        guard case .table(let key, let t, _) = rows[row] else { return nil }
-        return Self.mention(t.name, in: key) as NSString
     }
 
     func tableView(
@@ -318,9 +259,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         .path
     }
 
-    static func mention(_ table: String, in key: String) -> String {
-        let db = key.hasPrefix("~") ? String(key.dropFirst()) : key
-        return "the table \(table) in \(db) (kelp db schema \(db) \(table))"
+    static func mention(_ table: String, in db: String) -> String {
+        "the table \(table) in \(db) (kelp db schema \(db) \(table))"
     }
 
     // MARK: Clicks
@@ -333,17 +273,13 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .heading(.library): libraryOpen.toggle()
         case .heading(.activity): activityOpen.toggle()
         case .heading: return
-        case .database(let db, _):   // its chevron unfolds it (a button of its own)
+        case .database(let db, _):
             app.workbench.open(DatabaseURI(worktree: wid, name: db.name).uri)
-            return
-        case .table(let key, let t, _):
-            let name = key.hasPrefix("~") ? String(key.dropFirst()) : key
-            app.workbench.open(DatabaseURI(worktree: wid, name: name, table: t.name).uri)
             return
         case .asks(let run), .run(let run):
             app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)
             return
-        case .problem, .schema: return
+        case .problem: return
         }
         reload()
     }
@@ -391,21 +327,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .heading: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
         case .database(let db, let library):
             DatabaseMenu.fill(menu, db, app: app, worktreeId: wid, library: library)
-        case .table(let key, let t, _):
-            let name = key.hasPrefix("~") ? String(key.dropFirst()) : key
-            menu.add(String(localized: "Open")) {
-                app.workbench.open(DatabaseURI(worktree: wid, name: name, table: t.name).uri)
-            }
-            if !key.hasPrefix("~"), let agent = DatabaseTab.agent(app, worktree: wid) {
-                menu.add(String(localized: "Ask \(app.catalog.name(agent.agent)) About \(t.name)")) {
-                    Task {
-                        let text = "About " + Self.mention(t.name, in: key) + ": "
-                        guard await app.call(SessionSend(id: agent.id, text: text, enter: false)) != nil else { return }
-                        app.workbench.focus(session: agent.id)
-                    }
-                }
-            }
-            menu.add(String(localized: "Copy Name")) { copyText(t.name) }
         case .asks(let run), .run(let run):
             menu.add(String(localized: "Show Rows")) {
                 app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)
@@ -415,7 +336,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
-        case .problem, .schema: break
+        case .problem: break
         }
     }
 }
@@ -487,25 +408,36 @@ enum DatabaseMenu {
         return agents
     }
 
+    /// Local, Development, Staging, Production. Leaving Production (agents get more than reading) is said first.
     private static func production(_ menu: NSMenu, _ db: DatabaseInfo, app: AppModel, worktreeId: String) {
-        menu.add(String(localized: "Production")) {
-            var changed = db
-            changed.production.toggle()
-            Task {
-                // Raising what agents may do is said in words first: the rest of the menu only ever lowers it here.
-                if !changed.production {
-                    let alert = NSAlert()
-                    alert.messageText = String(localized: "Let agents change \(db.name)?")
-                    alert.informativeText = String(
-                        localized:
-                            "\(db.address) stops being production: agents get what Agents says, \(DatabaseLook.title(db.access)), and their changes reach it."
-                    )
-                    alert.addButton(withTitle: String(localized: "Not Production"))
-                    alert.addButton(withTitle: String(localized: "Cancel"))
-                    guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+        let stages = NSMenu()
+        for stage in DatabaseInfo.Stage.allCases {
+            let item = stages.add(DatabaseLook.title(stage)) {
+                var changed = db
+                changed.set(stage: stage)
+                Task {
+                    if db.production, stage != .production {
+                        let alert = NSAlert()
+                        alert.messageText = String(localized: "Let agents change \(db.name)?")
+                        alert.informativeText = String(
+                            localized:
+                                "\(db.address) stops being production: agents get what Agents says, \(DatabaseLook.title(changed.access)), and their changes reach it."
+                        )
+                        alert.addButton(withTitle: String(localized: "Make It \(DatabaseLook.title(stage))"))
+                        alert.addButton(withTitle: String(localized: "Cancel"))
+                        guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+                    }
+                    await app.call(DatabaseSave(worktreeId: worktreeId, database: changed))
                 }
-                await app.call(DatabaseSave(worktreeId: worktreeId, database: changed))
             }
-        }.state = db.production ? .on : .off
+            item.state = db.stage == stage ? .on : .off
+            item.image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
+                DatabaseLook.color(stage).setFill()
+                NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+                return true
+            }
+        }
+        menu.setSubmenu(
+            stages, for: menu.addItem(withTitle: String(localized: "Environment"), action: nil, keyEquivalent: ""))
     }
 }

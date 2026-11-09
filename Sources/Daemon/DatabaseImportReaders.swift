@@ -150,7 +150,8 @@ enum ImportReaders {
         }
         let type = string(cfg["type"])
         let prod = type == "prod" || (types[type]?["confirm-execute"] as? Bool == true && type != "dev")
-        note = ImportReaders.both(note, production(&db, tag: prod ? "production" : type, app: "DBeaver"))
+        note = ImportReaders.both(
+            note, production(&db, tag: prod ? "production" : type == "dev" ? nil : type, app: "DBeaver"))
         let secret: (@Sendable () throws -> ImportSecret)? =
             c["save-password"] as? Bool == false
             ? nil
@@ -389,14 +390,20 @@ enum ImportReaders {
     static func production(_ db: inout DatabaseInfo, tag: String?, app: String) -> String? {
         let tag = tag?.lowercased() ?? ""
         if ["production", "prod"].contains(tag) {
-            db.production = true
+            db.set(stage: .production)
             return "Production in \(app): agents only read it."
         }
+        let said: DatabaseInfo.Stage? =
+            ["development", "dev"].contains(tag)
+            ? .development : ["staging", "testing", "test"].contains(tag) ? .staging : nil
         let remote = db.ssh != nil || db.host.map { !isThisMac($0) } ?? false
-        if remote, !["development", "testing", "test", "staging"].contains(tag) {
-            db.production = true
-            return "Not on this Mac: Production until you say otherwise."
+        if remote, said == nil {
+            db.set(stage: .production)
+            return tag == "local"
+                ? "\(app) calls it local, as it does every new connection: Production here until you say otherwise."
+                : "Not on this Mac: Production until you say otherwise."
         }
+        db.set(stage: said ?? .local)
         return nil
     }
 

@@ -18,7 +18,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let sshRow = NSStackView(), sslRow = NSStackView()
     private let sshOn = NSButton(), sslOn = NSButton()
     private let place = NSSegmentedControl(), agents = NSSegmentedControl()
-    private let production = NSButton(checkboxWithTitle: String(localized: "Production"), target: nil, action: nil)
+    private let stage = NSSegmentedControl(
+        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), trackingMode: .selectOne, target: nil, action: nil)
     private let why = DatabaseSheet.small("")
     private let status = NSTextField(wrappingLabelWithString: "")
     private let add = NSButton()
@@ -105,16 +106,15 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: editing?.access ?? defaultAccess) ?? 2
         agents.target = self
         agents.action = #selector(changed)
-        production.target = self
-        production.action = #selector(productionClicked)
-        production.state = (editing?.production ?? db.production) ? .on : .off
-        productionTouched = editing != nil
-        let productionLine = NSStackView(views: [production, why])
-        productionLine.spacing = Metrics.gap
+        stage.target = self
+        stage.action = #selector(stageClicked)
+        let start = editing?.stage ?? db.stage
+        stage.selectedSegment = DatabaseInfo.Stage.allCases.firstIndex(of: start) ?? 0
+        productionTouched = editing != nil || db.environment != nil
         parts.append(
             SheetForm.grid([
                 (String(localized: "Name"), name), (String(localized: "Keep in"), place),
-                (String(localized: "Agents"), agents), ("", productionLine)
+                (String(localized: "Environment"), stage), ("", why), (String(localized: "Agents"), agents)
             ]))
 
         status.font = .ui(11)
@@ -195,7 +195,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         }
         db.name = name.stringValue.trimmingCharacters(in: .whitespaces)
         db.access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]
-        db.production = production.state == .on
+        db.set(stage: DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)])
         return db
     }
 
@@ -226,19 +226,34 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     @objc private func changed() {
         let db = typed
         let elsewhere = db.map { $0.ssh != nil || $0.host.map { !Self.onThisMac($0) } ?? false } ?? false
-        if !productionTouched { production.state = elsewhere ? .on : .off }
-        why.stringValue =
-            production.state == .on
-            ? (elsewhere
-                ? String(localized: "not on this Mac: agents only read it") : String(localized: "agents only read it"))
-            : (elsewhere ? String(localized: "not on this Mac: a copy you may break?") : "")
+        if !productionTouched {
+            stage.selectedSegment = DatabaseInfo.Stage.allCases.firstIndex(of: elsewhere ? .production : .local) ?? 0
+        }
+        let picked = DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)]
+        why.stringValue = Self.why(picked, elsewhere: elsewhere)
+        why.isHidden = why.stringValue.isEmpty
         add.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
         place.setEnabled(editing == nil, forSegment: 1)
     }
 
-    @objc private func productionClicked() {
+    @objc private func stageClicked() {
         productionTouched = true
+        let free = DatabaseInfo.Access.allCases.firstIndex(of: .free) ?? 3
+        if DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)] == .staging, agents.selectedSegment == free {
+            agents.selectedSegment = DatabaseInfo.Access.allCases.firstIndex(of: .ask) ?? 2
+        }
         changed()
+    }
+
+    /// What the environment means for agents, and a word when one elsewhere isn't Production.
+    static func why(_ stage: DatabaseInfo.Stage, elsewhere: Bool) -> String {
+        switch stage {
+        case .production:
+            return elsewhere
+                ? String(localized: "Not on this Mac: agents only read it.") : String(localized: "Agents only read it.")
+        case .staging: return String(localized: "Agents ask before each change, at most.")
+        default: return elsewhere ? String(localized: "Not on this Mac: is it a copy you may break?") : ""
+        }
     }
 
     static func onThisMac(_ host: String) -> Bool {

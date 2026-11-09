@@ -16,6 +16,11 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public enum Access: String, Codable, Sendable, CaseIterable {
         case hidden, read, ask, free
     }
+    /// Which kind of database it is, as TablePlus and TablePro tag theirs: its colour everywhere it shows (green, blue,
+    /// orange, red). Production is the one agents only read.
+    public enum Stage: String, Codable, Sendable, CaseIterable {
+        case local, development, staging, production
+    }
 
     /// Its name in the project: what `kelp db --db` and the tab's address use.
     public var name: String
@@ -37,6 +42,8 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var access: Access
     /// Agents only read it, whatever `access` says: on a host that isn't this Mac, or named so.
     public var production: Bool
+    /// Its environment as the user (or the app it came from) said; nil: Production when `production`, else Local.
+    public var environment: Stage?
 
     public var id: String { name }
 
@@ -56,6 +63,15 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         self.ssl = ssl
         self.access = access
         self.production = production
+    }
+
+    public var stage: Stage { production ? .production : environment ?? .local }
+
+    /// Tagged `stage`: Production is read only for agents; Staging asks before a change at most.
+    public mutating func set(stage: Stage) {
+        environment = stage
+        production = stage == .production
+        if stage == .staging, access == .free { access = .ask }
     }
 
     /// What agents get: a production database is read at most.

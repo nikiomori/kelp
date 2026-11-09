@@ -111,12 +111,13 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     #expect(tp.map(\.database.name) == ["analytics", "reports", "gis@pg-prod-ro"])   // Redis isn't Kelp's
     #expect(tp[0].database.production && tp[0].database.group == "Work" && tp[0].database.user == "ro")
     #expect(tp[1].database.ssh == "me@box" && tp[1].note?.contains("port 2222") == true)
-    #expect(tp[1].database.production)   // through SSH: not this Mac's, "local" tag or not
+    #expect(tp[1].database.production && tp[1].database.stage == .production)   // through SSH: "local" is TablePlus' default
+    #expect(tp[1].note?.contains("calls it local") == true)
 
     let dbeaver = ImportReaders.read("dbeaver", home: home, file: nil)
     #expect(dbeaver.map(\.imported.database.name) == ["events", "shop"])
     #expect(dbeaver[0].imported.database.engine == .duckdb && dbeaver[0].imported.database.path == "/tmp/events.duckdb")
-    #expect(dbeaver[1].imported.database.ssl == "require" && !dbeaver[1].imported.database.production)
+    #expect(dbeaver[1].imported.database.ssl == "require" && dbeaver[1].imported.database.stage == .local)
     let read = try #require(dbeaver[1].secret)
     let secret = try read()   // its file, under DBeaver's shared key
     #expect(secret.user == "app" && secret.password == "s3cret")

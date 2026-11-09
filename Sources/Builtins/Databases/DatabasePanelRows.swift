@@ -47,21 +47,17 @@ struct DatabasePanelRows {
         return line([icon, words, NSView(), deny, allow], inset: Metrics.inset, trailing: Metrics.inset)
     }
 
-    func database(_ db: DatabaseInfo, library: Bool, open: Bool, health: DatabaseHealth?) -> NSView {
+    /// The engine's mark, a dot, the name with its environment over "host : database", then a key while its password
+    /// waits and what agents may do.
+    func database(_ db: DatabaseInfo, library: Bool, health: DatabaseHealth?) -> NSView {
         let name = label(db.name, font: .ui(12, weight: .medium))
-        let detail = label(
-            library
-                ? [DatabaseLook.engine(db.engine), db.group, Self.place(db)].compactMap { $0 }.joined(separator: " · ")
-                : DatabaseLook.detail(db),
-            font: .ui(11), color: .secondaryLabelColor)
-        let fold = IconButton(
-            .symbol(open ? "chevron.down" : "chevron.right"),
-            tip: open ? String(localized: "Fold \(db.name)") : String(localized: "Show \(db.name)’s Tables")
-        ) { [weak panel] in panel?.toggle(db, library: library) }
-        fold.symbolConfiguration = .chrome(Metrics.iconTiny)
-        var views: [NSView] = [fold, NSImageView(image: DatabaseLook.badge(db.engine, size: 14))]
-        views.append(dot(health))
-        views += [stack([name, detail]), NSView()]
+        let title = NSStackView(views: [name, DatabaseLook.stageChip(db.stage)])
+        title.spacing = Metrics.gap
+        let detail = label(Self.place(db) ?? DatabaseLook.engine(db.engine), font: .ui(11), color: .secondaryLabelColor)
+        detail.lineBreakMode = .byTruncatingHead   // "…agrohistory.local : webdb": the end says which
+        detail.toolTip = DatabaseLook.detail(db)
+        var views: [NSView] = [NSImageView(image: DatabaseLook.badge(db.engine, size: 16)), dot(health)]
+        views += [stack([title, detail]), NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
             key.contentTintColor = .tertiaryLabelColor
@@ -69,7 +65,6 @@ struct DatabasePanelRows {
                 localized: "Its password is read from the app it came from when you open it: macOS asks once.")
             views.append(key)
         }
-        if db.production { views.append(DatabaseLook.productionChip()) }
         if !library {
             let access = IconButton(
                 .symbol(DatabaseLook.accessSymbol(db.agentAccess)),
@@ -81,7 +76,7 @@ struct DatabasePanelRows {
             }
             views.append(access)
         }
-        let row = line(views, inset: Metrics.gap, trailing: Metrics.insetTrailing)
+        let row = line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
         row.toolTip = card(db, health: health)
         return row
     }
@@ -106,17 +101,21 @@ struct DatabasePanelRows {
         .compactMap { $0 }.joined(separator: "\n")
     }
 
-    /// "db.example.com:5432", "through box", or a file's name.
+    /// "db.example.com : app_dev" (as TablePlus lists it), "through box", or a file's name.
     static func place(_ db: DatabaseInfo) -> String? {
         if db.engine.isFile { return db.path.map { ($0 as NSString).lastPathComponent } }
-        let at = db.host.map { $0 + (db.port.map { ":\($0)" } ?? "") }
-        return [at, db.ssh.map { String(localized: "through \($0)") }].compactMap { $0 }.joined(separator: " ")
+        let at = [db.host, db.database].compactMap { $0 }.joined(separator: " : ")
+        return [at.isEmpty ? nil : at, db.ssh.map { String(localized: "via \($0)") }].compactMap { $0 }
+            .joined(separator: " ")
     }
 
     /// Under a database that doesn't answer: why, and Start when compose can start it.
     func problem(_ db: DatabaseInfo, _ h: DatabaseHealth) -> NSView {
+        // "inkover doesn't answer at …": the row says whose, the line only what
+        var said = h.reason ?? String(localized: "It doesn’t answer.")
+        if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
         let why = label(
-            h.reason ?? String(localized: "It doesn’t answer."), font: .ui(11),
+            said, font: .ui(11),
             color: h.state == .stopped ? .textOrange : .textRed)
         why.toolTip = h.reason
         var views: [NSView] = [why, NSView()]
@@ -128,25 +127,6 @@ struct DatabasePanelRows {
             views.append(start)
         }
         return line(views, inset: Metrics.inset + 34, trailing: Metrics.inset)
-    }
-
-    func schema(_ name: String) -> NSView {
-        let icon = NSImageView(image: .symbol("folder"))
-        icon.contentTintColor = .secondaryLabelColor
-        return line(
-            [icon, label(name, font: .ui(12), color: .secondaryLabelColor), NSView()], inset: Metrics.inset + 18,
-            trailing: Metrics.inset)
-    }
-
-    func table(_ t: DatabaseSchema.Table, depth: Int) -> NSView {
-        let icon = NSImageView(image: .symbol("tablecells"))
-        icon.contentTintColor = .secondaryLabelColor
-        let name = t.name.split(separator: ".").last.map(String.init) ?? t.name
-        var views: [NSView] = [icon, label(name, font: .ui(12)), NSView()]
-        if let count = t.rows { views.append(digits(count)) }
-        let row = line(views, inset: Metrics.inset + 22 * CGFloat(depth), trailing: Metrics.inset)
-        row.toolTip = t.columns.map { $0.name + " " + $0.type }.joined(separator: "\n")
-        return row
     }
 
     func ran(_ run: DatabaseRun) -> NSView {
@@ -246,4 +226,9 @@ struct DatabasePanelRows {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: trailing)
         return stack
     }
+}
+
+extension String {
+    /// "doesn't answer" → "Doesn't answer".
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }
