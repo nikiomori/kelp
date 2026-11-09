@@ -142,13 +142,13 @@ extension AppDelegate {
             else { exit(2) }
             // KELP_HOVER="calc.py|Changes": a mouse-entered event for the views showing these texts (hover states can't be
             // reached otherwise without moving the user's pointer). The picture is taken a moment later: a hover card opens
-            // after a pause (a commit's waits half a second).
+            // after a pause (a commit's waits half a second; KELP_HOVER_WAIT=3 waits longer for what it draws).
             if !Self.hovered, let texts = env["KELP_HOVER"] {
                 Self.hovered = true
                 for text in texts.split(separator: "|").map(String.init) { Self.hover(text, in: root, window: window) }
                 // main run loop
                 RunLoop.main.add(
-                    Timer(timeInterval: 1.2, repeats: false) { [self] _ in
+                    Timer(timeInterval: Double(env["KELP_HOVER_WAIT"] ?? "") ?? 1.2, repeats: false) { [self] _ in
                         MainActor.assumeIsolated { self.snap(env, to: path) }
                     }, forMode: .common)
                 return

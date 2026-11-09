@@ -3,21 +3,17 @@ import Core
 import DesignKit
 import KelpKit
 import Markdown
-import WebKit
 
-/// The card a page's row shows when the pointer rests on it, beside the panel: the page itself, small (a file's, or
-/// Kelp's copy of a page on a service, `ArtifactItem.preview`), its whole title, who made it and when. Rows of
-/// text-heavy pages look alike in a thumbnail; at this size the page's headings and pictures read. Its scripts don't
-/// run and its links don't open (`PreviewLinks`). The web view is made at the first card and kept.
+/// The card a page's row shows when the pointer rests on it, beside the panel: a picture of the page's top (a file's,
+/// or Kelp's copy of a page on a service, `ArtifactItem.preview`, drawn by `ArtifactShots`), its whole title, who made
+/// it and when. Rows of text-heavy pages look alike in a thumbnail; at this size the page's headings and pictures read.
 @MainActor
 final class ArtifactCard {
     struct Shown {
         let item: ArtifactItem
         let title: String
     }
-    /// The page is laid out this wide and drawn at the card's width.
-    private static let pageWidth: CGFloat = 1100
-    private static let size = NSSize(width: 284, height: 178)
+    static let size = NSSize(width: 284, height: 178)
 
     private let app: AppModel
     private let popover = NSPopover()
@@ -25,18 +21,18 @@ final class ArtifactCard {
     private var shownTarget: String?
     private var warmUntil = Date.distantPast
     private var keys: Any?
-    private lazy var links = PreviewLinks(app: app)
-    private lazy var web: WKWebView = {
-        let web = WKWebView(frame: NSRect(origin: .zero, size: Self.size))
-        web.navigationDelegate = links
-        web.pageZoom = Self.size.width / Self.pageWidth
-        web.wantsLayer = true
-        web.layer?.cornerRadius = Metrics.radiusSM
-        web.layer?.masksToBounds = true
-        web.setValue(false, forKey: "drawsBackground")
-        web.widthAnchor.constraint(equalToConstant: Self.size.width).isActive = true
-        web.heightAnchor.constraint(equalToConstant: Self.size.height).isActive = true
-        return web
+    private let shots = ArtifactShots()
+    /// The picture's place: a grey fill until the page is drawn, then the page, faded in.
+    private lazy var picture: NSImageView = {
+        let view = NSImageView()
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.wantsLayer = true
+        view.layer?.cornerRadius = Metrics.radiusSM
+        view.layer?.masksToBounds = true
+        view.layer?.borderWidth = 1
+        view.widthAnchor.constraint(equalToConstant: Self.size.width).isActive = true
+        view.heightAnchor.constraint(equalToConstant: Self.size.height).isActive = true
+        return view
     }()
     private var loading: Task<Void, Never>?
 
@@ -106,8 +102,14 @@ final class ArtifactCard {
         ]
         var views: [NSView] = []
         if let preview = item.preview {
-            views.append(web)
-            load(preview, dark: web.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
+            views.append(picture)
+            picture.image = nil
+            picture.effectiveAppearance.performAsCurrentDrawingAppearance {
+                picture.layer?.backgroundColor = NSColor.fillRest.cgColor
+                picture.layer?.borderColor = NSColor.separatorColor.cgColor
+            }
+            let dark = picture.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            load(preview, version: item.modified ?? item.created, dark: dark, board: item.type == "design")
         }
         views += [title, line(made.compactMap { $0 }.joined(separator: " · "))]
         if let link = item.url.flatMap(URL.init(string:))?.host {
@@ -118,7 +120,7 @@ final class ArtifactCard {
         stack.alignment = .leading
         stack.spacing = Metrics.lineGap
         // A page published before Kelp kept copies has no picture: the card is its title alone.
-        if item.preview != nil { stack.setCustomSpacing(Metrics.gap + 2, after: web) }
+        if item.preview != nil { stack.setCustomSpacing(Metrics.gap + 2, after: picture) }
         stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 10, right: 8)
         stack.widthAnchor.constraint(equalToConstant: Self.size.width + 16).isActive = true
         return stack
@@ -133,8 +135,8 @@ final class ArtifactCard {
     }
 
     /// A page of HTML as it is; Markdown as its tab draws it. Read through the daemon, as a tab reads it; one it
-    /// refuses (too big) leaves the picture empty.
-    private func load(_ path: String, dark: Bool) {
+    /// refuses (too big) or that can't be drawn leaves the grey place.
+    private func load(_ path: String, version: Double, dark: Bool, board: Bool) {
         loading?.cancel()
         let base = URL(fileURLWithPath: path).deletingLastPathComponent(), app = self.app
         loading = Task { [weak self] in
@@ -143,8 +145,16 @@ final class ArtifactCard {
                 path.hasSuffix(".md")
                 ? await Task.detached { MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark) }
                     .value : text
-            guard !Task.isCancelled, let self else { return }
-            links.load(html, baseURL: base, in: web)
+            guard !Task.isCancelled, let self,
+                let image = await shots.picture(
+                    html: html, base: base, key: "\(path)|\(version)", dark: dark,
+                    board: board),
+                !Task.isCancelled
+            else { return }
+            let fade = CATransition()
+            fade.duration = Motion.fast
+            picture.layer?.add(fade, forKey: "fade")
+            picture.image = image
         }
     }
 }

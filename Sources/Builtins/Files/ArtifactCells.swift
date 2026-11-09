@@ -28,7 +28,6 @@ struct ArtifactCells {
         let project = panel.app.projectName(panel.app.worktree(panel.app.workbench.workspaceId)?.repoId)
         let name = label(
             panel.title(item, project), font: .ui(12, weight: panel.isNew(item) ? .semibold : .regular))
-        name.toolTip = item.title
         var title: [NSView] = [name]
         if earlier > 0 {
             let more = label("\(earlier + 1)", font: .uiDigits(11), color: .secondaryLabelColor)
