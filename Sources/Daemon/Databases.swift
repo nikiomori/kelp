@@ -355,6 +355,7 @@ final class Databases: Sendable {
         do {
             let started = Date()
             let timeout = max(1, sessions.settings[SettingKeys.databaseTimeout])
+            guard SQLText.mayTryAsRead(sql, c.database.engine) else { throw DatabaseFailure.change }
             let rows = try await DatabaseEngines.read(c, sql, timeout: timeout, off: offloads)
             return finish(q, &run, rows, started: started)
         } catch DatabaseFailure.change {
@@ -440,7 +441,8 @@ final class Databases: Sendable {
             })
         let question = Self.question(sql, database: c.database.name, changed: trial?.changed)
         ls.askForKelp(question)
-        let answer = await sessions.permissions.waitForKelp(session, question: question, within: 600)
+        let answer = await sessions.permissions.waitForKelp(
+            session, question: question, within: DatabaseQuery.answerWithin)
         ls.kelpAsked(question)
         guard answer == "allow" else {
             run.state = .denied

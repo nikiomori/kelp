@@ -6,6 +6,7 @@ import NIOCore
 import NIOPosix
 import NIOSSL
 import PostgresNIO
+import os
 
 /// Postgres and MySQL spoken by kelpd itself, at an address it reaches (the database's own, or a forwarded port): no
 /// psql or mysql on the Mac. One connection a call, closed after it. Reads run in a read-only transaction, so the
@@ -169,14 +170,17 @@ enum PostgresWire {
         return result
     }
 
-    /// A statement whose command tag says how many rows it changed ("UPDATE 3"), with whatever rows it gave.
+    /// A statement whose command tag says how many rows it changed ("UPDATE 3"), with whatever rows it gave: `keep`
+    /// kept as they come, the rest only counted.
     static func command(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
-        let result = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger).get()
-        let kept = result.rows.prefix(DatabaseEngines.keep)
-        return DatabaseRows(
-            columns: kept.first.map { $0.map(\.columnName) } ?? [], rows: kept.map { $0.map(PostgresText.text) },
-            total: result.rows.count,
-            changed: result.metadata.rows ?? (["SELECT", "SHOW"].contains(result.metadata.command) ? nil : 0))
+        let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
+        let metadata = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger) { row in
+            let names = row.map(\.columnName), values = row.map(PostgresText.text)
+            kept.withLock { $0.add(columns: names, values) }
+        }.get()
+        var result = kept.withLock { $0 }
+        result.changed = metadata.rows ?? (["SELECT", "SHOW"].contains(metadata.command) ? nil : 0)
+        return result
     }
 
     /// The server's own words; a change refused by a read-only transaction is `.change`.
@@ -218,6 +222,7 @@ enum PostgresWire {
 enum MySQLWire {
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         try await with(c) { conn in
+            try await limit(conn, timeout)
             _ = try await run(conn, "START TRANSACTION READ ONLY")
             return try await run(conn, sql)
         }
@@ -281,6 +286,14 @@ enum MySQLWire {
         }
     }
 
+    /// The server stops a read at `timeout`: MySQL calls it max_execution_time (ms), MariaDB max_statement_time (s),
+    /// and each refuses the other's name.
+    private static func limit(_ conn: MySQLConnection, _ timeout: TimeInterval) async throws {
+        do { _ = try await run(conn, "SET SESSION max_execution_time = \(Int(timeout * 1000))") } catch {
+            _ = try await run(conn, "SET SESSION max_statement_time = \(Int(timeout))")
+        }
+    }
+
     /// ROW_COUNT() right after the statement: anything between would reset it.
     private static func changed(_ conn: MySQLConnection) async throws -> Int? {
         (try await run(conn, "SELECT ROW_COUNT()").rows.first?.first ?? nil).flatMap(Int.init).map { max(0, $0) }
@@ -295,7 +308,8 @@ enum MySQLWire {
         let address = host == "localhost" ? "127.0.0.1" : host
         let conn: MySQLConnection
         do {
-            let socket = try SocketAddress.makeAddressResolvingHost(address, port: db.port ?? 3306)
+            let port = db.port ?? 3306
+            let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
             conn = try await MySQLConnection.connect(
                 to: socket, username: db.user ?? "root", database: db.database ?? "", password: c.password,
                 tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
@@ -313,14 +327,14 @@ enum MySQLWire {
     }
 
     /// One statement over the text protocol: its columns (when it gave rows) and rows, NULL as nil.
+    /// Rows as they come: `keep` of them kept, the rest only counted (a SELECT * of millions doesn't fill kelpd).
     static func run(_ conn: MySQLConnection, _ sql: String) async throws -> DatabaseRows {
-        let rows = try await conn.simpleQuery(sql).get()
-        var result = DatabaseRows(columns: rows.first?.columnDefinitions.map(\.name) ?? [])
-        result.total = rows.count
-        result.rows = rows.prefix(DatabaseEngines.keep).map { row in
-            row.values.map { $0.map { String(buffer: $0) } }
-        }
-        return result
+        let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
+        try await conn.simpleQuery(sql) { row in
+            let names = row.columnDefinitions.map(\.name), values = row.values.map { $0.map { String(buffer: $0) } }
+            kept.withLock { $0.add(columns: names, values) }
+        }.get()
+        return kept.withLock { $0 }
     }
 
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {

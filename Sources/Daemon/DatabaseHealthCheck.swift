@@ -30,8 +30,13 @@ extension Databases {
             return DatabaseHealth(name: name, state: .unknown, reason: "Its password is read when you open it.")
         }
         let through = c.database.ssh.map { remotes.host($0, path: "/") } ?? remote
-        if let through, through.connection == nil {
-            return DatabaseHealth(name: name, state: .unknown, reason: "\(through.host) isn't connected.")
+        if let through {
+            // `ssh -O check`, up to 3 s: off the pool
+            let connected: Bool
+            do { connected = try await offloads.run { through.connection != nil } } catch { connected = false }
+            if !connected {
+                return DatabaseHealth(name: name, state: .unknown, reason: "\(through.host) isn't connected.")
+            }
         }
         let said: String
         do {

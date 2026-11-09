@@ -550,6 +550,39 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first?.state == .refused)
 }
 
+/// A runaway SQLite read stops at its time limit, its slot free again.
+@Test func aSQLiteReadStopsAtItsTimeLimit() throws {
+    let path = try shopDB(in: NSTemporaryDirectory() + "kelp-slow-\(UUID().uuidString)")
+    let started = Date()
+    #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
+        try SQLiteRun.read(
+            path, "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT count(*) FROM r",
+            timeout: 0.3)
+    }
+    #expect(Date().timeIntervalSince(started) < 5)
+}
+
+/// MySQL commits a transaction before DDL and runs it outside: a DROP is never sent as a read nor tried in a
+/// transaction, so an agent held to read-only is refused before anything reaches the server (here, one that isn't up).
+@Test func mySQLsDDLIsAChangeNeverTriedAsARead() async throws {
+    #expect(SQLText.mayTryAsRead("SELECT 1", .mysql) && SQLText.mayTryAsRead("DROP TABLE t", .postgres))
+    #expect(!SQLText.mayTryAsRead("DROP TABLE t", .mysql) && !SQLText.mayTryAsRead("CALL wipe()", .mysql))
+    #expect(SQLText.mayTry("UPDATE t SET a = 1", .mysql) && !SQLText.mayTry("ALTER TABLE t ADD c INT", .mysql))
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let db = DatabaseInfo(name: "shop", engine: .mysql, host: "127.0.0.1", port: 1, database: "shop", access: .read)
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: db))
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    do {
+        _ = try await w.d.workspaces.databases.query(
+            DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "DROP TABLE orders"), origin: agent.id)
+        Issue.record("an agent's DROP ran")
+    } catch let error as RPCError {
+        #expect(error.isRefusal, "refused as a change, not tried: \(error.message)")
+    }
+}
+
 /// "All my projects": kept apart from every project, opened by the user, unseen by agents until used in a project,
 /// which copies it there with its password.
 @Test func theLibraryIsTheUsersUntilUsedInAProject() async throws {

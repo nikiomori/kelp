@@ -23,6 +23,13 @@ struct DatabaseRows: Equatable, Sendable {
     var rows: [[String?]] = []
     var total = 0
     var changed: Int?
+
+    /// One more row as it comes: kept up to `DatabaseEngines.keep`, counted always.
+    mutating func add(columns: [String], _ row: [String?]) {
+        if total == 0 { self.columns = columns }
+        total += 1
+        if rows.count < DatabaseEngines.keep { rows.append(row) }
+    }
 }
 
 /// Runs statements on a database: SQLite in kelpd (GRDB), Postgres and MySQL over their own protocols
@@ -42,7 +49,7 @@ enum DatabaseEngines {
     {
         try await explained(c) {
             switch (c.database.engine, c.database.host) {
-            case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql) }
+            case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql, timeout: timeout) }
             case (.duckdb, _): try await off.run { try DuckDBRun.read(path(c), sql, timeout: timeout) }
             case (.appwrite, _): try await AppwriteWire.read(c, sql)
             case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
@@ -71,7 +78,10 @@ enum DatabaseEngines {
 
     /// The change made and rolled back: what it touched, and the rows it would leave when it can say (RETURNING).
     static func trial(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
-        switch (c.database.engine, c.database.host) {
+        guard SQLText.mayTry(sql, c.database.engine) else {
+            throw DatabaseFailure.failed("\(SQLText.verb(sql)) can't be tried in a transaction there")
+        }
+        return switch (c.database.engine, c.database.host) {
         case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
         case (.duckdb, _): try await off.run { try DuckDBRun.trial(path(c), sql) }
         case (.appwrite, _): try await AppwriteWire.trial(c, sql)
@@ -196,12 +206,21 @@ enum SQLiteRun {
         return try DatabaseQueue(path: path, configuration: config)
     }
 
-    static func read(_ path: String, _ sql: String) throws -> DatabaseRows {
+    /// Stopped at `timeout` (`interrupt`, from another thread): a runaway join doesn't keep its slot.
+    static func read(_ path: String, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
         try run {
-            try open(path, readOnly: true).read { db in
-                let statement = try db.makeStatement(sql: sql)
-                guard statement.isReadonly else { throw DatabaseFailure.change }
-                return try rows(statement)
+            let queue = try open(path, readOnly: true)
+            let stop = DispatchWorkItem { queue.interrupt() }
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
+            defer { stop.cancel() }
+            do {
+                return try queue.read { db in
+                    let statement = try db.makeStatement(sql: sql)
+                    guard statement.isReadonly else { throw DatabaseFailure.change }
+                    return try rows(statement)
+                }
+            } catch let error as DatabaseError where error.resultCode == .SQLITE_INTERRUPT {
+                throw DatabaseFailure.failed("It took more than \(Int(timeout)) s.")
             }
         }
     }

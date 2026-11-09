@@ -217,8 +217,10 @@ public struct DatabaseSchemaRead: RPCMethod {
 public struct DatabaseQuery: RPCMethod {
     public static let name = "db.query"
     public typealias Result = QueryResult
-    /// An agent's change waits up to ten minutes for an answer.
-    public static var timeout: TimeInterval? { 660 }
+    /// An agent's change waits up to ten minutes for an answer (`answerWithin`), then runs up to five (kelpd's write
+    /// limit): the caller waits for both, or it's told "timed out" of a change still made, and a retry makes it twice.
+    public static var timeout: TimeInterval? { answerWithin + 300 + 60 }
+    public static let answerWithin: TimeInterval = 600
     public var worktreeId: String, database: String, sql: String, limit: Int?
     public init(worktreeId: String, database: String, sql: String, limit: Int? = nil) {
         self.worktreeId = worktreeId

@@ -146,6 +146,19 @@ enum SQLText {
         return only
     }
 
+    /// Whether it may run as a read, the database refusing a change in its read-only transaction. Not MySQL's DDL nor
+    /// anything else but a read: MySQL commits the transaction before a DROP or ALTER and runs it outside.
+    static func mayTryAsRead(_ sql: String, _ engine: DatabaseInfo.Engine) -> Bool {
+        engine != .mysql
+            || ["SELECT", "SHOW", "DESC", "DESCRIBE", "EXPLAIN", "WITH", "TABLE", "VALUES"].contains(verb(sql))
+    }
+
+    /// Whether a change can be tried and rolled back: MySQL rolls back only rows (INSERT, UPDATE, DELETE, REPLACE);
+    /// its DDL commits as it runs, so it's asked untried.
+    static func mayTry(_ sql: String, _ engine: DatabaseInfo.Engine) -> Bool {
+        engine != .mysql || ["INSERT", "UPDATE", "DELETE", "REPLACE"].contains(verb(sql))
+    }
+
     /// A change that can say what it changed (`RETURNING *`) when it doesn't already: an UPDATE, DELETE or INSERT, for
     /// a trial's preview. nil: leave it as it is.
     static func returning(_ statement: String) -> String? {

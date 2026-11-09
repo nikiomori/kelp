@@ -91,6 +91,11 @@ final class Slots: Sendable {
         }
     }
 
+    /// What blocks briefly where no `Slots` is at hand (a host name looked up, `getaddrinfo`): a thread of its own.
+    static func elsewhere<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
+        try await onThread { Result(catching: work) }
+    }
+
     /// `body` on a thread of its own, its result handed back under a lock: what it made (a woken session) is seen whole
     /// by whoever reads it after. The continuation alone would order it too, but the Thread Sanitizer can't see that
     /// (Swift's concurrency library isn't built for it) and reported the session's fields as a race.
