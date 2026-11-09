@@ -1,0 +1,149 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+import Markdown
+import WebKit
+
+/// The card a page's row shows when the pointer rests on it, beside the panel: the page itself, small (a file's, or
+/// Kelp's copy of a page on a service, `ArtifactItem.preview`), its whole title, who made it and when. Rows of
+/// text-heavy pages look alike in a thumbnail; at this size the page's headings and pictures read. Its scripts don't
+/// run and its links don't open (`PreviewLinks`). The web view is made at the first card and kept.
+@MainActor
+final class ArtifactCard {
+    struct Shown {
+        let item: ArtifactItem
+        let title: String
+    }
+    /// The page is laid out this wide and drawn at the card's width.
+    private static let pageWidth: CGFloat = 1100
+    private static let size = NSSize(width: 284, height: 178)
+
+    private let app: AppModel
+    private let popover = NSPopover()
+    private let pending = Debounce()
+    private var shownTarget: String?
+    private var warmUntil = Date.distantPast
+    private var keys: Any?
+    private lazy var links = PreviewLinks(app: app)
+    private lazy var web: WKWebView = {
+        let web = WKWebView(frame: NSRect(origin: .zero, size: Self.size))
+        web.navigationDelegate = links
+        web.pageZoom = Self.size.width / Self.pageWidth
+        web.wantsLayer = true
+        web.layer?.cornerRadius = Metrics.radiusSM
+        web.layer?.masksToBounds = true
+        web.setValue(false, forKey: "drawsBackground")
+        return web
+    }()
+    private var loading: Task<Void, Never>?
+
+    init(app: AppModel) {
+        self.app = app
+        popover.behavior = .applicationDefined
+        popover.animates = false
+    }
+
+    /// The pointer is over a page's row, or over none.
+    func hover(_ shown: Shown?, rect: NSRect, in view: NSView) {
+        guard let shown else {
+            pending.after(Motion.hoverClose) { [weak self] in self?.close() }
+            return
+        }
+        guard shown.item.target != shownTarget || !popover.isShown else {
+            pending.cancel()
+            return
+        }
+        let warm = popover.isShown || Date() < warmUntil
+        pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak view] in
+            if let view { self?.show(shown, rect: rect, in: view) }
+        }
+    }
+
+    func close() {
+        pending.cancel()
+        loading?.cancel()
+        if popover.isShown {
+            warmUntil = Date().addingTimeInterval(0.8)
+            popover.close()
+        }
+        shownTarget = nil
+        if let keys {
+            NSEvent.removeMonitor(keys)
+            self.keys = nil
+        }
+    }
+
+    private func show(_ shown: Shown, rect: NSRect, in view: NSView) {
+        guard view.window != nil else { return }
+        shownTarget = shown.item.target
+        let controller = NSViewController()
+        controller.view = content(shown)
+        popover.contentViewController = controller
+        popover.show(relativeTo: rect, of: view, preferredEdge: .minX)
+        keys =
+            keys
+            ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
+                return event
+            }
+    }
+
+    private func content(_ shown: Shown) -> NSView {
+        let item = shown.item
+        let title = NSTextField(wrappingLabelWithString: shown.title)
+        title.font = .ui(13, weight: .semibold)
+        title.maximumNumberOfLines = 3
+        title.preferredMaxLayoutWidth = Self.size.width
+        let session = item.session.flatMap(app.session)
+        let when = shortAgo(Date(timeIntervalSince1970: item.modified ?? item.created))
+        let made = [
+            session.map { app.catalog.name($0.agent) },
+            session?.status == .exited ? String(localized: "chat ended") : nil,
+            String(localized: "\(when) ago")
+        ]
+        var views: [NSView] = []
+        if let preview = item.preview {
+            views.append(web)
+            web.widthAnchor.constraint(equalToConstant: Self.size.width).isActive = true
+            web.heightAnchor.constraint(equalToConstant: Self.size.height).isActive = true
+            load(preview, dark: web.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
+        }
+        views += [title, line(made.compactMap { $0 }.joined(separator: " · "))]
+        if let link = item.url.flatMap(URL.init(string:))?.host {
+            views.append(line(String(localized: "Opens in your browser · \(link)")))
+        }
+        let stack = NSStackView(views: views)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = Metrics.lineGap
+        stack.setCustomSpacing(Metrics.gap + 2, after: web)
+        stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 10, right: 8)
+        stack.widthAnchor.constraint(equalToConstant: Self.size.width + 16).isActive = true
+        return stack
+    }
+
+    private func line(_ text: String) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = .ui(11)
+        field.textColor = .secondaryLabelColor
+        field.lineBreakMode = .byTruncatingTail
+        return field
+    }
+
+    /// A page of HTML as it is; Markdown as its tab draws it. Read through the daemon, as a tab reads it; one it
+    /// refuses (too big) leaves the picture empty.
+    private func load(_ path: String, dark: Bool) {
+        loading?.cancel()
+        let base = URL(fileURLWithPath: path).deletingLastPathComponent(), app = self.app
+        loading = Task { [weak self] in
+            guard let text = await app.quiet(FilesRead(path: path))?.text, !Task.isCancelled else { return }
+            let html =
+                path.hasSuffix(".md")
+                ? await Task.detached { MarkdownHTML.page(body: MarkdownHTML.render(text), baseURL: base, dark: dark) }
+                    .value : text
+            guard !Task.isCancelled, let self else { return }
+            links.load(html, baseURL: base, in: web)
+        }
+    }
+}
