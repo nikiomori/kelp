@@ -277,7 +277,7 @@ extension EditorArea {
         let menu = NSMenu()
         let agents = NewTabChoices.agents(app), def = app.catalog.defaultAgent
         menu.addItem(.sectionHeader(title: String(localized: "Agents")))
-        let notes = PlanNote.notes(app)
+        let notes = app.extensions.all.plans?.notes() ?? [:]
         let shown = agents.prefix(NewTabChoices.shown), rest = agents.dropFirst(NewTabChoices.shown)
         func agentItem(_ agent: AgentManifest, in menu: NSMenu, column: CGFloat) {
             let item = menu.add(agent.name) { [weak self] in

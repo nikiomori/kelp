@@ -1,5 +1,4 @@
 import AppKit
-@testable import Core
 import Foundation
 import TestSupport
 import Testing
@@ -13,6 +12,7 @@ import WorkbenchKit
 @testable import BuiltinIssues
 @testable import BuiltinRoutines
 @testable import BuiltinRun
+@testable import Core
 @testable import DesignKit
 @testable import KelpApp
 @testable import KelpKit
@@ -204,8 +204,10 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(LimitStop.rowLine(s, now: before)?.word == "Continues")
     #expect(LimitStop.title("Claude Code", s, now: before).hasPrefix("Claude Code will continue at"))
     #expect(Notifier.category(s) == nil)   // its banner asks nothing typed: the tab has the choices
-    #expect(SidebarCell.askLine(s, mode: "needsYou")?.prefix?.0 == "Continues")
-    #expect(SidebarCell.askLine(s, mode: "never") == nil)
+    let plans = PlanNote.words(AppModel())   // the Agents built-in's words, where the shell shows them
+    #expect(SidebarCell.askLine(s, mode: "needsYou", plans: plans)?.prefix?.0 == "Continues")
+    #expect(SidebarCell.askLine(s, mode: "never", plans: plans) == nil)
+    #expect(SidebarCell.askLine(s, mode: "needsYou")?.prefix?.0 != "Continues")   // without them, no limit line
 }
 
 /// While you type, a finished agent's banner waits (a question doesn't); 20 s without a key, it goes; they come as one.
@@ -707,4 +709,35 @@ extension OneAtATime {
     #expect(
         RoutineWeek.schedule(Routine(name: "h", repoId: "p", agent: "a", prompt: "x", every: .hourly, time: 15))
             == "Every hour at :15")
+}
+
+/// Accounts that couldn't be read aren't an empty list: one saved after it would write over the profiles there are.
+@MainActor @Test func accountsNotReadAreNotAnEmptyList() async {
+    _ = NSApplication.shared   // the banner that says so looks for a window
+    #expect(await Accounts.load(AppModel()) == nil)   // no daemon to read them from
+}
+
+/// A workspace row's chats come from an index made once per change of the sessions, not a scan per row: it follows
+/// each change, in place ones too.
+@MainActor @Test func aWorkspacesChatsFollowTheSessions() {
+    let m = AppModel()
+    m.sessions = [
+        Session(id: "a", worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working),
+        Session(id: "t", worktreeId: "w1", cwd: "/", command: "zsh", agent: "shell"),
+        Session(id: "b", worktreeId: "w2", cwd: "/", command: "codex", agent: "codex")
+    ]
+    #expect(m.liveChats(in: "w1").map(\.id) == ["a"])   // the terminal isn't a chat
+    m.sessions[0].status = .exited
+    #expect(m.liveChats(in: "w1").isEmpty)
+    m.sessions.append(Session(id: "c", worktreeId: "w1", cwd: "/", command: "claude", agent: "claude"))
+    #expect(m.liveChats(in: "w1").map(\.id) == ["c"] && m.liveChats(in: "w2").map(\.id) == ["b"])
+}
+
+/// A project whose folder is gone says so on its row; it's looked for off the main thread, not by each row update.
+@MainActor @Test func aProjectsMissingFolderIsFoundOffTheMainThread() async throws {
+    let m = AppModel()
+    m.repos = [
+        Repo(id: "r1", name: "here", path: NSTemporaryDirectory()), Repo(id: "r2", name: "gone", path: "/nope/x")
+    ]
+    #expect(try await waitFor(5) { m.missingFolders == ["/nope/x"] })
 }

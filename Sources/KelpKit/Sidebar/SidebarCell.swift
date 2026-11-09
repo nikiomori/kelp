@@ -374,13 +374,10 @@ final class SidebarCell: NSTableCellView {
         defer { trailing.isHidden = trailing.stringValue.isEmpty }   // an empty label would still take its spacing
         muted.isHidden = app.arrangement.mutedUntil(node.muteIds) == nil
         updateBadges()
-        func live(_ wid: String) -> [Session] {
-            app.sessions.filter { $0.worktreeId == wid && $0.status != .exited && $0.isChat }
-        }
         switch node.kind {
         case .project(let id):
             let repo = app.repo(id)
-            let missing = repo.map { !FileManager.default.fileExists(atPath: $0.path) } ?? false
+            let missing = repo.map { app.missingFolders.contains($0.path) } ?? false
             glowColor = repo.flatMap { app.arrangement.iconColor(folder: $0.path) }
             if glowColor == nil { glow.shadowOpacity = 0 }
             if let repo, !missing {
@@ -416,7 +413,7 @@ final class SidebarCell: NSTableCellView {
             showFold()
         case .workspace(let id):
             guard let worktree = app.worktree(id) else { return }
-            let agents = live(id)
+            let agents = app.liveChats(in: id)
             title.stringValue = worktree.displayName
             title.textColor = .labelColor
             // A branch splits the code, a group the screen: the slot tells them apart, always.
@@ -632,7 +629,7 @@ extension SidebarCell {
     private func showAsk(_ session: Session) {
         let line = Self.line(
             session, mode: app.settings[SettingKeys.agentDetail], among: app.sessions,
-            back: app.arrangement.parkedBack[session.id])
+            back: app.arrangement.parkedBack[session.id], plans: app.extensions.all.plans)
         setAsk(line)
     }
 

@@ -235,7 +235,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 content.title = String(localized: "Kelp can reach you")
                 content.body = String(localized: "This is how you'll hear that an agent finished or needs you.")
                 content.sound = .default
-                try? await center.add(UNNotificationRequest(identifier: "kelp-test", content: content, trigger: nil))
+                do {
+                    try await center.add(UNNotificationRequest(identifier: "kelp-test", content: content, trigger: nil))
+                } catch {
+                    Banner.show(
+                        String(localized: "macOS didn't take the notification: \(error.localizedDescription)"),
+                        style: .error)
+                }
             }
             done(!off)
         }
@@ -397,19 +403,19 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
         let model = app, wt = model.worktree(s.worktreeId)
         let content = UNMutableNotificationContent()
+        let name = app.catalog.displayName(s), plans = app.extensions.all.plans
         content.title =
-            app.catalog.displayName(s)
-            + (s.limitHit != nil
-                ? String(localized: " hit its limit")
-                : again
-                    ? String(localized: " still needs you")
-                    : s.status == .waiting
-                        ? String(localized: " needs you")
-                        : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
+            (s.limitHit == nil ? nil : plans?.title(name, s))
+            ?? name
+            + (again
+                ? String(localized: " still needs you")
+                : s.status == .waiting
+                    ? String(localized: " needs you")
+                    : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
         content.subtitle = [model.groupName(wt), model.projectName(wt?.repoId)].compactMap { $0 }.joined(
             separator: " · ")   // as its Needs You row
         content.body =
-            s.limitHit.map(LimitStop.banner)
+            s.limitHit.flatMap { plans?.banner($0) }
             ?? (s.summary.isEmpty
                 ? (s.status == .waiting
                     ? String(localized: "Waiting for your answer")

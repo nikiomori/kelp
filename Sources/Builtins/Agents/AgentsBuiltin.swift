@@ -213,7 +213,7 @@ extension Builtins {
         // beside each agent where agents are chosen.
         contributions.sidebarSections = [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }]
         contributions.pushed = [{ LimitWatch.of(app).landed($0) }]
-        contributions.planNotes = { UsageView.notes(app) }
+        contributions.plans = PlanNote.words(app)
         contributions.dockUsage = { LimitWatch.dockFace(app) }
         // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu.
         contributions.launched = [{ AgentStrip.of(app).start() }]

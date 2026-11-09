@@ -177,15 +177,16 @@ extension Subagent {
 
 extension SidebarCell {
     /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
-    /// `back`: why a parked agent came back (`Arrangement.parkedBack`), said when nothing more urgent is.
-    static func line(_ session: Session, mode: String, among all: [Session], back: String? = nil) -> (
-        prefix: (String, NSColor)?, text: String
-    )? {
-        let own = askLine(session, mode: mode)
+    /// `back`: why a parked agent came back (`Arrangement.parkedBack`), said when nothing more urgent is. `plans`: what
+    /// a plan limit that stopped one says (`Contributions.plans`).
+    static func line(
+        _ session: Session, mode: String, among all: [Session], back: String? = nil, plans: PlanWords? = nil
+    ) -> (prefix: (String, NSColor)?, text: String)? {
+        let own = askLine(session, mode: mode, plans: plans)
         guard own?.prefix == nil else { return own }
         if let back { return ((String(localized: "Back:"), .secondaryLabelColor), back) }
         for child in all.children(of: session.id) {
-            if let line = askLine(child, mode: mode), let color = line.prefix?.1 {
+            if let line = askLine(child, mode: mode, plans: plans), let color = line.prefix?.1 {
                 return ((child.displayTitle + ":", color), line.text)
             }
         }
@@ -198,9 +199,11 @@ extension SidebarCell {
     /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
     /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
     /// line.
-    static func askLine(_ session: Session, mode: String) -> (prefix: (String, NSColor)?, text: String)? {
+    static func askLine(_ session: Session, mode: String, plans: PlanWords? = nil) -> (
+        prefix: (String, NSColor)?, text: String
+    )? {
         let st = shownStatus(session), text = session.summary.isEmpty ? st.words : session.summary
-        if mode != "never", let limit = LimitStop.rowLine(session) { return ((limit.word, .textOrange), limit.text) }
+        if mode != "never", let limit = plans?.rowLine(session) { return ((limit.word, .textOrange), limit.text) }
         switch (mode, st) {
         case ("never", _): return nil
         case (_, .waiting): return ((String(localized: "Asks:"), .textOrange), text)

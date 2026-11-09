@@ -78,7 +78,8 @@ struct AgentWork: View {
 
     private func kid(_ child: Session) -> AgentWorkRow.Row {
         let app = model.app, id = child.id, status = ChildrenBadge.status(child), name = app.catalog.displayName(child)
-        let asks = status == .waiting ? (child.status == .done ? LimitStop.title(name, child) : child.statusWords) : nil
+        let stop = child.status == .done ? app.extensions.all.plans?.title(name, child) : nil
+        let asks = status == .waiting ? stop ?? child.statusWords : nil
         return .init(
             id: id, mark: .status(status), title: name, kind: app.catalog.name(child.agent),
             time: shortAgo(child.statusAt ?? child.createdAt), detail: asks, warns: asks != nil,

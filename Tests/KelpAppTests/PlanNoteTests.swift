@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import KelpKit
+@testable import BuiltinAgents
 
 private func note(_ used: Double, resets: String? = "3:40pm", read: Date? = nil) -> PlanNote? {
     PlanNote(fullest: (label: "Week", used: used, resets: resets), readAt: read)

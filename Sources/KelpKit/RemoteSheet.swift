@@ -54,7 +54,9 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH"))
         title.font = .ui(13, weight: .semibold)
-        host.addItems(withObjectValues: Self.sshHosts())
+        Task { [host] in   // ~/.ssh/config read off the main thread
+            host.addItems(withObjectValues: await Task.detached { Self.sshHosts() }.value)
+        }
         host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
         host.completes = true
         host.delegate = self
@@ -215,7 +217,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     }
 
     /// The `Host` names in ~/.ssh/config (patterns left out).
-    static func sshHosts() -> [String] {
+    nonisolated static func sshHosts() -> [String] {
         let text = (try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? ""
         return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
             let words = line.split(whereSeparator: \.isWhitespace).map(String.init)

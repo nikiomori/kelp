@@ -191,6 +191,11 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.refresh()
         }
+        track(owner: self, now: false) { [app] in
+            app.missingFolders
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
         track(owner: self) { [app] in
             app.workbench.shownSessions
         } changed: { [weak self] _ in
@@ -527,7 +532,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         guard case .agent(let id) = node.kind, let session = app.session(id) else { return false }
         return SidebarCell.line(
             session, mode: app.settings[SettingKeys.agentDetail], among: app.sessions,
-            back: app.arrangement.parkedBack[id]) != nil
+            back: app.arrangement.parkedBack[id], plans: app.extensions.all.plans) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).
     private func pads(_ node: Node) -> (top: CGFloat, bottom: CGFloat) {

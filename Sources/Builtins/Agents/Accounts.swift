@@ -19,13 +19,21 @@ struct AccountProfile: Codable, Hashable, Identifiable {
 
 @MainActor
 enum Accounts {
-    static func load(_ app: AppModel) async -> [AccountProfile] {
-        // A banner when the settings can't be read.
-        let saved = await app.call(SettingsGet())?[SettingKeys.accounts.key]
-        return (try? saved?.decode([AccountProfile].self)) ?? []
+    /// nil, with a banner, when the settings can't be read: a list saved after an empty one read in its place would
+    /// write the profiles there are over.
+    static func load(_ app: AppModel) async -> [AccountProfile]? {
+        guard let settings = await app.call(SettingsGet()) else { return nil }
+        guard let saved = settings[SettingKeys.accounts.key] else { return [] }
+        do { return try saved.decode([AccountProfile].self) } catch {
+            let why = error.localizedDescription
+            Banner.show(String(localized: "Kelp can't read the accounts in settings.json: \(why)"), style: .error)
+            return nil
+        }
     }
     static func save(_ app: AppModel, _ list: [AccountProfile]) async {
-        await app.call(SettingsSet(key: SettingKeys.accounts.key, value: (try? JSONValue.from(list)) ?? .array([])))
+        do { await app.call(SettingsSet(key: SettingKeys.accounts.key, value: try JSONValue.from(list))) } catch {
+            Banner.show(AppModel.message(error), style: .error)
+        }
     }
 }
 
@@ -33,6 +41,8 @@ struct AccountsSettings: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }
     @State private var profiles: [AccountProfile] = []
+    /// Read: until then (or when that failed) nothing is saved, so no list overwrites the one in settings.json.
+    @State private var loaded = false
     @State private var selection: AccountProfile.ID?
     @State private var newName = ""
     @State private var newAgent = "claude"
@@ -65,17 +75,21 @@ struct AccountsSettings: View {
                     newName = ""
                     Task { await Accounts.save(app, profiles) }
                 }
-                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(!loaded || newName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Spacer()
                 Button("Log In…") { login() }.disabled(selection == nil)
-                Button("Remove…") { remove() }.disabled(selection == nil)
+                Button("Remove…") { remove() }.disabled(!loaded || selection == nil)
             }
             Text(
                 "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage."
             )
             .font(.ui(11)).foregroundStyle(.secondary)
         }
-        .task { profiles = await Accounts.load(app) }
+        .task {
+            guard let read = await Accounts.load(app) else { return }
+            profiles = read
+            loaded = true
+        }
     }
 
     /// Opens the agent in that profile so the user can run its login flow once.

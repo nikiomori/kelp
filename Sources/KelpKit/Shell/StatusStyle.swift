@@ -8,7 +8,7 @@ import SwiftUI
 /// you haven't looked (filled and coloured marks are for what needs you: asking, failed), nothing after (as an agent that
 /// did nothing), a moon when paused.
 extension AgentStatus {
-    package var symbol: String {
+    var symbol: String {
         switch self {
         case .working: "circle.dotted"   // drawn as a spinning ring where there's room
         case .waiting: "record.circle"

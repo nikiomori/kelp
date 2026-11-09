@@ -372,7 +372,7 @@ extension Workbench {
 @MainActor
 struct KelpLinks {
     let app: AppModel
-    package init(_ app: AppModel) { self.app = app }
+    init(_ app: AppModel) { self.app = app }
 
     func handle(_ url: URL) {
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []

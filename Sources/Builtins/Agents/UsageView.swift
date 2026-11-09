@@ -362,7 +362,7 @@ extension UsageView {
 }
 
 extension UsageView {
-    /// What's said beside an agent where agents are chosen (`Contributions.planNotes`); nothing once plan limits are
+    /// What's said beside an agent where agents are chosen (`Contributions.plans`); nothing once plan limits are
     /// turned off.
     static func notes(_ app: AppModel) -> [String: PlanNote] {
         guard app.settings[SettingKeys.readPlans] else { return [:] }

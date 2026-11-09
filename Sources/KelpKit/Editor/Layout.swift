@@ -7,7 +7,7 @@ extension WorkspaceLayout {
     @MainActor static func load(_ workspace: String, from state: UIState) -> WorkspaceLayout {
         (try? state["layout/\(workspace)"]?.decode(WorkspaceLayout.self)) ?? WorkspaceLayout()
     }
-    @MainActor package func save(_ workspace: String, to state: UIState) {
+    @MainActor func save(_ workspace: String, to state: UIState) {
         state["layout/\(workspace)"] = try? .from(self)
     }
 }

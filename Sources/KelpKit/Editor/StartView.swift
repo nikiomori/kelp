@@ -249,15 +249,15 @@ final class StartView: NSView {
 
     /// Each agent's plan on its tile; under the field, what to know when the default agent is nearly out.
     private func showPlans(in stack: NSStackView, after under: NSView?) {
-        let notes = PlanNote.notes(app)
+        let plans = app.extensions.all.plans
+        let notes = plans?.notes() ?? [:]
         for (id, tile) in tilesById { tile.show(notes[id]) }
         let anyPlan = tilesById.keys.contains { notes[$0] != nil }
         for tile in allTiles { tile.roomForPlan = anyPlan }
         let name = app.catalog.all.first { $0.id == def }?.name ?? def
-        let warning = notes[def]?.warning(for: name)
-        planLine.stringValue = warning ?? ""
-        let others = tilesById.keys.filter { $0 != def }
-        let other = warning == nil ? nil : PlanNote.roomiest(Array(others), notes: notes)
+        let warning = plans?.warning(def, name, tilesById.keys.filter { $0 != def })
+        planLine.stringValue = warning?.text ?? ""
+        let other = warning?.instead
         planBar.isHidden = warning == nil
         planSwitch.isHidden = other == nil
         if let other, let otherName = app.catalog.all.first(where: { $0.id == other })?.name {

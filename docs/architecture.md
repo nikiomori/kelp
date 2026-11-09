@@ -4,8 +4,9 @@ Kelp is a native shell around two things: a **daemon** that owns everything stat
 (agent sessions/PTYs, git, integrations, settings) and **extensions** that contribute most of
 what you see. The app itself provides the window, the layout, a registry of contributions, the
 command palette and settings. Each feature is a built-in of its own: the branch's sync and the CI
-and pull request marks are Git's, the plan limits (the Dock's usage face too) and the agent strip are Agents', the run menu is Run's and the
-server cards are Servers'. The shell gives them places to show up in: the contributions below.
+and pull request marks are Git's; the plan limits are Agents' (the sidebar's foot, the Dock's usage face, the strip over
+a stopped agent's terminal, and every word said of a plan or a stop, `plans`), as is the agent strip; the run menu is
+Run's and the server cards are Servers'. The shell gives them places to show up in: the contributions below.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
@@ -80,7 +81,7 @@ server cards are Servers'. The shell gives them places to show up in: the contri
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
 | ci (built-ins only) | a folder's CI and pull request marks beside its sidebar row, in ⌃Tab and on the window bar ("#12"): what they say, where a click goes, the PR in its hover card, the branch chip menu's Create Pull Request and CI items (Git's); none, and no CI or PR shows |
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |
-| planNotes (built-ins only) | the note beside each agent where agents are chosen ("92 % · 3:40pm"), in the "+" menu and the empty workspace |
+| plans (built-ins only) | what the plan limits say where the shell shows agents (Agents'): the note beside each agent where agents are chosen ("92 % · 3:40pm", the "+" menu and the empty workspace), the warning under the first-task field with the agent to start instead, and of a session a limit stopped its row's line ("Limit: resets 3pm"), its title under its parent and its notification; none, and nothing of plans shows |
 | servers (built-ins only) | the sidebar's server cards: the header over a host's projects, its menu, a remote project's menu items and hover card (Servers); none, and remote projects are plain rows |
 | launched (built-ins only) | run once when Kelp has started, its window up: what a built-in keeps going by itself (Agents' strip over the Dock) |
 | dockMenu (built-ins only) | items of its own in the Dock icon's menu, under New Chat (hide the agent strip for an hour, or bring it back) |

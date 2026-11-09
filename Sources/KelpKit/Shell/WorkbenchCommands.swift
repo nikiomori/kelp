@@ -118,11 +118,17 @@ extension Builtins {
     /// A kelpd that runs itself again in place keeps every agent running, so nothing is asked; an older one ends them.
     private static func restartService(_ app: AppModel) {
         Task {
-            if await app.restartDaemon(keepingSessions: true) { return }
+            let refusal: String
+            do {
+                try await app.upgradeDaemon()
+                return
+            } catch { refusal = AppModel.message(error) }
             let alert = NSAlert()
             alert.messageText = String(localized: "Restart the background service?")
-            alert.informativeText = String(
-                localized: "Running agent sessions end. Projects, history and settings are kept.")
+            // Why it can't keep them (an older kelpd, one session it can't hand over) comes first.
+            alert.informativeText =
+                refusal + "\n\n"
+                + String(localized: "Running agent sessions end. Projects, history and settings are kept.")
             alert.addButton(withTitle: String(localized: "Restart"))
             alert.addButton(withTitle: String(localized: "Cancel"))
             if await runSheet(alert) == .alertFirstButtonReturn { await app.restartDaemon() }

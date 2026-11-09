@@ -17,7 +17,7 @@ struct SwitcherRow {
     /// A workspace: its agent that matters most (what it asks, does or did), with the folder's changes and pull
     /// request.
     static func workspace(_ worktree: Worktree, app: AppModel) -> SwitcherRow {
-        let agents = app.sessions.filter { $0.worktreeId == worktree.id && $0.isChat && $0.status != .exited }
+        let agents = app.liveChats(in: worktree.id)
         let top = AgentStatus.mostUrgent(agents.map(SidebarCell.shownStatus))
         let lead = agents.filter { SidebarCell.shownStatus($0) == top }.max {
             ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)

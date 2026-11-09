@@ -169,7 +169,7 @@ final class CardModel {
             let branch = worktree.path == project?.path ? nil : String(localized: "branch \(worktree.branch)")
             subtitle = [group == nil ? nil : app.projectName(project?.id), branch].compactMap { $0 }.joined(
                 separator: " · ")
-            agents = app.sessions.filter { $0.worktreeId == worktree.id && $0.isChat && $0.status != .exited }.map {
+            agents = app.liveChats(in: worktree.id).map {
                 Agent(id: $0.id, session: $0)
             }
             workspaceId = worktree.id

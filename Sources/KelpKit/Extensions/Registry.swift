@@ -12,7 +12,7 @@ package struct IDEContext {
     var focusedFile: String?
 
     /// What's on screen in `app`.
-    package static func of(_ app: AppModel) -> IDEContext {
+    static func of(_ app: AppModel) -> IDEContext {
         let worktree = app.worktree(app.workbench.workspaceId)
         return IDEContext(
             workspace: worktree, project: app.repo(worktree?.repoId), focusedFile: app.workbench.focusedFile)
@@ -98,7 +98,7 @@ package struct EditorSpec: Identifiable {
     /// Whether "+" and the empty workspace offer it here (nil: everywhere), as Database only where there is one.
     let available: (@MainActor (IDEContext) -> Bool)?
 
-    @MainActor package func open(_ ctx: IDEContext, in app: AppModel) {
+    @MainActor func open(_ ctx: IDEContext, in app: AppModel) {
         if let target = uri(ctx) { app.workbench.open(target) }
     }
 }
@@ -122,12 +122,12 @@ package struct CommandSpec: Identifiable {
         self.run = run
     }
     package let id: String, title: String
-    package var key: String?
+    var key: String?
     /// The menu bar menu it goes in when Kelp's own layout (`AppDelegate.buildMenu`) doesn't place it; nil: Tools.
     var menu: String?
     /// Whether its menu item can be chosen now (Stop: something runs); nil: always.
     let enabled: (@MainActor () -> Bool)?
-    package let run: @MainActor ([String: JSONValue]) -> Void
+    let run: @MainActor ([String: JSONValue]) -> Void
 }
 
 /// One setting in Settings and settings.json.
@@ -264,9 +264,9 @@ package struct TabProvider {
 /// ("Pushing…"), the popover a click opens, and the items at the top of a project's menu for its folder's branch (a
 /// merged PR's "Switch to main and Pull").
 package struct BranchActions {
-    package let running: @MainActor (_ worktree: String) -> String?
-    package let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
-    package let folderMenu: @MainActor (_ folder: Worktree, _ menu: NSMenu) -> Void
+    let running: @MainActor (_ worktree: String) -> String?
+    let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
+    let folderMenu: @MainActor (_ folder: Worktree, _ menu: NSMenu) -> Void
     package init(
         running: @escaping @MainActor (String) -> String?,
         popover: @escaping @MainActor (String, NSPopover) -> NSViewController,
@@ -283,21 +283,21 @@ package struct BranchActions {
 /// card, and the branch chip's menu. Read under observation: they must not do work.
 package struct FolderCI {
     /// Every folder's CI mark beside its row: the rows follow this, not each CI read.
-    package let rows: @MainActor () -> [String: CIRuns.State]
-    package let row: @MainActor (_ folder: String) -> CIRuns.State?
+    let rows: @MainActor () -> [String: CIRuns.State]
+    let row: @MainActor (_ folder: String) -> CIRuns.State?
     /// On the branch chip: the mark, and whether it sits at the title's end (else in the branch glyph's place).
-    package let chip: @MainActor (_ folder: String) -> (state: CIRuns.State, atEnd: Bool)?
+    let chip: @MainActor (_ folder: String) -> (state: CIRuns.State, atEnd: Bool)?
     /// "CI: Failed · Tests, Deploy", for tooltips and VoiceOver.
-    package let line: @MainActor (_ folder: String) -> String?
-    package let open: @MainActor (_ folder: String) -> Void
+    let line: @MainActor (_ folder: String) -> String?
+    let open: @MainActor (_ folder: String) -> Void
     /// The branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, the CI items.
-    package let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
+    let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
     /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, and its page.
-    package let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, url: String)?
+    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, url: String)?
     /// The pull request in full, in the folder's hover card (nil: none).
-    package let card: @MainActor (_ folder: String) -> AnyView?
+    let card: @MainActor (_ folder: String) -> AnyView?
     /// The folder whose hover card is open, nil once it closes: its pull request is read meanwhile.
-    package let carded: @MainActor (_ folder: String?) -> Void
+    let carded: @MainActor (_ folder: String?) -> Void
     package init(
         rows: @escaping @MainActor () -> [String: CIRuns.State],
         row: @escaping @MainActor (String) -> CIRuns.State?,
@@ -323,7 +323,7 @@ package struct FolderCI {
 
 /// A mark on a session's row: an SF Symbol and what it says.
 package struct SessionMark: Equatable {
-    package let symbol: String, tip: String
+    let symbol: String, tip: String
     package init(symbol: String, tip: String) {
         self.symbol = symbol
         self.tip = tip
@@ -333,9 +333,9 @@ package struct SessionMark: Equatable {
 /// A block of a built-in's own in the sidebar, under the projects (Machines): its view, made when the sidebar is.
 /// `foot`: at the very bottom, under every other block (the plan limits).
 package struct SidebarSection {
-    package let id: String
+    let id: String
     let foot: Bool
-    package let make: @MainActor () -> NSView
+    let make: @MainActor () -> NSView
     package init(id: String, foot: Bool = false, make: @escaping @MainActor () -> NSView) {
         self.id = id
         self.foot = foot
@@ -347,15 +347,15 @@ package struct SidebarSection {
 /// host, its menu, and what a remote project's menu and hover card add. None, and a remote project is a row like any other.
 package struct ServerCards {
     /// The header's row, brought up to date by the sidebar as its rows and its card's look change.
-    package let header: @MainActor (_ host: String, _ row: ServerRow) -> SidebarRow
+    let header: @MainActor (_ host: String, _ row: ServerRow) -> SidebarRow
     /// The header's menu, over the card's look.
-    package let menu: @MainActor (_ menu: NSMenu, _ host: String) -> Void
+    let menu: @MainActor (_ menu: NSMenu, _ host: String) -> Void
     /// A remote project's menu: its server's items.
-    package let projectItems: @MainActor (_ menu: NSMenu, _ host: String) -> Void
+    let projectItems: @MainActor (_ menu: NSMenu, _ host: String) -> Void
     /// In a remote project's hover card, under its title; `close` puts the card away.
-    package let section: @MainActor (_ host: String, _ close: @escaping () -> Void) -> AnyView
+    let section: @MainActor (_ host: String, _ close: @escaping () -> Void) -> AnyView
     /// The hosts the sidebar lists, each time it builds its rows.
-    package let listed: @MainActor (_ hosts: Set<String>) -> Void
+    let listed: @MainActor (_ hosts: Set<String>) -> Void
     package init(
         header: @escaping @MainActor (String, ServerRow) -> SidebarRow,
         menu: @escaping @MainActor (NSMenu, String) -> Void,
@@ -407,8 +407,9 @@ package struct Contributions {
     package var ci: FolderCI?
     /// Each reading the daemon pushes, as it lands (not only the latest: a limit's pace takes every one).
     package var pushed: [@MainActor (any Pushed) -> Void] = []
-    /// What's said beside each agent where agents are chosen, by agent id (its plan's fullest limit): one built-in's.
-    package var planNotes: (@MainActor () -> [String: PlanNote])?
+    /// What the plan limits say beside each agent where agents are chosen, under the first-task field and of a session one
+    /// stopped: one built-in's; none, and nothing of plans shows.
+    package var plans: PlanWords?
     /// The sidebar's server cards: one built-in's (the first that has them); none, and remote projects are plain rows.
     package var servers: ServerCards?
     /// Run once when Kelp has started, its window up: what a built-in keeps going by itself (the agent strip).
@@ -447,11 +448,11 @@ struct ExtensionInfo: Identifiable {
 package final class ExtensionRegistry {
     /// The app whose extensions these are: built-ins contribute with it.
     let app: AppModel
-    package init(app: AppModel) { self.app = app }
+    init(app: AppModel) { self.app = app }
     private(set) var extensions: [ExtensionInfo] = []
     private(set) package var all = Contributions()
     /// Bumped on every reload so views can refresh.
-    private(set) package var revision = 0
+    private(set) var revision = 0
     private(set) var disabledLoaded: Set<String> = []
     @ObservationIgnored private var watcher: FileWatcher?
 
@@ -504,7 +505,7 @@ package final class ExtensionRegistry {
             merged.branch = merged.branch ?? c.branch
             merged.ci = merged.ci ?? c.ci
             merged.pushed += c.pushed
-            merged.planNotes = merged.planNotes ?? c.planNotes
+            merged.plans = merged.plans ?? c.plans
             merged.servers = merged.servers ?? c.servers
             merged.launched += c.launched
             merged.dockMenu += c.dockMenu
@@ -654,7 +655,10 @@ package final class ExtensionRegistry {
 
     func uninstall(_ id: String) {
         guard let ext = extensions.first(where: { $0.id == id }), let path = ext.path, !ext.builtin else { return }
-        try? FileManager.default.trashItem(at: path, resultingItemURL: nil)
+        do { try FileManager.default.trashItem(at: path, resultingItemURL: nil) } catch {
+            let why = error.localizedDescription
+            Banner.show(String(localized: "Couldn't move \(ext.name) to the Trash: \(why)"), style: .error)
+        }
         reload()
     }
 

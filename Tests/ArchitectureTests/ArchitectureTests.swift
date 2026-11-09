@@ -47,7 +47,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
 @Test func daemonErrorsAreNotSwallowed() throws {
     func outside(_ found: [String]) -> [String] { found.filter { !$0.hasPrefix("Sources/KelpKit/AppModel.swift:") } }
     let swallowed = outside(try matches(#"try\? await (?:[^=\n]*\.)?(call|get|tryCall)\("#, in: appDirs))
-    let raw = outside(try matches(#"\bclient\??\.call\(|\bc\??\.call\("#, in: appDirs))
+    let raw = outside(try matches(#"\bclient\??\.(?:call|notify)\(|\bc\??\.call\("#, in: appDirs))
     #expect(swallowed == [], "try? around a call: \(swallowed)")
     #expect(raw == [], "the client called directly: \(raw)")
 }
@@ -107,7 +107,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // the branch chip's actions (`BranchActions`) and the folder and CI a workspace shows, so Git's sync popover is Git's.
     // +11 for the CI mark on rows and the chip (`FolderCI`, the folders, a page, a panel's role, the menu's choices), so
     // the CI marks are Git's. +13 so the plan limits are the Agents built-in's: each landed reading and the plan notes
-    // (`pushed`, `planNotes`), a notification under the shell's rules and its Continue, and what the foot, the strip and
+    // (`pushed`, `plans`), a notification under the shell's rules and its Continue, and what the foot, the strip and
     // the warnings read of the shell (`PlanNote`, `LimitStop`, mutes, the warning level, the foot's menu, a hand-off).
     // +7 for the sidebar's server cards (`ServerCards`, `ServerRow`, `SidebarRow`), so the servers' headers are Servers'.
     // +17 so the agent strip is the Agents built-in's: started at launch, its Dock menu items (`launched`, `dockMenu`),
@@ -119,8 +119,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // tab (`isHidden`); the shell's `ScriptsMenu`, `app.scripts` and `runFile` went.
     // +1 so Source Control marks a file another folder of the project changes too (`sharedFiles`), as the rows do.
     // +1 so an agent tab's menu offers Fork Chat as the row's does (`addFork`).
-    #expect(declared <= 403, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 403, "fewer now (\(declared)): lower the ceiling")
+    // 2026-11-09: what no built-in used went internal (the compiler said which), the plan limits' words moved into Agents
+    // (`LimitStop`, `PlanNote`; the shell keeps `PlanWords`, the places they show), and the raw client went (`notify`).
+    #expect(declared <= 368, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 368, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -427,15 +429,16 @@ func codeOnly(_ s: String) -> String {
     #expect(grown.count <= 6, "extensions of Sessions: \(grown.count)")
     #expect(grown.count >= 6, "fewer now: lower the ceiling")
     // Nor its handlers, nor any one service's: a handler is handed the part it uses (`SourceControl`, `Turns`…), and no
-    // service answers more than 40 methods. Counted by the type each `handle(_:)` takes.
+    // service answers more than 40 methods. Counted by the type each `handle(_:)` and `handle(_:conn:)` takes.
     let services = sources(["Sources/Daemon"]).flatMap { f in
-        f.text.matches(of: #/func handle\(_ \w+: (\w+)\)/#).map { String($0.1) }
+        f.text.matches(of: #/func handle\(_ \w+: (\w+)(?:, conn: Int)?\)/#).map { String($0.1) }
     }
     let byService = Dictionary(grouping: services) { $0 }.mapValues(\.count)
     #expect(byService.values.allSatisfy { $0 <= 40 }, "a service answers more than 40 methods: \(byService)")
     let most = byService.values.max() ?? 0
-    #expect(most <= 35, "the busiest service's handlers: \(most)")
-    #expect(most >= 35, "fewer now: lower the ceiling")
+    // 36 since `handle(_:conn:)` counts too (Sessions' two were missed: 34 then, really 36).
+    #expect(most <= 36, "the busiest service's handlers: \(most)")
+    #expect(most >= 36, "fewer now: lower the ceiling")
     #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
     #expect(extensions.count >= 2, "fewer now: lower the ceiling")
     #expect(shared.count <= 0, "state outside an instance: \(shared)")
@@ -494,14 +497,14 @@ func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 61, "KelpKit": 59, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
-        "Builtins": 11,
+        "Daemon": 61, "KelpKit": 52, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
+        "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 12, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 1, "DesignKit": 0
     ]
     // Every module is in it: a new one gets its count here, not none.
     let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)
-        .filter { !["kelpd", "KelpApp", "KelpVMRunner"].contains($0) && !$0.hasPrefix(".") }
+        .filter { !["kelpd", "KelpApp"].contains($0) && !$0.hasPrefix(".") }
     #expect(
         Set(modules).subtracting(ceilings.keys).isEmpty,
         "modules with no try? ceiling: \(Set(modules).subtracting(ceilings.keys).sorted())")
@@ -669,7 +672,9 @@ func codeOnly(_ s: String) -> String {
     let own: [String: (Int, String)] = [
         "KelpKit/AgentCatalog.swift": (1, "an agent CLI's date: it isn't asked its version again until it changes"),
         "KelpKit/AgentIcons.swift": (4, "agents' icons, cached in Kelp's home"),
-        "KelpKit/AppModel.swift": (2, "why kelpd didn't start, in Kelp's home"),
+        "KelpKit/AppModel.swift": (
+            3, "why kelpd didn't start, in Kelp's home; whether the projects' folders are there, off the main thread"
+        ),
         "KelpKit/DevAids.swift": (3, "snapshots for tests"),
         "KelpKit/RemoteSheet.swift": (1, "the hosts in ~/.ssh/config"),
         "KelpKit/CloneSheet.swift": (2, "whether the folder new projects go in is there"),
@@ -684,7 +689,6 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Shell/WorkbenchActions.swift": (3, "a dropped or linked path: a file, a folder, or nothing"),
         "KelpKit/Shell/WorkspaceActions.swift": (1, "whether Open In was handed a file or a folder"),
         "KelpKit/Shell/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
-        "KelpKit/Sidebar/SidebarCell.swift": (1, "a project folder that's gone"),
         "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
         "Builtins/Machines/Machines.swift": (
             2,

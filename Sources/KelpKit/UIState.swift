@@ -17,7 +17,7 @@ package final class UIState {
         set {
             guard values[key] != newValue else { return }
             values[key] = newValue
-            app.client?.notify(StateSet(key: key, value: newValue))
+            app.notify { StateSet(key: key, value: newValue) }
         }
     }
     package func strings(_ key: String) -> [String] { values[key]?.array?.compactMap(\.string) ?? [] }

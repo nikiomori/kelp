@@ -79,13 +79,13 @@ final class AgentTile: PointerControl {
     }
 
     /// How full the agent's plan is; nothing for a plan unused or not read.
-    func show(_ note: PlanNote?) {
+    func show(_ note: AgentNote?) {
         bar.show(note)
         amount.stringValue = note?.amount ?? " "
         amount.textColor = note?.color ?? .secondaryLabelColor
         bar.alphaValue = note == nil ? 0 : 1
         amount.alphaValue = bar.alphaValue
-        toolTip = note?.resetsTip
+        toolTip = note?.tip
         setAccessibilityLabel([name, note?.text].compactMap { $0 }.joined(separator: ", "))
     }
 
@@ -105,7 +105,7 @@ final class AgentTile: PointerControl {
 private final class PlanBar: NSView {
     private var used: Double = 0, color: NSColor = .secondaryLabelColor
     override var intrinsicContentSize: NSSize { NSSize(width: 56, height: 3) }
-    func show(_ note: PlanNote?) {
+    func show(_ note: AgentNote?) {
         used = min(note?.used ?? 0, 1)
         color = note?.color ?? .secondaryLabelColor
         needsDisplay = true

@@ -97,20 +97,16 @@ final class LSPManager {
     /// The file's whole text, as typed. Encoded and sent off the main thread (5 MB took 140 ms to encode on it), from one
     /// queue, so they stay in order with each other and with the close; one still waiting takes the newer text instead.
     func change(_ app: AppModel, root: String, path: String, text: String) {
-        guard let client = app.client else { return }
         let key = root + "\n" + path
         let waiting = changes.withLock { queued in
             defer { queued[key] = LSPChange(root: root, path: path, text: text) }
             return queued[key] != nil
         }
         guard !waiting else { return }
-        outbox.async { [changes] in
-            if let pending = changes.withLock({ $0.removeValue(forKey: key) }) { client.notify(pending) }
-        }
+        app.notify(on: outbox) { [changes] in changes.withLock { $0.removeValue(forKey: key) } }
     }
     func close(_ app: AppModel, root: String, path: String) {
-        guard let client = app.client else { return }
-        outbox.async { client.notify(LSPClose(root: root, path: path)) }
+        app.notify(on: outbox) { LSPClose(root: root, path: path) }
     }
     private let outbox = DispatchQueue(label: "dev.kelp.lsp-changes")
     private let changes = OSAllocatedUnfairLock<[String: LSPChange]>(initialState: [:])

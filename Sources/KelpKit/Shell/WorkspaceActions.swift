@@ -5,7 +5,7 @@ import WorkbenchKit
 @MainActor
 package struct WorkspaceActions {
     let app: AppModel
-    package init(_ app: AppModel) { self.app = app }
+    init(_ app: AppModel) { self.app = app }
 
     private static let editors = [
         ("VS Code", "com.microsoft.VSCode"), ("Cursor", "com.todesktop.230313mzl4w4u92"),

@@ -12,7 +12,24 @@ package final class AppModel {
     /// window, the built-ins' contributions and their views.
     /// The built-in extensions the app was made with (the app's target lists them: KelpKit names none).
     @ObservationIgnored let builtins: [Builtin]
-    init(builtins: [Builtin] = []) { self.builtins = builtins }
+    init(builtins: [Builtin] = []) {
+        self.builtins = builtins
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.lookForFolders() }   // queue: .main
+        }
+    }
+
+    private func lookForFolders() {
+        let paths = repos.map(\.path)
+        Task {
+            let missing = await Task.detached(priority: .utility) {
+                Set(paths.filter { !FileManager.default.fileExists(atPath: $0) })
+            }.value
+            if missing != missingFolders { missingFolders = missing }
+        }
+    }
 
     /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a parked
     /// agent comes back on its own workspace's failed run, not on every run stored), and the built-ins hear it too.
@@ -50,16 +67,26 @@ package final class AppModel {
         return made
     }
 
-    @ObservationIgnored package var client: RPCClient?
+    @ObservationIgnored var client: RPCClient?
     package var connected = false
     /// Connections made so far: each new one may be a new daemon, whose streams (`kelp attach`) start over.
     private(set) package var connections = 0
-    package var repos: [Repo] = []
+    package var repos: [Repo] = [] { didSet { lookForFolders() } }
+    /// The projects' folders that aren't there (moved, deleted, a disk unplugged), by path: looked for off the main thread
+    /// when the projects change and when Kelp comes to the front, not by each row on each update.
+    private(set) var missingFolders: Set<String> = []
     package var worktrees: [Worktree] = []
-    package var sessions: [Session] = [] { didSet { sessionAt = nil } }
+    package var sessions: [Session] = [] {
+        didSet {
+            sessionAt = nil
+            sessionsIn = nil
+        }
+    }
     /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
     /// and tab on every session event, and a scan per lookup (copying each 45-field record) took half the main thread.
     @ObservationIgnored private var sessionAt: [String: Int]?
+    /// Each workspace's sessions, made the same way: every workspace row asks on every update.
+    @ObservationIgnored private var sessionsIn: [String: [Session]]?
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
     /// What lets go of each topic's latest values once nothing watches a key (`latest`, `Pushed.forgottenWith`).
@@ -205,7 +232,7 @@ package final class AppModel {
             if !failing {
                 failing = true
                 Banner.show(
-                    Self.whyNoService(), style: .error,
+                    launchFailure.map { Self.noService + " " + $0 } ?? Self.whyNoService(), style: .error,
                     action: (String(localized: "Try Again"), { Task { await self.connect() } }))
             }
             reconnectSoon()
@@ -348,7 +375,8 @@ package final class AppModel {
                 alert.buttons[1].keyEquivalent = "\r"
                 guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
             }
-            _ = try? await c.call(DaemonShutdown())
+            // One too old to take daemon.shutdown is stopped, else the reconnect finds it again.
+            do { _ = try await c.call(DaemonShutdown()) } catch { if let pid = c.daemonPID { await Self.stop(pid) } }
         }
         c.close()
         client = nil
@@ -357,24 +385,37 @@ package final class AppModel {
         return true
     }
 
-    /// Restart Background Service. `keepingSessions`: only by running kelpd again in place (`daemon.upgrade`), every agent
-    /// still running; false, and nothing happened, for one that can't. Otherwise it stops and starts again, ending them.
-    @discardableResult
-    func restartDaemon(keepingSessions: Bool = false) async -> Bool {
+    /// Restart Background Service, every agent still running: kelpd runs itself again in place (`daemon.upgrade`). One that
+    /// can't throws why, and nothing happened.
+    func upgradeDaemon() async throws {
+        guard let old = client else { throw RPCError.internalError(Self.noService) }
+        _ = try await old.call(DaemonUpgrade())
+        await reconnect(after: detach())
+    }
+
+    /// Restart Background Service: it stops and starts again, ending the agents.
+    func restartDaemon() async {
+        let old = detach()
+        // One that doesn't answer (hung) is stopped: else the reconnect finds it again, still holding the socket.
+        if let old {
+            let pid = old.daemonPID
+            do { _ = try await old.call(DaemonShutdown(), timeout: 5) } catch { if let pid { await Self.stop(pid) } }
+        }
+        await reconnect(after: old)
+    }
+
+    private func detach() -> RPCClient? {
         let old = client
-        if keepingSessions, (try? await old?.call(DaemonUpgrade())) == nil { return false }
         stopHearing(old)
         client = nil
         connected = false
-        // One that doesn't answer (hung) is stopped: else the reconnect finds it again, still holding the socket.
-        if !keepingSessions, let old {
-            let pid = old.daemonPID
-            if (try? await old.call(DaemonShutdown(), timeout: 5)) == nil, let pid { await Self.stop(pid) }
-        }
+        return old
+    }
+
+    private func reconnect(after old: RPCClient?) async {
         old?.close()
         try? await Task.sleep(for: .milliseconds(600))
         await connect()
-        return true
     }
 
     /// A kelpd that didn't take daemon.shutdown: SIGTERM, then SIGKILL after 2 s. Only a process still running kelpd (a
@@ -401,8 +442,13 @@ package final class AppModel {
         process.executableURL = dir.appendingPathComponent("kelpd")
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        try? process.run()
+        do {
+            try process.run()
+            launchFailure = nil
+        } catch { launchFailure = error.localizedDescription }
     }
+    /// Why kelpd couldn't be started at all (not there, not allowed to run): it leaves no kelpd.err to say so itself.
+    @ObservationIgnored private var launchFailure: String?
 
     /// One at a time: two lists asked for together could come back the older last. A caller gets a list read after it asked.
     func refresh() async {
@@ -562,6 +608,18 @@ package final class AppModel {
         try? await client?.call(m, timeout: timeout)
     }
 
+    /// Fire-and-forget, for what streams (an editor's text, a state write): nothing comes back, so there's nothing to say.
+    /// Without a daemon it's made and dropped; a new connection reads it again. `queue`: made and written from there, in
+    /// the order sent, for what's too big to encode on the main thread; `message` nil sends nothing.
+    package func notify<M: RPCMethod>(on queue: DispatchQueue? = nil, _ message: @escaping @Sendable () -> M?) {
+        let client = client
+        guard let queue else {
+            if let m = message() { client?.notify(m) }
+            return
+        }
+        queue.async { if let m = message() { client?.notify(m) } }
+    }
+
     package func worktree(_ id: String?) -> Worktree? { worktrees.first { $0.id == id } }
     /// The workspace whose folder holds `path`: the innermost, for a branch's folder inside its project's.
     package func worktree(holding path: String) -> Worktree? {
@@ -572,6 +630,13 @@ package final class AppModel {
         let all = sessions   // read through the observed property: a `track` that asks follows `sessions`
         if sessionAt == nil { sessionAt = Dictionary(all.indices.map { (all[$0].id, $0) }) { first, _ in first } }
         return sessionAt?[id].map { all[$0] }
+    }
+
+    /// The chats running in a workspace (not exited), in `sessions`' order.
+    func liveChats(in worktreeId: String) -> [Session] {
+        let all = sessions   // read through the observed property, as `session(_:)` does
+        if sessionsIn == nil { sessionsIn = Dictionary(grouping: all) { $0.worktreeId ?? "" } }
+        return (sessionsIn?[worktreeId] ?? []).filter { $0.status != .exited && $0.isChat }
     }
 
     /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same

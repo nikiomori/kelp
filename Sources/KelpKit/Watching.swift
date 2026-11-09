@@ -7,7 +7,7 @@ extension AppModel {
     package func watch(_ topic: WatchTopic, _ key: String = "") {
         let start = WatchStart(topic, key)
         watching[start, default: 0] += 1
-        if watching[start] == 1 { client?.notify(start) }
+        if watching[start] == 1 { notify { start } }
     }
 
     package func unwatch(_ topic: WatchTopic, _ key: String = "") {
@@ -18,14 +18,14 @@ extension AppModel {
             return
         }
         watching[start] = nil
-        client?.notify(WatchStop(topic, key))
+        notify { WatchStop(topic, key) }
         forget(topic, key)   // not shown anywhere now: no stale value when it's watched again
     }
 
     /// Read it again now, and (CI) keep looking for a while: after a push, its run shows up within seconds.
     package func watchAgain(_ topic: WatchTopic, _ key: String = "") {
         let start = WatchStart(topic, key)
-        if watching[start] != nil { client?.notify(start) }
+        if watching[start] != nil { notify { start } }
     }
 
     /// The latest pushed `E` by key (`Pushed`): one observable box per kind, so a view reading CI re-renders for CI only.
