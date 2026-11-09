@@ -175,3 +175,38 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     #expect(dots.allSatisfy { $0.state == .unknown })   // not tried: reading the password would make macOS ask
     for db in later.imported { _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: db.name, library: true)) }
 }
+
+/// One an older Kelp imported without its password is offered again, and importing it mends it in place: same name,
+/// now reading its password from where it came from.
+@Test func aConnectionKeptWithoutItsPasswordIsMendedByImportingAgain() async throws {
+    let home = try fixtureHome()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let dbs = w.d.workspaces.databases
+    let broken = DatabaseInfo(
+        name: "analytics (old)", engine: .postgres, host: "10.0.3.4", port: 5432, database: "analytics", user: "ro")
+    _ = try dbs.saveInLibrary(wt.id, broken, password: nil)
+    let offered = try dbs.importRead(DatabaseImportRead(worktreeId: wt.id, source: "tableplus"), home: home)
+    #expect(offered.first { $0.id == "A1" }?.known == false)
+    let mended = try dbs.importNow(
+        DatabaseImport(worktreeId: wt.id, source: "tableplus", ids: ["A1"], passwords: false, useHere: false),
+        home: home)
+    #expect(mended.imported.map(\.name) == ["analytics (old)"] && mended.later == 1)
+    #expect(try dbs.library().count == 1 && dbs.library().first?.passwordIn != nil)
+    let again = try dbs.importRead(DatabaseImportRead(worktreeId: wt.id, source: "tableplus"), home: home)
+    #expect(again.first { $0.id == "A1" }?.known == true)
+    _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "analytics (old)", library: true))
+}
+
+/// A host the network doesn't know, said as such.
+@Test func aHostNobodyKnowsIsSaidSo() async {
+    let db = DatabaseInfo(name: "x", engine: .postgres, host: "kelp-no-such-host.invalid", port: 5432)
+    await #expect(
+        throws: DatabaseFailure.failed(
+            "Can't find kelp-no-such-host.invalid on the network: is a VPN or SSH needed to reach it?")
+    ) {
+        try await PostgresWire.read(DatabaseConnection(database: db), "SELECT 1", timeout: 3)
+    }
+}

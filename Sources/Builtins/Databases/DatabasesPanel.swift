@@ -385,7 +385,7 @@ enum DatabaseMenu {
         }
         if db.source == nil {
             menu.add(String(localized: "Edit…")) {
-                Task { await DatabaseSheet.run(app, worktreeId: worktreeId, editing: db) }
+                Task { await DatabaseSheet.run(app, worktreeId: worktreeId, editing: db, library: library) }
             }
             menu.add(String(localized: "Forget")) {
                 Task { await app.call(DatabaseRemove(worktreeId: worktreeId, name: db.name, library: library)) }

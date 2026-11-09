@@ -23,17 +23,19 @@ extension Databases {
     func importRead(_ q: DatabaseImportRead, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws
         -> [ImportedDatabase]
     {
-        let known = try library() + connections(q.worktreeId).map(\.database)
+        // Known: Kelp has it with its password (or where to read it). One kept without is offered again, to mend.
+        let mine = try library().filter(hasPassword) + connections(q.worktreeId).map(\.database)
         return ImportReaders.read(q.source, home: home, file: q.file).map { entry in
             var item = entry.imported
-            item.known = known.contains { Self.sameAddress($0, item.database) }
+            item.known = mine.contains { Self.sameAddress($0, item.database) }
             return item
         }
     }
 
     func importNow(_ q: DatabaseImport, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws -> ImportOutcome {
         let wanted = Set(q.ids)
-        var taken = Set(try library().map(\.name)), denied = false
+        let had = try library()
+        var taken = Set(had.map(\.name)), denied = false
         var outcome = ImportOutcome(imported: [], withPasswords: 0, later: 0, denied: false, skipped: [])
         for entry in ImportReaders.read(q.source, home: home, file: q.file) where wanted.contains(entry.imported.id) {
             var db = entry.imported.database
@@ -51,6 +53,16 @@ extension Databases {
             }
             // Not taken now from another app's keychain: read the first time it's opened, macOS asking then.
             if password == nil, let item = entry.keychain { db.passwordIn = item }
+            // One imported before (an older Kelp kept it without its password): mended in place, under its name.
+            if let old = had.first(where: { Self.sameAddress($0, db) }) {
+                db.name = old.name
+                db.access = old.access
+                db.environment = old.environment
+                db.production = old.production
+                taken.remove(old.name)
+            } else {
+                db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
+            }
             let base = db.name.replacingOccurrences(of: "/", with: "-").trimmingCharacters(in: .whitespaces)
             var name = base.isEmpty ? "imported" : base, n = 2
             while taken.contains(name) {
@@ -58,9 +70,8 @@ extension Databases {
                 n += 1
             }
             db.name = name
-            db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
             do {
-                outcome.imported.append(try saveInLibrary(q.worktreeId, db, password: password ?? ""))
+                outcome.imported.append(try saveInLibrary(q.worktreeId, db, password: password))   // nil keeps one kept
                 taken.insert(name)
                 if password != nil { outcome.withPasswords += 1 } else if db.passwordIn != nil { outcome.later += 1 }
                 if q.useHere { _ = try use(q.worktreeId, name, access: db.production || db.ssh != nil ? .read : nil) }
@@ -70,6 +81,11 @@ extension Databases {
         }
         outcome.denied = denied
         return outcome
+    }
+
+    /// Its password is in Kelp's keychain, or Kelp knows which app's to read it from.
+    func hasPassword(_ db: DatabaseInfo) -> Bool {
+        db.engine.isFile || db.passwordIn != nil || Keychain.get(Self.account(Self.libraryRepo + "/" + db.name)) != nil
     }
 
     /// The same server and database, or the same file.

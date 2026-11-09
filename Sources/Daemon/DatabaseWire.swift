@@ -27,6 +27,18 @@ enum DatabaseWire {
 
     static var eventLoop: any EventLoop { MultiThreadedEventLoopGroup.singleton.any() }
 
+    /// A login refused for want of a password: where to give one.
+    static func noPassword(_ db: DatabaseInfo) -> DatabaseFailure {
+        .failed("Kelp has no password for \(db.name): Edit… to type one, or import it again.")
+    }
+
+    /// A host the network doesn't know (a VPN's, a cluster's inside name): said as such, not as NIO's error.
+    static func unreached(_ error: any Error, _ db: DatabaseInfo) -> DatabaseFailure? {
+        let said = "\(error)" + ((error as? PSQLError)?.underlying.map { " \($0)" } ?? "")
+        guard said.contains("UnknownHost") || said.contains("nodename nor servname") else { return nil }
+        return .failed("Can't find \(db.host ?? db.name) on the network: is a VPN or SSH needed to reach it?")
+    }
+
     /// A connection closed after its call: one the server dropped already has nothing more to say.
     static func close(_ body: () async throws -> Void) async {
         do { try await body() } catch { logger.debug("db close: \(error)") }
@@ -169,15 +181,17 @@ enum PostgresWire {
     /// The server's own words; a change refused by a read-only transaction is `.change`.
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
+        if let unreached = DatabaseWire.unreached(error, db) { return unreached }
         guard let psql = error as? PSQLError else { return DatabaseFailure.failed("\(error)") }
         if let info = psql.serverInfo {
             if info[.sqlState] == "25006" { return DatabaseFailure.change }
             let message = info[.message] ?? "the server refused it"
+            // The server's word for a login with no password (Kelp sends none when it has none)
+            if message.contains("empty password") { return DatabaseWire.noPassword(db) }
             return DatabaseFailure.failed(message + (info[.hint].map { " (\($0))" } ?? ""))
         }
         switch psql.code {
-        case .authMechanismRequiresPassword:
-            return DatabaseFailure.failed("\(db.name) asks for a password, and Kelp has none for it.")
+        case .authMechanismRequiresPassword: return DatabaseWire.noPassword(db)
         case .sslUnsupported: return DatabaseFailure.failed("\(db.name) doesn't offer SSL, and it's required.")
         case .queryCancelled: return DatabaseFailure.failed("\(db.name) cancelled it.")
         default:
@@ -281,14 +295,14 @@ enum MySQLWire {
                 tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
                 logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
             ).get()
-        } catch { throw failure(error) }
+        } catch { throw failure(error, db) }
         do {
             let result = try await body(conn)
             await DatabaseWire.close { try await conn.close().get() }
             return result
         } catch {
             await DatabaseWire.close { try await conn.close().get() }
-            throw failure(error)
+            throw failure(error, db)
         }
     }
 
@@ -303,9 +317,11 @@ enum MySQLWire {
         return result
     }
 
-    static func failure(_ error: any Error) -> any Error {
+    static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
+        if let unreached = DatabaseWire.unreached(error, db) { return unreached }
         let said = "\(error)"
+        if said.contains("using password: NO") { return DatabaseWire.noPassword(db) }
         if said.contains("READ ONLY transaction") { return DatabaseFailure.change }
         if said.contains("Connection refused") { return DatabaseFailure.failed("Can't connect: Connection refused") }
         if let error = error as? MySQLError {

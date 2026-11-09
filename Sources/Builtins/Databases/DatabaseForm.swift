@@ -31,14 +31,17 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let fresh: Bool
 
     private let preset: EnginePreset?
+    /// Edited from All My Projects: kept there.
+    private let inLibrary: Bool
     private var whyRow: NSGridRow?
 
     init(
         sheet: DatabaseSheet, address: DatabaseAddress, editing: DatabaseInfo?, container: String?,
-        preset: EnginePreset? = nil
+        preset: EnginePreset? = nil, library: Bool = false
     ) {
         self.sheet = sheet
         self.preset = preset
+        self.inLibrary = library
         engine = address.database.engine
         self.editing = editing
         self.container = container
@@ -107,7 +110,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
         place.setLabel(String(localized: "This Project (\(project))"), forSegment: 0)
         place.setLabel(String(localized: "All My Projects"), forSegment: 1)
-        place.selectedSegment = 0
+        place.selectedSegment = inLibrary ? 1 : 0
         place.isEnabled = editing == nil
         place.target = self
         place.action = #selector(changed)
@@ -247,7 +250,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         why.stringValue = Self.why(picked, elsewhere: elsewhere)
         whyRow?.isHidden = why.stringValue.isEmpty   // the grid's row, or its gap stays
         add.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
-        place.setEnabled(editing == nil, forSegment: 1)
+        place.setEnabled(editing == nil || inLibrary, forSegment: 1)
     }
 
     @objc private func stageClicked() {

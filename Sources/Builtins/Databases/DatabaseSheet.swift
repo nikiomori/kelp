@@ -25,10 +25,11 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     /// The pane on screen past the first: kept while it shows.
     private var pane: AnyObject?
 
-    static func run(_ app: AppModel, worktreeId: String, editing: DatabaseInfo?) async {
+    /// `library`: the one edited is of All My Projects, and is saved back there.
+    static func run(_ app: AppModel, worktreeId: String, editing: DatabaseInfo?, library: Bool = false) async {
         let sheet = DatabaseSheet(app: app, worktreeId: worktreeId)
         if let editing {
-            sheet.openForm(DatabaseAddress(database: editing), editing: editing)
+            sheet.openForm(DatabaseAddress(database: editing), editing: editing, library: library)
         } else {
             sheet.showStart()
         }
@@ -249,9 +250,11 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     // MARK: Other panes
 
     func openForm(
-        _ address: DatabaseAddress, editing: DatabaseInfo? = nil, container: String? = nil, preset: EnginePreset? = nil
+        _ address: DatabaseAddress, editing: DatabaseInfo? = nil, container: String? = nil, preset: EnginePreset? = nil,
+        library: Bool = false
     ) {
-        let form = DatabaseForm(sheet: self, address: address, editing: editing, container: container, preset: preset)
+        let form = DatabaseForm(
+            sheet: self, address: address, editing: editing, container: container, preset: preset, library: library)
         pane = form
         show(form.view, first: form.firstField)
     }
