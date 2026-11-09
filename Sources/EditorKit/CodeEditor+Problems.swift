@@ -109,12 +109,12 @@ extension EditorTextView: NSViewToolTipOwner {
                 forGlyphRange: lm.glyphRange(forCharacterRange: mark.range, actualCharacterRange: nil),
                 withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
             ) { lineRect, _ in
-                let y = lineRect.maxY + origin.y - 1.5, wave = NSBezierPath()
-                var x = lineRect.minX + origin.x, up = true
-                wave.move(to: NSPoint(x: x, y: y))
-                while x < lineRect.maxX + origin.x {
-                    x += 2
-                    wave.line(to: NSPoint(x: x, y: y + (up ? -1 : 1)))
+                let baseline = lineRect.maxY + origin.y - 1.5, wave = NSBezierPath()
+                var along = lineRect.minX + origin.x, up = true
+                wave.move(to: NSPoint(x: along, y: baseline))
+                while along < lineRect.maxX + origin.x {
+                    along += 2
+                    wave.line(to: NSPoint(x: along, y: baseline + (up ? -1 : 1)))
                     up.toggle()
                 }
                 wave.lineWidth = 1

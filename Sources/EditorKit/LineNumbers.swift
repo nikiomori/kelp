@@ -233,12 +233,12 @@ final class LineNumbers: NSRulerView {
     /// on a change's bar, shows that change.
     override func mouseDown(with event: NSEvent) {
         guard let editor, let line = lineStart(at: event) else { return }
-        let x = convert(event.locationInWindow, from: nil).x
+        let across = convert(event.locationInWindow, from: nil).x
         let number = editor.lineIndex.line(at: line.location, in: editor.textView.string as NSString)
-        if x <= Self.barHit, let mark = editor.changeMark(onLine: number) {
-            let y = convert(event.locationInWindow, from: nil).y
+        if across <= Self.barHit, let mark = editor.changeMark(onLine: number) {
+            let clicked = convert(event.locationInWindow, from: nil).y
             editor.onChangeMark?(
-                mark, NSRect(x: 0, y: y - Self.barHit / 2, width: Self.barHit, height: Self.barHit), self)
+                mark, NSRect(x: 0, y: clicked - Self.barHit / 2, width: Self.barHit, height: Self.barHit), self)
             return
         }
         editor.toggleFold(line: line)

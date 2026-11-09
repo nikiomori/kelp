@@ -20,8 +20,8 @@ final class EditorScrollView: NSScrollView {
     func placeSticky() {
         let height = sticky.height
         sticky.isHidden = height == 0
-        let y = isFlipped ? contentView.frame.minY : contentView.frame.maxY - height
-        sticky.frame = NSRect(x: 0, y: y, width: bounds.width - ScrollMarks.width, height: height)
+        let top = isFlipped ? contentView.frame.minY : contentView.frame.maxY - height
+        sticky.frame = NSRect(x: 0, y: top, width: bounds.width - ScrollMarks.width, height: height)
     }
 }
 
@@ -40,10 +40,10 @@ final class ScrollMarks: NSView {
         guard lines > 0 else { return }
         var seen = Set<Int>()
         for tick in ticks {
-            let y = Int(CGFloat(tick.line) / CGFloat(lines) * bounds.height)
-            guard seen.insert(y).inserted else { continue }   // a thousand matches, a pixel each
+            let row = Int(CGFloat(tick.line) / CGFloat(lines) * bounds.height)
+            guard seen.insert(row).inserted else { continue }   // a thousand matches, a pixel each
             tick.color.setFill()
-            NSRect(x: 0, y: CGFloat(y), width: bounds.width, height: Self.mark).fill()
+            NSRect(x: 0, y: CGFloat(row), width: bounds.width, height: Self.mark).fill()
         }
     }
 }

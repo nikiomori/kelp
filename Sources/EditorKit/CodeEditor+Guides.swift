@@ -14,9 +14,9 @@ extension EditorTextView {
     func drawRulers(in rect: NSRect) {
         guard !rulerColumns.isEmpty else { return }
         NSColor.separatorColor.setFill()
-        let x = textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0), space = spaceWidth
+        let textLeft = textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0), space = spaceWidth
         for column in rulerColumns {
-            NSRect(x: x + CGFloat(column) * space, y: rect.minY, width: 1, height: rect.height).fill()
+            NSRect(x: textLeft + CGFloat(column) * space, y: rect.minY, width: 1, height: rect.height).fill()
         }
     }
 
