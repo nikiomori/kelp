@@ -113,20 +113,24 @@ import Testing
 }
 
 /// A machine of its own on an SDK of two scripts, named by ANDROID_HOME: the emulator writes how it was started to the
-/// log and runs until adb's `emu kill`; adb answers Android booted once this boot's emulator is there to kill (the pid
-/// of the one before goes with it).
-@MainActor private func standIn() throws -> (AndroidRuntime, URL) {
+/// log and runs until adb's `emu kill`; adb writes what it was asked to adb.log, and answers Android booted once this
+/// boot's emulator is there to kill (the pid of the one before goes with it). `booting` runs before the emulator does
+/// (`exit` there: one that quits as it starts); `adb` answers first what it names (`*getprop*) ;;`: never booted).
+@MainActor func standIn(booting: String = "", adb: String = "") throws -> (AndroidRuntime, URL) {
     let sdk = FileManager.default.temporaryDirectory.appendingPathComponent("sdk-\(UUID().uuidString.prefix(6))")
     let log = sdk.appendingPathComponent("starts.log").path, pid = sdk.appendingPathComponent("emulator.pid").path
+    let asked = sdk.appendingPathComponent("adb.log").path
     try script(
         sdk.appendingPathComponent("emulator/emulator"),
         """
-        echo "$*" >> '\(log)'; echo $$ > '\(pid)'; exec sleep 60
+        echo "$*" >> '\(log)'; \(booting)
+        echo $$ > '\(pid)'; exec sleep 60
         """)
     try script(
         sdk.appendingPathComponent("platform-tools/adb"),
         """
-        case "$*" in *getprop*) [ -s '\(pid)' ] && echo 1 ;; *"emu kill"*) kill "$(cat '\(pid)')"; rm -f '\(pid)' ;; esac
+        echo "$*" >> '\(asked)'
+        case "$*" in \(adb) *getprop*) [ -s '\(pid)' ] && echo 1 ;; *"emu kill"*) kill "$(cat '\(pid)')"; rm -f '\(pid)' ;; esac
         """)
     setenv("ANDROID_HOME", sdk.path, 1)
     let folder = sdk.appendingPathComponent("machine")
@@ -170,7 +174,7 @@ import Testing
         Usage.clients(of: serial + "0", programs: ["bash"]) == 0 && Usage.clients(of: serial, programs: ["adb"]) == 0)
 }
 
-private func script(_ url: URL, _ body: String) throws {
+func script(_ url: URL, _ body: String) throws {
     try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)

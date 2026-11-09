@@ -21,6 +21,8 @@ final class AndroidRuntime {
     private var leaving = false, whenSaved: [() -> Void] = []
     /// How it ends once it has left: the process's exit; a test's own.
     var exitProcess: () -> Void = { exit(0) }
+    /// What time it is: the clock's; a test's, moved past the idle limits.
+    var now: () -> Date = { Date() }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// A sleep under way, and what wakes it once it has (a wake meanwhile would start a second emulator).
@@ -64,24 +66,24 @@ final class AndroidRuntime {
         case .status: done(nil)
         // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
         case .start where request.begins:
-            lastUse = Date()
+            lastUse = now()
             // for a boot to come, not one up already
             if request.beginsShown, emulator == nil || saving { nextBootShown = true }
             wake { _ in }
             done(nil)
         case .start:
-            lastUse = Date()
+            lastUse = now()
             wake(done)
         case .sleep: sleep(done)
         case .stop:
             stop {
                 done(nil)
-                exit(0)
+                self.exitProcess()
             }   // off, nothing kept: the next start is the kelp-vm installed then
         case .share: done("An Android machine shares no folders: adb push and pull copy files.")
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
-            lastUse = Date()
+            lastUse = now()
             // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
             if hasWindow, !saving { return wake(done) }
             nextBootShown = true   // a boot is to come (off, headless, or being slept): it has the window
@@ -91,7 +93,7 @@ final class AndroidRuntime {
             sleep { _ in self.wake(done) }   // from its snapshot, now with a window
         case .quit:
             done(nil)
-            stop { exit(0) }
+            stop { self.exitProcess() }
         }
     }
 
@@ -177,7 +179,7 @@ final class AndroidRuntime {
         emulator = process
         shown = nextBootShown
         nextBootShown = false
-        Task { await awaitBoot(since: Date()) }
+        Task { await awaitBoot(since: now()) }
     }
 
     /// Ready once Android says it finished booting.
@@ -190,7 +192,7 @@ final class AndroidRuntime {
                 FileManager.default.createFile(atPath: folder.appendingPathComponent("booted").path, contents: nil)
                 return started(nil)
             }
-            if Date().timeIntervalSince(since) > (first ? 600 : 180) {
+            if now().timeIntervalSince(since) > (first ? 600 : 180) {
                 return started(VMError("Android didn't finish booting."))
             }
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -205,7 +207,7 @@ final class AndroidRuntime {
             if let pid = emulator?.processIdentifier { Subprocess.killLater([pid], after: 10) }
         }
         state = error == nil ? .running : .error
-        lastUse = Date()
+        lastUse = now()
         let waiting = ready
         ready = []
         waiting.forEach { $0(error?.localizedDescription) }
@@ -251,16 +253,16 @@ final class AndroidRuntime {
         }
     }
 
-    private func tick() {
-        if state == .running, Usage.clients(of: serial, programs: ["adb"]) > 0 { lastUse = Date() }   // a command through adb (`kelp vm run`) is use
-        let idle = Date().timeIntervalSince(lastUse)
-        if state == .running, !hasWindow, !pausing, idle > Runtime.pauseAfter {
+    func tick() {   // internal: the tests drive it
+        if state == .running, Usage.clients(of: serial, programs: ["adb"]) > 0 { lastUse = now() }   // a command through adb (`kelp vm run`) is use
+        switch Lifecycle.idleStep(state, idle: now().timeIntervalSince(lastUse), inUse: hasWindow) {
+        case .pause where !pausing:
             pausing = true
             Task {
                 defer { pausing = false }
                 guard (try? await adb(["emu", "avd", "stop"])) != nil else { return }
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
-                if state == .running, Date().timeIntervalSince(lastUse) > Runtime.pauseAfter {
+                if state == .running, now().timeIntervalSince(lastUse) > Runtime.pauseAfter {
                     state = .paused
                     log("paused")
                 } else {
@@ -270,8 +272,8 @@ final class AndroidRuntime {
                     }
                 }
             }
-        } else if state == .paused, idle > Runtime.sleepAfter {
-            sleep { _ in }
+        case .sleep: sleep { _ in }
+        case .pause, nil: break
         }
     }
 

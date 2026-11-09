@@ -34,6 +34,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private var listeners: [DispatchSourceRead] = [], signals: [DispatchSourceSignal] = []
     /// Its screen, when someone asked to see it (`show`): while it's open the machine counts as in use.
     private var window: NSWindow?
+    /// How it ends once it has left: the process's exit; a test's own.
+    var exitProcess: () -> Void = { exit(0) }
 
     nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
     private var saved: URL { folder.appendingPathComponent("state.vzsave") }
@@ -156,7 +158,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
     }
 
-    private func handle(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
+    /// Internal: the tests drive it.
+    func handle(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
         switch request.op {
         case .status: done(nil, nil)
         // `begin` (kelpd's wake, holding its lock): starting is answered at once, the boot goes on.
@@ -234,7 +237,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     /// Ends once what this turn of the main queue answers is written: a stop or a sleep that waited for a save is told
     /// in the same turn as the sleep it waited for, after that one's reply.
-    nonisolated private func leaveSoon() { DispatchQueue.main.async { exit(0) } }
+    private func leaveSoon() {
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.exitProcess() } }   // the main queue
+    }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
         var answer = VMHelper.Reply(
@@ -414,7 +419,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         usage = vm == nil ? nil : Usage.sample()
         if window?.isVisible == true { lastUse = Date() }   // someone watches its screen
         let idle = Date().timeIntervalSince(lastUse)
-        if state == .running, connections == 0, idle > Self.pauseAfter {
+        switch Lifecycle.idleStep(state, idle: idle, inUse: connections > 0) {
+        case .pause:
             vm?.pause { result in
                 MainActor.assumeIsolated {
                     if result.failure == nil, self.state == .running {
@@ -423,14 +429,12 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                     }
                 }
             }
-        } else if state == .paused, connections == 0, idle > Self.sleepAfter,
-            Date().timeIntervalSince(saveFailed ?? .distantPast) > 600
-        {
+        case .sleep where Date().timeIntervalSince(saveFailed ?? .distantPast) > 600:
             sleep { error in
                 if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
             }   // as `.sleep` does
-        } else if state == .running, ticks % 3 == 0 {
-            adjustMemory()
+        case .sleep: break   // its save failed a moment ago
+        case nil: if state == .running, ticks % 3 == 0 { adjustMemory() }
         }
     }
 
@@ -526,11 +530,12 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 extension Runtime {
     /// SIGTERM (an install, a logout): saved, then gone. One still booting is let finish first: ending now would cut its
     /// power (a macOS first boot writes its account then).
-    private func leave() {
+    func leave() {   // internal: the tests drive it
         guard state != .starting else { return ready.append { [weak self] _ in self?.leave() } }
         sleep { [weak self] e in   // not saved: shut down as the guest would, not a power cut
-            guard e != nil, let self else { exit(0) }
-            stop { exit(0) }
+            guard let self else { exit(0) }
+            guard e != nil else { return exitProcess() }
+            stop { self.exitProcess() }
         }
     }
 

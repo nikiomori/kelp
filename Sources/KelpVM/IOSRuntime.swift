@@ -13,6 +13,11 @@ final class IOSRuntime {
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     private var sources: [DispatchSourceProtocol] = []
+    /// How it ends once it has left, what time it is, and where xcrun is: the process's exit, the clock's, the
+    /// system's; a test's own.
+    var exitProcess: () -> Void = { exit(0) }
+    var now: () -> Date = { Date() }
+    var xcrun = "/usr/bin/xcrun"
 
     private var udid: String {
         (try? String(contentsOf: folder.appendingPathComponent("udid"), encoding: .utf8))?.trimmingCharacters(
@@ -31,7 +36,8 @@ final class IOSRuntime {
                 guard let self else { return }
                 Control.serve(fd, handle: handle, reply: reply)
             })
-        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.stop { exit(0) } })
+        sources += Control.run(
+            tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.stop { self?.exitProcess() } })
         log("ready: \(machine.name) (iOS \(udid)), off")
     }
 
@@ -45,25 +51,25 @@ final class IOSRuntime {
         Control.write(fd, answer)
     }
 
-    private func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+    func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it
         switch request.op {
         case .status: done(nil)
         case .start where request.begins:
-            lastUse = Date()
+            lastUse = now()
             wake { _ in }
             done(nil)   // kelpd's wake: answered as it starts
         case .start:
-            lastUse = Date()
+            lastUse = now()
             wake(done)
         case .sleep, .stop:
             stop {
                 done(nil)
-                exit(0)
+                self.exitProcess()
             }   // a simulator keeps no running state to save; the next start is a new kelp-vm
         case .share: done("An iOS machine shares no folders: kelp vm install takes an app from here.")
         case .screen: done("Typing into the screen is a macOS machine's.")
         case .show:
-            lastUse = Date()
+            lastUse = now()
             wake { error in
                 let simulator = ["-a", "Simulator", "--args", "-CurrentDeviceUDID", self.udid]
                 if error == nil { _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/open"), arguments: simulator) }
@@ -71,7 +77,7 @@ final class IOSRuntime {
             }
         case .quit:
             done(nil)
-            stop { exit(0) }
+            stop { self.exitProcess() }
         }
     }
 
@@ -91,15 +97,17 @@ final class IOSRuntime {
         do {
             _ = try await simctl(["boot", udid], allowFailure: true)
             _ = try await simctl(["bootstatus", udid, "-b"])
-            guard
-                let xctestrun = try FileManager.default.contentsOfDirectory(
-                    at: folder.appendingPathComponent("dd/Build/Products"),
-                    includingPropertiesForKeys: nil
-                ).first(where: { $0.pathExtension == "xctestrun" })
-            else { throw VMError("Kelp's runner isn't built in \(machine.name)'s folder: make the machine again.") }
+            // No build folder at all (a making cut short) is told as a runner not built, not as a missing folder.
+            let products = folder.appendingPathComponent("dd/Build/Products")
+            let built =
+                FileManager.default.fileExists(atPath: products.path)
+                ? try FileManager.default.contentsOfDirectory(at: products, includingPropertiesForKeys: nil) : []
+            guard let xctestrun = built.first(where: { $0.pathExtension == "xctestrun" }) else {
+                throw VMError("Kelp's runner isn't built in \(machine.name)'s folder: make the machine again.")
+            }
             port = AndroidRuntime.freePort(from: 8700)
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+            process.executableURL = URL(fileURLWithPath: xcrun)
             process.arguments = [
                 "xcodebuild", "test-without-building", "-xctestrun", xctestrun.path, "-destination", "id=\(udid)"
             ]
@@ -144,7 +152,7 @@ final class IOSRuntime {
             runner?.terminate()
         }
         state = error == nil ? .running : .error
-        lastUse = Date()
+        lastUse = now()
         let waiting = ready
         ready = []
         waiting.forEach { $0(error?.localizedDescription) }
@@ -162,9 +170,9 @@ final class IOSRuntime {
         }
     }
 
-    private func tick() {
-        if state == .running, Usage.clients(of: udid, programs: Self.clients) > 0 { lastUse = Date() }   // a test run is use
-        if state == .running, Date().timeIntervalSince(lastUse) > Runtime.sleepAfter { stop {} }
+    func tick() {   // internal: the tests drive it
+        if state == .running, Usage.clients(of: udid, programs: Self.clients) > 0 { lastUse = now() }   // a test run is use
+        if state == .running, now().timeIntervalSince(lastUse) > Runtime.sleepAfter { stop {} }
     }
 
     /// What drives a simulator from outside kelp-vm, naming its device: `simctl` (installs, launches), an XCUITest run.
@@ -177,7 +185,7 @@ final class IOSRuntime {
 
     private func simctl(_ args: [String], allowFailure: Bool = false) async throws -> String {
         let out = try await Subprocess.run(
-            ["/usr/bin/xcrun", "simctl"] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 300)
+            [xcrun, "simctl"] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 300)
         guard out.status == 0 || allowFailure else {
             throw VMError("simctl \(args.first ?? ""): " + String(decoding: out.stderr, as: UTF8.self))
         }

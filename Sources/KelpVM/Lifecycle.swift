@@ -16,6 +16,17 @@ enum Lifecycle {
         error == nil && !hasVM && state != .starting
     }
 
+    enum IdleStep { case pause, sleep }
+
+    /// What a tick does with a machine nobody used for `idle` seconds: a running one pauses after `Runtime.pauseAfter`,
+    /// a paused one sleeps after `Runtime.sleepAfter`; one in use (a connection, a window the user has) stays.
+    static func idleStep(_ state: VMState, idle: TimeInterval, inUse: Bool) -> IdleStep? {
+        guard !inUse else { return nil }
+        if state == .running, idle > Runtime.pauseAfter { return .pause }
+        if state == .paused, idle > Runtime.sleepAfter { return .sleep }
+        return nil
+    }
+
     /// The machine's folder held for this kelp-vm (`kelp-vm.lock`, `VMService.alive`): tried for half a second, as a size
     /// being written or kelpd's look holds it a moment. The fd stays open while kelp-vm runs; nil: another one has it.
     static func hold(_ folder: URL, tries: Int = 10) -> Int32? {
