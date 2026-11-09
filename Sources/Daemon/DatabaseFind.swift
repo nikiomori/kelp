@@ -27,7 +27,11 @@ enum DatabaseFind {
     /// Every database the files at `root` name, each name once.
     static func find(in root: String) -> [FoundDatabase] {
         let envs = names(in: root).filter { $0 == ".env" || $0.hasPrefix(".env.") }.sorted()
-        let files = (composeFiles + envs + ["config/database.yml"]).compactMap { name in
+        // A monorepo's parts (api/, backend/): their compose files and .env, one level down.
+        let parts = names(in: root).filter { !$0.hasPrefix(".") && !skipped.contains($0) }.sorted().flatMap { dir in
+            (composeFiles + [".env"]).map { dir + "/" + $0 }
+        }
+        let files = (composeFiles + envs + ["config/database.yml"] + parts).compactMap { name in
             read(root, name).map { (name, $0) }
         }
         return unique(parse(files, root: root) + sqliteFiles(in: root))
@@ -35,10 +39,18 @@ enum DatabaseFind {
 
     /// What files of the project say, by their path in it: compose files, .env files, config/database.yml.
     static func parse(_ files: [(name: String, text: String)], root: String) -> [FoundDatabase] {
-        files.flatMap { name, text -> [FoundDatabase] in
-            if composeFiles.contains(name) { return compose(text, source: name) }
+        // What compose fills ${VAR} in from: the .env beside the compose file.
+        var envs: [String: [String: String]] = [:]
+        for (name, text) in files where (name as NSString).lastPathComponent == ".env" {
+            envs[(name as NSString).deletingLastPathComponent] = variables(text)
+        }
+        return files.flatMap { name, text -> [FoundDatabase] in
+            let file = (name as NSString).lastPathComponent
+            if composeFiles.contains(file) {
+                return compose(text, source: name, env: envs[(name as NSString).deletingLastPathComponent] ?? [:])
+            }
             if name == "config/database.yml" { return rails(text, source: name, root: root) }
-            guard name == ".env" || name.hasPrefix(".env."), !name.hasSuffix(".example"), !name.hasSuffix(".sample")
+            guard file == ".env" || file.hasPrefix(".env."), !file.hasSuffix(".example"), !file.hasSuffix(".sample")
             else { return [] }
             return env(text, source: name, root: root)
         }
@@ -46,12 +58,14 @@ enum DatabaseFind {
 
     /// The shell line that prints those files on a remote project's host, each after a record separator and its name:
     /// what `parse(remote:)` reads back. SQLite files there aren't looked for (they can't be opened from here).
+    /// In `sh`, whatever the host's login shell: zsh would stop at the first pattern that matches nothing.
     static func remoteScript(_ path: String) -> String {
-        let names = (composeFiles + [".env", ".env.*", "config/database.yml"]).joined(separator: " ")
-        return
-            "cd \(RemoteHost.cdArg(path)) 2>/dev/null && for f in \(names); do "
-            + "[ -f \"$f\" ] && printf '\\036%s\\n' \"$f\""
-            + " && head -c 1048576 \"$f\"; done; true"
+        let names =
+            (composeFiles + [".env", ".env.*", "config/database.yml"] + (composeFiles + [".env"]).map { "*/" + $0 })
+            .joined(separator: " ")
+        let script =
+            "for f in \(names); do [ -f \"$f\" ] && printf '\\036%s\\n' \"$f\" && head -c 1048576 \"$f\"; done; true"
+        return "cd \(RemoteHost.cdArg(path)) 2>/dev/null && exec sh -c " + IDE.shellWord(script)
     }
 
     static func parse(remote output: String, root: String) -> [FoundDatabase] {
@@ -147,7 +161,28 @@ enum DatabaseFind {
     // MARK: compose
 
     /// Services of a postgres or mysql image: their published port, user, password and database from `environment`.
-    static func compose(_ text: String, source: String) -> [FoundDatabase] {
+    /// `KEY=value` lines (export, quotes and comments as .env files have them).
+    static func variables(_ text: String) -> [String: String] {
+        var found: [String: String] = [:]
+        for line in text.split(whereSeparator: \.isNewline) {
+            var line = line.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("#") { continue }
+            if line.hasPrefix("export ") { line = String(line.dropFirst(7)) }
+            guard let eq = line.firstIndex(of: "=") else { continue }
+            found[line[..<eq].trimmingCharacters(in: .whitespaces)] = unquoted(String(line[line.index(after: eq)...]))
+        }
+        return found
+    }
+
+    /// `${VAR}`, `${VAR:-default}`, `${VAR-default}` and `$VAR` filled in as compose does, from `env`.
+    static func interpolated(_ value: String, _ env: [String: String]) -> String {
+        value.replacing(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/) { match in
+            let name = String(match.output.1 ?? match.output.3 ?? "")
+            return env[name].flatMap { $0.isEmpty ? nil : $0 } ?? String(match.output.2 ?? "")
+        }
+    }
+
+    static func compose(_ text: String, source: String, env vars: [String: String] = [:]) -> [FoundDatabase] {
         var found: [FoundDatabase] = []
         for service in services(text) {
             guard let image = service.values["image"]?.lowercased() else { continue }
@@ -159,8 +194,8 @@ enum DatabaseFind {
             } else {
                 continue
             }
-            let env = service.env, inner = engine == .postgres ? 5432 : 3306
-            let port = service.ports.compactMap { published($0, inner: inner) }.first
+            let env = service.env.mapValues { interpolated($0, vars) }, inner = engine == .postgres ? 5432 : 3306
+            let port = service.ports.compactMap { published(interpolated($0, vars), inner: inner) }.first
             var user: String?, password: String?, database: String?
             if engine == .postgres {
                 user = env["POSTGRES_USER"] ?? "postgres"

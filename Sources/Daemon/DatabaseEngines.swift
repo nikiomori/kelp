@@ -375,9 +375,18 @@ enum PostgresRun {
     static func failure(_ stderr: String) -> DatabaseFailure {
         if stderr.contains("read-only transaction") { return .change }
         let lines = stderr.split(whereSeparator: \.isNewline).map(String.init)
-        let said = lines.first { $0.hasPrefix("ERROR:") || $0.hasPrefix("psql: error:") || $0.hasPrefix("FATAL:") }
-        let text = (said ?? lines.first ?? "psql failed")
-            .replacingOccurrences(of: "psql: error: ", with: "").replacingOccurrences(of: "ERROR:  ", with: "")
+        if let error = lines.first(where: { $0.hasPrefix("ERROR:") }) {
+            return .failed(error.replacingOccurrences(of: "ERROR:  ", with: "").trimmingCharacters(in: .whitespaces))
+        }
+        // Connecting, psql tries each address (::1, then 127.0.0.1) and says why each failed: the last is the one that
+        // got furthest ("no password supplied" after a refused ::1).
+        let tries = lines.filter { $0.contains(" failed: ") }
+        if let last = tries.last, let reason = last.range(of: " failed: ") {
+            return .failed(String(last[reason.upperBound...]).trimmingCharacters(in: .whitespaces))
+        }
+        let text =
+            (lines.first { $0.hasPrefix("psql: error:") || $0.hasPrefix("FATAL:") } ?? lines.first ?? "psql failed")
+            .replacingOccurrences(of: "psql: error: ", with: "")
         return .failed(text.trimmingCharacters(in: .whitespaces))
     }
 

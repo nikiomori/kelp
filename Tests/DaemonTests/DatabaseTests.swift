@@ -62,6 +62,33 @@ private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args
     #expect(my.database.user == "root" && my.password == "root")
 }
 
+/// Compose fills `${VAR}` in from the .env beside it, and so does Kelp: a password kept there, a port with a default.
+@Test func composeVariablesComeFromTheEnvBesideIt() {
+    let compose = """
+        services:
+          db:
+            image: postgres:16
+            ports:
+              - "127.0.0.1:${DB_PORT:-5440}:5432"
+            environment:
+              POSTGRES_USER: ${POSTGRES_USER}
+              POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+              POSTGRES_DB: ${POSTGRES_DB-app}
+        """
+    let found = DatabaseFind.parse(
+        [("api/compose.yaml", compose), ("api/.env", "POSTGRES_USER=niko\nPOSTGRES_PASSWORD='s3 cret'\n")], root: "/p")
+    #expect(found.count == 1)
+    #expect(found.first?.database.user == "niko" && found.first?.password == "s3 cret")
+    #expect(found.first?.database.port == 5440 && found.first?.database.name == "app")
+    #expect(found.first?.database.source == "api/compose.yaml")
+    #expect(
+        PostgresRun.failure(
+            "psql: error: connection to server at \"localhost\" (::1), port 5432 failed: Connection refused\n"
+                + "connection to server at \"localhost\" (127.0.0.1), port 5432 failed: fe_sendauth: no password supplied\n"
+        )
+            == .failed("fe_sendauth: no password supplied"))
+}
+
 @Test func envURLsAreFoundAndAProductionOneIsReadOnly() {
     let text = """
         # the app's
@@ -327,10 +354,14 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     try "services:\n  db:\n    image: postgres:16\n    ports:\n      - \"5432:5432\"\n".write(
         toFile: dir + "/compose.yaml", atomically: true, encoding: .utf8)
     try "DATABASE_URL=mysql://app:pw@localhost/shop\n".write(toFile: dir + "/.env", atomically: true, encoding: .utf8)
+    try FileManager.default.createDirectory(atPath: dir + "/api", withIntermediateDirectories: true)
+    try "DATABASE_URL=postgres://u@localhost:5433/api\n".write(   // a monorepo's part, one level down
+        toFile: dir + "/api/.env", atomically: true, encoding: .utf8)
     try Data("SQLite format 3\0".utf8).write(to: URL(fileURLWithPath: dir + "/db/x.sqlite3"))
     let out = try Subprocess.run(
         ["/bin/sh", "-c", DatabaseFind.remoteScript(dir)], cwd: "/", env: ["PATH": "/usr/bin:/bin"], timeLimit: 10)
     let found = DatabaseFind.parse(remote: String(decoding: out.stdout, as: UTF8.self), root: dir)
-    #expect(found.map(\.database.engine) == [.postgres, .mysql])
-    #expect(found.map(\.database.source) == ["compose.yaml", ".env"] && found[1].password == "pw")
+    #expect(found.map(\.database.engine) == [.postgres, .mysql, .postgres])
+    #expect(found.map(\.database.source) == ["compose.yaml", ".env", "api/.env"] && found[1].password == "pw")
+    #expect(DatabaseFind.find(in: dir).map(\.database.source) == ["compose.yaml", ".env", "api/.env", "db/x.sqlite3"])
 }

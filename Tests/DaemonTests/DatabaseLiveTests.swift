@@ -157,3 +157,28 @@ private func composeDown(_ file: String, in dir: String) {
         ["/usr/local/bin/docker", "compose", "-f", file, "down", "-v"], cwd: dir,
         env: ["PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": NSHomeDirectory()], timeLimit: 120)
 }
+
+/// A remote project's database, read only: KELP_TEST_REMOTE=host:/path of a project whose compose file runs a Postgres
+/// that publishes its port on the host. Its files are read there, and one SELECT goes through a forwarded port.
+@Test(.enabled(if: env["KELP_TEST_REMOTE"] != nil)) func aRemoteProjectsPostgresThroughAForwardedPort() async throws {
+    let target = (env["KELP_TEST_REMOTE"] ?? "").split(separator: ":", maxSplits: 1).map(String.init)
+    try #require(target.count == 2)
+    let w = try await world()
+    defer { w.d.stop() }
+    let repo = try await w.c.call(RepoAddRemote(host: target[0], path: target[1]))
+    let wt = try #require(try await w.c.call(WorktreeList()).first { $0.repoId == repo.id })
+    let remote = try #require(w.d.remotes.of(wt.path))
+    try remote.connect()   // listing never dials: the panel shows what an open connection reads
+    defer {
+        _ = try? Subprocess.run(
+            [remote.ssh, "-o", "ControlPath=\(remote.controlDir)/%C", "-O", "exit", "--", remote.host], cwd: "/",
+            env: [:], timeLimit: 10)
+    }
+    let postgres = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first { $0.engine == .postgres })
+    #expect(postgres.host == "localhost" && postgres.source != nil)
+    let one = try await w.c.call(
+        DatabaseQuery(
+            worktreeId: wt.id, database: postgres.name,
+            sql: "SELECT 1 AS one, current_setting('transaction_read_only') AS ro"))
+    #expect(one.rows == [["1", "on"]])
+}
