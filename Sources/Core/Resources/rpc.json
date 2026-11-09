@@ -967,7 +967,6 @@
         "type" : "string"
       },
       "DatabaseInfo" : {
-        "description" : "A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.",
         "properties" : {
           "access" : {
             "$ref" : "#/components/schemas/DatabaseInfo.Access"
@@ -2775,6 +2774,10 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "cut" : {
+            "description" : "Rows left out for their size (past what Kelp keeps of a result's cells, 1 MB): a larger `limit` gives no more.",
+            "type" : "boolean"
           },
           "id" : {
             "description" : "Its entry in the database's history (`db.result`).",
@@ -5450,7 +5453,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases. Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any.",
+      "description" : "Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases. Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any. `versionOnly`: only the version (a tab's capsule), on one connection: no tables counted, no databases listed.",
       "name" : "db.check",
       "paramStructure" : "by-name",
       "params" : [
@@ -5466,6 +5469,13 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "versionOnly",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
           }
         },
         {

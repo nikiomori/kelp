@@ -73,7 +73,7 @@ public enum IDE {
     }
 
     /// A path as it really is; one not there (yet) is its nearest folder that is, as it really is, and the rest as written.
-    private static func real(_ path: String) -> String {
+    public static func real(_ path: String) -> String {
         let standard = (URL(fileURLWithPath: path).path as NSString).standardizingPath
         if let resolved = Paths.real(standard) { return resolved }
         let up = (standard as NSString).deletingLastPathComponent

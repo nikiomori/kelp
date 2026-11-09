@@ -317,3 +317,20 @@ private func composeDown(_ file: String, in dir: String) {
             sql: "SELECT 1 AS one, current_setting('transaction_read_only') AS ro"))
     #expect(one.rows == [["1", "on"]])
 }
+
+/// A trial over the wire says how many rows a change touches from the server's command tag, past the 100 000 rows
+/// Kelp counts of a result: the user is asked about all of them.
+@Test(.enabled(if: env["KELP_TEST_POSTGRES"] != nil)) func aPostgresTrialCountsEveryRowItChanges() async throws {
+    let port = env["KELP_TEST_POSTGRES"] ?? ""
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    try "DATABASE_URL=postgres://app:secret@localhost:\(port)/app_dev\n".write(
+        toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
+    let make = "CREATE TABLE IF NOT EXISTS many AS SELECT generate_series(1, 100005) AS i"
+    _ = try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: make))
+    let c = try w.d.workspaces.databases.connection(wt.id, "app_dev", agent: false)
+    let tried = try await PostgresWire.trial(c, "DELETE FROM many")
+    #expect(tried.changed == 100_005)
+    #expect(Databases.question("DELETE FROM many", database: "app_dev", changed: tried.changed).contains("100005 rows"))
+}

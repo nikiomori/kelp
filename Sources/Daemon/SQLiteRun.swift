@@ -45,15 +45,26 @@ enum SQLiteRun {
         }
     }
 
-    static func write(_ path: String, _ sql: String) throws -> DatabaseRows {
+    /// `allowed`: as Postgres' (`PostgresWire.write`).
+    static func write(_ path: String, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
         try run {
             let queue = try open(path, readOnly: false)
             return try stopped(queue, after: DatabaseEngines.writeTimeout) {
-                try queue.inDatabase { db in
-                    var result = try rows(try db.makeStatement(sql: sql))
-                    result.changed = db.changesCount
-                    return result
+                guard let allowed else {
+                    return try queue.inDatabase { db in
+                        var result = try rows(try db.makeStatement(sql: sql))
+                        result.changed = db.changesCount
+                        return result
+                    }
                 }
+                var result = DatabaseRows()
+                try queue.inTransaction { db in
+                    result = try rows(try db.makeStatement(sql: sql))
+                    result.changed = db.changesCount
+                    return result.changed == allowed ? .commit : .rollback
+                }
+                guard result.changed == allowed else { throw DatabaseEngines.notAsAllowed(result.changed, allowed) }
+                return result
             }
         }
     }
@@ -96,18 +107,21 @@ enum SQLiteRun {
         var result = DatabaseRows(columns: statement.columnNames)
         let cursor = try Row.fetchCursor(statement)
         while let row = try cursor.next() {
-            result.total += 1
-            if result.rows.count < DatabaseEngines.keep {
-                result.rows.append(row.databaseValues.map(DatabaseEngines.text))
-            }
+            result.add(row.databaseValues.map(DatabaseEngines.text))
             if result.total >= DatabaseEngines.countLimit { break }
         }
         return result
     }
 
-    static func schema(_ path: String) throws -> DatabaseSchema {
+    /// How long the schema's row counts may take in all: past it a table's count is left out (nil), so a file of
+    /// many GB still shows its tables.
+    static let countingTime: TimeInterval = 3
+
+    static func schema(_ path: String, countingFor budget: TimeInterval = countingTime) throws -> DatabaseSchema {
         try run {
-            try open(path, readOnly: true).read { db in
+            let queue = try open(path, readOnly: true)
+            let until = Date().addingTimeInterval(budget)
+            return try queue.read { db in
                 let views = Set(
                     try String.fetchAll(
                         db, sql: "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite_%'"))
@@ -134,7 +148,7 @@ enum SQLiteRun {
                                     $0.destinationTable + "." + ($0.destinationColumns.first ?? "")
                                 })
                         }
-                        let count = try Int.fetchOne(db, sql: "SELECT count(*) FROM \(name.quotedDatabaseIdentifier)")
+                        let count = try counted(queue, db, name, until: until)
                         return DatabaseSchema.Table(
                             name: name, rows: count, columns: columns,
                             indexes: view
@@ -145,6 +159,17 @@ enum SQLiteRun {
                     })
             }
         }
+    }
+
+    /// A table's rows, or nil once `until` has passed (then, or while it counts).
+    private static func counted(_ queue: DatabaseQueue, _ db: Database, _ table: String, until: Date) throws -> Int? {
+        let left = until.timeIntervalSinceNow
+        guard left > 0 else { return nil }
+        do {
+            return try stopped(queue, after: left) {
+                try Int.fetchOne(db, sql: "SELECT count(*) FROM \(table.quotedDatabaseIdentifier)")
+            }
+        } catch DatabaseFailure.failed { return nil }   // stopped at `until`
     }
 
     /// GRDB's error as the database said it.

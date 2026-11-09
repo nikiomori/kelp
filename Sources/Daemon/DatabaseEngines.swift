@@ -23,12 +23,25 @@ struct DatabaseRows: Equatable, Sendable {
     var rows: [[String?]] = []
     var total = 0
     var changed: Int?
+    /// What the kept rows' cells weigh; past `DatabaseEngines.outputLimit` no more are kept and the answer is refused
+    /// (`DatabaseEngines.whole`), never sent as fewer rows. Not part of what it says (==).
+    var bytes = 0
 
-    /// One more row as it comes: kept up to `DatabaseEngines.keep`, counted always.
+    /// One more row as it comes: kept up to `DatabaseEngines.keep` and `outputLimit`, counted always.
     mutating func add(columns: [String], _ row: [String?]) {
         if total == 0 { self.columns = columns }
+        add(row)
+    }
+
+    mutating func add(_ row: [String?]) {
         total += 1
-        if rows.count < DatabaseEngines.keep { rows.append(row) }
+        guard rows.count < DatabaseEngines.keep, bytes <= DatabaseEngines.outputLimit else { return }
+        bytes += row.reduce(0) { $0 + ($1?.utf8.count ?? 0) }
+        if bytes <= DatabaseEngines.outputLimit { rows.append(row) }
+    }
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.columns == b.columns && a.rows == b.rows && a.total == b.total && a.changed == b.changed
     }
 }
 
@@ -47,7 +60,26 @@ enum DatabaseEngines {
 
     static func whole(_ out: Subprocess.Output, _ name: String) throws {
         guard out.truncated else { return }
-        throw DatabaseFailure.failed(
+        throw tooBig(name)
+    }
+
+    /// A change that would change more or fewer rows than the user allowed (the table changed while it was asked).
+    static func notAsAllowed(_ changed: Int?, _ allowed: Int) -> DatabaseFailure {
+        let rows = { (n: Int) in "\(n) \(n == 1 ? "row" : "rows")" }
+        let now = changed.map(rows) ?? "an unknown number of rows"
+        return .failed(
+            "It would change \(now) now, not the \(rows(allowed)) the user allowed: nothing changed. "
+                + "Run it again to ask again.")
+    }
+
+    /// Rows read in kelpd (SQLite, over the wire): refused whole past `outputLimit`, as a client's output is.
+    static func whole(_ rows: DatabaseRows, _ name: String) throws -> DatabaseRows {
+        guard rows.bytes > outputLimit else { return rows }
+        throw tooBig(name)
+    }
+
+    private static func tooBig(_ name: String) -> DatabaseFailure {
+        .failed(
             "\(name)'s answer is over \(outputLimit >> 20) MB, more than Kelp reads: ask for fewer rows or columns.")
     }
 
@@ -55,16 +87,23 @@ enum DatabaseEngines {
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout, off: Slots)
         async throws -> DatabaseRows
     {
-        try await explained(c) {
-            switch (c.database.engine, c.database.host) {
-            case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql, timeout: timeout) }
-            case (.duckdb, _): try await off.run { try DuckDBRun.read(path(c), sql, timeout: timeout) }
-            case (.appwrite, _): try await AppwriteWire.read(c, sql)
-            case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
-            case (.mysql, .some): try await MySQLWire.read(c, sql, timeout: timeout)
-            case (.postgres, nil): try await off.run { try PostgresRun.read(c, sql, timeout: timeout) }
-            case (.mysql, nil): try await off.run { try MySQLRun.read(c, sql, timeout: timeout) }
-            }
+        try whole(
+            try await explained(c) {
+                try await readAnywhere(c, sql, timeout: timeout, off: off)
+            }, c.database.name)
+    }
+
+    private static func readAnywhere(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval, off: Slots)
+        async throws -> DatabaseRows
+    {
+        switch (c.database.engine, c.database.host) {
+        case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql, timeout: timeout) }
+        case (.duckdb, _): try await off.run { try DuckDBRun.read(path(c), sql, timeout: timeout) }
+        case (.appwrite, _): try await AppwriteWire.read(c, sql)
+        case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
+        case (.mysql, .some): try await MySQLWire.read(c, sql, timeout: timeout)
+        case (.postgres, nil): try await off.run { try PostgresRun.read(c, sql, timeout: timeout) }
+        case (.mysql, nil): try await off.run { try MySQLRun.read(c, sql, timeout: timeout) }
         }
     }
 
@@ -89,27 +128,36 @@ enum DatabaseEngines {
         guard SQLText.mayTry(sql, c.database.engine) else {
             throw DatabaseFailure.failed("\(SQLText.verb(sql)) can't be tried in a transaction there")
         }
-        return switch (c.database.engine, c.database.host) {
-        case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
-        case (.duckdb, _): try await off.run { try DuckDBRun.trial(path(c), sql) }
-        case (.appwrite, _): try await AppwriteWire.trial(c, sql)
-        case (.postgres, .some): try await PostgresWire.trial(c, sql)
-        case (.mysql, .some): try await MySQLWire.trial(c, sql)
-        case (.postgres, nil): try await off.run { try PostgresRun.trial(c, sql) }
-        case (.mysql, nil): try await off.run { try MySQLRun.trial(c, sql) }
-        }
+        let rows: DatabaseRows =
+            switch (c.database.engine, c.database.host) {
+            case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
+            case (.duckdb, _): try await off.run { try DuckDBRun.trial(path(c), sql) }
+            case (.appwrite, _): try await AppwriteWire.trial(c, sql)
+            case (.postgres, .some): try await PostgresWire.trial(c, sql)
+            case (.mysql, .some): try await MySQLWire.trial(c, sql)
+            case (.postgres, nil): try await off.run { try PostgresRun.trial(c, sql) }
+            case (.mysql, nil): try await off.run { try MySQLRun.trial(c, sql) }
+            }
+        return try whole(rows, c.database.name)
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
-        switch (c.database.engine, c.database.host) {
-        case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql) }
-        case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql) }
-        case (.appwrite, _): try await AppwriteWire.write(c, sql)
-        case (.postgres, .some): try await PostgresWire.write(c, sql)
-        case (.mysql, .some): try await MySQLWire.write(c, sql)
-        case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql) }
-        case (.mysql, nil): try await off.run { try MySQLRun.write(c, sql) }
-        }
+    /// `allowed`: the rows the user allowed it to change (its trial's). Where it runs in kelpd (SQLite, over the wire)
+    /// it's committed only if it changes as many; through a client (DuckDB, a container's psql or mysql) it runs as
+    /// asked, so a table changed while it was asked can change a different number there.
+    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots) async throws
+        -> DatabaseRows
+    {
+        let rows: DatabaseRows =
+            switch (c.database.engine, c.database.host) {
+            case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql, allowed: allowed) }
+            case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql) }
+            case (.appwrite, _): try await AppwriteWire.write(c, sql)
+            case (.postgres, .some): try await PostgresWire.write(c, sql, allowed: allowed)
+            case (.mysql, .some): try await MySQLWire.write(c, sql, allowed: allowed)
+            case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql) }
+            case (.mysql, nil): try await off.run { try MySQLRun.write(c, sql) }
+            }
+        return try whole(rows, c.database.name)
     }
 
     /// The user's edits, all or none, in one transaction: the rows they changed. Through a container's client too: a

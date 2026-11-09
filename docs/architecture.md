@@ -258,19 +258,26 @@ reaches an agent. A database's `agentAccess` says what agents may do there:
 nothing (hidden), read (in a read-only transaction, a read-only file), ask (the change is tried and rolled back, then
 asked on the agent's row like a permission dialog), or change freely; a production one is read-only. An asked change
 waits on its asking program (`PermissionWaits.waitForKelp`): cut off (Esc, a tool's time limit), it isn't run by a
-late Allow; two asked at once wait their turn, oldest first; what agents may do is read again after the answer. The
+late Allow; two asked at once wait their turn, oldest first; what agents may do is read again after the answer, and
+the Allow is for the rows the trial changed: where the change runs in kelpd (SQLite, over the wire) it's committed
+only if it changes as many, else nothing is changed; through a client (DuckDB, a container's psql or mysql) a table
+changed while it was asked can change a different number. A call past its time is stopped on the server too (MySQL's
+`KILL QUERY`, whose own limit stops only a SELECT); a MySQL server that takes the connection and never greets is given
+10 s. What kelpd reads of an answer stops at 32 MB, refused whole rather than sent as fewer rows. The
 table tab's edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, `db.schema` and `db.query`,
 all three in their own workspaces; `databases.agents` (the default access) and the window's watch of the databases
 are the user's.
 
 What read-only doesn't stop: a function the database runs with its owner's rights (a `SECURITY DEFINER` function that
-writes), a `SELECT … INTO OUTFILE` with the FILE privilege, or what the user granted that role. It holds the
+writes), or what the user granted that role. It holds the
 statement to one (`SQLText.single`, read every way its engine may read it), never MySQL's DDL as a read (MySQL commits
 before it), and the agent to the database's own refusal; the role it connects as is what bounds it. On Postgres an
 agent's COPY, DO block and the functions that reach the server's files or others' sessions (`lo_export`,
 `pg_read_file`, `pg_terminate_backend`, `dblink`…) are refused by their text (`SQLText.pastTheDatabase`), and so
-are the built-ins that run a query given as text (`query_to_xml`, `ts_stat`), whose query no text check reads; a
-function of the database's own still gets past. A production Postgres reached as a superuser refuses agents. An address found in
+are the built-ins that run a query given as text (`query_to_xml`, `ts_stat`), whose query no text check reads, and
+any name or text spelled in Unicode escapes (`U&"…"`), which the check couldn't read either; a function of the
+database's own still gets past. On MySQL an agent's `INTO OUTFILE`/`DUMPFILE`, `LOAD_FILE()` and `LOAD DATA` are
+refused by their text the same way. A production Postgres reached as a superuser refuses agents. An address found in
 a project's files (a cloned repo's `.env`) on a host that isn't this Mac is dialled neither by the panel nor by an
 agent's call until the user opens it (since kelpd started), and never gets the user's `~/.pgpass`.
 

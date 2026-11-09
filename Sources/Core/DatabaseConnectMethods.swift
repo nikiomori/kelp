@@ -5,15 +5,18 @@ import Foundation
 
 /// Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases.
 /// Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any.
+/// `versionOnly`: only the version (a tab's capsule), on one connection: no tables counted, no databases listed.
 public struct DatabaseCheck: InternalMethod {
     public static let name = "db.check"
     public typealias Result = DatabaseCheckResult
     public static var timeout: TimeInterval? { 30 }
     public var worktreeId: String, database: DatabaseInfo, password: String?
-    public init(worktreeId: String, database: DatabaseInfo, password: String? = nil) {
+    public var versionOnly: Bool?
+    public init(worktreeId: String, database: DatabaseInfo, password: String? = nil, versionOnly: Bool? = nil) {
         self.worktreeId = worktreeId
         self.database = database
         self.password = password
+        self.versionOnly = versionOnly
     }
 }
 

@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import os
 
 /// The panel's dots: each database tried once (SELECT 1, a few seconds at most), side by side. A server reached over
 /// SSH, or a remote project's, is tried only through a connection that's open already: the panel never dials.
@@ -12,11 +13,47 @@ extension Databases {
         let remote = library ? nil : remotes.of(path)   // All My Projects' aren't on the project's host
         return await withTaskGroup(of: (Int, DatabaseHealth).self) { group in
             for (index, c) in all.enumerated() {
-                group.addTask { [self] in (index, await health(c, worktreeId, remote: remote)) }
+                group.addTask { [self] in
+                    let late = DatabaseHealth(
+                        name: c.database.name, state: .unknown,
+                        reason: "It didn't answer in \(Int(Self.healthTime)) s.")
+                    return (
+                        index,
+                        await Self.answer(within: Self.healthTime, or: late) {
+                            await self.health(c, worktreeId, remote: remote)
+                        }
+                    )
+                }
             }
             var out: [(Int, DatabaseHealth)] = []
             for await one in group { out.append(one) }
             return out.sorted { $0.0 < $1.0 }.map(\.1)
+        }
+    }
+
+    /// One database's whole check (an SSH check, a connect, SELECT 1, compose's word): one that takes longer is
+    /// said as such, so the others' dots come back within `DatabaseStatus`' time.
+    static let healthTime: TimeInterval = 20
+
+    /// What `work` answers, or `late` once `seconds` have passed (the work goes on, its answer dropped).
+    static func answer<T: Sendable>(
+        within seconds: TimeInterval, or late: T, _ work: @escaping @Sendable () async -> T
+    ) async -> T {
+        let waiting = OSAllocatedUnfairLock<CheckedContinuation<T, Never>?>(initialState: nil)
+        @Sendable func give(_ value: T) {
+            let continuation = waiting.withLock { held in
+                defer { held = nil }
+                return held
+            }
+            continuation?.resume(returning: value)
+        }
+        return await withCheckedContinuation { continuation in
+            waiting.withLock { $0 = continuation }
+            Task { give(await work()) }
+            Task {
+                do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
+                give(late)
+            }
         }
     }
 

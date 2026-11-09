@@ -147,9 +147,13 @@ extension Main {
         let counted = r.total >= QueryResult.counted ? "\(r.total)+ rows" : r.total == 1 ? "1 row" : "\(r.total) rows"
         guard r.rows.count < r.total else { return "\(counted) · \(r.ms) ms" }
         let more =
-            r.rows.count >= QueryResult.kept && (limit ?? 0) > r.rows.count
-            ? "Kelp keeps \(QueryResult.kept) at most: narrow it with WHERE, or page with LIMIT and OFFSET"
-            : "--limit for more"
+            if r.cut == true {
+                "Kelp keeps 1 MB of a result's cells: select fewer or shorter columns, or page with LIMIT and OFFSET"
+            } else if r.rows.count >= QueryResult.kept && (limit ?? 0) > r.rows.count {
+                "Kelp keeps \(QueryResult.kept) at most: narrow it with WHERE, or page with LIMIT and OFFSET"
+            } else {
+                "--limit for more"
+            }
         return "\(counted), the first \(r.rows.count) shown (\(more)) · \(r.ms) ms"
     }
 

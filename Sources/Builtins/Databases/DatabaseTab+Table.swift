@@ -28,8 +28,11 @@ extension DatabaseTab {
         startReading()
         let asked = page
         let result = await query(sql, limit: Self.pageSize)
-        // Another page, table or filter asked meanwhile: this answer is the older one's
-        guard page == asked, sidebar.current == name, filters.condition == condition else { return }
+        // Another page, table or filter asked meanwhile: this answer is the older one's (looked at after each wait)
+        let still = { [weak self] in
+            self.map { $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition } ?? false
+        }
+        guard still() else { return }
         reading?.cancel()
         busy.stopAnimation(nil)
         guard let result else { return }
@@ -42,9 +45,13 @@ extension DatabaseTab {
         empty.show(result.rows.isEmpty ? String(localized: "No Rows") : nil, symbol: "tablecells")
         arrange()
         counted = nil
-        if !condition.isEmpty { await count(name, condition) }
+        if !condition.isEmpty {
+            let rows = await count(name, condition)
+            guard still() else { return }
+            counted = rows
+        }
         pageChanged(shown: result.rows.count, ms: result.ms)
-        await mark(name, primary: primary)
+        await mark(name, primary: primary, still: still)
     }
 
     /// "Reading…" in the foot only once half a second has gone: a quick read doesn't flicker.
@@ -58,10 +65,10 @@ extension DatabaseTab {
     }
 
     /// With a filter on, how many rows it leaves: counted (the server stops a count that takes too long).
-    private func count(_ name: String, _ condition: String) async {
+    private func count(_ name: String, _ condition: String) async -> Int? {
         let sql = "SELECT count(*) FROM " + DatabaseEdits.name(name, engine) + " WHERE " + condition
         let answer = await app.quiet(DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql))
-        counted = (answer?.rows.first?.first ?? nil).flatMap { Int($0) }
+        return (answer?.rows.first?.first ?? nil).flatMap { Int($0) }
     }
 
     /// "1–200 of ≈ 12 408 rows · filtered · 14 ms", ‹ › where there's more.
@@ -147,7 +154,7 @@ extension DatabaseTab {
     // MARK: An agent's last change
 
     /// The rows the latest change an agent made here left (kept as RETURNING gave them), found again by their key.
-    private func mark(_ name: String, primary: [String]) async {
+    private func mark(_ name: String, primary: [String], still: () -> Bool) async {
         guard !primary.isEmpty else { return }
         let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs ?? []
         let short = name.split(separator: ".").last.map { $0.lowercased() } ?? name
@@ -158,6 +165,7 @@ extension DatabaseTab {
             }),
             let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: last.id)) ?? nil
         else { return }
+        guard still() else { return }   // the grid shows another page, table or filter now
         let theirs = primary.compactMap { result.columns.firstIndex(of: $0) }
         let mine = primary.compactMap { grid.columns.firstIndex(of: $0) }
         guard theirs.count == primary.count, mine.count == primary.count else { return }

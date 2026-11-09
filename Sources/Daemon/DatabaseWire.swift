@@ -59,6 +59,30 @@ enum DatabaseWire {
         }
     }
 
+    /// What `future` gives, or a failure once `seconds` have passed (then `late`): for a step whose future can't be
+    /// cancelled or closed (a handshake), which `within` would wait out.
+    static func first<T: Sendable>(
+        _ future: EventLoopFuture<T>, within seconds: TimeInterval, _ db: DatabaseInfo,
+        late: @escaping @Sendable () -> Void
+    ) async throws -> T {
+        let waiting = OSAllocatedUnfairLock<CheckedContinuation<T, any Error>?>(initialState: nil)
+        @Sendable func give(_ result: Result<T, any Error>) {
+            let continuation = waiting.withLock { held in
+                defer { held = nil }
+                return held
+            }
+            continuation?.resume(with: result)
+        }
+        return try await withCheckedThrowingContinuation { continuation in
+            waiting.withLock { $0 = continuation }
+            future.whenComplete { give($0) }
+            future.eventLoop.scheduleTask(in: .milliseconds(Int64(seconds * 1000))) {
+                late()
+                give(.failure(DatabaseFailure.failed("No answer from \(db.name) in \(Int(seconds.rounded(.up))) s.")))
+            }
+        }
+    }
+
     /// A connection closed after its call: one the server dropped already has nothing more to say.
     static func close(_ body: () async throws -> Void) async {
         do { try await body() } catch { logger.debug("db close: \(error)") }
@@ -82,31 +106,45 @@ enum PostgresWire {
         }
     }
 
-    /// The change made and rolled back; with RETURNING its rows are what it changed.
+    /// The change made and rolled back; with RETURNING its rows are what it changed. How many it changed is the
+    /// command tag's, never the rows counted (they stop at `countLimit`).
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
         try await with(c, within: 2 * DatabaseEngines.readTimeout + 10) { conn in
-            func attempt(_ statement: String, returning: Bool) async throws -> DatabaseRows {
+            func attempt(_ statement: String) async throws -> DatabaseRows {
                 try await run(conn, "BEGIN")
                 try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
-                var result = returning ? try await rows(conn, statement) : try await command(conn, statement)
-                if returning { result.changed = result.total }
+                let result = try await command(conn, statement)
                 try await run(conn, "ROLLBACK")
                 return result
             }
             if let returning = SQLText.returning(sql) {
                 // RETURNING may not fit it (a view, a rule): tried plain then, its transaction ended first
-                do { return try await attempt(returning, returning: true) } catch {
-                    try await run(conn, "ROLLBACK")
+                do { return try await attempt(returning) } catch let first {
+                    do { try await run(conn, "ROLLBACK") } catch {
+                        throw first   // the connection is gone: the server's word on the first, not the ROLLBACK's
+                    }
                 }
             }
-            return try await attempt(sql, returning: false)
+            return try await attempt(sql)
         }
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
+    /// `allowed`: the rows the user allowed it to change; it's committed only if it changes as many.
+    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) async throws -> DatabaseRows {
         try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
-            try await run(conn, "SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
-            return try await command(conn, sql)
+            guard let allowed else {
+                try await run(conn, "SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
+                return try await command(conn, sql)
+            }
+            try await run(conn, "BEGIN")
+            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
+            let result = try await command(conn, sql)
+            guard result.changed == allowed else {
+                try await run(conn, "ROLLBACK")
+                throw DatabaseEngines.notAsAllowed(result.changed, allowed)
+            }
+            try await run(conn, "COMMIT")
+            return result
         }
     }
 
@@ -198,8 +236,7 @@ enum PostgresWire {
         let sequence = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger)
         var result = DatabaseRows(columns: sequence.columns.map(\.name))
         for try await row in sequence {
-            result.total += 1
-            if result.rows.count < DatabaseEngines.keep { result.rows.append(row.map(PostgresText.text)) }
+            result.add(row.map(PostgresText.text))
             if result.total >= DatabaseEngines.countLimit { break }
         }
         return result
@@ -275,10 +312,18 @@ enum MySQLWire {
         }
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
+    /// `allowed`: as Postgres' (a row change only: MySQL's DDL isn't tried, so it has no count to hold it to).
+    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) async throws -> DatabaseRows {
         try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
+            if allowed != nil { _ = try await run(conn, "START TRANSACTION") }
             var result = try await run(conn, sql)
             result.changed = try await changed(conn)
+            guard let allowed else { return result }
+            guard result.changed == allowed else {
+                _ = try await run(conn, "ROLLBACK")
+                throw DatabaseEngines.notAsAllowed(result.changed, allowed)
+            }
+            _ = try await run(conn, "COMMIT")
             return result
         }
     }
@@ -337,33 +382,87 @@ enum MySQLWire {
     }
 
     /// `seconds`: the call's whole time (`DatabaseWire.within`).
+    /// The call on a connection of its own. The handshake has its own time (NIO's 10 s is the TCP connect's only); a
+    /// call past its time is stopped on the server too (`KILL QUERY` from a second connection), since MySQL's own
+    /// limit stops only a SELECT: a change that ran on would commit after the caller was told it didn't answer.
     private static func with<T: Sendable>(
         _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
         _ body: @escaping @Sendable (MySQLConnection) async throws -> T
     ) async throws -> T {
         let db = c.database
-        guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
-        // localhost means the Unix socket to MySQL's own client: here it's the server's port, by address
-        let address = host == "localhost" ? "127.0.0.1" : host
         let conn: MySQLConnection
-        do {
-            let port = db.port ?? 3306
-            let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
-            conn = try await MySQLConnection.connect(
-                to: socket, username: db.user ?? "root", database: db.database ?? "", password: c.password,
-                tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
-                logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
-            ).get()
-        } catch { throw failure(error, db) }
+        do { conn = try await open(c) } catch { throw failure(error, db) }
+        let id: String?
+        do { id = try await run(conn, "SELECT CONNECTION_ID()").rows.first?.first ?? nil } catch {
+            await DatabaseWire.close { try await conn.close().get() }
+            throw failure(error, db)
+        }
+        let stopped = OSAllocatedUnfairLock(initialState: false)
         do {
             let result = try await DatabaseWire.within(
-                seconds, db, close: { await DatabaseWire.close { try await conn.close().get() } }
+                seconds, db,
+                close: {
+                    let killed = await kill(id, c)
+                    stopped.withLock { $0 = killed }
+                    await DatabaseWire.close { try await conn.close().get() }
+                }
             ) { try await body(conn) }
             await DatabaseWire.close { try await conn.close().get() }
             return result
+        } catch DatabaseFailure.failed(let said) where said.hasPrefix("No answer from") {
+            await DatabaseWire.close { try await conn.close().get() }
+            throw DatabaseFailure.failed(
+                said
+                    + (stopped.withLock { $0 }
+                        ? " Kelp stopped it on the server."
+                        : " It may still be running on the server: look before running it again."))
         } catch {
             await DatabaseWire.close { try await conn.close().get() }
             throw failure(error, db)
+        }
+    }
+
+    static let handshakeTimeout: TimeInterval = 10
+
+    static func open(_ c: DatabaseConnection, handshake: TimeInterval = handshakeTimeout) async throws
+        -> MySQLConnection
+    {
+        let db = c.database
+        guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
+        // localhost means the Unix socket to MySQL's own client: here it's the server's port, by address
+        let address = host == "localhost" ? "127.0.0.1" : host
+        let port = db.port ?? 3306
+        let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
+        let connecting = MySQLConnection.connect(
+            to: socket, username: db.user ?? "root", database: db.database ?? "", password: c.password,
+            tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
+            logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
+        )
+        // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so one that never does keeps its
+        // socket until the far end closes it; one that ends late is closed then.
+        return try await DatabaseWire.first(connecting, within: handshake, db) {
+            connecting.whenSuccess { late in _ = late.close() }
+        }
+    }
+
+    /// Stops what connection `id` runs, from a connection of its own: whether the server said it did.
+    private static func kill(_ id: String?, _ c: DatabaseConnection) async -> Bool {
+        guard let id, Int(id) != nil else { return false }
+        do {
+            let conn = try await open(c)
+            var said: (any Error)?
+            // A server that didn't answer the call may not answer this either: it has a time of its own
+            do {
+                _ = try await DatabaseWire.within(
+                    handshakeTimeout, c.database, close: { await DatabaseWire.close { try await conn.close().get() } }
+                ) { try await run(conn, "KILL QUERY \(id)") }
+            } catch { said = error }
+            await DatabaseWire.close { try await conn.close().get() }
+            if let said { throw said }
+            return true
+        } catch {
+            Log.session.info("db: KILL QUERY on \(c.database.name) failed: \(error)")
+            return false
         }
     }
 

@@ -346,7 +346,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     private func askVersion() async {
         guard let db = database else { return }
-        let check = await app.quiet(DatabaseCheck(worktreeId: address.worktree, database: db), timeout: 30)
+        let check = await app.quiet(
+            DatabaseCheck(worktreeId: address.worktree, database: db, versionOnly: true), timeout: 30)
         version = check?.version
         capsuleChanged()
     }

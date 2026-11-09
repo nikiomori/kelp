@@ -80,22 +80,23 @@ extension Databases {
         let typed = c
         let near = try await offloads.run { [self] in try reach(typed, wid) }
         do {
-            let schema = try await DatabaseEngines.schema(near, table: nil, off: offloads)
+            let all = q.versionOnly != true
+            let tables = all ? try await DatabaseEngines.schema(near, table: nil, off: offloads).tables.count : 0
             var version = DatabaseLook.engine(near.database.engine), databases: [String] = []
             switch near.database.engine {
             case .postgres where near.database.host != nil:
                 version = try await PostgresWire.version(near)
-                databases = try await PostgresWire.databases(near)
+                if all { databases = try await PostgresWire.databases(near) }
             case .mysql where near.database.host != nil:
                 version = try await MySQLWire.version(near)
-                databases = try await MySQLWire.databases(near)
+                if all { databases = try await MySQLWire.databases(near) }
             case .appwrite:
                 version = try await AppwriteWire.version(near)
-                databases = try await AppwriteWire.databases(near)
+                if all { databases = try await AppwriteWire.databases(near) }
             default: break
             }
             return DatabaseCheckResult(
-                version: version, tables: schema.tables.count, databases: databases,
+                version: version, tables: tables, databases: databases,
                 ms: Int(Date().timeIntervalSince(started) * 1000))
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
     }

@@ -249,106 +249,6 @@ final class Databases: Sendable {
         return db
     }
 
-    /// A copy for the workspace's branch (`DatabaseCopy`): the copy as it's listed now.
-    func copy(_ worktreeId: String, _ name: String) async throws -> DatabaseInfo {
-        guard let worktree = try store.worktree(worktreeId) else {
-            throw RPCError.invalidParams("No workspace \(worktreeId).")
-        }
-        guard remotes.of(worktree.path) == nil else {
-            throw RPCError.invalidParams("A remote project's databases stay on its host: Kelp copies them only here.")
-        }
-        let c = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
-        let suffix = Self.slug(worktree.branch)
-        guard !c.database.production else {
-            throw RPCError.invalidParams("\(name) is production: Kelp doesn't copy it.")
-        }
-        switch c.database.engine {
-        case .sqlite, .duckdb: return try await offloads.run { [self] in try copyFile(c, worktree, suffix: suffix) }
-        case .postgres:
-            // Behind an SSH host, "localhost" is that host's: not this Mac's
-            guard let host = c.database.host, DatabaseFind.isLocal(host), c.database.ssh == nil,
-                let database = c.database.database
-            else {
-                throw RPCError.invalidParams(
-                    "Kelp copies a Postgres on this Mac that publishes its port; \(name) doesn't.")
-            }
-            // Its password as a query would have it: one still in another app's keychain is read now
-            let near = try await offloads.run { [self] in try reach(c, worktreeId) }
-            let copied = database + "_" + suffix
-            var maintenance = near   // a template can't have anyone connected, this connection included
-            maintenance.database.database = "postgres"
-            do {
-                _ = try await DatabaseEngines.write(
-                    maintenance, "CREATE DATABASE \(Self.quoted(copied)) TEMPLATE \(Self.quoted(database))",
-                    off: offloads)
-            } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
-            var db = c.database
-            db.name = name + "_" + suffix
-            db.database = copied
-            db.source = nil
-            let password = near.password, kept = db
-            do { return try await offloads.run { [self] in try save(worktreeId, kept, password: password) } } catch {
-                // Not kept, so not left behind: the next copy would find it "already exists"
-                do {
-                    _ = try await DatabaseEngines.write(
-                        maintenance, "DROP DATABASE \(Self.quoted(copied))", off: offloads)
-                } catch { Log.store.error("dropping \(copied) after its save failed: \(error)") }
-                throw error
-            }
-        case .mysql, .appwrite:
-            throw RPCError.invalidParams("Kelp copies SQLite files and Postgres databases, not \(name)'s engine.")
-        }
-    }
-
-    /// Into the branch's folder at the same place when it's the project's file, else beside it with the branch's name.
-    private func copyFile(_ c: DatabaseConnection, _ worktree: Worktree, suffix: String) throws -> DatabaseInfo {
-        guard let path = c.database.path else { throw RPCError.invalidParams("\(c.database.name) has no file.") }
-        let project = try store.repo(worktree.repoId)?.path ?? worktree.path
-        let target: String
-        if IDE.inside(path, project), !IDE.inside(path, worktree.path), path.hasPrefix(project + "/") {
-            target = worktree.path + path.dropFirst(project.count)
-        } else {
-            let ext = (path as NSString).pathExtension, base = (path as NSString).deletingPathExtension
-            target = base + "_" + suffix + (ext.isEmpty ? "" : "." + ext)
-        }
-        guard !FileManager.default.fileExists(atPath: target) else {
-            throw RPCError.invalidParams("There's a copy already: \(target).")
-        }
-        try FileManager.default.createDirectory(
-            atPath: (target as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        do {
-            if c.database.engine == .duckdb {
-                try FileManager.default.copyItem(atPath: path, toPath: target)   // DuckDB keeps one file, no -wal
-            } else {
-                // Made here or refused: two copies asked at once don't back up into one file (the check above can't
-                // tell); copyItem refuses one that's there itself.
-                let made = open(target, O_CREAT | O_EXCL | O_WRONLY, 0o644)
-                guard made >= 0 else { throw RPCError.invalidParams("There's a copy already: \(target).") }
-                close(made)
-                try SQLiteRun.copy(path, to: target)
-            }
-        } catch let failure as DatabaseFailure {
-            throw RPCError.invalidParams(failure.message)
-        }
-        touch(worktree.id)
-        // Where Kelp looks (the top, db/, …) it's found as it is; anywhere else it's kept as one added by hand.
-        if let found = try connections(worktree.id).first(where: { $0.database.path == target }) {
-            return found.database
-        }
-        let db = DatabaseInfo(
-            name: c.database.name + "_" + suffix, engine: c.database.engine, path: target, access: c.database.access)
-        return try save(worktree.id, db, password: nil)
-    }
-
-    /// A branch as a name's tail: "fix/orders" → "fix_orders".
-    static func slug(_ branch: String) -> String {
-        let words = branch.lowercased().split { !($0.isLetter || $0.isNumber) }
-        let slug = String(words.joined(separator: "_").prefix(30))
-        return slug.isEmpty ? "copy" : slug
-    }
-
-    static func quoted(_ name: String) -> String { "\"" + name.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
-
     func remove(_ worktreeId: String, _ name: String, library: Bool = false) throws {
         guard let repo = library ? Self.libraryRepo : try store.worktree(worktreeId)?.repoId else { return }
         let id = repo + "/" + name
@@ -460,14 +360,21 @@ final class Databases: Sendable {
                         + (others.isEmpty ? "." : ", or try it on \(others.joined(separator: " or ")).")
                 )
             case .ask:
-                guard try await allowed(q, c, sql, &run, asker: (session, pid)) else {
-                    throw RPCError.refused(run.error ?? "The user didn't allow it.")
+                // In this catch's body a failure isn't the outer catch's: said here (a server that refuses changes)
+                let yes: Bool
+                do { yes = try await allowed(q, c, sql, &run, asker: (session, pid)) } catch let failure
+                    as DatabaseFailure
+                {
+                    throw failed(q, &run, failure)
                 }
+                guard yes else { throw RPCError.refused(run.error ?? "The user didn't allow it.") }
                 fallthrough
             case .free:
                 let started = Date()
+                // What the user allowed is what it may change: the table can have changed while it was asked
+                let asked = access == .ask ? run.changed : nil
                 do {
-                    let rows = try await DatabaseEngines.write(c, sql, off: offloads)
+                    let rows = try await DatabaseEngines.write(c, sql, allowed: asked, off: offloads)
                     run.state = .done
                     return finish(q, &run, rows, started: started, agent: forAgent)
                 } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
@@ -523,7 +430,10 @@ final class Databases: Sendable {
                 }
             }
             bytes += cut.reduce(0) { $0 + ($1?.utf8.count ?? 0) }
-            guard bytes <= keptBytes else { break }
+            guard bytes <= keptBytes else {
+                out.cut = true
+                break
+            }
             out.rows.append(cut)
         }
         return out
@@ -555,6 +465,9 @@ final class Databases: Sendable {
         {
             // It can't be tried in a transaction (CREATE INDEX CONCURRENTLY, MySQL's DDL): asked all the same.
             Log.session.info("db trial of \(c.database.name) didn't run: \(why)")
+        } catch DatabaseFailure.change {
+            throw DatabaseFailure.failed(
+                "\(c.database.name) takes no changes: the server or file is read-only (a standby, a file's rights).")
         }
         run.state = .asks
         run.changed = trial?.changed

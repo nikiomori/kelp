@@ -469,7 +469,9 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     let first = Task { try await dbs.query(update, origin: agent.id) }
     #expect(try await asked())
     _ = try await w.c.call(SessionHook(id: agent.id, event: "working", hookName: "PreToolUse"))
-    try await Task.sleep(for: .milliseconds(300))
+    // What the ticker would do next to its status, done now: the hook has been taken (the call answered after it)
+    let live = try #require(w.d.sessions.existing(agent.id))
+    for _ in 0..<3 { live.tick() }
     let session = try #require(try w.d.store.session(agent.id))
     #expect(session.status == .waiting && session.summary == "Allow changing 3 rows of orders in shop?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: session.summary)))
