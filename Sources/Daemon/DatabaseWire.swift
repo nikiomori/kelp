@@ -87,7 +87,9 @@ enum PostgresWire {
             let columns = try await rows(conn, PostgresRun.schemaColumns)
             let counts = try await rows(conn, PostgresRun.schemaCounts)
             let indexes = try await rows(conn, PostgresRun.schemaIndexes)
-            return DatabaseSchemaBuilder.build(columns: columns.rows, counts: counts.rows, indexes: indexes.rows)
+            var schema = DatabaseSchemaBuilder.build(columns: columns.rows, counts: counts.rows, indexes: indexes.rows)
+            schema.functions = try await rows(conn, PostgresRun.schemaFunctions).rows.compactMap { $0.first ?? nil }
+            return schema
         }
     }
 
@@ -234,10 +236,12 @@ enum MySQLWire {
 
     static func schema(_ c: DatabaseConnection) async throws -> DatabaseSchema {
         try await with(c) { conn in
-            DatabaseSchemaBuilder.build(
+            var schema = DatabaseSchemaBuilder.build(
                 columns: try await run(conn, MySQLRun.schemaColumns).rows,
                 counts: try await run(conn, MySQLRun.schemaCounts).rows,
                 indexes: try await run(conn, MySQLRun.schemaIndexes).rows)
+            schema.functions = try await run(conn, MySQLRun.schemaFunctions).rows.compactMap { $0.first ?? nil }
+            return schema
         }
     }
 

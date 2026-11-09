@@ -642,3 +642,17 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(done.changed == 2 && left == 2)
     #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.map(\.state) == [.done, .failed])
 }
+
+/// A view is listed as one, apart from the tables.
+@Test func aViewIsListedAsAView() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try shopDB(in: wt.path)
+    try await DatabaseQueue(path: path).write {
+        try $0.execute(sql: "CREATE VIEW paid AS SELECT * FROM orders WHERE status = 'paid'")
+    }
+    let schema = try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "shop"))
+    #expect(schema.tables.first { $0.name == "paid" }?.kind == "view")
+    #expect(schema.tables.first { $0.name == "orders" }?.kind == nil)
+}

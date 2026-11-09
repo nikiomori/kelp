@@ -142,7 +142,12 @@ public struct DatabaseRun: Codable, Sendable, Equatable, Identifiable {
 /// A database's tables, as an agent reads them before it writes a query.
 public struct DatabaseSchema: Codable, Sendable, Equatable {
     public var tables: [Table]
-    public init(tables: [Table]) { self.tables = tables }
+    /// The database's own functions, by name ("schema.name" outside the default schema); nil where Kelp doesn't read them.
+    public var functions: [String]?
+    public init(tables: [Table], functions: [String]? = nil) {
+        self.tables = tables
+        self.functions = functions
+    }
 
     public struct Table: Codable, Sendable, Equatable {
         public var name: String
@@ -150,11 +155,21 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
         public var rows: Int?
         public var columns: [Column]
         public var indexes: [String]
-        public init(name: String, rows: Int? = nil, columns: [Column] = [], indexes: [String] = []) {
+        /// "view" for a view (or a materialized one); nil: a table.
+        public var kind: String?
+        /// Its size on disk with its indexes, and its comment, where the database says them.
+        public var bytes: Int?, comment: String?
+        public init(
+            name: String, rows: Int? = nil, columns: [Column] = [], indexes: [String] = [], kind: String? = nil,
+            bytes: Int? = nil, comment: String? = nil
+        ) {
             self.name = name
             self.rows = rows
             self.columns = columns
             self.indexes = indexes
+            self.kind = kind
+            self.bytes = bytes
+            self.comment = comment
         }
     }
 

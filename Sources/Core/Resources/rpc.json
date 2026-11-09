@@ -1116,6 +1116,13 @@
       "DatabaseSchema" : {
         "description" : "A database's tables, as an agent reads them before it writes a query.",
         "properties" : {
+          "functions" : {
+            "description" : "The database's own functions, by name (\"schema.name\" outside the default schema); nil where Kelp doesn't read them.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "tables" : {
             "items" : {
               "$ref" : "#/components/schemas/DatabaseSchema.Table"
@@ -1157,17 +1164,28 @@
       },
       "DatabaseSchema.Table" : {
         "properties" : {
+          "bytes" : {
+            "description" : "Its size on disk with its indexes, and its comment, where the database says them.",
+            "type" : "integer"
+          },
           "columns" : {
             "items" : {
               "$ref" : "#/components/schemas/DatabaseSchema.Column"
             },
             "type" : "array"
           },
+          "comment" : {
+            "type" : "string"
+          },
           "indexes" : {
             "items" : {
               "type" : "string"
             },
             "type" : "array"
+          },
+          "kind" : {
+            "description" : "\"view\" for a view (or a materialized one); nil: a table.",
+            "type" : "string"
           },
           "name" : {
             "type" : "string"

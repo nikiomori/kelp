@@ -275,6 +275,9 @@ enum SQLiteRun {
     static func schema(_ path: String) throws -> DatabaseSchema {
         try run {
             try open(path, readOnly: true).read { db in
+                let views = Set(
+                    try String.fetchAll(
+                        db, sql: "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite_%'"))
                 let names = try String.fetchAll(
                     db,
                     sql:
@@ -283,7 +286,8 @@ enum SQLiteRun {
                 )
                 return DatabaseSchema(
                     tables: try names.map { name in
-                        let keys = try db.foreignKeys(on: name)
+                        let view = views.contains(name)   // a view has no keys or indexes of its own
+                        let keys = view ? [] : try db.foreignKeys(on: name)
                         let columns = try db.columns(in: name).map { column in
                             DatabaseSchema.Column(
                                 name: column.name, type: column.type, nullable: !column.isNotNull,
@@ -295,9 +299,11 @@ enum SQLiteRun {
                         let count = try Int.fetchOne(db, sql: "SELECT count(*) FROM \(name.quotedDatabaseIdentifier)")
                         return DatabaseSchema.Table(
                             name: name, rows: count, columns: columns,
-                            indexes: try db.indexes(on: name).map {
-                                "\($0.name) (\($0.columns.joined(separator: ", ")))"
-                            })
+                            indexes: view
+                                ? []
+                                : try db.indexes(on: name).map {
+                                    "\($0.name) (\($0.columns.joined(separator: ", ")))"
+                                }, kind: view ? "view" : nil)
                     })
             }
         }
@@ -373,10 +379,17 @@ enum PostgresRun {
         """
     static let schemaCounts = """
         SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
-          CASE WHEN c.reltuples < 0 THEN s.n_live_tup ELSE c.reltuples::bigint END   -- -1: never analyzed
+          CASE WHEN c.reltuples < 0 THEN s.n_live_tup ELSE c.reltuples::bigint END,   -- -1: never analyzed
+          CASE WHEN c.relkind IN ('v', 'm') THEN 'view' END, pg_total_relation_size(c.oid),
+          obj_description(c.oid, 'pg_class')
         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
         WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
+        """
+    static let schemaFunctions = """
+        SELECT DISTINCT CASE WHEN n.nspname = 'public' THEN p.proname ELSE n.nspname || '.' || p.proname END
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname \(other) AND p.prokind = 'f' ORDER BY 1
         """
     static let schemaIndexes = """
         SELECT CASE WHEN schemaname = 'public' THEN tablename ELSE schemaname || '.' || tablename END,
@@ -563,7 +576,13 @@ enum MySQLRun {
            AND k.referenced_table_name IS NOT NULL LIMIT 1)
         FROM information_schema.columns c WHERE c.\(here) ORDER BY c.table_name, c.ordinal_position
         """
-    static let schemaCounts = "SELECT table_name, table_rows FROM information_schema.tables WHERE \(here)"
+    static let schemaCounts = """
+        SELECT table_name, table_rows, CASE WHEN table_type = 'VIEW' THEN 'view' END, data_length + index_length,
+          NULLIF(table_comment, '')
+        FROM information_schema.tables WHERE \(here)
+        """
+    static let schemaFunctions =
+        "SELECT routine_name FROM information_schema.routines WHERE routine_schema = DATABASE()"
     static let schemaIndexes = """
         SELECT table_name, CONCAT(index_name, ' (', GROUP_CONCAT(column_name ORDER BY seq_in_index), ')')
         FROM information_schema.statistics WHERE \(here) GROUP BY table_name, index_name
@@ -637,8 +656,13 @@ enum DatabaseSchemaBuilder {
                     references: row[5]))
         }
         for row in counts where row.count >= 2 {
-            guard let table = row[0], let count = row[1].flatMap(Int.init), count >= 0 else { continue }
-            byTable[table]?.rows = count
+            guard let table = row[0] else { continue }
+            if let count = row[1].flatMap(Int.init), count >= 0 { byTable[table]?.rows = count }
+            if row.count >= 5 {   // kind, size and comment where the engine's query gives them
+                byTable[table]?.kind = row[2] ?? nil
+                byTable[table]?.bytes = row[3].flatMap { Int($0) }
+                byTable[table]?.comment = row[4] ?? nil
+            }
         }
         for row in indexes where row.count >= 2 {
             guard let table = row[0], let index = row[1] else { continue }
