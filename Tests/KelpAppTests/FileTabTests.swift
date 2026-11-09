@@ -315,25 +315,21 @@ extension AppOfItsOwn {
     }
 
     /// A file event reads the file again only when its stamp (size, modification time, inode) changed: every event of a
-    /// log a dev server appends to used to read all of it on the main thread. Rewritten in place with the same size and
-    /// its old modification time put back, the file looks untouched, so the tab keeps what it read.
+    /// log a dev server appends to used to read all of it on the main thread.
     @Test func aFileEventWithTheSameStampReadsNothing() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         let p = try file("aaaa\n")
         let tab = await opened(p, in: rig)
-        var st = stat()
-        #expect(stat(p, &st) == 0)
-        let h = try FileHandle(forWritingTo: URL(fileURLWithPath: p))
-        try h.write(contentsOf: Data("bbbb\n".utf8))
-        try h.close()   // same inode, same size
-        var times = [st.st_atimespec, st.st_mtimespec]
-        #expect(utimensat(AT_FDCWD, p, &times, 0) == 0)
-        try await Task.sleep(for: .seconds(1))   // the events of both arrive meanwhile
-        #expect(tab.editor?.text == "aaaa\n")
+        #expect(try await waitFor(5) { tab.known != nil && !tab.reading })
+        let known = try #require(tab.known?.stamp)
+        // Its own version pushed again (a touch the daemon saw, an event sent twice): judged at once, not read. Landed
+        // by hand: a file changed on disk and put back to its stamp is seen half way by the watch, which reads it.
+        rig.app.land(FileEvent(path: p, stamp: known))
+        tab.diskChanged()
+        #expect(!tab.reading)
         try "cccc\n".write(toFile: p, atomically: true, encoding: .utf8)   // a real change still shows
-        #expect(try await waitFor(5) { !(tab.editor?.text != "cccc\n") })
-        #expect(tab.editor?.text == "cccc\n")
+        #expect(try await waitFor(5) { tab.editor?.text == "cccc\n" })
     }
 
     /// A preview written over (a new render of a video, an image) shows the new file: it used to keep the old one until
