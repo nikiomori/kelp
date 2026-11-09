@@ -47,6 +47,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     var onForget: (SavedQuery) -> Void = { _ in }
     var onRun: (DatabaseRun, _ toEditor: Bool) -> Void = { _, _ in }
     var onAsk: (String) -> Void = { _ in }
+    var onCopyCreate: (String) -> Void = { _ in }
 
     init(app: AppModel) {
         self.app = app
@@ -75,18 +76,21 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         }
         let top = NSStackView(views: [part])
         top.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 0, bottom: 0, right: 0)
-        let find = NSStackView(views: [search])
+        let find = NSStackView(views: [search, add])   // New Query beside the search, as the list's own "+"
+        find.spacing = Metrics.gap
         find.edgeInsets = NSEdgeInsets(
             top: Metrics.gap, left: Metrics.gapWide, bottom: Metrics.gap, right: Metrics.gapWide)
-        let foot = NSStackView(views: [add, NSView(), schemaPicker])
+        let foot = NSStackView(views: [schemaPicker, NSView()])   // only there when the database has other schemas
         foot.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gap)
         foot.heightAnchor.constraint(equalToConstant: Metrics.statusBar + 4).isActive = true
+        foot.isHidden = true
         let column = NSStackView(views: [top, find, scroll, foot])
         column.orientation = .vertical
         column.spacing = 0
         for v in [find, scroll, foot] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         view.pin(column)
-        view.widthAnchor.constraint(equalToConstant: 232).isActive = true
+        // As wide as the user drags it (the tab's split keeps it, per Mac; 280 until then).
+        view.widthAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
     }
 
     // MARK: What it lists
@@ -99,6 +103,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         schemaPicker.removeAllItems()
         schemaPicker.addItems(withTitles: [String(localized: "default")] + others.sorted())
         schemaPicker.isHidden = others.isEmpty
+        schemaPicker.superview?.isHidden = others.isEmpty
         if let picked, schemaPicker.itemTitles.contains(picked) { schemaPicker.selectItem(withTitle: picked) }
         reload()
     }
@@ -285,6 +290,7 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Ask an Agent About \(t.name)")) { [weak self] in self?.onAsk(t.name) }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy Name")) { copyText(t.name) }
+            menu.add(String(localized: "Copy CREATE TABLE")) { [weak self] in self?.onCopyCreate(t.name) }
         case .saved(let q):
             menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(q) }
             menu.add(String(localized: "Copy SQL")) { copyText(q.sql) }

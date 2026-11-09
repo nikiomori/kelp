@@ -83,6 +83,9 @@ extension DatabaseTab {
         }
         if filters.isActive { words.append(String(localized: "filtered")) }
         if !grid.editable { words.append(String(localized: "a view: read only")) }
+        if let bytes = current?.bytes {
+            words.append(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
+        }
         words.append(Self.took(ms))
         status.stringValue = words.joined(separator: " · ")
         previous.isEnabled = page > 0
@@ -216,7 +219,6 @@ extension DatabaseTab {
     /// The right column follows the table, the selected row and this table's agent runs.
     func detailsChanged() {
         details.table = current
-        details.definition = current.map(definition) ?? ""
         let picked = grid.selectedRows.first
         details.row = picked.map { ($0, grid.columns, grid.rows[$0]) }
         details.editable = grid.editable && mode.table != nil && part.selectedSegment == 0
@@ -228,6 +230,8 @@ extension DatabaseTab {
         }
         details.agentName = agentToAsk.map { app.catalog.name($0.agent) }
         details.show(picked == nil ? nil : .row)
+        // Closed until a row is picked (what the table's tab would say is on screen already); one the user closed stays so.
+        if picked != nil, !detailsClosed { details.view.isHidden = false }
     }
 
     /// A field edited in the details: the same edit as in its cell.
@@ -330,10 +334,12 @@ extension DatabaseTab {
         Task {
             if database?.production == true {
                 let alert = NSAlert()
-                alert.messageText = String(localized: "Change \(address.name)? It’s production.")
+                alert.messageText = String(localized: "Change \(address.name)? You marked it Production.")
                 alert.informativeText = statements.joined(separator: ";\n") + ";"
-                alert.addButton(withTitle: String(localized: "Change Production"))
-                alert.addButton(withTitle: String(localized: "Cancel"))
+                let change = alert.addButton(withTitle: String(localized: "Change Production"))
+                change.hasDestructiveAction = true
+                change.keyEquivalent = ""   // Return cancels: a change to production is a click
+                alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\r"
                 guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             }
             let (done, error) = await app.tryCall(

@@ -46,7 +46,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let loading = DatabaseLoading()
     /// Turning in the foot while a page is read (past half a second).
     let busy = NSProgressIndicator()
-    let whole = NSStackView()
+    let whole = NSSplitView()
     let capsule = NSTextField(labelWithString: "")
     let capsuleBox = NSStackView()
     let part = NSSegmentedControl(
@@ -96,8 +96,13 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         .symbol("line.3.horizontal.decrease.circle"), tip: String(localized: "Filters (⇧⌘F)")
     ) { [weak self] in self?.toggleFilters() }
     lazy var detailsToggle = IconButton(.symbol("sidebar.right"), tip: String(localized: "Details")) { [weak self] in
-        self?.details.view.isHidden.toggle()
+        guard let self else { return }
+        details.view.isHidden.toggle()
+        detailsClosed = details.view.isHidden
     }
+    /// The user closed the details: picking a row no longer opens them.
+    var detailsClosed = false
+
     lazy var copyAs = IconButton(.symbol("square.and.arrow.up"), tip: String(localized: "Copy or Export Rows")) {
         [weak self] in self?.copyMenu()
     }
@@ -169,23 +174,26 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         grid.scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
-        whole.setViews([sidebar.view, Self.divider(), center, Self.divider(), details.view], in: .leading)
-        whole.spacing = 0
-        whole.alignment = .height
-        whole.distribution = .fill
+        // The list and the details keep their width as the window changes; the rows take the rest. The list's width is
+        // the user's to drag, kept per Mac. The details stay closed until a row is picked.
+        whole.isVertical = true
+        whole.dividerStyle = .thin
+        for pane in [sidebar.view, center, details.view] { whole.addArrangedSubview(pane) }
+        whole.setHoldingPriority(.init(260), forSubviewAt: 0)
+        whole.setHoldingPriority(.init(200), forSubviewAt: 1)
+        whole.setHoldingPriority(.init(260), forSubviewAt: 2)
+        // The split starts from its panes' frames: the list 280 wide until the user drags it (then kept, per Mac).
+        sidebar.view.setFrameSize(NSSize(width: 280, height: 400))
+        center.setFrameSize(NSSize(width: 800, height: 400))
+        details.view.setFrameSize(NSSize(width: DatabaseDetails.width, height: 400))
+        whole.autosaveName = "DatabaseTab"
+        details.view.isHidden = true
         center.setContentHuggingPriority(.init(1), for: .horizontal)
         view.pin(whole)
         gate.place(in: view)
         view.pin(loading)
         empty.place(in: grid.scroll)
         arrange()
-    }
-
-    static func divider() -> NSView {
-        let line = NSBox()
-        line.boxType = .separator
-        line.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        return line
     }
 
     /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders"; a click, its menu.
@@ -267,6 +275,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         grid.onFilter = { [weak self] column, op, value in self?.filters.add(column: column, op: op, value: value) }
         grid.onFollow = { [weak self] column, value in self?.followKey(column, value) }
         grid.table.onSpace = { [weak self] in
+            self?.detailsClosed = false
             self?.details.view.isHidden = false
             self?.details.show(.row)
         }
@@ -280,6 +289,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         sidebar.onForget = { [weak self] q in self?.forget(q) }
         sidebar.onRun = { [weak self] run, toEditor in self?.openRun(run, toEditor: toEditor) }
         sidebar.onAsk = { [weak self] table in self?.askAbout(table) }
+        sidebar.onCopyCreate = { [weak self] name in
+            guard let self, let t = tables.first(where: { $0.name == name }) else { return }
+            copyText(definition(t))
+        }
         details.onEdit = { [weak self] column, value in self?.editFromDetails(column, value) }
         details.onFollow = { [weak self] table, column, value in self?.follow(table, column, value) }
         details.onRun = { [weak self] run in Task { await self?.leave(to: .run(run.id)) } }

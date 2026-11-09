@@ -20,7 +20,6 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
 
     /// What it shows: set by the tab as its table, selection or runs change.
     var table: DatabaseSchema.Table?
-    var definition = ""
     var row: (index: Int, columns: [String], values: [String?])?
     var runs: [DatabaseRun] = []
     var agentName: String?
@@ -107,9 +106,6 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         if !t.indexes.isEmpty {
             add(field(String(localized: "Indexes"), t.indexes.joined(separator: "\n"), mono: true))
         }
-        let copy = ClosureButton(title: String(localized: "Copy CREATE TABLE")) { [definition] in copyText(definition) }
-        copy.controlSize = .small
-        add(padded(copy))
     }
 
     // MARK: Row
