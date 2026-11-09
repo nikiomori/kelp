@@ -25,7 +25,8 @@ jobs:
           - name: Build and test
             cache: tests
             build: swift build --manifest-cache local --build-tests
-            test: swift test --manifest-cache local --skip-build --skip DaemonTests   # those: the job below
+            # One at a time: the app's tests share one main thread, and side by side their waits ran out on a busy one
+            test: swift test --manifest-cache local --skip-build --no-parallel --skip DaemonTests   # those: the job below
           - name: Release build
             cache: release
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
