@@ -25,7 +25,7 @@ jobs:
           - name: Build and test
             cache: tests
             build: swift build --manifest-cache local --build-tests
-            test: scripts/retry-tests.sh swift test --manifest-cache local --skip-build --skip DaemonTests   # those: the job below
+            test: swift test --manifest-cache local --skip-build --skip DaemonTests   # those: the job below
           - name: Release build
             cache: release
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
@@ -40,7 +40,7 @@ jobs:
             test: |
               X=$(xcode-select -p); T=$X/Toolchains/XcodeDefault.xctoolchain/usr; P=$X/Platforms/MacOSX.platform/Developer
               B=.build/debug/DaemonTests.xctest/Contents/MacOS/DaemonTests
-              scripts/retry-tests.sh env DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
+              env DYLD_INSERT_LIBRARIES=$(ls $T/lib/clang/*/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib | head -1) \
                 DYLD_FRAMEWORK_PATH=$P/Library/Frameworks DYLD_LIBRARY_PATH=$P/usr/lib \
                 $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
     runs-on: xcode-27

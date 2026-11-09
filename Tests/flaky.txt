@@ -1,4 +1,2 @@
-# Tests CI may run once more, alone, when a shared runner's load fails them (scripts/retry-tests.sh). Any other test
-# that fails, fails the run: a new one goes here only with why it's load-bound, and comes off once it isn't.
-aDiffIsSearchedAndSteppedThrough           # a WebKit page's find, on a runner with no GPU to spare
-saveWritesTheEditButNeverOverAnAgentsChange   # file stamps a second apart under load
+# Tests known to fail under load, each with why. CI runs every test once and retries none: a test that fails there is
+# a bug, in the code or in what the test waits for. One goes here only while its cause is being fixed, and comes off with it.
