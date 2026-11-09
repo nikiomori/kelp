@@ -280,7 +280,21 @@ enum DatabaseMenu {
         menu.add(String(localized: "Production")) {
             var changed = db
             changed.production.toggle()
-            Task { await app.call(DatabaseSave(worktreeId: worktreeId, database: changed)) }
+            Task {
+                // Raising what agents may do is said in words first: the rest of the menu only ever lowers it here.
+                if !changed.production {
+                    let alert = NSAlert()
+                    alert.messageText = String(localized: "Let agents change \(db.name)?")
+                    alert.informativeText = String(
+                        localized:
+                            "\(db.address) stops being production: agents get what Agents says, \(DatabaseLook.title(db.access)), and their changes reach it."
+                    )
+                    alert.addButton(withTitle: String(localized: "Not Production"))
+                    alert.addButton(withTitle: String(localized: "Cancel"))
+                    guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+                }
+                await app.call(DatabaseSave(worktreeId: worktreeId, database: changed))
+            }
         }.state = db.production ? .on : .off
         // A copy to change on this branch without touching the project's (`db.copy`): SQLite files and a Postgres here.
         if !db.production, db.engine != .mysql, let branch = app.worktree(worktreeId)?.branch {

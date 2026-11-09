@@ -33,7 +33,7 @@ enum DatabaseFind {
         let parts = names(in: root).filter { !$0.hasPrefix(".") && !skipped.contains($0) }.sorted().flatMap { dir in
             (composeFiles + [".env"]).map { dir + "/" + $0 }
         }
-        let files = (composeFiles + envs + ["config/database.yml"] + parts).compactMap { name in
+        let files = (composeFiles + envs + ["config/database.yml", "prisma/schema.prisma"] + parts).compactMap { name in
             read(root, name).map { (name, $0) }
         }
         return unique(parse(files, root: root) + sqliteFiles(in: root))
@@ -52,6 +52,7 @@ enum DatabaseFind {
                 return compose(text, source: name, env: envs[(name as NSString).deletingLastPathComponent] ?? [:])
             }
             if name == "config/database.yml" { return rails(text, source: name, root: root) }
+            if name == "prisma/schema.prisma" { return prisma(text, source: name, root: root) }
             guard file == ".env" || file.hasPrefix(".env."), !file.hasSuffix(".example"), !file.hasSuffix(".sample")
             else { return [] }
             return env(text, source: name, root: root)
@@ -63,7 +64,8 @@ enum DatabaseFind {
     /// In `sh`, whatever the host's login shell: zsh would stop at the first pattern that matches nothing.
     static func remoteScript(_ path: String) -> String {
         let names =
-            (composeFiles + [".env", ".env.*", "config/database.yml"] + (composeFiles + [".env"]).map { "*/" + $0 })
+            (composeFiles + [".env", ".env.*", "config/database.yml", "prisma/schema.prisma"]
+            + (composeFiles + [".env"]).map { "*/" + $0 })
             .joined(separator: " ")
         let script =
             "for f in \(names); do [ -f \"$f\" ] && printf '\\036%s\\n' \"$f\" && head -c 1048576 \"$f\"; done; true"
@@ -307,6 +309,25 @@ enum DatabaseFind {
                 user: block["username"])
             return FoundDatabase(database: db, password: block["password"])
         }
+    }
+
+    // MARK: Prisma
+
+    /// The datasource's url when it's written out: `url = "postgresql://…"`, or a SQLite `file:./dev.db` (from the schema's
+    /// folder, as Prisma reads it). `env("DATABASE_URL")` is the .env's, found there.
+    static func prisma(_ text: String, source: String, root: String) -> [FoundDatabase] {
+        var inSource = false
+        for line in text.split(whereSeparator: \.isNewline).map({ $0.trimmingCharacters(in: .whitespaces) }) {
+            if line.hasPrefix("datasource ") { inSource = true }
+            if inSource, line.hasPrefix("}") { inSource = false }
+            guard inSource, line.hasPrefix("url"), let eq = line.firstIndex(of: "=") else { continue }
+            let value = line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+            guard value.hasPrefix("\""), value.dropFirst().contains("\"") else { continue }
+            let url = String(value.dropFirst().prefix { $0 != "\"" })
+            let folder = (root as NSString).appendingPathComponent((source as NSString).deletingLastPathComponent)
+            return self.url(url, source: source, root: folder).map { [$0] } ?? []
+        }
+        return []
     }
 
     // MARK: SQLite files

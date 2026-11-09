@@ -107,6 +107,25 @@ private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args
     #expect(sqlite.first?.database.path == "/p/dev.db" && sqlite.first?.database.name == "dev")
 }
 
+/// Prisma's datasource when its url is written out; one from env("…") is the .env's.
+@Test func aPrismaDatasourceIsFound() {
+    let schema = """
+        generator client {
+          provider = "prisma-client-js"
+        }
+        datasource db {
+          provider = "sqlite"
+          url      = "file:./dev.db"
+        }
+        """
+    let found = DatabaseFind.prisma(schema, source: "prisma/schema.prisma", root: "/p")
+    #expect(found.first?.database.path == "/p/prisma/dev.db" && found.first?.database.engine == .sqlite)
+    let fromEnv = schema.replacingOccurrences(of: "\"file:./dev.db\"", with: "env(\"DATABASE_URL\")")
+    #expect(DatabaseFind.prisma(fromEnv, source: "prisma/schema.prisma", root: "/p").isEmpty)
+    let pg = schema.replacingOccurrences(of: "file:./dev.db", with: "postgresql://app@localhost:5433/shop")
+    #expect(DatabaseFind.prisma(pg, source: "prisma/schema.prisma", root: "/p").first?.database.port == 5433)
+}
+
 @Test func railsDevelopmentAndTestBlocksAreFound() {
     let text = """
         default: &default

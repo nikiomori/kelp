@@ -25,6 +25,8 @@ final class PaneView: NSView {
     private let commands: CommandsBar
     /// Over the terminal's foot, made the first time a plan limit stops this agent.
     private var limitStrip: NSView?
+    /// Over it too, made the first time this agent asks to change a database (`DatabaseAskCard`).
+    private var askCard: DatabaseAskCard?
     /// `kelp attach` still streams, and from which daemon (`AppModel.connections` when it started).
     private var attached = true
     private var attachedTo: Int
@@ -63,6 +65,27 @@ final class PaneView: NSView {
         } changed: { [weak self] _ in
             self?.settle()
         }
+        if let wid = session.worktreeId {   // an agent typed into a terminal asks there too
+            let sid = session.id
+            track(owner: self) { [app] in
+                app.session(sid)?.asksPermission == true
+            } changed: { [weak self] asks in
+                if asks { self?.showAskCard(worktree: wid) }
+            }
+        }
+    }
+
+    private func showAskCard(worktree: String) {
+        guard askCard == nil else { return }
+        let card = DatabaseAskCard(app: app, session: sessionId, worktree: worktree)   // it shows and hides itself
+        askCard = card
+        card.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(card)
+        NSLayoutConstraint.activate([
+            card.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gapWide * 1.5),
+            card.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide * 1.5),
+            card.bottomAnchor.constraint(equalTo: endedSlot.topAnchor, constant: -Metrics.gapWide * 1.5)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
