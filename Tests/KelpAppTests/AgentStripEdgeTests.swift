@@ -119,12 +119,12 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     }
 
     /// Once `first` holds, until the strip stops moving: its animation's end, not a guess at how long one takes (a loaded
-    /// machine runs them late). Gives up after 5 s, and the checks that follow say what's wrong.
+    /// machine runs them late). Gives up after 15 s, a failure there.
     private func settled(_ strip: AgentStrip, after first: () -> Bool = { true }) async throws {
-        let end = Date().addingTimeInterval(5)
-        _ = try await waitFor(5) { first() }
+        let end = Date().addingTimeInterval(15)
+        try await waitFor(15) { first() }
         var last = strip.frame, still = 0   // the same frame at four looks in a row, 150 ms
-        _ = try await waitFor(max(0, end.timeIntervalSinceNow)) {
+        try await waitFor(max(0, end.timeIntervalSinceNow)) {
             if strip.frame == last {
                 still += 1
             } else {

@@ -238,7 +238,7 @@ extension AppOfItsOwn {
         func stageButtons() -> [NSButton] {
             cells(in: vc.view).flatMap(buttons).filter { $0.action.map(NSStringFromSelector) == "hunkAction:" }
         }
-        _ = try await waitFor(2.5) {
+        try await waitFor(2.5) {
             vc.view.layoutSubtreeIfNeeded()
             return stageButtons().count >= 2
         }

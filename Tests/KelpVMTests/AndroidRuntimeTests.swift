@@ -165,7 +165,7 @@ import Testing
                 .trimmingCharacters(in: .whitespacesAndNewlines)))
     defer { kill(theirs, SIGTERM) }
     var seen = 0   // once it has started
-    _ = try await waitFor(2) {
+    try await waitFor(2) {
         seen = Usage.clients(of: serial, programs: ["bash"])
         return seen != 0
     }

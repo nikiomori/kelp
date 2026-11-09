@@ -287,7 +287,7 @@ func trustQuestionStandIn() -> String {
         let s: Session = try await w.c.call("session.create", .object(p), as: Session.self)
         if let send { _ = try await w.c.call("session.send", .obj(["id": .string(s.id), "text": .string(send)])) }
         // Waits for the stand-in to decide either way (it says NOT-ANSWERED when its wait ran out): no fixed sleep.
-        _ = try await waitFor(15) {
+        try await waitFor(15) {
             let t = (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? ""
             return t.contains(marker) || t.contains("NOT-ANSWERED")
         }

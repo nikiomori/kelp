@@ -70,7 +70,7 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     _ = try sendAtOnce(
         w.root, (1...n).map { (SessionSend.name, .obj(["id": .string(s.id), "text": .string("m\($0)")])) })
     var got: [String] = []
-    _ = try await waitFor(30) {
+    try await waitFor(30) {
         got = try await w.c.call(SessionRead(id: s.id)).split(whereSeparator: \.isNewline).map {
             $0.trimmingCharacters(in: .whitespaces)
         }

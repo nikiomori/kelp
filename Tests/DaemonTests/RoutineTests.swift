@@ -59,7 +59,7 @@ private final class Heard: @unchecked Sendable {
     await #expect(throws: RPCError.self) { try await w.c.call(RoutineRun(id: r.id)) }   // it runs now
     /// The run once a tick has seen the session at `outcome`.
     func reached(_ outcome: Routine.Run.Outcome) async throws -> Routine.Run? {
-        _ = try await waitFor {
+        try await waitFor {
             w.d.workspaces.routines.tick(workspaces: w.d.workspaces, now: due.addingTimeInterval(20))
             return try await w.c.call(RoutineList()).runs.first?.outcome == outcome
         }
