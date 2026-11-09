@@ -28,10 +28,26 @@ enum DatabaseEngines {
     static let readTimeout: TimeInterval = 15, writeTimeout: TimeInterval = 300
 
     static func read(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        switch c.database.engine {
-        case .sqlite: try SQLiteRun.read(path(c), sql)
-        case .postgres: try PostgresRun.read(c, sql)
-        case .mysql: try MySQLRun.read(c, sql)
+        try explained(c) {
+            switch c.database.engine {
+            case .sqlite: try SQLiteRun.read(path(c), sql)
+            case .postgres: try PostgresRun.read(c, sql)
+            case .mysql: try MySQLRun.read(c, sql)
+            }
+        }
+    }
+
+    /// A server that isn't up, said with how to start it when a compose file runs it.
+    static func explained<T>(_ c: DatabaseConnection, _ body: () throws -> T) throws -> T {
+        do { return try body() } catch DatabaseFailure.failed(let text)
+            where text.contains("Connection refused") || text.contains("Can't connect")
+        {
+            let start =
+                c.database.source.map { source in
+                    DatabaseFind.composeFiles.contains(source)
+                        ? " Is it running? docker compose up -d starts what \(source) runs." : ""
+                } ?? ""
+            throw DatabaseFailure.failed("\(c.database.name) doesn't answer at \(c.database.address).\(start)")
         }
     }
 
@@ -53,12 +69,13 @@ enum DatabaseEngines {
     }
 
     static func schema(_ c: DatabaseConnection, table: String?) throws -> DatabaseSchema {
-        let schema: DatabaseSchema =
+        let schema: DatabaseSchema = try explained(c) {
             switch c.database.engine {
             case .sqlite: try SQLiteRun.schema(path(c))
             case .postgres: try PostgresRun.schema(c)
             case .mysql: try MySQLRun.schema(c)
             }
+        }
         guard let table else { return schema }
         let one = schema.tables.filter { $0.name.caseInsensitiveCompare(table) == .orderedSame }
         guard !one.isEmpty else {

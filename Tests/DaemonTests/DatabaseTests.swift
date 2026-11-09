@@ -289,3 +289,17 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "prod"))
     #expect(Keychain.get(Databases.account(w.repo.id + "/prod")) == nil)
 }
+
+/// A server that doesn't answer is said so, with how to start one a compose file runs.
+@Test func aDatabaseThatDoesntAnswerSaysHowToStartIt() {
+    let db = DatabaseInfo(name: "app_dev", engine: .postgres, source: "compose.yaml", host: "localhost", port: 5499)
+    #expect(
+        throws: DatabaseFailure.failed(
+            "app_dev doesn't answer at postgres://localhost:5499/. Is it running? docker compose up -d starts what "
+                + "compose.yaml runs.")
+    ) {
+        try DatabaseEngines.explained(DatabaseConnection(database: db)) { () throws -> Int in
+            throw DatabaseFailure.failed("connection to server at \"localhost\", port 5499 failed: Connection refused")
+        }
+    }
+}
