@@ -696,7 +696,8 @@ func codeOnly(_ s: String) -> String {
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
         "Builtins/Files/Preview.swift": (2, "an image's bytes, shown"),
-        "Builtins/Databases/DatabaseForm.swift": (1, "the Host names of ~/.ssh/config, offered for SSH")
+        "Builtins/Databases/DatabaseForm.swift": (1, "the Host names of ~/.ssh/config, offered for SSH"),
+        "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
     let all = try matches(
         #"FileManager\.default\.(contents|createFile|moveItem|trashItem|copyItem|removeItem|createDirectory|fileExists|isWritableFile"#

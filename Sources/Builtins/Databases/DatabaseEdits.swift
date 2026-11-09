@@ -1,14 +1,18 @@
 import Core
 import Foundation
 
-/// Cells the user changed in a table's rows, and the statements that save them: an UPDATE per row, found by its
-/// primary key's values as they were read.
+/// What the user changed in a table's rows, and the statements that save it: an UPDATE per edited row and a DELETE per
+/// deleted one, each found by its primary key's values as they were read; an INSERT per new row.
 struct DatabaseEdits: Equatable {
     /// The new value by row and column (nil: NULL).
     private(set) var cells: [Int: [Int: String?]] = [:]
+    /// Rows added at the end: a value per column (nil: left to the database's default).
+    private(set) var added: [[String?]] = []
+    /// Rows read that are to go.
+    private(set) var deleted = Set<Int>()
 
-    var count: Int { cells.values.map(\.count).reduce(0, +) }
-    var isEmpty: Bool { cells.isEmpty }
+    var count: Int { cells.values.map(\.count).reduce(0, +) + added.count + deleted.count }
+    var isEmpty: Bool { cells.isEmpty && added.isEmpty && deleted.isEmpty }
 
     func edited(row: Int, column: Int) -> Bool { cells[row]?[column] != nil }
     func value(row: Int, column: Int) -> String?? { cells[row]?[column] }
@@ -23,27 +27,60 @@ struct DatabaseEdits: Equatable {
         }
     }
 
-    mutating func clear() { cells = [:] }
+    mutating func add(_ row: [String?]) { added.append(row) }
+    mutating func setAdded(_ index: Int, column: Int, to value: String?) {
+        guard added.indices.contains(index), added[index].indices.contains(column) else { return }
+        added[index][column] = value
+    }
+    mutating func removeAdded(_ index: Int) { if added.indices.contains(index) { added.remove(at: index) } }
 
-    /// One UPDATE a row, in row order; nil when a row can't be told apart (no primary key among the columns).
+    /// Deleting a row marked deleted keeps it.
+    mutating func toggleDeleted(_ row: Int) {
+        if deleted.remove(row) == nil {
+            deleted.insert(row)
+            cells[row] = nil
+        }
+    }
+
+    mutating func clear() {
+        cells = [:]
+        added = []
+        deleted = []
+    }
+
+    /// Deletes, then updates, then inserts, in row order; nil when a row can't be told apart (no primary key among
+    /// the columns) and something needs it.
     func statements(
         table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]]
     ) -> [String]? {
         let keys = primary.compactMap { columns.firstIndex(of: $0) }
-        guard !keys.isEmpty, keys.count == primary.count else { return nil }
-        return cells.keys.sorted().compactMap { row in
-            guard rows.indices.contains(row), let changed = cells[row] else { return nil }
-            let set = changed.keys.sorted().map { column in
-                "\(Self.name(columns[column], engine)) = \(Self.literal(changed[column] ?? nil, engine))"
-            }
-            let match = keys.map { key in
+        let keyed = !keys.isEmpty && keys.count == primary.count
+        if !keyed, !cells.isEmpty || !deleted.isEmpty { return nil }
+        func match(_ row: Int) -> String {
+            keys.map { key in
                 let old = rows[row][key]
                 return "\(Self.name(columns[key], engine)) "
                     + (old == nil ? "IS NULL" : "= \(Self.literal(old, engine))")
-            }
-            return "UPDATE \(Self.name(table, engine)) SET \(set.joined(separator: ", ")) WHERE "
-                + match.joined(separator: " AND ")
+            }.joined(separator: " AND ")
         }
+        let name = Self.name(table, engine)
+        let deletes = deleted.sorted().filter { rows.indices.contains($0) }.map {
+            "DELETE FROM \(name) WHERE " + match($0)
+        }
+        let updates = cells.keys.sorted().compactMap { row -> String? in
+            guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
+            let set = changed.keys.sorted().map { column in
+                "\(Self.name(columns[column], engine)) = \(Self.literal(changed[column] ?? nil, engine))"
+            }
+            return "UPDATE \(name) SET \(set.joined(separator: ", ")) WHERE " + match(row)
+        }
+        let inserts = added.compactMap { row -> String? in
+            let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }
+            guard !given.isEmpty else { return nil }
+            return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
+                + ") VALUES (" + given.map { Self.literal(row[$0], engine) }.joined(separator: ", ") + ")"
+        }
+        return deletes + updates + inserts
     }
 
     /// A table or column name, quoted for the engine: "orders", `orders` in MySQL; "public.orders" as two parts.

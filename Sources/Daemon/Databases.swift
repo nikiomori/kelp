@@ -366,8 +366,14 @@ final class Databases: Sendable {
         -> QueryResult
     {
         let ms = Int(Date().timeIntervalSince(started) * 1000)
-        let result = QueryResult(
+        var result = QueryResult(
             id: run.id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: ms)
+        // A change allowed after its trial: the rows the trial left (RETURNING) stay its rows, for the tab's marks.
+        if result.columns.isEmpty, let tried = self.result(q.worktreeId, run.id), !tried.columns.isEmpty {
+            result.columns = tried.columns
+            result.rows = tried.rows
+            result.total = tried.total
+        }
         run.rows = rows.total
         run.changed = rows.changed
         run.ms = ms

@@ -412,6 +412,18 @@ package final class EditorArea: NSViewController {
         case "cilog":
             return .init(
                 id: tab.id, title: String(localized: "Log"), icon: .symbol("doc.text"), status: nil, toolTip: nil)
+        case "db":   // "<workspace>/<name>[?table=<t>|?run=<id>]": as the tab will title itself
+            let parts = body.split(separator: "?", maxSplits: 1).map(String.init)
+            let name =
+                parts[0].split(separator: "/", maxSplits: 1).last.map {
+                    String($0).removingPercentEncoding ?? String($0)
+                } ?? body
+            let table =
+                parts.count > 1 && parts[1].hasPrefix("table=")
+                ? String(parts[1].dropFirst(6)).removingPercentEncoding : nil
+            return .init(
+                id: tab.id, title: table.map { "\($0) · \(name)" } ?? name, icon: .symbol("cylinder.split.1x2"),
+                status: nil, toolTip: nil)
         default:
             let info = DeclarativeExtension.viewInfo(tab.uri)
             return .init(

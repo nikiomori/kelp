@@ -68,7 +68,7 @@ let package = Package(
         .target(name: "BuiltinRoutines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Routines"),
         .target(name: "BuiltinServers", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Servers"),
         .target(name: "BuiltinMachines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Machines"),
-        .target(name: "BuiltinDatabases", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Databases"),
+        .target(name: "BuiltinDatabases", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit", "EditorKit"], path: "Sources/Builtins/Databases"),
         .target(name: "BuiltinRun", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Run"),
         .executableTarget(
             name: "KelpApp",
