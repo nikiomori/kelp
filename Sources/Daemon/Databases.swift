@@ -55,7 +55,8 @@ final class Databases: Sendable {
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.invalidParams("No workspace \(worktreeId).")
         }
-        let found = remotes.of(worktree.path).map { onHost($0, worktreeId) } ?? DatabaseFind.find(in: worktree.path)
+        let host = remotes.of(worktree.path), remote = host != nil
+        let found = host.map { onHost($0, worktreeId) } ?? DatabaseFind.find(in: worktree.path)
         let saved = try store.db.read {
             try SavedDatabase.filter(Column("repoId") == worktree.repoId).fetchAll($0)
         }
@@ -67,7 +68,14 @@ final class Databases: Sendable {
             } else if !db.production {
                 db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
             }
-            return DatabaseConnection(database: db, password: item.password)
+            let container = item.service.flatMap { service in
+                db.source.map {
+                    ComposeService(
+                        file: (worktree.path as NSString).appendingPathComponent($0), name: service.name,
+                        port: service.port)
+                }
+            }
+            return DatabaseConnection(database: db, password: item.password, container: remote ? nil : container)
         }
         for entry in saved where entry.byHand {
             guard let db = entry.database, !all.contains(where: { $0.database.name == db.name }) else { continue }
@@ -207,7 +215,10 @@ final class Databases: Sendable {
         let (wid, name) = (q.worktreeId, q.database)
         // Off the pool: a remote project's are read on its host, and reached through a forwarded port.
         let c = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
-        let sql = try SQLText.single(q.sql)
+        let sql: String
+        do { sql = try SQLText.single(q.sql) } catch let failure as DatabaseFailure {
+            throw RPCError.invalidParams(failure.message)
+        }
         let id = UUID().uuidString, session = asker ?? nil
         var run = DatabaseRun(id: id, database: c.database.name, sql: sql, session: session, at: Date(), state: .done)
         let access = forAgent ? c.database.agentAccess : .free

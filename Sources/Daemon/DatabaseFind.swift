@@ -5,6 +5,13 @@ import Foundation
 struct FoundDatabase: Equatable {
     var database: DatabaseInfo
     var password: String?
+    /// The compose service it runs in, and its port there: its client can run inside that service's container.
+    var service: (name: String, port: Int)?
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.database == b.database && a.password == b.password && a.service?.name == b.service?.name
+            && a.service?.port == b.service?.port
+    }
 }
 
 /// Where a project says its databases are: `.env` files (`DATABASE_URL` and the like), compose services of postgres or
@@ -170,7 +177,7 @@ enum DatabaseFind {
             let db = DatabaseInfo(
                 name: database ?? service.name, engine: engine, source: source, host: port == nil ? nil : "localhost",
                 port: port, database: database, user: user)
-            found.append(FoundDatabase(database: db, password: password))
+            found.append(FoundDatabase(database: db, password: password, service: (service.name, inner)))
         }
         return found
     }

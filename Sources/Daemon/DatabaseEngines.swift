@@ -6,6 +6,13 @@ import GRDB
 struct DatabaseConnection: Sendable {
     var database: DatabaseInfo
     var password: String?
+    /// The compose service it runs in (its file, absolute): where its client runs when this Mac has none, or the
+    /// service publishes no port.
+    var container: ComposeService?
+}
+
+struct ComposeService: Sendable, Equatable {
+    var file: String, name: String, port: Int
 }
 
 /// What a statement gave: its columns and rows (nil for NULL), `total` counted past what's kept up to `countLimit`.
@@ -49,7 +56,9 @@ enum DatabaseEngines {
                     DatabaseFind.composeFiles.contains(source)
                         ? " Is it running? docker compose up -d starts what \(source) runs." : ""
                 } ?? ""
-            throw DatabaseFailure.failed("\(c.database.name) doesn't answer at \(c.database.address).\(start)")
+            let place = c.database.host == nil ? c.container.map { "its compose service \($0.name)" } : nil
+            throw DatabaseFailure.failed(
+                "\(c.database.name) doesn't answer at \(place ?? c.database.address).\(start)")
         }
     }
 
@@ -93,13 +102,49 @@ enum DatabaseEngines {
         return path
     }
 
+    /// How to run the client, and where it reaches the server: this Mac's own at the database's host and port, else inside
+    /// the container compose runs it in (`docker exec`, its port there), with `secret` (the password's variable) passed
+    /// from the environment, never on the command line.
+    static func invocation(_ c: DatabaseConnection, _ name: String, also: [String], secret: String) throws -> (
+        argv: [String], host: String, port: Int
+    ) {
+        var missing: DatabaseFailure?
+        if let host = c.database.host {
+            do { return ([try client(name, also: also)], host, c.database.port ?? 0) } catch let failure
+                as DatabaseFailure
+            {
+                missing = failure
+            }
+        }
+        guard let service = c.container else {
+            throw missing ?? DatabaseFailure.failed("\(c.database.name) has no address to reach it at.")
+        }
+        let docker = try client(
+            "docker", also: ["/usr/local/bin", "/opt/homebrew/bin", "/Applications/Docker.app/Contents/Resources/bin"])
+        let id = Subprocess.printed(
+            [docker, "compose", "-f", service.file, "ps", "-q", service.name], path: "/usr/local/bin:/usr/bin:/bin",
+            timeout: 15)?.split(whereSeparator: \.isNewline).first.map(String.init)
+        guard let id, !id.isEmpty else {
+            throw DatabaseFailure.failed(
+                "\(service.name) isn't running: docker compose up -d \(service.name) starts it.")
+        }
+        return ([docker, "exec", "-i", "-e", secret, id, name], "127.0.0.1", service.port)
+    }
+
+    /// What every client run gets: a short PATH, a UTF-8 locale, and the home folder (docker reads its settings there).
+    static func environment(_ more: [String: String?]) -> [String: String] {
+        var env = ["PATH": "/usr/local/bin:/usr/bin:/bin", "LANG": "en_US.UTF-8", "HOME": NSHomeDirectory()]
+        for (key, value) in more { env[key] = value }
+        return env
+    }
+
     /// The client program, from the login PATH or where it's usually kept (libpq is keg-only in Homebrew).
     static func client(_ name: String, also: [String]) throws -> String {
         do { return try LoginPath.resolve(name) } catch {}   // not on the PATH: where it's usually kept
         if let found = also.map({ $0 + "/" + name }).first(where: FileManager.default.isExecutableFile(atPath:)) {
             return found
         }
-        let hint = name == "psql" ? "brew install libpq" : "brew install mysql-client"
+        let hint = ["psql": "brew install libpq", "mysql": "brew install mysql-client"][name] ?? "install it"
         throw DatabaseFailure.failed("\(name) isn't installed, and Kelp talks to this database through it: \(hint).")
     }
 
@@ -219,6 +264,8 @@ enum SQLiteRun {
 enum PostgresRun {
     /// Between a command's output and the next: what psql prints for `\echo`.
     static let marker = "--kelp-7f3e9c--"
+    /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.
+    static let null = "\u{1}NULL\u{1}"
     static let folders = [
         "/opt/homebrew/opt/libpq/bin", "/usr/local/opt/libpq/bin",
         "/Applications/Postgres.app/Contents/Versions/latest/bin",
@@ -299,17 +346,21 @@ enum PostgresRun {
     /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them.
     static func run(_ c: DatabaseConnection, _ commands: [String], timeout: TimeInterval) throws -> [String] {
         let db = c.database
-        var argv = [
-            try DatabaseEngines.client("psql", also: folders), "-X", "-w", "--csv", "-v", "ON_ERROR_STOP=1",
-            "-h", db.host ?? "localhost", "-p", String(db.port ?? 5432), "-d", db.database ?? "postgres"
-        ]
+        let (client, host, port) = try DatabaseEngines.invocation(c, "psql", also: folders, secret: "PGPASSWORD")
+        var argv =
+            client + [
+                "-X", "-w", "--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1", "-h", host, "-p", String(port),
+                "-d",
+                db.database ?? "postgres"
+            ]
         if let user = db.user { argv += ["-U", user] }
         for (index, command) in commands.enumerated() {
             if index > 0 { argv += ["-c", "\\echo " + marker] }
             argv += ["-c", command]
         }
-        var env = ["PATH": "/usr/bin:/bin", "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "LANG": "en_US.UTF-8"]
-        env["PGPASSWORD"] = c.password
+        let env = DatabaseEngines.environment([
+            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password
+        ])
         let out = try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout, limit: 32 << 20)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
@@ -330,11 +381,25 @@ enum PostgresRun {
         return .failed(text.trimmingCharacters(in: .whitespaces))
     }
 
-    /// One command's output: rows as CSV (a header, then rows; NULL is an empty field without quotes), or the command's
-    /// tag ("UPDATE 3"), whose number is what it changed.
+    /// One command's output: rows as CSV (a header, then rows; NULL written as `null`), or the command's tag
+    /// ("UPDATE 3"), whose number is what it changed; a change with RETURNING gives both, its tag last.
     static func section(_ text: String) -> DatabaseRows {
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        let body = lines.last == "" ? lines.dropLast() : lines[...]
+        var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        if lines.last == "" { lines.removeLast() }
+        var changed: Int?
+        if lines.count > 1, let last = lines.last,
+            last.range(of: #"^(INSERT \d+ \d+|UPDATE \d+|DELETE \d+|MERGE \d+)$"#, options: .regularExpression) != nil
+        {
+            changed = last.split(separator: " ").last.flatMap { Int($0) }
+            lines.removeLast()
+        }
+        var rows = table(lines.joined(separator: "\n"))
+        rows.changed = rows.changed ?? changed
+        return rows
+    }
+
+    private static func table(_ text: String) -> DatabaseRows {
+        let body = text.split(separator: "\n", omittingEmptySubsequences: false)
         if body.count == 1, let tag = body.first,
             tag.range(of: #"^[A-Z]+( [A-Z]+)*( \d+)*$"#, options: .regularExpression) != nil
         {
@@ -343,12 +408,12 @@ enum PostgresRun {
         var records = CSV.parse(text)
         guard !records.isEmpty else { return DatabaseRows() }
         let header = records.removeFirst().map { $0 ?? "" }
-        return DatabaseRows(
-            columns: header, rows: Array(records.prefix(DatabaseEngines.keep)), total: records.count)
+        let rows = records.prefix(DatabaseEngines.keep).map { row in row.map { $0 == null ? nil : $0 ?? "" } }
+        return DatabaseRows(columns: header, rows: rows, total: records.count)
     }
 }
 
-/// RFC 4180, as psql writes it: an unquoted empty field is NULL (nil), a quoted one an empty string.
+/// RFC 4180: an unquoted empty field is nil, a quoted one an empty string (psql writes both unquoted: `PostgresRun.null`).
 enum CSV {
     static func parse(_ text: String) -> [[String?]] {
         var records: [[String?]] = [], record: [String?] = [], field = "", quoted = false, inQuotes = false
@@ -405,25 +470,32 @@ enum MySQLRun {
     ]
 
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        let out = try run(
-            c, ["SET SESSION max_execution_time = \(Int(timeout * 1000))", "START TRANSACTION READ ONLY", sql],
-            timeout: timeout + 10)
+        // No server-side limit: MySQL names it max_execution_time, MariaDB max_statement_time, and each refuses the
+        // other's. The client is stopped at `timeout` instead.
+        let out = try run(c, ["START TRANSACTION READ ONLY", sql], timeout: timeout)
         return section(out.last ?? "")
     }
 
     static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let out = try run(c, ["START TRANSACTION", sql, "SELECT ROW_COUNT()", "ROLLBACK"], timeout: 60)
-        guard out.count >= 3 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
-        var rows = section(out[out.count - 3])
-        rows.changed = section(out[out.count - 2]).rows.first?.first.flatMap { $0.flatMap(Int.init) }
-        return rows
+        let out = try run(c, ["START TRANSACTION", counted(sql), "ROLLBACK"], timeout: 60)
+        guard out.count >= 2 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
+        return withCount(out[out.count - 2])
     }
 
     static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let out = try run(c, [sql, "SELECT ROW_COUNT()"], timeout: DatabaseEngines.writeTimeout + 10)
-        guard out.count >= 2 else { return DatabaseRows() }
-        var rows = section(out[out.count - 2])
-        rows.changed = section(out[out.count - 1]).rows.first?.first.flatMap { $0.flatMap(Int.init) }
+        let out = try run(c, [counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
+        return out.last.map(withCount) ?? DatabaseRows()
+    }
+
+    /// The statement and, right after it (anything between would reset it), the rows it changed.
+    static let changedColumn = "kelp_changed"
+    static func counted(_ sql: String) -> String { sql + ";\nSELECT ROW_COUNT() AS " + changedColumn }
+
+    /// What `counted` printed: the statement's rows, if any, then a table of one count.
+    static func withCount(_ text: String) -> DatabaseRows {
+        guard let count = text.range(of: changedColumn + "\n", options: .backwards) else { return section(text) }
+        var rows = section(String(text[..<count.lowerBound]))
+        rows.changed = Int(text[count.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines))
         return rows
     }
 
@@ -453,15 +525,14 @@ enum MySQLRun {
     /// them.
     static func run(_ c: DatabaseConnection, _ statements: [String], timeout: TimeInterval) throws -> [String] {
         let db = c.database
-        var argv = [
-            try DatabaseEngines.client("mysql", also: folders), "--batch", "--binary-mode",
-            "-h", db.host ?? "127.0.0.1", "-P", String(db.port ?? 3306)
-        ]
+        let (client, host, port) = try DatabaseEngines.invocation(c, "mysql", also: folders, secret: "MYSQL_PWD")
+        // localhost would mean its Unix socket to mysql: the server's port is asked for by address.
+        var argv =
+            client + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]
         if let user = db.user { argv += ["-u", user] }
         if let name = db.database { argv.append(name) }
         let script = statements.map { $0 + ";\nSELECT '\(marker)' AS \(marker);\n" }.joined()
-        var env = ["PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"]
-        env["MYSQL_PWD"] = c.password
+        let env = DatabaseEngines.environment(["MYSQL_PWD": c.password])
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout, limit: 32 << 20)
         guard out.status == 0, !out.timedOut else {

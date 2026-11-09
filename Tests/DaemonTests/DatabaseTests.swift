@@ -117,11 +117,14 @@ private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args
 // MARK: psql's output
 
 @Test func psqlCSVKeepsNullApartFromEmpty() {
-    let rows = PostgresRun.section("id,name,note\n1,\"a, b\",\n2,\"\",\"say \"\"hi\"\"\"\n")
+    let null = PostgresRun.null
+    let rows = PostgresRun.section("id,name,note\n1,\"a, b\",\(null)\n2,,\"say \"\"hi\"\"\"\n")
     #expect(rows.columns == ["id", "name", "note"])
     #expect(rows.rows == [["1", "a, b", nil], ["2", "", "say \"hi\""]])
     #expect(rows.total == 2)
     #expect(PostgresRun.section("UPDATE 1204\n").changed == 1204)
+    let returning = PostgresRun.section("id,status\n7,cancelled\nUPDATE 1\n")   // RETURNING: the rows, then the tag
+    #expect(returning.rows == [["7", "cancelled"]] && returning.changed == 1)
     #expect(PostgresRun.section("count\n").columns == ["count"])
     #expect(PostgresRun.failure("ERROR:  cannot execute UPDATE in a read-only transaction\n") == .change)
     #expect(
