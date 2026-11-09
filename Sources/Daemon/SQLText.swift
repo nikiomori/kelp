@@ -1,12 +1,33 @@
+import Core
 import Foundation
 
 /// SQL as text: its statements, and what kind the first one is. Quotes ('…', "…", `…`, $tag$…$tag$) and comments
 /// (-- …, /* … */) are skipped, so a ";" inside them doesn't split.
 enum SQLText {
+    /// How an engine reads quotes and comments, where engines differ: MySQL takes \\' as an escaped quote (unless
+    /// NO_BACKSLASH_ESCAPES), `#` as a comment and `--` as one only before a space, and has no $tag$; Postgres (and
+    /// DuckDB, its parser) nests /* */ and has a \\ escape only in E'…' (or with standard_conforming_strings off).
+    struct Reading {
+        var backslash = true, mysql = false, nested = false, dollar = true
+
+        /// Each way `engine` may read a statement: it's one only if every one of them says so (`single`).
+        static func of(_ engine: DatabaseInfo.Engine) -> [Reading] {
+            switch engine {
+            case .postgres, .duckdb:
+                [false, true].flatMap { backslash in
+                    [false, true].map { Reading(backslash: backslash, nested: $0) }
+                }
+            case .mysql: [false, true].map { Reading(backslash: $0, mysql: true, dollar: false) }
+            case .sqlite: [Reading(backslash: false, dollar: false)]
+            }
+        }
+    }
+
     /// The statements, each trimmed, empty ones (a trailing ";", only a comment) dropped.
-    static func statements(_ sql: String) -> [String] {
+    static func statements(_ sql: String, _ reading: Reading = Reading()) -> [String] {
         let chars = Array(sql)
         var parts: [String] = [], start = 0, i = 0
+        func at(_ index: Int) -> Character? { index < chars.count ? chars[index] : nil }
         func skip(to end: String, from index: Int) -> Int {
             let target = Array(end)
             var j = index
@@ -16,30 +37,50 @@ enum SQLText {
             }
             return chars.count
         }
+        func endOfComment(from index: Int) -> Int {
+            var depth = 1, j = index
+            while j < chars.count {
+                if chars[j] == "*", at(j + 1) == "/" {
+                    depth -= 1
+                    j += 2
+                    if depth == 0 || !reading.nested { return j }
+                } else if reading.nested, chars[j] == "/", at(j + 1) == "*" {
+                    depth += 1
+                    j += 2
+                } else {
+                    j += 1
+                }
+            }
+            return chars.count
+        }
         while i < chars.count {
-            let c = chars[i], next = i + 1 < chars.count ? chars[i + 1] : nil
+            let c = chars[i], next = at(i + 1)
+            let afterWord = i > 0 && (chars[i - 1].isLetter || chars[i - 1].isNumber || chars[i - 1] == "_")
             switch c {
             case "'", "\"", "`":
                 var j = i + 1
                 while j < chars.count {
                     if chars[j] == c {
-                        if j + 1 < chars.count, chars[j + 1] == c {
+                        if at(j + 1) == c {
                             j += 2   // '' inside a string
                             continue
                         }
                         break
                     }
-                    if chars[j] == "\\", c != "\"", j + 1 < chars.count { j += 1 }   // MySQL's \' (harmless elsewhere)
+                    if reading.backslash, chars[j] == "\\", c != "`", j + 1 < chars.count { j += 1 }
                     j += 1
                 }
                 i = j + 1
-            case "-" where next == "-": i = skip(to: "\n", from: i + 2)
-            case "#" where i == 0 || chars[i - 1].isNewline: i = skip(to: "\n", from: i + 1)
-            case "/" where next == "*": i = skip(to: "*/", from: i + 2)
-            case "$":
-                // $$ or $tag$: a Postgres dollar-quoted string, to the same tag.
+            case "-" where next == "-" && (!reading.mysql || at(i + 2).map { $0.isWhitespace } ?? true):
+                i = skip(to: "\n", from: i + 2)
+            case "#" where reading.mysql: i = skip(to: "\n", from: i + 1)
+            case "/" where next == "*": i = endOfComment(from: i + 2)
+            case "$" where reading.dollar && !afterWord:
+                // $$ or $tag$: a Postgres dollar-quoted string, to the same tag (a tag doesn't start with a digit).
                 var j = i + 1
-                while j < chars.count, chars[j].isLetter || chars[j].isNumber || chars[j] == "_" { j += 1 }
+                while j < chars.count, chars[j].isLetter || chars[j] == "_" || (j > i + 1 && chars[j].isNumber) {
+                    j += 1
+                }
                 if j < chars.count, chars[j] == "$" {
                     i = skip(to: String(chars[i...j]), from: j + 1)
                 } else {
@@ -76,18 +117,31 @@ enum SQLText {
         String(code(sql).prefix { $0.isLetter }).uppercased()
     }
 
-    /// The one statement a call may run: more, or a client command (psql's \…), is refused before anything runs. One at
-    /// a
-    /// time keeps a read-only transaction whole (a "COMMIT; DELETE …" would leave it) and what the user allows all that
-    /// runs.
-    static func single(_ sql: String) throws -> String {
-        let all = statements(sql)
+    /// The one statement a call may run: more, or a client command (psql's \…, duckdb's .…), is refused before anything
+    /// runs. One at a time keeps a read-only transaction whole (a "COMMIT; DELETE …" would leave it) and what the user
+    /// allows all that runs. Read every way an engine might read it (`Reading`): a client that splits a script itself
+    /// (psql -c, mysql, MySQL's multi-statements) splits it as its engine does: where the engine's readings disagree on where
+    /// it ends, it's refused.
+    static func single(_ sql: String, _ engine: DatabaseInfo.Engine) throws -> String {
+        let readings = Reading.of(engine)
+        let all = statements(sql, readings[0])
         guard let only = all.first else { throw DatabaseFailure.failed("There's no statement to run.") }
         guard all.count == 1 else {
             throw DatabaseFailure.failed("One statement at a time: this has \(all.count). Run them one by one.")
         }
-        guard !code(only).hasPrefix("\\") else {
-            throw DatabaseFailure.failed("That's a psql command, not SQL: Kelp runs SQL only.")
+        guard readings.allSatisfy({ statements(sql, $0).count <= 1 }) else {
+            throw DatabaseFailure.failed(
+                "Kelp can't tell where this statement ends (a \\' or --x reads differently in each engine): "
+                    + "write the quote as '' and put a space after --.")
+        }
+        let code = code(only)
+        guard !code.hasPrefix("\\"), !code.hasPrefix(".") else {
+            throw DatabaseFailure.failed(
+                "That's a client's command (psql's \\…, duckdb's .…), not SQL: Kelp runs SQL only.")
+        }
+        guard !only.contains("/*!"), !only.contains("/*M!") else {
+            throw DatabaseFailure.failed(
+                "MySQL runs what's in /*! … */: Kelp doesn't send those. Write it as plain SQL.")
         }
         return only
     }

@@ -171,7 +171,8 @@ extension SettingsSet: Handled {
     /// a command of the user's, git.push on ⌘S, would have them run it unawares).
     static let usersOnly = [
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
-        SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key
+        SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,
+        SettingKeys.databaseAccess.key   // what agents may do to the databases found: the Allow it would lift
     ]
     var notForAgents: String? {
         Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"

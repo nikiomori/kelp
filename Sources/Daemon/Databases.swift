@@ -346,7 +346,7 @@ final class Databases: Sendable {
         // Off the pool: a remote project's are read on its host, and reached through a forwarded port.
         let c = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
         let sql: String
-        do { sql = try SQLText.single(q.sql) } catch let failure as DatabaseFailure {
+        do { sql = try SQLText.single(q.sql, c.database.engine) } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
         let id = UUID().uuidString, session = asker ?? nil

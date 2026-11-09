@@ -54,10 +54,13 @@ enum DuckDBRun {
     }
 
     /// The statements as a script on stdin, a marker printed after each; it stops at the first error (`-bail`).
+    /// `-safe`: no dot-command that reaches past the file (`.shell`, `.open`, `.read`) and no file but this one (ATTACH,
+    /// COPY, read_csv), locked against a SET that would lift it; `-no-agent` keeps the CSV whatever AI_AGENT says.
     static func run(_ path: String, readOnly: Bool, _ statements: [String], timeout: TimeInterval) throws -> [String] {
         let duckdb = try DatabaseEngines.client("duckdb", also: ["/opt/homebrew/bin", "/usr/local/bin"])
         let argv =
-            [duckdb, "-bail", "-csv", "-nullvalue", PostgresRun.null] + (readOnly ? ["-readonly"] : []) + [path]
+            [duckdb, "-safe", "-no-agent", "-bail", "-csv", "-nullvalue", PostgresRun.null]
+            + (readOnly ? ["-readonly"] : []) + [path]
         let script = statements.map { $0 + ";\n.print " + marker + "\n" }.joined()
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: DatabaseEngines.environment([:]), stdin: Data(script.utf8),

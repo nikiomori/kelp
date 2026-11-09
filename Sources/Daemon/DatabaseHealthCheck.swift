@@ -100,12 +100,14 @@ extension Databases {
     /// The tab's edits, as the user's: each statement one (SQLText.single), all in one transaction.
     func apply(_ q: DatabaseApply) async throws -> QueryResult {
         guard !q.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
-        let statements: [String]
-        do { statements = try q.statements.map(SQLText.single) } catch let failure as DatabaseFailure {
-            throw RPCError.invalidParams(failure.message)
-        }
         let (wid, name) = (q.worktreeId, q.database)
         let c = try await offloads.run { [self] in try reach(connection(wid, name, agent: false), wid) }
+        let statements: [String]
+        do { statements = try q.statements.map { try SQLText.single($0, c.database.engine) } } catch let failure
+            as DatabaseFailure
+        {
+            throw RPCError.invalidParams(failure.message)
+        }
         let started = Date(), sql = statements.joined(separator: ";\n")
         var run = DatabaseRun(id: UUID().uuidString, database: name, sql: sql, session: nil, at: started, state: .done)
         do {

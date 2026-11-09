@@ -623,8 +623,13 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         (.kelpd, SessionReport(id: term.id, state: "done"), false, "kelpd's program speaks for no session"),
         (.unknown, SessionReport(id: term.id, state: "done"), false, "nor does one gone as it connected")
     ]
+    try expectRules(r, table)
+}
+
+/// Each row's call allowed or refused by the rules (`RPCError.refused`), not by any error: a missing record or a store's
+/// would pass for a refusal.
+private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String)]) throws {
     for (caller, m, allowed, why) in table {
-        // A refusal is the rules' (`RPCError.refused`), not any error: a missing record or a store's would pass for one.
         var refused = false
         do { try r.d.allow(m, conn: 0, caller: caller) } catch let e as RPCError where e.isRefusal {
             refused = true
@@ -633,6 +638,47 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         }
         #expect(refused != allowed, "\(why): \(caller), \(type(of: m).name)")
     }
+}
+
+/// An agent's database calls, in the same table: statements on its own workspace's databases (their access says what
+/// runs), not the user's edits, settings or the window's watch.
+@Test func whoMayDoWhatWithDatabases() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    var mine = Session(worktreeId: r.wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
+    mine.agent = "claude"
+    try r.d.sessions.store.save(mine)
+    let elsewhere = Worktree(repoId: r.repo.id, branch: "o", path: "/tmp/o")
+    try r.d.sessions.store.save(elsewhere)
+    let table: [(Caller, any Answered, Bool, String)] = [
+        (
+            .session(mine.id), DatabaseQuery(worktreeId: r.wt.id, database: "db", sql: "SELECT 1"), true,
+            "a statement on its own workspace's database (its access says what runs)"
+        ),
+        (
+            .session(mine.id), DatabaseQuery(worktreeId: elsewhere.id, database: "db", sql: "SELECT 1"), false,
+            "not on another's"
+        ),
+        (.session(mine.id), DatabaseList(worktreeId: elsewhere.id), true, "which databases there are: a read"),
+        (
+            .session(mine.id), DatabaseApply(worktreeId: r.wt.id, database: "db", statements: ["DELETE FROM t"]),
+            false, "the table tab's edits are the user's: no question asked"
+        ),
+        (
+            .session(mine.id), DatabaseSave(worktreeId: r.wt.id, database: DatabaseInfo(name: "db", engine: .sqlite)),
+            false, "nor what agents may do to a database"
+        ),
+        (
+            .session(mine.id), SettingsSet(key: SettingKeys.databaseAccess.key, value: .string("free")), false,
+            "nor lift the Allow for every database found"
+        ),
+        (
+            .session(mine.id), WatchStart(.databases, r.wt.id), false,
+            "the databases' activity is the user's (hidden ones, All My Projects, their statements)"
+        ),
+        (.session(mine.id), WatchStart(.git, r.wt.id), true, "other watches it may start")
+    ]
+    try expectRules(r, table)
 }
 
 /// `kelp attach` from an agent's program types where `session send` may, key by key: a session it started that asks a
