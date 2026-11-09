@@ -9161,6 +9161,40 @@
       }
     },
     {
+      "description" : "A new chat beside this one, in the same folder, going on from a copy of its conversation: this one goes on as it was. Claude Code and Codex fork their own (`--fork-session`, `codex fork`); other agents can't, and are refused.",
+      "name" : "session.fork",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cols",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "rows",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/Session"
+        }
+      }
+    },
+    {
       "description" : "A new agent (`agent`, else the same) in the same workspace, briefed with this one's transcript (`full`: all of it).",
       "name" : "session.handoff",
       "paramStructure" : "by-name",

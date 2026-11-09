@@ -66,6 +66,7 @@ final class SessionTab: TabContent {
             m.setSubmenu(
                 AgentActions(app).handoffMenu(sid),
                 for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            AgentActions(app).addFork(to: m, sid)
             m.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             m.add(String(localized: "Changes in Its Last Turn")) {
                 app.workbench.focusedSession = sid

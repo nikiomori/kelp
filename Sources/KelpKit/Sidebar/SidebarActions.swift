@@ -150,6 +150,7 @@ extension SidebarController {
             menu.setSubmenu(
                 AgentActions(app).handoffMenu(sid),
                 for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            AgentActions(app).addFork(to: menu, sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
             if let session = model.session(sid),

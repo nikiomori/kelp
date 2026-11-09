@@ -84,6 +84,19 @@ public struct SessionRestart: RPCMethod, LaunchOptions {
     }
 }
 
+/// A new chat beside this one, in the same folder, going on from a copy of its conversation: this one goes on as it
+/// was. Claude Code and Codex fork their own (`--fork-session`, `codex fork`); other agents can't, and are refused.
+public struct SessionFork: RPCMethod {
+    public static let name = "session.fork"
+    public typealias Result = Session
+    public var id: String, cols: Int?, rows: Int?
+    public init(id: String, cols: Int? = nil, rows: Int? = nil) {
+        self.id = id
+        self.cols = cols
+        self.rows = rows
+    }
+}
+
 /// A new agent (`agent`, else the same) in the same workspace, briefed with this one's transcript (`full`: all of it).
 public struct SessionHandoff: RPCMethod, LaunchOptions {
     public static let name = "session.handoff"

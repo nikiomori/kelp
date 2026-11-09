@@ -106,6 +106,42 @@ extension SessionRestart: Handled {
     }
 }
 
+extension SessionFork: Handled {
+    func handle(_ sessions: Sessions) throws -> Session {
+        guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
+        if sessions.remotes.of(old.cwd) != nil {
+            throw RPCError.invalidParams("Fork isn't available for remote projects yet.")
+        }
+        let manifest = try sessions.setup.manifest(old.agent, command: nil, fallbackArgv: old.argv)
+        var launch = Sessions.Launch()
+        launch.argv = try Self.argv(old, manifest, sessions)
+        launch.title = (old.title.isEmpty ? manifest.name : old.title) + " (fork)"
+        launch.profile = old.profile   // the same account: its conversations are there
+        if let cols, let rows, cols > 0, rows > 0 { (launch.cols, launch.rows) = (UInt16(cols), UInt16(rows)) }
+        return try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
+    }
+
+    /// Its command, going on from a copy of the conversation. Claude Code's pins one id, which the copy may not take
+    /// (`following` pins the copy's once it's made); Codex's thread id ends its rollout's name.
+    static func argv(_ old: Session, _ manifest: AgentManifest, _ sessions: Sessions) throws -> [String] {
+        switch old.agent {
+        case "claude":
+            let resumed = SessionRestart.withoutSessionId(
+                sessions.setup.resumeArgv(old, manifest), flag: manifest.sessionIdFlag)
+            if let argv = manifest.forking(resumed) { return argv }
+        case "codex":
+            let file = sessions.agentUsage.conversationFile(of: old, live: sessions.existing(old.id))
+            if let id = file.map({ String($0.deletingPathExtension().lastPathComponent.suffix(36)) }),
+                UUID(uuidString: id) != nil
+            {
+                return old.argv.prefix { $0 != "resume" && $0 != "fork" } + ["fork", id]
+            }
+        default: break
+        }
+        throw RPCError.invalidParams("\(manifest.name) has no conversation to fork yet.")
+    }
+}
+
 extension SessionHandoff: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
@@ -537,7 +573,8 @@ extension TaskFromIssue: AsyncHandled {
 
 extension Methods {
     static let launchMethods: [any Handled.Type] = [
-        SessionCreate.self, TmuxList.self, SessionRestart.self, SessionHandoff.self, HistoryResume.self,
+        SessionCreate.self, TmuxList.self, SessionRestart.self, SessionHandoff.self, SessionFork.self,
+        HistoryResume.self,
         SessionHook.self, SessionAnnotate.self, RecipeRender.self, Ping.self, DaemonShutdown.self, DaemonUpgrade.self,
         ProcessRun.self, ProcessWhich.self,
         ProcessRefreshPath.self, SkillsBrowser.self

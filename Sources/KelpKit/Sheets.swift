@@ -91,6 +91,7 @@ package struct AgentActions {
             m.setSubmenu(
                 handoffMenu(sid),
                 for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            addFork(to: m, sid)
             m.add(String(localized: "Copy Context")) { copyContext(sid) }
         }
         m.addItem(.separator())
@@ -118,6 +119,23 @@ package struct AgentActions {
                 prompt: "Continue the task where the previous agent left off: check what's done, then finish it.",
                 draft: !send)
             guard let session = await app.call(request) else { return }
+            app.upsert(session)
+            app.workbench.open(TabURI.session(session.id), split: .right, workspace: session.worktreeId)
+        }
+    }
+
+    /// Agents whose conversation `session.fork` can copy.
+    static let forkable: Set = ["claude", "codex"]
+
+    /// "Fork Chat", for an agent that can: a new chat beside it going on from a copy of its conversation.
+    package func addFork(to m: NSMenu, _ sid: String) {
+        guard let agent = app.session(sid)?.agent, Self.forkable.contains(agent) else { return }
+        m.add(String(localized: "Fork Chat")) { fork(sid) }
+    }
+
+    func fork(_ sid: String) {
+        Task {
+            guard let session = await app.call(SessionFork(id: sid)) else { return }
             app.upsert(session)
             app.workbench.open(TabURI.session(session.id), split: .right, workspace: session.worktreeId)
         }

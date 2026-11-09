@@ -118,8 +118,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // and note, hiding a tab, a tab in the background, the window's content, a screen's name) and which sessions have no
     // tab (`isHidden`); the shell's `ScriptsMenu`, `app.scripts` and `runFile` went.
     // +1 so Source Control marks a file another folder of the project changes too (`sharedFiles`), as the rows do.
-    #expect(declared <= 402, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 402, "fewer now (\(declared)): lower the ceiling")
+    // +1 so an agent tab's menu offers Fork Chat as the row's does (`addFork`).
+    #expect(declared <= 403, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 403, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
