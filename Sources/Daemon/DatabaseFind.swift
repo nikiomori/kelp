@@ -36,7 +36,44 @@ enum DatabaseFind {
         let files = (composeFiles + envs + ["config/database.yml", "prisma/schema.prisma"] + parts).compactMap { name in
             read(root, name).map { (name, $0) }
         }
-        return unique(parse(files, root: root) + sqliteFiles(in: root))
+        return unique(parse(files, root: root) + ideConnections(in: root) + sqliteFiles(in: root))
+    }
+
+    /// What an IDE keeps in the project: JetBrains' .idea/dataSources.xml (the user from the .local.xml beside it),
+    /// VS Code's SQLTools in .vscode/settings.json. JetBrains keeps no password there: ~/.pgpass or the user gives one.
+    static func ideConnections(in root: String) -> [FoundDatabase] {
+        let top = URL(fileURLWithPath: root)
+        let idea = ImportReaders.dataSources(top.appendingPathComponent(".idea/dataSources.xml"), group: nil).map {
+            var db = $0.imported.database
+            db.source = ".idea/dataSources.xml"
+            db.group = nil
+            return FoundDatabase(database: db)
+        }
+        return idea + sqlTools(read(root, ".vscode/settings.json") ?? "")
+    }
+
+    /// `sqltools.connections` of a VS Code settings file (JSON with comments and trailing commas).
+    static func sqlTools(_ text: String) -> [FoundDatabase] {
+        guard text.contains("sqltools.connections") else { return [] }
+        let plain = text.split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }.joined(separator: "\n")
+            .replacingOccurrences(of: #",(\s*[}\]])"#, with: "$1", options: .regularExpression)
+        let settings = ImportReaders.optional { try JSONSerialization.jsonObject(with: Data(plain.utf8)) }
+        let list = (settings as? [String: Any])?["sqltools.connections"] as? [[String: Any]] ?? []
+        return list.compactMap { c in
+            guard let engine = ImportReaders.engine(ImportReaders.string(c["driver"])) else { return nil }
+            let name = ImportReaders.nonEmpty(c["name"]) ?? "sqltools"
+            let source = ".vscode/settings.json"
+            if engine.isFile {
+                guard let path = ImportReaders.nonEmpty(c["database"]) else { return nil }
+                return FoundDatabase(database: DatabaseInfo(name: name, engine: engine, source: source, path: path))
+            }
+            let db = DatabaseInfo(
+                name: name, engine: engine, source: source, host: ImportReaders.nonEmpty(c["server"]) ?? "localhost",
+                port: ImportReaders.int(c["port"]), database: ImportReaders.nonEmpty(c["database"]),
+                user: ImportReaders.nonEmpty(c["username"]))
+            return FoundDatabase(database: db, password: ImportReaders.nonEmpty(c["password"]))
+        }
     }
 
     /// What files of the project say, by their path in it: compose files, .env files, config/database.yml.
@@ -85,6 +122,7 @@ enum DatabaseFind {
     static func matters(_ path: String) -> Bool {
         let name = (path as NSString).lastPathComponent
         return composeFiles.contains(name) || name == ".env" || name.hasPrefix(".env.") || name == "database.yml"
+            || name.hasPrefix("dataSources") || name == "settings.json"
             || sqliteExtensions.contains((name as NSString).pathExtension.lowercased())
     }
 

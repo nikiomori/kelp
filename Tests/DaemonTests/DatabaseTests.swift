@@ -560,3 +560,30 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(Databases.engine(image: "postgis/postgis:16-3.4") == .postgres)
     #expect(Databases.engine(image: "mariadb:10.11") == .mysql && Databases.engine(image: "redis:7") == nil)
 }
+
+/// An IDE's connections in the project are found as compose's are: DataGrip's .idea, VS Code's SQLTools.
+@Test func anIDEsConnectionsInTheProjectAreFound() throws {
+    let root = NSTemporaryDirectory() + "kelp-ide-\(UUID().uuidString)"
+    defer { try? FileManager.default.removeItem(atPath: root) }
+    try FileManager.default.createDirectory(atPath: root + "/.idea", withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(atPath: root + "/.vscode", withIntermediateDirectories: true)
+    try """
+    <project><component name="DataSourceManagerImpl"><data-source name="dev" uuid="u">
+    <driver-ref>postgresql</driver-ref><jdbc-url>jdbc:postgresql://localhost:5433/app_dev</jdbc-url>
+    </data-source></component></project>
+    """.write(toFile: root + "/.idea/dataSources.xml", atomically: true, encoding: .utf8)
+    try """
+    {
+      // mine
+      "sqltools.connections": [
+        { "name": "shop", "driver": "MySQL", "server": "127.0.0.1", "port": 3306, "database": "shop",
+          "username": "root", "password": "pw", },
+      ],
+    }
+    """.write(toFile: root + "/.vscode/settings.json", atomically: true, encoding: .utf8)
+    let found = DatabaseFind.find(in: root)
+    #expect(found.map(\.database.name) == ["dev", "shop"])
+    #expect(found[0].database.port == 5433 && found[0].database.source == ".idea/dataSources.xml")
+    #expect(found[1].database.engine == .mysql && found[1].password == "pw")
+    #expect(DatabaseFind.matters(root + "/.idea/dataSources.xml"))
+}
