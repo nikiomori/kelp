@@ -97,7 +97,7 @@ Every action of the app is a command with an id (`workbench.toggleSidebar`, `edi
 VS Code and Zed: the menu bar is laid out by id (`AppDelegate.buildMenu`), settings.json `keys` rebinds by id, and agents
 run the same ids with `kelp run`.
 
-Built-ins (Agents, Files, Run, Git, Issues, Browser, Activity, Routines, Machines, Servers) can be turned off like any other extension. Each is a
+Built-ins (Agents, Files, Run, Git, Issues, Browser, Activity, Routines, Machines, Servers, Databases) can be turned off like any other extension. Each is a
 module of its own (`Sources/Builtins/<Feature>`, target `Builtin<Feature>`) that depends on KelpKit — the shell — and on
 no other built-in. It sees only what KelpKit declares `package`: the contribution types (`TabContent`, `PanelSpec`,
 `CommandSpec`…), `AppModel` and its one error path, `app.workbench` (open a URI, show a panel), shared views and
@@ -201,7 +201,8 @@ else a `NotificationCenter` name.
   `SessionProcesses` (what runs under the sessions: ports, CPU and memory, a remote project's forwarded ports, a host's
   load), `Turns` (the snapshot each agent's turn began with, for its diff, undo and redo), `PermissionWaits` (a
   permission question's hook waiting for Allow or Deny); and `Callers` (who calls), `ExtensionEvents` (what extensions
-  run and the phone hears when an agent asks, finishes or fails), `AgentUpdates` (Claude Code restarted into its update).
+  run and the phone hears when an agent asks, finishes or fails), `AgentUpdates` (Claude Code restarted into its update),
+  and in `Workspaces`, `Databases` (a project's databases, found in its files or added by hand, and what ran on them).
   A method's handler is handed one service (`Handled.Service`: `handle(_ sessions: Sessions)`), never the daemon, so it
   reaches only what that service holds; each service's projection from the daemon is in one place (`DaemonService`).
   Its home (`Daemon(root:)`) is all the daemon takes from outside: its paths, which project folders are remote ones
@@ -248,6 +249,21 @@ XCUITest runner. A command runs inside over the machine's own SSH (`kelp vm run`
 machine's screen is read and driven from the Mac's side, in turns by session. Idle, a machine pauses, then sleeps (its
 state saved, `kelp-vm` gone), and wakes on the next command. Making one (download, install, first boot) is kelpd's
 (`Sources/Daemon/VM*.swift`), its step in the folder's `creating`, taken up again by the next kelpd if one stopped midway.
+
+## Databases
+`db.*` runs every statement in kelpd: Postgres and MySQL over their own protocols at an address kelpd reaches (or a
+port forwarded over SSH), through `psql`/`mysql` in a compose container that publishes no port, SQLite in kelpd (GRDB),
+DuckDB through `duckdb -safe`. No password reaches an agent. A database's `agentAccess` says what agents may do there:
+nothing (hidden), read (in a read-only transaction, a read-only file), ask (the change is tried and rolled back, then
+asked on the agent's row like a permission dialog), or change freely; a production one is read-only. The table tab's
+edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, `db.schema` and `db.query` (the last in
+their own workspaces); `databases.agents` (the default access) and the window's watch of the databases are the user's.
+
+What read-only doesn't stop: a function the database runs with its owner's rights (a `SECURITY DEFINER` function that
+writes, `dblink`), a `SELECT … INTO OUTFILE` with the FILE privilege, or what the user granted that role. It holds the
+statement to one (`SQLText.single`, read every way its engine may read it), never MySQL's DDL as a read (MySQL commits
+before it), and the agent to the database's own refusal; the role it connects as is what bounds it. An address found in
+a project's files (a cloned repo's `.env`) isn't dialled until the user opens it and never gets the user's `~/.pgpass`.
 
 ## Updates
 An update replaces the app bundle while kelpd keeps running the old binary. The relaunched app sees that
