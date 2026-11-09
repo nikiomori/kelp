@@ -88,11 +88,11 @@ public struct DatabaseAddress: Equatable, Sendable {
     static func keywords(_ text: String) throws(Problem) -> DatabaseAddress {
         var values: [String: String] = [:]
         for match in text.matches(of: #/(\w+)\s*=\s*('(?:[^'\\]|\\.)*'|\S*)/#) {
-            var v = String(match.2)
-            if v.hasPrefix("'") && v.hasSuffix("'") && v.count >= 2 {
-                v = String(v.dropFirst().dropLast()).replacingOccurrences(of: "\\'", with: "'")
+            var value = String(match.2)
+            if value.hasPrefix("'") && value.hasSuffix("'") && value.count >= 2 {
+                value = String(value.dropFirst().dropLast()).replacingOccurrences(of: "\\'", with: "'")
             }
-            values[match.1.lowercased()] = v
+            values[match.1.lowercased()] = value
         }
         guard let host = values["host"] ?? values["hostaddr"] else {
             throw Problem(message: "The words name no host: add host=….")
@@ -113,21 +113,21 @@ public struct DatabaseAddress: Equatable, Sendable {
             return address.contains("://") ? try url(address) : try keywords(address)
         }
         var flags: [String: String] = [:], positional: [String] = []
-        var i = 1
-        while i < words.count {
-            let w = words[i]
-            i += 1
-            if w.hasPrefix("--"), let eq = w.firstIndex(of: "=") {
-                flags[String(w[w.index(w.startIndex, offsetBy: 2)..<eq])] = String(w[w.index(after: eq)...])
-            } else if mysql, w.hasPrefix("-p") {
-                flags["password"] = String(w.dropFirst(2))   // -psecret: attached, or none (asked for)
-            } else if w.hasPrefix("-"), w.count == 2 {
-                if i < words.count { flags[String(w.dropFirst())] = words[i] }
-                i += 1
-            } else if w.hasPrefix("-"), w.count > 2, !w.hasPrefix("--") {
-                flags[String(w.dropFirst().prefix(1))] = String(w.dropFirst(2))   // -hdb
-            } else if !w.hasPrefix("-") {
-                positional.append(w)
+        var index = 1
+        while index < words.count {
+            let arg = words[index]
+            index += 1
+            if arg.hasPrefix("--"), let eq = arg.firstIndex(of: "=") {
+                flags[String(arg[arg.index(arg.startIndex, offsetBy: 2)..<eq])] = String(arg[arg.index(after: eq)...])
+            } else if mysql, arg.hasPrefix("-p") {
+                flags["password"] = String(arg.dropFirst(2))   // -psecret: attached, or none (asked for)
+            } else if arg.hasPrefix("-"), arg.count == 2 {
+                if index < words.count { flags[String(arg.dropFirst())] = words[index] }
+                index += 1
+            } else if arg.hasPrefix("-"), arg.count > 2, !arg.hasPrefix("--") {
+                flags[String(arg.dropFirst().prefix(1))] = String(arg.dropFirst(2))   // -hdb
+            } else if !arg.hasPrefix("-") {
+                positional.append(arg)
             }
         }
         let host = flags["h"] ?? flags["host"] ?? "localhost"
@@ -180,8 +180,8 @@ public struct DatabaseAddress: Equatable, Sendable {
                 escaped = false
             } else if c == "\\" && quote != "'" {
                 escaped = true
-            } else if let q = quote {
-                if c == q { quote = nil } else { word.append(c) }
+            } else if let open = quote {
+                if c == open { quote = nil } else { word.append(c) }
             } else if c == "\"" || c == "'" {
                 quote = c
                 started = true
