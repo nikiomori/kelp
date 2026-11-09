@@ -471,8 +471,8 @@ extension AppDelegate {
             var queued = false   // a button tracks the mouse until its mouse-up, which has to be in the queue already
             let double = spec.hasPrefix("2:")
             var text = double ? String(spec.dropFirst(2)) : spec
-            let right = text.hasPrefix("r@")   // "r@x,y": a right click (context menus)
-            if right { text = String(text.dropFirst()) }
+            let right = text.hasPrefix("r@") || text.hasPrefix("r:")   // "r@x,y", "r:label": a right click (context menus)
+            if right { text = String(text.dropFirst(text.hasPrefix("r:") ? 2 : 1)) }
             if text.hasPrefix("@"), case let xy = text.dropFirst().split(separator: ",").compactMap({ Double($0) }),
                 xy.count == 2
             {
@@ -496,6 +496,21 @@ extension AppDelegate {
             var hit = root.hitTest(root.convert(point, from: nil))
             while let view = hit, !view.acceptsFirstResponder { hit = view.superview }
             if let hit { window.makeFirstResponder(hit) }
+            // KELP_MENU with a right click: the menu the view under it gives that click (a table notes its row), built by
+            // its delegate, and the item chosen; a synthesized right click shows no menu in an app in the background.
+            if right, let title = ProcessInfo.processInfo.environment["KELP_MENU"], let view = hit,
+                let event = NSEvent.mouseEvent(
+                    with: .rightMouseDown, location: point, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                    eventNumber: 0, clickCount: 1, pressure: 1),
+                let menu = view.menu(for: event)
+            {
+                menu.delegate?.menuNeedsUpdate?(menu)
+                let index = menu.items.firstIndex { $0.title == title }
+                print("MENU \(title): \(index.map { _ in "chosen" } ?? "not in \(menu.items.map(\.title))")")
+                if let index { menu.performActionForItem(at: index) }
+                return
+            }
             for count in double ? [1, 2] : [1] {
                 for type in right ? [NSEvent.EventType.rightMouseDown, .rightMouseUp] : [.leftMouseDown, .leftMouseUp] {
                     guard
