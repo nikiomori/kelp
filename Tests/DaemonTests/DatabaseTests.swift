@@ -561,6 +561,10 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(throws: DatabaseFailure.self) {
         _ = try DuckDBRun.run(path, readOnly: true, [".shell echo ran"], timeout: 10)
     }
+    // An answer past what Kelp reads is refused, not read as no rows.
+    #expect(throws: DatabaseFailure.self) {
+        try DuckDBRun.read(path, "SELECT repeat('x', 1000000) FROM range(40)", timeout: 30)
+    }
 
     var db = try #require(list.first)
     db.access = .read

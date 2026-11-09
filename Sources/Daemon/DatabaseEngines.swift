@@ -42,6 +42,14 @@ enum DatabaseEngines {
     static let keep = 1000, countLimit = 100_000
     /// A read's time limit, and a change's.
     static let readTimeout: TimeInterval = 15, writeTimeout: TimeInterval = 300
+    /// What Kelp reads of a client's output: an answer past it is refused whole, never read as fewer rows.
+    static let outputLimit = 32 << 20
+
+    static func whole(_ out: Subprocess.Output, _ name: String) throws {
+        guard out.truncated else { return }
+        throw DatabaseFailure.failed(
+            "\(name)'s answer is over \(outputLimit >> 20) MB, more than Kelp reads: ask for fewer rows or columns.")
+    }
 
     /// `timeout`: seconds the server may take (Postgres stops it there).
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout, off: Slots)
@@ -447,11 +455,13 @@ enum PostgresRun {
             // UTC as over the wire (`PostgresText`): a row found by its values compares the same text
             "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password, "PGTZ": "UTC"
         ])
-        let out = try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout, limit: 32 << 20)
+        let out = try Subprocess.run(
+            argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout, limit: DatabaseEngines.outputLimit)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             throw failure(String(decoding: out.stderr, as: UTF8.self))
         }
+        try DatabaseEngines.whole(out, db.name)
         return String(decoding: out.stdout, as: UTF8.self).components(separatedBy: marker + "\n").dropFirst().map {
             $0
         }
@@ -639,7 +649,8 @@ enum MySQLRun {
         let script = statements.map { $0 + ";\nSELECT '\(marker)' AS \(marker);\n" }.joined()
         let env = DatabaseEngines.environment(["MYSQL_PWD": c.password])
         let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout, limit: 32 << 20)
+            argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout,
+            limit: DatabaseEngines.outputLimit)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             let said = String(decoding: out.stderr, as: UTF8.self)
@@ -647,6 +658,7 @@ enum MySQLRun {
             throw DatabaseFailure.failed(
                 said.split(whereSeparator: \.isNewline).first.map(String.init) ?? "mysql failed")
         }
+        try DatabaseEngines.whole(out, db.name)
         return String(decoding: out.stdout, as: UTF8.self)
             .components(separatedBy: "\(marker)\n\(marker)\n").dropLast().map { $0 }
     }

@@ -79,7 +79,7 @@ enum DuckDBRun {
         let script = (changes ? ".changes on\n" : "") + statements.map { $0 + ";\n.print " + marker + "\n" }.joined()
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: DatabaseEngines.environment([:]), stdin: Data(script.utf8),
-            timeLimit: timeout + 5, limit: 32 << 20)
+            timeLimit: timeout + 5, limit: DatabaseEngines.outputLimit)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("duckdb took more than \(Int(timeout)) s.") }
             let said = String(decoding: out.stderr, as: UTF8.self)
@@ -87,6 +87,7 @@ enum DuckDBRun {
             throw DatabaseFailure.failed(
                 said.split(whereSeparator: \.isNewline).first.map(String.init) ?? "duckdb failed")
         }
+        try DatabaseEngines.whole(out, (path as NSString).lastPathComponent)
         return String(decoding: out.stdout, as: UTF8.self).components(separatedBy: marker + "\n").dropLast().map {
             $0
         }
