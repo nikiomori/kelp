@@ -2183,6 +2183,65 @@
         ],
         "type" : "object"
       },
+      "ImportSource" : {
+        "description" : "An app (or a file of a standard's) on this Mac that keeps database connections Kelp can bring in.",
+        "properties" : {
+          "count" : {
+            "type" : "integer"
+          },
+          "engines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseInfo.Engine"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "description" : "\"tableplus\", \"dbeaver\", \"datagrip\", \"sequelace\", \"beekeeper\", \"dbgate\", \"pgpass\", \"pgservice\", \"mycnf\"; \"pgadmin\" and \"navicat\" are read from a file the user picks (their export).",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "passwords" : {
+            "description" : "Where its passwords are: \"keychain\" (macOS asks for each), \"file\" (readable without asking: Kelp asks first), \"none\" (typed when first used).",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "count",
+          "engines",
+          "id",
+          "name",
+          "passwords"
+        ],
+        "type" : "object"
+      },
+      "ImportedDatabase" : {
+        "description" : "One connection as another app keeps it, read as Kelp would keep it.",
+        "properties" : {
+          "database" : {
+            "$ref" : "#/components/schemas/DatabaseInfo"
+          },
+          "id" : {
+            "description" : "Its id where it comes from.",
+            "type" : "string"
+          },
+          "known" : {
+            "description" : "Kelp has one at the same address already: off in the list.",
+            "type" : "boolean"
+          },
+          "note" : {
+            "description" : "What Kelp can't do the same way (\"SSH through a password: set SSH by hand\"), or why it's Production.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "database",
+          "id",
+          "known"
+        ],
+        "type" : "object"
+      },
       "JiraIssue" : {
         "properties" : {
           "description" : {
@@ -5326,6 +5385,124 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken too (from the keychain, macOS asking for each; or the app's file). `useHere`: also used in the workspace's project.",
+      "name" : "db.import",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "file",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "ids",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "passwords",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "source",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "useHere",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/DatabaseInfo"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "What `source` keeps (`file`: the export picked for pgadmin, navicat), without passwords.",
+      "name" : "db.importRead",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "file",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "source",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/ImportedDatabase"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The sources found on this Mac, those with something to bring in.",
+      "name" : "db.importSources",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/ImportSource"
+          },
+          "type" : "array"
         }
       },
       "x-internal" : true

@@ -254,7 +254,7 @@ enum PgPass {
         return nil
     }
 
-    private static func fields(_ line: String) -> [String] {
+    static func fields(_ line: String) -> [String] {
         var out: [String] = [], field = "", escaped = false
         for c in line {
             if escaped {

@@ -146,7 +146,7 @@ public struct DatabaseAddress: Equatable, Sendable {
     // MARK: Pieces
 
     /// libpq's sslmode as Kelp keeps it: "disable", "require" (verify-* too: the server must offer TLS), or nil.
-    static func ssl(_ mode: String?) -> String? {
+    public static func ssl(_ mode: String?) -> String? {
         switch mode?.lowercased() {
         case "disable", "disabled", "false", "0": "disable"
         case "require", "required", "verify-ca", "verify-full", "verify_identity", "true", "1": "require"
@@ -164,7 +164,7 @@ public struct DatabaseAddress: Equatable, Sendable {
         return libpq.contains(match.1.lowercased()) ? nil : String(match.2)
     }
 
-    static func unquoted(_ text: String) -> String {
+    public static func unquoted(_ text: String) -> String {
         for quote in ["\"", "'", "`"] where text.count >= 2 && text.hasPrefix(quote) && text.hasSuffix(quote) {
             return String(text.dropFirst().dropLast())
         }

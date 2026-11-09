@@ -63,3 +63,81 @@ public struct DatabaseUse: InternalMethod {
         self.access = access
     }
 }
+
+// MARK: Import
+
+/// An app (or a file of a standard's) on this Mac that keeps database connections Kelp can bring in.
+public struct ImportSource: Codable, Sendable, Equatable, Identifiable {
+    /// "tableplus", "dbeaver", "datagrip", "sequelace", "beekeeper", "dbgate", "pgpass", "pgservice", "mycnf";
+    /// "pgadmin" and "navicat" are read from a file the user picks (their export).
+    public var id: String, name: String
+    public var count: Int
+    public var engines: [DatabaseInfo.Engine]
+    /// Where its passwords are: "keychain" (macOS asks for each), "file" (readable without asking: Kelp asks first),
+    /// "none" (typed when first used).
+    public var passwords: String
+    public init(id: String, name: String, count: Int, engines: [DatabaseInfo.Engine], passwords: String) {
+        self.id = id
+        self.name = name
+        self.count = count
+        self.engines = engines
+        self.passwords = passwords
+    }
+}
+
+/// The sources found on this Mac, those with something to bring in.
+public struct DatabaseImportSources: InternalMethod {
+    public static let name = "db.importSources"
+    public typealias Result = [ImportSource]
+    public init() {}
+}
+
+/// One connection as another app keeps it, read as Kelp would keep it.
+public struct ImportedDatabase: Codable, Sendable, Equatable, Identifiable {
+    /// Its id where it comes from.
+    public var id: String
+    public var database: DatabaseInfo
+    /// What Kelp can't do the same way ("SSH through a password: set SSH by hand"), or why it's Production.
+    public var note: String?
+    /// Kelp has one at the same address already: off in the list.
+    public var known: Bool
+    public init(id: String, database: DatabaseInfo, note: String? = nil, known: Bool = false) {
+        self.id = id
+        self.database = database
+        self.note = note
+        self.known = known
+    }
+}
+
+/// What `source` keeps (`file`: the export picked for pgadmin, navicat), without passwords.
+public struct DatabaseImportRead: InternalMethod {
+    public static let name = "db.importRead"
+    public typealias Result = [ImportedDatabase]
+    public var worktreeId: String, source: String, file: String?
+    public init(worktreeId: String, source: String, file: String? = nil) {
+        self.worktreeId = worktreeId
+        self.source = source
+        self.file = file
+    }
+}
+
+/// Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken too (from the
+/// keychain, macOS asking for each; or the app's file). `useHere`: also used in the workspace's project.
+public struct DatabaseImport: InternalMethod {
+    public static let name = "db.import"
+    public typealias Result = [DatabaseInfo]
+    /// macOS asks the user for each password in the keychain.
+    public static var timeout: TimeInterval? { 600 }
+    public var worktreeId: String, source: String, file: String?, ids: [String]
+    public var passwords: Bool, useHere: Bool
+    public init(
+        worktreeId: String, source: String, file: String? = nil, ids: [String], passwords: Bool, useHere: Bool
+    ) {
+        self.worktreeId = worktreeId
+        self.source = source
+        self.file = file
+        self.ids = ids
+        self.passwords = passwords
+        self.useHere = useHere
+    }
+}

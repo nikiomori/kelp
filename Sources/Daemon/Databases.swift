@@ -492,6 +492,7 @@ extension Methods {
     ]
     /// What talks to a server: off the handlers' threads, over its own connection.
     static let databaseAsyncMethods: [any AsyncHandled.Type] = [
-        DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self, DatabaseCheck.self, DatabaseContainers.self
+        DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self, DatabaseCheck.self, DatabaseContainers.self,
+        DatabaseImportSources.self, DatabaseImportRead.self, DatabaseImport.self
     ]
 }
