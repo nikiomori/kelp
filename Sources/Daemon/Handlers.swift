@@ -4,7 +4,6 @@ import Core
 import Foundation
 import GitKit
 import Integrations
-import ServiceManagement
 import os
 
 extension JSONValue {
@@ -386,15 +385,6 @@ extension Daemon {
     /// starting a program per request: each is a thread here, two more reading its pipes (`Subprocess`) and a process,
     /// and the user's processes are capped for the whole login (kern.maxprocperuid), terminals included.
     static let offloadLimit = 128
-}
-
-extension DaemonBackgroundAllowed: Handled {
-    /// Off the reader: each `status` waits for the system. A kelpd outside an app (a build's) has no such switch.
-    func handle(_: NoService) throws -> Bool {
-        let app = Bundle.main.bundleURL, suffix = (Bundle.main.bundleIdentifier ?? "").dropFirst("dev.kelp.app".count)
-        guard app.pathExtension == "app" else { return true }
-        return SMAppService.agent(plistName: "dev.kelp.kelpd\(suffix).plist").status != .requiresApproval
-    }
 }
 
 extension DaemonInfo: Handled {

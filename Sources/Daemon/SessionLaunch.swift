@@ -5,8 +5,8 @@ import Foundation
 import GRDB
 import GitKit
 
-/// Pausing and waking a session, its record saved and said, and its titles. What it starts with (its manifest,
-/// environment, hooks and account) is `SessionSetup`'s.
+/// Pausing and waking a session, its record saved and said, its titles, and what its output tells the daemon
+/// (`callbacks`). What it starts with (its manifest, environment, hooks and account) is `SessionSetup`'s.
 extension Sessions {
     /// Paused rather than ended when its program stops with the daemon or sits idle, and back where it was when woken: an
     /// agent that resumes its conversation, a tmux terminal (tmux keeps the session, the wake attaches again).
@@ -319,5 +319,61 @@ extension Sessions {
     static func waitGone(_ pids: [pid_t]) {
         let end = Date().addingTimeInterval(10)
         while Date() < end, pids.contains(where: { kill($0, 0) == 0 }) { usleep(20_000) }
+    }
+
+    /// What a session tells the daemon, from its first byte on. An ended session leaves `live`: its fd and pid belong to
+    /// nobody now, and its log still shows what it printed. `devServerIn`: the first local URL it prints opens in that
+    /// workspace's browser.
+    func callbacks(for rec: Session, devServerIn worktree: String? = nil) -> LiveSession.Callbacks {
+        let sid = rec.id
+        var callbacks = LiveSession.Callbacks()
+        callbacks.output = { [weak self] id, data, subs in self?.deliver(id, data, to: subs) }
+        callbacks.status = { [weak self] ls, snapshot in
+            guard let self, !ls.isFinal else { return }
+            // The record as it is now, not the snapshot from when this change was queued: a title set meanwhile stays.
+            // The turn bookkeeping gets each change, in order.
+            publishHere(ls)
+            ls.noteTurn(snapshot.status, remotes: remotes)
+            // Answered in the terminal: its hook goes with no answer. The status now, not the queued one: a change queued
+            // before a new question's hook registered its wait mustn't end that wait.
+            if ls.snapshot.status != .waiting { permissions.answerPermission(sid, nil) }
+            if snapshot.status == .exited { _ = live.remove(ls) }
+        }
+        if rec.agent == "claude" { callbacks.limits = { [weak self] r in self?.agentUsage.recordLimits(r) } }
+        if rec.agent == "cursor" { callbacks.limits = { [weak self] r in self?.agentUsage.recordPlanHit("cursor", r) } }
+        callbacks.turnEnded = { [weak self] prompt in
+            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
+        }
+        // Naming follows the session however it started (created, or woken from a pause).
+        callbacks.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
+        callbacks.turnStarted = { [weak self] t in self?.turns.keep(t) }
+        if !["shell", "custom"].contains(rec.agent ?? "custom") {
+            callbacks.topic = { [weak self] topic in
+                guard let self else { return }
+                DispatchQueue.global(qos: .utility).async { self.retitle(session: sid, topic: topic) }
+            }
+        }
+        if let worktree {
+            // On a remote project's host, the port comes to this Mac first: the page opens here.
+            let remote = remotes.of(rec.cwd)
+            callbacks.localURL = { [weak self] url in
+                guard let self else { return }
+                guard let remote else {
+                    notify(DevServerEvent(worktree: worktree, url: url, session: sid))
+                    return
+                }
+                DispatchQueue.global(qos: .utility).async {
+                    self.notify(
+                        DevServerEvent(
+                            worktree: worktree, url: self.processes.forwards.forward(url: url, in: worktree, remote),
+                            session: sid
+                        ))
+                }
+            }
+            callbacks.busyPort = { [weak self] port in
+                self?.notify(PortBusyEvent(worktree: worktree, port: port, session: sid))
+            }
+        }
+        return callbacks
     }
 }

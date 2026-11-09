@@ -41,13 +41,13 @@ final class LiveSession: Sendable {
     let resumable: Bool
     let state: OSAllocatedUnfairLock<State>
     private let log: FileHandle?
-    private let logURL: URL
+    let logURL: URL
     let trail: StatusTrail
     /// Everything written into the program, in order: text Kelp types (Enter included, see `type`) and the user's keys,
     /// so keys pressed while a send waits for its Enter land after that Enter instead of being sent with it.
     let sends = DispatchQueue(label: "kelp.session.send")
     private let statusQueue = DispatchQueue(label: "kelp.session.status")
-    private let turnWork = DispatchQueue(label: "kelp.session.turn", qos: .utility)
+    let turnWork = DispatchQueue(label: "kelp.session.turn", qos: .utility)
     // "EADDRINUSE: address already in use :::3000", "Port 3000 is already in use", "… bind(2) for "127.0.0.1" port 3000".
     // swiftlint:disable:next force_try
     static let busyRegex = try! NSRegularExpression(
@@ -66,50 +66,6 @@ final class LiveSession: Sendable {
     static func printedStopped(_ seen: String) -> Bool {
         let flat = seen.replacing(/\s+/, with: " ")
         return stoppedMarkers.contains(where: flat.contains)
-    }
-
-    /// One turn of the agent: the tree when it started working, and what it changed by the time it stopped.
-    struct Turn: Codable, Sendable {
-        struct File: Codable, Sendable {
-            var path: String, added: Int, removed: Int
-        }
-        var files: [File]
-        var seconds: Double
-    }
-
-    /// Esc or ⌃C, as one byte or as the kitty keyboard protocol sends them once the agent turns it on (Claude Code does):
-    /// ESC[27u, ESC[99;5u — on a non-Latin layout the layout's own letter comes first (ESC[1089::99;5u).
-    static func isStopKey(_ keys: Data) -> Bool {
-        keys == Data([0x1B]) || keys.contains(0x03)
-            || String(decoding: keys, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
-    }
-
-    /// Keys that pick an option in an agent's menu: Return, a digit, ⇧Tab (Claude Code's "allow all edits during this session").
-    static func answersMenu(_ keys: Data) -> Bool {
-        let text = String(decoding: keys, as: UTF8.self)
-        if keys.contains(0x0D) || (keys.count == 1 && (0x31...0x39).contains(keys[0])) || text == "\u{1B}[Z" {
-            return true
-        }
-        return kittyKey(text).map { $0 == (13, 0) || $0 == (9, 1) } ?? false
-    }
-
-    /// Keys that move a menu's cursor without picking: arrows, Tab, ⇧Tab.
-    static func movesInMenu(_ keys: Data) -> Bool {
-        String(decoding: keys, as: UTF8.self).wholeMatch(of: /(?:\x1B(?:\[[0-9;]*|O)[A-DZ]|\t)+/) != nil
-    }
-
-    /// The one key some agents take for an answer (Codex's y, a, n).
-    static func saysYesOrNo(_ keys: Data) -> Bool { keys.count == 1 && "yanYAN".utf8.contains(keys[0]) }
-
-    /// A key pressed as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u): its key on the Latin
-    /// layout (`base`, when a non-Latin one is on) and its modifiers (⇧ 1, ⌥ 2, ⌃ 4, lock keys left out). nil for a release.
-    static func kittyKey(_ sequence: String) -> (key: Int, mods: Int)? {
-        guard
-            let match = sequence.wholeMatch(
-                of: /\x1B\[([0-9]+)(?::[0-9]*)?(?::([0-9]+))?(?:;([0-9]+)(?::([0-9]+))?)?(?:;[0-9:]*)?u/),
-            match.4.map({ $0 != "3" }) ?? true, let key = Int(match.2 ?? match.1)
-        else { return nil }
-        return (key, ((match.3.flatMap { Int($0) } ?? 1) - 1) & 0b111111)
     }
 
     convenience init(
@@ -314,42 +270,6 @@ final class LiveSession: Sendable {
     /// `body` on the status queue, after every change queued before it.
     func inOrder(_ body: @escaping @Sendable () -> Void) { state.withLock { _ in statusQueue.async(execute: body) } }
 
-    /// Called with every status change: a snapshot when work starts, the changes when it stops (git work off the lock).
-    func noteTurn(_ status: AgentStatus, remotes: Remotes = .none) {
-        let (shell, starting, ending, start, cwd, prompt, id) = state.withLock { st in
-            // A shell or a plain command (a dev server, a script) has no turns: its output comes and goes, and each change
-            // would copy the index and hash the tree again.
-            let shell = st.record.agent == "shell" || st.record.agent == "custom"
-            let (starting, ending) = st.turnMoved(to: status)
-            if starting { st.turnPrompt = st.lastSent }
-            return (shell, starting, ending, st.turnStart, st.turnFolder ?? st.record.cwd, st.turnPrompt, st.record.id)
-        }
-        guard !shell, starting || ending else { return }
-        // One after another, per session: a short turn's end waits for its own start snapshot instead of diffing against
-        // the previous turn's (which credited it with that turn's changes), and snapshots can't land out of order.
-        turnWork.async { [weak self] in
-            if starting {
-                let tree = try? Git.snapshotTree(cwd, remotes: remotes)   // none in a folder without git
-                self?.state.withLock { $0.turnTree = tree }
-                if let tree, let keep = self?.callbacks.turnStarted {
-                    let head = Log.session.attempt("a turn's HEAD") {
-                        try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: cwd, ok: [0, 1], remotes: remotes)
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                    keep(
-                        SessionTurns.Mark(
-                            session: id, tree: tree, head: head?.isEmpty == false ? head : nil, folder: cwd,
-                            prompt: prompt))
-                }
-            } else if let start, let base = self?.turnBase {
-                let files = ((try? Git.changesSince(tree: base, cwd: cwd, remotes: remotes)) ?? [])
-                    .map { Turn.File(path: $0.path, added: $0.added, removed: $0.removed) }
-                self?.state.withLock { $0.turnResult = Turn(files: files, seconds: Date().timeIntervalSince(start)) }
-            }
-            if ending { self?.callbacks.turnEnded?(prompt) }
-        }
-    }
-
     /// What time moves on: a quiet screen settling its status, text waiting to be typed, the timers. Whether there was
     /// anything to do: a session at rest (`State.atRest`) costs a look under its lock and no more.
     @discardableResult
@@ -407,57 +327,6 @@ final class LiveSession: Sendable {
         while state.withLock({ $0.inputsInFlight }) > 0, Date() < end { usleep(10_000) }
         sends.sync {}
         while pty.queued.withLock({ $0 }) > 0, Date() < end { usleep(10_000) }
-    }
-
-    /// Keystrokes from a UI: the first submitted line becomes the source of the tab title.
-    func userInput(_ keys: Data) {
-        guard !state.withLock({ $0.letGo }) else { return }   // its program stopping or handed over: an attach's keys go nowhere
-        write(keys)
-        guard !TerminalReplies.isReply(keys) else { return }   // the terminal answering the agent, not the user typing
-        let firstPrompt = state.withLock { st -> String? in
-            // Keys that answer a question or menu on screen ("1", Return on an option) aren't a line being written.
-            let answering =
-                st.trustQuestionOpen() || st.menuOpen()
-                || (st.record.status == .waiting && keys.count == 1 && (0x31...0x39).contains(keys[0]))
-            st.typedYet = true
-            st.lastInputAt = Date()
-            // Moving through "trust this folder?" doesn't answer it: a launch prompt typed then would land its Enter on
-            // whichever option the cursor reached ("No, exit"), and its text would be lost.
-            if !(st.trustQuestionOpen() && Self.movesInMenu(keys)) { st.dialogSettled = true }
-            st.draftWaiting = false
-            st.detector.input(typing: !keys.contains(0x0D))   // keys without Return: the prompt is still being written
-            var read: Session?
-            if st.record.unread {
-                st.record.unread = false
-                read = st.record
-            }   // typing into it is having read it
-            // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late: the screen decides.
-            if Self.isStopKey(keys), st.record.status == .working || (st.saysItself && st.record.status == .waiting) {
-                st.interruptArmed = (Date(), "")
-                st.stopKeyAt = Date()
-            }
-            if st.saysItself {
-                // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
-                if st.record.status == .waiting, Self.answersMenu(keys) {
-                    st.interruptArmed = (Date(), "")
-                    if st.answeredOne() { st.detector.override(.working, because: "an answer typed in the terminal") }
-                }
-            } else if st.record.status == .waiting,
-                Self.answersMenu(keys) || Self.isStopKey(keys) || Self.saysYesOrNo(keys)
-            {
-                st.detector.answered()
-            }
-            emit(st.sync() ?? read)
-            if answering {
-                st.typing = ""
-                return nil
-            }
-            return st.noteTyping(keys)
-        }
-        if let line = firstPrompt {
-            let cb = callbacks.firstPrompt
-            DispatchQueue.global().async { cb(line) }
-        }
     }
 
     func update(_ change: @Sendable (inout Session) -> Void) -> Session {
@@ -521,120 +390,4 @@ extension LiveSession {
         }
     }
 
-    func tail(_ count: Int) -> Data { state.withLock { $0.ring.suffix(min(max(0, count), Self.ringLimit)) } }
-    /// The history, `conn` gets the output from here on. `send` runs under the lock with that history, so it goes out
-    /// before any of the live output that follows. It starts by setting the modes the cut-off part had set (Codex's
-    /// alternate screen and mouse reporting): without them the new terminal keeps the wheel and clicks to itself.
-    /// nil once it was let go (`letGo`): its program is stopping, and nothing it shows would be live.
-    @discardableResult
-    func attach(_ conn: Int, send: @Sendable (Data) -> Void = { _ in }) -> Data? {
-        state.withLock { st in
-            guard !st.letGo else { return nil }
-            st.attached.insert(conn)
-            let history = st.historyModes.restore + TerminalReplies.withoutQueries(st.ring.suffix(Self.ringLimit))
-            send(history)
-            return history
-        }
-    }
-    func detach(_ conn: Int) { state.withLock { _ = $0.attached.remove(conn) } }
-    /// Out of `live` with its program still to stop (paused, deleted): nobody attaches from now on. Who was attached.
-    func letGo() -> Set<Int> {
-        state.withLock { st in
-            st.letGo = true
-            defer { st.attached = [] }
-            return st.attached
-        }
-    }
-
-    /// Input from a client, `work` writing it: nil (nothing done) once the session was let go, its program stopping, so
-    /// the caller wakes it again instead. An idle pause doesn't let go of one with input on its way (`letGoIdle`).
-    func input<T>(_ work: () throws -> T) rethrows -> T? {
-        let open = state.withLock { st -> Bool in
-            guard !st.letGo else { return false }
-            st.inputs += 1
-            st.inputsInFlight += 1
-            return true
-        }
-        guard open else { return nil }
-        defer { state.withLock { $0.inputsInFlight -= 1 } }
-        return try work()
-    }
-    /// Drawn and quiet after its start (or 25 s on): text sent now is typed at once, not kept for later.
-    var startedUp: Bool { state.withLock { $0.startedUp } }
-    /// Inputs taken so far: an idle pause lets go only if none came after it looked.
-    var inputs: Int { state.withLock { $0.inputs } }
-    /// `letGo` for an idle pause: only while nobody is attached, no input came since there were `seen`, and it still rests.
-    /// Candidates go one after another, up to 3 s each, so a later one may have moved on since it was picked.
-    func letGoIdle(seen: Int) -> Bool {
-        state.withLock { st in
-            guard st.attached.isEmpty, st.inputs == seen, st.inputsInFlight == 0,
-                [.done, .idle].contains(st.record.status)
-            else { return false }
-            guard st.typing.isEmpty, !st.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
-            st.letGo = true
-            return true
-        }
-    }
-
-    /// Given up to the kelpd that takes over (`Sessions.handOver`), its output no longer read here: what that one needs to
-    /// show the same history. The log holds every byte the ring does by now (it's written as output is handled).
-    func handedOver(fd: Int32) -> Handover.Session {
-        state.withLock { st in
-            Handover.Session(
-                id: st.record.id, pid: pty.pid, fd: fd, modes: String(decoding: st.historyModes.restore, as: UTF8.self),
-                bytes: min(st.ring.count, Self.ringLimit),
-                pending: st.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
-                status: .init(
-                    holding: st.holding, parked: st.parked, hooked: st.detector.hooked, asking: st.asking,
-                    questionOpen: st.questionOpen, turnEnd: st.turnEnd, transcript: st.transcript,
-                    boxEmpty: st.boxEmpty,
-                    pasteMode: st.pasteMode, draftWaiting: st.draftWaiting, typing: st.typing, hooksSpoke: st.hooksSpoke
-                ),
-                reports: st.reports)
-        }
-    }
-
-    /// Taken over from the kelpd this one replaced: its history is the log's last `bytes` (that one's ring), in `modes`. It's
-    /// long past starting up: no launch prompt, startup answer or title from its first prompt comes now.
-    /// What was waiting to be typed (`pending`) is typed here once the agent is ready, as it would have been there.
-    /// `status`: what its status rested on there; nil from a kelpd that didn't say.
-    func adopted(
-        modes: String, bytes: Int, pending: [Handover.Prompt] = [], reports: [String] = [],
-        status: Handover.Status? = nil
-    ) {
-        let history = bytes > 0 ? Data(tail: bytes, of: logURL) ?? Data() : Data()
-        state.withLock { st in
-            st.pendingPrompts = pending.map { ($0.text, $0.draft, $0.paste) }
-            st.reports = reports
-            st.ring = history
-            st.ringModes.read(Data(modes.utf8))
-            if let status {
-                st.holding = status.holding
-                st.parked = status.parked
-                st.asking = status.asking
-                st.questionOpen = status.questionOpen
-                st.turnEnd = status.turnEnd
-                st.transcript = status.transcript
-                st.boxEmpty = status.boxEmpty ?? false
-                st.draftWaiting = status.draftWaiting ?? false
-                st.typing = status.typing ?? ""
-                st.hooksSpoke = status.hooksSpoke ?? false
-            }
-            st.pasteMode = status?.pasteMode ?? modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
-            st.detector.adopted(
-                st.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self),
-                hooked: status?.hooked
-            )
-            st.trail.add("\(st.record.status.rawValue) → \(st.detector.status.rawValue)  \(st.detector.source)")
-            // A question read again and found to be none: the turn ended long ago, so one already read stays read.
-            if st.detector.status != st.record.status {
-                st.record.status = st.detector.status
-                emit(st.record)
-            }
-            st.startedUp = true
-            st.typedYet = true
-            st.dialogSettled = true
-            st.sawFirstPrompt = true
-        }
-    }
 }
