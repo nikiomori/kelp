@@ -164,7 +164,8 @@ enum Machines {
     }
 
     /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.
-    static func machineLine(_ app: AppModel, _ info: VMInfo) -> String {
+    /// `short`, the row's: a sleeping one's disk alone, how fast it wakes left to the tooltip (it didn't fit the row).
+    static func machineLine(_ app: AppModel, _ info: VMInfo, short: Bool = false) -> String {
         switch info.state {
         case .creating: return stepText(info)
         case .error: return info.detail ?? ""
@@ -175,7 +176,8 @@ enum Machines {
                 : info.machine.os == "linux"
                     ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
             guard let disk = info.diskMiB else { return wake }
-            return String(localized: "\(bytes(disk << 20)) on disk") + " · " + wake
+            let size = String(localized: "\(bytes(disk << 20)) on disk")
+            return short ? size : size + " · " + wake
         default:
             var parts: [String] = []
             if let cpu = info.cpu { parts.append(String(localized: "\(String(format: "%.0f%%", cpu)) CPU")) }

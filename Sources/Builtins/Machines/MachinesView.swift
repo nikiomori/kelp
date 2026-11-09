@@ -87,9 +87,11 @@ struct MachinesView: View {
                     Spacer(minLength: Metrics.gap)
                     faces(v)
                 }
-                Text(Machines.machineLine(app, v)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                Text(Machines.machineLine(app, v, short: true)).font(.ui(11).monospacedDigit()).foregroundStyle(
+                    .secondary
+                )
+                .lineLimit(1)
+                .truncationMode(.tail)
             }
         }
         .padding(.horizontal, Metrics.gap).frame(height: Metrics.rowTwoLine)
