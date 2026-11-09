@@ -6,8 +6,11 @@ import WorkbenchKit
 /// What ⌘F in a diff found: the text, the rows holding it, the one stepped to, and its card.
 struct DiffFinding {
     var needle = "", rows: [Int] = [], at = -1
-    /// Counts searches: one a newer search or new rows overtook drops what it found.
+    /// Counts searches: one a newer search or new rows overtook drops what it found, and waits for that one (`latest`).
     var searches = 0
+    var latest: Task<Void, Never>?
+    /// A search still to show that goes to the first match: one that overtakes it (a reload's) goes there too.
+    var stepping = false
     var card: FindCard?
 }
 
@@ -44,12 +47,14 @@ extension DiffViewController {
 
     /// The lines holding `needle` (any case), in every file. `step`: go to the first; a diff read again keeps its place.
     /// The rows are looked through off the main thread: a big diff is a lot of lines, and each new load looks again.
+    /// The task ends once this search, or the one that overtook it, shows what it found.
     @discardableResult
     func search(_ needle: String, step: Bool = true) -> Task<Void, Never> {
         find.needle = needle
         find.searches += 1
+        find.stepping = find.stepping || step
         let generation = find.searches, all = rows
-        return Task {
+        let task = Task {
             let found =
                 needle.isEmpty
                 ? []
@@ -58,9 +63,13 @@ extension DiffViewController {
                         Self.texts(all[index]).contains { $0.range(of: needle, options: .caseInsensitive) != nil }
                     }
                 }.value
-            guard generation == find.searches else { return }
-            show(found, step: step)
+            guard generation == find.searches else { return await find.latest?.value ?? () }
+            let stepping = find.stepping
+            find.stepping = false
+            show(found, step: stepping)
         }
+        find.latest = task
+        return task
     }
 
     private func show(_ found: [Int], step: Bool) {

@@ -73,7 +73,9 @@ extension AppOfItsOwn {
         vc.showFile("f.txt", source: "unstaged", commit: nil)
         vc.show(worktree: rig.workspace.id)
         await vc.load()
-        await vc.search("CHANGE").value   // any case, looked for off the main thread
+        let typed = vc.search("CHANGE")   // any case, looked for off the main thread
+        vc.search("CHANGE", step: false)   // a reload's meanwhile (a git or theme change): it still goes to the first
+        await typed.value
         #expect(vc.find.rows.count == 2 && vc.find.at == 0 && vc.table.selectedRow == vc.find.rows[0])
         vc.stepFind(next: true)
         vc.stepFind(next: true)
