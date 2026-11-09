@@ -41,6 +41,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     private let askBar = NSStackView()
     private let askText = NSTextField(labelWithString: "")
     private var asking: DatabaseRun?
+    /// The user picked what to show: the first table, shown once the list is read, no longer takes over.
+    private var chosen = false
     private lazy var watched = Watched(.databases, in: app)
     private lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
     private lazy var save = NSButton(title: "", target: self, action: #selector(saveEdits))
@@ -102,6 +104,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         filter.action = #selector(filtered)
         run.keyEquivalent = "\r"
         run.keyEquivalentModifierMask = .command
+        run.setContentHuggingPriority(.required, for: .horizontal)   // not stretched over the bar once the filter hides
         let bar = Bar.content([heading], [filter, run], stretching: filter)
         sqlText.font = .uiMono(11)
         sqlText.textColor = .secondaryLabelColor
@@ -194,7 +197,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         }
         tables = schema.tables
         tableList.reloadData()
-        if mode == .query, address.run == nil, let first = tables.first {
+        if mode == .query, address.run == nil, !chosen, let first = tables.first {
             mode = .table(first.name)
             await showTable(first.name)
         }
@@ -229,6 +232,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     /// Away from edits only once they're saved or dropped.
     private func leave(to next: Mode) async {
         if isEdited, await !close() { return }
+        chosen = true
         mode = next
         filter.stringValue = ""
         switch next {
@@ -288,6 +292,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
             empty.show(
                 String(localized: "Not Kept"), symbol: "clock",
                 text: String(localized: "Kelp keeps the rows of the latest runs only."))
+        } else if result?.columns.isEmpty == true, let changed = record?.changed, record?.state == .done {
+            empty.show(String(localized: "\(changed) Rows Changed"), symbol: "checkmark.circle")
         } else {
             empty.show(
                 result?.rows.isEmpty == true && result?.columns.isEmpty == false ? String(localized: "No Rows") : nil)

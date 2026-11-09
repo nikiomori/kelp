@@ -454,11 +454,21 @@ extension AppDelegate {
     }
 
     #if DEBUG
-        /// A visible label's text, or "@x,y": a point in the window, from its top-left corner (SwiftUI content has no labels).
-        /// "2:" first double-clicks (a row's rename in place).
+        /// A visible label's text or a button's title or tooltip (in a sheet over the window first), or "@x,y": a point in the
+        /// window, from its top-left corner (SwiftUI content has no labels). "2:" first double-clicks (a row's rename in place).
         func click(text spec: String) {
-            guard let window = main.window, let root = window.contentView?.superview else { return }
+            guard let main = main.window else { return }
+            let label = spec.hasPrefix("2:") ? String(spec.dropFirst(2)) : spec
+            let window =
+                main.attachedSheet.flatMap { sheet in
+                    sheet.contentView?.allSubviews(of: NSButton.self).contains { $0.title == label } == true
+                        ? sheet : nil
+                } ?? main
+            guard let root = window.contentView?.superview else { return }
+            // An app in the background: its sheet's first click would only make it key.
+            if window !== main { window.makeKey() }
             let point: NSPoint
+            var queued = false   // a button tracks the mouse until its mouse-up, which has to be in the queue already
             let double = spec.hasPrefix("2:")
             var text = double ? String(spec.dropFirst(2)) : spec
             let right = text.hasPrefix("r@")   // "r@x,y": a right click (context menus)
@@ -471,6 +481,13 @@ extension AppDelegate {
                 .first(where: { $0.stringValue == text && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor })
             {
                 point = field.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), to: nil)
+            } else if let button = root.allSubviews(of: NSButton.self).first(where: {
+                ($0.title == text || $0.toolTip == text) && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor
+            }) {
+                // Near its left edge: a checkbox stretched over a form has only its box and title there.
+                let x = button.bounds.minX + min(10, button.bounds.width / 2)
+                point = button.convert(NSPoint(x: x, y: button.bounds.midY), to: nil)
+                queued = true
             } else {
                 print("CLICK no \(text)")
                 return
@@ -489,7 +506,7 @@ extension AppDelegate {
                             pressure: 1)
                     else { continue }
                     // Queued, so a table's mouse-down tracking finds its mouse-up instead of waiting for a real one.
-                    if double { NSApp.postEvent(event, atStart: false) } else { NSApp.sendEvent(event) }
+                    if double || queued { NSApp.postEvent(event, atStart: false) } else { NSApp.sendEvent(event) }
                 }
             }
             print("CLICK \(text) → workspace \(app.worktree(app.workbench.workspaceId)?.displayName ?? "-")")

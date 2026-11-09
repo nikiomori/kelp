@@ -292,6 +292,11 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(saved.name == "prod")
     let list = try await w.c.call(DatabaseList(worktreeId: wt.id))
     #expect(list.map(\.name) == ["prod"])
+    _ = try shopDB(in: wt.path)   // found: "shop", which one added by hand can't be called
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(
+            DatabaseSave(worktreeId: wt.id, database: DatabaseInfo(name: "shop", engine: .sqlite, path: "/tmp/x.db")))
+    }
     let connection = try w.d.workspaces.databases.connection(wt.id, "prod", agent: false)
     #expect(connection.password == "s3cret")
     let sent = String(decoding: try JSONEncoder().encode(list), as: UTF8.self)

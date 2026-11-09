@@ -132,6 +132,9 @@ final class Databases: Sendable {
         var db = database
         db.name = name
         let found = try connections(worktreeId).first { $0.database.name == name && $0.database.source != nil }
+        if found != nil, database.source == nil {   // one added by hand can't take a found one's name
+            throw RPCError.invalidParams("Kelp found a database named \(name) already: give this one another name.")
+        }
         if let found {   // a found one keeps where it is; only what agents may do changes
             let access = db.access, production = db.production
             db = found.database
