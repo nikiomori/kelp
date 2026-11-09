@@ -116,8 +116,8 @@ extension Databases {
     }
 
     func start(_ worktreeId: String, _ name: String) async throws {
-        let c = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
-        guard let service = c.container, let docker = Self.docker() else {
+        let target = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
+        guard let service = target.container, let docker = Self.docker() else {
             throw RPCError.invalidParams("\(name) isn't a compose service Kelp can start.")
         }
         let out = try await Subprocess.run(
@@ -150,9 +150,9 @@ extension Databases {
     func apply(_ q: DatabaseApply) async throws -> QueryResult {
         guard !q.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
         let (wid, name) = (q.worktreeId, q.database)
-        let c = try await offloads.run { [self] in try reach(connection(wid, name, agent: false), wid) }
+        let target = try await offloads.run { [self] in try reach(connection(wid, name, agent: false), wid) }
         let statements: [String]
-        do { statements = try q.statements.map { try SQLText.single($0, c.database.engine) } } catch let failure
+        do { statements = try q.statements.map { try SQLText.single($0, target.database.engine) } } catch let failure
             as DatabaseFailure
         {
             throw RPCError.invalidParams(failure.message)
@@ -160,7 +160,7 @@ extension Databases {
         let started = Date(), sql = statements.joined(separator: ";\n")
         var run = DatabaseRun(id: UUID().uuidString, database: name, sql: sql, session: nil, at: started, state: .done)
         do {
-            let changed = try await DatabaseEngines.apply(c, statements, off: offloads)
+            let changed = try await DatabaseEngines.apply(target, statements, off: offloads)
             let ms = Int(Date().timeIntervalSince(started) * 1000)
             run.changed = changed
             run.ms = ms

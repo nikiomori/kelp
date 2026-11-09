@@ -8,8 +8,8 @@ extension Databases {
         let found = ImportReaders.apps.compactMap { app -> ImportSource? in
             let entries = ImportReaders.read(app.id, home: home, file: nil)
             guard !entries.isEmpty else { return nil }
-            let engines = DatabaseInfo.Engine.allCases.filter { e in
-                entries.contains { $0.imported.database.engine == e }
+            let engines = DatabaseInfo.Engine.allCases.filter { engine in
+                entries.contains { $0.imported.database.engine == engine }
             }
             return ImportSource(
                 id: app.id, name: app.name, count: entries.count, engines: engines, passwords: app.passwords)
@@ -94,7 +94,7 @@ extension Databases {
     static func sameAddress(_ a: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
         guard a.engine == b.engine else { return false }
         if a.engine.isFile { return a.path == b.path }
-        let local = { (h: String?) in h.map { DatabaseFind.isLocal($0) ? "localhost" : $0.lowercased() } ?? "" }
+        let local = { (host: String?) in host.map { DatabaseFind.isLocal($0) ? "localhost" : $0.lowercased() } ?? "" }
         let sameUser = a.user == nil || b.user == nil || a.user == b.user   // DBeaver keeps its user with the password
         return local(a.host) == local(b.host) && a.port == b.port && a.database == b.database && sameUser
             && a.ssh == b.ssh

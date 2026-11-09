@@ -86,16 +86,16 @@ enum PostgresText {
             whole = "0"
         } else {
             for i in 0...Int(weight) {
-                let d = i < digits.count ? Int(digits[i]) : 0
-                whole += i == 0 ? String(d) : String(format: "%04d", d)
+                let group = i < digits.count ? Int(digits[i]) : 0
+                whole += i == 0 ? String(group) : String(format: "%04d", group)
             }
         }
         var fraction = ""
-        var i = Int(weight) + 1
+        var index = Int(weight) + 1
         while fraction.count < Int(scale) {
-            let d = i >= 0 && i < digits.count ? Int(digits[i]) : 0
-            fraction += String(format: "%04d", d)
-            i += 1
+            let group = index >= 0 && index < digits.count ? Int(digits[index]) : 0
+            fraction += String(format: "%04d", group)
+            index += 1
         }
         let text = whole + (scale > 0 ? "." + fraction.prefix(Int(scale)) : "")
         return (sign == 0x4000 && text.contains(where: { $0 != "0" && $0 != "." }) ? "-" : "") + text
@@ -104,11 +104,12 @@ enum PostgresText {
     private static func uuid(_ b: inout ByteBuffer) -> String {
         guard let bytes = b.readBytes(length: 16) else { return "" }
         let hex = bytes.map { String(format: "%02x", $0) }.joined()
-        let parts = [0..<8, 8..<12, 12..<16, 16..<20, 20..<32].map { r in
+        let parts = [0..<8, 8..<12, 12..<16, 16..<20, 20..<32].map { range in
             String(
                 hex[
                     hex.index(
-                        hex.startIndex, offsetBy: r.lowerBound)..<hex.index(hex.startIndex, offsetBy: r.upperBound)])
+                        hex.startIndex, offsetBy: range.lowerBound)..<hex.index(
+                            hex.startIndex, offsetBy: range.upperBound)])
         }
         return parts.joined(separator: "-")
     }
@@ -116,11 +117,11 @@ enum PostgresText {
     /// Postgres counts from 2000-01-01.
     private static var epoch: Date { Date(timeIntervalSince1970: 946_684_800) }
     private static func formatter(_ format: String) -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.dateFormat = format
-        return f
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = format
+        return formatter
     }
     private static let day = formatter("yyyy-MM-dd")
     private static let moment = formatter("yyyy-MM-dd HH:mm:ss")
@@ -141,8 +142,9 @@ enum PostgresText {
     }
 
     private static func clock(_ micros: Int64) -> String {
-        let s = micros / 1_000_000
-        return String(format: "%02d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) + fractionText(micros % 1_000_000)
+        let seconds = micros / 1_000_000
+        return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+            + fractionText(micros % 1_000_000)
     }
 
     /// ".5" for 500000 µs, nothing for none: trailing zeros cut, as psql does.
@@ -249,11 +251,12 @@ enum PgPass {
     static func match(_ text: String, host: String, port: Int, database: String, user: String) -> String? {
         let hosts = DatabaseFind.isLocal(host) ? [host, "localhost", "127.0.0.1"] : [host]
         for line in text.split(whereSeparator: \.isNewline) where !line.hasPrefix("#") {
-            let f = fields(String(line))
-            guard f.count == 5 else { continue }
+            let entry = fields(String(line))
+            guard entry.count == 5 else { continue }
             func fits(_ field: String, _ values: [String]) -> Bool { field == "*" || values.contains(field) }
-            if fits(f[0], hosts), fits(f[1], [String(port)]), fits(f[2], [database]), fits(f[3], [user]) {
-                return f[4]
+            if fits(entry[0], hosts), fits(entry[1], [String(port)]), fits(entry[2], [database]), fits(entry[3], [user])
+            {
+                return entry[4]
             }
         }
         return nil

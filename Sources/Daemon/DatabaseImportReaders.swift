@@ -71,9 +71,9 @@ enum ImportReaders {
         guard let engine = engine(string(c["Driver"])) else { return nil }
         // A connection TablePlus shows by its address has no name of its own: "database@host", as it reads there.
         // its host's first word ("pg-prod-ro"); an address in numbers whole
-        let host = nonEmpty(c["DatabaseHost"]).map { h in
-            h.allSatisfy { $0.isNumber || $0 == "." || $0 == ":" }
-                ? h : String(h.split(separator: ".").first ?? Substring(h))
+        let host = nonEmpty(c["DatabaseHost"]).map { written in
+            written.allSatisfy { $0.isNumber || $0 == "." || $0 == ":" }
+                ? written : String(written.split(separator: ".").first ?? Substring(written))
         }
         let address = [nonEmpty(c["DatabaseName"]), host].compactMap { $0 }.joined(separator: "@")
         let name =
@@ -140,10 +140,10 @@ enum ImportReaders {
         var note: String?
         let handlers = cfg["handlers"] as? [String: [String: Any]] ?? [:]
         if let tunnel = handlers["ssh_tunnel"], tunnel["enabled"] as? Bool == true {
-            let p = tunnel["properties"] as? [String: Any] ?? [:]
+            let properties = tunnel["properties"] as? [String: Any] ?? [:]
             (db.ssh, note) = ssh(
-                host: string(p["host"]), user: nonEmpty(p["user"]), port: int(p["port"]),
-                key: string(p["authType"]) == "PUBLIC_KEY")
+                host: string(properties["host"]), user: nonEmpty(properties["user"]), port: int(properties["port"]),
+                key: string(properties["authType"]) == "PUBLIC_KEY")
         }
         if let ssl = handlers["postgre_ssl"] ?? handlers["mysql_ssl"], ssl["enabled"] as? Bool == true {
             db.ssl = "require"
@@ -310,190 +310,58 @@ enum ImportReaders {
         } catch {
             return []
         }
-        return rows.compactMap { r in
-            guard let engine = engine(string(r["connectionType"])) else { return nil }
-            let name: String = r["name"] ?? "beekeeper"
+        return rows.compactMap { row in
+            guard let engine = engine(string(row["connectionType"])) else { return nil }
+            let name: String = row["name"] ?? "beekeeper"
             var db =
                 engine.isFile
-                ? DatabaseInfo(name: name, engine: engine, path: r["defaultDatabase"])
+                ? DatabaseInfo(name: name, engine: engine, path: row["defaultDatabase"])
                 : DatabaseInfo(
-                    name: name, engine: engine, host: r["host"], port: r["port"], database: r["defaultDatabase"],
-                    user: r["username"])
+                    name: name, engine: engine, host: row["host"], port: row["port"], database: row["defaultDatabase"],
+                    user: row["username"])
             var note: String?
-            if (r["sshEnabled"] as Bool?) == true {
-                (db.ssh, note) = ssh(host: r["sshHost"] ?? "", user: r["sshUsername"], port: r["sshPort"], key: false)
+            if (row["sshEnabled"] as Bool?) == true {
+                (db.ssh, note) = ssh(
+                    host: row["sshHost"] ?? "", user: row["sshUsername"], port: row["sshPort"], key: false)
             }
             note = ImportReaders.both(
-                note, production(&db, tag: (r["labelColor"] as String?) == "red" ? "production" : nil, app: "Beekeeper")
+                note,
+                production(&db, tag: (row["labelColor"] as String?) == "red" ? "production" : nil, app: "Beekeeper")
             )
-            return ImportEntry(imported: ImportedDatabase(id: string(r["id"]), database: db, note: note), secret: nil)
+            return ImportEntry(imported: ImportedDatabase(id: string(row["id"]), database: db, note: note), secret: nil)
         }
     }
 
     static func dbGate(_ home: URL) -> [ImportEntry] {
         guard let lines = text(home.appendingPathComponent(".dbgate/connections.jsonl")) else { return [] }
         return lines.split(whereSeparator: \.isNewline).compactMap { line in
-            guard let c = optional({ try JSONSerialization.jsonObject(with: Data(line.utf8)) }) as? [String: Any],
-                let engine = engine(string(c["engine"]).split(separator: "@").first.map(String.init) ?? "")
+            guard
+                let connection = optional({ try JSONSerialization.jsonObject(with: Data(line.utf8)) })
+                    as? [String: Any],
+                let engine = engine(string(connection["engine"]).split(separator: "@").first.map(String.init) ?? "")
             else { return nil }
-            let name = nonEmpty(c["displayName"]) ?? nonEmpty(c["server"]) ?? nonEmpty(c["databaseFile"]) ?? "dbgate"
+            let name =
+                nonEmpty(connection["displayName"]) ?? nonEmpty(connection["server"]) ?? nonEmpty(
+                    connection["databaseFile"]) ?? "dbgate"
             var db =
                 engine.isFile
-                ? DatabaseInfo(name: name, engine: engine, path: nonEmpty(c["databaseFile"]))
+                ? DatabaseInfo(name: name, engine: engine, path: nonEmpty(connection["databaseFile"]))
                 : DatabaseInfo(
-                    name: name, engine: engine, host: nonEmpty(c["server"]), port: int(c["port"]),
-                    database: nonEmpty(c["defaultDatabase"]), user: nonEmpty(c["user"]))
-            db.group = nonEmpty(c["parent"])
+                    name: name, engine: engine, host: nonEmpty(connection["server"]), port: int(connection["port"]),
+                    database: nonEmpty(connection["defaultDatabase"]), user: nonEmpty(connection["user"]))
+            db.group = nonEmpty(connection["parent"])
             var note: String?
-            if c["useSshTunnel"] as? Bool == true {
+            if connection["useSshTunnel"] as? Bool == true {
                 (db.ssh, note) = ssh(
-                    host: string(c["sshHost"]), user: nonEmpty(c["sshLogin"]), port: int(c["sshPort"]),
-                    key: string(c["sshMode"]) == "keyFile")
+                    host: string(connection["sshHost"]), user: nonEmpty(connection["sshLogin"]),
+                    port: int(connection["sshPort"]),
+                    key: string(connection["sshMode"]) == "keyFile")
             }
             note = ImportReaders.both(
-                note, production(&db, tag: c["isReadOnly"] as? Bool == true ? "production" : nil, app: "DbGate"))
-            return ImportEntry(imported: ImportedDatabase(id: string(c["_id"]), database: db, note: note), secret: nil)
+                note,
+                production(&db, tag: connection["isReadOnly"] as? Bool == true ? "production" : nil, app: "DbGate"))
+            return ImportEntry(
+                imported: ImportedDatabase(id: string(connection["_id"]), database: db, note: note), secret: nil)
         }
-    }
-
-    // MARK: Pieces
-
-    /// An app's driver name as Kelp's engine; nil for one Kelp doesn't speak.
-    static func engine(_ driver: String) -> DatabaseInfo.Engine? {
-        let d = driver.lowercased()
-        if ["postgres", "cockroach", "redshift", "greenplum", "timescale", "supabase", "neon"].contains(
-            where: d.contains)
-        {
-            return .postgres
-        }
-        if d.contains("mysql") || d.contains("maria") || d.contains("tidb") || d.contains("planetscale") {
-            return .mysql
-        }
-        if d.contains("duckdb") { return .duckdb }
-        if d.contains("sqlite") || d.contains("libsql") { return .sqlite }
-        return nil
-    }
-
-    /// An SSH tunnel as Kelp keeps one: `user@host`, ssh's own config doing the rest; what it can't say, said.
-    static func ssh(host: String, user: String?, port: Int?, key: Bool) -> (String?, String?) {
-        guard !host.isEmpty else { return (nil, nil) }
-        let alias = user.map { $0 + "@" + host } ?? host
-        if let port, port != 22 {
-            return (alias, "SSH on port \(port): give \(host) a Port line in ~/.ssh/config.")
-        }
-        return (alias, key ? "An SSH key of its own: give \(host) an IdentityFile in ~/.ssh/config." : nil)
-    }
-
-    /// The environment the user gave it in that app, and only that: Production is never guessed from where it is.
-    /// TablePlus' "local" and DBeaver's "dev" are what a new connection gets there: they say nothing.
-    @discardableResult
-    static func production(_ db: inout DatabaseInfo, tag: String?, app: String) -> String? {
-        let tag = tag?.lowercased() ?? ""
-        if ["production", "prod"].contains(tag) {
-            db.set(stage: .production)
-            return "Production in \(app): agents only read it."
-        }
-        if ["development", "dev"].contains(tag) {
-            db.set(stage: .development)
-        } else if ["staging", "testing", "test"].contains(tag) {
-            db.set(stage: .staging)
-        }
-        return nil
-    }
-
-    /// A keychain item as `DatabaseInfo.passwordIn` keeps it.
-    static func keychainItem(_ service: String, _ account: String?) -> String {
-        service + "\u{1F}" + (account ?? "")
-    }
-
-    /// `passwordIn`'s item, read: macOS asks the user. Nil when it isn't there.
-    static func borrowed(_ item: String) throws -> String? {
-        let parts = item.split(separator: "\u{1F}", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
-        return try otherKeychain(service: parts[0], account: parts.count > 1 && !parts[1].isEmpty ? parts[1] : nil)
-    }
-
-    /// Another app's keychain item: macOS asks the user whether Kelp may read it. Nil when there's none.
-    static func otherKeychain(service: String, account: String?) throws -> String? {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-            kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        if let account { query[kSecAttrAccount as String] = account }
-        var out: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &out)
-        if status == errSecItemNotFound { return nil }
-        if [errSecAuthFailed, errSecUserCanceled, errSecInteractionNotAllowed].contains(status) {
-            throw KeychainDenied()
-        }
-        guard status == errSecSuccess, let data = out as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    static func aes128CBC(_ data: Data, key: Data, iv: Data) -> Data? {
-        var out = Data(count: data.count + kCCBlockSizeAES128)
-        var moved = 0
-        let capacity = out.count
-        let status = out.withUnsafeMutableBytes { o in
-            data.withUnsafeBytes { d in
-                key.withUnsafeBytes { k in
-                    iv.withUnsafeBytes { v in
-                        CCCrypt(
-                            CCOperation(kCCDecrypt), CCAlgorithm(kCCAlgorithmAES), CCOptions(kCCOptionPKCS7Padding),
-                            k.baseAddress, key.count, v.baseAddress, d.baseAddress, data.count, o.baseAddress, capacity,
-                            &moved)
-                    }
-                }
-            }
-        }
-        guard status == kCCSuccess else { return nil }
-        return out.prefix(moved)
-    }
-
-    static func plist(_ url: URL) -> Any? {
-        guard let data = FileManager.default.contents(atPath: url.path) else { return nil }
-        return optional { try PropertyListSerialization.propertyList(from: data, format: nil) }
-    }
-
-    static func jsonObject(_ url: URL) -> [String: Any]? {
-        guard let data = FileManager.default.contents(atPath: url.path) else { return nil }
-        return optional { try JSONSerialization.jsonObject(with: data) } as? [String: Any]
-    }
-
-    static func string(_ value: Any?) -> String {
-        switch value {
-        case let s as String: s
-        case let n as NSNumber: n.stringValue
-        default: ""
-        }
-    }
-
-    static func nonEmpty(_ value: Any?) -> String? {
-        let s = string(value).trimmingCharacters(in: .whitespaces)
-        return s.isEmpty ? nil : s
-    }
-
-    static func int(_ value: Any?) -> Int? { Int(string(value)) }
-
-    /// Two notes in one line: what SSH needs, then why it's Production.
-    static func both(_ a: String?, _ b: String?) -> String? {
-        let parts = [a, b].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " ")
-    }
-
-    /// Another app's file that may be missing, cut short, or of a version Kelp doesn't know: nothing to bring in.
-    static func optional<T>(_ body: () throws -> T?) -> T? {
-        do { return try body() } catch { return nil }
-    }
-}
-
-extension Data {
-    init(hex: String) {
-        var bytes: [UInt8] = []
-        var index = hex.startIndex
-        while index < hex.endIndex, let next = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex) {
-            bytes.append(UInt8(hex[index..<next], radix: 16) ?? 0)
-            index = next
-        }
-        self.init(bytes)
     }
 }

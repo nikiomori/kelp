@@ -9,14 +9,15 @@ enum ImportFiles {
         guard let text = ImportReaders.text(home.appendingPathComponent(".pgpass")) else { return [] }
         return text.split(whereSeparator: \.isNewline).enumerated().compactMap { index, line in
             guard !line.hasPrefix("#") else { return nil }
-            let f = PgPass.fields(String(line))
-            guard f.count == 5, f[0] != "*" else { return nil }
-            let database = f[2] == "*" ? nil : f[2], user = f[3] == "*" ? nil : f[3]
+            let parts = PgPass.fields(String(line))
+            guard parts.count == 5, parts[0] != "*" else { return nil }
+            let database = parts[2] == "*" ? nil : parts[2], user = parts[3] == "*" ? nil : parts[3]
             var db = DatabaseInfo(
-                name: database ?? f[0], engine: .postgres, host: f[0], port: Int(f[1]) ?? 5432, database: database,
+                name: database ?? parts[0], engine: .postgres, host: parts[0], port: Int(parts[1]) ?? 5432,
+                database: database,
                 user: user)
             let note = ImportReaders.production(&db, tag: nil, app: "~/.pgpass")
-            let password = f[4]
+            let password = parts[4]
             return ImportEntry(
                 imported: ImportedDatabase(id: "\(index)", database: db, note: note),
                 secret: { ImportSecret(password: password) })
@@ -46,14 +47,15 @@ enum ImportFiles {
     static func myCnf(_ home: URL) -> [ImportEntry] {
         guard let text = ImportReaders.text(home.appendingPathComponent(".my.cnf")) else { return [] }
         let sections = Dictionary(ini(text), uniquingKeysWith: { a, _ in a })
-        let v = (sections["client"] ?? [:]).merging(sections["mysql"] ?? [:]) { _, b in b }
-        guard !v.isEmpty else { return [] }
-        let host = v["host"] ?? "localhost"
+        let values = (sections["client"] ?? [:]).merging(sections["mysql"] ?? [:]) { _, b in b }
+        guard !values.isEmpty else { return [] }
+        let host = values["host"] ?? "localhost"
         var db = DatabaseInfo(
-            name: v["database"] ?? "my.cnf", engine: .mysql, host: host, port: v["port"].flatMap { Int($0) } ?? 3306,
-            database: v["database"], user: v["user"])
+            name: values["database"] ?? "my.cnf", engine: .mysql, host: host,
+            port: values["port"].flatMap { Int($0) } ?? 3306,
+            database: values["database"], user: values["user"])
         let note = ImportReaders.production(&db, tag: nil, app: "~/.my.cnf")
-        let password = v["password"]
+        let password = values["password"]
         return [
             ImportEntry(
                 imported: ImportedDatabase(id: "client", database: db, note: note),
@@ -89,8 +91,8 @@ enum ImportFiles {
         let nodes: [XMLNode]
         do { nodes = try XMLDocument(contentsOf: url).nodes(forXPath: "//Connection") } catch { return [] }
         return nodes.enumerated().compactMap { index, node in
-            guard let c = node as? XMLElement else { return nil }
-            func a(_ name: String) -> String? { ImportReaders.nonEmpty(c.attribute(forName: name)?.stringValue) }
+            guard let element = node as? XMLElement else { return nil }
+            func a(_ name: String) -> String? { ImportReaders.nonEmpty(element.attribute(forName: name)?.stringValue) }
             guard let engine = ImportReaders.engine(a("ConnType") ?? "") else { return nil }
             let name = a("ConnectionName") ?? "navicat"
             var db =

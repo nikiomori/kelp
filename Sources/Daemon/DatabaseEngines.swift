@@ -40,8 +40,8 @@ struct DatabaseRows: Equatable, Sendable {
         if bytes <= DatabaseEngines.outputLimit { rows.append(row) }
     }
 
-    static func == (a: Self, b: Self) -> Bool {
-        a.columns == b.columns && a.rows == b.rows && a.total == b.total && a.changed == b.changed
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.columns == rhs.columns && lhs.rows == rhs.rows && lhs.total == rhs.total && lhs.changed == rhs.changed
     }
 }
 
@@ -65,7 +65,7 @@ enum DatabaseEngines {
 
     /// A change that would change more or fewer rows than the user allowed (the table changed while it was asked).
     static func notAsAllowed(_ changed: Int?, _ allowed: Int) -> DatabaseFailure {
-        let rows = { (n: Int) in "\(n) \(n == 1 ? "row" : "rows")" }
+        let rows = { (count: Int) in "\(count) \(count == 1 ? "row" : "rows")" }
         let now = changed.map(rows) ?? "an unknown number of rows"
         return .failed(
             "It would change \(now) now, not the \(rows(allowed)) the user allowed: nothing changed. "
@@ -243,190 +243,11 @@ enum DatabaseEngines {
     static func text(_ value: DatabaseValue) -> String? {
         switch value.storage {
         case .null: nil
-        case .int64(let n): String(n)
-        case .double(let d): String(d)
-        case .string(let s): s
+        case .int64(let int): String(int)
+        case .double(let double): String(double)
+        case .string(let text): text
         case .blob(let data): "<\(data.count) bytes>"
         }
-    }
-}
-
-// MARK: Postgres
-
-enum PostgresRun {
-    /// Between a command's output and the next: what psql prints for `\echo`.
-    static let marker = "--kelp-7f3e9c--"
-    /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.
-    static let null = "\u{1}NULL\u{1}"
-
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        let out = try run(
-            c, ["BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(timeout))s'", sql],
-            timeout: timeout + 10)
-        return section(out.last ?? "")
-    }
-
-    static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        func attempt(_ statement: String) throws -> DatabaseRows {
-            let out = try run(
-                c,
-                [
-                    "BEGIN", "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'", statement,
-                    "ROLLBACK"
-                ],
-                timeout: DatabaseEngines.readTimeout + 10)
-            var rows = section(out.count >= 2 ? out[out.count - 2] : "")
-            if rows.changed == nil { rows.changed = rows.total }   // RETURNING: the rows are what it changed
-            return rows
-        }
-        if let returning = SQLText.returning(sql) {
-            do { return try attempt(returning) } catch {}   // RETURNING may not fit it (a MERGE, a view): tried plain
-        }
-        return try attempt(sql)
-    }
-
-    static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let out = try run(
-            c, ["SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'", sql],
-            timeout: DatabaseEngines.writeTimeout + 10)
-        return section(out.last ?? "")
-    }
-
-    /// BEGIN, the statements, COMMIT: ON_ERROR_STOP ends psql at the first failure, its session rolling back.
-    static func apply(_ c: DatabaseConnection, _ statements: [String]) throws -> Int {
-        let out = try run(c, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
-        return out.dropLast().map { section($0).changed ?? 0 }.reduce(0, +)
-    }
-
-    private static let other = "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')"
-    static let schemaColumns = """
-        SELECT CASE WHEN c.table_schema = 'public' THEN c.table_name ELSE c.table_schema || '.' || c.table_name END,
-          c.column_name, c.data_type, c.is_nullable,
-          EXISTS (SELECT 1 FROM information_schema.table_constraints t JOIN information_schema.key_column_usage k
-            ON k.constraint_name = t.constraint_name AND k.table_schema = t.table_schema
-            WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = c.table_schema
-            AND t.table_name = c.table_name AND k.column_name = c.column_name),
-          (SELECT u.table_name || '.' || u.column_name FROM information_schema.table_constraints t
-            JOIN information_schema.key_column_usage k ON k.constraint_name = t.constraint_name
-              AND k.table_schema = t.table_schema
-            JOIN information_schema.constraint_column_usage u ON u.constraint_name = t.constraint_name
-              AND u.constraint_schema = t.table_schema
-            WHERE t.constraint_type = 'FOREIGN KEY' AND t.table_schema = c.table_schema
-            AND t.table_name = c.table_name AND k.column_name = c.column_name LIMIT 1)
-        FROM information_schema.columns c WHERE c.table_schema \(other)
-        ORDER BY c.table_schema, c.table_name, c.ordinal_position
-        """
-    static let schemaCounts = """
-        SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END,
-          CASE WHEN c.reltuples < 0 THEN s.n_live_tup ELSE c.reltuples::bigint END,   -- -1: never analyzed
-          CASE WHEN c.relkind IN ('v', 'm') THEN 'view' END, pg_total_relation_size(c.oid),
-          obj_description(c.oid, 'pg_class')
-        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
-        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
-        """
-    static let schemaFunctions = """
-        SELECT DISTINCT CASE WHEN n.nspname = 'public' THEN p.proname ELSE n.nspname || '.' || p.proname END
-        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-        WHERE n.nspname \(other) AND p.prokind = 'f'
-          AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
-        ORDER BY 1
-        """
-    /// The database's own functions: not an extension's (PostGIS alone puts hundreds in public).
-    static let schemaIndexes = """
-        SELECT CASE WHEN schemaname = 'public' THEN tablename ELSE schemaname || '.' || tablename END,
-          indexname || ' ' || substring(indexdef from '\\((.*)\\)$')
-        FROM pg_indexes WHERE schemaname \(other) ORDER BY indexname
-        """
-    static func schema(_ c: DatabaseConnection) throws -> DatabaseSchema {
-        let out = try run(
-            c, ["BEGIN TRANSACTION READ ONLY", schemaColumns, schemaCounts, schemaIndexes],
-            timeout: DatabaseEngines.readTimeout + 10)
-        guard out.count >= 3 else { throw DatabaseFailure.failed("psql said nothing of the tables.") }
-        return DatabaseSchemaBuilder.build(
-            columns: section(out[out.count - 3]).rows, counts: section(out[out.count - 2]).rows,
-            indexes: section(out[out.count - 1]).rows)
-    }
-
-    /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them.
-    static func run(_ c: DatabaseConnection, _ commands: [String], timeout: TimeInterval) throws -> [String] {
-        let db = c.database
-        let (client, host, port) = try DatabaseEngines.invocation(c, "psql", secret: "PGPASSWORD")
-        var argv =
-            client + [
-                "-X", "-w", "--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1", "-h", host, "-p", String(port),
-                "-d",
-                db.database ?? "postgres"
-            ]
-        if let user = db.user { argv += ["-U", user] }
-        for (index, command) in commands.enumerated() {
-            if index > 0 { argv += ["-c", "\\echo " + marker] }
-            argv += ["-c", command]
-        }
-        let env = DatabaseEngines.environment([
-            // UTC as over the wire (`PostgresText`): a row found by its values compares the same text
-            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password, "PGTZ": "UTC"
-        ])
-        let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout, limit: DatabaseEngines.outputLimit)
-        guard out.status == 0, !out.timedOut else {
-            if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
-            throw failure(String(decoding: out.stderr, as: UTF8.self))
-        }
-        try DatabaseEngines.whole(out, db.name)
-        return String(decoding: out.stdout, as: UTF8.self).components(separatedBy: marker + "\n").dropFirst().map {
-            $0
-        }
-    }
-
-    /// psql's error: a change refused in a read-only transaction, or the server's own words.
-    static func failure(_ stderr: String) -> DatabaseFailure {
-        if stderr.contains("read-only transaction") { return .change }
-        let lines = stderr.split(whereSeparator: \.isNewline).map(String.init)
-        if let error = lines.first(where: { $0.hasPrefix("ERROR:") }) {
-            return .failed(error.replacingOccurrences(of: "ERROR:  ", with: "").trimmingCharacters(in: .whitespaces))
-        }
-        // Connecting, psql tries each address (::1, then 127.0.0.1) and says why each failed: the last is the one that
-        // got furthest ("no password supplied" after a refused ::1).
-        let tries = lines.filter { $0.contains(" failed: ") }
-        if let last = tries.last, let reason = last.range(of: " failed: ") {
-            return .failed(String(last[reason.upperBound...]).trimmingCharacters(in: .whitespaces))
-        }
-        let text =
-            (lines.first { $0.hasPrefix("psql: error:") || $0.hasPrefix("FATAL:") } ?? lines.first ?? "psql failed")
-            .replacingOccurrences(of: "psql: error: ", with: "")
-        return .failed(text.trimmingCharacters(in: .whitespaces))
-    }
-
-    /// One command's output: rows as CSV (a header, then rows; NULL written as `null`), or the command's tag
-    /// ("UPDATE 3"), whose number is what it changed; a change with RETURNING gives both, its tag last.
-    static func section(_ text: String) -> DatabaseRows {
-        var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        if lines.last == "" { lines.removeLast() }
-        var changed: Int?
-        if lines.count > 1, let last = lines.last,
-            last.range(of: #"^(INSERT \d+ \d+|UPDATE \d+|DELETE \d+|MERGE \d+)$"#, options: .regularExpression) != nil
-        {
-            changed = last.split(separator: " ").last.flatMap { Int($0) }
-            lines.removeLast()
-        }
-        var rows = table(lines.joined(separator: "\n"))
-        rows.changed = rows.changed ?? changed
-        return rows
-    }
-
-    private static func table(_ text: String) -> DatabaseRows {
-        let body = text.split(separator: "\n", omittingEmptySubsequences: false)
-        if body.count == 1, let tag = body.first,
-            tag.range(of: #"^[A-Z]+( [A-Z]+)*( \d+)*$"#, options: .regularExpression) != nil
-        {
-            return DatabaseRows(changed: tag.split(separator: " ").last.flatMap { Int($0) })
-        }
-        var records = CSV.parse(text)
-        guard !records.isEmpty else { return DatabaseRows() }
-        let header = records.removeFirst().map { $0 ?? "" }
-        let rows = records.prefix(DatabaseEngines.keep).map { row in row.map { $0 == null ? nil : $0 ?? "" } }
-        return DatabaseRows(columns: header, rows: rows, total: records.count)
     }
 }
 
@@ -440,10 +261,10 @@ enum CSV {
             field = ""
             quoted = false
         }
-        while let c = pending ?? chars.next() {
+        while let char = pending ?? chars.next() {
             pending = nil
             if inQuotes {
-                if c == "\"" {
+                if char == "\"" {
                     let next = chars.next()
                     if next == "\"" {
                         field.append("\"")
@@ -452,11 +273,11 @@ enum CSV {
                         pending = next
                     }
                 } else {
-                    field.append(c)
+                    field.append(char)
                 }
                 continue
             }
-            switch c {
+            switch char {
             case "\"":
                 inQuotes = true
                 quoted = true
@@ -465,7 +286,7 @@ enum CSV {
                 endField()
                 records.append(record)
                 record = []
-            default: field.append(c)
+            default: field.append(char)
             }
         }
         if !field.isEmpty || quoted || !record.isEmpty {
@@ -473,144 +294,6 @@ enum CSV {
             records.append(record)
         }
         return records
-    }
-}
-
-// MARK: MySQL
-
-/// mysql inside a compose container (`docker exec`): its batch output.
-enum MySQLRun {
-    static let marker = "kelp_7f3e9c"
-
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        // The server stops it too: a client killed in a container (`docker exec`) leaves its query running there
-        let out = try run(c, limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
-        return section(out.last ?? "")
-    }
-
-    /// The session's time limit for a read: MySQL names it max_execution_time (ms), MariaDB max_statement_time (s),
-    /// and each refuses the other's name, so the one this server has is picked by the server.
-    static func limit(_ timeout: TimeInterval) -> [String] {
-        let seconds = Int(timeout)
-        return [
-            "SET @kelp_limit = IF(VERSION() LIKE '%MariaDB%', 'SET SESSION max_statement_time = \(seconds)', "
-                + "'SET SESSION max_execution_time = \(seconds * 1000)')",
-            "PREPARE kelp_limit FROM @kelp_limit", "EXECUTE kelp_limit", "DEALLOCATE PREPARE kelp_limit"
-        ]
-    }
-
-    /// Tables a ROLLBACK can't undo (MyISAM, MEMORY, Aria, CSV…): with any, a change isn't tried, since the trial
-    /// would make it.
-    static let unrollable = """
-        SELECT COUNT(*) FROM information_schema.tables WHERE table_type = 'BASE TABLE'
-          AND table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-          AND engine NOT IN ('InnoDB', 'NDB', 'ndbcluster', 'RocksDB', 'TokuDB')
-        """
-    static let cantRollBack = DatabaseFailure.failed("some of its tables (MyISAM, MEMORY…) can't roll back")
-
-    static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let tables = try run(c, [unrollable], timeout: DatabaseEngines.readTimeout + 5)
-        guard (section(tables.last ?? "").rows.first?.first ?? nil) == "0" else { throw cantRollBack }
-        let out = try run(c, ["START TRANSACTION", counted(sql), "ROLLBACK"], timeout: 60)
-        guard out.count >= 2 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
-        return withCount(out[out.count - 2])
-    }
-
-    static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let out = try run(c, [counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
-        return out.last.map(withCount) ?? DatabaseRows()
-    }
-
-    /// One script: mysql stops at the first error (no --force), so COMMIT never comes and its session rolls back.
-    static func apply(_ c: DatabaseConnection, _ statements: [String]) throws -> Int {
-        let out = try run(
-            c, ["START TRANSACTION"] + statements.map(counted) + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
-        return out.dropFirst().dropLast().map { withCount($0).changed ?? 0 }.reduce(0, +)
-    }
-
-    /// The statement and, right after it (anything between would reset it), the rows it changed.
-    static let changedColumn = "kelp_changed"
-    /// Its `;` on a line of its own: a statement's last line can be a `--` comment.
-    static func counted(_ sql: String) -> String { sql + "\n;\nSELECT ROW_COUNT() AS " + changedColumn }
-
-    /// What `counted` printed: the statement's rows, if any, then a table of one count.
-    static func withCount(_ text: String) -> DatabaseRows {
-        guard let count = text.range(of: changedColumn + "\n", options: .backwards) else { return section(text) }
-        var rows = section(String(text[..<count.lowerBound]))
-        rows.changed = Int(text[count.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines))
-        return rows
-    }
-
-    private static let here = "table_schema = DATABASE()"
-    static let schemaColumns = """
-        SELECT c.table_name, c.column_name, c.column_type, c.is_nullable, c.column_key = 'PRI',
-          (SELECT CONCAT(k.referenced_table_name, '.', k.referenced_column_name)
-           FROM information_schema.key_column_usage k
-           WHERE k.table_schema = c.table_schema AND k.table_name = c.table_name AND k.column_name = c.column_name
-           AND k.referenced_table_name IS NOT NULL LIMIT 1)
-        FROM information_schema.columns c WHERE c.\(here) ORDER BY c.table_name, c.ordinal_position
-        """
-    static let schemaCounts = """
-        SELECT table_name, table_rows, CASE WHEN table_type = 'VIEW' THEN 'view' END, data_length + index_length,
-          NULLIF(table_comment, '')
-        FROM information_schema.tables WHERE \(here)
-        """
-    static let schemaFunctions =
-        "SELECT routine_name FROM information_schema.routines WHERE routine_schema = DATABASE()"
-    static let schemaIndexes = """
-        SELECT table_name, CONCAT(index_name, ' (', GROUP_CONCAT(column_name ORDER BY seq_in_index), ')')
-        FROM information_schema.statistics WHERE \(here) GROUP BY table_name, index_name
-        """
-
-    static func schema(_ c: DatabaseConnection) throws -> DatabaseSchema {
-        let out = try run(c, [schemaColumns, schemaCounts, schemaIndexes], timeout: DatabaseEngines.readTimeout + 10)
-        guard out.count >= 3 else { throw DatabaseFailure.failed("mysql said nothing of the tables.") }
-        return DatabaseSchemaBuilder.build(
-            columns: section(out[out.count - 3]).rows, counts: section(out[out.count - 2]).rows,
-            indexes: section(out[out.count - 1]).rows)
-    }
-
-    /// The statements as one script on stdin, in binary mode (no client commands such as `system`), a marker between
-    /// them.
-    static func run(_ c: DatabaseConnection, _ statements: [String], timeout: TimeInterval) throws -> [String] {
-        let db = c.database
-        let (client, host, port) = try DatabaseEngines.invocation(c, "mysql", secret: "MYSQL_PWD")
-        // localhost would mean its Unix socket to mysql: the server's port is asked for by address.
-        var argv =
-            client + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]
-        if let user = db.user { argv += ["-u", user] }
-        if let name = db.database { argv.append(name) }
-        let script = statements.map { $0 + ";\nSELECT '\(marker)' AS \(marker);\n" }.joined()
-        let env = DatabaseEngines.environment(["MYSQL_PWD": c.password])
-        let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout,
-            limit: DatabaseEngines.outputLimit)
-        guard out.status == 0, !out.timedOut else {
-            if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
-            let said = String(decoding: out.stderr, as: UTF8.self)
-            if said.contains("READ ONLY transaction") { throw DatabaseFailure.change }
-            throw DatabaseFailure.failed(
-                said.split(whereSeparator: \.isNewline).first.map(String.init) ?? "mysql failed")
-        }
-        try DatabaseEngines.whole(out, db.name)
-        return String(decoding: out.stdout, as: UTF8.self)
-            .components(separatedBy: "\(marker)\n\(marker)\n").dropLast().map { $0 }
-    }
-
-    /// Tab-separated, a header first; \t \n \\ escaped, NULL written as NULL.
-    static func section(_ text: String) -> DatabaseRows {
-        var lines = text.split(separator: "\n").map(String.init)
-        guard !lines.isEmpty else { return DatabaseRows() }
-        let header = lines.removeFirst().components(separatedBy: "\t")
-        let rows = lines.map { line in
-            line.components(separatedBy: "\t").map { field -> String? in
-                field == "NULL"
-                    ? nil
-                    : field.replacingOccurrences(of: "\\t", with: "\t").replacingOccurrences(of: "\\n", with: "\n")
-                        .replacingOccurrences(of: "\\\\", with: "\\")
-            }
-        }
-        return DatabaseRows(columns: header, rows: Array(rows.prefix(DatabaseEngines.keep)), total: rows.count)
     }
 }
 

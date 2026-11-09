@@ -52,11 +52,11 @@ enum AppwriteWire {
     }
 
     static func schema(_ c: DatabaseConnection) async throws -> DatabaseSchema {
-        let e = try await withDatabase(try endpoint(c))
+        let server = try await withDatabase(try endpoint(c))
         var tables: [DatabaseSchema.Table] = []
         while true {
             let answer = try await call(
-                e, "GET", "/tablesdb/\(path(e.database))/tables",
+                server, "GET", "/tablesdb/\(path(server.database))/tables",
                 queries: [["method": "limit", "values": [100]], ["method": "offset", "values": [tables.count]]])
             let page = answer["tables"] as? [[String: Any]] ?? []
             tables += page.map(table)
@@ -73,9 +73,9 @@ enum AppwriteWire {
             let type = (c["type"] as? String ?? "string") + (c["array"] as? Bool == true ? "[]" : "")
             return .init(name: key, type: type, nullable: c["required"] as? Bool != true, primary: false)
         }
-        let indexes = (t["indexes"] as? [[String: Any]] ?? []).map { i in
-            let columns = (i["columns"] ?? i["attributes"]) as? [String] ?? []   // TablesDB says columns
-            return "\(i["key"] as? String ?? "") (\(columns.joined(separator: ", ")))"
+        let indexes = (t["indexes"] as? [[String: Any]] ?? []).map { index in
+            let columns = (index["columns"] ?? index["attributes"]) as? [String] ?? []   // TablesDB says columns
+            return "\(index["key"] as? String ?? "") (\(columns.joined(separator: ", ")))"
         }
         return .init(
             name: id,
@@ -92,26 +92,26 @@ enum AppwriteWire {
             _ = try await call(try endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [1]]])
             return DatabaseRows(columns: ["?column?"], rows: [["1"]], total: 1)
         }
-        guard case .select(let s) = try AppwriteSQL.parse(sql) else { throw DatabaseFailure.change }
-        let e = try await withDatabase(try endpoint(c))
-        let kinds = try await kinds(e, s.table)
-        var queries = s.condition.map { kinds.queries($0) } ?? []
-        if s.count {
+        guard case .select(let select) = try AppwriteSQL.parse(sql) else { throw DatabaseFailure.change }
+        let server = try await withDatabase(try endpoint(c))
+        let kinds = try await kinds(server, select.table)
+        var queries = select.condition.map { kinds.queries($0) } ?? []
+        if select.count {
             let answer = try await call(
-                e, "GET", rows(e, s.table), queries: queries + [["method": "limit", "values": [1]]])
+                server, "GET", rows(server, select.table), queries: queries + [["method": "limit", "values": [1]]])
             return DatabaseRows(columns: ["count"], rows: [[String(answer["total"] as? Int ?? 0)]], total: 1)
         }
-        if let names = s.columns { queries.append(["method": "select", "values": names]) }
-        for (column, ascending) in s.orders {
+        if let names = select.columns { queries.append(["method": "select", "values": names]) }
+        for (column, ascending) in select.orders {
             queries.append(["method": ascending ? "orderAsc" : "orderDesc", "attribute": column])
         }
-        queries.append(["method": "limit", "values": [min(s.limit ?? DatabaseEngines.keep, DatabaseEngines.keep)]])
-        if let offset = s.offset { queries.append(["method": "offset", "values": [offset]]) }
-        let answer = try await call(e, "GET", rows(e, s.table), queries: queries)
+        queries.append(["method": "limit", "values": [min(select.limit ?? DatabaseEngines.keep, DatabaseEngines.keep)]])
+        if let offset = select.offset { queries.append(["method": "offset", "values": [offset]]) }
+        let answer = try await call(server, "GET", rows(server, select.table), queries: queries)
         let found = answer["rows"] as? [[String: Any]] ?? []
-        let columns = s.columns ?? kinds.columns
+        let columns = select.columns ?? kinds.columns
         let total =
-            s.limit == nil ? min(answer["total"] as? Int ?? found.count, DatabaseEngines.countLimit) : found.count
+            select.limit == nil ? min(answer["total"] as? Int ?? found.count, DatabaseEngines.countLimit) : found.count
         return DatabaseRows(
             columns: columns, rows: found.map { row in columns.map { text(row[$0]) } }, total: max(total, found.count))
     }
@@ -119,13 +119,13 @@ enum AppwriteWire {
     /// Not run: what it would touch (Appwrite can't run a change and take it back to show it).
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
         let statement = try AppwriteSQL.parse(sql)
-        let e = try await withDatabase(try endpoint(c))
+        let server = try await withDatabase(try endpoint(c))
         switch statement {
         case .select: throw DatabaseFailure.failed("It doesn't change anything.")
-        case .insert(let i): return DatabaseRows(changed: i.rows.count)
+        case .insert(let insert): return DatabaseRows(changed: insert.rows.count)
         case .update(let table, _, let condition), .delete(let table, let condition):
-            let kinds = try await kinds(e, table)
-            return DatabaseRows(changed: try await ids(e, table, condition, kinds).count)
+            let kinds = try await kinds(server, table)
+            return DatabaseRows(changed: try await ids(server, table, condition, kinds).count)
         }
     }
 
@@ -137,20 +137,21 @@ enum AppwriteWire {
     /// All of them in one Appwrite transaction: committed together, or rolled back.
     static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
         let parsed = try statements.map(AppwriteSQL.parse)
-        let e = try await withDatabase(try endpoint(c))
-        let started = try await call(e, "POST", "/tablesdb/transactions", body: ["ttl": 300])
+        let server = try await withDatabase(try endpoint(c))
+        let started = try await call(server, "POST", "/tablesdb/transactions", body: ["ttl": 300])
         guard let tx = started["$id"] as? String else {
             throw DatabaseFailure.failed("Appwrite didn't start a transaction.")
         }
         do {
             var changed = 0
-            for statement in parsed { changed += try await run(e, statement, tx) }
-            _ = try await call(e, "PATCH", "/tablesdb/transactions/\(path(tx))", body: ["commit": true])
+            for statement in parsed { changed += try await run(server, statement, tx) }
+            _ = try await call(server, "PATCH", "/tablesdb/transactions/\(path(tx))", body: ["commit": true])
             return changed
         } catch {
             // Not rolled back now: it lapses at its ttl, uncommitted. The error said is the statement's.
-            do { _ = try await call(e, "PATCH", "/tablesdb/transactions/\(path(tx))", body: ["rollback": true]) } catch
-            {}
+            do {
+                _ = try await call(server, "PATCH", "/tablesdb/transactions/\(path(tx))", body: ["rollback": true])
+            } catch {}
             throw error
         }
     }
@@ -158,20 +159,21 @@ enum AppwriteWire {
     private static func run(_ e: Endpoint, _ statement: AppwriteSQL.Statement, _ tx: String) async throws -> Int {
         switch statement {
         case .select: throw DatabaseFailure.failed("A SELECT changes nothing: run it as a read.")
-        case .insert(let i):
-            let kinds = try await kinds(e, i.table)
-            for row in i.rows {
+        case .insert(let insert):
+            let kinds = try await kinds(e, insert.table)
+            for row in insert.rows {
                 var data: [String: Any] = [:], id = "unique()"
-                for (column, value) in zip(i.columns, row) {
+                for (column, value) in zip(insert.columns, row) {
                     if column == "$id", case .text(let given) = value {
                         id = given
                     } else {
                         data[column] = kinds.value(value, column)
                     }
                 }
-                _ = try await call(e, "POST", rows(e, i.table), body: ["rowId": id, "data": data, "transactionId": tx])
+                _ = try await call(
+                    e, "POST", rows(e, insert.table), body: ["rowId": id, "data": data, "transactionId": tx])
             }
-            return i.rows.count
+            return insert.rows.count
         case .update(let table, let set, let condition):
             let kinds = try await kinds(e, table)
             var data: [String: Any] = [:]
@@ -222,8 +224,8 @@ enum AppwriteWire {
             let kind = types[column]
             switch value {
             case .null: return NSNull()
-            case .bool(let b): return b
-            case .text(let s), .number(let s): return Kinds.coerce(s, kind)
+            case .bool(let flag): return flag
+            case .text(let given), .number(let given): return Kinds.coerce(given, kind)
             }
         }
 
@@ -254,30 +256,31 @@ enum AppwriteWire {
             case .all(let parts): return ["method": "and", "values": parts.map(query)]
             case .any(let parts): return ["method": "or", "values": parts.map(query)]
             case .test(let method, let column, let values):
-                var q: [String: Any] = ["method": method, "attribute": column]
-                if !values.isEmpty { q["values"] = values.map { value($0, column) } }
-                return q
+                var query: [String: Any] = ["method": method, "attribute": column]
+                if !values.isEmpty { query["values"] = values.map { value($0, column) } }
+                return query
             }
         }
     }
 
     private static func kinds(_ e: Endpoint, _ table: String) async throws -> Kinds {
-        let t = self.table(try await call(e, "GET", "/tablesdb/\(path(e.database))/tables/\(path(table))"))
+        let found = self.table(try await call(e, "GET", "/tablesdb/\(path(e.database))/tables/\(path(table))"))
         var types: [String: (type: String, array: Bool)] = ["$sequence": ("integer", false)]
-        for c in t.columns {
+        for c in found.columns {
             let array = c.type.hasSuffix("[]")
             types[c.name] = (array ? String(c.type.dropLast(2)) : c.type, array)
         }
-        return Kinds(columns: t.columns.map(\.name), types: types)
+        return Kinds(columns: found.columns.map(\.name), types: types)
     }
 
     /// A value as text: numbers as written, true/false, a list or an object as JSON.
     static func text(_ value: Any?) -> String? {
         switch value {
         case nil, is NSNull: return nil
-        case let s as String: return s
-        case let n as NSNumber:
-            return CFGetTypeID(n) == CFBooleanGetTypeID() ? (n.boolValue ? "true" : "false") : n.stringValue
+        case let text as String: return text
+        case let number as NSNumber:
+            return CFGetTypeID(number) == CFBooleanGetTypeID()
+                ? (number.boolValue ? "true" : "false") : number.stringValue
         case let other?:
             guard JSONSerialization.isValidJSONObject(other) else { return "\(other)" }
             do {
@@ -317,8 +320,8 @@ enum AppwriteWire {
     ) async throws -> [String: Any] {
         var parts = URLComponents(string: e.base + path)
         if !queries.isEmpty {
-            parts?.queryItems = try queries.map { q in
-                let data = try JSONSerialization.data(withJSONObject: q, options: [.withoutEscapingSlashes])
+            parts?.queryItems = try queries.map { query in
+                let data = try JSONSerialization.data(withJSONObject: query, options: [.withoutEscapingSlashes])
                 return URLQueryItem(name: "queries[]", value: String(decoding: data, as: UTF8.self))
             }
             // PHP reads "+" in a query as a space

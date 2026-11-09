@@ -12,23 +12,24 @@ extension Databases {
         guard remotes.of(worktree.path) == nil else {
             throw RPCError.invalidParams("A remote project's databases stay on its host: Kelp copies them only here.")
         }
-        let c = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
+        let source = try await offloads.run { [self] in try connection(worktreeId, name, agent: false) }
         let suffix = Self.slug(worktree.branch)
-        guard !c.database.production else {
+        guard !source.database.production else {
             throw RPCError.invalidParams("\(name) is production: Kelp doesn't copy it.")
         }
-        switch c.database.engine {
-        case .sqlite, .duckdb: return try await offloads.run { [self] in try copyFile(c, worktree, suffix: suffix) }
+        switch source.database.engine {
+        case .sqlite, .duckdb:
+            return try await offloads.run { [self] in try copyFile(source, worktree, suffix: suffix) }
         case .postgres:
             // Behind an SSH host, "localhost" is that host's: not this Mac's
-            guard let host = c.database.host, DatabaseFind.isLocal(host), c.database.ssh == nil,
-                let database = c.database.database
+            guard let host = source.database.host, DatabaseFind.isLocal(host), source.database.ssh == nil,
+                let database = source.database.database
             else {
                 throw RPCError.invalidParams(
                     "Kelp copies a Postgres on this Mac that publishes its port; \(name) doesn't.")
             }
             // Its password as a query would have it: one still in another app's keychain is read now
-            let near = try await offloads.run { [self] in try reach(c, worktreeId) }
+            let near = try await offloads.run { [self] in try reach(source, worktreeId) }
             let copied = database + "_" + suffix
             var maintenance = near   // a template can't have anyone connected, this connection included
             maintenance.database.database = "postgres"
@@ -37,7 +38,7 @@ extension Databases {
                     maintenance, "CREATE DATABASE \(Self.quoted(copied)) TEMPLATE \(Self.quoted(database))",
                     off: offloads)
             } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
-            var db = c.database
+            var db = source.database
             db.name = name + "_" + suffix
             db.database = copied
             db.source = nil

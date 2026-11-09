@@ -31,10 +31,12 @@ enum SQLText {
         func at(_ index: Int) -> Character? { index < chars.count ? chars[index] : nil }
         func skip(to end: String, from index: Int) -> Int {
             let target = Array(end)
-            var j = index
-            while j < chars.count {
-                if Array(chars[j..<min(j + target.count, chars.count)]) == target { return j + target.count }
-                j += 1
+            var position = index
+            while position < chars.count {
+                if Array(chars[position..<min(position + target.count, chars.count)]) == target {
+                    return position + target.count
+                }
+                position += 1
             }
             return chars.count
         }
@@ -55,35 +57,37 @@ enum SQLText {
             return chars.count
         }
         while i < chars.count {
-            let c = chars[i], next = at(i + 1)
+            let char = chars[i], next = at(i + 1)
             let afterWord = i > 0 && (chars[i - 1].isLetter || chars[i - 1].isNumber || chars[i - 1] == "_")
-            switch c {
+            switch char {
             case "'", "\"", "`":
-                var j = i + 1
-                while j < chars.count {
-                    if chars[j] == c {
-                        if at(j + 1) == c {
-                            j += 2   // '' inside a string
+                var end = i + 1
+                while end < chars.count {
+                    if chars[end] == char {
+                        if at(end + 1) == char {
+                            end += 2   // '' inside a string
                             continue
                         }
                         break
                     }
-                    if reading.backslash, chars[j] == "\\", c != "`", j + 1 < chars.count { j += 1 }
-                    j += 1
+                    if reading.backslash, chars[end] == "\\", char != "`", end + 1 < chars.count { end += 1 }
+                    end += 1
                 }
-                i = j + 1
+                i = end + 1
             case "-" where next == "-" && (!reading.mysql || at(i + 2).map { $0.isWhitespace } ?? true):
                 i = skip(to: "\n", from: i + 2)
             case "#" where reading.mysql: i = skip(to: "\n", from: i + 1)
             case "/" where next == "*": i = endOfComment(from: i + 2)
             case "$" where reading.dollar && !afterWord:
                 // $$ or $tag$: a Postgres dollar-quoted string, to the same tag (a tag doesn't start with a digit).
-                var j = i + 1
-                while j < chars.count, chars[j].isLetter || chars[j] == "_" || (j > i + 1 && chars[j].isNumber) {
-                    j += 1
+                var end = i + 1
+                while end < chars.count,
+                    chars[end].isLetter || chars[end] == "_" || (end > i + 1 && chars[end].isNumber)
+                {
+                    end += 1
                 }
-                if j < chars.count, chars[j] == "$" {
-                    i = skip(to: String(chars[i...j]), from: j + 1)
+                if end < chars.count, chars[end] == "$" {
+                    i = skip(to: String(chars[i...end]), from: end + 1)
                 } else {
                     i += 1
                 }

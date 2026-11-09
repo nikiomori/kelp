@@ -70,14 +70,14 @@ extension Databases {
 
     func check(_ q: DatabaseCheck) async throws -> DatabaseCheckResult {
         let (wid, name) = (q.worktreeId, q.database.name)
-        var c = DatabaseConnection(database: q.database, password: q.password)
-        if c.password == nil {   // the one kept for it, when it's being edited
-            c.password = try await offloads.run { [self] in
+        var given = DatabaseConnection(database: q.database, password: q.password)
+        if given.password == nil {   // the one kept for it, when it's being edited
+            given.password = try await offloads.run { [self] in
                 do { return try connection(wid, name, agent: false).password } catch { return nil }
             }
         }
         let started = Date()
-        let typed = c
+        let typed = given
         let near = try await offloads.run { [self] in try reach(typed, wid) }
         do {
             let all = q.versionOnly != true
@@ -113,12 +113,12 @@ extension Databases {
                     path: "/usr/local/bin:/usr/bin:/bin", timeout: 10)
             else { return [] }
             return listed.split(whereSeparator: \.isNewline).compactMap { line in
-                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-                guard f.count == 4, let engine = Self.engine(image: f[2]) else { return nil }
+                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard fields.count == 4, let engine = Self.engine(image: fields[2]) else { return nil }
                 let inside = engine == .postgres ? 5432 : 3306
-                guard let port = Self.published(f[3], inside) else { return nil }
-                let env = Self.environment(docker, f[0])
-                var db = DatabaseInfo(name: f[1], engine: engine, host: "localhost", port: port)
+                guard let port = Self.published(fields[3], inside) else { return nil }
+                let env = Self.environment(docker, fields[0])
+                var db = DatabaseInfo(name: fields[1], engine: engine, host: "localhost", port: port)
                 if engine == .postgres {
                     db.user = env["POSTGRES_USER"] ?? "postgres"
                     db.database = env["POSTGRES_DB"] ?? db.user
@@ -126,8 +126,8 @@ extension Databases {
                     db.user = env["MYSQL_USER"] ?? env["MARIADB_USER"] ?? "root"
                     db.database = env["MYSQL_DATABASE"] ?? env["MARIADB_DATABASE"]
                 }
-                db.name = db.database ?? f[1]
-                return RunningDatabase(container: f[0], name: f[1], image: f[2], database: db)
+                db.name = db.database ?? fields[1]
+                return RunningDatabase(container: fields[0], name: fields[1], image: fields[2], database: db)
             }
         }
     }

@@ -19,12 +19,13 @@ enum AppwriteSQL {
         var orders: [(column: String, ascending: Bool)] = []
         var limit: Int?, offset: Int?
 
-        static func == (a: Select, b: Select) -> Bool {
-            a.table == b.table && a.columns == b.columns && a.count == b.count && a.condition == b.condition
-                && a.orders.map(\.column) == b.orders.map(\.column)
-                && a.orders.map(\.ascending)
-                    == b.orders.map(\.ascending)
-                && a.limit == b.limit && a.offset == b.offset
+        static func == (lhs: Select, rhs: Select) -> Bool {
+            lhs.table == rhs.table && lhs.columns == rhs.columns && lhs.count == rhs.count
+                && lhs.condition == rhs.condition
+                && lhs.orders.map(\.column) == rhs.orders.map(\.column)
+                && lhs.orders.map(\.ascending)
+                    == rhs.orders.map(\.ascending)
+                && lhs.limit == rhs.limit && lhs.offset == rhs.offset
         }
     }
     struct Insert: Equatable {
@@ -35,13 +36,17 @@ enum AppwriteSQL {
         case update(String, [(String, Value)], Condition)
         case delete(String, Condition)
 
-        static func == (a: Statement, b: Statement) -> Bool {
-            switch (a, b) {
-            case (.select(let x), .select(let y)): x == y
-            case (.insert(let x), .insert(let y)): x == y
-            case (.update(let t, let s, let c), .update(let u, let r, let d)):
-                t == u && c == d && s.map(\.0) == r.map(\.0) && s.map(\.1) == r.map(\.1)
-            case (.delete(let t, let c), .delete(let u, let d)): t == u && c == d
+        static func == (lhs: Statement, rhs: Statement) -> Bool {
+            switch (lhs, rhs) {
+            case (.select(let left), .select(let right)): left == right
+            case (.insert(let left), .insert(let right)): left == right
+            case (
+                .update(let table, let sets, let condition), .update(let otherTable, let otherSets, let otherCondition)
+            ):
+                table == otherTable && condition == otherCondition && sets.map(\.0) == otherSets.map(\.0)
+                    && sets.map(\.1) == otherSets.map(\.1)
+            case (.delete(let table, let condition), .delete(let otherTable, let otherCondition)):
+                table == otherTable && condition == otherCondition
             default: false
             }
         }
@@ -52,31 +57,31 @@ enum AppwriteSQL {
         + "[OFFSET n], INSERT INTO table (…) VALUES (…), UPDATE table SET … WHERE …, DELETE FROM table WHERE …."
 
     static func parse(_ sql: String) throws -> Statement {
-        var p = Parser(tokens: try tokens(sql))
+        var parser = Parser(tokens: try tokens(sql))
         let statement: Statement
-        if p.keyword("SELECT") {
-            statement = .select(try p.select())
-        } else if p.keyword("INSERT") {
-            try p.expect("INTO")
-            statement = .insert(try p.insert())
-        } else if p.keyword("UPDATE") {
-            let table = try p.name()
-            try p.expect("SET")
+        if parser.keyword("SELECT") {
+            statement = .select(try parser.select())
+        } else if parser.keyword("INSERT") {
+            try parser.expect("INTO")
+            statement = .insert(try parser.insert())
+        } else if parser.keyword("UPDATE") {
+            let table = try parser.name()
+            try parser.expect("SET")
             var set: [(String, Value)] = []
             repeat {
-                let column = try p.name()
-                try p.expectSymbol("=")
-                set.append((column, try p.value()))
-            } while p.symbol(",")
-            statement = .update(table, set, try p.required())
-        } else if p.keyword("DELETE") {
-            try p.expect("FROM")
-            let table = try p.name()
-            statement = .delete(table, try p.required())
+                let column = try parser.name()
+                try parser.expectSymbol("=")
+                set.append((column, try parser.value()))
+            } while parser.symbol(",")
+            statement = .update(table, set, try parser.required())
+        } else if parser.keyword("DELETE") {
+            try parser.expect("FROM")
+            let table = try parser.name()
+            statement = .delete(table, try parser.required())
         } else {
             throw DatabaseFailure.failed(help)
         }
-        guard p.done else { throw DatabaseFailure.failed(help) }
+        guard parser.done else { throw DatabaseFailure.failed(help) }
         return statement
     }
 
@@ -87,38 +92,42 @@ enum AppwriteSQL {
     }
 
     static func tokens(_ sql: String) throws -> [Token] {
-        let s = Array(sql)
+        let chars = Array(sql)
         var out: [Token] = [], i = 0
-        while i < s.count {
-            let c = s[i]
-            if c.isWhitespace || c == ";" {
+        while i < chars.count {
+            let char = chars[i]
+            if char.isWhitespace || char == ";" {
                 i += 1
-            } else if c == "'" || c == "\"" || c == "`" {
-                var j = i + 1, text = ""
+            } else if char == "'" || char == "\"" || char == "`" {
+                var end = i + 1, text = ""
                 while true {
-                    guard j < s.count else { throw DatabaseFailure.failed("A quote isn't closed.") }
-                    if s[j] == c {
-                        guard j + 1 < s.count, s[j + 1] == c else { break }
-                        j += 1
+                    guard end < chars.count else { throw DatabaseFailure.failed("A quote isn't closed.") }
+                    if chars[end] == char {
+                        guard end + 1 < chars.count, chars[end + 1] == char else { break }
+                        end += 1
                     }
-                    text.append(s[j])
-                    j += 1
+                    text.append(chars[end])
+                    end += 1
                 }
-                out.append(c == "'" ? .text(text) : .name(text))
-                i = j + 1
-            } else if c.isNumber || c == "-" && i + 1 < s.count && s[i + 1].isNumber {
-                var j = i + 1
-                while j < s.count, s[j].isNumber || s[j] == "." || s[j] == "e" || s[j] == "E" { j += 1 }
-                out.append(.number(String(s[i..<j])))
-                i = j
-            } else if c.isLetter || c == "_" || c == "$" {
-                var j = i + 1
-                while j < s.count, s[j].isLetter || s[j].isNumber || s[j] == "_" || s[j] == "$" { j += 1 }
-                out.append(.word(String(s[i..<j])))
-                i = j
+                out.append(char == "'" ? .text(text) : .name(text))
+                i = end + 1
+            } else if char.isNumber || char == "-" && i + 1 < chars.count && chars[i + 1].isNumber {
+                var end = i + 1
+                while end < chars.count,
+                    chars[end].isNumber || chars[end] == "." || chars[end] == "e" || chars[end] == "E"
+                { end += 1 }
+                out.append(.number(String(chars[i..<end])))
+                i = end
+            } else if char.isLetter || char == "_" || char == "$" {
+                var end = i + 1
+                while end < chars.count,
+                    chars[end].isLetter || chars[end].isNumber || chars[end] == "_" || chars[end] == "$"
+                { end += 1 }
+                out.append(.word(String(chars[i..<end])))
+                i = end
             } else {
-                let two = i + 1 < s.count ? String(s[i...i + 1]) : ""
-                let symbol = ["<>", "!=", "<=", ">=", "::"].contains(two) ? two : String(c)
+                let two = i + 1 < chars.count ? String(chars[i...i + 1]) : ""
+                let symbol = ["<>", "!=", "<=", ">=", "::"].contains(two) ? two : String(char)
                 out.append(.symbol(symbol))
                 i += symbol.count
             }
@@ -133,7 +142,7 @@ enum AppwriteSQL {
         private var next: Token? { at < tokens.count ? tokens[at] : nil }
 
         mutating func keyword(_ k: String) -> Bool {
-            guard case .word(let w) = next, w.caseInsensitiveCompare(k) == .orderedSame else { return false }
+            guard case .word(let word) = next, word.caseInsensitiveCompare(k) == .orderedSame else { return false }
             at += 1
             return true
         }
@@ -153,8 +162,8 @@ enum AppwriteSQL {
         mutating func name() throws -> String {
             let found: String
             switch next {
-            case .word(let w): found = w
-            case .name(let n): found = n
+            case .word(let word): found = word
+            case .name(let quoted): found = quoted
             default: throw DatabaseFailure.failed("Expected a name. " + AppwriteSQL.help)
             }
             at += 1
@@ -166,17 +175,17 @@ enum AppwriteSQL {
             let token = next
             at += 1
             switch token {
-            case .text(let t): return .text(t)
-            case .number(let n): return .number(n)
-            case .word(let w) where w.uppercased() == "NULL": return .null
-            case .word(let w) where w.uppercased() == "TRUE": return .bool(true)
-            case .word(let w) where w.uppercased() == "FALSE": return .bool(false)
+            case .text(let text): return .text(text)
+            case .number(let number): return .number(number)
+            case .word(let word) where word.uppercased() == "NULL": return .null
+            case .word(let word) where word.uppercased() == "TRUE": return .bool(true)
+            case .word(let word) where word.uppercased() == "FALSE": return .bool(false)
             default: throw DatabaseFailure.failed("Expected a value. " + AppwriteSQL.help)
             }
         }
 
         mutating func number() throws -> Int {
-            guard case .number(let n) = try value(), let int = Int(n) else {
+            guard case .number(let digits) = try value(), let int = Int(digits) else {
                 throw DatabaseFailure.failed("Expected a number.")
             }
             return int
@@ -195,20 +204,20 @@ enum AppwriteSQL {
                 columns = names
             }
             try expect("FROM")
-            var s = Select(table: try name(), columns: columns, count: count)
-            if keyword("WHERE") { s.condition = try any() }
+            var query = Select(table: try name(), columns: columns, count: count)
+            if keyword("WHERE") { query.condition = try any() }
             if keyword("ORDER") {
                 try expect("BY")
                 repeat {
                     let column = try name()
                     let descending = keyword("DESC")
                     if !descending { _ = keyword("ASC") }
-                    s.orders.append((column, !descending))
+                    query.orders.append((column, !descending))
                 } while symbol(",")
             }
-            if keyword("LIMIT") { s.limit = try number() }
-            if keyword("OFFSET") { s.offset = try number() }
-            return s
+            if keyword("LIMIT") { query.limit = try number() }
+            if keyword("OFFSET") { query.offset = try number() }
+            return query
         }
 
         mutating func insert() throws -> Insert {
@@ -289,11 +298,11 @@ enum AppwriteSQL {
                 throw DatabaseFailure.failed("Expected a comparison after \(column). " + AppwriteSQL.help)
             }
             at += 1
-            let v = try value()
-            if v == .null, method == "equal" || method == "notEqual" {
+            let operand = try value()
+            if operand == .null, method == "equal" || method == "notEqual" {
                 return .test(method == "equal" ? "isNull" : "isNotNull", column, [])
             }
-            return .test(method, column, [v])
+            return .test(method, column, [operand])
         }
 
         /// '%a%' contains, 'a%' starts with, '%a' ends with, 'a' equals.
