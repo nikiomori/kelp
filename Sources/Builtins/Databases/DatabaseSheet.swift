@@ -223,7 +223,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         var db = DatabaseInfo(
             name: "", engine: preset.engine, host: preset.engine.isFile ? nil : "localhost", port: preset.port)
         db.ssl = preset.ssl
-        if preset.speaks != nil, !preset.engine.isFile { db.host = "" }   // a service's host is its own
+        if preset.speaks != nil || preset.engine == .appwrite, !preset.engine.isFile { db.host = "" }   // its own host
         openForm(DatabaseAddress(database: db), preset: preset)
     }
 

@@ -96,19 +96,23 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             let line = NSStackView(views: [host, port])
             line.spacing = Metrics.gap
             rows += [
-                (appwrite ? String(localized: "Endpoint") : String(localized: "Host"), line),
+                (appwrite ? String(localized: "Endpoint") : String(localized: "Host"), appwrite ? host : line),
                 (appwrite ? String(localized: "Project ID") : String(localized: "User"), user),
                 (appwrite ? String(localized: "API Key") : String(localized: "Password"), password),
                 (String(localized: "Database"), database)
             ]
         }
         var parts: [NSView] = [heading, SheetForm.grid(rows)]
+        var wide: [NSView] = []
         if let hint = preset?.hint {
-            let note = DatabaseSheet.small(hint)
-            note.lineBreakMode = .byWordWrapping
+            let note = NSTextField(wrappingLabelWithString: hint)
+            note.font = .ui(11)
+            note.textColor = .secondaryLabelColor
             parts.append(note)
+            wide.append(note)
         }
-        if !engine.isFile { parts += folds(db) }
+        // Appwrite is a URL: its scheme says SSL, and an SSH tunnel would need a port and break its certificate
+        if !engine.isFile, !appwrite { parts += folds(db) }
         let separator = NSBox()
         separator.boxType = .separator
         parts.append(separator)
@@ -155,7 +159,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         let buttons = NSStackView(views: [back, NSView(), cancel, add])
         buttons.spacing = Metrics.gapWide
         parts += [status, buttons]
-        view = SheetForm.stack(parts, wide: [separator, status, buttons], width: DatabaseSheet.width)
+        view = SheetForm.stack(parts, wide: wide + [separator, status, buttons], width: DatabaseSheet.width)
         changed()
         check(after: 0)
     }
