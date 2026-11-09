@@ -8,6 +8,9 @@ import KelpKit
 @MainActor
 final class SyncPopover: NSViewController {
     private static let width: CGFloat = 320, shown = 5   // a popover of commits, as the commit card
+    /// What reaches past the words' edge: the pad a link line and a text button grey in under the pointer, so their
+    /// words keep to the same edge as every other line.
+    private static let bleed: CGFloat = 4
     private static let captionAttributes: [NSAttributedString.Key: Any] =
         [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
 
@@ -68,7 +71,7 @@ final class SyncPopover: NSViewController {
         fetch.toolTip = String(localized: "Fetch from the remote")
         let head = NSStackView()
         head.alignment = .top
-        head.setViews([column([name, state], spacing: 2)], in: .leading)
+        head.setViews([name], in: .leading)
         head.setViews([fetch], in: .trailing)
 
         // The popover's one action, in words alone and the accent (macOS 26's primary tint; the bezel colour before it).
@@ -107,7 +110,9 @@ final class SyncPopover: NSViewController {
         nothing.font = .ui(12)
         nothing.textColor = .secondaryLabelColor
         hint.font = .ui(11)
-        hint.textColor = .tertiaryLabelColor
+        hint.textColor = .secondaryLabelColor   // shown only once there's a message: it says what the keys will do
+        // Disabled, the button is its word alone (see showChanges): one box, the field's, not two. Its width stays put.
+        commit.widthAnchor.constraint(equalToConstant: commit.fittingSize.width).isActive = true
 
         // The whole line is the link, its chevron too: it greys in under the pointer and springs when clicked.
         let footer = LinkRow(String(localized: "Open Source Control")) { [weak self] in
@@ -117,24 +122,30 @@ final class SyncPopover: NSViewController {
 
         let rules = (rule(), rule())
         root.orientation = .vertical
-        root.alignment = .leading
+        // Every line is centred and as wide as the words, or as wide plus its pad on each side: one left edge.
+        root.alignment = .centerX
         root.spacing = 8
-        root.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 8, right: 14)
+        let side = Metrics.inset - Self.bleed
+        root.edgeInsets = NSEdgeInsets(top: Metrics.inset, left: side, bottom: Metrics.gapWide, right: side)
         root.setViews(
             [
-                head, status, primary, ci, outgoing, incoming, rules.0, changeHead, field, nothing, hint, rules.1,
-                footer
+                head, state, status, primary, ci, outgoing, incoming, rules.0, changeHead, field, nothing, hint,
+                rules.1, footer
             ], in: .top)
         let gaps: [(NSView, CGFloat)] = [
-            (head, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16), (rules.0, 12), (field, 6), (hint, 12),
-            (rules.1, 4)
+            (head, Metrics.lineGap), (state, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16),
+            (rules.0, 12), (field, 12), (hint, 12), (rules.1, 4)
         ]
         for (part, gap) in gaps {
             root.setCustomSpacing(gap, after: part)
         }
-        for part in [head, status, primary, changeHead, field, footer] as [NSView] {
+        for part in [state, status, primary, outgoing, incoming, changeHead, field, nothing, hint] as [NSView] {
             part.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         }
+        for part in [head, footer] as [NSView] {
+            part.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
+        }
+        ci.alignment = .centerX   // its caption on the words' edge, its runs' pads past it
 
         popover?.hasFullSizeContent = true   // the ground reaches under the arrow, else the arrow shows the glass
         view = Self.ground(root)
@@ -189,15 +200,6 @@ final class SyncPopover: NSViewController {
         view.window?.makeFirstResponder(nil)
     }
 
-    private func column(_ views: [NSView], spacing: CGFloat) -> NSStackView {
-        let stack = NSStackView(views: views)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = spacing
-        stack.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        return stack
-    }
-
     private func rule() -> NSView {
         let line = NSBox()
         line.boxType = .separator
@@ -233,7 +235,7 @@ final class SyncPopover: NSViewController {
         showStatus(running)
         loadLists(info)
         showLists(ahead: ahead, behind: behind, published: published)
-        showCI(on: info?.upstream ?? info?.current)
+        showCI()
         showChanges()
         fit()
     }
@@ -359,17 +361,17 @@ final class SyncPopover: NSViewController {
         incoming.setViews([toggle] + rows, in: .top)
     }
 
-    /// "CI · origin/main" and the newest run of each workflow (CI and deploys apart), as CI Runs marks them; a row opens
-    /// CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
-    private func showCI(on branch: String?) {
+    /// "CI" (the line under the title names the branch) and the newest run of each workflow (CI and deploys apart), as
+    /// CI Runs marks them; a row opens CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
+    private func showCI() {
         let runs =
             !app.settings[SettingKeys.ciPopover]
             ? [] : CIRuns.latest(app.latest(CIEvent.self, folder)?.result?.runs ?? [])
         ci.isHidden = runs.isEmpty
         guard !runs.isEmpty else { return }
         let head = NSTextField(labelWithString: "")
-        head.attributedStringValue = NSAttributedString(
-            string: ["CI", branch].compactMap { $0 }.joined(separator: " · "), attributes: Self.captionAttributes)
+        head.attributedStringValue = NSAttributedString(string: "CI", attributes: Self.captionAttributes)
+        head.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         let shown = runs.prefix(3).map { run in
             let words = label(CIRunLook.words(run.status, run.conclusion))
             words.lineBreakMode = .byTruncatingTail
@@ -389,7 +391,7 @@ final class SyncPopover: NSViewController {
                 popover?.performClose(nil)
             }
             line.toolTip = run.title + "\n" + String(localized: "Click to open CI Runs")
-            line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+            line.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
             return line as NSView
         }
         ci.setViews([head] + shown + more(runs.count - shown.count), in: .top)
@@ -406,7 +408,12 @@ final class SyncPopover: NSViewController {
     /// "11m", as the sidebar and the graph write how long ago (the relative formatter's short style wrote "−11 мин" in Russian).
     private func when(_ commit: Unsynced.Commit) -> String { shortAgo(Date(timeIntervalSince1970: commit.date)) }
 
-    private func more(_ count: Int) -> [NSView] { count > 0 ? [label(String(localized: "and \(count) more"))] : [] }
+    private func more(_ count: Int) -> [NSView] {
+        guard count > 0 else { return [] }
+        let line = label(String(localized: "and \(count) more"))
+        line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        return [line]
+    }
 
     private func row(_ commit: Unsynced.Commit, trailing: String) -> NSView {
         let hash = label(commit.hash, size: 11)
@@ -443,9 +450,12 @@ final class SyncPopover: NSViewController {
         stats.attributedStringValue = text
         field.isHidden = changed == 0
         nothing.isHidden = changed > 0
-        hint.isHidden = changed == 0 || !hasRemote
+        let typed = !message.stringValue.trimmingCharacters(in: .whitespaces).isEmpty
+        hint.isHidden = changed == 0 || !hasRemote || !typed
+        root.setCustomSpacing(hint.isHidden ? 12 : 6, after: field)
         let blocked = list.contains(where: \.conflicted) || GitSync.state(app).running[wid] != nil || committing
-        commit.isEnabled = !message.stringValue.trimmingCharacters(in: .whitespaces).isEmpty && !blocked
+        commit.isEnabled = typed && !blocked
+        commit.isBordered = commit.isEnabled
         message.isEnabled = !committing
     }
 
