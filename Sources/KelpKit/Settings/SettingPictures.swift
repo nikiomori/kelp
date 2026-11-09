@@ -7,7 +7,7 @@ import SwiftUI
 enum SettingPictures {
     /// What the shell draws; a built-in draws its own settings' (`SettingsSection.pictures`).
     static let keys: Set<String> = [
-        SettingKeys.textSize.key, SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
+        SettingKeys.textSize.key, SettingKeys.tabWidth.key, SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
         SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.dockIcon.key, SettingKeys.cursorStyle.key
     ]
 }
@@ -94,6 +94,7 @@ private struct PictureArt: View {
     var body: some View {
         switch key {
         case SettingKeys.textSize.key: textSize
+        case SettingKeys.tabWidth.key: tabs
         case SettingKeys.rowHeight.key: rows(["compact": 24, "regular": 28, "large": 32][option] ?? 28)
         case SettingKeys.agentDetail.key: agentRow
         case SettingKeys.projectColor.key: projectRow
@@ -136,6 +137,22 @@ private struct PictureArt: View {
             }
         }
         .padding(.horizontal, 12)
+    }
+
+    /// A strip of tabs: two wide ones, four narrow ones, or three that narrowed as more came.
+    private var tabs: some View {
+        let (count, width): (Int, CGFloat) = ["regular": (2, 44), "compact": (4, 22)][option] ?? (3, 30)
+        return HStack(spacing: 2) {
+            ForEach(0..<count, id: \.self) { index in
+                HStack(spacing: 3) {
+                    Circle().fill(Color.primary.opacity(0.45)).frame(width: 5, height: 5)
+                    line(width - 14)
+                }
+                .padding(.horizontal, 4).frame(width: width, height: 14, alignment: .leading)
+                .background(Color.primary.opacity(index == 0 ? 0.14 : 0.06), in: Capsule())
+            }
+        }
+        .padding(.horizontal, 12).frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Three rows at the sidebar's own heights, halved.

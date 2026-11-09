@@ -29,8 +29,21 @@ final class TabButton: NSControl, NSDraggingSource {
         }
     }
     private let slot = NSView()
-    /// The title keeps about twelve letters however many tabs there are; the rest scroll and are in the ▾ menu.
+    private let row = NSStackView()
+    /// The title keeps about twelve letters however many tabs there are (six when compact); the rest scroll and are in
+    /// the ▾ menu.
     private lazy var titleMin = title.widthAnchor.constraint(greaterThanOrEqualToConstant: 0)
+    private lazy var widest = widthAnchor.constraint(lessThanOrEqualToConstant: 300)
+    private lazy var narrowest = widthAnchor.constraint(greaterThanOrEqualToConstant: 76)
+    private lazy var comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
+    /// Settings › Appearance › Tab width: 60–160 pt, tighter insets, six letters kept; its marks and meter stay.
+    var compact = false {
+        didSet {
+            guard compact != oldValue else { return }
+            applyWidth()
+            updateLook()
+        }
+    }
 
     /// Like Safari and Xcode: the close button takes the icon's place on hover; the selected tab is a quiet fill.
     init() {
@@ -67,22 +80,18 @@ final class TabButton: NSControl, NSDraggingSource {
             close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
         ])
         full.font = .uiDigits(10, weight: .semibold)
-        let row = NSStackView(views: [slot, title, chip, meter, full])
-        row.spacing = 6
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 10)
+        for part in [slot, title, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
+        applyWidth()
         pin(row)
         content = row
         pin(edgeGlow)   // over the row, as the pane's ring is over its content; clicks go through it
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 28),
-            widthAnchor.constraint(lessThanOrEqualToConstant: 300),
-            widthAnchor.constraint(greaterThanOrEqualToConstant: 76),
+            heightAnchor.constraint(equalToConstant: 28), widest, narrowest,
             slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16)
         ])
         // Below the strip's `fit` (245): a squeezed tab truncates its title with "…" (the row never clips it). Under that
         // again its comfortable width: a short title gives up its air before a long one loses letters.
         title.setContentCompressionResistancePriority(.init(240), for: .horizontal)
-        let comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
         comfortable.priority = .init(239)
         comfortable.isActive = true
         titleMin.priority = .init(999)   // over the strip's `fit`: a tab at it widens the strip, which scrolls
@@ -161,7 +170,7 @@ final class TabButton: NSControl, NSDraggingSource {
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
         // Finished and not looked at: told by its title's weight alone, as unread mail is.
         title.font = .ui(12, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
-        titleMin.constant = Self.minTitle(title.stringValue, font: title.font ?? .ui(12))
+        titleMin.constant = Self.minTitle(title.stringValue, font: title.font ?? .ui(12), letters: compact ? 6 : 12)
         icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
         // One plate in the window, on the tab you're in; a pane's chosen tab elsewhere is told by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
@@ -199,11 +208,26 @@ final class TabButton: NSControl, NSDraggingSource {
 
     private var doneUnread: Bool { item?.status == .done && item?.unread == true }
 
-    /// Up to twelve letters of `text` (all of a shorter one), so many tabs don't leave four letters of each.
-    static func minTitle(_ text: String, font: NSFont) -> CGFloat {
-        let twelve = NSAttributedString(string: String(repeating: "n", count: 12), attributes: [.font: font]).size()
+    private func applyWidth() {
+        widest.constant = compact ? 160 : 300
+        narrowest.constant = compact ? 60 : 76
+        comfortable.constant = compact ? 60 : 110
+        row.spacing = compact ? 4 : 6
+        row.edgeInsets = NSEdgeInsets(top: 0, left: compact ? 6 : 8, bottom: 0, right: compact ? 8 : 10)
+    }
+
+    /// How narrow it gets at the regular width: Automatic turns the strip compact once these no longer fit.
+    var regularMinimum: CGFloat {
+        let others = [chip, meter, full].filter { !$0.isHidden }.reduce(0) { $0 + $1.fittingSize.width + 6 }
+        let text = Self.minTitle(title.stringValue, font: title.font ?? .ui(12), letters: 12)
+        return max(76, 8 + 16 + 6 + text + others + 10)
+    }
+
+    /// Up to `letters` letters of `text` (all of a shorter one), so many tabs don't leave four letters of each.
+    static func minTitle(_ text: String, font: NSFont, letters: Int = 12) -> CGFloat {
+        let most = NSAttributedString(string: String(repeating: "n", count: letters), attributes: [.font: font]).size()
             .width
-        return ceil(min(twelve, NSAttributedString(string: text, attributes: [.font: font]).size().width))
+        return ceil(min(most, NSAttributedString(string: text, attributes: [.font: font]).size().width))
     }
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()

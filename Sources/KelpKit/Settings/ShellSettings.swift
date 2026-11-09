@@ -5,6 +5,8 @@ extension SettingKeys {
     static let theme = Setting("workbench.theme", "auto")
     static let textSize = Setting("workbench.textSize", "normal")
     static let terminalOpacity = Setting("terminal.opacity", "theme")
+    /// "regular", "compact", or "auto" (compact once the tabs no longer fit).
+    static let tabWidth = Setting("workbench.tabWidth", "auto")
     static let sideBySideButton = Setting("workbench.sideBySideButton", true)
     static let awakeButton = Setting("workbench.awakeButton", true)
     @MainActor static let iconTheme = Setting("workbench.iconTheme", FileIcon.standard)

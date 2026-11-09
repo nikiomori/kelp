@@ -75,6 +75,13 @@ package enum Builtins {
                         help:
                             "Everything but code: sidebar, inspector, tabs, bars and popovers. The terminal and the editor have their own font sizes.",
                         options: ["normal", "large", "larger"], look: "pictures"),
+                    s(SettingKeys.tabWidth, "Tab width", "enum",
+                        "Compact keeps six letters of a title, so more agents fit in a pane.",
+                        help:
+                            "Compact keeps six letters of a title, so more agents fit in a pane. Automatic stays Regular "
+                            + "while the tabs fit and turns Compact when they don't. Also in a tab's right-click menu.",
+                        options: ["auto", "regular", "compact"], labels: ["auto": String(localized: "Automatic")],
+                        look: "pictures"),
                     s(SettingKeys.terminalOpacity, "Terminal opacity", "enum",
                         "The desktop shows through the terminals, in any theme.",
                         help:

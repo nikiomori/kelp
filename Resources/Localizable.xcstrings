@@ -21099,6 +21099,50 @@
           }
         }
       }
+    },
+    "Tab width": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина вкладок"
+          }
+        }
+      }
+    },
+    "Tab Width": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ширина вкладок"
+          }
+        }
+      }
+    },
+    "Compact keeps six letters of a title, so more agents fit in a pane.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компактные оставляют шесть букв названия, и в панель помещается больше агентов."
+          }
+        }
+      }
+    },
+    "Compact keeps six letters of a title, so more agents fit in a pane. Automatic stays Regular while the tabs fit and turns Compact when they don't. Also in a tab's right-click menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компактные оставляют шесть букв названия, и в панель помещается больше агентов. «Автоматически» — обычные, пока вкладки помещаются, и компактные, когда нет. Ещё есть в меню вкладки по правому клику."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

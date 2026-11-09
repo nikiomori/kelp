@@ -83,7 +83,17 @@ final class TabStrip: NSView {
     private var laidOutWidth: CGFloat = 0
     /// How wide the tabs and the buttons beside them want to be: the same at any width of the strip, and asking takes a
     /// layout pass, for each step of a panel sliding by.
-    private var measured: (tabs: CGFloat, others: CGFloat)?
+    private var measured: (tabs: CGFloat, others: CGFloat, regular: CGFloat)?
+    /// Settings › Appearance › Tab width: "regular", "compact", or "auto": regular while the tabs fit at their
+    /// narrowest, compact once they would scroll.
+    var tabWidth = "auto" {
+        didSet {
+            guard tabWidth != oldValue else { return }
+            measured = nil
+            needsLayout = true
+        }
+    }
+    private var compact = false
     private var revealing = false
 
     override init(frame: NSRect) {
@@ -247,6 +257,7 @@ final class TabStrip: NSView {
     private func newButton() -> TabButton {
         let button = TabButton()
         button.strip = self
+        button.compact = compact
         return button
     }
 
@@ -272,10 +283,19 @@ final class TabStrip: NSView {
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
         // Before super.layout(): set after it, the constant only took effect on the next pass, so a tab whose title
         // grew (a page finishing loading) stayed clipped until something else laid the strip out.
-        let sizes =
-            measured ?? (stack.fittingSize.width, (overflow.superview?.fittingSize.width ?? 0) + adds.fittingSize.width)
+        var sizes = measured ?? measure()
+        var room = bounds.width - 6 - sizes.others - 2
+        // The chevron's room counts as the tabs': showing it mustn't turn them back to regular.
+        let squeezed = sizes.regular > room + (overflow.isHidden ? 0 : overflow.fittingSize.width + 6)
+        let compact = tabWidth == "compact" || tabWidth == "auto" && squeezed
+        if compact != self.compact {
+            self.compact = compact
+            buttons.forEach { $0.compact = compact }
+            sizes = measure()
+            room = bounds.width - 6 - sizes.others - 2
+        }
         measured = sizes
-        let natural = sizes.tabs, room = bounds.width - 6 - sizes.others - 2
+        let natural = sizes.tabs
         let offset = max(0, min(natural, room))
         if abs((addLead?.constant ?? 0) - offset) > 0.5 { addLead?.constant = offset }
         let fits = natural <= room + 1
@@ -290,6 +310,14 @@ final class TabStrip: NSView {
             laidOutWidth = bounds.width
             revealSoon()
         }
+    }
+
+    private func measure() -> (tabs: CGFloat, others: CGFloat, regular: CGFloat) {
+        let gaps = CGFloat(max(buttons.count - 1, 0)) * stack.spacing + stack.edgeInsets.left + stack.edgeInsets.right
+        return (
+            stack.fittingSize.width, (overflow.superview?.fittingSize.width ?? 0) + adds.fittingSize.width,
+            buttons.reduce(gaps) { $0 + $1.regularMinimum }
+        )
     }
 
     /// Tabs cut by the strip's ends fade out there, so a cut one reads as "more this way", not as a broken tab.
