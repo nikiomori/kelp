@@ -139,7 +139,7 @@ extension Databases {
             : env["MYSQL_PASSWORD"] ?? env["MARIADB_PASSWORD"]
     }
 
-    private static func docker() -> String? {
+    static func docker() -> String? {
         do {
             return try DatabaseEngines.client(
                 "docker",

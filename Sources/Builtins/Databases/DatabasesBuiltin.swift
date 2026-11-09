@@ -87,14 +87,15 @@ extension DatabasesEvent: Pushed {
     package static var forgottenWith: WatchTopic? { .databases }
 }
 
-/// "db:<workspace>/<name>", and "?run=<id>" for one run's rows.
+/// "db:<workspace>/<name>", "?run=<id>" for one run's rows, "?table=<name>" for a table's.
 struct DatabaseURI: Equatable {
-    var worktree: String, name: String, run: String?
+    var worktree: String, name: String, run: String?, table: String?
 
-    init(worktree: String, name: String, run: String? = nil) {
+    init(worktree: String, name: String, run: String? = nil, table: String? = nil) {
         self.worktree = worktree
         self.name = name
         self.run = run
+        self.table = table
     }
 
     init?(_ uri: String) {
@@ -105,11 +106,15 @@ struct DatabaseURI: Equatable {
         worktree = parts[0]
         name = parts[1].removingPercentEncoding ?? parts[1]
         run = body.count > 1 && body[1].hasPrefix("run=") ? String(body[1].dropFirst(4)) : nil
+        table =
+            body.count > 1 && body[1].hasPrefix("table=")
+            ? String(body[1].dropFirst(6)).removingPercentEncoding : nil
     }
 
     var uri: String {
         let name = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
-        return "db:\(worktree)/\(name)" + (run.map { "?run=" + $0 } ?? "")
+        let table = table.map { "?table=" + ($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0) }
+        return "db:\(worktree)/\(name)" + (run.map { "?run=" + $0 } ?? table ?? "")
     }
 }
 
@@ -180,6 +185,16 @@ enum DatabaseLook {
         case .read: String(localized: "read")
         case .ask: String(localized: "ask")
         case .free: String(localized: "free")
+        }
+    }
+
+    /// What agents may do, as the panel's icon: not see it, read it, ask to change it, change it.
+    static func accessSymbol(_ access: DatabaseInfo.Access) -> String {
+        switch access {
+        case .hidden: "eye.slash"
+        case .read: "eye"
+        case .ask: "hand.raised"
+        case .free: "pencil"
         }
     }
 

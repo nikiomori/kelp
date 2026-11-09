@@ -141,3 +141,42 @@ public struct DatabaseImport: InternalMethod {
         self.useHere = useHere
     }
 }
+
+// MARK: The panel's dots
+
+/// Whether each of the workspace's databases answers, tried once with a short limit; never dials a remote host (an SSH
+/// host or a remote project's with no open connection says so instead).
+public struct DatabaseStatus: InternalMethod {
+    public static let name = "db.status"
+    public typealias Result = [DatabaseHealth]
+    public static var timeout: TimeInterval? { 30 }
+    public var worktreeId: String
+    public init(worktreeId: String) { self.worktreeId = worktreeId }
+}
+
+public struct DatabaseHealth: Codable, Sendable, Equatable {
+    public enum State: String, Codable, Sendable, CaseIterable {
+        /// It answered. Stopped: its compose service isn't running (`db.start` starts it). Down: it didn't answer, or
+        /// refused (`reason`). Unknown: not tried (a host over SSH with no connection open).
+        case ok, stopped, down, unknown
+    }
+    public var name: String, state: State
+    public var reason: String?
+    public init(name: String, state: State, reason: String? = nil) {
+        self.name = name
+        self.state = state
+        self.reason = reason
+    }
+}
+
+/// Starts the compose service a database runs in (`docker compose up -d <service>`).
+public struct DatabaseStart: InternalMethod {
+    public static let name = "db.start"
+    public typealias Result = Done
+    public static var timeout: TimeInterval? { 180 }
+    public var worktreeId: String, name: String
+    public init(worktreeId: String, name: String) {
+        self.worktreeId = worktreeId
+        self.name = name
+    }
+}

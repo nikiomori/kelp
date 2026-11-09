@@ -587,3 +587,36 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(found[1].database.engine == .mysql && found[1].password == "pw")
     #expect(DatabaseFind.matters(root + "/.idea/dataSources.xml"))
 }
+
+/// Compose's ports written as a flow list on one line count as much as a block list.
+@Test func composePortsOnOneLineAreRead() {
+    let compose = """
+        services:
+          db:
+            image: postgres:16-alpine
+            ports: ["55432:5432", "9000:9000"]
+            environment:
+              POSTGRES_PASSWORD: secret
+        """
+    let found = DatabaseFind.parse([("compose.yaml", compose)], root: "/p")
+    #expect(found.first?.database.port == 55432 && found.first?.database.host == "localhost")
+}
+
+/// The panel's dots: a file there answers, one gone is down with why; a server nothing listens for is down too, and
+/// only a compose service can be started.
+@Test func eachDatabaseSaysWhetherItAnswers() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    _ = try shopDB(in: wt.path)
+    _ = try await w.c.call(
+        DatabaseSave(worktreeId: wt.id, database: DatabaseInfo(name: "gone", engine: .sqlite, path: "/tmp/nope.db")))
+    _ = try await w.c.call(
+        DatabaseSave(
+            worktreeId: wt.id,
+            database: DatabaseInfo(name: "pg", engine: .postgres, host: "localhost", port: 5499, database: "x")))
+    let dots = try await w.c.call(DatabaseStatus(worktreeId: wt.id))
+    #expect(dots.map(\.name) == ["shop", "gone", "pg"])
+    #expect(dots.map(\.state) == [.ok, .down, .down] && dots[1].reason == "The file isn't there.")
+    await #expect(throws: RPCError.self) { try await w.c.call(DatabaseStart(worktreeId: wt.id, name: "pg")) }
+}

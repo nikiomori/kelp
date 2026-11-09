@@ -300,7 +300,13 @@ enum DatabaseFind {
             let key = String(trimmed[..<colon]), value = unquoted(String(trimmed[trimmed.index(after: colon)...]))
             if indent == serviceIndent + 2 || section.isEmpty {
                 section = value.isEmpty ? key : ""
-                if !value.isEmpty { services[last].values[key] = value }
+                // A flow list on the key's own line: ports: ["5433:5432", "8080:80"]
+                if key == "ports", value.hasPrefix("[") {
+                    services[last].ports += value.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+                        .split(separator: ",").map { unquoted($0.trimmingCharacters(in: .whitespaces)) }
+                } else if !value.isEmpty {
+                    services[last].values[key] = value
+                }
             } else if section == "environment" {
                 services[last].env[key] = value
             }

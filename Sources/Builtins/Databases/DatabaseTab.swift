@@ -197,7 +197,11 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         }
         tables = schema.tables
         tableList.reloadData()
-        if mode == .query, address.run == nil, !chosen, let first = tables.first {
+        let named = address.table.flatMap { name in tables.first { $0.name == name } }
+        if mode == .query, address.run == nil, !chosen, let first = named ?? tables.first {
+            if let row = tables.firstIndex(where: { $0.name == first.name }) {
+                tableList.selectRowIndexes([row], byExtendingSelection: false)
+            }
             mode = .table(first.name)
             await showTable(first.name)
         }
@@ -418,12 +422,15 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         if case .run(let id) = mode, let sid = record(id)?.session, let s = app.session(sid), s.status != .exited {
             return s
         }
-        if let sid = app.workbench.focusedSession, let s = app.session(sid), s.worktreeId == address.worktree,
-            s.agent != nil
-        {
+        return Self.agent(app, worktree: address.worktree)
+    }
+
+    /// The agent in focus in the workspace, else its last one still there: who "Ask Agent" hands things to.
+    static func agent(_ app: AppModel, worktree: String) -> Session? {
+        if let sid = app.workbench.focusedSession, let s = app.session(sid), s.worktreeId == worktree, s.agent != nil {
             return s
         }
-        return app.sessions.last { $0.worktreeId == address.worktree && $0.agent != nil && $0.status != .exited }
+        return app.sessions.last { $0.worktreeId == worktree && $0.agent != nil && $0.status != .exited }
     }
 
     @objc private func askAgent() {

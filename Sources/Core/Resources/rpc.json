@@ -935,6 +935,33 @@
         ],
         "type" : "object"
       },
+      "DatabaseHealth" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/DatabaseHealth.State"
+          }
+        },
+        "required" : [
+          "name",
+          "state"
+        ],
+        "type" : "object"
+      },
+      "DatabaseHealth.State" : {
+        "enum" : [
+          "ok",
+          "stopped",
+          "down",
+          "unknown"
+        ],
+        "type" : "string"
+      },
       "DatabaseInfo" : {
         "description" : "A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.",
         "properties" : {
@@ -5716,6 +5743,58 @@
           "$ref" : "#/components/schemas/DatabaseSchema"
         }
       }
+    },
+    {
+      "description" : "Starts the compose service a database runs in (`docker compose up -d <service>`).",
+      "name" : "db.start",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Whether each of the workspace's databases answers, tried once with a short limit; never dials a remote host (an SSH host or a remote project's with no open connection says so instead).",
+      "name" : "db.status",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/DatabaseHealth"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "One of \"All my projects\" used in the workspace's project: its agents see it from now on, as `access` says.",
