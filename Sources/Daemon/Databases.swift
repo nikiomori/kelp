@@ -31,6 +31,9 @@ final class Databases: Sendable {
     let store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots
     /// Runs kept per workspace (newest first), and the rows of the latest of them.
     static let keptRuns = 100, keptResults = 30
+    /// What's kept of a result, and sent to an agent: a cell to 16 KB, the rows to 1 MB in all; the workspaces whose
+    /// runs are kept, the latest.
+    static let keptCell = 16 << 10, keptBytes = 1 << 20, keptWorkspaces = 20
 
     private struct Kept {
         var runs: [DatabaseRun] = []
@@ -385,6 +388,12 @@ final class Databases: Sendable {
                 mine.results = mine.results.filter { keep.contains($0.key) }
             }
             all[worktreeId] = mine
+            if all.count > Self.keptWorkspaces {   // the one whose latest run is oldest goes
+                let oldest = all.min {
+                    ($0.value.runs.first?.at ?? .distantPast) < ($1.value.runs.first?.at ?? .distantPast)
+                }
+                if let oldest, oldest.key != worktreeId { all[oldest.key] = nil }
+            }
         }
         touch(worktreeId)
     }
@@ -428,7 +437,7 @@ final class Databases: Sendable {
             let timeout = min(300, max(1, sessions.settings[SettingKeys.databaseTimeout]))
             guard SQLText.mayTryAsRead(sql, c.database.engine) else { throw DatabaseFailure.change }
             let rows = try await DatabaseEngines.read(c, sql, timeout: timeout, off: offloads)
-            return finish(q, &run, rows, started: started)
+            return finish(q, &run, rows, started: started, agent: forAgent)
         } catch DatabaseFailure.change {
             switch access {
             case .hidden, .read:
@@ -452,13 +461,15 @@ final class Databases: Sendable {
                 do {
                     let rows = try await DatabaseEngines.write(c, sql, off: offloads)
                     run.state = .done
-                    return finish(q, &run, rows, started: started)
+                    return finish(q, &run, rows, started: started, agent: forAgent)
                 } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
             }
         } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
     }
 
-    private func finish(_ q: DatabaseQuery, _ run: inout DatabaseRun, _ rows: DatabaseRows, started: Date)
+    private func finish(
+        _ q: DatabaseQuery, _ run: inout DatabaseRun, _ rows: DatabaseRows, started: Date, agent: Bool
+    )
         -> QueryResult
     {
         let ms = Int(Date().timeIntervalSince(started) * 1000)
@@ -473,13 +484,32 @@ final class Databases: Sendable {
         run.rows = rows.total
         run.changed = rows.changed
         run.ms = ms
-        // The user's own reads (a page of a table, a count) keep no rows: nothing reads them again
-        note(q.worktreeId, run, result: run.session == nil && rows.changed == nil ? nil : result)
+        // The user's own reads (a page of a table, a count) keep no rows, nothing reads them again, and go whole
+        let kept = agent || rows.changed != nil
+        if kept { result = Self.trimmed(result) }
+        note(q.worktreeId, run, result: kept ? result : nil)
         var sent = result
         let rows =
             q.limit ?? Int(min(Double(DatabaseEngines.keep), max(0, sessions.settings[SettingKeys.databaseRows])))
         sent.rows = Array(result.rows.prefix(max(0, rows)))
         return sent
+    }
+
+    /// A result as it's kept: long cells cut (…), rows past `keptBytes` left out (`total` still counts them).
+    static func trimmed(_ result: QueryResult) -> QueryResult {
+        var out = result, bytes = 0
+        out.rows = []
+        for row in result.rows {
+            let cut = row.map { cell in
+                cell.map {
+                    $0.utf8.count > keptCell ? String(decoding: $0.utf8.prefix(keptCell), as: UTF8.self) + "…" : $0
+                }
+            }
+            bytes += cut.reduce(0) { $0 + ($1?.utf8.count ?? 0) }
+            guard bytes <= keptBytes else { break }
+            out.rows.append(cut)
+        }
+        return out
     }
 
     private func failed(_ q: DatabaseQuery, _ run: inout DatabaseRun, _ failure: DatabaseFailure) -> RPCError {
@@ -511,7 +541,9 @@ final class Databases: Sendable {
         note(
             q.worktreeId, run,
             result: trial.map {
-                QueryResult(id: run.id, columns: $0.columns, rows: $0.rows, total: $0.total, changed: $0.changed, ms: 0)
+                Self.trimmed(
+                    QueryResult(
+                        id: run.id, columns: $0.columns, rows: $0.rows, total: $0.total, changed: $0.changed, ms: 0))
             })
         let question = Self.question(sql, database: c.database.name, changed: trial?.changed)
         ls.askForKelp(question)
