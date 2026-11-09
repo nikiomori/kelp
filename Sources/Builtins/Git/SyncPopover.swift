@@ -136,17 +136,26 @@ final class SyncPopover: NSViewController {
             part.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         }
 
+        popover?.hasFullSizeContent = true   // the ground reaches under the arrow, else the arrow shows the glass
         view = Self.ground(root)
     }
 
     /// The popover material under the glass, as Quick Open and the switcher have it: code scrolling behind the popover
-    /// shouldn't tint what's written here.
+    /// shouldn't tint what's written here. It fills the whole popover, arrow included; the words keep clear of the arrow.
     private static func ground(_ content: NSView) -> NSView {
         let fx = NSVisualEffectView()
         fx.material = .popover
         fx.blendingMode = .withinWindow
         fx.state = .active
-        fx.pin(content)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        fx.addSubview(content)
+        let safe = fx.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            content.topAnchor.constraint(equalTo: safe.topAnchor),
+            content.bottomAnchor.constraint(equalTo: safe.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: safe.trailingAnchor)
+        ])
         return fx
     }
 
@@ -226,7 +235,20 @@ final class SyncPopover: NSViewController {
         showLists(ahead: ahead, behind: behind, published: published)
         showCI(on: info?.upstream ?? info?.current)
         showChanges()
-        preferredContentSize = view.fittingSize
+        fit()
+    }
+
+    /// The words' size and the popover's edges around them (its shadow margin and the arrow), known once it's shown.
+    private func fit() {
+        let size = root.fittingSize, edges = view.safeAreaInsets
+        let wanted = NSSize(
+            width: size.width + edges.left + edges.right, height: size.height + edges.top + edges.bottom)
+        if preferredContentSize != wanted { preferredContentSize = wanted }
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        fit()
     }
 
     /// Where the branch stands, in one line.
