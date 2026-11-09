@@ -40,7 +40,7 @@ extension Sessions {
                 && (ls.snapshot.background ?? []).isEmpty
                 && !ls.isAttached && ls.idleSeconds(at: now) > minutes * 60
         }.map { ($0, $0.inputs) }
-        // Off the ticker: waiting for programs to exit (up to 3 s each) must not hold up status for everyone else.
+        // Off the ticker: waiting for programs to exit (up to 10 s each) must not hold up status for everyone else.
         let start = pausingIdle.withLock { busy -> Bool in
             guard !busy, !candidates.isEmpty else { return false }
             busy = true

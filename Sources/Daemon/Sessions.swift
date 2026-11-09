@@ -259,7 +259,7 @@ final class Sessions: Sendable {
     /// ends with it unless `keepTmux` (a restart, whose new session attaches to it).
     func discard(_ session: Session, keepTmux: Bool = false) { discard([session], keepTmux: keepTmux) }
 
-    /// Several (a project's, a workspace's) stopped together: one wait for all, not up to 3 s each.
+    /// Several (a project's, a workspace's) stopped together: one wait for all, not up to 10 s each.
     func discard(_ all: [Session], keepTmux: Bool = false) {
         if !keepTmux { all.forEach(endOwnTmux) }
         wakeLocks.withLocks(all.map(\.id)) {
