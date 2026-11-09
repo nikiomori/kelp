@@ -41,7 +41,8 @@ final class ExtensionEvents: Sendable {
 
     /// A status has to stand this long: a program may say idle for a second as a turn starts (Codex), and a question answered
     /// at once asked nobody away from the Mac.
-    static let eventDelay = 2.5
+    /// KELP_TEST_SLOW stretches it with the tests' waits (a sanitizer's run): what has to stand still does, in its time.
+    static let eventDelay = 2.5 * (ProcessInfo.processInfo.environment["KELP_TEST_SLOW"].flatMap(Double.init) ?? 1)
 
     /// Every saved change of a session (`Sessions.said`), told once per stop.
     func heard(_ session: Session) {
