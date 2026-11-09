@@ -6,10 +6,10 @@ import SwiftMarkdown
 public enum MarkdownHTML {
     /// `marking`: each top-level block goes after an invisible mark of its source line, for `scrollSync` to go by.
     public static func render(_ md: String, marking: Bool = false) -> String {
-        var writer = HTMLWriter()
-        let source = writer.takeNotes(md.replacingOccurrences(of: "\r\n", with: "\n"))
-        return writer.blocks(Document(parsing: source, options: .disableSmartOpts), marking: marking)
-            + writer.footnotes()
+        var writer = HTMLWriter(), math = MarkdownMath()
+        let source = writer.takeNotes(math.takeOut(md.replacingOccurrences(of: "\r\n", with: "\n")))
+        return math.putBack(
+            writer.blocks(Document(parsing: source, options: .disableSmartOpts), marking: marking) + writer.footnotes())
     }
 
     /// Keeps a preview with its source: `kelpToLine(n)` scrolls to source line `n`, between the marks around it; scrolling
@@ -58,8 +58,30 @@ public enum MarkdownHTML {
             """
     }
 
-    static let mermaidJS: String? = Bundle.module.url(forResource: "mermaid.min", withExtension: "js").flatMap {
-        try? String(contentsOf: $0, encoding: .utf8)
+    static let mermaidJS = resource("mermaid.min", "js")
+
+    /// Formulas (`MarkdownMath`'s spans in a rendered `body`) drawn with the bundled KaTeX, its fonts inside its CSS
+    /// (no network); nil when there are none. JavaScript, as `scrollSync`. A formula KaTeX can't read shows its error in
+    /// red.
+    public static func math(for body: String) -> String? {
+        guard body.contains("kelp-math"), let js = katexJS, let css = katexCSS else { return nil }
+        return js + """
+
+            (() => {
+              const s = document.createElement('style'); s.textContent = atob('\(css)'); document.head.append(s);
+              document.querySelectorAll('.kelp-math').forEach(e => katex.render(e.textContent, e,
+                { displayMode: e.classList.contains('kelp-math-display'), throwOnError: false }));
+            })();
+            """
+    }
+
+    static let katexJS = resource("katex.min", "js")
+    /// In base64 (all ASCII, so `atob` gives it back as it was).
+    static let katexCSS = resource("katex.min", "css").map { Data($0.utf8).base64EncodedString() }
+    private static func resource(_ name: String, _ ext: String) -> String? {
+        Bundle.module.url(forResource: name, withExtension: ext).flatMap {
+            try? String(contentsOf: $0, encoding: .utf8)
+        }
     }
 
     /// `page`: the editor theme's background and text ("#rrggbb"), so a preview beside the editor sits on the same page.
@@ -133,6 +155,7 @@ public enum MarkdownHTML {
         .markdown-alert-warning{--al:var(--warning)}.markdown-alert-caution{--al:var(--caution)}
         .footnotes{margin-top:32px;padding-top:12px;border-top:1px solid var(--border);font-size:.875em;color:var(--muted)}
         .footnotes li{margin-top:.4em}.footnote-backref{margin-left:.2em}
+        .kelp-math-display{display:block;margin:0 0 16px;overflow-x:auto;overflow-y:hidden}
         """
 
     /// Safe in text and in double-quoted attributes (the only kind Kelp's pages write).
@@ -221,6 +244,9 @@ struct HTMLWriter: MarkupVisitor {
     mutating func visitThematicBreak(_ thematicBreak: ThematicBreak) -> String { "<hr>" }
 
     mutating func visitCodeBlock(_ codeBlock: CodeBlock) -> String {
+        if codeBlock.language == "math" {
+            return MarkdownMath.span(codeBlock.code.trimmingCharacters(in: .newlines), display: true)
+        }
         let lang = codeBlock.language?.split(separator: " ").first.map {
             " class=\"language-\(MarkdownHTML.esc(String($0)))\""
         }

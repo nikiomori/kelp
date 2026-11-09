@@ -66,7 +66,8 @@ final class NotebookTab: NSViewController {
             }
             links.load(
                 MarkdownHTML.page(body: body, baseURL: url.deletingLastPathComponent(), dark: dark, page: page),
-                baseURL: url.deletingLastPathComponent(), in: web)
+                baseURL: url.deletingLastPathComponent(), scripts: [MarkdownHTML.math(for: body)].compactMap { $0 },
+                world: MarkdownTab.world, in: web)
             if let summary = NotebookHTML.summary(data) {
                 status.stringValue = String(localized: "\(summary.cells) cells · \(summary.language)")
             }

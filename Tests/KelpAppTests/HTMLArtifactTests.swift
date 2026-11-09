@@ -56,6 +56,23 @@ import WebKit
     #expect(try await waitFor(10) { await js("document.querySelector('.mermaid svg') ? 'drawn' : 'no'") == "drawn" })
 }
 
+/// And KaTeX's formulas, with its fonts from inside its CSS.
+@MainActor @Test(.timeLimit(.minutes(1))) func mathDrawsBesideAScriptlessPage() async throws {
+    let body = MarkdownHTML.render("Euler: $e^{i\\pi} + 1 = 0$\n\n$$\\int_0^1 x\\,dx$$")
+    let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+    let links = PreviewLinks(app: AppModel(builtins: Builtins.all))
+    web.navigationDelegate = links
+    links.load(
+        MarkdownHTML.page(body: body, baseURL: nil, dark: false), baseURL: nil,
+        scripts: [try #require(MarkdownHTML.math(for: body))], world: MarkdownTab.world, in: web)
+    func js(_ s: String) async -> String? {
+        (try? await web.evaluateJavaScript(s, contentWorld: MarkdownTab.world)) as? String
+    }
+    #expect(try await waitFor(10) { await js("String(document.querySelectorAll('.katex').length)") == "2" })
+    #expect(await js("String(document.querySelectorAll('.katex-display').length)") == "1")
+    #expect(try await waitFor(10) { await js("String(document.fonts.check('16px KaTeX_Main'))") == "true" })
+}
+
 /// What PreviewLinks decides, as it decides it: what it refused.
 @MainActor private final class Decided: NSObject, WKNavigationDelegate {
     let links: PreviewLinks

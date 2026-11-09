@@ -263,6 +263,35 @@ private func sel(_ t: String, _ s: String) -> NSRange { (t as NSString).range(of
     #expect(MarkdownHTML.render("```mermaid\ngraph LR\n```").contains("language-mermaid"))
 }
 
+/// TeX as GitHub reads it: cmark's emphasis and escapes leave it alone, money and code stay as they are.
+@Test func mathIsTakenOutBeforeCmark() {
+    let inline = "<span class='kelp-math'>"
+    let display = "<span class='kelp-math kelp-math-display'>"
+    #expect(r("Area $a_1 * b_1$ and \\$x$.") == "<p>Area \(inline)a_1 * b_1</span> and $x$.</p>")
+    #expect(r("It costs $5 and $10.") == "<p>It costs $5 and $10.</p>")
+    #expect(r("Code `$x$` and $`\\sqrt{2}`$") == "<p>Code <code>$x$</code> and \(inline)\\sqrt{2}</span></p>")
+    #expect(r("Wide $$\\sum_i x_i$$ here") == "<p>Wide \(display)\\sum_i x_i</span> here</p>")
+    #expect(r("$$\na < b\n$$") == "<p>\(display)\na &lt; b\n</span></p>")
+    #expect(r("```math\n\\frac{1}{2}\n```") == "\(display)\\frac{1}{2}</span>")
+    #expect(r("```\n$x$\n```") == "<pre><code>$x$\n</code></pre>")
+    #expect(r("| a | b |\n|---|---|\n| $\\|x\\|$ | 2 |").contains("\(inline)\\|x\\|</span></td><td>2</td>"))
+    // A `$$` block keeps its source lines, for scroll sync.
+    let marked = MarkdownHTML.render("$$\nx\n$$\n\ntext", marking: true)
+    #expect(marked.contains("data-line=\"5\""))
+}
+
+@Test func mathOnlyWhenThereIsAFormula() {
+    #expect(MarkdownHTML.math(for: r("No math, $5.")) == nil)
+    let page = MarkdownHTML.math(for: r("$x^2$"))
+    #expect(page?.contains("katex.render") == true)
+    let css = Data(base64Encoded: MarkdownHTML.katexCSS ?? "").map { String(decoding: $0, as: UTF8.self) }
+    #expect(css?.contains("data:font/woff2;base64,") == true && css?.contains("url(fonts/") == false)   // bundled
+    let nb =
+        #"{"cells":[{"cell_type":"code","source":"x","outputs":[{"output_type":"execute_result","data":"#
+        + #"{"text/latex":"$\\displaystyle x^{2}$","text/plain":"x**2"}}]}]}"#
+    #expect(NotebookHTML.render(Data(nb.utf8))?.contains("kelp-math'>\\displaystyle x^{2}</span>") == true)
+}
+
 // MARK: GitHub's additions
 
 @Test func alerts() {

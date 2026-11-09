@@ -310,13 +310,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                         [ReviewPage.script]
                     )
                 }
-                let html = MarkdownHTML.page(
-                    body: MarkdownHTML.render(text, marking: true), baseURL: base, dark: dark, page: page)
+                let body = MarkdownHTML.render(text, marking: true)
+                let html = MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page)
                 return (
                     html + (slides ? MarkdownHTML.slidesStyle : ""),
                     [
                         slides ? MarkdownHTML.slidesScript : nil, MarkdownHTML.mermaid(for: text, dark: dark),
-                        MarkdownHTML.scrollSync
+                        MarkdownHTML.math(for: body), MarkdownHTML.scrollSync
                     ].compactMap { $0 }
                 )
             }.value
