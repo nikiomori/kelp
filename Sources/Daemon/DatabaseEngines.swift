@@ -571,13 +571,34 @@ enum MySQLRun {
     static let marker = "kelp_7f3e9c"
 
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        // No server-side limit: MySQL names it max_execution_time, MariaDB max_statement_time, and each refuses the
-        // other's. The client is stopped at `timeout` instead.
-        let out = try run(c, ["START TRANSACTION READ ONLY", sql], timeout: timeout)
+        // The server stops it too: a client killed in a container (`docker exec`) leaves its query running there
+        let out = try run(c, limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
         return section(out.last ?? "")
     }
 
+    /// The session's time limit for a read: MySQL names it max_execution_time (ms), MariaDB max_statement_time (s),
+    /// and each refuses the other's name, so the one this server has is picked by the server.
+    static func limit(_ timeout: TimeInterval) -> [String] {
+        let seconds = Int(timeout)
+        return [
+            "SET @kelp_limit = IF(VERSION() LIKE '%MariaDB%', 'SET SESSION max_statement_time = \(seconds)', "
+                + "'SET SESSION max_execution_time = \(seconds * 1000)')",
+            "PREPARE kelp_limit FROM @kelp_limit", "EXECUTE kelp_limit", "DEALLOCATE PREPARE kelp_limit"
+        ]
+    }
+
+    /// Tables a ROLLBACK can't undo (MyISAM, MEMORY, Aria, CSV…): with any, a change isn't tried, since the trial
+    /// would make it.
+    static let unrollable = """
+        SELECT COUNT(*) FROM information_schema.tables WHERE table_type = 'BASE TABLE'
+          AND table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+          AND engine NOT IN ('InnoDB', 'NDB', 'ndbcluster', 'RocksDB', 'TokuDB')
+        """
+    static let cantRollBack = DatabaseFailure.failed("some of its tables (MyISAM, MEMORY…) can't roll back")
+
     static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
+        let tables = try run(c, [unrollable], timeout: DatabaseEngines.readTimeout + 5)
+        guard (section(tables.last ?? "").rows.first?.first ?? nil) == "0" else { throw cantRollBack }
         let out = try run(c, ["START TRANSACTION", counted(sql), "ROLLBACK"], timeout: 60)
         guard out.count >= 2 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
         return withCount(out[out.count - 2])

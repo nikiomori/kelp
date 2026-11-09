@@ -58,3 +58,12 @@ import Testing
     #expect(SQLText.pastTheDatabase("SELECT copy, program FROM t WHERE note = 'do it'", .postgres) == nil)
     #expect(SQLText.pastTheDatabase("COPY t TO 'x.csv'", .duckdb) == nil)   // -safe holds DuckDB to its file
 }
+
+/// A MySQL read through its client sets the server's own time limit by the name this server has (MySQL's in ms,
+/// MariaDB's in s): a client killed in a container leaves no query running there.
+@Test func aMySQLReadAsksTheServerToStopItToo() {
+    let limit = MySQLRun.limit(15)
+    #expect(limit.first?.contains("max_statement_time = 15'") == true)
+    #expect(limit.first?.contains("max_execution_time = 15000'") == true)
+    #expect(limit.dropFirst().allSatisfy { $0.contains("kelp_limit") })
+}

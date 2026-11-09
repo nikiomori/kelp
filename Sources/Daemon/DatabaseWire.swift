@@ -232,6 +232,8 @@ enum MySQLWire {
 
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
         try await with(c) { conn in
+            let tables = try await run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
+            guard tables == "0" else { throw MySQLRun.cantRollBack }
             _ = try await run(conn, "START TRANSACTION")
             var result = try await run(conn, sql)
             result.changed = try await changed(conn)

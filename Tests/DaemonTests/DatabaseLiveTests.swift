@@ -158,6 +158,23 @@ private let env = ProcessInfo.processInfo.environment
     #expect(question == "Allow changing 2 rows in shop?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
     #expect(try await asked.value.changed == 2)
+    // A table ROLLBACK can't undo: the change is asked untried, not made by its trial.
+    _ = try await run("DROP TABLE IF EXISTS m")
+    _ = try await run("CREATE TABLE m (id INT) ENGINE=MyISAM")
+    _ = try await run("INSERT INTO m VALUES (1), (2)")
+    let untried = Task {
+        try await dbs.query(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "DELETE FROM m"), origin: agent.id)
+    }
+    #expect(
+        try await waitFor(15) {
+            question = try w.d.store.session(agent.id)?.summary ?? ""
+            return question.hasPrefix("Allow")
+        })
+    #expect(try await run("SELECT COUNT(*) FROM m").rows == [["2"]])
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: question)))
+    await #expect(throws: RPCError.self) { try await untried.value }
+    #expect(try await run("SELECT COUNT(*) FROM m").rows == [["2"]])
+    _ = try await run("DROP TABLE m")
 }
 
 /// A compose project's Postgres and MariaDB with no port published: Kelp runs their clients in their containers.
