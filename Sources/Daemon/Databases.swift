@@ -389,12 +389,12 @@ final class Databases: Sendable {
                 QueryResult(id: run.id, columns: $0.columns, rows: $0.rows, total: $0.total, changed: $0.changed, ms: 0)
             })
         let question = Self.question(sql, database: c.database.name, changed: trial?.changed)
-        ls.hook("waiting", message: question, asker: "")
-        let answer = await sessions.permissions.waitForPermission(session, within: 600)
+        ls.askForKelp(question)
+        let answer = await sessions.permissions.waitForKelp(session, question: question, within: 600)
         ls.kelpAsked(question)
         guard answer == "allow" else {
             run.state = .denied
-            run.error = answer == "deny" ? "The user denied it." : "Nobody answered in ten minutes."
+            run.error = answer == "deny" ? "The user denied it." : "Nobody answered: it's no longer asked."
             note(q.worktreeId, run)
             return false
         }

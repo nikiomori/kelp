@@ -64,6 +64,8 @@ extension LiveSession {
         /// Whose permission dialogs are open, and how many: subagents by id, "" for the main thread. Claude Code sends no hook
         /// for an answer, and none for the next dialog of a batch when the first is answered.
         var asking: [String: Int] = [:]
+        /// Kelp asks this (`LiveSession.askForKelp`): the row asks it, whatever the screen and the hooks say, until it's over.
+        var kelpQuestion: String?
         /// AskUserQuestion is open: a key answers one of its questions, and only its PostToolUse says that was the last.
         var questionOpen = false
         /// The prompt that started this turn set a /goal, this one: its first Stop comes before the first check is written.
@@ -477,8 +479,13 @@ extension LiveSession {
         /// arrives after the exit doesn't bring the session back.
         mutating func sync() -> Session? {
             record.subagentsAsk(asking.keys)
-            let status = detector.status
-            guard status != record.status, record.status != .exited else { return nil }
+            let status = kelpQuestion == nil || detector.status == .exited ? detector.status : .waiting
+            var said = false
+            if let question = kelpQuestion, record.summary != question {
+                record.summary = question
+                said = true
+            }
+            guard status != record.status, record.status != .exited else { return said ? record : nil }
             trail.add("\(record.status.rawValue) → \(status.rawValue)  \(detector.source)")
             record.status = status
             // Read off the screen: a guess, said as one (`Session.guessed`). Hooks and the program's own reports aren't.

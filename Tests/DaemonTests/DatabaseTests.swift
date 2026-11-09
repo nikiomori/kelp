@@ -413,3 +413,34 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(beside.name == "shop_main" && beside.path == main.path + "/db/shop_main.sqlite3")
     #expect(Databases.slug("Feature/ÜBER-orders#2") == "feature_über_orders_2")
 }
+
+/// A real agent's screen and hooks go on while its command waits (its spinner reads as working): Kelp's question stays
+/// asked until it's answered, and the agent's Stop (its turn, and the command, are over) ends it unanswered.
+@Test func aChangeStaysAskedWhileTheAgentLooksBusy() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try shopDB(in: wt.path)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let dbs = w.d.workspaces.databases
+    let update = DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'y'")
+    func asked() async throws -> Bool {
+        try await waitFor { try w.d.store.session(agent.id)?.summary.hasPrefix("Allow changing") == true }
+    }
+
+    let first = Task { try await dbs.query(update, origin: agent.id) }
+    #expect(try await asked())
+    _ = try await w.c.call(SessionHook(id: agent.id, event: "working", hookName: "PreToolUse"))
+    try await Task.sleep(for: .milliseconds(300))
+    let session = try #require(try w.d.store.session(agent.id))
+    #expect(session.status == .waiting && session.summary == "Allow changing 3 rows in shop?")
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: session.summary)))
+    #expect(try await first.value.changed == 3)
+    #expect(try count(path, "SELECT count(*) FROM orders WHERE note = 'y'") == 3)
+
+    let second = Task { try await dbs.query(update, origin: agent.id) }
+    #expect(try await asked())
+    _ = try await w.c.call(SessionHook(id: agent.id, event: "done", hookName: "Stop"))
+    await #expect(throws: RPCError.self) { try await second.value }
+    #expect(try await waitFor { try w.d.store.session(agent.id)?.summary.hasPrefix("Allow") == false })
+}

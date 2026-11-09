@@ -73,7 +73,7 @@ final class DatabaseAskCard: NSView {
         asking = run
         isHidden = run == nil
         guard let run else { return }
-        let who = app.session(session).map { app.catalog.displayName($0) } ?? String(localized: "The agent")
+        let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
         title.stringValue = String(localized: "\(who) wants to change \(run.database)")
         sql.stringValue = run.sql
         detail.stringValue =

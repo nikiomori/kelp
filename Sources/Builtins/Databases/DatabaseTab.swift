@@ -280,7 +280,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
     private func showRun(_ id: String) async {
         arrange()
         let record = record(id)
-        let who = record?.session.flatMap(app.session).map { app.catalog.displayName($0) } ?? String(localized: "You")
+        let who = record?.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "You")
         heading.stringValue = [who, record.map { shortAgo($0.at) }].compactMap { $0 }.joined(separator: " · ")
         sqlText.stringValue = record?.sql ?? ""
         let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: id)) ?? nil
@@ -333,7 +333,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         askBar.isHidden = asking == nil
         if let asking {
             let who =
-                asking.session.flatMap(app.session).map { app.catalog.displayName($0) } ?? String(localized: "An agent")
+                asking.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "An agent")
             let what =
                 asking.changed.map { String(localized: "\(who) wants to change \($0) rows in \(address.name)") }
                 ?? String(localized: "\(who) wants to change \(address.name)")
@@ -410,7 +410,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent, NSTableViewDataSource, NS
         discard.isHidden = edits == 0
         let picked = grid.selectedRows.count, agent = agentToAsk
         ask.isHidden = picked == 0 || agent == nil
-        if let agent { ask.title = String(localized: "Ask \(app.catalog.displayName(agent)) About \(picked) Rows") }
+        if let agent { ask.title = String(localized: "Ask \(app.catalog.name(agent.agent)) About \(picked) Rows") }
     }
 
     /// The chat a run came from, else the one in focus, else the workspace's last agent still there.

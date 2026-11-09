@@ -108,6 +108,8 @@ extension SessionChoose: Handled {
     var answersQuestion: Bool { true }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
+        // Kelp's own question (a database change): its command waits on it, whatever the screen says meanwhile.
+        if sessions.permissions.answerKelp(id, question: question, answer == "allow" ? "allow" : "deny") { return true }
         // A question cut short (a long or many-line command) is answered where it shows whole: in the agent's dialog.
         if let question, !Hooks.shownWhole(question) { return false }
         // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu. A banner's answer
@@ -133,6 +135,36 @@ extension SessionPermissionWait: AsyncHandled {
 /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
 final class PermissionWaits: Sendable {
     let waits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
+    /// Questions Kelp asks itself for one of the agent's commands (a database change), by session: not ended by a status
+    /// change, which the agent's own screen makes while that command runs; ended by an answer, the agent's Stop, a newer
+    /// one, or the time running out.
+    typealias KelpWait = (question: String, token: UUID, answer: CheckedContinuation<String?, Never>)
+    let kelpWaits = OSAllocatedUnfairLock<[String: KelpWait]>(initialState: [:])
+
+    /// Kelp's question `question` for `id`, waiting for Allow or Deny; nil when nobody answered.
+    func waitForKelp(_ id: String, question: String, within seconds: TimeInterval) async -> String? {
+        let token = UUID()
+        return await withCheckedContinuation { continuation in
+            let older = kelpWaits.withLock { w in w.updateValue((question, token, continuation), forKey: id) }
+            older?.answer.resume(returning: nil)
+            DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
+                self?.answerKelp(id, question: nil, nil, only: token)
+            }
+        }
+    }
+
+    /// Hands `answer` to Kelp's question of `id` (only if it's `question`, when given); whether one was waiting.
+    @discardableResult
+    func answerKelp(_ id: String, question: String?, _ answer: String?, only token: UUID? = nil) -> Bool {
+        let waiting = kelpWaits.withLock { waits -> CheckedContinuation<String?, Never>? in
+            guard let wait = waits[id], token == nil || wait.token == token else { return nil }
+            guard question == nil || wait.question == question else { return nil }
+            waits[id] = nil
+            return wait.answer
+        }
+        waiting?.resume(returning: answer)
+        return waiting != nil
+    }
 
     /// The hook of `id`'s permission question, waiting for Allow or Deny; a newer one lets the older go with no answer.
     func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {

@@ -34,7 +34,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
         "stopKeyAt",
         "steering", "updatedTo", "turnTree", "turnFolder", "turnResult", "turnStart", "inTurn", "lastSent",
         "turnPrompt",
-        "retries"   // its `continueAt` is the record's: an update only starts the count of retries again
+        "retries",   // its `continueAt` is the record's: an update only starts the count of retries again
+        "kelpQuestion"   // its command's wait ends with the daemon it waited on
     ]
     #expect(
         Set(Mirror(reflecting: s).children.compactMap(\.label)) == carried.union(fromLaunch).union(settled).union(letGo)

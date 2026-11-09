@@ -32,14 +32,21 @@ extension LiveSession {
         }
     }
 
-    /// A question Kelp asked for one of the agent's commands (a database change, `Databases`) is over, answered or not:
-    /// that command goes on, so the agent works, and nothing it asked is open any more.
+    /// Kelp asks `question` for one of the agent's commands (a database change, `Databases`): the row asks it until
+    /// `kelpAsked`, whatever its screen says meanwhile (the command's own spinner).
+    func askForKelp(_ question: String) {
+        state.withLock { st in
+            st.kelpQuestion = question
+            emit(st.sync() ?? st.record)
+        }
+    }
+
+    /// Kelp's question is over, answered or not: that command goes on (or has ended), and the row says what it does.
     func kelpAsked(_ question: String) {
         state.withLock { st in
-            st.nothingAsked()
-            guard st.record.summary == question else { return }
-            st.record.summary = ""
-            if st.detector.status == .waiting { st.detector.override(.working, because: "Kelp's question was over") }
+            guard st.kelpQuestion == question else { return }
+            st.kelpQuestion = nil
+            if st.record.summary == question { st.record.summary = "" }
             emit(st.sync() ?? st.record)
         }
     }
