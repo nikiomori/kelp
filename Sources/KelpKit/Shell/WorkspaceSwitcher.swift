@@ -50,7 +50,7 @@ final class WorkspaceSwitcher {
         where id != wb.workspaceId && !order.contains(id) && live.contains(where: { $0.id == id }) {
             order.append(id)
         }
-        items = order.compactMap(model.worktree)
+        items = order.compactMap { model.worktree($0) }   // by id: a bare `model.worktree` picks worktree(holding:)
         guard !items.isEmpty, let window = app.workbench.window?.window else {
             items = []
             NSSound.beep()
