@@ -29,7 +29,8 @@ jobs:
           - name: Release build
             cache: release
             # What `make release` compiles: code a debug build leaves out (#if DEBUG) or puts in only there is checked too.
-            build: swift build --manifest-cache local -c release
+            # No dSYMs, as bundle.sh: dsymutil warns of every CodeEditLanguages object (its debug map is its maker's Mac).
+            build: swift build --manifest-cache local -c release -debug-info-format none
             test: "true"
           - name: Daemon under Thread Sanitizer
             cache: tsan
