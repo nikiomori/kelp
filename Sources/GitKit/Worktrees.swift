@@ -40,9 +40,11 @@ extension Git {
             let src = (repo as NSString).appendingPathComponent(file),
                 dst = (path as NSString).appendingPathComponent(file)
             guard fm.fileExists(atPath: src), !fm.fileExists(atPath: dst), staysInside(dst, path) else { continue }
-            try? fm.createDirectory(
-                atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-            try? fm.copyItem(atPath: src, toPath: dst)
+            gitLog.attempt("copying \(file) into the new worktree") {
+                try fm.createDirectory(
+                    atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+                try fm.copyItem(atPath: src, toPath: dst)
+            }
         }
         return path
     }
@@ -124,7 +126,7 @@ extension Git {
 
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.
     public static func includedIgnoredFiles(repo: String, remotes: Remotes = .none) -> [String] {
-        guard let text = try? String(contentsOfFile: repo + "/.worktreeinclude", encoding: .utf8) else { return [] }
+        guard let text = String(contentsIfAny: URL(fileURLWithPath: repo + "/.worktreeinclude")) else { return [] }
         let pats = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter {
             !$0.isEmpty && !$0.hasPrefix("#")
         }
@@ -146,7 +148,9 @@ extension Git {
     /// Symlink shared directories (node_modules, .venv…) from the main checkout instead of reinstalling.
     public static func linkShared(_ dirs: [String], repo: String, worktree: String) {
         place(dirs, repo: repo, worktree: worktree) { src, dst in
-            try? FileManager.default.createSymbolicLink(atPath: dst, withDestinationPath: src)
+            gitLog.attempt("linking \(dst) to the main checkout's") {
+                try FileManager.default.createSymbolicLink(atPath: dst, withDestinationPath: src)
+            }
         }
     }
 
@@ -175,8 +179,10 @@ extension Git {
             guard FileManager.default.fileExists(atPath: src), !FileManager.default.fileExists(atPath: dst),
                 staysInside(dst, worktree)
             else { continue }
-            try? FileManager.default.createDirectory(
-                atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            gitLog.attempt("making the folder for \(dir)") {
+                try FileManager.default.createDirectory(
+                    atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            }
             put(src, dst)
         }
     }
@@ -207,7 +213,7 @@ extension Git {
     }
 
     public static func branchExists(_ repo: String, _ branch: String, remotes: Remotes = .none) -> Bool {
-        (try? run(["rev-parse", "--verify", "--quiet", "refs/heads/" + branch], cwd: repo, remotes: remotes)) != nil
+        succeeds(["rev-parse", "--verify", "--quiet", "refs/heads/" + branch], cwd: repo, remotes: remotes)
     }
 
     public static func isDirty(_ path: String, remotes: Remotes = .none) throws -> Bool {

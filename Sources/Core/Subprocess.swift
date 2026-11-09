@@ -249,7 +249,7 @@ public enum Subprocess {
                     // Closed here, after the last read: the Process holds the pipe too, so it wouldn't close with this.
                     // Checked on every turn: a child that keeps writing would otherwise keep the thread for its life.
                     if abandoned.withLock({ $0 }) {
-                        try? pipe.fileHandleForReading.close()
+                        pipe.fileHandleForReading.closeQuietly()
                         break
                     }
                     if polled == 0 || (polled < 0 && errno == EINTR) { continue }

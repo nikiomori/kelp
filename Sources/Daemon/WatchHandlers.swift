@@ -30,7 +30,7 @@ extension Daemon {
         switch watch.topic {
         case .git:
             // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
-            let worktree = (try? store.worktree(key)).flatMap { $0 }
+            let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
             let remote = worktree.map { remotes.of($0.path) != nil } ?? false
             var event: GitEvent
             do {
@@ -95,7 +95,8 @@ extension Daemon {
                 ), nil
             )
         case .files:
-            let remote = (try? store.worktree(key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
+            let remote =
+                store.look("workspace \(key)") { try $0.worktree(key) }.map { remotes.of($0.path) != nil } ?? false
             var event: FilesEvent
             do {
                 event = FilesEvent(

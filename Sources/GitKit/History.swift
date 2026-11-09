@@ -165,7 +165,7 @@ extension Git {
         {
             info.ahead = count
         }
-        info.merging = (try? run(["rev-parse", "-q", "--verify", "MERGE_HEAD"], cwd: path, remotes: remotes)) != nil
+        info.merging = isMerging(path, remotes: remotes)
         return info
     }
 
@@ -309,8 +309,7 @@ extension Git {
         case .fetch: try run(["fetch", "--all", "--prune"], cwd: path, remotes: remotes)
         case .push:
             let branch = try currentBranch(path, remotes: remotes)
-            let hasUpstream =
-                (try? run(["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: path, remotes: remotes)) != nil
+            let hasUpstream = succeeds(["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: path, remotes: remotes)
             try run(hasUpstream ? ["push"] : ["push", "-u", "origin", branch], cwd: path, remotes: remotes)
         }
     }

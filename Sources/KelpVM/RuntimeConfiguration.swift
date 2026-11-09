@@ -27,7 +27,7 @@ extension Runtime {
                 ? VZEFIVariableStore(url: vars) : try VZEFIVariableStore(creatingVariableStoreAt: vars)
             config.bootLoader = boot
             let platform = VZGenericPlatformConfiguration()
-            if let data = try? Data(contentsOf: file("machine.id")),
+            if let data = Data(contentsIfAny: file("machine.id")),
                 let id = VZGenericMachineIdentifier(dataRepresentation: data)
             {
                 platform.machineIdentifier = id
@@ -45,7 +45,7 @@ extension Runtime {
         if machine.network {
             let net = VZVirtioNetworkDeviceConfiguration()
             net.attachment = VZNATNetworkDeviceAttachment()
-            let saved = try? String(contentsOf: file("mac"), encoding: .utf8)
+            let saved = String(contentsIfAny: file("mac"))
             if let mac = saved.flatMap({ VZMACAddress(string: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }) {
                 net.macAddress = mac
             } else {

@@ -115,7 +115,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     /// A macOS guest's address, from the leases of the Mac's NAT network.
     private func guestAddress() -> String? {
-        guard let mac = try? String(contentsOf: file("mac"), encoding: .utf8) else { return nil }
+        guard let mac = String(contentsIfAny: file("mac")) else { return nil }
         return MacGuest.address(mac: mac.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
@@ -296,7 +296,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         #if arch(arm64)
             vm.restoreMachineStateFrom(url: saved) { error in
                 MainActor.assumeIsolated {
-                    try? FileManager.default.removeItem(at: self.saved)   // a saved state restores once
+                    FileManager.default.removeIfAny(self.saved)   // a saved state restores once
                     if let error {   // from an older macOS, or damaged: boot instead
                         log("restore failed, booting: \(error.localizedDescription)")
                         return vm.start { result in
@@ -312,7 +312,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             }
         #else
             // Limit: Intel saves no machine state (Virtualization does on Apple silicon only), so a saved one can't be there.
-            try? FileManager.default.removeItem(at: saved)
+            FileManager.default.removeIfAny(saved)
             vm.start { r in MainActor.assumeIsolated { self.awaitSSH(restored: false, error: r.failure) } }
         #endif
     }
@@ -594,7 +594,7 @@ extension Runtime {
     /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
     private func stop(_ done: @escaping () -> Void) {
         if saving { return saveDone.append { [weak self] _ in self?.stop(done) } }   // resumed under the save, it would fail it
-        try? FileManager.default.removeItem(at: saved)
+        FileManager.default.removeIfAny(saved)
         guard let vm else {
             state = .off
             return done()

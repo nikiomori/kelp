@@ -175,7 +175,7 @@ extension SessionSubagentSteps: Handled {
         var last: Result = [:]
         for run in ls.snapshot.runningSubagents {
             guard let file = SubagentTranscript.file(parent: parent, id: run.id),
-                let tail = Data(tailOf: file, bytes: 262_144),
+                let tail = Data(tail: 262_144, of: file),
                 let step = SubagentTranscript.lastStep(tail: tail),
                 let touched = try file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
             else { continue }
@@ -195,17 +195,6 @@ extension SessionSubagentJournal: Handled {
             FileManager.default.fileExists(atPath: file.path)
         else { return nil }
         return try SubagentTranscript.journal(file)
-    }
-}
-
-extension Data {
-    /// The file's last `bytes` (all of it when shorter); nil when it can't be opened.
-    init?(tailOf url: URL, bytes: Int) {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
-        defer { try? handle.close() }
-        let size = (try? handle.seekToEnd()) ?? 0
-        try? handle.seek(toOffset: size > UInt64(bytes) ? size - UInt64(bytes) : 0)
-        self = (try? handle.readToEnd()) ?? Data()
     }
 }
 

@@ -258,7 +258,8 @@ extension LSPHost {
     /// The user trusted `root` for language servers and formatters in Kelp's window (`state.set` of `lsp.trusted`, which
     /// only the window may write).
     func trusted(_ root: String) -> Bool {
-        ((try? store.uiState(prefix: LSPOpen.trustKey))?[LSPOpen.trustKey]?.array ?? []).contains(.string(root))
+        let state = store.look("what's trusted") { try $0.uiState(prefix: LSPOpen.trustKey) }
+        return (state?[LSPOpen.trustKey]?.array ?? []).contains(.string(root))
     }
 }
 

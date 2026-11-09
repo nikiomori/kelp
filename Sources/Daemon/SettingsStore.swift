@@ -38,7 +38,7 @@ final class SettingsStore: Sendable {
             for _ in 0..<3 {
                 let seen = modified()
                 var values = self.values
-                if let data = try? Data(contentsOf: url) {
+                if let data = Data(contentsIfAny: url) {
                     guard case .object(let onDisk)? = try? JSONDecoder().decode(JSONValue.self, from: data) else {
                         throw RPCError.invalidParams(
                             "settings.json has an error, so the change wasn't saved. Fix the file (or remove it) and try again."
@@ -75,7 +75,7 @@ final class SettingsStore: Sendable {
     }
 
     private static func read(_ file: URL) -> (data: Data, values: [String: JSONValue])? {
-        guard let data = try? Data(contentsOf: file),
+        guard let data = Data(contentsIfAny: file),
             case .object(let values)? = try? JSONDecoder().decode(JSONValue.self, from: data)
         else { return nil }
         return (data, values)

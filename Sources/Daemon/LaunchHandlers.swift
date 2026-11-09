@@ -36,7 +36,7 @@ extension SessionCreate: Handled {
             launch.argv = Tmux.argv(name)
             if launch.title == nil { launch.title = "tmux \(name)" }
         } else if command == nil, (agent ?? "shell") == "shell", sessions.settings[SettingKeys.tmux],
-            sessions.remotes.of(dir) != nil || (try? LoginPath.resolve("tmux")) != nil
+            sessions.remotes.of(dir) != nil || LoginPath.find("tmux") != nil
         {
             // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn)
             launch.argv = Tmux.argv(Tmux.own())
@@ -486,10 +486,10 @@ extension AgentsVersions: AsyncHandled {
                 group.addTask {
                     try? await sessions.offloads.run { () -> Item? in
                         let path = Sessions.childPath   // the login shell's PATH: the first read waits for the shell
-                        guard let exe = try? LoginPath.resolve(manifest.command) else { return nil }
+                        guard let exe = LoginPath.find(manifest.command) else { return nil }
                         let version = Subprocess.printed([exe, "--version"], path: path, timeout: 4).flatMap(
                             Self.semver)
-                        let npm = try? LoginPath.resolve("npm")
+                        let npm = LoginPath.find("npm")
                         let latest = manifest.npm.flatMap { pkg in
                             npm.flatMap { Subprocess.printed([$0, "view", pkg, "version"], path: path, timeout: 8) }
                         }
@@ -592,7 +592,7 @@ extension ProcessRefreshPath: Handled {
 
 extension ProcessWhich: Handled {
     func handle(_: NoService) throws -> Result {
-        Dictionary(commands.compactMap { c in (try? LoginPath.resolve(c)).map { (c, $0) } }) { a, _ in a }
+        Dictionary(commands.compactMap { c in LoginPath.find(c).map { (c, $0) } }) { a, _ in a }
     }
 }
 

@@ -43,7 +43,7 @@ struct FileService: Sendable {
         let repo = try absolute(repo)
         guard let remote = remotes.of(repo) else { throw RPCError.invalidParams("Not a remote project.") }
         let kept = repo + "/.kelp-icon"
-        guard let name = (try? FileManager.default.contentsOfDirectory(atPath: kept))?.first else {
+        guard let name = FileManager.default.names(in: kept).first else {
             return try findIcon(remote, keep: kept)
         }
         DispatchQueue.global(qos: .utility).async {
@@ -163,7 +163,7 @@ struct FileService: Sendable {
         if st.st_mode & S_IFMT != S_IFREG { throw Unopenable.special.error }   // a pipe or /dev/zero would block or never end
         guard st.st_size <= Unopenable.openLimit else { throw Unopenable.tooBig(Int(st.st_size)).error }
         let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
-        defer { try? handle.close() }
+        defer { handle.closeQuietly() }
         // grown since the stat: still capped
         let data = try handle.read(upToCount: Unopenable.openLimit + 1) ?? Data()
         guard data.count <= Unopenable.openLimit else { throw Unopenable.tooBig(data.count).error }

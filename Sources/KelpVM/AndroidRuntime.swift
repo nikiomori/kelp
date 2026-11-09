@@ -151,10 +151,11 @@ final class AndroidRuntime {
         process.environment = env
         let out = folder.appendingPathComponent("emulator.log")
         FileManager.default.createFile(atPath: out.path, contents: nil)
-        if let logFile = try? FileHandle(forWritingTo: out) {
+        do {
+            let logFile = try FileHandle(forWritingTo: out)
             process.standardOutput = logFile
             process.standardError = logFile
-        }
+        } catch { log("no emulator.log: \(error.localizedDescription)") }
         process.terminationHandler = { [weak self] ended in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {   // the main queue
@@ -218,8 +219,8 @@ final class AndroidRuntime {
         guard !saving, let process = emulator, [.running, .paused].contains(state) else { return done(nil) }
         saving = true
         Task {
-            if state == .paused { _ = try? await adb(["emu", "avd", "start"]) }
-            _ = try? await adb(["emu", "kill"])
+            if state == .paused { await tell(["emu", "avd", "start"]) }
+            await tell(["emu", "kill"])
             for _ in 0..<120 where process.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
             if process.isRunning { process.terminate() }
             // Asleep once the emulator is gone: a wake before would have started a second one on the same AVD.
@@ -240,13 +241,13 @@ final class AndroidRuntime {
     /// Quits it and forgets its snapshot: the next start boots afresh.
     private func stop(_ done: @escaping () -> Void) {
         let forget = { [self] in
-            try? FileManager.default.removeItem(at: snapshot)
+            FileManager.default.removeIfAny(snapshot)
             state = .off
             done()
         }
         guard let process = emulator else { return forget() }
         Task {
-            _ = try? await adb(["emu", "kill"])
+            await tell(["emu", "kill"])
             for _ in 0..<120 where process.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
             if process.isRunning { process.terminate() }
             forget()
@@ -274,6 +275,13 @@ final class AndroidRuntime {
             }
         case .sleep: sleep { _ in }
         case .pause, nil: break
+        }
+    }
+
+    /// `adb` for what it's told to do (quit, resume); its failure only logged: what comes after copes without it.
+    private func tell(_ args: [String]) async {
+        do { _ = try await adb(args) } catch {
+            log("adb \(args.joined(separator: " ")): \(error.localizedDescription)")
         }
     }
 

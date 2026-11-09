@@ -28,7 +28,11 @@ extension Workspaces {
 
     /// trusted-configs.json is read and written under one lock: two projects trusted at once both stay trusted.
     func knownDigests() -> [String: String] {
-        (try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: trustFile))) ?? [:]
+        Data(contentsIfAny: trustFile).flatMap { data in
+            Log.store.attempt("reading \(trustFile.lastPathComponent)") {
+                try JSONDecoder().decode([String: String].self, from: data)
+            }
+        } ?? [:]
     }
 
     /// Nothing in it runs, links, or speaks to an agent for the user: a file like that needs no trust.

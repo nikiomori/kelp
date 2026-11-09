@@ -121,7 +121,7 @@ enum MacGuest {
             "1,"
             + mac.lowercased().split(separator: ":").map { String(Int($0, radix: 16) ?? 0, radix: 16) }.joined(
                 separator: ":")
-        guard let leases = try? String(contentsOfFile: "/var/db/dhcpd_leases", encoding: .utf8) else { return nil }
+        guard let leases = String(contentsIfAny: URL(fileURLWithPath: "/var/db/dhcpd_leases")) else { return nil }
         var best: (ip: String, lease: Int)?
         for block in leases.components(separatedBy: "}") {
             var fields: [String: String] = [:]

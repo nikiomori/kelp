@@ -2,6 +2,8 @@ import Core
 import Foundation
 import os
 
+let gitLog = Logger.kelp("git")
+
 public struct GitError: Error, CustomStringConvertible, Sendable {
     public var args: [String]
     public var status: Int32
@@ -30,6 +32,20 @@ extension Git {
             decoding: try runData(
                 args, cwd: cwd, stdin: stdin.map { Data($0.utf8) }, executable: executable, ok: ok, env: extra,
                 remotes: remotes), as: UTF8.self)
+    }
+
+    /// Whether git says yes (exits 0): a ref that may not be there (`rev-parse --verify`), an upstream that may not be
+    /// set. A git that couldn't run at all says no too, and that's logged.
+    public static func succeeds(_ args: [String], cwd: String, remotes: Remotes = .none) -> Bool {
+        do {
+            try run(args, cwd: cwd, remotes: remotes)
+            return true
+        } catch is GitError {
+            return false
+        } catch {
+            gitLog.error("git \(args.first ?? "", privacy: .public) didn't run: \(error)")
+            return false
+        }
     }
 
     /// `run`'s output without the newline it ends with (and any space around it): a hash, a name, a path, a count.
@@ -169,8 +185,8 @@ extension Git {
             let branch = String(ref.drop(while: { $0 != "/" }).dropFirst())
             if isRevision(branch) { return branch }
         }
-        for branch in ["main", "master"]
-        where (try? run(["rev-parse", "--verify", branch], cwd: repo, remotes: remotes)) != nil {
+        for branch in ["main", "master"] where succeeds(["rev-parse", "--verify", branch], cwd: repo, remotes: remotes)
+        {
             return branch
         }
         return (try? currentBranch(repo, remotes: remotes)) ?? "main"
@@ -180,7 +196,7 @@ extension Git {
     /// Detached, a linked worktree (.git is a file), a reftable repository or a remote project: git itself.
     public static func currentBranch(_ path: String, remotes: Remotes = .none) throws -> String {
         var name = ""
-        if remotes.of(path) == nil, let head = try? String(contentsOfFile: path + "/.git/HEAD", encoding: .utf8),
+        if remotes.of(path) == nil, let head = String(contentsIfAny: URL(fileURLWithPath: path + "/.git/HEAD")),
             head.hasPrefix("ref: refs/heads/")
         {
             name = String(head.dropFirst("ref: refs/heads/".count)).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -310,14 +326,14 @@ enum RepoFilters {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: git.path, isDirectory: &isDir) {
                 if isDir.boolValue { return git.appendingPathComponent("config").path }
-                guard let text = try? String(contentsOf: git, encoding: .utf8), text.hasPrefix("gitdir: ") else {
+                guard let text = String(contentsIfAny: git), text.hasPrefix("gitdir: ") else {
                     return nil
                 }
                 let gitdir = URL(
                     fileURLWithPath: text.dropFirst(8).trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: dir
                 ).standardizedFileURL
                 let common =
-                    (try? String(contentsOf: gitdir.appendingPathComponent("commondir"), encoding: .utf8))
+                    String(contentsIfAny: gitdir.appendingPathComponent("commondir"))
                     .map {
                         URL(fileURLWithPath: $0.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: gitdir)
                             .standardizedFileURL

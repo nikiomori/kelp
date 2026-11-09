@@ -231,7 +231,7 @@ final class AgentUsage: Sendable {
     /// Tokens in the context of a Claude Code conversation: the last reply's input with cache, as Claude Code's own
     /// statusline counts it (the reply's output isn't in it until it's sent back), or what a newer compaction left. `peak` is the most it held (a compaction's starting size counts), for telling the window.
     static func contextUsage(transcript url: URL) -> (used: Int, peak: Int, model: String, cacheUntil: Date?)? {
-        guard let data = Data(tailOf: url, bytes: 1 << 20) else { return nil }   // a turn's tool results can be hundreds of KB
+        guard let data = Data(tail: 1 << 20, of: url) else { return nil }   // a turn's tool results can be hundreds of KB
         var compacted: (pre: Int, post: Int)?
         for line in data.split(separator: 0x0A).reversed() {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
@@ -264,7 +264,7 @@ final class AgentUsage: Sendable {
 
     /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).
     static func lastReply(transcript url: URL) -> String? {
-        guard let data = Data(tailOf: url, bytes: 262_144) else { return nil }
+        guard let data = Data(tail: 262_144, of: url) else { return nil }
         for line in data.split(separator: 0x0A).reversed() {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
                 entry["type"] as? String == "assistant",

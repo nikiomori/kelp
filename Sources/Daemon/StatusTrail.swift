@@ -29,11 +29,11 @@ struct StatusTrail: Sendable {
     /// Everything so far, oldest first; empty when nothing was written.
     func read() -> String {
         disk.sync {}   // what's still on its way
-        return Data(tailOf: url, bytes: 2 * Self.limit).map { String(decoding: $0, as: UTF8.self) } ?? ""
+        return Data(tail: 2 * Self.limit, of: url).map { String(decoding: $0, as: UTF8.self) } ?? ""
     }
 
     private static func trim(_ url: URL) {
-        guard let tail = Data(tailOf: url, bytes: limit / 2), let cut = tail.firstIndex(of: 0x0A) else { return }
+        guard let tail = Data(tail: limit / 2, of: url), let cut = tail.firstIndex(of: 0x0A) else { return }
         Log.session.attempt("trimming \(url.lastPathComponent)") {
             try tail[tail.index(after: cut)...].write(to: url, options: .atomic)
         }

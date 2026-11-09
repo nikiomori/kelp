@@ -79,10 +79,6 @@ public struct GoalStatus: Equatable, Sendable {
 
     /// The last 256 KB of a transcript: goal checks are near its end.
     public static func last(inFile path: String) -> GoalStatus? {
-        guard let file = FileHandle(forReadingAtPath: path) else { return nil }
-        defer { try? file.close() }
-        let end = (try? file.seekToEnd()) ?? 0
-        try? file.seek(toOffset: end > 262_144 ? end - 262_144 : 0)
-        return (try? file.readToEnd()).flatMap { last(in: String(decoding: $0, as: UTF8.self)) }
+        Data(tail: 262_144, of: URL(fileURLWithPath: path)).flatMap { last(in: String(decoding: $0, as: UTF8.self)) }
     }
 }

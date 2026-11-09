@@ -121,7 +121,7 @@ final class Workspaces: Sendable {
     /// Limit: a project that is itself a linked worktree (its .git a file) follows at the next start or new workspace.
     func watchHeads() {
         dispatchPrecondition(condition: .onQueue(headQueue))
-        let local = ((try? store.repos()) ?? []).filter { remotes.of($0.path) == nil }
+        let local = (store.look("the projects") { try $0.repos() } ?? []).filter { remotes.of($0.path) == nil }
         let want = Dictionary(local.map { ($0.id, $0.path + "/.git") }, uniquingKeysWith: { a, _ in a })
         guard let have = heads.withLock({ $0?.mapValues(\.dir) }) else { return }
         var made: [String: HeadWatch] = [:]

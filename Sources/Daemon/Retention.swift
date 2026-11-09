@@ -17,10 +17,7 @@ extension Sessions {
             }
             let left = try store.sessions(), known = Set(left.map(\.id)), fm = FileManager.default
             ScratchChats(root: root).sweep(keeping: Set(left.map(\.cwd)), now: now)
-            let logs =
-                (try? fm.contentsOfDirectory(
-                    at: root.appendingPathComponent("history"),
-                    includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            let logs = fm.items(in: root.appendingPathComponent("history"))
             for f in logs
             where ["log", "trail"].contains(f.pathExtension)
                 && !known.contains(f.deletingPathExtension().lastPathComponent)

@@ -14,7 +14,7 @@ extension Git {
         let rel = try line(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes)
         let real = URL(fileURLWithPath: rel, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).path
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-index-\(UUID().uuidString)").path
-        defer { try? FileManager.default.removeItem(atPath: copy) }
+        defer { FileManager.default.removeIfAny(URL(fileURLWithPath: copy)) }
         if FileManager.default.fileExists(atPath: real) { try FileManager.default.copyItem(atPath: real, toPath: copy) }
         // Nobody asked for these: a repository's filters and index hooks don't run for them. Both write the index, and
         // writing it can read a racily clean file through its filter again.

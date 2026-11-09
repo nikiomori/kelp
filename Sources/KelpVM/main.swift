@@ -41,9 +41,11 @@ case "--install" where args.count == 3:
         try await MacGuest.install(machine, folder: folder, ipsw: ipsw) { fraction in
             let at = VMMaking(
                 step: .installing, progress: fraction,
-                detail: (try? Data(contentsOf: folder.appendingPathComponent("creating")))
+                detail: Data(contentsIfAny: folder.appendingPathComponent("creating"))
                     .flatMap { try? JSONDecoder().decode(VMMaking.self, from: $0) }?.detail)
-            try? at.data.write(to: folder.appendingPathComponent("creating"), options: .atomic)
+            do { try at.data.write(to: folder.appendingPathComponent("creating"), options: .atomic) } catch {
+                log("can't say how far the install is: \(error)")
+            }
         }
     }
 case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
@@ -66,7 +68,10 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
     // An Android machine is the SDK's emulator, not Virtualization's: a runtime of its own, the same protocol.
     let android = machine.os == "android" ? AndroidRuntime(folder: folder, machine: machine) : nil
     let ios = machine.os == "ios" ? IOSRuntime(folder: folder, machine: machine) : nil
-    let runtime: Runtime? = android == nil && ios == nil ? try? Runtime(folder: folder) : nil
+    var runtime: Runtime?
+    if android == nil, ios == nil {
+        do { runtime = try Runtime(folder: folder) } catch { log("can't make the machine: \(error)") }
+    }
     guard android != nil || ios != nil || runtime != nil else {
         log("can't start \(machine.name)")
         exit(1)

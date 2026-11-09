@@ -34,7 +34,7 @@ public enum AgentTrust {
 
     /// `[projects."<path>"]` sections with `trust_level = "trusted"`.
     static func codex(_ file: String) -> [String] {
-        guard let text = try? String(contentsOfFile: file, encoding: .utf8) else { return [] }
+        guard let text = String(contentsIfAny: URL(fileURLWithPath: file)) else { return [] }
         var out: [String] = [], section: String?
         for raw in text.split(whereSeparator: \.isNewline) {
             let line = raw.trimmingCharacters(in: .whitespaces)

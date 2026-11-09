@@ -136,7 +136,7 @@ extension AgentUsage {
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 guard let self else { return }
                 var readings: [ClaudeLimits.Reading] = []
-                if let path = try? LoginPath.resolve(probe.command) {
+                if let path = LoginPath.find(probe.command) {
                     var screen = ""
                     if !probe.printArgs.isEmpty {
                         screen = Subprocess.printed([path] + probe.printArgs, path: LoginPath.value, timeout: 30) ?? ""
@@ -148,10 +148,13 @@ extension AgentUsage {
                         }
                     }
                     // What a failed probe saw, for whoever fixes the parser when an agent changes its screen.
-                    if readings.isEmpty, (try? Paths.ensure(root.appendingPathComponent("probe"))) != nil {
-                        try? screen.write(
-                            to: root.appendingPathComponent("probe/\(probe.agent).txt"), atomically: true,
-                            encoding: .utf8)
+                    if readings.isEmpty {
+                        Log.session.attempt("keeping what the \(probe.agent) probe saw") {
+                            try Paths.ensure(root.appendingPathComponent("probe"))
+                            try screen.write(
+                                to: root.appendingPathComponent("probe/\(probe.agent).txt"), atomically: true,
+                                encoding: .utf8)
+                        }
                     }
                 }
                 plans.withLock { [readings] plans in
@@ -200,7 +203,7 @@ extension AgentUsage {
         }
         guard start else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let limits = (try? LoginPath.resolve("codex")).flatMap {
+            let limits = LoginPath.find("codex").flatMap {
                 Self.codexLimits(path: $0, open: self?.openProbes)
             }
             self?.codexLive.withLock { live in
@@ -282,7 +285,7 @@ extension AgentUsage {
     /// may come in unseen. Each agent trusts it for the run (Grok's and Kimi's env, Copilot's Enter, Cursor's --trust).
     private var probeDir: String? {
         let dir = root.appendingPathComponent("probe")
-        return (try? Paths.ensure(dir)).map { dir.path }
+        return Log.session.attempt("making the usage probe's folder") { try Paths.ensure(dir) }.map { dir.path }
     }
 
     /// Always the same session, so a reading leaves no session of its own in the agent's list (Copilot and Cursor kept one
@@ -291,7 +294,7 @@ extension AgentUsage {
         guard ["grok", "copilot", "cursor"].contains(agent) else { return [[path]] }
         let file = root.appendingPathComponent("probe/\(agent)-session")
         let id =
-            (try? String(contentsOf: file, encoding: .utf8)).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            String(contentsIfAny: file).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             ?? UUID().uuidString.lowercased()
         Log.session.attempt("keeping the usage probe's session id") {
             try id.write(to: file, atomically: true, encoding: .utf8)

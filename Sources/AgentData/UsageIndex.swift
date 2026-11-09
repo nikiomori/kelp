@@ -1,5 +1,8 @@
+import Core
 import Foundation
 import os
+
+private let usageLog = Logger.kelp("usage")
 
 /// What an agent used (Claude Code, or another `UsageFormat`), by local day, model and folder, kept up to date cheaply: each
 /// log is read once, then only the bytes appended since (the index remembers how far it got, on disk). Claude's lines are
@@ -53,7 +56,11 @@ public final class UsageIndex: Sendable {
         cacheURL = cache
         self.format = format
         files = OSAllocatedUnfairLock(
-            initialState: (try? JSONDecoder().decode([String: FileState].self, from: Data(contentsOf: cache))) ?? [:])
+            initialState: Data(contentsIfAny: cache).flatMap { data in
+                usageLog.attempt("reading the usage index") {
+                    try JSONDecoder().decode([String: FileState].self, from: data)
+                }
+            } ?? [:])
     }
 
     /// Reads what's new in transcripts under `roots` changed since `since`, then everything known from `since` on.
@@ -130,7 +137,11 @@ public final class UsageIndex: Sendable {
             state = (Date(), false)
             return true
         }
-        if save, let data = try? JSONEncoder().encode(known) { try? data.write(to: cacheURL, options: .atomic) }
+        if save {
+            usageLog.attempt("saving the usage index") {
+                try JSONEncoder().encode(known).write(to: cacheURL, options: .atomic)
+            }
+        }
         return Self.under(roots, known)
     }
 
@@ -155,13 +166,24 @@ public final class UsageIndex: Sendable {
     /// The complete lines after `offset`, 8 MB at a time (one session can be gigabytes); a line still being written waits
     /// for next time.
     static func read(_ url: URL, into st: inout FileState, format: UsageFormat = .claude) {
-        guard let handle = try? FileHandle(forReadingFrom: url), (try? handle.seek(toOffset: st.offset)) != nil else {
-            return
-        }
-        defer { try? handle.close() }
+        let offset = st.offset
+        guard
+            let handle = usageLog.attempt(
+                "opening \(url.lastPathComponent)",
+                { () throws -> FileHandle in
+                    let handle = try FileHandle(forReadingFrom: url)
+                    try handle.seek(toOffset: offset)
+                    return handle
+                })
+        else { return }
+        defer { handle.closeQuietly() }
         var recent = st.recent ?? [], seen = Set(recent), hours = st.hours ?? [:], rest = Data()
         var context = st.context ?? format.start(url)
-        while let chunk = autoreleasepool(invoking: { try? handle.read(upToCount: 8 << 20) }), !chunk.isEmpty {
+        while let chunk = autoreleasepool(invoking: {
+            usageLog.attempt("reading") { try handle.read(upToCount: 8 << 20) }
+        })
+            ?? nil, !chunk.isEmpty
+        {
             let data = rest.isEmpty ? chunk : rest + chunk
             guard let last = data.lastIndex(of: 0x0A) else {
                 rest = data

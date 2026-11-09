@@ -22,7 +22,7 @@ extension Git {
         ).prefix(500) {
             let url = URL(fileURLWithPath: cwd).appendingPathComponent(String(path))
             guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size < 1_000_000,
-                let data = try? Data(contentsOf: url), !data.contains(0)
+                let data = Data(contentsIfAny: url), !data.contains(0)
             else { continue }
             stats.added[LineStats.kind(String(path)), default: 0] += data.reduce(0) { $1 == 0x0A ? $0 + 1 : $0 }
         }

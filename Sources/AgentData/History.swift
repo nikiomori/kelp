@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import os
 
 public enum ClaudeHistory {
     /// Where Claude Code keeps conversations: under CLAUDE_CONFIG_DIR when it's set, as Claude Code itself does.
@@ -11,10 +12,8 @@ public enum ClaudeHistory {
     /// Sessions under `root/<encoded-cwd>/<sessionId>.jsonl`, newest first. Subagent transcripts (deeper) are skipped.
     public static func sessions(root: URL = defaultRoot) -> [AgentSessionInfo] {
         let fm = FileManager.default
-        let projects = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        return
-            projects
-            .flatMap { (try? fm.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? [] }
+        return fm.items(in: root)
+            .flatMap(fm.items(in:))
             .filter { $0.pathExtension == "jsonl" }
             .compactMap(parse)
             .sorted { $0.updated > $1.updated }
@@ -23,8 +22,7 @@ public enum ClaudeHistory {
     /// Interactive conversations started in `cwd`; Claude names the folder after the real path with every
     /// non-alphanumeric as "-". `claude -p` runs (entrypoint sdk-…) are left out: no terminal owns them.
     public static func sessions(cwd: String, root: URL = defaultRoot) -> [AgentSessionInfo] {
-        ((try? FileManager.default.contentsOfDirectory(
-            at: folder(cwd: cwd, root: root), includingPropertiesForKeys: nil)) ?? [])
+        FileManager.default.items(in: folder(cwd: cwd, root: root))
             .filter { $0.pathExtension == "jsonl" && !isScripted($0) }.compactMap(parse)
     }
 
@@ -53,11 +51,7 @@ public enum ClaudeHistory {
     }
 
     private static func isScripted(_ url: URL) -> Bool {
-        let head =
-            (try? FileHandle(forReadingFrom: url)).flatMap { handle in
-                defer { try? handle.close() }
-                return try? handle.read(upToCount: 8192)
-            } ?? Data()
+        let head = Data(head: 8192, of: url) ?? Data()
         return String(bytes: head, encoding: .utf8)?.contains(#""entrypoint":"sdk-"#) == true
     }
 
@@ -228,10 +222,10 @@ public enum History {
         guard !needles.isEmpty else { return [] }
         var out: [AgentSessionInfo] = []
         for session in sessions where out.count < limit {
-            guard let handle = try? FileHandle(forReadingFrom: session.path) else { continue }
-            let data = (try? handle.read(upToCount: 2 << 20)) ?? nil
-            try? handle.close()
-            if let data, needles.contains(where: { data.range(of: $0) != nil }) { out.append(session) }
+            if let data = Data(head: 2 << 20, of: session.path), needles.contains(where: { data.range(of: $0) != nil })
+            {
+                out.append(session)
+            }
         }
         return out
     }
@@ -249,18 +243,25 @@ enum JSONL {
     static let chunk = 64 * 1024
 
     /// Complete lines from the first and last `chunk` bytes (or the whole file if small) and the fraction of bytes read.
+    /// nil for an empty file, or one that can't be read (logged).
     static func headAndTail(_ url: URL) -> (lines: [Data], covered: Double)? {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
-        defer { try? handle.close() }
-        guard let size = try? handle.seekToEnd(), size > 0, (try? handle.seek(toOffset: 0)) != nil else { return nil }
-        if size <= UInt64(chunk * 2) { return (lines((try? handle.readToEnd()) ?? Data()), 1) }
-        let head = (try? handle.read(upToCount: chunk)) ?? Data()
+        Logger.kelp("history").attempt("reading \(url.lastPathComponent)") { try readHeadAndTail(url) } ?? nil
+    }
+
+    private static func readHeadAndTail(_ url: URL) throws -> (lines: [Data], covered: Double)? {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { handle.closeQuietly() }
+        let size = try handle.seekToEnd()
+        guard size > 0 else { return nil }
+        try handle.seek(toOffset: 0)
+        if size <= UInt64(chunk * 2) { return (lines(try handle.readToEnd() ?? Data()), 1) }
+        let head = try handle.read(upToCount: chunk) ?? Data()
         // The last lines can be huge (a tool result, an image): read further back until a few whole lines are in.
         let limit = min(size - UInt64(chunk), 16 << 20)
         var back = UInt64(chunk), tail = Data()
         while true {
-            guard (try? handle.seek(toOffset: size - back)) != nil else { return nil }
-            tail = (try? handle.readToEnd()) ?? Data()
+            try handle.seek(toOffset: size - back)
+            tail = try handle.readToEnd() ?? Data()
             if lines(tail).count > 4 || back >= limit { break }
             back = min(back * 4, limit)
         }

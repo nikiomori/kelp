@@ -2,6 +2,8 @@ import Core
 import Foundation
 import os
 
+private let lspLog = Logger.kelp("lsp")
+
 /// `Content-Length` framed JSON-RPC, as LSP speaks over stdio.
 public struct LSPFramer: Sendable {
     private var buf = Data()
@@ -70,7 +72,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     /// `argv[0]` is looked up on the login-shell PATH, which the server gets too (npm servers need `node`).
     /// `onProblems`: a file's errors and warnings, each time the server says them.
     public init?(argv: [String], root: String, onProblems: (@Sendable (_ path: String, [CodeProblem]) -> Void)? = nil) {
-        guard let cmd = argv.first, let exe = try? LoginPath.resolve(cmd) else { return nil }
+        guard let cmd = argv.first, let exe = LoginPath.find(cmd) else { return nil }
         self.root = root
         self.onProblems = onProblems
         proc.executableURL = URL(fileURLWithPath: exe)
@@ -160,8 +162,9 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     private func send(_ message: [String: JSONValue]) {
         let handle = input.fileHandleForWriting   // not self: a blocked write must not keep the client alive
         writes.async {
-            guard let data = try? JSONEncoder().encode(JSONValue.object(message)) else { return }
-            try? handle.write(contentsOf: LSPFramer.frame(data))
+            lspLog.attempt("writing to a language server") {
+                try handle.write(contentsOf: LSPFramer.frame(JSONEncoder().encode(JSONValue.object(message))))
+            }
         }
     }
 
@@ -312,11 +315,12 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
                     guard let change = locked.changes[path], change.write == write else { return nil }
                     locked.changes[path] = nil
                     return change.params
-                }),
-                let data = try? JSONEncoder().encode(
-                    JSONValue.obj(["jsonrpc": "2.0", "method": "textDocument/didChange", "params": latest]))
+                })
             else { return }
-            try? handle.write(contentsOf: LSPFramer.frame(data))
+            lspLog.attempt("writing a change to a language server") {
+                let message = JSONValue.obj(["jsonrpc": "2.0", "method": "textDocument/didChange", "params": latest])
+                try handle.write(contentsOf: LSPFramer.frame(JSONEncoder().encode(message)))
+            }
         }
     }
     public func close(_ path: String) {

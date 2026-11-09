@@ -32,7 +32,7 @@ extension GitHub {
     /// Where the user's shell finds it (MacPorts, nix, mise… too), not only in the daemon's own PATH.
     /// `KELP_GH` names another program (tests use a stand-in that answers with canned JSON), like `KELP_SSH`.
     /// Looked up each time (a scan of PATH's folders): installed while Kelp runs, it works on the next try.
-    static var ghPath: String? { ProcessInfo.processInfo.environment["KELP_GH"] ?? (try? LoginPath.resolve("gh")) }
+    static var ghPath: String? { ProcessInfo.processInfo.environment["KELP_GH"] ?? LoginPath.find("gh") }
 
     @discardableResult
     static func gh(_ args: [String], cwd: String) throws -> Data {

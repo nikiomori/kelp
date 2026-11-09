@@ -19,7 +19,7 @@ struct Conversation {
 
     /// Nil when the file can't be read or holds nothing anyone said.
     init?(file url: URL) {
-        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let data = Data(contentsIfAny: url) else { return nil }
         for line in data.split(separator: 0x0A) {
             if let entry = Self.json(Data(line)) { read(entry) }
         }

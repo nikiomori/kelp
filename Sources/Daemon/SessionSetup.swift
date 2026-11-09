@@ -210,7 +210,8 @@ final class SessionSetup: Sendable {
         // (A workspace on another branch of a trusted project is trusted the way Claude trusts a folder, whatever is checked
         // out in it.)
         var project: String?
-        if let wid = worktreeId, let worktree = try? store.worktree(wid), let repo = try? store.repo(worktree.repoId),
+        if let wid = worktreeId, let worktree = store.look("workspace \(wid)", { try $0.worktree(wid) }),
+            let repo = store.look("project \(worktree.repoId)", { try $0.repo(worktree.repoId) }),
             IDE.inside(cwd, worktree.path),
             !AgentConfig.changed(worktree.path, base: repo.baseBranch, remotes: remotes)
         {
@@ -252,7 +253,7 @@ final class SessionSetup: Sendable {
         // conversation): the first conversation that started here between this session and the next one, unless another
         // session has it; none → start fresh. Limit: misses prompts typed out of order across sessions.
         let base = rec.argv.filter { !manifest.resumeArgs.contains($0) }
-        let all = (try? store.sessions()) ?? []
+        let all = store.look("the sessions") { try $0.sessions() } ?? []
         let claimed = Set(
             all.filter { $0.id != rec.id }.flatMap { other in
                 other.argv.indices.dropLast().filter { [pin, flag].contains(other.argv[$0]) }.map {

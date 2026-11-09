@@ -152,7 +152,9 @@ final class Watches: Sendable {
     private func folder(_ key: Key) -> (String, @Sendable ([String]) -> Bool)? {
         switch key.topic {
         case .git, .files, .artifacts, .databases:
-            guard let worktree = try? store.worktree(key.key), remotes.of(worktree.path) == nil else { return nil }
+            guard let worktree = store.look("workspace \(key.key)", { try $0.worktree(key.key) }),
+                remotes.of(worktree.path) == nil
+            else { return nil }
             if key.topic == .databases { return (worktree.path, { $0.contains(where: DatabaseFind.matters) }) }
             if key.topic == .artifacts {
                 return (worktree.path, { $0.contains { $0.contains("/\(Artifacts.folder)/") } })

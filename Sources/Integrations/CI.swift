@@ -154,13 +154,11 @@ extension CIRuns {
     /// `.github/workflows/*.yml` that can be started by hand, read just far enough for their inputs.
     public static func dispatchable(repo: String) -> [Workflow] {
         let dir = URL(fileURLWithPath: repo).appendingPathComponent(".github/workflows")
-        let files = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).filter {
+        let files = FileManager.default.names(in: dir.path).filter {
             $0.hasSuffix(".yml") || $0.hasSuffix(".yaml")
         }.sorted()
         return files.compactMap { file in
-            guard let text = try? String(contentsOf: dir.appendingPathComponent(file), encoding: .utf8) else {
-                return nil
-            }
+            guard let text = String(contentsIfAny: dir.appendingPathComponent(file)) else { return nil }
             return parseWorkflow(text, file: file)
         }
     }

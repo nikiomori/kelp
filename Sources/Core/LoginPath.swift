@@ -32,16 +32,18 @@ public enum LoginPath {
         try shared.ifRead.map { try resolve(command, in: $0) }
     }
 
+    /// Absolute path of `command`, or nil when it isn't there: for asking whether it's installed, where no is an answer.
+    public static func find(_ command: String) -> String? { find(command, in: value) }
+
+    static func find(_ command: String, in path: String) -> String? {
+        let fm = FileManager.default
+        if command.contains("/") { return fm.isExecutableFile(atPath: command) ? command : nil }
+        return path.split(separator: ":").map { "\($0)/\(command)" }.first { fm.isExecutableFile(atPath: $0) }
+    }
+
     static func resolve(_ command: String, in path: String) throws -> String {
-        if command.contains("/") {
-            guard FileManager.default.isExecutableFile(atPath: command) else {
-                throw RPCError.invalidParams("\(command) doesn't exist or isn't executable.")
-            }
-            return command
-        }
-        for dir in path.split(separator: ":") where FileManager.default.isExecutableFile(atPath: "\(dir)/\(command)") {
-            return "\(dir)/\(command)"
-        }
+        if let found = find(command, in: path) { return found }
+        if command.contains("/") { throw RPCError.invalidParams("\(command) doesn't exist or isn't executable.") }
         throw RPCError.invalidParams(
             "Couldn't find `\(command)`. Install it, or make sure your shell profile adds it to PATH.")
     }

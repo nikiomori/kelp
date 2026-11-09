@@ -48,7 +48,7 @@ extension Git {
 
     /// A merge is under way in this checkout (MERGE_HEAD exists): its conflicts and resolutions are the user's.
     public static func isMerging(_ path: String, remotes: Remotes = .none) -> Bool {
-        (try? run(["rev-parse", "-q", "--verify", "MERGE_HEAD"], cwd: path, remotes: remotes)) != nil
+        succeeds(["rev-parse", "-q", "--verify", "MERGE_HEAD"], cwd: path, remotes: remotes)
     }
 
     /// Merge `branch` into the branch checked out in `target` (usually the main checkout). Aborts on conflict

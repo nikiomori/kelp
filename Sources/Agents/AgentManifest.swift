@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import os
 
 /// An agent is data, not code: adding one means adding a JSON file to ~/.kelp/agents.
 /// Only `id`, `name` and `command` are required in a file; everything else has defaults.
@@ -360,13 +361,13 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     /// Presets overridden/extended by `*.json` files in `dir`. Bad files are skipped, never fatal.
     public static func load(dir: URL) -> [AgentManifest] {
         var all = Dictionary(uniqueKeysWithValues: presets.map { ($0.id, withInstall($0)) })
-        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        for file in files where file.pathExtension == "json" {
-            if let data = try? Data(contentsOf: file),
-                let manifest = try? JSONDecoder().decode(AgentManifest.self, from: data)
-            {
-                all[manifest.id] = withInstall(manifest)
+        for file in FileManager.default.items(in: dir) where file.pathExtension == "json" {
+            let manifest = Data(contentsIfAny: file).flatMap { data in
+                Logger.kelp("agents").attempt("skipping \(file.lastPathComponent), which doesn't read as an agent") {
+                    try JSONDecoder().decode(AgentManifest.self, from: data)
+                }
             }
+            if let manifest { all[manifest.id] = withInstall(manifest) }
         }
         return all.values.sorted { $0.name < $1.name }
     }
@@ -379,7 +380,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         try encoder.encode(manifest).write(to: dir.appendingPathComponent("\(manifest.id).json"))
     }
     public static func resetOverride(id: String, dir: URL) {
-        try? FileManager.default.removeItem(at: dir.appendingPathComponent("\(id).json"))
+        FileManager.default.removeIfAny(dir.appendingPathComponent("\(id).json"))
     }
 
     /// A "custom command" agent: any shell command.

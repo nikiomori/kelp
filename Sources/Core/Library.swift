@@ -76,7 +76,7 @@ extension IDE {
         let fm = FileManager.default,
             work = fm.temporaryDirectory.appendingPathComponent("kelp-dl-\(UUID().uuidString.prefix(8))")
         try Paths.ensure(work)
-        defer { try? fm.removeItem(at: work) }
+        defer { fm.removeIfAny(work) }
         let archive = work.appendingPathComponent("archive.tar.gz")
         _ = try download("https://codeload.github.com/\(found.repo)/tar.gz/\(found.ref)", to: archive)
         let folder = try unpackExtension(archive, path: found.path, source: sourceURL(found), work: work)

@@ -20,7 +20,7 @@ public struct CodeGrammar: Sendable {
     /// The capture names in `text` by UTF-16 range, the less specific first (a later, narrower one wins).
     public func highlights(_ text: String) -> [(range: NSRange, name: String)] {
         let parser = Parser(), string = text as NSString
-        guard (try? parser.setLanguage(language)) != nil, let tree = parser.parse(text) else { return [] }
+        guard parser.reads(language), let tree = parser.parse(text) else { return [] }
         // Predicates read pieces by UTF-16 range, as the editor's do: NSString's are O(1) to cut.
         let piece: SwiftTreeSitter.Predicate.TextProvider = { range, _ in
             NSMaxRange(range) <= string.length ? string.substring(with: range) : nil

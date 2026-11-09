@@ -32,7 +32,7 @@ public struct GhosttyConfig: Equatable, Sendable {
     public static func load() -> GhosttyConfig? {
         let home = FileManager.default.homeDirectoryForCurrentUser
         for path in [".config/ghostty/config", "Library/Application Support/com.mitchellh.ghostty/config"] {
-            if let text = try? String(contentsOf: home.appendingPathComponent(path), encoding: .utf8) {
+            if let text = String(contentsIfAny: home.appendingPathComponent(path)) {
                 return parse(text)
             }
         }

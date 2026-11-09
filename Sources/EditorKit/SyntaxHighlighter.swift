@@ -143,7 +143,7 @@ final class SyntaxHighlighter {
             let highlightQuery = TreeSitterModel.shared.query(for: language.id)
         {
             let newParser = Parser()
-            if (try? newParser.setLanguage(treeLanguage)) != nil { parsers[language.id] = (newParser, highlightQuery) }
+            if newParser.reads(treeLanguage) { parsers[language.id] = (newParser, highlightQuery) }
         }
         guard let (parser, query) = parsers[language.id], let tree = parser.parse(text) else { return nil }
         let found = query.execute(in: tree).resolve(with: .init(string: text)).highlights()
@@ -185,7 +185,7 @@ private final class Worker: @unchecked Sendable {
     private let parser = Parser()
     private var tree: MutableTree?
 
-    func setLanguage(_ language: Language) -> Bool { (try? parser.setLanguage(language)) != nil }
+    func setLanguage(_ language: Language) -> Bool { parser.reads(language) }
 
     /// The edits applied to the last tree (none: from scratch) and the text parsed; a copy for the main thread. Nil
     /// without parsing when a newer text waits.
@@ -203,5 +203,18 @@ private final class Worker: @unchecked Sendable {
                 return chars.withUnsafeBytes { Data($0) }
             })
         return tree?.copy()
+    }
+}
+
+extension Parser {
+    /// Set to read `language`; false, and logged, for a grammar this tree-sitter can't load (built for another version).
+    func reads(_ language: Language) -> Bool {
+        do {
+            try setLanguage(language)
+            return true
+        } catch {
+            Logger(subsystem: "dev.kelp", category: "editor").error("a grammar didn't load: \(error)")
+            return false
+        }
     }
 }

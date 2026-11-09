@@ -7,7 +7,7 @@ import GitKit
 public enum GitLab {
     /// `KELP_GLAB` names another program (tests use a stand-in), like `KELP_GH` for gh.
     static var glabPath: String? {
-        ProcessInfo.processInfo.environment["KELP_GLAB"] ?? (try? LoginPath.resolve("glab"))
+        ProcessInfo.processInfo.environment["KELP_GLAB"] ?? LoginPath.find("glab")
     }
 
     /// For Settings: is glab installed, and who it's signed in as ("ada on gitlab.com"; nil: not signed in anywhere).

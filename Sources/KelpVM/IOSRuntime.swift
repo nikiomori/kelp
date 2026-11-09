@@ -20,7 +20,7 @@ final class IOSRuntime {
     var xcrun = "/usr/bin/xcrun"
 
     private var udid: String {
-        (try? String(contentsOf: folder.appendingPathComponent("udid"), encoding: .utf8))?.trimmingCharacters(
+        String(contentsIfAny: folder.appendingPathComponent("udid"))?.trimmingCharacters(
             in: .whitespacesAndNewlines) ?? ""
     }
 
@@ -72,7 +72,11 @@ final class IOSRuntime {
             lastUse = now()
             wake { error in
                 let simulator = ["-a", "Simulator", "--args", "-CurrentDeviceUDID", self.udid]
-                if error == nil { _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/open"), arguments: simulator) }
+                if error == nil {
+                    do { _ = try Process.run(URL(fileURLWithPath: "/usr/bin/open"), arguments: simulator) } catch {
+                        log("opening Simulator: \(error.localizedDescription)")
+                    }
+                }
                 done(error)
             }
         case .quit:
@@ -116,10 +120,11 @@ final class IOSRuntime {
             process.environment = env
             let out = folder.appendingPathComponent("runner.log")
             FileManager.default.createFile(atPath: out.path, contents: nil)
-            if let logFile = try? FileHandle(forWritingTo: out) {
+            do {
+                let logFile = try FileHandle(forWritingTo: out)
                 process.standardOutput = logFile
                 process.standardError = logFile
-            }
+            } catch { log("no runner.log: \(error.localizedDescription)") }
             process.terminationHandler = { [weak self] ended in
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {   // the main queue

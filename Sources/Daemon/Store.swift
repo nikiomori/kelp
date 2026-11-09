@@ -458,3 +458,10 @@ extension Store {
         return found
     }
 }
+
+extension Store {
+    /// What `read` finds; nil when the store couldn't answer, which is logged: for a look its caller goes on without.
+    func look<T>(_ what: @autoclosure () -> String, _ read: (Store) throws -> T?) -> T? {
+        Log.store.attempt(what()) { try read(self) } ?? nil
+    }
+}

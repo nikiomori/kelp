@@ -98,7 +98,7 @@ public enum CodexUsage {
     }
 
     static func latest(in url: URL) -> CodexLimits? {
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        guard let data = Data(contentsIfAny: url, options: .mappedIfSafe) else { return nil }
         let marker = Data("\"rate_limits\"".utf8)
         return JSONL.lines(data).reversed().lazy.filter { $0.range(of: marker) != nil }.compactMap {
             limits(JSONL.object($0))
