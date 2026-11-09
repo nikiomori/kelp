@@ -9,6 +9,8 @@ struct DatabaseConnection: Sendable {
     /// The compose service it runs in (its file, absolute): where its client runs when this Mac has none, or the
     /// service publishes no port.
     var container: ComposeService?
+    /// Kelp's keychain account for its password ("db:<project>/<name>"): where one read from `passwordIn` goes.
+    var account: String?
 }
 
 struct ComposeService: Sendable, Equatable {

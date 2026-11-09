@@ -32,7 +32,11 @@ private func fixtureHome() throws -> URL {
                 "DatabasePort": "5432", "DatabaseName": "reports", "isOverSSH": true, "ServerAddress": "box",
                 "ServerUser": "me", "ServerPort": "2222", "Enviroment": "local"
             ],
-            ["ID": "A3", "ConnectionName": "cache", "Driver": "Redis", "DatabaseHost": "localhost"]
+            ["ID": "A3", "ConnectionName": "cache", "Driver": "Redis", "DatabaseHost": "localhost"],
+            [
+                "ID": "A4", "ConnectionName": "", "Driver": "PostgreSQL", "DatabaseHost": "pg-prod-ro.example.com",
+                "DatabaseName": "gis"
+            ]
         ])
     try plist(tp + "ConnectionGroups.plist", [["ID": "G1", "Name": "Work"]])
 
@@ -104,7 +108,7 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     let home = try fixtureHome()
     defer { try? FileManager.default.removeItem(at: home) }
     let tp = ImportReaders.read("tableplus", home: home, file: nil).map(\.imported)
-    #expect(tp.map(\.database.name) == ["analytics", "reports"])   // Redis isn't Kelp's
+    #expect(tp.map(\.database.name) == ["analytics", "reports", "gis@pg-prod-ro"])   // Redis isn't Kelp's
     #expect(tp[0].database.production && tp[0].database.group == "Work" && tp[0].database.user == "ro")
     #expect(tp[1].database.ssh == "me@box" && tp[1].note?.contains("port 2222") == true)
     #expect(tp[1].database.production)   // through SSH: not this Mac's, "local" tag or not
@@ -144,17 +148,29 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
     let dbs = w.d.workspaces.databases
     _ = try await w.c.call(DatabaseImportSources())   // this test's own home: whatever it holds
     let sources = dbs.importSources(home: home)
-    #expect(sources.first { $0.id == "dbeaver" }?.count == 2 && sources.first { $0.id == "tableplus" }?.count == 2)
+    #expect(sources.first { $0.id == "dbeaver" }?.count == 2 && sources.first { $0.id == "tableplus" }?.count == 3)
     #expect(sources.contains { $0.id == "navicat" } && !sources.contains { $0.id == "sequelace" })
 
-    let made = try dbs.importNow(
+    let outcome = try dbs.importNow(
         DatabaseImport(worktreeId: wt.id, source: "dbeaver", ids: ["postgres-1"], passwords: true, useHere: true),
         home: home)
-    #expect(made.map(\.name) == ["shop"] && made.first?.user == "app")
+    #expect(outcome.imported.map(\.name) == ["shop"] && outcome.imported.first?.user == "app")
+    #expect(outcome.withPasswords == 1 && outcome.later == 0 && outcome.skipped.isEmpty)
     #expect(try dbs.library().map(\.name) == ["shop"])
     #expect(try dbs.connection(wt.id, "shop", agent: true).password == "s3cret")   // used here: agents see it
     let again = try dbs.importRead(DatabaseImportRead(worktreeId: wt.id, source: "dbeaver"), home: home)
     #expect(again.first { $0.id == "postgres-1" }?.known == true && again.first { $0.id == "duck-1" }?.known == false)
     _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "shop", library: true))
     _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "shop"))
+
+    // From TablePlus without taking passwords now: nothing asked, each keeps where its password is for when it's
+    // opened; a connection with no name of its own is called by its database and host, and nothing is left out.
+    let later = try dbs.importNow(
+        DatabaseImport(worktreeId: wt.id, source: "tableplus", ids: ["A1", "A2"], passwords: false, useHere: false),
+        home: home)
+    #expect(later.imported.count == 2 && later.later == 2 && later.withPasswords == 0)
+    #expect(later.imported.first?.passwordIn == "com.tableplus.TablePlus\u{1F}A1_database")
+    let dots = try await w.c.call(DatabaseStatus(worktreeId: wt.id, library: true))
+    #expect(dots.allSatisfy { $0.state == .unknown })   // not tried: reading the password would make macOS ask
+    for db in later.imported { _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: db.name, library: true)) }
 }

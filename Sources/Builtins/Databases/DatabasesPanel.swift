@@ -37,6 +37,9 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private var expanded = Set<String>(), libraryOpen = false, activityOpen = true
     private var schemas: [String: DatabaseSchema] = [:]
     private var health: [String: DatabaseHealth] = [:]
+    /// All My Projects' dots, read once the section is open.
+    private var libraryHealth: [String: DatabaseHealth] = [:], libraryCheckedFor: [String] = []
+    private var libraryCount = Int.max   // the first read only counts
     /// The databases (by address) the dots were last read for: read again when that changes, not at each run.
     private var checkedFor: [String] = []
     /// Activity of one agent's session only; nil: everyone's.
@@ -62,7 +65,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         search.delegate = self
         search.controlSize = .small
         search.sendsSearchStringImmediately = true
-        let top = NSStackView(views: [search])
+        // The one way to add a database (or import them): there whether the project has any or not.
+        let add = IconButton(.symbol("plus"), tip: String(localized: "Add Database…")) { [weak self] in
+            self?.addDatabase()
+        }
+        let top = NSStackView(views: [search, add])
+        top.spacing = Metrics.gap
         top.edgeInsets = NSEdgeInsets(
             top: Metrics.gap, left: Metrics.gapWide, bottom: Metrics.gap, right: Metrics.gapWide)
         let column = NSStackView(views: [top, scroll])
@@ -119,6 +127,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             list.append(.heading(.project(app.projectName(app.worktree(workspace)?.repoId) ?? "")))
             for db in databases { list += rows(of: db, library: false, find: find) }
         }
+        if event != nil {
+            if library.count > libraryCount { libraryOpen = true }   // just imported or added: shown
+            libraryCount = library.count
+        }
         if !library.isEmpty {
             list.append(.heading(.library(library.count)))
             if libraryOpen || !find.isEmpty {
@@ -143,6 +155,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             buttons: [addButton])
         table.reloadData()
         checkHealth(databases)
+        if libraryOpen { checkLibrary(library) }
     }
 
     /// A database's row, what's wrong with it, and its schemas and tables when it's unfolded (or a table's name is
@@ -153,7 +166,9 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         let matching = find.isEmpty ? tables : tables.filter { $0.name.lowercased().contains(find) }
         if !find.isEmpty, matching.isEmpty, !db.name.lowercased().contains(find) { return [] }
         var out: [Row] = [.database(db, library: library)]
-        if !library, let h = health[db.name], h.state != .ok, h.state != .unknown { out.append(.problem(db, h)) }
+        if let h = library ? libraryHealth[db.name] : health[db.name], h.state != .ok, h.state != .unknown {
+            out.append(.problem(db, h))
+        }
         guard expanded.contains(key) || !find.isEmpty else { return out }
         // "public.orders" is "orders"; other schemas are folders of their own when there's more than one.
         let bySchema = Dictionary(grouping: matching) { t in
@@ -182,6 +197,18 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             let answer = await app.quiet(DatabaseStatus(worktreeId: wid)) ?? []
             guard wid == workspace else { return }
             health = Dictionary(answer.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+            reload()
+        }
+    }
+
+    private func checkLibrary(_ library: [DatabaseInfo]) {
+        let now = library.map { $0.name + $0.address }
+        guard shown, now != libraryCheckedFor, !library.isEmpty else { return }
+        libraryCheckedFor = now
+        let wid = workspace
+        Task {
+            let answer = await app.quiet(DatabaseStatus(worktreeId: wid, library: true)) ?? []
+            libraryHealth = Dictionary(answer.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
             reload()
         }
     }
@@ -250,7 +277,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .database(let db, let library):
             parts.database(
                 db, library: library, open: expanded.contains(Self.key(db.name, library: library)),
-                health: library ? nil : health[db.name])
+                health: library ? libraryHealth[db.name] : health[db.name])
         case .problem(let db, let h): parts.problem(db, h)
         case .schema(_, let name): parts.schema(name)
         case .table(_, let t, let depth): parts.table(t, depth: depth)

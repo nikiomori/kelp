@@ -16,12 +16,7 @@ struct DatabasePanelRows {
         switch h {
         case .asks: views = [title(String(localized: "Asks")), NSView()]
         case .project(let name):
-            views = [
-                title(name.isEmpty ? String(localized: "This Project") : name), NSView(),
-                IconButton(.symbol("plus"), tip: String(localized: "Add Database…")) { [weak panel] in
-                    panel?.addDatabase()
-                }
-            ]
+            views = [title(name.isEmpty ? String(localized: "This Project") : name), NSView()]
         case .library(let count):
             views = [chevron(libraryOpen), title(String(localized: "All My Projects")), NSView(), digits(count)]
         case .activity(let count):
@@ -56,7 +51,7 @@ struct DatabasePanelRows {
         let name = label(db.name, font: .ui(12, weight: .medium))
         let detail = label(
             library
-                ? [DatabaseLook.engine(db.engine), db.group].compactMap { $0 }.joined(separator: " · ")
+                ? [DatabaseLook.engine(db.engine), db.group, Self.place(db)].compactMap { $0 }.joined(separator: " · ")
                 : DatabaseLook.detail(db),
             font: .ui(11), color: .secondaryLabelColor)
         let fold = IconButton(
@@ -65,8 +60,15 @@ struct DatabasePanelRows {
         ) { [weak panel] in panel?.toggle(db, library: library) }
         fold.symbolConfiguration = .chrome(Metrics.iconTiny)
         var views: [NSView] = [fold, NSImageView(image: DatabaseLook.badge(db.engine, size: 14))]
-        if !library { views.append(dot(health)) }
+        views.append(dot(health))
         views += [stack([name, detail]), NSView()]
+        if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
+            let key = NSImageView(image: .symbol("key"))
+            key.contentTintColor = .tertiaryLabelColor
+            key.toolTip = String(
+                localized: "Its password is read from the app it came from when you open it: macOS asks once.")
+            views.append(key)
+        }
         if db.production { views.append(DatabaseLook.productionChip()) }
         if !library {
             let access = IconButton(
@@ -102,6 +104,13 @@ struct DatabasePanelRows {
             String(localized: "Agents: \(DatabaseLook.title(db.agentAccess))")
         ]
         .compactMap { $0 }.joined(separator: "\n")
+    }
+
+    /// "db.example.com:5432", "through box", or a file's name.
+    static func place(_ db: DatabaseInfo) -> String? {
+        if db.engine.isFile { return db.path.map { ($0 as NSString).lastPathComponent } }
+        let at = db.host.map { $0 + (db.port.map { ":\($0)" } ?? "") }
+        return [at, db.ssh.map { String(localized: "through \($0)") }].compactMap { $0 }.joined(separator: " ")
     }
 
     /// Under a database that doesn't answer: why, and Start when compose can start it.

@@ -31,9 +31,10 @@ extension Databases {
         }
     }
 
-    func importNow(_ q: DatabaseImport, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws -> [DatabaseInfo] {
+    func importNow(_ q: DatabaseImport, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws -> ImportOutcome {
         let wanted = Set(q.ids)
-        var taken = Set(try library().map(\.name)), denied = false, made: [DatabaseInfo] = []
+        var taken = Set(try library().map(\.name)), denied = false
+        var outcome = ImportOutcome(imported: [], withPasswords: 0, later: 0, denied: false, skipped: [])
         for entry in ImportReaders.read(q.source, home: home, file: q.file) where wanted.contains(entry.imported.id) {
             var db = entry.imported.database
             var password: String?
@@ -48,20 +49,27 @@ extension Databases {
                     Log.store.info("db import: \(db.name)'s password: \(error)")
                 }
             }
-            var name = db.name.replacingOccurrences(of: "/", with: "-"), n = 2
+            // Not taken now from another app's keychain: read the first time it's opened, macOS asking then.
+            if password == nil, let item = entry.keychain { db.passwordIn = item }
+            let base = db.name.replacingOccurrences(of: "/", with: "-").trimmingCharacters(in: .whitespaces)
+            var name = base.isEmpty ? "imported" : base, n = 2
             while taken.contains(name) {
-                name = "\(db.name)-\(n)"
+                name = "\(base)-\(n)"
                 n += 1
             }
             db.name = name
-            taken.insert(name)
             db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
-            made.append(try saveInLibrary(q.worktreeId, db, password: password ?? ""))
-            if q.useHere {
-                _ = try use(q.worktreeId, name, access: db.production || db.ssh != nil ? .read : nil)
+            do {
+                outcome.imported.append(try saveInLibrary(q.worktreeId, db, password: password ?? ""))
+                taken.insert(name)
+                if password != nil { outcome.withPasswords += 1 } else if db.passwordIn != nil { outcome.later += 1 }
+                if q.useHere { _ = try use(q.worktreeId, name, access: db.production || db.ssh != nil ? .read : nil) }
+            } catch let error as RPCError {
+                outcome.skipped.append("\(entry.imported.database.name): \(error.message)")
             }
         }
-        return made
+        outcome.denied = denied
+        return outcome
     }
 
     /// The same server and database, or the same file.
@@ -86,7 +94,7 @@ extension DatabaseImportRead: AsyncHandled {
 }
 
 extension DatabaseImport: AsyncHandled {
-    func handle(_ dbs: Databases) async throws -> [DatabaseInfo] {
+    func handle(_ dbs: Databases) async throws -> ImportOutcome {
         try await dbs.offloads.run { try dbs.importNow(self) }
     }
 }

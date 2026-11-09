@@ -60,8 +60,10 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         user.placeholderString = engine == .postgres ? NSUserName() : "root"
         password.stringValue = address.password ?? ""
         password.placeholderString =
-            editing != nil || container != nil
-            ? String(localized: "Unchanged") : String(localized: "Kept in the keychain")
+            editing?.passwordIn != nil
+            ? String(localized: "Read from the app it came from when opened")
+            : editing != nil || container != nil
+                ? String(localized: "Unchanged") : String(localized: "Kept in the keychain")
         database.stringValue = db.database ?? ""
         path.stringValue = db.path ?? ""
         name.stringValue = editing?.name ?? (db.name.isEmpty ? "" : db.name)

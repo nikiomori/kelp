@@ -985,6 +985,10 @@
             "description" : "Its name in the project: what `kelp db --db` and the tab's address use.",
             "type" : "string"
           },
+          "passwordIn" : {
+            "description" : "Where its password still is, outside Kelp: another app's keychain item (\"<service>\\u{1F}<account>\"), read the first time the database is opened (macOS asks then, once) and kept in Kelp's own from there.",
+            "type" : "string"
+          },
           "path" : {
             "description" : "A SQLite database's file, absolute.",
             "type" : "string"
@@ -2207,6 +2211,41 @@
           "lines",
           "newStart",
           "oldStart"
+        ],
+        "type" : "object"
+      },
+      "ImportOutcome" : {
+        "description" : "What an import did: the databases it kept, how many came with their passwords, how many will ask for theirs when first opened, and the ones it couldn't keep (with why).",
+        "properties" : {
+          "denied" : {
+            "description" : "The user said Don't Allow to macOS: the rest came without their passwords.",
+            "type" : "boolean"
+          },
+          "imported" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseInfo"
+            },
+            "type" : "array"
+          },
+          "later" : {
+            "type" : "integer"
+          },
+          "skipped" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "withPasswords" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "denied",
+          "imported",
+          "later",
+          "skipped",
+          "withPasswords"
         ],
         "type" : "object"
       },
@@ -5455,7 +5494,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken too (from the keychain, macOS asking for each; or the app's file). `useHere`: also used in the workspace's project.",
+      "description" : "Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken now (from the app's file; or its keychain, macOS asking for each). Without: one in another app's keychain is read when the database is first opened (`DatabaseInfo.passwordIn`). `useHere`: also used in the workspace's project.",
       "name" : "db.import",
       "paramStructure" : "by-name",
       "params" : [
@@ -5508,10 +5547,7 @@
       "result" : {
         "name" : "result",
         "schema" : {
-          "items" : {
-            "$ref" : "#/components/schemas/DatabaseInfo"
-          },
-          "type" : "array"
+          "$ref" : "#/components/schemas/ImportOutcome"
         }
       },
       "x-internal" : true
@@ -5816,6 +5852,14 @@
       "paramStructure" : "by-name",
       "params" : [
         {
+          "name" : "library",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "description" : "`library`: All My Projects' instead of the project's.",
           "name" : "worktreeId",
           "required" : true,
           "schema" : {

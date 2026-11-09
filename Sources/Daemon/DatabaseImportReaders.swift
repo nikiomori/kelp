@@ -9,6 +9,8 @@ import Security
 struct ImportEntry: Sendable {
     var imported: ImportedDatabase
     var secret: (@Sendable () throws -> ImportSecret)?
+    /// Its password's keychain item, when that's where it is: read on first use instead of at import.
+    var keychain: String?
 }
 
 struct ImportSecret: Sendable {
@@ -67,8 +69,18 @@ enum ImportReaders {
     private static func tablePlusEntry(_ c: [String: Any], groups: [String: String]) -> ImportEntry? {
         let id = string(c["ID"])
         guard let engine = engine(string(c["Driver"])) else { return nil }
+        // A connection TablePlus shows by its address has no name of its own: "database@host", as it reads there.
+        // its host's first word ("pg-prod-ro"); an address in numbers whole
+        let host = nonEmpty(c["DatabaseHost"]).map { h in
+            h.allSatisfy { $0.isNumber || $0 == "." || $0 == ":" }
+                ? h : String(h.split(separator: ".").first ?? Substring(h))
+        }
+        let address = [nonEmpty(c["DatabaseName"]), host].compactMap { $0 }.joined(separator: "@")
+        let name =
+            nonEmpty(c["ConnectionName"]) ?? (address.isEmpty ? nil : address)
+            ?? nonEmpty(c["DatabasePath"]).map { ($0 as NSString).lastPathComponent } ?? "tableplus"
         var db = DatabaseInfo(
-            name: string(c["ConnectionName"]), engine: engine, host: nonEmpty(c["DatabaseHost"]),
+            name: name, engine: engine, host: nonEmpty(c["DatabaseHost"]),
             port: int(c["DatabasePort"]), database: nonEmpty(c["DatabaseName"]), user: nonEmpty(c["DatabaseUser"]),
             path: nonEmpty(c["DatabasePath"]))
         db.group = groups[string(c["GroupID"])]
@@ -85,7 +97,9 @@ enum ImportReaders {
                 ImportSecret(password: try otherKeychain(service: "com.tableplus.TablePlus", account: id + "_database"))
             }
             : nil
-        return ImportEntry(imported: ImportedDatabase(id: id, database: db, note: note), secret: secret)
+        return ImportEntry(
+            imported: ImportedDatabase(id: id, database: db, note: note), secret: secret,
+            keychain: secret == nil ? nil : keychainItem("com.tableplus.TablePlus", id + "_database"))
     }
 
     // MARK: DBeaver
@@ -238,7 +252,7 @@ enum ImportReaders {
                 imported: ImportedDatabase(id: uuid, database: db, note: note),
                 secret: {
                     ImportSecret(password: try otherKeychain(service: "IntelliJ Platform DB — \(uuid)", account: nil))
-                })
+                }, keychain: keychainItem("IntelliJ Platform DB — \(uuid)", nil))
         }
     }
 
@@ -276,7 +290,7 @@ enum ImportReaders {
                     secret: {
                         ImportSecret(
                             password: try otherKeychain(service: "Sequel Ace : \(name) (\(id))", account: account))
-                    }))
+                    }, keychain: keychainItem("Sequel Ace : \(name) (\(id))", account)))
         }
         walk(root, group: nil)
         return entries
@@ -391,6 +405,17 @@ enum ImportReaders {
         let host = host.lowercased()
         return ["localhost", "::1", "0.0.0.0", "host.docker.internal"].contains(host) || host.hasPrefix("127.")
             || host.hasSuffix(".localhost")
+    }
+
+    /// A keychain item as `DatabaseInfo.passwordIn` keeps it.
+    static func keychainItem(_ service: String, _ account: String?) -> String {
+        service + "\u{1F}" + (account ?? "")
+    }
+
+    /// `passwordIn`'s item, read: macOS asks the user. Nil when it isn't there.
+    static func borrowed(_ item: String) throws -> String? {
+        let parts = item.split(separator: "\u{1F}", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        return try otherKeychain(service: parts[0], account: parts.count > 1 && !parts[1].isEmpty ? parts[1] : nil)
     }
 
     /// Another app's keychain item: macOS asks the user whether Kelp may read it. Nil when there's none.

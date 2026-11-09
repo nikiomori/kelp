@@ -85,6 +85,23 @@ public struct ImportSource: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+/// What an import did: the databases it kept, how many came with their passwords, how many will ask for theirs when
+/// first opened, and the ones it couldn't keep (with why).
+public struct ImportOutcome: Codable, Sendable, Equatable {
+    public var imported: [DatabaseInfo]
+    public var withPasswords: Int, later: Int
+    /// The user said Don't Allow to macOS: the rest came without their passwords.
+    public var denied: Bool
+    public var skipped: [String]
+    public init(imported: [DatabaseInfo], withPasswords: Int, later: Int, denied: Bool, skipped: [String]) {
+        self.imported = imported
+        self.withPasswords = withPasswords
+        self.later = later
+        self.denied = denied
+        self.skipped = skipped
+    }
+}
+
 /// The sources found on this Mac, those with something to bring in.
 public struct DatabaseImportSources: InternalMethod {
     public static let name = "db.importSources"
@@ -121,11 +138,12 @@ public struct DatabaseImportRead: InternalMethod {
     }
 }
 
-/// Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken too (from the
-/// keychain, macOS asking for each; or the app's file). `useHere`: also used in the workspace's project.
+/// Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken now (from
+/// the app's file; or its keychain, macOS asking for each). Without: one in another app's keychain is read when the
+/// database is first opened (`DatabaseInfo.passwordIn`). `useHere`: also used in the workspace's project.
 public struct DatabaseImport: InternalMethod {
     public static let name = "db.import"
-    public typealias Result = [DatabaseInfo]
+    public typealias Result = ImportOutcome
     /// macOS asks the user for each password in the keychain.
     public static var timeout: TimeInterval? { 600 }
     public var worktreeId: String, source: String, file: String?, ids: [String]
@@ -150,8 +168,12 @@ public struct DatabaseStatus: InternalMethod {
     public static let name = "db.status"
     public typealias Result = [DatabaseHealth]
     public static var timeout: TimeInterval? { 30 }
-    public var worktreeId: String
-    public init(worktreeId: String) { self.worktreeId = worktreeId }
+    /// `library`: All My Projects' instead of the project's.
+    public var worktreeId: String, library: Bool?
+    public init(worktreeId: String, library: Bool? = nil) {
+        self.worktreeId = worktreeId
+        self.library = library
+    }
 }
 
 public struct DatabaseHealth: Codable, Sendable, Equatable {

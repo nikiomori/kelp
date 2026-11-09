@@ -54,14 +54,10 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.heightAnchor.constraint(equalToConstant: 260).isActive = true
 
         passwords.setButtonType(.switch)
-        passwords.state = source.passwords == "none" ? .off : .on
+        // From another app's keychain macOS asks once a password: by default each is read when its database is
+        // first opened, not all at once now.
+        passwords.state = source.passwords == "file" ? .on : .off
         passwords.isEnabled = source.passwords != "none"
-        passwords.title =
-            switch source.passwords {
-            case "keychain": String(localized: "Take the passwords from the keychain: macOS asks for each one")
-            case "file": String(localized: "Take the passwords: Kelp reads them from \(source.name)’s files")
-            default: String(localized: "\(source.name) keeps no passwords Kelp can read: each is asked when first used")
-            }
         let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
         useHere.setButtonType(.switch)
         useHere.title = String(localized: "Let \(project)’s agents use them now (others read only)")
@@ -104,6 +100,16 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
     private func update() {
         go.title = String(localized: "Import \(chosen.count)")
         go.isEnabled = !chosen.isEmpty
+        passwords.title =
+            switch source.passwords {
+            case "keychain":
+                String(
+                    localized:
+                        "Take all \(chosen.count) passwords now: macOS asks \(chosen.count) times. Else once each, when you open it"
+                )
+            case "file": String(localized: "Take the passwords: Kelp reads them from \(source.name)’s files")
+            default: String(localized: "\(source.name) keeps no passwords Kelp can read: each is asked when first used")
+            }
     }
 
     // MARK: List
@@ -149,16 +155,17 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         go.isEnabled = false
         status.stringValue =
             passwords.state == .on && source.passwords == "keychain"
-            ? String(localized: "macOS asks whether Kelp may read each password: Always Allow saves asking again.")
+            ? String(localized: "macOS asks whether Kelp may read each password: type your Mac’s password, then Allow.")
             : String(localized: "Importing…")
+        status.textColor = .secondaryLabelColor
         Task {
             let answer = await sheet.app.tryCall(
                 DatabaseImport(
                     worktreeId: sheet.worktreeId, source: source.id, file: file,
                     ids: rows.map(\.id).filter(chosen.contains),
                     passwords: passwords.state == .on, useHere: useHere.state == .on))
-            if answer.value != nil {
-                sheet.end()
+            if let outcome = answer.value {
+                done(outcome)
             } else {
                 status.stringValue = answer.error ?? ""
                 status.textColor = .systemRed
@@ -166,6 +173,55 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
             }
         }
     }
+
+    /// What came in, said in the sheet: how many, which with passwords, which ask when opened, which couldn't come.
+    private func done(_ outcome: ImportOutcome) {
+        let title = NSTextField(
+            labelWithString: String(localized: "Imported \(outcome.imported.count) into All My Projects"))
+        title.font = .ui(13, weight: .semibold)
+        var lines: [String] = []
+        if outcome.withPasswords > 0 {
+            lines.append(String(localized: "\(outcome.withPasswords) with their passwords."))
+        }
+        if outcome.later > 0 {
+            lines.append(
+                String(
+                    localized:
+                        "\(outcome.later) read their password from \(source.name) when you first open them: macOS asks once each."
+                ))
+        }
+        if outcome.denied {
+            lines.append(
+                String(localized: "You said Don’t Allow: the rest came without passwords, and ask when opened."))
+        }
+        let rest = outcome.imported.count - outcome.withPasswords - outcome.later
+        if rest > 0, source.passwords == "none" {
+            lines.append(String(localized: "\(rest) without passwords: Kelp asks for each when you open it."))
+        }
+        if useHere.state == .on {
+            let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
+            lines.append(String(localized: "\(project)’s agents can use them: read only where they’re Production."))
+        } else {
+            lines.append(
+                String(localized: "Agents don’t see them until you choose Use in a project from a database’s menu."))
+        }
+        lines += outcome.skipped.map { String(localized: "Not imported: \($0)") }
+        let text = NSTextField(wrappingLabelWithString: lines.joined(separator: "\n"))
+        text.font = .ui(12)
+        text.textColor = .secondaryLabelColor
+        let close = NSButton(title: String(localized: "Done"), target: self, action: #selector(finished))
+        close.bezelStyle = .push
+        close.keyEquivalent = "\r"
+        let buttons = NSStackView(views: [NSView(), close])
+        let icon = NSImageView(image: .symbol("checkmark.circle.fill"))
+        icon.contentTintColor = .systemGreen
+        let heading = NSStackView(views: [icon, title])
+        heading.spacing = Metrics.gapWide
+        let view = SheetForm.stack([heading, text, buttons], wide: [text, buttons], width: DatabaseSheet.width)
+        sheet.show(view, first: close)
+    }
+
+    @objc private func finished() { sheet.end() }
 
     @objc private func backed() { sheet.showStart() }
     @objc private func cancelled() { sheet.window.sheetParent?.endSheet(sheet.window, returnCode: .cancel) }

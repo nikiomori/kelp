@@ -89,7 +89,8 @@ final class Databases: Sendable {
         }
         for entry in saved where entry.byHand {
             guard let db = entry.database, !all.contains(where: { $0.database.name == db.name }) else { continue }
-            all.append(DatabaseConnection(database: db, password: Keychain.get(Self.account(entry.id))))
+            let account = Self.account(entry.id)
+            all.append(DatabaseConnection(database: db, password: Keychain.get(account), account: account))
         }
         return all
     }
@@ -115,16 +116,36 @@ final class Databases: Sendable {
     /// over the shared connection (as a page's port is, `Forwards`), which dials when there's none. Anything else as it
     /// is.
     func reach(_ c: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
+        let c = try borrowPassword(c)
         guard !c.database.engine.isFile, let host = c.database.host, let port = c.database.port else { return c }
         let through = try c.database.ssh.map { ssh in
             guard RemoteHost.isHost(ssh) else { throw RPCError.invalidParams("\(ssh) isn't an SSH host's name.") }
             return remotes.host(ssh, path: "/")
         }
-        guard let remote = try through ?? store.worktree(worktreeId).flatMap({ remotes.of($0.path) }) else { return c }
+        // One of All My Projects is the user's, not the remote project's host's.
+        let mine = c.account?.hasPrefix(Self.account(Self.libraryRepo + "/")) == true
+        let project = mine ? nil : try store.worktree(worktreeId).flatMap { remotes.of($0.path) }
+        guard let remote = through ?? project else { return c }
         let here = try sessions.processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
         var near = c
         near.database.host = "localhost"
         near.database.port = here
+        return near
+    }
+
+    /// A password still in another app's keychain (`passwordIn`), read now that it's needed (macOS asks, once) and
+    /// kept in Kelp's own: the next connection doesn't ask.
+    func borrowPassword(_ c: DatabaseConnection) throws -> DatabaseConnection {
+        guard c.password == nil, let item = c.database.passwordIn else { return c }
+        var near = c
+        do { near.password = try ImportReaders.borrowed(item) } catch is KeychainDenied {
+            throw DatabaseFailure.failed(
+                "macOS didn't let Kelp read \(c.database.name)'s password where it was imported from: type it in Edit…."
+            )
+        }
+        if let password = near.password, let account = c.account {
+            Log.store.attempt("keeping \(c.database.name)'s password") { try Keychain.set(password, account: account) }
+        }
         return near
     }
 

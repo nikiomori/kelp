@@ -34,7 +34,8 @@ extension Databases {
     func libraryConnection(_ name: String) throws -> DatabaseConnection? {
         guard let entry = try store.db.read({ try LibraryDatabase.fetchOne($0, key: name) }), let db = entry.database
         else { return nil }
-        return DatabaseConnection(database: db, password: Keychain.get(Self.account(Self.libraryRepo + "/" + name)))
+        let account = Self.account(Self.libraryRepo + "/" + name)
+        return DatabaseConnection(database: db, password: Keychain.get(account), account: account)
     }
 
     func saveInLibrary(_ worktreeId: String, _ database: DatabaseInfo, password: String?) throws -> DatabaseInfo {
@@ -63,7 +64,7 @@ extension Databases {
         db.access = access ?? (db.host.map(DatabaseFind.isLocal) == false ? .read : db.access)
         db.production = db.production || (db.host.map { !DatabaseFind.isLocal($0) } ?? false) && db.ssh == nil
         db.group = nil
-        return try save(worktreeId, db, password: mine.password ?? "")
+        return try save(worktreeId, db, password: mine.password)
     }
 
     // MARK: The sheet's check

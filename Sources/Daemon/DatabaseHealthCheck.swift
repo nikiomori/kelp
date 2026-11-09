@@ -4,10 +4,12 @@ import Foundation
 /// The panel's dots: each database tried once (SELECT 1, a few seconds at most), side by side. A server reached over
 /// SSH, or a remote project's, is tried only through a connection that's open already: the panel never dials.
 extension Databases {
-    func status(_ worktreeId: String) async throws -> [DatabaseHealth] {
-        let all = try await offloads.run { [self] in try connections(worktreeId) }
+    func status(_ worktreeId: String, library: Bool = false) async throws -> [DatabaseHealth] {
+        let all = try await offloads.run { [self] in
+            library ? try self.library().compactMap { try libraryConnection($0.name) } : try connections(worktreeId)
+        }
         let path = try store.worktree(worktreeId)?.path ?? ""
-        let remote = remotes.of(path)
+        let remote = library ? nil : remotes.of(path)   // All My Projects' aren't on the project's host
         return await withTaskGroup(of: (Int, DatabaseHealth).self) { group in
             for (index, c) in all.enumerated() {
                 group.addTask { [self] in (index, await health(c, worktreeId, remote: remote)) }
@@ -23,6 +25,9 @@ extension Databases {
         if c.database.engine.isFile {
             let there = c.database.path.map { FileManager.default.fileExists(atPath: $0) } ?? false
             return DatabaseHealth(name: name, state: there ? .ok : .down, reason: there ? nil : "The file isn't there.")
+        }
+        if c.password == nil, c.database.passwordIn != nil {   // reading it would make macOS ask: only on opening it
+            return DatabaseHealth(name: name, state: .unknown, reason: "Its password is read when you open it.")
         }
         let through = c.database.ssh.map { remotes.host($0, path: "/") } ?? remote
         if let through, through.connection == nil {
@@ -79,7 +84,9 @@ extension Databases {
 }
 
 extension DatabaseStatus: AsyncHandled {
-    func handle(_ dbs: Databases) async throws -> [DatabaseHealth] { try await dbs.status(worktreeId) }
+    func handle(_ dbs: Databases) async throws -> [DatabaseHealth] {
+        try await dbs.status(worktreeId, library: library ?? false)
+    }
 }
 
 extension DatabaseStart: AsyncHandled {

@@ -31,6 +31,9 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var ssh: String?
     /// The group it was kept in where it came from (TablePlus' group, DBeaver's folder), for "All my projects".
     public var group: String?
+    /// Where its password still is, outside Kelp: another app's keychain item ("<service>\u{1F}<account>"), read the
+    /// first time the database is opened (macOS asks then, once) and kept in Kelp's own from there.
+    public var passwordIn: String?
     public var access: Access
     /// Agents only read it, whatever `access` says: on a host that isn't this Mac, or named so.
     public var production: Bool
