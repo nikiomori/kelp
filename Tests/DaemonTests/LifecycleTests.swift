@@ -275,7 +275,9 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     #expect(try await waitFor(10) { started.withLock { $0 } == Daemon.offloadLimit })   // every slot taken, the rest waiting
     let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
     defer { close(fd) }
-    var tv = timeval(tv_sec: 3, tv_usec: 0)
+    // Behind the held slots it would never come (they're let go only at the end): 30 s tells that apart from TSan's
+    // slowness on a shared runner, where 3 s ran out
+    var tv = timeval(tv_sec: 30, tv_usec: 0)
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
     Unix.writeAll(
         fd,
