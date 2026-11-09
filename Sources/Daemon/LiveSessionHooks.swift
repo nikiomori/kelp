@@ -63,10 +63,10 @@ extension LiveSession {
     }
 
     /// Stop: done, or still working while it goes on by itself (TurnEnd); the record says what it works toward and
-    /// what runs in the background. `failure`: an API error ended the turn, and what it said. Returns the verdict and the
-    /// hook's time, which `release` checks.
+    /// what runs in the background. `failure`: an API error ended the turn, and what it said; `passes`: one that goes on
+    /// later (`retry`). Returns the verdict and the hook's time, which `release` checks.
     func stop(
-        _ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil,
+        _ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil, passes: Bool = false,
         at: TimeInterval? = nil
     )
         -> (TurnEnd.Verdict, Date)?
@@ -90,6 +90,8 @@ extension LiveSession {
             }
             st.detector.hook(verdict != .done ? "working" : failure == nil ? "done" : "error")
             if verdict == .done, let failure, !failure.isEmpty { st.record.summary = failure }
+            if verdict == .done, failure == nil { st.retries = 0 }   // it ended well: the count starts again
+            if verdict == .done, failure != nil, passes { retry(now: now, &st) }
             emit(st.sync() ?? st.record)
             return (verdict, now)
         }

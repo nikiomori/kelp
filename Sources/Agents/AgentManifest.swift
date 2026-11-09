@@ -479,6 +479,19 @@ public enum Hooks {
         payload["notification_type"]?.string == "stop_failure" ? payload["message"]?.string ?? "" : nil
     }
 
+    /// A StopFailure that passes by itself: the API overloaded or failing, a dropped connection. Not a login, a bill or a
+    /// request the API refused, which a "continue" only repeats. The agent has already retried for a while by then.
+    public static func passes(_ payload: JSONValue) -> Bool {
+        guard payload["notification_type"]?.string == "stop_failure" else { return false }
+        switch payload["error"]?.string {
+        case "overloaded", "server_error", "rate_limit": return true
+        case "unknown":
+            let text = payload["message"]?.string?.lowercased() ?? ""
+            return text.contains("connection") || text.contains("timed out")
+        default: return false
+        }
+    }
+
     /// The plan limit a StopFailure says ended the turn. Only there: the same words in a reply or a file stop nothing.
     public static func limitHit(_ payload: JSONValue) -> ClaudeLimits.Reading? {
         guard payload["notification_type"]?.string == "stop_failure", let text = payload["message"]?.string else {

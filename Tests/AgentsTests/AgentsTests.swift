@@ -660,6 +660,17 @@ func hooklessCodex() throws -> AgentManifest {
         Hooks.failure(.obj(["notification_type": "permission_prompt", "message": "Claude needs your permission"]))
             == nil)
     #expect(Hooks.limitHit(.obj(["message": "You've hit your session limit"])) == nil)
+
+    // What goes on by itself: the API's trouble, not the user's account.
+    func passes(_ error: String, _ text: String = "API Error") -> Bool {
+        let hook: JSONValue = .obj([
+            "hook_event_name": "StopFailure", "error": .string(error), "last_assistant_message": .string(text)
+        ])
+        return SessionHook.notification(of: hook).map(Hooks.passes) ?? false
+    }
+    #expect(passes("overloaded") && passes("server_error") && passes("unknown", "API Error: Connection error."))
+    #expect(!passes("authentication_failed") && !passes("billing_error") && !passes("invalid_request"))
+    #expect(!passes("unknown") && !passes("max_output_tokens"))
 }
 
 /// Every preset an installer exists for offers it; the ones that need npm or Homebrew say so, so the app can check first.

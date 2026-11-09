@@ -131,3 +131,35 @@ private func stopped(_ p: World, _ s: Session) async throws {
     _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
     #expect(try await waitFor { try await record()?.status == .working })
 }
+
+/// An API error that passes (overloaded, a dropped connection): Kelp goes on after a minute, then five, and then waits for
+/// someone; a turn that ends well starts the count again. A login or a bill gone isn't tried again.
+@Test func anErrorThatPassesGoesOnTwiceInARow() async throws {
+    let p = try await world()
+    defer { p.d.stop() }
+    let w = try await firstWorkspace(p)
+    let s: Session = try await p.c.call(
+        "session.create", .obj(["worktreeId": .string(w.id), "command": "sleep 30"]), as: Session.self)
+    func record() async throws -> Session? {
+        try await p.c.call("session.list", as: [Session].self).first { $0.id == s.id }
+    }
+    /// After a turn that ended so: in how many seconds it goes on, nil if it doesn't.
+    func ended(_ error: String?) async throws -> Int? {
+        let said: JSONValue? = error.map {
+            .obj(["notification_type": "stop_failure", "message": .string("API Error: \($0)"), "error": .string($0)])
+        }
+        _ = try await p.c.call("session.hook", .obj(["id": .string(s.id), "event": "working"]))
+        #expect(try await waitFor { try await record()?.status == .working })
+        _ = try await p.c.call(
+            "session.hook", .obj(["id": .string(s.id), "event": "done", "notification": said ?? .null]))
+        #expect(try await waitFor { try await record()?.status == (error == nil ? .done : .error) })
+        return try await record()?.continueAt.map { Int($0.timeIntervalSinceNow.rounded()) }
+    }
+    #expect(try await ended("overloaded") == 60)
+    #expect(try await ended("server_error") == 300)
+    #expect(try await ended("overloaded") == nil)   // twice in a row: someone looks
+    #expect(try await ended(nil) == nil)
+    #expect(try await ended("overloaded") == 60)   // the count started again
+    #expect(try await ended("authentication_failed") == nil)
+    _ = try await p.c.call("session.kill", .obj(["id": .string(s.id)]))
+}

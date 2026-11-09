@@ -28,7 +28,21 @@ extension LiveSession {
             state.readyForText(submits: true)
         else { return }
         state.record.continueAt = nil
+        state.trail.add("typed continue")
         type("continue", enter: true, paste: false, &state)
         emit(state.record)
+    }
+
+    /// Pauses before each "continue" after an API error that passes, here in the daemon too (`continueIfDue`).
+    static let retryPauses: [TimeInterval] = [60, 300]
+
+    /// An API error that passes (`Hooks.passes`) ended the turn: it goes on after a pause, twice in a row at most. Typing
+    /// anything first, or the agent going on by itself, takes the `continueAt` away. Inside `state.withLock`.
+    func retry(now: Date, _ state: inout State) {
+        guard state.retries < Self.retryPauses.count else { return }
+        let pause = Self.retryPauses[state.retries]
+        state.retries += 1
+        state.record.continueAt = now.addingTimeInterval(pause)
+        state.trail.add("continues by itself in \(Int(pause)) s (\(state.retries) of \(Self.retryPauses.count))")
     }
 }

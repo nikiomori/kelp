@@ -36,6 +36,8 @@ extension LiveSession {
         var sawURL = false, sawBusy = false, lastLimits: [ClaudeLimits.Reading] = []
         /// An agent without hooks printed that its plan ran out: it counts if its turn stops by it (`settleLimit`).
         var limitSeen: (hit: LimitHit, at: Date)?
+        /// Turns in a row an API error that passes ended and Kelp went on with (`LiveSession.retry`).
+        var retries = 0
         var transcript: String?
         var lastHookAt = Date.distantPast, compactManual = false
         /// What the row said before a compaction wrote on it.

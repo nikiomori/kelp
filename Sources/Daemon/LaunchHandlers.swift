@@ -239,7 +239,8 @@ extension SessionHook: Handled {
         let failure = limit == nil ? notification.flatMap(Hooks.failure) : nil
         guard
             let (verdict, stoppedAt) = ls.stop(
-                backgroundTasks ?? [], crons: sessionCrons ?? [], goal: asked ?? last, failure: failure, at: at)
+                backgroundTasks ?? [], crons: sessionCrons ?? [], goal: asked ?? last, failure: failure,
+                passes: notification.map(Hooks.passes) ?? false, at: at)
         else {
             return Done()
         }

@@ -17,9 +17,9 @@ enum PhonePush {
         return ["https", "http"].contains(url.scheme) && url.host != nil ? url : nil
     }
 
-    /// A question, a failure, a plan limit: what stands still until someone looks.
+    /// A question, a failure, a plan limit: what stands still until someone looks. Not a failure Kelp goes on from itself.
     static func worthTelling(_ session: Session) -> Bool {
-        session.limitHit != nil || session.status == .waiting || session.status == .error
+        session.limitHit != nil || session.status == .waiting || (session.status == .error && session.continueAt == nil)
     }
 
     /// `name`: the agent's. By default it leaves out what the agent said, which goes through someone else's server.

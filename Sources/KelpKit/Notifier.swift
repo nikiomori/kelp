@@ -297,6 +297,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func statusChanged(_ s: Session, _ old: Session?) {
         guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.isChat else { return }
         if Self.leftToItsParent(s) { return }
+        if s.status == .error, s.continueAt != nil, s.limitHit == nil { return }   // Kelp goes on from it by itself
         // A guess off the screen (the row says so; a banner would claim it), or a parked one, out of the way till it calls.
         if s.status == .done, s.guessed == true || app.arrangement.isParked(s.id) { return }
         let turn = NotifyRule.turn(s, after: old)

@@ -16,10 +16,10 @@ package enum LimitStop {
 
     /// Its row's second line.
     static func rowLine(_ s: Session, now: Date = Date()) -> (word: String, text: String)? {
-        guard let hit = s.limitHit else { return nil }
-        if let at = s.continueAt {
+        if let at = s.continueAt {   // at a limit's reset, or after an API error that passes
             return (String(localized: "Continues"), String(localized: "at \(clock(at, now: now))"))
         }
+        guard let hit = s.limitHit else { return nil }
         if let at = hit.resetAt, at <= now { return (String(localized: "Limit:"), String(localized: "has reset")) }
         let resets = hit.resetAt.map { clock($0, now: now) } ?? hit.resets
         return (String(localized: "Limit:"), resets.map { String(localized: "resets \($0)") } ?? hit.kind)

@@ -52,8 +52,11 @@ extension SessionHook {
                 "notification_type": "permission_request", "tool_name": payload["tool_name"] ?? .null,
                 "tool_input": payload["tool_input"] ?? .null, "cwd": payload["cwd"] ?? .null
             ])
-        case "StopFailure":   // the turn died on an API error: its text says which
-            .obj(["notification_type": "stop_failure", "message": payload["last_assistant_message"] ?? .null])
+        case "StopFailure":   // the turn died on an API error: its text says which, `error` its kind
+            .obj([
+                "notification_type": "stop_failure", "message": payload["last_assistant_message"] ?? .null,
+                "error": payload["error"] ?? .null
+            ])
         default:
             payload["notification_type"] != nil || payload["message"] != nil
                 ? .obj([
