@@ -64,8 +64,10 @@ extension LiveSession {
         /// Whose permission dialogs are open, and how many: subagents by id, "" for the main thread. Claude Code sends no hook
         /// for an answer, and none for the next dialog of a batch when the first is answered.
         var asking: [String: Int] = [:]
-        /// Kelp asks this (`LiveSession.askForKelp`): the row asks it, whatever the screen and the hooks say, until it's over.
-        var kelpQuestion: String?
+        /// Kelp asks these (`LiveSession.askForKelp`), oldest first: the row asks the oldest, whatever the screen and the
+        /// hooks say, until they're over.
+        var kelpQuestions: [String] = []
+        var kelpQuestion: String? { kelpQuestions.first }
         /// AskUserQuestion is open: a key answers one of its questions, and only its PostToolUse says that was the last.
         var questionOpen = false
         /// The prompt that started this turn set a /goal, this one: its first Stop comes before the first check is written.

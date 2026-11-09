@@ -314,7 +314,7 @@ extension SessionHook: Handled {
             return Done()
         }
         // Its turn is over, and every command of it: a question Kelp asked for one goes unanswered.
-        sessions.permissions.answerKelp(id, question: nil, nil)
+        sessions.permissions.endKelpQuestions(id)
         let limit = notification.flatMap(Hooks.limitHit)
         if let limit { ls.hitLimit(limit) }
         let path = ls.transcriptPath

@@ -219,7 +219,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
 }
 
 /// An agent reads freely; its change is tried and rolled back, asked on its row as a permission is ("Allow changing 2
-/// rows in shop?"), and runs once the user allows it. Denied, nothing changes and the agent is told so.
+/// rows of orders in shop?"), and runs once the user allows it. Denied, nothing changes and the agent is told so.
 @Test func anAgentsChangeWaitsForTheUsersAllow() async throws {
     let w = try await world(agents: [bot])
     defer { w.d.stop() }
@@ -249,7 +249,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
 
     let first = ask()
     let (question, firstRun) = try await asked()
-    #expect(question == "Allow changing 2 rows in shop?")
+    #expect(question == "Allow changing 2 rows of orders in shop?")
     #expect(try count(path, "SELECT count(*) FROM orders WHERE status = 'cancelled'") == 0)   // rolled back
     let asking = try #require(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first)
     #expect(asking.state == .asks && asking.session == agent.id && asking.changed == 2)
@@ -470,7 +470,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     _ = try await w.c.call(SessionHook(id: agent.id, event: "working", hookName: "PreToolUse"))
     try await Task.sleep(for: .milliseconds(300))
     let session = try #require(try w.d.store.session(agent.id))
-    #expect(session.status == .waiting && session.summary == "Allow changing 3 rows in shop?")
+    #expect(session.status == .waiting && session.summary == "Allow changing 3 rows of orders in shop?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: session.summary)))
     #expect(try await first.value.changed == 3)
     #expect(try count(path, "SELECT count(*) FROM orders WHERE note = 'y'") == 3)

@@ -33,20 +33,21 @@ extension LiveSession {
     }
 
     /// Kelp asks `question` for one of the agent's commands (a database change, `Databases`): the row asks it until
-    /// `kelpAsked`, whatever its screen says meanwhile (the command's own spinner).
+    /// `kelpAsked`, whatever its screen says meanwhile (the command's own spinner); after the ones asked before it.
     func askForKelp(_ question: String) {
         state.withLock { st in
-            st.kelpQuestion = question
+            st.kelpQuestions.append(question)
             emit(st.sync() ?? st.record)
         }
     }
 
-    /// Kelp's question is over, answered or not: that command goes on (or has ended), and the row says what it does.
+    /// One of Kelp's questions is over, answered or not: that command goes on (or has ended); the row asks the next, or
+    /// says what it does.
     func kelpAsked(_ question: String) {
         state.withLock { st in
-            guard st.kelpQuestion == question else { return }
-            st.kelpQuestion = nil
-            if st.record.summary == question { st.record.summary = "" }
+            guard let index = st.kelpQuestions.firstIndex(of: question) else { return }
+            st.kelpQuestions.remove(at: index)
+            if st.kelpQuestions.isEmpty, st.record.summary == question { st.record.summary = "" }
             emit(st.sync() ?? st.record)
         }
     }

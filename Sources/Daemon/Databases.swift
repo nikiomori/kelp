@@ -418,7 +418,8 @@ final class Databases: Sendable {
         return .some(session)
     }
 
-    func query(_ q: DatabaseQuery, origin: String?) async throws -> QueryResult {
+    /// `asker`: the program the call came from (the agent's `kelp db query`): a question it waits on ends with it.
+    func query(_ q: DatabaseQuery, origin: String?, asker pid: pid_t? = nil) async throws -> QueryResult {
         let asker = agent(origin: origin), forAgent = asker != nil
         let (wid, name) = (q.worktreeId, q.database)
         // Off the pool: a remote project's are read on its host, and reached through a forwarded port.
@@ -452,7 +453,7 @@ final class Databases: Sendable {
                         + (others.isEmpty ? "." : ", or try it on \(others.joined(separator: " or ")).")
                 )
             case .ask:
-                guard try await allowed(q, c, sql, &run, session: session) else {
+                guard try await allowed(q, c, sql, &run, asker: (session, pid)) else {
                     throw RPCError.refused(run.error ?? "The user didn't allow it.")
                 }
                 fallthrough
@@ -519,11 +520,14 @@ final class Databases: Sendable {
         return RPCError.invalidParams(failure.message)
     }
 
-    /// The change tried and rolled back, then asked on the agent's row: whether the user allowed it.
+    /// The change tried and rolled back, then asked on the agent's row: whether the user allowed it. `asker`: the agent's
+    /// session, and the program its command runs in.
     private func allowed(
-        _ q: DatabaseQuery, _ c: DatabaseConnection, _ sql: String, _ run: inout DatabaseRun, session: String?
+        _ q: DatabaseQuery, _ c: DatabaseConnection, _ sql: String, _ run: inout DatabaseRun,
+        asker: (session: String?, pid: pid_t?)
     ) async throws -> Bool {
-        guard let session, let ls = sessions.existing(session) else {
+        let pid = asker.pid
+        guard let session = asker.session, let ls = sessions.existing(session) else {
             run.state = .refused
             run.error = "Nobody to ask: a change to \(c.database.name) needs the user's Allow on an agent's row."
             note(q.worktreeId, run)
@@ -548,26 +552,61 @@ final class Databases: Sendable {
         let question = Self.question(sql, database: c.database.name, changed: trial?.changed)
         ls.askForKelp(question)
         let answer = await sessions.permissions.waitForKelp(
-            session, question: question, within: DatabaseQuery.answerWithin)
+            session, question: question, within: DatabaseQuery.answerWithin, asker: pid)
         ls.kelpAsked(question)
         guard answer == "allow" else {
             run.state = .denied
-            run.error = answer == "deny" ? "The user denied it." : "Nobody answered: it's no longer asked."
+            run.error =
+                switch answer {
+                case "deny": "The user denied it."
+                case PermissionWaits.askerGone: "The agent's command ended before an answer: it didn't run."
+                default: "Nobody answered: it's no longer asked."
+                }
+            note(q.worktreeId, run)
+            return false
+        }
+        // What agents may do there can have changed while it was asked (read-only, hidden, another address)
+        var now: DatabaseInfo.Access?
+        do {
+            now = try await offloads.run { [self] in
+                try connection(q.worktreeId, q.database, agent: true).database.agentAccess
+            }
+        } catch {
+            now = nil   // hidden from agents now, or gone
+        }
+        guard let now, [.ask, .free].contains(now) else {
+            run.state = .refused
+            run.error = "\(c.database.name) became read-only for agents while it was asked: it didn't run."
             note(q.worktreeId, run)
             return false
         }
         return true
     }
 
-    /// What the agent's row asks: "Allow changing 1204 rows in app_dev?". "allow" makes the banner, the Dock and the
-    /// strip offer Allow / Deny (`Session.asksPermission`).
+    /// What the agent's row asks: "Allow changing 1204 rows of orders in app_dev?", the table named so that two asked
+    /// one after another read apart. "allow" makes the banner, the Dock and the strip offer Allow / Deny
+    /// (`Session.asksPermission`).
     static func question(_ sql: String, database: String, changed: Int?) -> String {
         if let changed, ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE"].contains(SQLText.verb(sql)) {
-            return "Allow changing \(changed) \(changed == 1 ? "row" : "rows") in \(database)?"
+            let rows = "\(changed) \(changed == 1 ? "row" : "rows")"
+            return "Allow changing \(rows)\(table(sql).map { " of \($0)" } ?? "") in \(database)?"
         }
         let line = SQLText.code(sql).split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
         let short = line.count > 80 ? String(line.prefix(79)) + "…" : line
         return "Allow \(short) in \(database)?"
+    }
+
+    /// The table a change names: UPDATE orders, DELETE FROM "orders", INSERT OR REPLACE INTO public.orders.
+    static func table(_ sql: String) -> String? {
+        let changing =
+            #/
+            ^(?: UPDATE (?:\s+ONLY)? | DELETE\s+FROM | MERGE\s+INTO
+                | (?:INSERT|REPLACE) (?:\s+OR\s+\w+)? (?:\s+IGNORE)? \s+INTO ) \s+
+            (?<name> (?:"[^"]+"|`[^`]+`|[^\s(,;."`]+) (?: \. (?:"[^"]+"|`[^`]+`|[^\s(,;."`]+) )* )
+            /#.ignoresCase()
+        guard let match = SQLText.code(sql).firstMatch(of: changing) else { return nil }
+        let name = match.output.name.filter { !"\"`".contains($0) }
+        return name.isEmpty ? nil : String(name)
     }
 
     func schema(_ worktreeId: String, _ name: String, table: String?, agent: Bool) async throws -> DatabaseSchema {
@@ -594,7 +633,9 @@ extension DatabaseSchemaRead: AsyncHandled {
 }
 
 extension DatabaseQuery: AsyncHandled {
-    func handle(_ dbs: Databases) async throws -> QueryResult { try await dbs.query(self, origin: Sessions.asker) }
+    func handle(_ dbs: Databases, conn: Int) async throws -> QueryResult {
+        try await dbs.query(self, origin: Sessions.asker, asker: dbs.sessions.callers.pid(conn))
+    }
 }
 
 extension DatabaseSave: Handled {

@@ -234,6 +234,9 @@ final class Callers: Sendable {
         return []
     }
 
+    /// The program on `conn`, as it connected.
+    func pid(_ conn: Int) -> pid_t? { clients.connection(conn)?.peerPID }
+
     /// Who the program on `conn` is: its process tree, looked up once per connection (`Connection.owner`), as it connects
     /// (Daemon.serve), while it's surely there. The daemon's own calls (`conn` -1) are the user's, and Kelp's window,
     /// which launchd starts with no terminal; a connection gone already is `kelpd`'s, one whose program can't be read `unknown`.

@@ -135,35 +135,75 @@ extension SessionPermissionWait: AsyncHandled {
 /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
 final class PermissionWaits: Sendable {
     let waits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
-    /// Questions Kelp asks itself for one of the agent's commands (a database change), by session: not ended by a status
-    /// change, which the agent's own screen makes while that command runs; ended by an answer, the agent's Stop, a newer
-    /// one, or the time running out.
-    typealias KelpWait = (question: String, token: UUID, answer: CheckedContinuation<String?, Never>)
-    let kelpWaits = OSAllocatedUnfairLock<[String: KelpWait]>(initialState: [:])
+    /// Questions Kelp asks itself for the agent's commands (a database change), by session, oldest first: not ended by a
+    /// status change, which the agent's own screen makes while that command runs; ended by an answer, the agent's Stop,
+    /// the command's program ending (Esc, a tool's time limit: nobody is left to run it for), or the time running out.
+    /// Two commands asking at once (parallel tool calls) each wait their turn: an answer goes to the oldest.
+    struct KelpWait: Sendable {
+        let question: String, token: UUID
+        let answer: CheckedContinuation<String?, Never>
+        let exit: DispatchSourceProcess?
+    }
+    let kelpWaits = OSAllocatedUnfairLock<[String: [KelpWait]]>(initialState: [:])
+    /// What `waitForKelp` gives when the asking program ended first.
+    static let askerGone = "gone"
 
-    /// Kelp's question `question` for `id`, waiting for Allow or Deny; nil when nobody answered.
-    func waitForKelp(_ id: String, question: String, within seconds: TimeInterval) async -> String? {
+    /// Kelp's question `question` for `id`, waiting for Allow or Deny; nil when nobody answered, `askerGone` when `asker`
+    /// (the program the command runs in) ended before an answer.
+    func waitForKelp(_ id: String, question: String, within seconds: TimeInterval, asker: pid_t? = nil) async -> String?
+    {
         let token = UUID()
         return await withCheckedContinuation { continuation in
-            let older = kelpWaits.withLock { w in w.updateValue((question, token, continuation), forKey: id) }
-            older?.answer.resume(returning: nil)
+            let exit = asker.map { pid in
+                let source = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .global())
+                source.setEventHandler { [weak self] in
+                    self?.answerKelp(id, question: nil, Self.askerGone, only: token)
+                }
+                return source
+            }
+            kelpWaits.withLock {
+                $0[id, default: []].append(
+                    KelpWait(
+                        question: question, token: token,
+                        answer: continuation, exit: exit))
+            }
+            exit?.activate()
+            // Gone before the watch began: its exit was before the source and won't come
+            if let asker, kill(asker, 0) != 0, errno == ESRCH {
+                answerKelp(id, question: nil, Self.askerGone, only: token)
+            }
             DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
                 self?.answerKelp(id, question: nil, nil, only: token)
             }
         }
     }
 
-    /// Hands `answer` to Kelp's question of `id` (only if it's `question`, when given); whether one was waiting.
+    /// Hands `answer` to Kelp's oldest question of `id` (the oldest that is `question`, when given; the one of `token`);
+    /// whether one was waiting.
     @discardableResult
     func answerKelp(_ id: String, question: String?, _ answer: String?, only token: UUID? = nil) -> Bool {
-        let waiting = kelpWaits.withLock { waits -> CheckedContinuation<String?, Never>? in
-            guard let wait = waits[id], token == nil || wait.token == token else { return nil }
-            guard question == nil || wait.question == question else { return nil }
-            waits[id] = nil
-            return wait.answer
+        let waiting = kelpWaits.withLock { waits -> KelpWait? in
+            guard var queue = waits[id],
+                let index = queue.firstIndex(where: {
+                    (token == nil || $0.token == token) && (question == nil || $0.question == question)
+                })
+            else { return nil }
+            let wait = queue.remove(at: index)
+            waits[id] = queue.isEmpty ? nil : queue
+            return wait
         }
-        waiting?.resume(returning: answer)
+        waiting?.exit?.cancel()
+        waiting?.answer.resume(returning: answer)
         return waiting != nil
+    }
+
+    /// Every question Kelp asks for `id`'s commands goes unanswered: its turn is over, and every command of it.
+    func endKelpQuestions(_ id: String) {
+        let all = kelpWaits.withLock { $0.removeValue(forKey: id) } ?? []
+        for wait in all {
+            wait.exit?.cancel()
+            wait.answer.resume(returning: nil)
+        }
     }
 
     /// The hook of `id`'s permission question, waiting for Allow or Deny; a newer one lets the older go with no answer.

@@ -70,7 +70,7 @@ private let env = ProcessInfo.processInfo.environment
     let preview = try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: run?.id ?? ""))
     #expect(preview?.rows.compactMap { $0.last ?? nil } == ["seen", "seen"])   // RETURNING *: as they'd be
     let question = try w.d.store.session(agent.id)?.summary ?? ""
-    #expect(question == "Allow changing 2 rows in app_dev?")
+    #expect(question == "Allow changing 2 rows of orders in app_dev?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
     #expect(try await asked.value.changed == 2)
     let after = try await w.c.call(
@@ -155,7 +155,7 @@ private let env = ProcessInfo.processInfo.environment
             question = try w.d.store.session(agent.id)?.summary ?? ""
             return question.hasPrefix("Allow")
         })
-    #expect(question == "Allow changing 2 rows in shop?")
+    #expect(question == "Allow changing 2 rows of t in shop?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
     #expect(try await asked.value.changed == 2)
     // A table ROLLBACK can't undo: the change is asked untried, not made by its trial.
@@ -241,7 +241,7 @@ private let env = ProcessInfo.processInfo.environment
             question = try w.d.store.session(agent.id)?.summary ?? ""
             return question.hasPrefix("Allow")
         })
-    #expect(question == "Allow changing 2 rows in shop?")
+    #expect(question == "Allow changing 2 rows of t in shop?")
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
     #expect(try await asked.value.changed == 2)
 
