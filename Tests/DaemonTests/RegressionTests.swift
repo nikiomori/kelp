@@ -131,26 +131,30 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 }
 
 /// Removing a project ends its programs, stubborn ones too: nothing keeps running out of sight. All at once: each
-/// stubborn one takes the 2 s to SIGKILL, and one after another three would hold the user up for 6.
+/// stubborn one takes the 2 s to SIGKILL, and one after another three would hold the user up for 6. Each notes its
+/// hangup and, while it lasts, whether all three have had theirs: one after another, the first is gone before the
+/// others get one.
 @Test func removingAProjectEndsItsPrograms() async throws {
     let w = try await world()
     defer { w.d.stop() }
-    let wt = try await workspace(w, "gone")
+    let wt = try await workspace(w, "gone"), dir = tmp().path
+    let all3 = (0..<3).map { "-e \(dir)/hup\($0)" }.joined(separator: " -a ")
     var all: [Session] = []
-    for _ in 0..<3 {
+    for i in 0..<3 {
+        let script =
+            "trap 'touch \(dir)/hup\(i)' HUP; trap '' TERM; echo up; "
+            + "while :; do [ \(all3) ] && touch \(dir)/all\(i); sleep 0.1; done"
         let s: Session = try await w.c.call(
-            "session.create", .obj(["worktreeId": .string(wt.id), "command": .string(stubbornScript)]), as: Session.self
-        )
+            "session.create", .obj(["worktreeId": .string(wt.id), "command": .string(script)]), as: Session.self)
         #expect(
             try await waitFor(10) {
                 (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("up") == true
             })
         all.append(s)
     }
-    let start = Date()
     _ = try await w.c.call("repo.remove", .obj(["id": .string(w.repo.id)]))
-    #expect(Date().timeIntervalSince(start) < 4)
     #expect(all.allSatisfy { kill($0.pid, 0) != 0 })
+    #expect((0..<3).allSatisfy { FileManager.default.fileExists(atPath: "\(dir)/all\($0)") })
 }
 
 /// A record published after its session was deleted stays deleted.
