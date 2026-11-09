@@ -293,7 +293,10 @@ extension DatabaseTab {
         let body = text(format, picked)
         Task {
             guard await runSheet(panel) == .OK, let url = panel.url else { return }
-            do { try body.write(to: url, atomically: true, encoding: .utf8) } catch {
+            // Written off the main thread: a big table's text to a slow disk
+            let written = await Task.detached { Result { try body.write(to: url, atomically: true, encoding: .utf8) } }
+                .value
+            if case .failure(let error) = written {
                 Banner.show(String(localized: "Couldn't save \(url.lastPathComponent): \(error.localizedDescription)"))
             }
         }

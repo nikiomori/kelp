@@ -165,7 +165,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         sshOn.state = db.ssh == nil ? .off : .on
         sshOn.target = self
         sshOn.action = #selector(foldsChanged)
-        ssh.addItems(withObjectValues: DatabaseForm.sshHosts())
+        Task { [ssh] in   // ~/.ssh/config read off the main thread
+            ssh.addItems(withObjectValues: await Task.detached { DatabaseForm.sshHosts() }.value)
+        }
         ssh.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
         ssh.stringValue = db.ssh ?? ""
         sshRow.setViews([sshOn, ssh], in: .leading)
@@ -357,7 +359,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     @objc private func cancelled() { sheet.window.sheetParent?.endSheet(sheet.window, returnCode: .cancel) }
 
     /// The `Host` names in ~/.ssh/config (patterns left out).
-    static func sshHosts() -> [String] {
+    nonisolated static func sshHosts() -> [String] {
         let text: String
         do { text = try String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8) } catch {
             return []

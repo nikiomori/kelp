@@ -27,6 +27,16 @@ import os
 
     @Test func noFolderNoMachines() { #expect(vms.list().isEmpty) }
 
+    /// A machine the user deletes goes to the Trash, its disk with it (`KELP_TRASH` in tests).
+    @Test func aDeletedMachineGoesToTheTrash() throws {
+        try folder(["disk.img": "work"])
+        try vms.discard("deb", trash: true)
+        #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb").path))
+        let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
+        let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("deb/disk.img") }
+        #expect(!kept.isEmpty)
+    }
+
     /// One machine alone wakes at any size it may be given (up to half the Mac's): the quarter is for them together.
     @Test func aMachineAloneWakesWhateverItsSize() throws {
         let half = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 2

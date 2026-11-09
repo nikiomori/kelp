@@ -134,7 +134,7 @@ struct VMService: Sendable {
         let machine = [.stop, .delete].contains(action) ? try self.machine(name) : try ready(name)
         switch action {
         case .delete:
-            try discard(name)
+            try discard(name, trash: true)
             var gone = VMInfo(machine: machine, state: .off)
             gone.detail = String(localized: "Deleted")
             return gone
@@ -341,7 +341,8 @@ struct VMService: Sendable {
     }
 
     /// The machine gone: its kelp-vm, an iOS one's simulator (it lives in Xcode's device set), its folder, its password.
-    func discard(_ name: String) throws {
+    /// `trash`: a machine the user deletes goes to the Trash (its disk is their work); a failed try's remains don't.
+    func discard(_ name: String, trash: Bool = false) throws {
         quit(name)
         guard !alive(name) else {
             throw RPCError.internalError("\(name) didn't stop: try again in a moment, or restart the Mac.")
@@ -351,7 +352,7 @@ struct VMService: Sendable {
                 try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)])
             } catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
         }
-        try FileManager.default.removeItem(at: folder(name))
+        if trash { try Trash.move(folder(name)) } else { try FileManager.default.removeItem(at: folder(name)) }
         Keychain.delete("vm." + name)
     }
 
