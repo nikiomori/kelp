@@ -94,8 +94,10 @@ enum PostgresWire {
                 return result
             }
             if let returning = SQLText.returning(sql) {
-                // RETURNING may not fit it (a MERGE, a view): tried plain then
-                do { return try await attempt(returning, returning: true) } catch DatabaseFailure.failed {}
+                // RETURNING may not fit it (a view, a rule): tried plain then, its transaction ended first
+                do { return try await attempt(returning, returning: true) } catch {
+                    try await run(conn, "ROLLBACK")
+                }
             }
             return try await attempt(sql, returning: false)
         }
@@ -112,9 +114,9 @@ enum PostgresWire {
     static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
         try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
             try await run(conn, "BEGIN")
+            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             var changed = 0
             for sql in statements { changed += try await command(conn, sql).changed ?? 0 }
-            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             try await run(conn, "COMMIT")
             return changed
         }
@@ -123,9 +125,9 @@ enum PostgresWire {
     static func schema(_ c: DatabaseConnection) async throws -> DatabaseSchema {
         try await with(c) { conn in
             try await run(conn, "BEGIN TRANSACTION READ ONLY")
+            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
             let columns = try await rows(conn, PostgresRun.schemaColumns)
             let counts = try await rows(conn, PostgresRun.schemaCounts)
-            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
             let indexes = try await rows(conn, PostgresRun.schemaIndexes)
             var schema = DatabaseSchemaBuilder.build(columns: columns.rows, counts: counts.rows, indexes: indexes.rows)
             schema.functions = try await rows(conn, PostgresRun.schemaFunctions).rows.compactMap { $0.first ?? nil }
@@ -150,10 +152,10 @@ enum PostgresWire {
         }
     }
 
+    /// `seconds`: the call's whole time (`DatabaseWire.within`).
     private static func with<T: Sendable>(
         _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
         _ body: @escaping @Sendable (PostgresConnection) async throws -> T
-    /// `seconds`: the call's whole time (`DatabaseWire.within`).
     ) async throws -> T {
         let db = c.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
@@ -334,10 +336,10 @@ enum MySQLWire {
         (try await run(conn, "SELECT ROW_COUNT()").rows.first?.first ?? nil).flatMap(Int.init).map { max(0, $0) }
     }
 
+    /// `seconds`: the call's whole time (`DatabaseWire.within`).
     private static func with<T: Sendable>(
         _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
         _ body: @escaping @Sendable (MySQLConnection) async throws -> T
-    /// `seconds`: the call's whole time (`DatabaseWire.within`).
     ) async throws -> T {
         let db = c.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
