@@ -89,8 +89,10 @@ def main():
     app_ext = [p for p in swift_files("Sources/KelpKit", "Sources/Builtins")
                if p.name != "AppModel.swift" and re.search(r"^extension AppModel\b", p.read_text(errors="replace"), re.M)]
     sessions_ext = grep_count(r"(?m)^extension Sessions\b", swift_files("Sources/Daemon"))
-    workspaces_handlers = len(re.findall(r"workspaces: Workspaces\)", "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))))
-    sessions_handlers = len(re.findall(r"sessions: Sessions\)", "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))))
+    # As ArchitectureTests counts them: a handler is a `handle(_:)` (or `handle(_:conn:)`) taking the service
+    daemon = "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))
+    handlers = re.findall(r"func handle\(_ \w+: (\w+)(?:, conn: Int)?\)", daemon)
+    workspaces_handlers, sessions_handlers = handlers.count("Workspaces"), handlers.count("Sessions")
     settings_literals = grep_count(r"""settings(?:\[|\.(?:string|bool|int|double|value)\()\s*"[a-z]+\.[\w.]+""", sources)
     # As ArchitectureTests' `linesStayShort` counts them: a line that is one long string (UI text, a script) aside.
     long_string = re.compile(r'"[^"]{100,}"|#".{100,}"#|\'[^\']{100,}\'')
