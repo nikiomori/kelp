@@ -30,8 +30,15 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     var firstField: NSView { engine.isFile ? path : fresh ? host : password }
     private let fresh: Bool
 
-    init(sheet: DatabaseSheet, address: DatabaseAddress, editing: DatabaseInfo?, container: String?) {
+    private let preset: EnginePreset?
+    private var whyRow: NSGridRow?
+
+    init(
+        sheet: DatabaseSheet, address: DatabaseAddress, editing: DatabaseInfo?, container: String?,
+        preset: EnginePreset? = nil
+    ) {
         self.sheet = sheet
+        self.preset = preset
         engine = address.database.engine
         self.editing = editing
         self.container = container
@@ -44,9 +51,10 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
 
     private func build(_ address: DatabaseAddress) {
         let db = address.database
-        let title = NSTextField(labelWithString: editing?.name ?? DatabaseLook.engine(engine))
+        let title = NSTextField(labelWithString: editing?.name ?? preset?.name ?? DatabaseLook.engine(engine))
         title.font = .ui(13, weight: .semibold)
-        let heading = NSStackView(views: [NSImageView(image: DatabaseLook.badge(engine, size: 18)), title])
+        let mark = preset?.badge(22) ?? DatabaseLook.badge(engine, size: 18)
+        let heading = NSStackView(views: [NSImageView(image: mark), title])
         heading.spacing = Metrics.gapWide
         for field in [host, port, user, password, path, name] { field.delegate = self }
         for combo in [database, ssh] {
@@ -85,6 +93,11 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             ]
         }
         var parts: [NSView] = [heading, SheetForm.grid(rows)]
+        if let hint = preset?.hint {
+            let note = DatabaseSheet.small(hint)
+            note.lineBreakMode = .byWordWrapping
+            parts.append(note)
+        }
         if !engine.isFile { parts += folds(db) }
         let separator = NSBox()
         separator.boxType = .separator
@@ -111,11 +124,12 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         let start = editing?.stage ?? db.stage
         stage.selectedSegment = DatabaseInfo.Stage.allCases.firstIndex(of: start) ?? 0
         productionTouched = editing != nil || db.environment != nil
-        parts.append(
-            SheetForm.grid([
-                (String(localized: "Name"), name), (String(localized: "Keep in"), place),
-                (String(localized: "Environment"), stage), ("", why), (String(localized: "Agents"), agents)
-            ]))
+        let settings = SheetForm.grid([
+            (String(localized: "Name"), name), (String(localized: "Keep in"), place),
+            (String(localized: "Environment"), stage), ("", why), (String(localized: "Agents"), agents)
+        ])
+        whyRow = settings.row(at: 3)
+        parts.append(settings)
 
         status.font = .ui(11)
         status.textColor = .secondaryLabelColor
@@ -231,7 +245,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         }
         let picked = DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)]
         why.stringValue = Self.why(picked, elsewhere: elsewhere)
-        why.isHidden = why.stringValue.isEmpty
+        whyRow?.isHidden = why.stringValue.isEmpty   // the grid's row, or its gap stays
         add.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
         place.setEnabled(editing == nil, forSegment: 1)
     }

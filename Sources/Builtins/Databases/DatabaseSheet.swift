@@ -11,7 +11,6 @@ import KelpKit
 final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     static let width: CGFloat = 520
     /// The order the engines are offered in: servers first, the most used first.
-    static let engines: [DatabaseInfo.Engine] = [.postgres, .mysql, .sqlite, .duckdb]
     let app: AppModel, worktreeId: String
     let window = NSPanel(
         contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered,
@@ -22,6 +21,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private let foundTitle = DatabaseSheet.section(String(localized: "Found on This Mac"))
     private let next = NSButton()
     private var parsed: DatabaseAddress?
+    private let tiles = NSStackView()
     /// The pane on screen past the first: kept while it shows.
     private var pane: AnyObject?
 
@@ -75,25 +75,25 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         heading.spacing = Metrics.gapWide
         heading.alignment = .centerY
 
-        field.placeholderString = String(localized: "Paste a connection URL, or a database file’s path")
+        field.placeholderString = String(localized: "Search, or paste a connection URL or a file’s path")
         field.font = .ui(13)
         field.delegate = self
         field.controlSize = .large
         understood.font = .ui(11)
         understood.isHidden = true
 
-        let engines = NSStackView(views: [Self.small(String(localized: "Or start a new one:"))])
-        engines.spacing = Metrics.gap
-        for (index, engine) in Self.engines.enumerated() {
-            let button = NSButton(
-                title: DatabaseLook.engine(engine), image: DatabaseLook.badge(engine), target: self,
-                action: #selector(newOne(_:)))
-            button.imagePosition = .imageLeading
-            button.controlSize = .small
-            button.bezelStyle = .push
-            button.tag = index
-            engines.addArrangedSubview(button)
+        tiles.orientation = .vertical
+        tiles.alignment = .leading
+        tiles.spacing = 2
+        layTiles("")
+        let later = ClosureButton(
+            title: String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle — ask for one")
+        ) {
+            if let url = URL(string: "https://github.com/nikiomori/kelp/issues/new") { PreviewLinks.openOutside(url) }
         }
+        later.isBordered = false
+        later.font = .ui(11)
+        later.contentTintColor = .tertiaryLabelColor
 
         found.orientation = .vertical
         found.alignment = .leading
@@ -115,7 +115,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         buttons.spacing = Metrics.gapWide
         show(
             SheetForm.stack(
-                [heading, field, understood, engines, foundTitle, found, buttons],
+                [heading, field, understood, tiles, later, foundTitle, found, buttons],
                 wide: [field, understood, found, buttons], width: Self.width), first: field)
         Task { await fillFound() }
     }
@@ -175,6 +175,9 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         understood.isHidden = understood.stringValue.isEmpty
         next.isEnabled = parsed != nil
         found.alphaValue = parsed == nil ? 1 : 0.45
+        // Not an address: words that find an engine or a service in the grid.
+        layTiles(parsed == nil ? text.trimmingCharacters(in: .whitespaces) : "")
+        if parsed == nil, !text.contains(":"), !text.contains("/") { understood.isHidden = true }
         fit()
     }
 
@@ -201,11 +204,26 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         return text
     }
 
-    @objc private func newOne(_ sender: NSButton) {
-        let engine = Self.engines[sender.tag]
-        let port = engine == .postgres ? 5432 : engine == .mysql ? 3306 : nil
-        let db = DatabaseInfo(name: "", engine: engine, host: engine.isFile ? nil : "localhost", port: port)
-        openForm(DatabaseAddress(database: db))
+    /// The presets whose name has `find` in it, six a row.
+    private func layTiles(_ find: String) {
+        for row in tiles.arrangedSubviews { row.removeFromSuperview() }
+        let shown = EnginePreset.all.filter { find.isEmpty || $0.name.lowercased().contains(find.lowercased()) }
+        stride(from: 0, to: shown.count, by: 6).forEach { start in
+            let row = NSStackView(
+                views: shown[start..<min(start + 6, shown.count)].map { preset in
+                    EngineTile(preset) { [weak self] in self?.newOne(preset) }
+                })
+            row.spacing = 4
+            tiles.addArrangedSubview(row)
+        }
+    }
+
+    private func newOne(_ preset: EnginePreset) {
+        var db = DatabaseInfo(
+            name: "", engine: preset.engine, host: preset.engine.isFile ? nil : "localhost", port: preset.port)
+        db.ssl = preset.ssl
+        if preset.speaks != nil, !preset.engine.isFile { db.host = "" }   // a service's host is its own
+        openForm(DatabaseAddress(database: db), preset: preset)
     }
 
     @objc private func continued() {
@@ -230,8 +248,10 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     // MARK: Other panes
 
-    func openForm(_ address: DatabaseAddress, editing: DatabaseInfo? = nil, container: String? = nil) {
-        let form = DatabaseForm(sheet: self, address: address, editing: editing, container: container)
+    func openForm(
+        _ address: DatabaseAddress, editing: DatabaseInfo? = nil, container: String? = nil, preset: EnginePreset? = nil
+    ) {
+        let form = DatabaseForm(sheet: self, address: address, editing: editing, container: container, preset: preset)
         pane = form
         show(form.view, first: form.firstField)
     }
