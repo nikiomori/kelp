@@ -73,18 +73,24 @@ MONO = [1, 1, 1] if outlined else [.3, .55, 1]
 water = [image("rays.svg", dark_opacity=.35, mono=.6, mono_white=False)]
 water += [image("grid.svg", mono=1)] if grid else []
 water += [image("sea.svg", hidden=("dark", "tinted"))]
-# No glass effects of its own: Default draws as the flat drawing does.
+# The rest draws as the flat drawing does. Kelp's near plants are macOS 26 glass: a highlight, and a soft shadow in
+# the water under them and under the middle plane; Dev's thin outlines stay flat.
 FLAT = {"shadow": {"kind": "none", "opacity": 0.5}, "translucency": {"enabled": False, "value": 0.5},
         "specular": False, "lighting": "combined"}
+GLASS = FLAT if outlined else {**FLAT, "shadow": {"kind": "layer-color", "opacity": 0.4}, "specular": True,
+                                "translucency": {"enabled": True, "value": 0.25}}
+SHADOW = FLAT if outlined else {**FLAT, "shadow": {"kind": "layer-color", "opacity": 0.25}}
+near = image("near.svg", DARK_PLANES[2], mono=MONO[2])
+if not outlined:
+    near["glass"] = True
 DOC = {
     "fill-specializations": [
         {"value": {"linear-gradient": [srgb(stops[0]), srgb(stops[-1])]}},
         {"appearance": "dark", "value": {"linear-gradient": [srgb(DARK_SEA[0]), srgb(DARK_SEA[1])]}},
     ],
     "groups": [
-        {"name": "Front", "layers": [image("bubbles.svg", mono=.8), image("near.svg", DARK_PLANES[2], mono=MONO[2])],
-         **FLAT},
-        {"name": "Middle", "layers": [image("mid.svg", DARK_PLANES[1], mono=MONO[1])], **FLAT},
+        {"name": "Front", "layers": [image("bubbles.svg", mono=.8), near], **GLASS},
+        {"name": "Middle", "layers": [image("mid.svg", DARK_PLANES[1], mono=MONO[1])], **SHADOW},
         {"name": "Back", "layers": [image("far.svg", DARK_PLANES[0], mono=MONO[0])], **FLAT},
         {"name": "Water", "layers": water, **FLAT},
     ],
