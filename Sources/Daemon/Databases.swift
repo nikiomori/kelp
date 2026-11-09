@@ -277,7 +277,7 @@ final class Databases: Sendable {
         kept.withLock { $0[worktreeId]?.results[id] }
     }
 
-    private func note(_ worktreeId: String, _ run: DatabaseRun, result: QueryResult? = nil) {
+    func note(_ worktreeId: String, _ run: DatabaseRun, result: QueryResult? = nil) {
         kept.withLock { all in
             var mine = all[worktreeId] ?? Kept()
             if let index = mine.runs.firstIndex(where: { $0.id == run.id }) {
@@ -494,6 +494,6 @@ extension Methods {
     static let databaseAsyncMethods: [any AsyncHandled.Type] = [
         DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self, DatabaseCheck.self, DatabaseContainers.self,
         DatabaseImportSources.self, DatabaseImportRead.self, DatabaseImport.self, DatabaseStatus.self,
-        DatabaseStart.self
+        DatabaseStart.self, DatabaseApply.self
     ]
 }

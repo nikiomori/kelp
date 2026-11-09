@@ -70,6 +70,17 @@ enum PostgresWire {
         }
     }
 
+    /// Statements in one transaction: a failure leaves nothing done (the connection closes without COMMIT).
+    static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
+        try await with(c) { conn in
+            try await run(conn, "BEGIN")
+            var changed = 0
+            for sql in statements { changed += try await command(conn, sql).changed ?? 0 }
+            try await run(conn, "COMMIT")
+            return changed
+        }
+    }
+
     static func schema(_ c: DatabaseConnection) async throws -> DatabaseSchema {
         try await with(c) { conn in
             try await run(conn, "BEGIN TRANSACTION READ ONLY")
@@ -205,6 +216,19 @@ enum MySQLWire {
             var result = try await run(conn, sql)
             result.changed = try await changed(conn)
             return result
+        }
+    }
+
+    static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
+        try await with(c) { conn in
+            _ = try await run(conn, "START TRANSACTION")
+            var changed = 0
+            for sql in statements {
+                _ = try await run(conn, sql)
+                changed += try await self.changed(conn) ?? 0
+            }
+            _ = try await run(conn, "COMMIT")
+            return changed
         }
     }
 

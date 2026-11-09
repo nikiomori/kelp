@@ -620,3 +620,25 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(dots.map(\.state) == [.ok, .down, .down] && dots[1].reason == "The file isn't there.")
     await #expect(throws: RPCError.self) { try await w.c.call(DatabaseStart(worktreeId: wt.id, name: "pg")) }
 }
+
+/// The tab's edits are all or none: one that fails leaves the others undone.
+@Test func theUsersEditsAreAllOrNone() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try shopDB(in: wt.path)
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(
+            DatabaseApply(
+                worktreeId: wt.id, database: "shop",
+                statements: ["UPDATE orders SET status = 'x' WHERE id = 1", "INSERT INTO nowhere VALUES (1)"]))
+    }
+    #expect(try count(path, "SELECT count(*) FROM orders WHERE status = 'x'") == 0)
+    let done = try await w.c.call(
+        DatabaseApply(
+            worktreeId: wt.id, database: "shop",
+            statements: ["UPDATE orders SET status = 'x' WHERE id = 1", "DELETE FROM orders WHERE id = 3"]))
+    let left = try count(path, "SELECT count(*) FROM orders")
+    #expect(done.changed == 2 && left == 2)
+    #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.map(\.state) == [.done, .failed])
+}

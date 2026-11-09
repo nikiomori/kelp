@@ -80,6 +80,16 @@ private let env = ProcessInfo.processInfo.environment
         try await dbs.query(
             DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "COMMIT; DELETE FROM orders"), origin: agent.id)
     }
+    // The tab's edits in one transaction over Kelp's own connection: a failure undoes the ones before it.
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(
+            DatabaseApply(
+                worktreeId: wt.id, database: "app_dev",
+                statements: ["UPDATE orders SET note = 'gone' WHERE id = 3", "UPDATE nowhere SET x = 1"]))
+    }
+    let kept = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "SELECT note FROM orders WHERE id = 3"))
+    #expect(kept.rows == [["x"]])
     // A copy for a branch: CREATE DATABASE … TEMPLATE, listed as one of its own; dropped again here.
     let copy = try await w.c.call(DatabaseCopy(worktreeId: wt.id, database: "app_dev"))
     #expect(copy.name == "app_dev_main" && copy.database == "app_dev_main")

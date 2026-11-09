@@ -180,3 +180,19 @@ public struct DatabaseStart: InternalMethod {
         self.name = name
     }
 }
+
+// MARK: The tab's edits
+
+/// The user's edits to a table (UPDATE, INSERT, DELETE by its key), all in one transaction: every one or none. The
+/// user's only: an agent changes a database through `db.query`, asking.
+public struct DatabaseApply: InternalMethod {
+    public static let name = "db.apply"
+    public typealias Result = QueryResult
+    public static var timeout: TimeInterval? { 320 }
+    public var worktreeId: String, database: String, statements: [String]
+    public init(worktreeId: String, database: String, statements: [String]) {
+        self.worktreeId = worktreeId
+        self.database = database
+        self.statements = statements
+    }
+}

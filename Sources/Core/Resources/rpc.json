@@ -5336,6 +5336,44 @@
       "x-internal" : true
     },
     {
+      "description" : "The user's edits to a table (UPDATE, INSERT, DELETE by its key), all in one transaction: every one or none. The user's only: an agent changes a database through `db.query`, asking.",
+      "name" : "db.apply",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "statements",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/QueryResult"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases. Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any.",
       "name" : "db.check",
       "paramStructure" : "by-name",

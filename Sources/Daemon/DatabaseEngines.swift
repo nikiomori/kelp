@@ -89,6 +89,30 @@ enum DatabaseEngines {
         }
     }
 
+    /// The user's edits, all or none: one transaction where Kelp holds the connection; through a container's client,
+    /// one after another (a failure stops the rest).
+    static func apply(_ c: DatabaseConnection, _ statements: [String], off: Slots) async throws -> Int {
+        switch (c.database.engine, c.database.host) {
+        case (.sqlite, _):
+            return try await off.run {
+                try SQLiteRun.apply(path(c), statements)
+            }
+        case (.duckdb, _):
+            return try await off.run {
+                _ = try DuckDBRun.run(
+                    path(c), readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: writeTimeout)
+                return 0
+            }
+        case (.postgres, .some): return try await PostgresWire.apply(c, statements)
+        case (.mysql, .some): return try await MySQLWire.apply(c, statements)
+        case (.postgres, nil), (.mysql, nil):
+            // ponytail: a container's client gets them one by one; a transaction there needs a script of its own
+            var changed = 0
+            for sql in statements { changed += try await write(c, sql, off: off).changed ?? 0 }
+            return changed
+        }
+    }
+
     static func schema(_ c: DatabaseConnection, table: String?, off: Slots) async throws -> DatabaseSchema {
         let schema: DatabaseSchema = try await explained(c) {
             switch (c.database.engine, c.database.host) {
@@ -208,6 +232,20 @@ enum SQLiteRun {
                 result.changed = db.changesCount
                 return result
             }
+        }
+    }
+
+    static func apply(_ path: String, _ statements: [String]) throws -> Int {
+        try run {
+            var changed = 0
+            try open(path, readOnly: false).inTransaction { db in
+                for sql in statements {
+                    try db.execute(sql: sql)
+                    changed += db.changesCount
+                }
+                return .commit
+            }
+            return changed
         }
     }
 
