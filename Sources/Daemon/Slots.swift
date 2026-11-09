@@ -7,7 +7,7 @@ import os
 final class Slots: Sendable {
     let limit: Int
     private struct State {
-        var held = 0, closed = false
+        var held = 0, closed = false, refused = 0
         var waiting: [CheckedContinuation<Bool, Never>] = []
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -26,7 +26,10 @@ final class Slots: Sendable {
     func acquire() async -> Bool {
         await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
             let now = state.withLock { current -> Bool? in
-                if current.closed { return false }
+                if current.closed {
+                    current.refused += 1
+                    return false
+                }
                 guard current.held < limit else {
                     current.waiting.append(continuation)
                     return nil
@@ -36,6 +39,11 @@ final class Slots: Sendable {
             }
             if let now { continuation.resume(returning: now) }
         }
+    }
+
+    /// How many were refused once closed, quick work's and `runNow`'s too: a test waits for a refusal, not a while.
+    var refusals: Int {
+        state.withLock { $0.refused } + (quickSlots?.refusals ?? 0) + (nowSlots?.refusals ?? 0)
     }
 
     /// The slot passes straight to the longest waiter, if there is one.
@@ -55,6 +63,7 @@ final class Slots: Sendable {
         let refused = state.withLock { current in
             defer { current.waiting = [] }
             current.closed = true
+            current.refused += current.waiting.count
             return current.waiting
         }
         refused.forEach { $0.resume(returning: false) }

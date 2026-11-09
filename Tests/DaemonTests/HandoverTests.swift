@@ -105,8 +105,9 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
 
     d.offloads.close()   // how an update starts
     await #expect(throws: RPCError.updating) { try await c.call(SessionHook(id: s.id, event: "waiting")) }
+    let refused = d.offloads.refusals
     let sent = Task { try await SessionHook(id: s.id, event: "waiting").send(socket: d.socketPath) }
-    try await Task.sleep(for: .milliseconds(300))   // it tried and was refused, most likely: nothing says so
+    #expect(try await waitFor { d.offloads.refusals > refused })   // it tried, and was refused
     #expect(d.sessions.existing(s.id)?.snapshot.status != .waiting)
 
     let next = try Daemon(root: root)
@@ -136,9 +137,14 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
         close(quiet)
         unlink(String(path))
     }
-    let started = Date()
     try await SessionHook(id: s.id, event: "done").send(socket: String(path))
-    #expect(Date().timeIntervalSince(started) < SessionHook.replyWait + 1)
+    // Sent once, unanswered: its wait for the reply is all the agent spends. Sent again, it would wait that long again,
+    // until `within` ran out, and every try would be in the queue.
+    _ = fcntl(quiet, F_SETFL, O_NONBLOCK)
+    var queued: [Int32] = []
+    while case let fd = accept(quiet, nil, nil), fd >= 0 { queued.append(fd) }
+    queued.forEach { close($0) }
+    #expect(queued.count == 1)
 
     _ = try await c.call(SessionHook(id: s.id, event: "working", at: 20))
     _ = try await c.call(SessionHook(id: s.id, event: "done", at: 30))
@@ -232,7 +238,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     defer { if p.isRunning { kill(p.processIdentifier, SIGKILL) } }   // only the kelpd this test started; exec'd, it ignores SIGTERM at first
     func connected() async throws -> RPCClient? {
         var c: RPCClient?
-        _ = try await waitFor(5) {
+        try await waitFor(5) {
             c = try? client(root)
             return c != nil
         }

@@ -168,14 +168,15 @@ private func lines(_ log: String) -> [String] {
                 command: "no-such-server-\(UUID().uuidString.prefix(4))", text: ""))
         Issue.record("opened with a server that isn't there")
     } catch { #expect(LSPRefusal(error).map { if case .notInstalled = $0 { true } else { false } } == true) }
-    try await Task.sleep(for: .milliseconds(300))   // one started anyway logs a moment later: nothing says none was
+    // A server starts only for a file the daemon took as open, and neither was: nothing answers for it.
+    #expect(try await c.call(LSPCompletion(root: root, path: root + "/main.swift", line: 1, column: 1)).isEmpty)
     #expect(lines(server.log).isEmpty)
 }
 
 /// A server with no file open stops a while later: after its last close, and when the connection that opened the file
-/// goes (the app quit, say).
+/// goes (the app quit, say). No idle time here: it stops as soon as nothing is open, and the test waits for its end.
 @Test func aServerWithNoOpenFileStops() async throws {
-    let (d, c, _) = try daemon(lspDelays: (retry: 30, idle: 0.3))
+    let (d, c, _) = try daemon(lspDelays: (retry: 30, idle: 0))
     defer { d.stop() }
     let root = tmp().path, file = root + "/main.swift", server = try fakeServer(in: root)
     try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
@@ -192,13 +193,13 @@ private func lines(_ log: String) -> [String] {
     }
     try await open(c)
     _ = try await c.call(LSPClose(root: root, path: file))
-    #expect(try await waitFor(5) { running().isEmpty })
+    #expect(try await waitFor(15) { running().isEmpty })
     // Opened again by a connection that then goes: closed with it, and stopped.
     let other = try client(d.root)
     try await open(other)
     #expect(running().count == 1 && lines(server.log).filter { $0.hasPrefix("start") }.count == 2)
     other.close()
-    #expect(try await waitFor(5) { running().isEmpty })
+    #expect(try await waitFor(15) { running().isEmpty })
 }
 
 /// A server that died starts again on the next open, and gets every file open for it as the app last sent it (unsaved

@@ -693,8 +693,8 @@ private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String
     defer { r.d.stop() }
     let attach =
         #"zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$kid\"}}"; "#
-        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -t 1 -u $REPLY line; do print -r -- "stream $line"; done; "#
-        + #"read more; trap "" PIPE; print -u $REPLY $more 2>/dev/null; print sent; cat"#
+        + #"print -u $REPLY first; read go; print -u $REPLY second; while read -u $REPLY line; do print -r -- "stream $line"; done; "#
+        + #"print ended; read more; trap "" PIPE; print -u $REPLY $more 2>/dev/null; print sent; cat"#
     let me = try await session(r, "/bin/zsh -c 'zmodload zsh/net/socket; read kid; \(attach)'")
     let ls = try #require(r.d.sessions.existing(me.id))
     _ = ls.update { $0.agent = "claude" }
@@ -713,11 +713,12 @@ private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String
             try await r.c.call(SessionRead(id: me.id)).contains("stream kelp: That session asks a question")
         })
     #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("second"))
-    // The attach is over: what it would type after the answer doesn't join what it typed before.
+    // The attach is over: the daemon hung up (the stream read to its end), so what it would type after the answer can't
+    // join what it typed before.
+    #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("ended") })
     _ = child.update { $0.status = .working }
     _ = try await r.c.call(SessionWrite(id: me.id, text: "third\n"))
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("sent") })   // it tried
-    try await Task.sleep(nanoseconds: 300_000_000)   // typed, it would be echoed by now: nothing says it won't be
     #expect(try await !r.c.call(SessionRead(id: kid.id)).contains("third"))
 }
 

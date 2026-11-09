@@ -44,7 +44,7 @@ final class EventBox: @unchecked Sendable {
     #expect(try await c.call("settings.get") == .obj(["theme": "dark"]))
     try "{ not json".write(to: file, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: file.path)
-    try await Task.sleep(for: .seconds(1))   // the file watch has seen the broken file
+    #expect(!d.settings.reloadIfChanged())   // read now, as the file watch reads it: it doesn't parse
     #expect(try await c.call("settings.get") == .obj(["theme": "dark"]))   // a broken file keeps the last good settings
     try #"{"theme": "light"}"#.write(to: file, atomically: true, encoding: .utf8)   // and the next good edit is heard
     #expect(try await waitFor { box.last("event.settings")?["settings"] == .obj(["theme": "light"]) })
