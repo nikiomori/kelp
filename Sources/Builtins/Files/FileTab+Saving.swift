@@ -269,6 +269,8 @@ extension FileTab {
                     "The file on disk is no longer text (another encoding, or binary). Keep Mine writes your version over it."
             )
         }
+        // What Keep Mine writes over: the version shown now, not one an agent saves while the sheet is up
+        let checked = known?.stamp
         alert.addButton(withTitle: String(localized: "Keep Mine"))
         alert.addButton(withTitle: notText ? String(localized: "Cancel") : String(localized: "Use Disk Version"))
         // Holds the tab until answered: closing it meanwhile mustn't throw away the user's choice (or their edits).
@@ -276,7 +278,7 @@ extension FileTab {
             MainActor.assumeIsolated {
                 if response == .alertFirstButtonReturn {
                     self.lastSaved = disk
-                    Task { _ = await self.serially { await self.write() } }
+                    Task { _ = await self.serially { await self.write(checked: checked) } }
                 } else if !notText {
                     editor.setText(disk)
                     self.saved(disk, at: self.edits)
