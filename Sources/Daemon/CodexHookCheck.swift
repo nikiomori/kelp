@@ -61,11 +61,12 @@ final class CodexHookCheck: Sendable {
     }
 
     /// Its app server started on the host as its sessions are, with the hooks they get, asked about the project's folder.
+    /// No terminal there and no password asked (BatchMode): one that would ask is a no, at once.
     @Sendable static func hooksList(on host: RemoteHost) -> [String: Any]? {
         let codex = host.command(["codex", "app-server"] + CodexHooks.hostArgs)
         let params = #"{"cwds":["# + CodexHooks.quoted(host.path) + "]}"
         return AgentUsage.askCodex(
-            argv: [host.ssh] + host.sshArgs(tty: true) + [codex], method: "hooks/list", params: params, within: 10)
+            argv: [host.ssh] + host.sshArgs(tty: false) + [codex], method: "hooks/list", params: params, within: 10)
     }
 
     /// A new Codex (an update replaces the file) is asked again.
