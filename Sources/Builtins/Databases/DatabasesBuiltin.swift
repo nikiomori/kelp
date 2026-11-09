@@ -186,6 +186,26 @@ enum DatabaseLook {
         }
     }
 
+    /// What the environment changes, in a line: shown under its name wherever it's picked.
+    static func meaning(_ stage: DatabaseInfo.Stage) -> String {
+        switch stage {
+        case .local: String(localized: "On this Mac. Agents do what Agents says; your saves go straight in.")
+        case .development: String(localized: "A shared server for development: the same rules as Local.")
+        case .staging: String(localized: "Agents ask you before each change.")
+        case .production: String(localized: "Agents only read it. Your saves show their SQL and ask first.")
+        }
+    }
+
+    /// What agents may do with it, in a line.
+    static func meaning(_ access: DatabaseInfo.Access) -> String {
+        switch access {
+        case .hidden: String(localized: "Agents don't see it.")
+        case .read: String(localized: "Agents read it; a change is refused.")
+        case .ask: String(localized: "Agents read it; each change waits for your Allow.")
+        case .free: String(localized: "Agents read and change it without asking.")
+        }
+    }
+
     /// Green, blue, orange, red: as TablePlus and TablePro colour theirs.
     static func color(_ stage: DatabaseInfo.Stage) -> NSColor {
         switch stage {
@@ -232,9 +252,7 @@ enum DatabaseLook {
             label.topAnchor.constraint(equalTo: chip.topAnchor, constant: 1),
             label.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -1)
         ])
-        chip.toolTip =
-            stage == .production
-            ? String(localized: "Production: agents only read it.") : String(localized: "\(title(stage)) database")
+        chip.toolTip = title(stage) + ": " + meaning(stage)
         chip.setContentHuggingPriority(.required, for: .horizontal)
         chip.setContentCompressionResistancePriority(.required, for: .horizontal)
         return chip

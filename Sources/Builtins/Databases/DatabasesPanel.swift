@@ -439,6 +439,12 @@ enum DatabaseMenu {
     /// What agents may do, a choice each; the panel's access icon shows the same menu.
     static func agents(_ db: DatabaseInfo, app: AppModel, worktreeId: String) -> NSMenu {
         let agents = NSMenu()
+        if db.production {   // what's picked waits until it's no longer production
+            let note = agents.addItem(
+                withTitle: String(localized: "Production: agents only read it"), action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            agents.addItem(.separator())
+        }
         for access in DatabaseInfo.Access.allCases {
             let item = agents.add(DatabaseLook.title(access)) {
                 var changed = db
@@ -447,8 +453,14 @@ enum DatabaseMenu {
             }
             item.state = db.access == access ? .on : .off
             item.image = .symbol(DatabaseLook.accessSymbol(access))
+            Self.explain(item, DatabaseLook.meaning(access))
         }
         return agents
+    }
+
+    /// A line under a choice saying what it does (a tooltip before macOS 14.4).
+    private static func explain(_ item: NSMenuItem, _ line: String) {
+        if #available(macOS 14.4, *) { item.subtitle = line } else { item.toolTip = line }
     }
 
     /// Local, Development, Staging, Production. Leaving Production (agents get more than reading) is said first.
@@ -474,6 +486,7 @@ enum DatabaseMenu {
                 }
             }
             item.state = db.stage == stage ? .on : .off
+            Self.explain(item, DatabaseLook.meaning(stage))
             item.image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
                 DatabaseLook.color(stage).setFill()
                 NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()

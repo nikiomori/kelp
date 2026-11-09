@@ -21,6 +21,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let stage = NSSegmentedControl(
         labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), trackingMode: .selectOne, target: nil, action: nil)
     private let why = DatabaseSheet.small("")
+    /// What agents may do with it as the form stands: Production's reading wins over the choice.
+    private let agentsWhy = DatabaseSheet.small("")
     private let status = NSTextField(wrappingLabelWithString: "")
     private let add = NSButton()
     private var nameTyped = false
@@ -133,7 +135,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         stage.selectedSegment = DatabaseInfo.Stage.allCases.firstIndex(of: start) ?? 0
         let settings = SheetForm.grid([
             (String(localized: "Name"), name), (String(localized: "Keep in"), place),
-            (String(localized: "Environment"), stage), ("", why), (String(localized: "Agents"), agents)
+            (String(localized: "Environment"), stage), ("", why), (String(localized: "Agents"), agents),
+            ("", agentsWhy)
         ])
         whyRow = settings.row(at: 3)
         parts.append(settings)
@@ -252,6 +255,11 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         let picked = DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)]
         why.stringValue = Self.why(picked, elsewhere: elsewhere)
         whyRow?.isHidden = why.stringValue.isEmpty   // the grid's row, or its gap stays
+        let access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]
+        agentsWhy.stringValue =
+            picked == .production && access != .hidden && access != .read
+            ? String(localized: "Production: agents only read it, whatever is picked here.")
+            : DatabaseLook.meaning(access)
         add.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
         place.setEnabled(editing == nil || inLibrary, forSegment: 1)
     }
@@ -266,11 +274,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
 
     /// What the environment means for agents, and a word when one elsewhere isn't Production.
     static func why(_ stage: DatabaseInfo.Stage, elsewhere: Bool) -> String {
-        switch stage {
-        case .production: return String(localized: "Agents only read it; your own changes ask first.")
-        case .staging: return String(localized: "Agents ask before each change, at most.")
-        default: return elsewhere ? String(localized: "Not on this Mac: pick Production if it is one.") : ""
-        }
+        let meaning = DatabaseLook.meaning(stage)
+        guard stage == .local || stage == .development, elsewhere else { return meaning }
+        return String(localized: "Not on this Mac: pick Production if it is one.")
     }
 
     nonisolated static func onThisMac(_ host: String) -> Bool {
