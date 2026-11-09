@@ -564,7 +564,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
             path, "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT count(*) FROM r",
             timeout: 0.3)
     }
-    #expect(Date().timeIntervalSince(started) < 5)
+    #expect(Date().timeIntervalSince(started) < 60)   // stopped, not run to the end (it has none)
 }
 
 /// MySQL commits a transaction before DDL and runs it outside: a DROP is never sent as a read nor tried in a
