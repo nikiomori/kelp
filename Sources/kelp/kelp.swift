@@ -95,8 +95,9 @@ func has(_ name: String) -> Bool {
     return false
 }
 
+/// Beside this binary, wherever it was started from: argv[0] is a bare "kelp" when it came off the PATH (Homebrew's link).
 func daemonBinary() -> String {
-    let me = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+    let me = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).resolvingSymlinksInPath()
     return me.deletingLastPathComponent().appendingPathComponent("kelpd").path
 }
 

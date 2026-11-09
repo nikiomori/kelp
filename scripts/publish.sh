@@ -16,3 +16,9 @@ git tag "v$V" && git push -q origin "v$V"   # the commit the DMG was built from
 # Labels on the page (the URLs keep the file names): appcast.xml sorts first, and people took it for the app.
 gh release create "v$V" "dist/Kelp.dmg#Kelp $V for macOS (download this)" "dist/appcast.xml#Update feed (read by the app, not a download)" \
   --verify-tag --title "Kelp $V" --notes "**Download: [Kelp.dmg]($REPO/releases/download/v$V/Kelp.dmg)** (macOS 14+)." --generate-notes
+# The Homebrew cask (nikiomori/homebrew-tap, `brew install --cask nikiomori/tap/kelp`) points at this release.
+CASK=repos/nikiomori/homebrew-tap/contents/Casks/kelp.rb
+SUM=$(shasum -a 256 dist/Kelp.dmg | cut -d' ' -f1)
+gh api "$CASK" --jq .content | base64 -d \
+  | sed -E "s/^  version \".*\"/  version \"$V\"/; s/^  sha256 \".*\"/  sha256 \"$SUM\"/" > dist/kelp.rb
+gh api -X PUT "$CASK" -f message="kelp $V" -f content="$(base64 < dist/kelp.rb)" -f sha="$(gh api "$CASK" --jq .sha)" > /dev/null

@@ -181,6 +181,9 @@ drag Kelp to Applications; it updates itself (Kelp › Check for Updates…). Ke
 Login Items & Extensions: that's what lets agents outlast the app. Kelp's terminals have `kelp` on their PATH; for
 other terminals: `ln -s /Applications/Kelp.app/Contents/MacOS/kelp /usr/local/bin/kelp`.
 
+With Homebrew, `brew install --cask nikiomori/tap/kelp` does both: Kelp in Applications and `kelp` on your PATH (add
+`--adopt` if Kelp is already there from the DMG).
+
 ### From your phone
 
 Agents go on with Kelp's window closed, and `kelp agents` shows them in any terminal: who needs you comes first, `y` or
