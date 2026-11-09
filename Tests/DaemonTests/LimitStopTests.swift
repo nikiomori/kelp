@@ -155,11 +155,12 @@ private func stopped(_ p: World, _ s: Session) async throws {
         #expect(try await waitFor { try await record()?.status == (error == nil ? .done : .error) })
         return try await record()?.continueAt.map { Int($0.timeIntervalSinceNow.rounded()) }
     }
-    #expect(try await ended("overloaded") == 60)
-    #expect(try await ended("server_error") == 300)
+    func near(_ seconds: Int) -> ClosedRange<Int> { seconds - 10...seconds }   // read a moment after it was set
+    #expect(try await ended("overloaded").map(near(60).contains) == true)
+    #expect(try await ended("server_error").map(near(300).contains) == true)
     #expect(try await ended("overloaded") == nil)   // twice in a row: someone looks
     #expect(try await ended(nil) == nil)
-    #expect(try await ended("overloaded") == 60)   // the count started again
+    #expect(try await ended("overloaded").map(near(60).contains) == true)   // the count started again
     #expect(try await ended("authentication_failed") == nil)
     _ = try await p.c.call("session.kill", .obj(["id": .string(s.id)]))
 }
