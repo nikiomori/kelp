@@ -406,8 +406,6 @@ enum DatabaseFind {
         do { return try FileManager.default.contentsOfDirectory(atPath: dir) } catch { return [] }
     }
 
-    static func isSQLite(_ path: String) -> Bool { fileEngine(path) == .sqlite }
-
     /// SQLite's header, or DuckDB's ("DUCK" at byte 8): what a file is by its first bytes.
     static func fileEngine(_ path: String) -> DatabaseInfo.Engine? {
         guard let handle = FileHandle(forReadingAtPath: path) else { return nil }

@@ -26,7 +26,10 @@ extension DatabaseTab {
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
         startReading()
+        let asked = page
         let result = await query(sql, limit: Self.pageSize)
+        // Another page, table or filter asked meanwhile: this answer is the older one's
+        guard page == asked, sidebar.current == name, filters.condition == condition else { return }
         reading?.cancel()
         busy.stopAnimation(nil)
         guard let result else { return }

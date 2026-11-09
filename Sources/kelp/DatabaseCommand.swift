@@ -51,7 +51,10 @@ extension Main {
             print("\(copy.name): \(copy.address)")
         case "open":
             let name = try await database(args.first ?? named, worktree.id, c)
-            _ = try await c.call(UIOpen(uri: "db:\(worktree.id)/\(name)", split: "right", worktreeId: worktree.id))
+            _ = try await c.call(
+                UIOpen(
+                    uri: DatabaseTabURI.uri(worktree: worktree.id, name: name), split: "right", worktreeId: worktree.id)
+            )
         default: fail("usage: kelp " + dbUsage)
         }
     }

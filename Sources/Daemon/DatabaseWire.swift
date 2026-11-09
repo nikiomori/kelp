@@ -130,7 +130,9 @@ enum PostgresWire {
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
         let user = db.user ?? NSUserName()
         let password =
-            c.password ?? PgPass.password(host: host, port: db.port ?? 5432, database: db.database, user: user)
+            c.password
+            ?? (PgPass.mayUse(for: db, host: host)
+                ? PgPass.password(host: host, port: db.port ?? 5432, database: db.database, user: user) : nil)
         let context = try NIOSSLContext(configuration: DatabaseWire.tls)
         var config = PostgresConnection.Configuration(
             host: host, port: db.port ?? 5432, username: user, password: password, database: db.database,

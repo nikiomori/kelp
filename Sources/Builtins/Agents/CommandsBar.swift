@@ -378,8 +378,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
                 $0.session == session && $0.at >= command.started.addingTimeInterval(-1) && $0.at <= end
             })
         else { return false }
-        let name = run.database.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? run.database
-        app.workbench.open("db:\(wid)/\(name)?run=\(run.id)")
+        app.workbench.open(DatabaseTabURI.uri(worktree: wid, name: run.database, run: run.id))
         return true
     }
 

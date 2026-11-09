@@ -5,6 +5,18 @@ import Foundation
 // makes is tried and rolled back first, and waits for the user's Allow on the agent's row when the database says so.
 
 /// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
+/// A database's tab: `db:<workspace>/<name>`, with one run (`?run=`) or table (`?table=`) shown; the name and the table
+/// percent-encoded (an imported name may hold a "?" or "/"). The one builder of it: the tab, the agent's row, `kelp db`.
+public enum DatabaseTabURI {
+    public static func uri(worktree: String, name: String, run: String? = nil, table: String? = nil) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "?/")
+        let name = name.addingPercentEncoding(withAllowedCharacters: allowed) ?? name
+        let table = table.map { "?table=" + ($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0) }
+        return "db:\(worktree)/\(name)" + (run.map { "?run=" + $0 } ?? table ?? "")
+    }
+}
+
 public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public enum Engine: String, Codable, Sendable, CaseIterable {
         /// Appwrite: a project's database over its REST API (host: the endpoint, user: the project's ID, password: an

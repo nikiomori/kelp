@@ -120,11 +120,7 @@ struct DatabaseURI: Equatable {
             ? String(body[1].dropFirst(6)).removingPercentEncoding : nil
     }
 
-    var uri: String {
-        let name = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
-        let table = table.map { "?table=" + ($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0) }
-        return "db:\(worktree)/\(name)" + (run.map { "?run=" + $0 } ?? table ?? "")
-    }
+    var uri: String { DatabaseTabURI.uri(worktree: worktree, name: name, run: run, table: table) }
 }
 
 /// The words and marks a database shows with, the same in the panel and the tab.

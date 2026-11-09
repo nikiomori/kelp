@@ -1,3 +1,4 @@
+import Core
 import Foundation
 import NIOCore
 import PostgresNIO
@@ -231,6 +232,10 @@ enum PostgresText {
 /// ~/.pgpass (or $PGPASSFILE), libpq's: `host:port:database:user:password` a line, `*` for any, `\:` and `\\`
 /// escaped. Read for each connection that has no password of its own, as psql does.
 enum PgPass {
+    /// ~/.pgpass is the user's: for a server they added, or one on this Mac; not for a host a project's files name (a
+    /// cloned repo's .env), which its `*` lines would hand the password to.
+    static func mayUse(for db: DatabaseInfo, host: String) -> Bool { db.source == nil || DatabaseFind.isLocal(host) }
+
     static func password(host: String, port: Int, database: String?, user: String) -> String? {
         let path =
             ProcessInfo.processInfo.environment["PGPASSFILE"]

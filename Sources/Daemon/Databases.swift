@@ -98,16 +98,27 @@ final class Databases: Sendable {
 
     static func account(_ id: String) -> String { "db:" + id }
 
+    /// The keychain items of a project's saved databases: forgotten with the project (its rows go by cascade).
+    func accounts(ofRepo repoId: String) throws -> [String] {
+        try store.db.read { try SavedDatabase.filter(Column("repoId") == repoId).fetchAll($0) }.map {
+            Self.account($0.id)
+        }
+    }
+
     /// A remote project's databases, from its files read on the host in one go over the shared connection. Never dials:
     /// with no connection open, what was read last (or nothing). SQLite files there aren't looked for.
     private func onHost(_ remote: RemoteHost, _ worktreeId: String) -> [FoundDatabase] {
         let last = onHosts.withLock { $0[worktreeId] }
         if let last, Date().timeIntervalSince(last.at) < 60 { return last.found }
-        guard remote.connection != nil,
+        guard remote.connection != nil else { return last?.found ?? [] }
+        guard
             let printed = Subprocess.printed(
                 [remote.ssh] + remote.sshArgs(tty: false) + [DatabaseFind.remoteScript(remote.path)],
                 path: "/usr/bin:/bin", timeout: 20)
-        else { return last?.found ?? [] }
+        else {
+            Log.store.error("reading \(remote.host)'s project files for its databases failed")
+            return last?.found ?? []
+        }
         let found = DatabaseFind.parse(remote: printed, root: remote.path)
         onHosts.withLock { $0[worktreeId] = (Date(), found) }
         return found
@@ -229,7 +240,14 @@ final class Databases: Sendable {
             db.name = name + "_" + suffix
             db.database = copied
             db.source = nil
-            return try save(worktreeId, db, password: c.password)
+            do { return try save(worktreeId, db, password: c.password) } catch {
+                // Not kept, so not left behind: the next copy would find it "already exists"
+                do {
+                    _ = try await DatabaseEngines.write(
+                        maintenance, "DROP DATABASE \(Self.quoted(copied))", off: offloads)
+                } catch { Log.store.error("dropping \(copied) after its save failed: \(error)") }
+                throw error
+            }
         case .mysql, .appwrite:
             throw RPCError.invalidParams("Kelp copies SQLite files and Postgres databases, not \(name)'s engine.")
         }
@@ -240,7 +258,7 @@ final class Databases: Sendable {
         guard let path = c.database.path else { throw RPCError.invalidParams("\(c.database.name) has no file.") }
         let project = try store.repo(worktree.repoId)?.path ?? worktree.path
         let target: String
-        if path.hasPrefix(project + "/"), !path.hasPrefix(worktree.path + "/") {
+        if IDE.inside(path, project), !IDE.inside(path, worktree.path), path.hasPrefix(project + "/") {
             target = worktree.path + path.dropFirst(project.count)
         } else {
             let ext = (path as NSString).pathExtension, base = (path as NSString).deletingPathExtension
@@ -255,6 +273,11 @@ final class Databases: Sendable {
             if c.database.engine == .duckdb {
                 try FileManager.default.copyItem(atPath: path, toPath: target)   // DuckDB keeps one file, no -wal
             } else {
+                // Made here or refused: two copies asked at once don't back up into one file (the check above can't
+                // tell); copyItem refuses one that's there itself.
+                let made = open(target, O_CREAT | O_EXCL | O_WRONLY, 0o644)
+                guard made >= 0 else { throw RPCError.invalidParams("There's a copy already: \(target).") }
+                close(made)
                 try SQLiteRun.copy(path, to: target)
             }
         } catch let failure as DatabaseFailure {
@@ -312,7 +335,9 @@ final class Databases: Sendable {
             }
             if let result {
                 mine.results[run.id] = result
-                let keep = Set(mine.runs.prefix(Self.keptResults).map(\.id))
+                // The latest results, and a trial's while it's asked (its rows are the change's): not pushed out
+                let latest = mine.runs.filter { mine.results[$0.id] != nil }.prefix(Self.keptResults).map(\.id)
+                let keep = Set(latest + mine.runs.filter { $0.state == .asks }.map(\.id))
                 mine.results = mine.results.filter { keep.contains($0.key) }
             }
             all[worktreeId] = mine
@@ -402,7 +427,8 @@ final class Databases: Sendable {
         run.rows = rows.total
         run.changed = rows.changed
         run.ms = ms
-        note(q.worktreeId, run, result: result)
+        // The user's own reads (a page of a table, a count) keep no rows: nothing reads them again
+        note(q.worktreeId, run, result: run.session == nil && rows.changed == nil ? nil : result)
         var sent = result
         sent.rows = Array(result.rows.prefix(max(0, q.limit ?? Int(sessions.settings[SettingKeys.databaseRows]))))
         return sent

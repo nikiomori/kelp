@@ -104,7 +104,9 @@ extension RepoRemove: Handled {
         guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
         let ids = Set(try workspaces.store.worktrees(repo: repo.id).map(\.id))
         workspaces.sessions.discard(try workspaces.store.sessions().filter { ids.contains($0.worktreeId ?? "") })
+        let passwords = try workspaces.databases.accounts(ofRepo: repo.id)
         try workspaces.store.delete(repo)
+        passwords.forEach(Keychain.delete)
         workspaces.notify(ChangedEvent.repo)
         return Done()
     }

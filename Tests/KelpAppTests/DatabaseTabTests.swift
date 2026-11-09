@@ -35,6 +35,9 @@ import Testing
     #expect(uri.uri == "db:w1/app%20dev?run=r9")
     #expect(DatabaseURI(uri.uri) == uri)
     #expect(DatabaseURI("db:w1/shop")?.run == nil && DatabaseURI("db:w1") == nil)
+    // An imported name with a "?" is the name's, not the address's query
+    let odd = DatabaseURI(worktree: "w1", name: "what?run=x", table: "a b")
+    #expect(DatabaseURI(odd.uri) == odd)
 }
 
 /// Saving a table's edits: deletes and updates found by the key, new rows inserted with what was typed in them.

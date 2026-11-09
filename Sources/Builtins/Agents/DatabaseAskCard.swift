@@ -83,8 +83,7 @@ final class DatabaseAskCard: NSView {
 
     @objc private func showRows() {
         guard let run = asking else { return }
-        let name = run.database.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? run.database
-        app.workbench.open("db:\(worktree)/\(name)?run=\(run.id)", split: .right)
+        app.workbench.open(DatabaseTabURI.uri(worktree: worktree, name: run.database, run: run.id), split: .right)
     }
     @objc private func allowed() { answer("allow") }
     @objc private func denied() { answer("deny") }

@@ -245,8 +245,8 @@ private func count(_ path: String, _ sql: String) throws -> Int {
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT * FROM orders", limit: 2))
     #expect(read.columns == ["id", "user_id", "status", "note"] && read.rows.count == 2 && read.total == 3)
     #expect(read.rows[0][3] == nil && read.rows[1][3] == "")
-    let kept = try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: read.id))
-    #expect(kept?.rows.count == 3)   // the tab gets them all
+    // The user's own read keeps no rows: they came back with it (an agent's are kept, for its run's tab)
+    #expect(try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: read.id)) == nil)
 
     let change = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET status = 'paid' WHERE id = 2"))
@@ -371,6 +371,52 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(!sent.contains("s3cret"))
     _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "prod"))
     #expect(Keychain.get(Databases.account(w.repo.id + "/prod")) == nil)
+}
+
+/// A project's files can't aim the user's own secrets or Kelp's connections at a host they name: ~/.pgpass only for a
+/// server the user added or one on this Mac, and a found server elsewhere is dialled only when opened.
+@Test func aHostFromTheProjectsFilesGetsNoPgPassAndIsntDialledUnasked() async throws {
+    let found = DatabaseInfo(name: "app", engine: .postgres, source: ".env", host: "db.evil.example")
+    #expect(!PgPass.mayUse(for: found, host: "db.evil.example"))
+    #expect(PgPass.mayUse(for: DatabaseInfo(name: "x", engine: .postgres, source: ".env"), host: "localhost"))
+    #expect(PgPass.mayUse(for: DatabaseInfo(name: "x", engine: .postgres), host: "db.example.com"))   // the user's
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    try "DATABASE_URL=postgres://app@db.evil.example:5432/app\n".write(
+        toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
+    let health = try await w.c.call(DatabaseStatus(worktreeId: wt.id))
+    #expect(health.map(\.state) == [.unknown] && health.first?.reason == "Kelp connects when you open it.")
+}
+
+/// Removing a project forgets the passwords of the databases added to it by hand.
+@Test func removingAProjectForgetsItsDatabasesPasswords() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let db = DatabaseInfo(name: "prod", engine: .postgres, host: "db.example.com", port: 5432, database: "shop")
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: db, password: "s3cret"))
+    let account = Databases.account(w.repo.id + "/prod")
+    #expect(Keychain.get(account) == "s3cret")
+    _ = try await w.c.call(RepoRemove(id: w.repo.id))
+    #expect(Keychain.get(account) == nil)
+}
+
+/// The user's own reads (a page, a count) keep no rows, so they don't push out the rows a change still asked about
+/// left in its trial.
+@Test func theUsersReadsDontPushOutAnAskedChangesRows() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    _ = try shopDB(in: wt.path)
+    let dbs = w.d.workspaces.databases
+    let asked = DatabaseRun(
+        id: "asked", database: "shop", sql: "UPDATE orders SET a = 1", session: "s", at: Date(), state: .asks)
+    dbs.note(wt.id, asked, result: QueryResult(id: "asked", columns: ["id"], rows: [["1"]], total: 1, ms: 0))
+    for _ in 0..<(Databases.keptResults + 5) {
+        _ = try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT count(*) FROM orders"))
+    }
+    #expect(dbs.result(wt.id, "asked")?.rows == [["1"]])
 }
 
 /// A server that doesn't answer is said so, with how to start one a compose file runs.

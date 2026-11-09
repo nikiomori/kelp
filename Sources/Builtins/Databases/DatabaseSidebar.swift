@@ -156,9 +156,6 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     @objc private func schemaPicked() { reload() }
     func controlTextDidChange(_ n: Notification) { reload() }
 
-    /// ⌘F in the list's column: its search.
-    func focusSearch() { search.window?.makeFirstResponder(search) }
-
     // MARK: Rows
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
