@@ -430,7 +430,12 @@ enum DatabaseMenu {
             menu.add(String(localized: "Edit…")) {
                 Task { await DatabaseSheet.run(app, worktreeId: worktreeId, editing: db, library: library) }
             }
-            menu.add(String(localized: "Forget")) {
+            // One used from All My Projects leaves this project only: it stays there, its password with it.
+            let mine = app.latest(DatabasesEvent.self, worktreeId)?.library?.contains { $0.name == db.name } ?? false
+            let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
+            let title =
+                !library && mine ? String(localized: "Remove from \(project)") : String(localized: "Forget")
+            menu.add(title) {
                 Task { await app.call(DatabaseRemove(worktreeId: worktreeId, name: db.name, library: library)) }
             }
         }

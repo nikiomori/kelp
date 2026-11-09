@@ -57,3 +57,25 @@ import Testing
     #expect(nullable["u"] == [false, true])
     #expect(nullable["t"] == [true, true])   // a TEXT key takes NULL in SQLite, unless NOT NULL says otherwise
 }
+
+/// One of All My Projects used in a project, then removed from it: the project lists it no more, its agents can't reach
+/// it, and All My Projects still has it, as it was.
+@Test func removingAUsedDatabaseFromAProjectKeepsItInTheLibrary() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let folder = NSTemporaryDirectory() + "kelp-lib-\(UUID().uuidString)"
+    try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+    let path = (folder as NSString).appendingPathComponent("gis.sqlite3")
+    let queue = try DatabaseQueue(path: path)
+    try await queue.write { try $0.execute(sql: "CREATE TABLE t (a)") }
+    try queue.close()
+    let gis = DatabaseInfo(name: "gis", engine: .sqlite, path: path, access: .read)
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: gis, library: true))
+    _ = try await w.c.call(DatabaseUse(worktreeId: wt.id, name: "gis"))
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).map(\.name) == ["gis"])
+
+    _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: "gis"))
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).isEmpty)
+    #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).library?.map(\.name) == ["gis"])
+}
