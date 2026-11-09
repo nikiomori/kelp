@@ -37,6 +37,9 @@ final class Databases: Sendable {
         var results: [String: QueryResult] = [:]
     }
     private let kept = OSAllocatedUnfairLock(initialState: [String: Kept]())
+    /// The addresses from projects' files (`fromTheFiles`) the user has opened since kelpd started: agents reach only
+    /// those.
+    private let opened = OSAllocatedUnfairLock(initialState: Set<String>())
     /// A remote project's databases as its host's files said them, and when: read again after a minute.
     private let onHosts = OSAllocatedUnfairLock(initialState: [String: (at: Date, found: [FoundDatabase])]())
 
@@ -174,11 +177,36 @@ final class Databases: Sendable {
     /// The one named `name`, as `caller` may see it: an agent isn't told of a hidden one, nor of "All my projects".
     func connection(_ worktreeId: String, _ name: String, agent: Bool) throws -> DatabaseConnection {
         let all = try connections(worktreeId).filter { !agent || $0.database.agentAccess != .hidden }
-        if let one = all.first(where: { $0.database.name == name }) { return one }
+        if let one = all.first(where: { $0.database.name == name }) {
+            guard try fromTheFiles(one.database, worktreeId) else { return one }
+            let place = Self.place(one.database)
+            if !agent {
+                opened.withLock { _ = $0.insert(place) }
+            } else if !opened.withLock({ $0.contains(place) }) {
+                // A cloned repo's .env can name any host: an agent's call doesn't make kelpd dial it
+                throw RPCError.refused(
+                    "\(name) is at \(one.database.host ?? "?"), an address from the project's files: Kelp connects "
+                        + "there once the user opens it in Kelp's Databases.")
+            }
+            return one
+        }
         if !agent, let mine = try libraryConnection(name) { return mine }
         let names = all.map(\.database.name).joined(separator: ", ")
         throw RPCError.invalidParams(
             all.isEmpty ? "This project has no databases Kelp knows of." : "No database \(name). There are: \(names).")
+    }
+
+    /// An address a project's files name that isn't this Mac, a server behind the user's SSH host or the remote
+    /// project's own host: one the user hasn't been asked about.
+    private func fromTheFiles(_ db: DatabaseInfo, _ worktreeId: String) throws -> Bool {
+        guard db.source != nil, db.ssh == nil, !db.engine.isFile, let host = db.host, !DatabaseFind.isLocal(host)
+        else { return false }
+        return try store.worktree(worktreeId).flatMap { remotes.of($0.path) } == nil
+    }
+
+    private static func place(_ db: DatabaseInfo) -> String {
+        [db.engine.rawValue, db.host?.lowercased() ?? "", db.port.map(String.init) ?? "", db.database ?? ""]
+            .joined(separator: "\u{1F}")
     }
 
     func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?) throws -> DatabaseInfo {

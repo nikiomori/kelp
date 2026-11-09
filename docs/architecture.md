@@ -266,7 +266,8 @@ before it), and the agent to the database's own refusal; the role it connects as
 agent's COPY, DO block and the functions that reach the server's files or others' sessions (`lo_export`,
 `pg_read_file`, `pg_terminate_backend`, `dblink`…) are refused by their text (`SQLText.pastTheDatabase`), which a
 function of the database's own still gets past. An address found in
-a project's files (a cloned repo's `.env`) isn't dialled until the user opens it and never gets the user's `~/.pgpass`.
+a project's files (a cloned repo's `.env`) on a host that isn't this Mac is dialled neither by the panel nor by an
+agent's call until the user opens it (since kelpd started), and never gets the user's `~/.pgpass`.
 
 ## Updates
 An update replaces the app bundle while kelpd keeps running the old binary. The relaunched app sees that

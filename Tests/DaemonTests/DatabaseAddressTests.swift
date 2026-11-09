@@ -1,3 +1,4 @@
+import Agents
 import Core
 import Foundation
 import Testing
@@ -52,4 +53,25 @@ import Testing
     } catch let error as RPCError {
         #expect(error.message.contains("on this Mac"), "\(error.message)")
     }
+}
+
+/// An agent's call doesn't make kelpd dial an address from the project's files (a cloned repo's .env can name any host
+/// on the user's network) until the user has opened it.
+@Test func anAgentDoesntDialAnAddressFromTheFilesBeforeTheUser() async throws {
+    let w = try await world(agents: [AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    try "DATABASE_URL=postgres://app@db.example.invalid:5432/app\n".write(
+        toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let read = DatabaseQuery(worktreeId: wt.id, database: "app", sql: "SELECT 1")
+    func why() async -> String? {
+        do {
+            _ = try await w.d.workspaces.databases.query(read, origin: agent.id)
+            return nil
+        } catch { return (error as? RPCError)?.message }
+    }
+    #expect(await why()?.contains("once the user opens it") == true)
+    await #expect(throws: RPCError.self) { try await w.c.call(read) }   // the user's: dialled, nobody there
+    #expect(await why()?.contains("once the user opens it") == false)
 }
