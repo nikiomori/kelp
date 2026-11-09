@@ -72,6 +72,9 @@ public struct GitEvent: RPCEvent, Equatable {
     public static let name = "event.git"
     public var worktree: String
     public var changes: [FileChange]?, branches: BranchInfo?, stats: LineStats?, error: String?
+    /// What its branch committed since it left the project's base branch (nil on the base itself): with `changes`,
+    /// every file it would bring in, which another folder of the project may be changing too.
+    public var branchFiles: [String]?
     public init(
         worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil,
         error: String? = nil

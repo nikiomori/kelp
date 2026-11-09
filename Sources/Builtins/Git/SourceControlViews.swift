@@ -218,7 +218,11 @@ final class GraphBar: NSView {
 final class FileCell: NSTableCellView, Hoverable {
     private let actions: NSStackView
     let path: String
-    init(_ f: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat, actions a: [RowAction]) {
+    /// `shared`: the branches of other folders of the project that change this file too (`AppModel.sharedFiles`).
+    init(
+        _ f: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat, actions a: [RowAction],
+        shared: [String] = []
+    ) {
         actions = actionButtons(a)
         path = f.path
         super.init(frame: .zero)
@@ -244,8 +248,16 @@ final class FileCell: NSTableCellView, Hoverable {
         letterField.textColor = letter.1
         letterField.alignment = .center
         letterField.widthAnchor.constraint(equalToConstant: 12).isActive = true
-        pinRow(self, [icon, name, dir, NSView(), actions, letterField], leading: indent + Metrics.inset)
-        toolTip = f.path
+        let tip = shared.isEmpty ? nil : String(localized: "Also changed on \(shared.joined(separator: ", "))")
+        let mark = NSImageView()
+        if let tip {   // before the letter, where the eye checks a file's state
+            mark.image = .symbol("arrow.triangle.merge", tip)
+            mark.symbolConfiguration = .chrome(Metrics.iconTiny)
+            mark.contentTintColor = .textOrange
+        }
+        mark.isHidden = tip == nil
+        pinRow(self, [icon, name, dir, NSView(), actions, mark, letterField], leading: indent + Metrics.inset)
+        toolTip = [f.path, tip].compactMap { $0 }.joined(separator: "\n")
     }
     required init?(coder: NSCoder) { fatalError() }
     func setHover(_ on: Bool) {

@@ -10,6 +10,18 @@ extension Daemon {
         try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
     }
 
+    /// What a folder's branch committed since it left its project's base, for `GitEvent.branchFiles`. A base that
+    /// isn't a branch here (a project made before it had one) says nothing, in the log.
+    private func branchFiles(_ worktree: Worktree) async throws -> [String]? {
+        guard let base = try store.repo(worktree.repoId)?.baseBranch, worktree.branch != base else { return nil }
+        let remotes = remotes
+        return try await offload {
+            Log.store.attempt("\(worktree.branch)'s files since \(base)") {
+                try Git.branchFiles(worktree.path, base: base, remotes: remotes)
+            }
+        }
+    }
+
     /// The topic's event as it is now, as sent (nil: nothing to say, a failure that stays quiet), and when to read it
     /// again with nothing else saying so (nil: only when something does).
     func sample(_ watch: Watches.Key, fast: Bool) async -> (Data?, TimeInterval?) {
@@ -17,12 +29,14 @@ extension Daemon {
         switch watch.topic {
         case .git:
             // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
-            let remote = (try? store.worktree(key)).flatMap { $0 }.map { remotes.of($0.path) != nil } ?? false
+            let worktree = (try? store.worktree(key)).flatMap { $0 }
+            let remote = worktree.map { remotes.of($0.path) != nil } ?? false
             var event: GitEvent
             do {
                 let changes = try await ask(GitStatus(id: key))
                 event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
                 event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
+                if !remote, let worktree { event.branchFiles = try await branchFiles(worktree) }
             } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
             return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
         case .ports:

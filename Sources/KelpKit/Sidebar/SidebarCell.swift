@@ -307,11 +307,15 @@ final class SidebarCell: NSTableCellView {
             stats = badgeFolder.flatMap { app.rowBadges.stats[$0.id] }
         let changeCounts = RowBadges.changes(stats)
         let prBadge = badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
+        let sharedTip = badgeFolder.flatMap { RowBadges.sharedTip(app.rowBadges.shared($0.id)) }
         counts = changeCounts
+        shares = sharedTip != nil
         showChanges()
-        if changeCounts != nil, let stats {
-            changes.toolTip = String(
-                localized: "+\(stats.totalAdded) −\(stats.totalRemoved) not committed yet — click for the changes")
+        if changeCounts != nil || sharedTip != nil {
+            let counted = stats.map {
+                String(localized: "+\($0.totalAdded) −\($0.totalRemoved) not committed yet — click for the changes")
+            }
+            changes.toolTip = [sharedTip, changeCounts == nil ? nil : counted].compactMap { $0 }.joined(separator: "\n")
             changes.setAccessibilityLabel(changes.toolTip)
         }
         if let prBadge {
@@ -324,23 +328,23 @@ final class SidebarCell: NSTableCellView {
             $0 + "\n" + String(localized: "Click to open CI Runs")
         }
         ci.setAccessibilityLabel(ci.toolTip)
-        hasBadge = (changeCounts != nil, prBadge != nil, state != nil)
+        hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil, state != nil)
         fitBadges()
     }
     private var hasBadge = (changes: false, pr: false, ci: false)
     /// "+610 −23", shown in place of the dot while the pointer is on the row.
     private var counts: NSAttributedString?
+    /// Another folder of the project changes some of these files too: the dot is orange (`RowBadges.shared`).
+    private var shares = false
     /// A quiet dot at rest; under the pointer the counts, on a pill as the PR's number is (bare they read as the name's).
     private func showChanges() {
-        let full = hovering ? counts : nil, title = full ?? Self.dot
+        let full = hovering ? counts : nil, title = full ?? Self.dot(shares ? .textOrange : .secondaryLabelColor)
         if changes.attributedTitle != title { changes.attributedTitle = title }
         changes.padding = full == nil ? 3 : Metrics.gap
         changes.restFill = full == nil ? nil : .fillRest
     }
-    private static var dot: NSAttributedString {
-        NSAttributedString(
-            string: "•",
-            attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
+    private static func dot(_ color: NSColor) -> NSAttributedString {
+        NSAttributedString(string: "•", attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: color])
     }
 
     /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack

@@ -668,3 +668,21 @@ private let sample = FileDiff(
         #expect(!Git.holdsSecrets(n), "\(n)")
     }
 }
+
+/// What a branch brings in: its commits since it left the base, not what the base did meanwhile nor what isn't
+/// committed.
+@Test func branchFilesAreWhatItCommittedSinceItsBase() throws {
+    let repo = try tempRepo()
+    try Git.run(["switch", "-qc", "fix"], cwd: repo)
+    try "x\n".write(toFile: repo + "/login.swift", atomically: true, encoding: .utf8)
+    try Git.run(["add", "login.swift"], cwd: repo)
+    try Git.run(["commit", "-qm", "login"], cwd: repo)
+    try Git.run(["switch", "-q", "main"], cwd: repo)
+    try "b\n".write(toFile: repo + "/base.txt", atomically: true, encoding: .utf8)   // the base moved on meanwhile
+    try Git.run(["add", "base.txt"], cwd: repo)
+    try Git.run(["commit", "-qm", "base"], cwd: repo)
+    try Git.run(["switch", "-q", "fix"], cwd: repo)
+    try "z\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // not committed: status says it
+    #expect(try Git.branchFiles(repo, base: "main") == ["login.swift"])
+    #expect(throws: GitError.self) { try Git.branchFiles(repo, base: "--output=x") }
+}

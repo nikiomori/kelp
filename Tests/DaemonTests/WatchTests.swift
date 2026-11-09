@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GitKit
 import Testing
 import os
 
@@ -338,4 +339,24 @@ private final class Heard: Sendable {
 @Test func aRunningDaemonCountsNoReads() throws {
     let d = try Daemon(root: tmp())
     #expect(d.watches.reads.withLock { $0 } == nil)
+}
+
+/// A folder on a branch of its own says what the branch committed since its base, for the files another folder changes
+/// too; the project's own folder, on the base, says nothing of it.
+@Test func aBranchsGitSaysWhatItCommittedSinceItsBase() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let base = try await firstWorkspace(w)
+    let fix = try await w.c.call(WorktreeCreate(repoId: base.repoId, branch: "fix", setup: false)).worktree
+    try "x\n".write(toFile: fix.path + "/login.swift", atomically: true, encoding: .utf8)
+    try Git.run(["add", "login.swift"], cwd: fix.path)
+    try Git.run(["commit", "-qm", "login"], cwd: fix.path)
+    let heard = Heard()
+    heard.listen(w.c)
+    w.c.notify(WatchStart(.git, fix.id))
+    w.c.notify(WatchStart(.git, base.id))
+    func event(_ id: String) -> GitEvent? { heard.events(GitEvent.self).last { $0.worktree == id } }
+    #expect(try await waitFor(10) { event(fix.id)?.branchFiles == ["login.swift"] })
+    #expect(try await waitFor(10) { event(base.id)?.changes != nil })
+    #expect(event(base.id)?.branchFiles == nil)
 }

@@ -52,6 +52,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     var worktreeId: String?
     var changes: [FileChange] = []
+    /// Its files another folder of the project changes too, with their branches.
+    var shared: [String: [String]] = [:]
     var info: BranchInfo?
     var commits: [GraphCommit] = []
     var unpushed = Set<String>()
@@ -183,6 +185,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             app.latest(GitEvent.self, self?.worktreeId ?? "")
         } changed: { [weak self] in
             self?.apply($0)
+        }
+        track(owner: self) { [weak self, app] in
+            app.sharedFiles(self?.worktreeId)
+        } changed: { [weak self] in
+            self?.shared = $0
+            self?.rebuildChanges()
         }
         track(owner: self) { [weak self, app] in
             app.latest(CIEvent.self, self?.worktreeId ?? "")
@@ -477,7 +485,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             return FileCell(
                 file, icon: app.fileIcons.image((file.path as NSString).lastPathComponent),
                 letter: Self.letter(file, section),
-                indent: SectionCell.indent, actions: fileActions(file, section))
+                indent: SectionCell.indent, actions: fileActions(file, section), shared: shared[file.path] ?? [])
         case .commit(let index):
             if more, !loadingMore, index >= commits.count - 30 { loadMore() }
             let commit = commits[index]

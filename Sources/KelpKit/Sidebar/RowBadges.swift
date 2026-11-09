@@ -55,6 +55,38 @@ package final class RowBadges {
         return worktree
     }
 
+    /// Files folder `id` changes (not committed yet, or on its branch since it left the base) that another folder of
+    /// its project changes too, each with those folders' branches: two chats building one thing two ways meet here,
+    /// before their merge does. Only folders the sidebar watches count (Settings › Appearance › Changes and pull
+    /// requests).
+    func shared(_ id: String) -> [String: [String]] {
+        let events = app.latest(GitEvent.self).byKey
+        func touched(_ e: GitEvent?) -> Set<String> { Set((e?.changes ?? []).map(\.path) + (e?.branchFiles ?? [])) }
+        guard let me = app.worktree(id) else { return [:] }
+        let mine = touched(events[id])
+        guard !mine.isEmpty else { return [:] }
+        var out: [String: [String]] = [:], seen: Set<String> = [me.path]
+        for (other, event) in events.sorted(by: { $0.key < $1.key }) {
+            guard let w = app.worktree(other), w.repoId == me.repoId, !w.archived, seen.insert(w.path).inserted else {
+                continue
+            }
+            for path in mine.intersection(touched(event)) { out[path, default: []].append(w.branch) }
+        }
+        return out
+    }
+
+    /// "Also changed on fix-login: App.swift, Login.swift and 2 more", a line a branch.
+    static func sharedTip(_ shared: [String: [String]]) -> String? {
+        guard !shared.isEmpty else { return nil }
+        var byBranch: [String: [String]] = [:]
+        for (path, branches) in shared { for b in branches { byBranch[b, default: []].append(path) } }
+        return byBranch.keys.sorted().map { branch in
+            let names = (byBranch[branch] ?? []).map { ($0 as NSString).lastPathComponent }.sorted()
+            let more = names.count > 3 ? String(localized: " and \(names.count - 3) more") : ""
+            return String(localized: "Also changed on \(branch): \(names.prefix(3).joined(separator: ", "))\(more)")
+        }.joined(separator: "\n")
+    }
+
     /// "+6 −2" in green and red (text shades: NSColor.textGreen); a side with nothing changed is left out ("+6", not "+6 −0").
     /// `compact`, for a row: "+21.7k" from ten thousand lines (generated files), the exact count left to its tooltip.
     package static func changes(_ stats: LineStats?, compact: Bool = false) -> NSAttributedString? {
@@ -84,4 +116,6 @@ extension AppModel {
     package func gitFolder(of workspace: String?) -> Worktree? { rowBadges.folder(of: workspace) }
     /// Every folder the sidebar lists, whose git, PR and CI its rows show.
     package var gitFolders: Set<String> { rowBadges.folders }
+    /// Its files that another folder of the project changes too, with that folder's branch (`RowBadges.shared`).
+    package func sharedFiles(_ id: String?) -> [String: [String]] { id.map(rowBadges.shared) ?? [:] }
 }

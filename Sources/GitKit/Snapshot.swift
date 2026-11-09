@@ -50,6 +50,14 @@ extension Git {
     }
 }
 
+extension Git {
+    /// The files HEAD changed since it left `base` (their merge base), committed only: `status` has the rest.
+    public static func branchFiles(_ cwd: String, base: String, remotes: Remotes = .none) throws -> [String] {
+        try run(["diff", "--name-only", "--no-renames", "-z", "\(try rev(base))...HEAD"], cwd: cwd, remotes: remotes)
+            .split(separator: "\0").map(String.init)
+    }
+}
+
 /// Putting a folder back as it was at a snapshot (an agent's turn undone).
 extension Git {
     /// The files that differ now from snapshot `tree`, secrets left out (`holdsSecrets`: what the user put there stays), and the
