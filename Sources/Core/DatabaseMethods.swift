@@ -6,7 +6,8 @@ import Foundation
 
 /// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
 /// A database's tab: `db:<workspace>/<name>`, with one run (`?run=`) or table (`?table=`) shown; the name and the table
-/// percent-encoded (an imported name may hold a "?" or "/"). The one builder of it: the tab, the agent's row, `kelp db`.
+/// percent-encoded (an imported name may hold a "?" or "/"). The one builder of it: the tab, the agent's row,
+/// `kelp db`.
 public enum DatabaseTabURI {
     public static func uri(worktree: String, name: String, run: String? = nil, table: String? = nil) -> String {
         var allowed = CharacterSet.urlPathAllowed

@@ -117,11 +117,11 @@ enum SQLText {
         String(code(sql).prefix { $0.isLetter }).uppercased()
     }
 
-    /// The one statement a call may run: more, or a client command (psql's \…, duckdb's .…), is refused before anything
-    /// runs. One at a time keeps a read-only transaction whole (a "COMMIT; DELETE …" would leave it) and what the user
-    /// allows all that runs. Read every way an engine might read it (`Reading`): a client that splits a script itself
-    /// (psql -c, mysql, MySQL's multi-statements) splits it as its engine does: where the engine's readings disagree on where
-    /// it ends, it's refused.
+    /// The one statement a call may run: more, or a client command (psql's \…, duckdb's .…), is refused before
+    /// anything runs. One at a time keeps a read-only transaction whole (a "COMMIT; DELETE …" would leave it) and
+    /// what the user allows all that runs. It's read every way its engine might read it (`Reading`): a client that
+    /// splits a script itself (psql -c, mysql, MySQL's multi-statements) splits it as its engine does, so where the
+    /// readings disagree on where it ends, it's refused.
     static func single(_ sql: String, _ engine: DatabaseInfo.Engine) throws -> String {
         let readings = Reading.of(engine)
         let all = statements(sql, readings[0])

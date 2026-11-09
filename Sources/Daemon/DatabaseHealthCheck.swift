@@ -29,7 +29,8 @@ extension Databases {
         if c.database.source != nil, remote == nil, c.database.ssh == nil, let host = c.database.host,
             !DatabaseFind.isLocal(host)
         {
-            // An address from the project's files (a cloned repo's .env): dialled when the user opens it, not on its own.
+            // An address from the project's files (a cloned repo's .env): dialled when the user opens it, not on its
+            // own.
             return DatabaseHealth(name: name, state: .unknown, reason: "Kelp connects when you open it.")
         }
         if c.password == nil, c.database.passwordIn != nil {   // reading it would make macOS ask: only on opening it

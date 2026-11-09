@@ -166,8 +166,8 @@ extension Daemon {
 
 extension WatchStart: Handled {
     static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
-    /// A project's databases as the window sees them: hidden ones, All My Projects (hosts, users, keychain items) and the
-    /// user's own statements. An agent asks `db.list` and `db.query`, which say what it may see.
+    /// A project's databases as the window sees them: hidden ones, All My Projects (hosts, users, keychain items)
+    /// and the user's own statements. An agent asks `db.list` and `db.query`, which say what it may see.
     var notForAgents: String? {
         topic == .databases ? "The databases' activity is the user's: `kelp db list` says which an agent may use." : nil
     }
