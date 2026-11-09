@@ -260,9 +260,12 @@ edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, 
 their own workspaces); `databases.agents` (the default access) and the window's watch of the databases are the user's.
 
 What read-only doesn't stop: a function the database runs with its owner's rights (a `SECURITY DEFINER` function that
-writes, `dblink`), a `SELECT … INTO OUTFILE` with the FILE privilege, or what the user granted that role. It holds the
+writes), a `SELECT … INTO OUTFILE` with the FILE privilege, or what the user granted that role. It holds the
 statement to one (`SQLText.single`, read every way its engine may read it), never MySQL's DDL as a read (MySQL commits
-before it), and the agent to the database's own refusal; the role it connects as is what bounds it. An address found in
+before it), and the agent to the database's own refusal; the role it connects as is what bounds it. On Postgres an
+agent's COPY, DO block and the functions that reach the server's files or others' sessions (`lo_export`,
+`pg_read_file`, `pg_terminate_backend`, `dblink`…) are refused by their text (`SQLText.pastTheDatabase`), which a
+function of the database's own still gets past. An address found in
 a project's files (a cloned repo's `.env`) isn't dialled until the user opens it and never gets the user's `~/.pgpass`.
 
 ## Updates

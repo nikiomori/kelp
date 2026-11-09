@@ -43,3 +43,18 @@ import Testing
     #expect(try SQLText.single("SELECT 'it''s; fine' # note; here", .mysql) != "")
     #expect(try SQLText.single("SELECT 1 -- note; here", .sqlite) != "")
 }
+
+/// What reaches past a Postgres database to its server (a program through COPY, its files, others' sessions) is
+/// refused to agents, a read-only transaction letting it through; plain reads aren't.
+@Test func whatReachesPastAPostgresDatabaseIsNamed() {
+    for sql in [
+        "COPY (SELECT 1) TO PROGRAM 'sh -c id'", "copy t from '/etc/passwd'",
+        "DO $$ BEGIN EXECUTE 'CO' || 'PY t TO PROGRAM ''id'''; END $$", "SELECT lo_export(1, '/tmp/x')",
+        "SELECT pg_catalog.PG_READ_FILE('/etc/passwd')", "SELECT pg_terminate_backend(pid) FROM pg_stat_activity",
+        "SELECT * FROM dblink('host=x', 'SELECT 1') AS t(a int)"
+    ] {
+        #expect(SQLText.pastTheDatabase(sql, .postgres) != nil, "\(sql)")
+    }
+    #expect(SQLText.pastTheDatabase("SELECT copy, program FROM t WHERE note = 'do it'", .postgres) == nil)
+    #expect(SQLText.pastTheDatabase("COPY t TO 'x.csv'", .duckdb) == nil)   // -safe holds DuckDB to its file
+}

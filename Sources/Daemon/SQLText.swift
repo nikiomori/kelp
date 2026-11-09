@@ -147,6 +147,24 @@ enum SQLText {
         return only
     }
 
+    /// What reaches past a Postgres database to the server it runs on, and a read-only transaction lets through: COPY
+    /// (to a file or a program), a DO block (whose EXECUTE builds a statement no text check sees), the functions that
+    /// read or write the server's files or end others' sessions. Refused to agents with why; nil: none of it. A text
+    /// check, so a function of the database's own can still do these: the role it connects as bounds that.
+    static func pastTheDatabase(_ sql: String, _ engine: DatabaseInfo.Engine) -> String? {
+        guard engine == .postgres else { return nil }   // DuckDB's -safe holds it to its file; MySQL's FILE is the role's
+        switch verb(sql) {
+        case "COPY": return "COPY reaches the server's files and programs: read with SELECT instead."
+        case "DO": return "A DO block runs statements Kelp can't read first: run each as a statement of its own."
+        default: break
+        }
+        let pattern =
+            #"\b(lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|"#
+            + #"pg_file_write|pg_terminate_backend|pg_cancel_backend|pg_reload_conf|pg_rotate_logfile|dblink\w*)\b"#
+        guard let found = sql.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else { return nil }
+        return "\(sql[found].lowercased()) reaches past the database to its server: Kelp doesn't run it for agents."
+    }
+
     /// Whether it may run as a read, the database refusing a change in its read-only transaction. Not MySQL's DDL nor
     /// anything else but a read: MySQL commits the transaction before a DROP or ALTER and runs it outside.
     static func mayTryAsRead(_ sql: String, _ engine: DatabaseInfo.Engine) -> Bool {

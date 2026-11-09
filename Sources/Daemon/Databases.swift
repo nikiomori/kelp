@@ -384,6 +384,7 @@ final class Databases: Sendable {
         do { sql = try SQLText.single(q.sql, c.database.engine) } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
+        if forAgent, let why = SQLText.pastTheDatabase(sql, c.database.engine) { throw RPCError.refused(why) }
         let id = UUID().uuidString, session = asker ?? nil
         var run = DatabaseRun(id: id, database: c.database.name, sql: sql, session: session, at: Date(), state: .done)
         let access = forAgent ? c.database.agentAccess : .free
