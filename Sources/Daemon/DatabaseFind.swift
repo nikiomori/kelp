@@ -7,6 +7,8 @@ struct FoundDatabase: Equatable {
     var password: String?
     /// The compose service it runs in, and its port there: its client can run inside that service's container.
     var service: (name: String, port: Int)?
+    /// The folder its source is in when that isn't the workspace's: the project's own, for a branch's workspace.
+    var root: String?
 
     static func == (a: Self, b: Self) -> Bool {
         a.database == b.database && a.password == b.password && a.service?.name == b.service?.name
@@ -350,11 +352,15 @@ enum DatabaseFind {
     /// Not on this Mac, or named for production.
     static func isProduction(_ db: DatabaseInfo) -> Bool {
         let named = [db.name, db.source ?? "", db.database ?? ""].contains { $0.lowercased().contains("prod") }
-        guard let host = db.host?.lowercased(), db.engine != .sqlite else { return named }
-        let local =
-            ["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"].contains(host)
+        guard let host = db.host, db.engine != .sqlite else { return named }
+        return named || !isLocal(host)
+    }
+
+    /// A host that is this Mac (or its Docker's).
+    static func isLocal(_ host: String) -> Bool {
+        let host = host.lowercased()
+        return ["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"].contains(host)
             || host.hasSuffix(".local") || host.hasSuffix(".localhost") || !host.contains(".")
-        return named || !local
     }
 
     /// One entry per place: the same server, port and database found twice (compose and .env) is kept once, the first;

@@ -282,6 +282,18 @@ enum DatabaseMenu {
             changed.production.toggle()
             Task { await app.call(DatabaseSave(worktreeId: worktreeId, database: changed)) }
         }.state = db.production ? .on : .off
+        // A copy to change on this branch without touching the project's (`db.copy`): SQLite files and a Postgres here.
+        if !db.production, db.engine != .mysql, let branch = app.worktree(worktreeId)?.branch {
+            menu.add(String(localized: "Copy for \(branch)")) {
+                Task {
+                    guard let copy = await app.call(DatabaseCopy(worktreeId: worktreeId, database: db.name)) else {
+                        return
+                    }
+                    Banner.show(String(localized: "\(copy.name) is \(branch)'s copy of \(db.name)."))
+                    app.workbench.open(DatabaseURI(worktree: worktreeId, name: copy.name).uri)
+                }
+            }
+        }
         menu.addItem(.separator())
         menu.add(String(localized: "Copy Address")) { copyText(db.address) }
         if db.source == nil {

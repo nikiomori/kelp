@@ -206,6 +206,14 @@ enum SQLiteRun {
         }
     }
 
+    /// A consistent copy of the file, written or not while it's read (SQLite's own backup).
+    static func copy(_ path: String, to target: String) throws {
+        try run {
+            let source = try open(path, readOnly: true)
+            try source.backup(to: try DatabaseQueue(path: target))
+        }
+    }
+
     static func rows(_ statement: Statement) throws -> DatabaseRows {
         var result = DatabaseRows(columns: statement.columnNames)
         let cursor = try Row.fetchCursor(statement)

@@ -3,7 +3,8 @@ import Foundation
 
 extension Main {
     static let dbUsage = """
-        db list | schema [table] [--db name] | query <sql> [--db name] [--limit 200] [--json] | open [name]
+        db list | schema [table] [--db name] | query <sql> [--db name] [--limit 200] [--json]
+           | open [name] | copy [name]
         """
 
     /// `db <action>`: the project's databases through kelpd, which holds their passwords (`db.*`).
@@ -44,6 +45,10 @@ extension Main {
                 print(table(result.columns, result.rows.map { $0.map { cell($0) } }))
             }
             print(footer(result))
+        case "copy":   // the user's: a copy for this workspace's branch (not for agents: `db.copy` isn't theirs)
+            let name = try await database(args.first ?? named, worktree.id, c)
+            let copy = try await c.call(DatabaseCopy(worktreeId: worktree.id, database: name))
+            print("\(copy.name): \(copy.address)")
         case "open":
             let name = try await database(args.first ?? named, worktree.id, c)
             _ = try await c.call(UIOpen(uri: "db:\(worktree.id)/\(name)", split: "right", worktreeId: worktree.id))

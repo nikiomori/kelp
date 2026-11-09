@@ -56,7 +56,17 @@ final class Databases: Sendable {
             throw RPCError.invalidParams("No workspace \(worktreeId).")
         }
         let host = remotes.of(worktree.path), remote = host != nil
-        let found = host.map { onHost($0, worktreeId) } ?? DatabaseFind.find(in: worktree.path)
+        var found = host.map { onHost($0, worktreeId) } ?? DatabaseFind.find(in: worktree.path)
+        // A branch's workspace has its project's databases too (an untracked SQLite file stays in the project's folder),
+        // until it has a copy of its own (`copy`).
+        if !remote, let project = try store.repo(worktree.repoId)?.path, project != worktree.path {
+            let mine = Set(found.map(\.database.name))
+            found += DatabaseFind.find(in: project).filter { !mine.contains($0.database.name) }.map { item in
+                var item = item
+                item.root = project
+                return item
+            }
+        }
         let saved = try store.db.read {
             try SavedDatabase.filter(Column("repoId") == worktree.repoId).fetchAll($0)
         }
@@ -71,7 +81,7 @@ final class Databases: Sendable {
             let container = item.service.flatMap { service in
                 db.source.map {
                     ComposeService(
-                        file: (worktree.path as NSString).appendingPathComponent($0), name: service.name,
+                        file: ((item.root ?? worktree.path) as NSString).appendingPathComponent($0), name: service.name,
                         port: service.port)
                 }
             }
@@ -153,6 +163,79 @@ final class Databases: Sendable {
         touch(worktreeId)
         return db
     }
+
+    /// A copy for the workspace's branch (`DatabaseCopy`): the copy as it's listed now.
+    func copy(_ worktreeId: String, _ name: String) throws -> DatabaseInfo {
+        guard let worktree = try store.worktree(worktreeId) else {
+            throw RPCError.invalidParams("No workspace \(worktreeId).")
+        }
+        guard remotes.of(worktree.path) == nil else {
+            throw RPCError.invalidParams("A remote project's databases stay on its host: Kelp copies them only here.")
+        }
+        let c = try connection(worktreeId, name, agent: false), suffix = Self.slug(worktree.branch)
+        guard !c.database.production else {
+            throw RPCError.invalidParams("\(name) is production: Kelp doesn't copy it.")
+        }
+        switch c.database.engine {
+        case .sqlite: return try copyFile(c, worktree, suffix: suffix)
+        case .postgres:
+            guard let host = c.database.host, DatabaseFind.isLocal(host), let database = c.database.database else {
+                throw RPCError.invalidParams(
+                    "Kelp copies a Postgres on this Mac that publishes its port; \(name) doesn't.")
+            }
+            let copied = database + "_" + suffix
+            var maintenance = c   // a template can't have anyone connected, this connection included
+            maintenance.database.database = "postgres"
+            do {
+                _ = try DatabaseEngines.write(
+                    maintenance, "CREATE DATABASE \(Self.quoted(copied)) TEMPLATE \(Self.quoted(database))")
+            } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
+            var db = c.database
+            db.name = name + "_" + suffix
+            db.database = copied
+            db.source = nil
+            return try save(worktreeId, db, password: c.password)
+        case .mysql: throw RPCError.invalidParams("Kelp copies SQLite files and Postgres databases, not MySQL's.")
+        }
+    }
+
+    /// Into the branch's folder at the same place when it's the project's file, else beside it with the branch's name.
+    private func copyFile(_ c: DatabaseConnection, _ worktree: Worktree, suffix: String) throws -> DatabaseInfo {
+        guard let path = c.database.path else { throw RPCError.invalidParams("\(c.database.name) has no file.") }
+        let project = try store.repo(worktree.repoId)?.path ?? worktree.path
+        let target: String
+        if path.hasPrefix(project + "/"), !path.hasPrefix(worktree.path + "/") {
+            target = worktree.path + path.dropFirst(project.count)
+        } else {
+            let ext = (path as NSString).pathExtension, base = (path as NSString).deletingPathExtension
+            target = base + "_" + suffix + (ext.isEmpty ? "" : "." + ext)
+        }
+        guard !FileManager.default.fileExists(atPath: target) else {
+            throw RPCError.invalidParams("There's a copy already: \(target).")
+        }
+        try FileManager.default.createDirectory(
+            atPath: (target as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        do { try SQLiteRun.copy(path, to: target) } catch let failure as DatabaseFailure {
+            throw RPCError.invalidParams(failure.message)
+        }
+        touch(worktree.id)
+        // Where Kelp looks (the top, db/, …) it's found as it is; anywhere else it's kept as one added by hand.
+        if let found = try connections(worktree.id).first(where: { $0.database.path == target }) {
+            return found.database
+        }
+        let db = DatabaseInfo(
+            name: c.database.name + "_" + suffix, engine: .sqlite, path: target, access: c.database.access)
+        return try save(worktree.id, db, password: nil)
+    }
+
+    /// A branch as a name's tail: "fix/orders" → "fix_orders".
+    static func slug(_ branch: String) -> String {
+        let words = branch.lowercased().split { !($0.isLetter || $0.isNumber) }
+        let slug = String(words.joined(separator: "_").prefix(30))
+        return slug.isEmpty ? "copy" : slug
+    }
+
+    static func quoted(_ name: String) -> String { "\"" + name.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
 
     func remove(_ worktreeId: String, _ name: String) throws {
         guard let worktree = try store.worktree(worktreeId) else { return }
@@ -365,6 +448,10 @@ extension DatabaseRemove: Handled {
     }
 }
 
+extension DatabaseCopy: Handled {
+    func handle(_ dbs: Databases) throws -> DatabaseInfo { try dbs.copy(worktreeId, database) }
+}
+
 extension DatabaseActivity: Handled {
     func handle(_ dbs: Databases) throws -> DatabasesEvent { try dbs.activity(worktreeId) }
 }
@@ -375,7 +462,8 @@ extension DatabaseResultRead: Handled {
 
 extension Methods {
     static let databaseMethods: [any Handled.Type] = [
-        DatabaseList.self, DatabaseSchemaRead.self, DatabaseSave.self, DatabaseRemove.self, DatabaseActivity.self,
+        DatabaseList.self, DatabaseSchemaRead.self, DatabaseSave.self, DatabaseRemove.self, DatabaseCopy.self,
+        DatabaseActivity.self,
         DatabaseResultRead.self
     ]
 }

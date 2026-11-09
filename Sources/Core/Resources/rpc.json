@@ -5177,6 +5177,34 @@
       "x-internal" : true
     },
     {
+      "description" : "A copy of a database for the workspace's branch, to change without touching the project's own: a SQLite file goes into the branch's folder (where Kelp finds it under the same name), a Postgres on this Mac becomes `<database>_<branch>` (CREATE DATABASE … TEMPLATE, which needs nobody connected to it). Not a production one, MySQL's, or a remote host's.",
+      "name" : "db.copy",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The databases of the workspace's project: found in its files, and those added by hand. An agent isn't told of one hidden from agents.",
       "name" : "db.list",
       "paramStructure" : "by-name",

@@ -66,6 +66,16 @@ private let env = ProcessInfo.processInfo.environment
         try await dbs.query(
             DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "COMMIT; DELETE FROM orders"), origin: agent.id)
     }
+    // A copy for a branch: CREATE DATABASE … TEMPLATE, listed as one of its own; dropped again here.
+    let copy = try await w.c.call(DatabaseCopy(worktreeId: wt.id, database: "app_dev"))
+    #expect(copy.name == "app_dev_main" && copy.database == "app_dev_main")
+    let copied = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: copy.name, sql: "SELECT count(*) FROM orders"))
+    #expect(copied.rows == [["3"]])
+    _ = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "DROP DATABASE app_dev_main"))
+    _ = try await w.c.call(DatabaseRemove(worktreeId: wt.id, name: copy.name))
+
     var db = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
     db.access = .read
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: db))

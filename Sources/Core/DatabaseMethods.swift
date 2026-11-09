@@ -206,6 +206,19 @@ public struct DatabaseRemove: InternalMethod {
     }
 }
 
+/// A copy of a database for the workspace's branch, to change without touching the project's own: a SQLite file goes into
+/// the branch's folder (where Kelp finds it under the same name), a Postgres on this Mac becomes `<database>_<branch>`
+/// (CREATE DATABASE … TEMPLATE, which needs nobody connected to it). Not a production one, MySQL's, or a remote host's.
+public struct DatabaseCopy: InternalMethod {
+    public static let name = "db.copy"
+    public typealias Result = DatabaseInfo
+    public var worktreeId: String, database: String
+    public init(worktreeId: String, database: String) {
+        self.worktreeId = worktreeId
+        self.database = database
+    }
+}
+
 /// What the Databases panel shows: the databases and what was run on them lately.
 public struct DatabaseActivity: InternalMethod {
     public static let name = "db.activity"

@@ -365,3 +365,32 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(found.map(\.database.source) == ["compose.yaml", ".env", "api/.env"] && found[1].password == "pw")
     #expect(DatabaseFind.find(in: dir).map(\.database.source) == ["compose.yaml", ".env", "api/.env", "db/x.sqlite3"])
 }
+
+/// A branch's workspace sees its project's SQLite file (untracked, it stays in the project's folder) until it gets a
+/// copy of its own, at the same place in its folder: a change there leaves the project's alone.
+@Test func aBranchGetsItsOwnCopyOfASQLiteDatabase() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let main = try await firstWorkspace(w)
+    let original = try shopDB(in: main.path)
+    let branch = try await workspace(w, "fix/orders")
+    let seen = try #require(try await w.c.call(DatabaseList(worktreeId: branch.id)).first)
+    #expect(seen.name == "shop" && seen.path == original)
+
+    let copy = try await w.c.call(DatabaseCopy(worktreeId: branch.id, database: "shop"))
+    #expect(copy.name == "shop" && copy.path == branch.path + "/db/shop.sqlite3")
+    #expect(try await w.c.call(DatabaseList(worktreeId: branch.id)).first?.path == copy.path)
+    _ = try await w.c.call(DatabaseQuery(worktreeId: branch.id, database: "shop", sql: "DELETE FROM orders"))
+    #expect(try count(copy.path ?? "", "SELECT count(*) FROM orders") == 0)
+    #expect(try count(original, "SELECT count(*) FROM orders") == 3)
+    // Its own copied again: beside it, under the branch's name; and once that's there, no more.
+    let again = try await w.c.call(DatabaseCopy(worktreeId: branch.id, database: "shop"))
+    #expect(again.name == "shop_fix_orders" && again.path == branch.path + "/db/shop_fix_orders.sqlite3")
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(DatabaseCopy(worktreeId: branch.id, database: "shop"))
+    }
+    // In the project's own folder: beside it, under the branch's name.
+    let beside = try await w.c.call(DatabaseCopy(worktreeId: main.id, database: "shop"))
+    #expect(beside.name == "shop_main" && beside.path == main.path + "/db/shop_main.sqlite3")
+    #expect(Databases.slug("Feature/ÜBER-orders#2") == "feature_über_orders_2")
+}
