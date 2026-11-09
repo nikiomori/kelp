@@ -48,8 +48,8 @@ public enum CodexHooks {
     public static var hostArgs: [String] { args(hostEvents) }
 
     public static func args(_ events: [(name: String, label: String, command: String)]) -> [String] {
-        let hooks = events.flatMap { e in
-            ["-c", "hooks.\(e.name)=[{hooks=[{type=\"command\",command=\(quoted(e.command))}]}]"]
+        let hooks = events.flatMap { event in
+            ["-c", "hooks.\(event.name)=[{hooks=[{type=\"command\",command=\(quoted(event.command))}]}]"]
         }
         // One table: `-c` splits a dotted key at every ".", and the keys hold "config.toml".
         let state = events.map {
