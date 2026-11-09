@@ -301,35 +301,24 @@ final class Box: @unchecked Sendable {
 }
 
 /// A terminal closes its fds once: finishing and being dropped both hang up, and a second close would hit whatever
-/// reuses the number by then. Here a pipe takes each freed number before the drop, and must survive it.
+/// reuses the number by then. Counted, not looked up by number: a parallel test can be given the number the moment
+/// it's closed.
 @Test func aFinishedTerminalClosesItsFdsOnce() async throws {
-    var held = 0
-    for _ in 0..<60 where held < 6 {   // until some freed numbers were had (tests running alongside take them too)
-        var p: PTY? = try PTY(argv: ["/bin/sh", "-c", "exit 0"], cwd: "/tmp", env: [:])
-        let ended = Box()
-        p?.onExit = { ended.exit($0) }
-        p?.start()
-        #expect(try await waitFor(5) { ended.code != nil })
-        let fds = [p?.primaryFD ?? -1, p?.writeFD ?? -1], writes = p?.writes   // no other reference: the drop below is the last
-        writes?.sync {}   // finished: its first close of the write end has run (the terminal's own goes on its read queue)
-        // Each freed number, taken again: by the pipe itself (the lowest free numbers), else a copy of it. Only a number that
-        // is free now (closed by the terminal already, not taken by another test meanwhile) can be had either way.
-        let pipe = Pipe(), ends = [pipe.fileHandleForReading.fileDescriptor, pipe.fileHandleForWriting.fileDescriptor]
-        let holders = fds.compactMap { fd -> Int32? in
-            if ends.contains(fd) { return fd }
-            let h = fcntl(ends[0], F_DUPFD, fd)
-            if h == fd { return h }
-            if h >= 0 { close(h) }
-            return nil
-        }
-        held += holders.count
-        p = nil   // dropped: deinit hangs up again, and must close nothing
-        writes?.sync {}   // a close it queued has run
-        #expect(holders.allSatisfy { fcntl($0, F_GETFD) != -1 }, "closed under us")
-        holders.filter { !ends.contains($0) }.forEach { close($0) }
-        withExtendedLifetime(pipe) {}
+    let closes = OSAllocatedUnfairLock(initialState: [Int32: Int]())
+    var p: PTY? = try PTY(argv: ["/bin/sh", "-c", "exit 0"], cwd: "/tmp", env: [:]) { fd in
+        closes.withLock { $0[fd, default: 0] += 1 }
+        close(fd)
     }
-    #expect(held > 0)
+    let ended = Box()
+    p?.onExit = { ended.exit($0) }
+    p?.start()
+    #expect(try await waitFor(5) { ended.code != nil })
+    let fds = [p?.primaryFD ?? -1, p?.writeFD ?? -1], writes = p?.writes   // no other reference: the drop below is the last
+    // Finished: the write end's close runs on its queue, the terminal's own once its read source is cancelled.
+    #expect(try await waitFor(5) { closes.withLock { $0 } == [fds[0]: 1, fds[1]: 1] })
+    p = nil   // dropped: deinit hangs up again, and must close nothing
+    writes?.sync {}   // a close it queued has run
+    #expect(closes.withLock { $0 } == [fds[0]: 1, fds[1]: 1])
 }
 
 /// Tests start programs as kelpd does, through `kelp __ctty`: the terminal is the program's controlling terminal, so a

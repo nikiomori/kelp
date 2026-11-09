@@ -46,6 +46,8 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// Closes the terminal's fd from the read source's cancel handler, once GCD is done with it: closing right after
     /// `cancel()` could pull the fd from under a read still running (which would then read whatever reuses the number).
     private let closer: FDCloser
+    /// How its fds are closed: `close`, or a test's count of each close.
+    private let closeFD: @Sendable (Int32) -> Void
 
     public var onOutput: (@Sendable (Data) -> Void)?
     public var onExit: (@Sendable (Int32) -> Void)?
@@ -53,7 +55,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// `trampoline`: the `kelp` binary that makes the PTY the child's controlling terminal (nil spawns directly).
     public init(
         argv: [String], cwd: String, env: [String: String], cols: UInt16 = 120, rows: UInt16 = 32,
-        trampoline: String? = PTY.trampoline
+        trampoline: String? = PTY.trampoline, closing: @escaping @Sendable (Int32) -> Void = { _ = close($0) }
     ) throws {
         let started = try Self.retrying {
             try Self.launch(argv: argv, cwd: cwd, env: env, cols: cols, rows: rows, trampoline: trampoline)
@@ -61,7 +63,8 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         self.pid = started.pid
         self.primaryFD = started.fd
         self.writeFD = dup(started.fd)
-        self.closer = FDCloser(started.fd)
+        self.closer = FDCloser(started.fd, closing: closing)
+        self.closeFD = closing
         guard writeFD >= 0 else { throw RPCError.internalError("No file descriptors left for a new terminal.") }
         _ = fcntl(writeFD, F_SETFL, fcntl(writeFD, F_GETFL) | O_NONBLOCK)   // shared with primaryFD: its reads already allow EAGAIN
     }
@@ -73,6 +76,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         primaryFD = fd
         writeFD = dup(fd)
         closer = FDCloser(fd)
+        closeFD = { _ = close($0) }
         _ = fcntl(writeFD, F_SETFL, fcntl(writeFD, F_GETFL) | O_NONBLOCK)
     }
 
@@ -92,7 +96,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
             }
             guard given else { return nil }
             let fd = writeFD
-            writes.async { close(fd) }
+            writes.async { [closeFD] in closeFD(fd) }
             return primaryFD
         }
     }
@@ -268,7 +272,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
         // Once only (finish and deinit both get here): a second close would hit whatever reused the number since.
         guard first else { return }
         let fd = writeFD
-        writes.async { close(fd) }   // after any write still queued has given up
+        writes.async { [closeFD] in closeFD(fd) }   // after any write still queued has given up
     }
 
     /// Dropped while its program runs (the limits probe quits that way): hang up the terminal. A controlling process
