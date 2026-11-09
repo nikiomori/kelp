@@ -229,11 +229,20 @@ extension AgentUsage {
         path: String, args: [String] = [], method: String, params: String? = nil, open: OpenProbes? = nil,
         within seconds: TimeInterval = 20, until notification: String? = nil
     ) -> [String: Any]? {
+        askCodex(
+            argv: [path, "app-server"] + args, method: method, params: params, open: open, within: seconds,
+            until: notification)
+    }
+
+    /// `argv` starts the app server: ssh running it on a host, say.
+    static func askCodex(
+        argv: [String], method: String, params: String? = nil, open: OpenProbes? = nil,
+        within seconds: TimeInterval = 20, until notification: String? = nil
+    ) -> [String: Any]? {
         let out = ScreenBuffer()
         let pty: PTY
         do {
-            pty = try PTY(
-                argv: [path, "app-server"] + args, cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value])
+            pty = try PTY(argv: argv, cwd: NSTemporaryDirectory(), env: ["PATH": LoginPath.value])
         } catch {
             Log.session.error("codex app-server didn't start: \(error)")
             return nil

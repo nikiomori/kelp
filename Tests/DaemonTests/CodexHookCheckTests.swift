@@ -42,6 +42,32 @@ func theInstalledCodexTrustsKelpsHooks() throws {
     #expect(
         CodexHookCheck.agrees(answer),
         "\(Date().timeIntervalSince(started)) s: \(String(describing: answer).prefix(600))")
+    // The hooks a host's Codex gets, asked of this one: the same hash for their commands.
+    let host = AgentUsage.askCodex(
+        path: codex, args: CodexHooks.hostArgs, method: "hooks/list",
+        params: #"{"cwds":["# + CodexHooks.quoted(NSTemporaryDirectory()) + "]}", within: 5)
+    #expect(
+        CodexHookCheck.agrees(host, events: CodexHooks.hostEvents), "\(String(describing: host).prefix(600))")
+}
+
+/// A host is asked once, with its own hooks, apart from the Codex on this Mac.
+@Test func aHostsCodexIsAskedOnceWithItsOwnHooks() {
+    let asked = OSAllocatedUnfairLockBox()
+    @Sendable func trusted() -> [String: Any] {
+        let hooks = CodexHooks.hostEvents.map { ["key": CodexHooks.key($0.label), "trustStatus": "trusted"] }
+        return ["result": ["data": [["hooks": hooks]]]]
+    }
+    let check = CodexHookCheck(
+        ask: { _ in nil },
+        askHost: { _ in
+            asked.bump()
+            return trusted()
+        })
+    let host = RemoteHost(host: "box", path: "/srv/app")
+    #expect(check.agrees(on: host) && check.agrees(on: host))
+    #expect(asked.count == 1)
+    #expect(!check.agrees("/usr/bin/true"))   // this Mac's Codex is its own question
+    #expect(!CodexHookCheck.agrees(trusted()))   // the local hooks aren't the host's
 }
 
 private final class OSAllocatedUnfairLockBox: @unchecked Sendable {

@@ -43,6 +43,9 @@ final class SessionSetup: Sendable {
             if tmux != nil, case .settingsFlag(let flag)? = manifest.hooks, !onHost.contains(flag) {
                 onHost += [flag, try Hooks.hostSettingsJSON()]
             }
+            if tmux != nil, manifest.hooks == .codexConfig, !onHost.isEmpty, codexHooks.agrees(on: remote) {
+                onHost.insert(contentsOf: CodexHooks.hostArgs, at: 1)
+            }
             let loginShell = manifest.id == "shell" && Tmux.session(argv) == nil
             let command = tmux.map { remote.command(onHost, inTmux: $0) } ?? remote.command(loginShell ? nil : onHost)
             run = [remote.ssh] + remote.sshArgs(tty: true) + [command]

@@ -22,6 +22,15 @@ public enum CodexHooks {
         ("Stop", "stop", "kelp hook done")
     ]
 
+    /// On a remote project's host, in tmux, where there's no `kelp`: each says its state as Claude Code's do there
+    /// (`Hooks.hostReport`), which Kelp reads as the program's own report. Fewer: a state is all a host's hook tells.
+    public static let hostEvents: [(name: String, label: String, command: String)] = [
+        ("UserPromptSubmit", "user_prompt_submit", Hooks.hostReport("state=working")),
+        ("PostToolUse", "post_tool_use", Hooks.hostReport("state=working")),
+        ("PermissionRequest", "permission_request", Hooks.hostReport("state=blocked:kind=permission")),
+        ("Stop", "stop", Hooks.hostReport("state=done"))
+    ]
+
     /// Codex's name for a hook given on the command line (`<session-flags>`, first group, first handler).
     public static func key(_ label: String) -> String { "/<session-flags>/config.toml:\(label):0:0" }
 
@@ -35,7 +44,10 @@ public enum CodexHooks {
     }
 
     /// The `-c` pairs: each hook, then their trust.
-    public static var args: [String] {
+    public static var args: [String] { args(events) }
+    public static var hostArgs: [String] { args(hostEvents) }
+
+    public static func args(_ events: [(name: String, label: String, command: String)]) -> [String] {
         let hooks = events.flatMap { e in
             ["-c", "hooks.\(e.name)=[{hooks=[{type=\"command\",command=\(quoted(e.command))}]}]"]
         }

@@ -410,6 +410,14 @@ public enum Hooks {
             + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#
     }
 
+    /// A hook's command on a host (`hostSettingsJSON`, `CodexHooks.hostEvents`): the report into the tmux session's
+    /// option and, through tmux, to the agent's tty. `unless`: shell that ends it first when the report doesn't hold.
+    public static func hostReport(_ report: String, unless: String = "") -> String {
+        hostStart + unless + "r='\(report)';tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + hostSend
+    }
+    static let hostStart = #"[ -n "$TMUX" ]||exit 0;"#
+    static let hostSend = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
+
     /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line. There's no `kelp`
     /// there, and tmux swallows the OSC 7501 an agent writes, so each hook writes the report itself, wrapped so that tmux
     /// lets it through, to the tty of the agent that ran it (a hook has none of its own). A report also stays in a tmux
@@ -418,15 +426,11 @@ public enum Hooks {
     /// isn't the end of the turn (`TurnEnd`), and JSON escapes a reply's own quotes, so one quoting these can't pass for it.
     /// Out of tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
     public static func hostSettingsJSON() throws -> String {
-        let send = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
-        let start = #"[ -n "$TMUX" ]||exit 0;"#
-        func agent(_ report: String, unless: String = "") -> JSONValue {
-            hook(start + unless + "r='\(report)';tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + send)
-        }
+        func agent(_ report: String, unless: String = "") -> JSONValue { hook(hostReport(report, unless: unless)) }
         func subagent(_ report: String) -> JSONValue {
             hook(
-                start + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"#
-                    + send)
+                hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"#
+                    + hostSend)
         }
         func hook(_ command: String) -> JSONValue {
             .array([.object(["hooks": .array([.object(["type": "command", "command": .string(command)])])])])

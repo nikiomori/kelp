@@ -61,3 +61,38 @@ import Testing
             $0.prefix(2)
         } == ["1.", "2.", "3."])
 }
+
+/// Codex on a host gets its hooks as they're written, through every shell on the way: the one ssh runs, the login
+/// shell, tmux's for the pane and the pane's own. And the whole command still fits in one tmux message.
+@Test func aHostsCodexGetsItsHooksThroughEveryShell() throws {
+    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: bin) }
+    let got = bin.appendingPathComponent("argv")
+    let scripts = [
+        ("tmux", #"[ "$1" = new-session ] && exec /bin/sh -c "$5"; exit 0"#),
+        ("codex", "for a in \"$@\"; do printf '%s\\n' \"$a\"; done > \(got.path)"),
+        ("login", #"shift; exec /bin/sh -c "$1""#)   // the host's $SHELL -ilc, without a profile that resets PATH
+    ]
+    for (name, body) in scripts {
+        let f = bin.appendingPathComponent(name)
+        try "#!/bin/sh\n\(body)\n".write(to: f, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: f.path)
+    }
+    let command = RemoteHost(host: "box", path: bin.path).command(["codex"] + CodexHooks.hostArgs, inTmux: "k")
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/sh")
+    p.arguments = ["-c", command]
+    p.environment = [
+        "PATH": "\(bin.path):/usr/bin:/bin", "SHELL": bin.appendingPathComponent("login").path, "HOME": bin.path
+    ]
+    let errors = Pipe()
+    p.standardError = errors
+    try p.run()
+    p.waitUntilExit()
+    let said = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    let argv = try #require(try? String(contentsOf: got, encoding: .utf8), "\(said)\n\(command)")
+        .split(separator: "\n", omittingEmptySubsequences: false)
+    #expect(argv.dropLast().map(String.init) == CodexHooks.hostArgs)
+    #expect(command.utf8.count < 16_000)
+}
