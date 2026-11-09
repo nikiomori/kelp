@@ -103,7 +103,7 @@ extension VMService {
             Log.vm.error("making \(machine.name): \(error)")
             // A machine half made holds memory for nothing: shut down as the guest would (a power cut loses what was just
             // written into it, Kelp Guest's app included), then its kelp-vm gone.
-            let stop = { [self] in   // up to a minute: not on a thread of the shared pool
+            let stop: @Sendable () -> Void = { [self] in   // up to a minute: not on a thread of the shared pool
                 if status(machine.name) != nil {
                     do { _ = try ask(machine.name, .init(op: .stop), wait: 60) } catch {
                         Log.vm.info("\(machine.name) stop: \(error)")

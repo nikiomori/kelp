@@ -198,7 +198,7 @@ extension VMService {
         let part = file.appendingPathExtension("part")
         let head = try await blocking { try run(["/usr/bin/curl", "-fsIL", url], limit: 60) }
         let total = Self.contentLength(head)
-        func size() -> Double {
+        @Sendable func size() -> Double {
             var st = stat()
             return stat(part.path, &st) == 0 ? Double(st.st_size) : 0
         }

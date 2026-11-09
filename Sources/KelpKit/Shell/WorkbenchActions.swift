@@ -123,7 +123,7 @@ extension Workbench {
         show(workspace: all[index].id)
     }
 
-    func showWorkspace(number number: Int) {
+    func showWorkspace(number: Int) {
         let all = workspacesInOrder
         guard all.indices.contains(number - 1) else {
             NSSound.beep()

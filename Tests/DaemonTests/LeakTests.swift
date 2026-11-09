@@ -102,7 +102,8 @@ private func terminals(named tty: String) -> Set<Int32> {
     var name = [CChar](repeating: 0, count: 128)
     return Set(
         (0..<getdtablesize()).filter { fd in
-            fcntl(fd, F_GETFD) != -1 && ptsname_r(fd, &name, name.count) == 0 && String(cString: name) == tty
+            fcntl(fd, F_GETFD) != -1 && ptsname_r(fd, &name, name.count) == 0
+                && String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self) == tty
         })
 }
 

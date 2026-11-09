@@ -54,7 +54,8 @@ enum Usage {
         var name = [CChar](repeating: 0, count: 256)
         return pids.prefix(max(0, count)).filter { pid in
             guard pid > 0, pid != me, proc_name(pid, &name, UInt32(name.count)) > 0,
-                programs.contains(String(cString: name)),
+                programs.contains(
+                    String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)),
                 Subprocess.parent(pid) != me, let argv = Subprocess.arguments(pid)
             else { return false }
             return argv.dropFirst().contains { $0.contains(id) }

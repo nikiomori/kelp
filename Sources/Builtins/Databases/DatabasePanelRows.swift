@@ -180,8 +180,8 @@ struct DatabasePanelRows {
     /// The engine's badge with a dot on its corner: green answers, orange stopped, red down, grey not tried. A ring
     /// is cut out around the dot, so it reads on any row (selected, hovered).
     private func mark(_ engine: DatabaseInfo.Engine, _ h: DatabaseHealth?) -> NSImageView {
-        nonisolated(unsafe) let badge = DatabaseLook.badge(engine, size: 16)
-        nonisolated(unsafe) let color: NSColor =
+        let badge = DatabaseLook.badge(engine, size: 16)
+        let color: NSColor =
             switch h?.state {
             case .ok: .systemGreen
             case .stopped: .systemOrange

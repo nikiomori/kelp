@@ -735,8 +735,8 @@ private func expectRules(_ r: Rig, _ table: [(Caller, any Answered, Bool, String
         r,
         "/bin/sh -c 'printf \"Do you trust this folder?\\r\\n\\xe2\\x9d\\xaf 1. Yes, proceed\\r\\n  2. No, exit\\r\\n\"; cat'"
     )
-    #expect(try await waitFor(10) { try r.d.sessions.existing(menu.id)?.asksSomething == true })
-    #expect(try r.d.sessions.existing(menu.id)?.snapshot.status != .waiting)   // asked by no hook
+    #expect(try await waitFor(10) { r.d.sessions.existing(menu.id)?.asksSomething == true })
+    #expect(r.d.sessions.existing(menu.id)?.snapshot.status != .waiting)   // asked by no hook
     var refusal = ""
     do { try r.d.allow(SessionWrite(id: menu.id, text: "\r"), conn: 0, caller: .detached) } catch let e as RPCError
         where e.isRefusal
