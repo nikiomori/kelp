@@ -64,9 +64,10 @@ let package = Package(
         .target(name: "BuiltinMachines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Machines"),
         .target(name: "BuiltinRun", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Run"),
         .executableTarget(
+        .target(name: "BuiltinDatabases", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Databases"),
             name: "KelpApp",
             dependencies: ["KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues", "BuiltinActivity",
-                           "BuiltinRoutines", "BuiltinServers", "BuiltinMachines", "BuiltinRun", "GhosttyKit"],
+                           "BuiltinRoutines", "BuiltinServers", "BuiltinMachines", "BuiltinRun", "BuiltinDatabases", "GhosttyKit"],
             // SwiftPM records the deployment target (14.0) as the SDK the app was built with, and AppKit then draws the
             // macOS 14 look (compatibility mode). Naming a current SDK gets the system's own design on macOS 26+.
             // Limit: fixed at 26.0; raise it when a later SDK's look is wanted.
@@ -88,7 +89,7 @@ let package = Package(
         .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "TestSupport"]),
         .testTarget(name: "ArchitectureTests"),   // reads the sources: the rules in docs/architecture.md
         .testTarget(name: "KelpAppTests", dependencies: ["KelpApp", "KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues",
-                                                  "BuiltinActivity", "BuiltinRoutines", "BuiltinRun", "BuiltinMachines", "BuiltinServers", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
+                                                  "BuiltinActivity", "BuiltinRoutines", "BuiltinRun", "BuiltinMachines", "BuiltinServers", "BuiltinDatabases", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
         .binaryTarget(name: "GhosttyKit", path: "Vendor/GhosttyKit.xcframework"),
     ]
 )
