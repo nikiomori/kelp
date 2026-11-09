@@ -140,7 +140,8 @@ final class SidebarRowView: NSTableRowView {
     }
     /// The outline sizes a row's cell once; when the row's height changes later (a project's last row gains or loses the
     /// card's foot) the cell would only stretch with it, its text off the chevron. Put it where the outline says; a row
-    /// closing up keeps its cell where it was, cut off by the row's edge as it goes.
+    /// closing up keeps its cell where it was, cut off by the row's edge as it goes. Its width follows the row's (8 pt
+    /// short, as `frameOfCell` leaves it): kept from a wider sidebar, a long name ran past the card, cut, not truncated.
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
         guard bounds.height > 1, let outline = superview as? NSOutlineView, case let row = outline.row(for: self),
@@ -149,8 +150,8 @@ final class SidebarRowView: NSTableRowView {
         else { return }
         let cellFrame = outline.frameOfCell(atColumn: 0, row: row)   // only its height: mid-update a project's row comes back narrower
         cell.frame = NSRect(
-            x: cell.frame.minX, y: cellFrame.minY - outline.rect(ofRow: row).minY, width: cell.frame.width,
-            height: cellFrame.height)
+            x: cell.frame.minX, y: cellFrame.minY - outline.rect(ofRow: row).minY,
+            width: max(0, bounds.width - 8 - cell.frame.minX), height: cellFrame.height)
     }
     override var isSelected: Bool {
         didSet {
