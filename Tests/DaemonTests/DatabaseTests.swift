@@ -462,3 +462,46 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(PgPass.match(file, host: "other", port: 1, database: "d", user: "u") == "any")
     #expect(PgPass.match("h:1:d:u:p", host: "h", port: 2, database: "d", user: "u") == nil)
 }
+
+/// A DuckDB file is found by its first bytes and spoken to through `duckdb`: NULL apart from "", its keys, a change
+/// counted through RETURNING, and an agent's read held to read-only. Where duckdb is installed (not on CI).
+@Test(.enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/duckdb")))
+func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
+    let w = try await world(agents: [AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = wt.path + "/data/shop.duckdb"
+    try FileManager.default.createDirectory(atPath: wt.path + "/data", withIntermediateDirectories: true)
+    let made = try await Subprocess.run(
+        [
+            "/opt/homebrew/bin/duckdb", path, "-c",
+            "CREATE TABLE users (id INT PRIMARY KEY); CREATE TABLE orders (id INT PRIMARY KEY, "
+                + "user_id INT REFERENCES users(id), note VARCHAR); INSERT INTO users VALUES (1); "
+                + "INSERT INTO orders VALUES (1, 1, NULL), (2, 1, ''), (3, 1, 'x');"
+        ], cwd: "/", env: ["HOME": NSHomeDirectory()], timeLimit: 30)
+    #expect(made.status == 0)
+    let list = try await w.c.call(DatabaseList(worktreeId: wt.id))
+    #expect(list.map(\.name) == ["shop"] && list.first?.engine == .duckdb && list.first?.source == "data/shop.duckdb")
+
+    let orders = try #require(
+        try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "shop", table: "orders")).tables.first)
+    #expect(orders.columns.map(\.name) == ["id", "user_id", "note"] && orders.rows == 3)
+    #expect(orders.columns[0].primary && orders.columns[1].references == "users.id")
+
+    let read = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT id, note FROM orders ORDER BY id"))
+    #expect(read.columns == ["id", "note"] && read.rows == [["1", nil], ["2", ""], ["3", "x"]])
+    let change = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'y' WHERE id > 1"))
+    #expect(change.changed == 2)
+
+    var db = try #require(list.first)
+    db.access = .read
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: db))
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    await #expect(throws: RPCError.self) {
+        try await w.d.workspaces.databases.query(
+            DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "DELETE FROM orders"), origin: agent.id)
+    }
+    #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first?.state == .refused)
+}

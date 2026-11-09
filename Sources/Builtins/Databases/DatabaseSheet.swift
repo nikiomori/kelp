@@ -61,7 +61,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             [title, grid, note, buttons], wide: [note, buttons], width: Metrics.sheetWidth)
         window.initialFirstResponder = address
         if let editing {
-            address.stringValue = editing.engine == .sqlite ? editing.path ?? "" : editing.address
+            address.stringValue = editing.engine.isFile ? editing.path ?? "" : editing.address
             name.stringValue = editing.name
             nameTyped = true
             production.state = editing.production ? .on : .off
@@ -86,7 +86,10 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         if text.hasPrefix("/") || text.hasPrefix("~") {
             let path = (text as NSString).expandingTildeInPath
             let base = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
-            return base.isEmpty ? nil : DatabaseInfo(name: base, engine: .sqlite, path: path)
+            let ext = (path as NSString).pathExtension.lowercased()
+            return base.isEmpty
+                ? nil
+                : DatabaseInfo(name: base, engine: ["duckdb", "ddb"].contains(ext) ? .duckdb : .sqlite, path: path)
         }
         guard let url = URLComponents(string: text), let scheme = url.scheme?.lowercased(), let host = url.host,
             !host.isEmpty
@@ -123,7 +126,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         let db = database
         save.isEnabled = db != nil && !(db?.name.isEmpty ?? true)
         let host = db?.host ?? "localhost"
-        if production.state == .off, db != nil, !["localhost", "127.0.0.1", "::1"].contains(host), db?.engine != .sqlite
+        if production.state == .off, db != nil, !["localhost", "127.0.0.1", "::1"].contains(host),
+            db?.engine.isFile == false
         {
             note.stringValue = String(
                 localized: "\(host) isn't on this Mac: turn on Production unless it's a copy you can break.")

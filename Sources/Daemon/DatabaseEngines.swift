@@ -41,6 +41,7 @@ enum DatabaseEngines {
         try await explained(c) {
             switch (c.database.engine, c.database.host) {
             case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql) }
+            case (.duckdb, _): try await off.run { try DuckDBRun.read(path(c), sql, timeout: timeout) }
             case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
             case (.mysql, .some): try await MySQLWire.read(c, sql, timeout: timeout)
             case (.postgres, nil): try await off.run { try PostgresRun.read(c, sql, timeout: timeout) }
@@ -69,6 +70,7 @@ enum DatabaseEngines {
     static func trial(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
         switch (c.database.engine, c.database.host) {
         case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
+        case (.duckdb, _): try await off.run { try DuckDBRun.trial(path(c), sql) }
         case (.postgres, .some): try await PostgresWire.trial(c, sql)
         case (.mysql, .some): try await MySQLWire.trial(c, sql)
         case (.postgres, nil): try await off.run { try PostgresRun.trial(c, sql) }
@@ -79,6 +81,7 @@ enum DatabaseEngines {
     static func write(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
         switch (c.database.engine, c.database.host) {
         case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql) }
+        case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql) }
         case (.postgres, .some): try await PostgresWire.write(c, sql)
         case (.mysql, .some): try await MySQLWire.write(c, sql)
         case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql) }
@@ -90,6 +93,7 @@ enum DatabaseEngines {
         let schema: DatabaseSchema = try await explained(c) {
             switch (c.database.engine, c.database.host) {
             case (.sqlite, _): try await off.run { try SQLiteRun.schema(path(c)) }
+            case (.duckdb, _): try await off.run { try DuckDBRun.schema(path(c)) }
             case (.postgres, .some): try await PostgresWire.schema(c)
             case (.mysql, .some): try await MySQLWire.schema(c)
             case (.postgres, nil): try await off.run { try PostgresRun.schema(c) }
@@ -145,7 +149,8 @@ enum DatabaseEngines {
         if let found = also.map({ $0 + "/" + name }).first(where: FileManager.default.isExecutableFile(atPath:)) {
             return found
         }
-        throw DatabaseFailure.failed("\(name) isn't installed, and Kelp reaches this database through it.")
+        let hint = name == "duckdb" ? ": brew install duckdb" : ""
+        throw DatabaseFailure.failed("\(name) isn't installed, and Kelp reaches this database through it\(hint).")
     }
 
     /// A value as text: numbers as SQLite gives them, a blob as its size.

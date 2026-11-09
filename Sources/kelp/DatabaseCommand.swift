@@ -68,7 +68,7 @@ extension Main {
     static func place(_ db: DatabaseInfo) -> String {
         [
             db.source ?? "added by hand",
-            db.engine == .sqlite ? nil : "\(db.host ?? "?"):\(db.port.map(String.init) ?? "?")"
+            db.engine.isFile ? nil : "\(db.host ?? "?"):\(db.port.map(String.init) ?? "?")"
         ]
         .compactMap { $0 }.joined(separator: " ")
     }

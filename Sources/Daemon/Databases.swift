@@ -114,7 +114,7 @@ final class Databases: Sendable {
     /// Where this Mac reaches it: a remote project's server through a port forwarded over the shared connection (as a
     /// page's port is, `Forwards`), which dials when there's none. Anything else as it is.
     func reach(_ c: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
-        guard c.database.engine != .sqlite, let host = c.database.host, let port = c.database.port,
+        guard !c.database.engine.isFile, let host = c.database.host, let port = c.database.port,
             let path = try store.worktree(worktreeId)?.path, let remote = remotes.of(path)
         else { return c }
         let here = try sessions.processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
@@ -178,7 +178,7 @@ final class Databases: Sendable {
             throw RPCError.invalidParams("\(name) is production: Kelp doesn't copy it.")
         }
         switch c.database.engine {
-        case .sqlite: return try await offloads.run { [self] in try copyFile(c, worktree, suffix: suffix) }
+        case .sqlite, .duckdb: return try await offloads.run { [self] in try copyFile(c, worktree, suffix: suffix) }
         case .postgres:
             guard let host = c.database.host, DatabaseFind.isLocal(host), let database = c.database.database else {
                 throw RPCError.invalidParams(
@@ -217,7 +217,13 @@ final class Databases: Sendable {
         }
         try FileManager.default.createDirectory(
             atPath: (target as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        do { try SQLiteRun.copy(path, to: target) } catch let failure as DatabaseFailure {
+        do {
+            if c.database.engine == .duckdb {
+                try FileManager.default.copyItem(atPath: path, toPath: target)   // DuckDB keeps one file, no -wal
+            } else {
+                try SQLiteRun.copy(path, to: target)
+            }
+        } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
         touch(worktree.id)
@@ -226,7 +232,7 @@ final class Databases: Sendable {
             return found.database
         }
         let db = DatabaseInfo(
-            name: c.database.name + "_" + suffix, engine: .sqlite, path: target, access: c.database.access)
+            name: c.database.name + "_" + suffix, engine: c.database.engine, path: target, access: c.database.access)
         return try save(worktree.id, db, password: nil)
     }
 

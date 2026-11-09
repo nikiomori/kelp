@@ -121,6 +121,7 @@ enum DatabaseLook {
         case .sqlite: "SQLite"
         case .postgres: "Postgres"
         case .mysql: "MySQL"
+        case .duckdb: "DuckDB"
         }
     }
 
@@ -146,7 +147,7 @@ enum DatabaseLook {
 
     /// "Postgres · compose.yaml · :5432", "SQLite · db/test.sqlite3".
     static func detail(_ db: DatabaseInfo) -> String {
-        let place = db.engine == .sqlite ? nil : db.host.map { ($0 == "localhost" ? "" : $0) + ":\(db.port ?? 0)" }
+        let place = db.engine.isFile ? nil : db.host.map { ($0 == "localhost" ? "" : $0) + ":\(db.port ?? 0)" }
         return [engine(db.engine), db.source ?? String(localized: "added by hand"), place].compactMap { $0 }
             .joined(separator: " · ")
     }

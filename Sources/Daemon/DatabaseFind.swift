@@ -22,7 +22,7 @@ struct FoundDatabase: Equatable {
 /// followed.
 enum DatabaseFind {
     static let composeFiles = ["compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"]
-    static let sqliteExtensions: Set<String> = ["sqlite", "sqlite3", "db", "db3"]
+    static let sqliteExtensions: Set<String> = ["sqlite", "sqlite3", "db", "db3", "duckdb", "ddb"]
     /// Folders SQLite files are looked for in, beside the project's own top.
     static let sqliteFolders = ["db", "data", "prisma", "instance", "storage", "var"]
 
@@ -345,12 +345,12 @@ enum DatabaseFind {
             for name in names(in: dir).sorted() {
                 guard sqliteExtensions.contains((name as NSString).pathExtension.lowercased()) else { continue }
                 let path = (dir as NSString).appendingPathComponent(name)
-                guard isSQLite(path) else { continue }
+                guard let engine = fileEngine(path) else { continue }
                 let source = folder.isEmpty ? name : folder + "/" + name
                 found.append(
                     FoundDatabase(
                         database: DatabaseInfo(
-                            name: (name as NSString).deletingPathExtension, engine: .sqlite, source: source, path: path)
+                            name: (name as NSString).deletingPathExtension, engine: engine, source: source, path: path)
                     ))
             }
         }
@@ -362,10 +362,17 @@ enum DatabaseFind {
         do { return try FileManager.default.contentsOfDirectory(atPath: dir) } catch { return [] }
     }
 
-    static func isSQLite(_ path: String) -> Bool {
-        guard let handle = FileHandle(forReadingAtPath: path) else { return false }
+    static func isSQLite(_ path: String) -> Bool { fileEngine(path) == .sqlite }
+
+    /// SQLite's header, or DuckDB's ("DUCK" at byte 8): what a file is by its first bytes.
+    static func fileEngine(_ path: String) -> DatabaseInfo.Engine? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
         defer { handle.closeFile() }
-        do { return try handle.read(upToCount: 16) == Data("SQLite format 3\0".utf8) } catch { return false }
+        let head: Data
+        do { head = try handle.read(upToCount: 16) ?? Data() } catch { return nil }
+        if head == Data("SQLite format 3\0".utf8) { return .sqlite }
+        if head.count >= 12, head[8..<12] == Data("DUCK".utf8) { return .duckdb }
+        return nil
     }
 
     // MARK: Names
@@ -373,7 +380,7 @@ enum DatabaseFind {
     /// Not on this Mac, or named for production.
     static func isProduction(_ db: DatabaseInfo) -> Bool {
         let named = [db.name, db.source ?? "", db.database ?? ""].contains { $0.lowercased().contains("prod") }
-        guard let host = db.host, db.engine != .sqlite else { return named }
+        guard let host = db.host, !db.engine.isFile else { return named }
         return named || !isLocal(host)
     }
 
@@ -401,7 +408,7 @@ enum DatabaseFind {
                 n += 1
             }
             item.database.name = name
-            if item.database.engine != .sqlite || item.database.production {
+            if !item.database.engine.isFile || item.database.production {
                 item.database.production = isProduction(item.database)
             }
             if item.database.production { item.database.access = .read }

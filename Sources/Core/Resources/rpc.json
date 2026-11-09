@@ -971,7 +971,8 @@
         "enum" : [
           "sqlite",
           "postgres",
-          "mysql"
+          "mysql",
+          "duckdb"
         ],
         "type" : "string"
       },

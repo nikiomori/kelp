@@ -7,7 +7,10 @@ import Foundation
 /// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
 public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public enum Engine: String, Codable, Sendable, CaseIterable {
-        case sqlite, postgres, mysql
+        case sqlite, postgres, mysql, duckdb
+
+        /// A file on disk rather than a server.
+        public var isFile: Bool { self == .sqlite || self == .duckdb }
     }
     /// What agents may do with it: not see it, read it, change it once the user allows each change, change it freely.
     public enum Access: String, Codable, Sendable, CaseIterable {
@@ -53,7 +56,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
 
     /// "postgres://app@localhost:5432/app_dev", or the SQLite file: never a password.
     public var address: String {
-        if engine == .sqlite { return path ?? "" }
+        if engine.isFile { return path ?? "" }
         let who = user.map { $0 + "@" } ?? "", at = (host ?? "localhost") + (port.map { ":\($0)" } ?? "")
         return "\(engine.rawValue)://\(who)\(at)/\(database ?? "")"
     }
