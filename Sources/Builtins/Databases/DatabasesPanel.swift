@@ -5,8 +5,8 @@ import KelpKit
 
 /// The Databases panel: connections, as TablePlus' left column. Most urgent first: an agent's change that waits for
 /// the user (Allow in the row), then the project's databases (name, environment, "host : database", a dot that says
-/// whether it answers, what agents may do as an icon), All My Projects, and what was run lately (by agent). Over it, a
-/// field that finds a database and the one +. A database opens its tab, where its tables are.
+/// whether it answers, what agents may do as an icon) or that it has none, All My Databases, and what was run lately
+/// (by agent). Over it, a field that finds a database and the one +. A database opens its tab, where its tables are.
 @MainActor
 final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate,
     NSSearchFieldDelegate
@@ -16,6 +16,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case asks(DatabaseRun)
         case database(DatabaseInfo, library: Bool)
         case problem(DatabaseInfo, DatabaseHealth)
+        case hint
         case run(DatabaseRun)
     }
     enum Heading: Equatable {
@@ -26,6 +27,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private let table = NSTableView()
     private let search = NSSearchField()
     private let empty = EmptyStateView()
+    private let top = NSStackView()
     private var rows: [Row] = []
     private lazy var watched = Watched(.databases, in: app)
     private var shown = false
@@ -34,7 +36,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     /// What the user unfolded, and what Kelp read for it.
     private var libraryOpen = true, activityOpen = true
     private var health: [String: DatabaseHealth] = [:]
-    /// All My Projects' dots, read once the section is open.
+    /// All My Databases' dots, read once the section is open.
     private var libraryHealth: [String: DatabaseHealth] = [:], libraryCheckedFor: [String] = []
     private var libraryCount = Int.max   // the first read only counts
     /// The databases (by address) the dots were last read for: read again when that changes, not at each run.
@@ -66,10 +68,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         let add = IconButton(.symbol("plus"), tip: String(localized: "Add Database…")) { [weak self] in
             self?.addDatabase()
         }
-        let top = NSStackView(views: [search, add])
+        top.setViews([search, add], in: .leading)
         top.spacing = Metrics.gap
         top.edgeInsets = NSEdgeInsets(
-            top: Metrics.gap, left: Metrics.gapWide, bottom: Metrics.gap, right: Metrics.gapWide)
+            top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.gapWide)
         let column = NSStackView(views: [top, scroll])
         column.orientation = .vertical
         column.spacing = 0
@@ -92,6 +94,16 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         } changed: { [weak self] _ in
             self?.reload()
         }
+    }
+    /// The field starts where the rows' badges do: the list's cells sit past its own edge.
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        alignSearch()
+    }
+    private func alignSearch() {
+        guard !rows.isEmpty else { return }
+        let left = Metrics.inset + table.frameOfCell(atColumn: 0, row: 0).minX
+        if top.edgeInsets.left != left { top.edgeInsets.left = left }
     }
     override func viewDidAppear() {
         super.viewDidAppear()
@@ -118,8 +130,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         var list: [Row] = []
         let asking = runs.filter { $0.state == .asks }
         if !asking.isEmpty { list += [.heading(.asks)] + asking.map(Row.asks) }
-        if !databases.isEmpty {
+        // The project's own section even empty: All My Databases under it alone read as this project's.
+        if !databases.isEmpty || !library.isEmpty {
             list.append(.heading(.project(app.projectName(app.worktree(workspace)?.repoId) ?? "")))
+            if databases.isEmpty { list.append(.hint) }
             for db in databases { list += rows(of: db, library: false, find: find) }
         }
         if event != nil {
@@ -149,6 +163,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             ),
             buttons: [addButton])
         table.reloadData()
+        alignSearch()
         checkHealth(databases)
         if libraryOpen { checkLibrary(library) }
     }
@@ -207,7 +222,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .heading, .problem: false
+        case .heading, .problem, .hint: false
         default: true
         }
     }
@@ -216,7 +231,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .heading: TextSize.of(Metrics.rowSection)
         case .database, .asks: TextSize.of(Metrics.rowTwoLine)
         case .problem: TextSize.of(Metrics.row) - 4
-        case .run: TextSize.of(Metrics.row)
+        case .run, .hint: TextSize.of(Metrics.row)
         }
     }
 
@@ -228,6 +243,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .database(let db, let library):
             parts.database(db, library: library, health: library ? libraryHealth[db.name] : health[db.name])
         case .problem(let db, let h): parts.problem(db, h)
+        case .hint: parts.hint()
         case .run(let run): parts.ran(run)
         }
     }
@@ -279,7 +295,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .asks(let run), .run(let run):
             app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)
             return
-        case .problem: return
+        case .problem, .hint: return
         }
         reload()
     }
@@ -298,6 +314,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             checkedFor = []
             reload()
         }
+    }
+
+    /// One of All My Databases, used in this project: its agents reach it from now on.
+    func use(_ db: DatabaseInfo) {
+        let wid = workspace
+        Task { await app.call(DatabaseUse(worktreeId: wid, name: db.name)) }
     }
 
     func filter(_ session: String?) {
@@ -337,6 +359,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             menu.addItem(.separator())
             menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
         case .problem: break
+        case .hint: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
         }
     }
 }

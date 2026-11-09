@@ -109,7 +109,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         place.segmentCount = 2
         let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
         place.setLabel(String(localized: "This Project (\(project))"), forSegment: 0)
-        place.setLabel(String(localized: "All My Projects"), forSegment: 1)
+        place.setLabel(String(localized: "All My Databases"), forSegment: 1)
         place.selectedSegment = inLibrary ? 1 : 0
         place.isEnabled = editing == nil
         place.target = self

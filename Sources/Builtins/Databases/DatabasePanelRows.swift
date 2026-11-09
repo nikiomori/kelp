@@ -18,7 +18,7 @@ struct DatabasePanelRows {
         case .project(let name):
             views = [title(name.isEmpty ? String(localized: "This Project") : name), NSView()]
         case .library(let count):
-            views = [chevron(libraryOpen), title(String(localized: "All My Projects")), NSView(), digits(count)]
+            views = [chevron(libraryOpen), title(String(localized: "All My Databases")), NSView(), digits(count)]
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
             views = [chevron(activityOpen), title(String(localized: "Activity")), NSView(), small("\(who) · \(count)")]
@@ -47,24 +47,39 @@ struct DatabasePanelRows {
         return line([icon, words, NSView(), deny, allow], inset: Metrics.inset, trailing: Metrics.inset)
     }
 
-    /// The engine's mark, a dot, the name with its environment over "host : database", then a key while its password
-    /// waits and what agents may do.
+    /// The engine's mark with its dot, the name over "host : database", the environment at the right edge (a column
+    /// down the list, not a mark in each name), a key while its password waits, what agents may do; one of All My
+    /// Databases offers Use Here while the pointer is over it.
     func database(_ db: DatabaseInfo, library: Bool, health: DatabaseHealth?) -> NSView {
-        let name = label(db.name, font: .ui(12, weight: .medium))
-        let title = NSStackView(views: [name, DatabaseLook.stageChip(db.stage)])
-        title.spacing = Metrics.gap
-        let detail = label(Self.place(db) ?? DatabaseLook.engine(db.engine), font: .ui(11), color: .secondaryLabelColor)
-        detail.lineBreakMode = .byTruncatingHead   // "…agrohistory.local : webdb": the end says which
-        detail.toolTip = DatabaseLook.detail(db)
-        var views: [NSView] = [NSImageView(image: DatabaseLook.badge(db.engine, size: 16)), dot(health)]
-        views += [stack([title, detail]), NSView()]
+        var first: [NSView] = [label(Self.shownName(db), font: .ui(12, weight: .medium)), NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
+            key.symbolConfiguration = .chrome(Metrics.iconSmall)
             key.contentTintColor = .tertiaryLabelColor
             key.toolTip = String(
                 localized: "Its password is read from the app it came from when you open it: macOS asks once.")
-            views.append(key)
+            first.append(key)
         }
+        var hovered: [NSView] = []
+        if library {   // on the name's line: under the pointer it mustn't squeeze the address
+            let project = app.projectName(app.worktree(panel.workspace)?.repoId) ?? ""
+            let use = ClosureButton(title: String(localized: "Use Here")) { [weak panel] in panel?.use(db) }
+            use.controlSize = .mini
+            use.toolTip = String(localized: "Use in \(project)")
+            use.isHidden = true
+            hovered.append(use)
+            first.append(use)
+        }
+        first.append(DatabaseLook.stageChip(db.stage))
+        let top = NSStackView(views: first)
+        top.spacing = Metrics.gap
+        let detail = label(Self.place(db) ?? DatabaseLook.engine(db.engine), font: .ui(11), color: .secondaryLabelColor)
+        detail.lineBreakMode = .byTruncatingMiddle   // "psqldbread…agrohistory.local : webdb": both ends tell
+        detail.toolTip = DatabaseLook.detail(db)
+        let words = stack([top, detail])
+        words.setHuggingPriority(.defaultLow - 1, for: .horizontal)
+        top.widthAnchor.constraint(equalTo: words.widthAnchor).isActive = true
+        var views: [NSView] = [mark(db.engine, health), words]
         if !library {
             let access = IconButton(
                 .symbol(DatabaseLook.accessSymbol(db.agentAccess)),
@@ -76,9 +91,27 @@ struct DatabasePanelRows {
             }
             views.append(access)
         }
-        let row = line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
+        let row = line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing, hovered: hovered)
         row.toolTip = card(db, health: health)
         return row
+    }
+
+    /// The project's own list when it has none: agents here reach no database until one is used here.
+    func hint() -> NSView {
+        let said = label(
+            String(localized: "None yet: agents here reach none."), font: .ui(11), color: .secondaryLabelColor)
+        let row = line([said, NSView()], inset: Metrics.inset, trailing: Metrics.insetTrailing)
+        row.toolTip = String(localized: "Use one of All My Databases here (Use Here on its row), or add one with +.")
+        return row
+    }
+
+    /// "AGR_GIS@pg-prod-ro" (Kelp's name for an unnamed TablePlus one) as "AGR_GIS": its host is on the line under it.
+    /// Only shown so: agents and `kelp db` keep calling it by its whole name.
+    static func shownName(_ db: DatabaseInfo) -> String {
+        guard let at = db.name.lastIndex(of: "@"), at > db.name.startIndex, let host = db.host,
+            host.hasPrefix(db.name[db.name.index(after: at)...])
+        else { return db.name }
+        return String(db.name[..<at])
     }
 
     /// Where it is, whether it answers, who ran something on it last and when.
@@ -104,7 +137,9 @@ struct DatabasePanelRows {
     /// "db.example.com : app_dev" (as TablePlus lists it), "through box", or a file's name.
     static func place(_ db: DatabaseInfo) -> String? {
         if db.engine.isFile { return db.path.map { ($0 as NSString).lastPathComponent } }
-        let at = [db.host, db.database].compactMap { $0 }.joined(separator: " : ")
+        // "webdb" over "host : webdb" says its name twice: the host alone
+        let database = db.database?.caseInsensitiveCompare(shownName(db)) == .orderedSame ? nil : db.database
+        let at = [db.host, database].compactMap { $0 }.joined(separator: " : ")
         return [at.isEmpty ? nil : at, db.ssh.map { String(localized: "via \($0)") }].compactMap { $0 }
             .joined(separator: " ")
     }
@@ -126,7 +161,7 @@ struct DatabasePanelRows {
             start.font = .ui(11)
             views.append(start)
         }
-        return line(views, inset: Metrics.inset + 34, trailing: Metrics.inset)
+        return line(views, inset: Metrics.inset + 19 + Metrics.gap, trailing: Metrics.inset)   // under the name
     }
 
     func ran(_ run: DatabaseRun) -> NSView {
@@ -142,22 +177,32 @@ struct DatabasePanelRows {
 
     // MARK: Parts
 
-    /// Green answers, orange stopped, red down, grey not tried.
-    private func dot(_ h: DatabaseHealth?) -> NSView {
-        let color: NSColor =
+    /// The engine's badge with a dot on its corner: green answers, orange stopped, red down, grey not tried. A ring
+    /// is cut out around the dot, so it reads on any row (selected, hovered).
+    private func mark(_ engine: DatabaseInfo.Engine, _ h: DatabaseHealth?) -> NSImageView {
+        nonisolated(unsafe) let badge = DatabaseLook.badge(engine, size: 16)
+        nonisolated(unsafe) let color: NSColor =
             switch h?.state {
             case .ok: .systemGreen
             case .stopped: .systemOrange
             case .down: .systemRed
             default: .tertiaryLabelColor
             }
-        let dot = NSImageView(image: .symbol("circle.fill"))
-        dot.symbolConfiguration = .init(pointSize: 7, weight: .regular)
-        dot.contentTintColor = color
-        dot.toolTip =
+        let image = NSImage(size: NSSize(width: 19, height: 19), flipped: false) { _ in
+            badge.draw(in: NSRect(x: 0, y: 3, width: 16, height: 16))
+            let dot = NSRect(x: 12, y: 0, width: 7, height: 7)
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            color.setFill()
+            NSBezierPath(ovalIn: dot).fill()
+            return true
+        }
+        let view = NSImageView(image: image)
+        view.toolTip =
             h.map { [$0.state == .ok ? String(localized: "Answers") : nil, $0.reason].compactMap { $0 }.joined() }
             ?? String(localized: "Not tried yet")
-        return dot
+        return view
     }
 
     private func chevron(_ open: Bool) -> NSImageView {
@@ -220,8 +265,9 @@ struct DatabasePanelRows {
         return field
     }
 
-    private func line(_ views: [NSView], inset: CGFloat, trailing: CGFloat) -> NSView {
-        let stack = NSStackView(views: views)
+    private func line(_ views: [NSView], inset: CGFloat, trailing: CGFloat, hovered: [NSView] = []) -> NSView {
+        let stack = HoverRow(views: views)
+        stack.hovered = hovered
         stack.spacing = Metrics.gap
         stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: trailing)
         return stack
@@ -231,4 +277,10 @@ struct DatabasePanelRows {
 extension String {
     /// "doesn't answer" → "Doesn't answer".
     var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
+}
+
+/// A row whose `hovered` views show only while the pointer is over it (`ListRowView` tells it).
+final class HoverRow: NSStackView, Hoverable {
+    var hovered: [NSView] = []
+    func setHover(_ on: Bool) { for v in hovered { v.isHidden = !on } }
 }

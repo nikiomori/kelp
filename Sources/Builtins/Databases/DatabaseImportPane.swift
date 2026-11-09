@@ -92,7 +92,8 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
                 ? String(localized: "Nothing Kelp can open in it: Postgres, MySQL, SQLite and DuckDB.")
                 : String(
                     localized:
-                        "They go to All My Projects, where you open them; agents see one once it’s used in a project."))
+                        "They go to All My Databases, where you open them; agents see one once it’s used in a project."
+                ))
         table.reloadData()
         update()
     }
@@ -177,7 +178,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
     /// What came in, said in the sheet: how many, which with passwords, which ask when opened, which couldn't come.
     private func done(_ outcome: ImportOutcome) {
         let title = NSTextField(
-            labelWithString: String(localized: "Imported \(outcome.imported.count) into All My Projects"))
+            labelWithString: String(localized: "Imported \(outcome.imported.count) into All My Databases"))
         title.font = .ui(13, weight: .semibold)
         var lines: [String] = []
         if outcome.withPasswords > 0 {
