@@ -348,6 +348,24 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(health.map(\.state) == [.unknown] && health.first?.reason == "Kelp connects when you open it.")
 }
 
+/// What the user let agents do with a found database stays with its address: a pulled .env that aims the same name at
+/// another host is production again, read-only for agents.
+@Test func aFoundDatabasesSettingsDontFollowItsNameToAnotherHost() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let env = wt.path + "/.env"
+    try "DATABASE_URL=postgres://app@localhost:5432/app\n".write(toFile: env, atomically: true, encoding: .utf8)
+    var app = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
+    #expect(!app.production)
+    app.access = .free
+    _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: app))
+    #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).first?.access == .free)
+    try "DATABASE_URL=postgres://app@db.example.com:5432/app\n".write(toFile: env, atomically: true, encoding: .utf8)
+    let moved = try #require(try await w.c.call(DatabaseList(worktreeId: wt.id)).first)
+    #expect(moved.name == "app" && moved.production && moved.agentAccess == .read)
+}
+
 /// Removing a project forgets the passwords of the databases added to it by hand.
 @Test func removingAProjectForgetsItsDatabasesPasswords() async throws {
     let w = try await world()

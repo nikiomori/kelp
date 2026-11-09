@@ -72,7 +72,11 @@ final class Databases: Sendable {
         }
         var all = found.map { item -> DatabaseConnection in
             var db = item.database
-            if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database {
+            // What the user said of it holds while it's the same place: a pulled .env that aims `app` at another host
+            // is a new database, production again if it isn't this Mac.
+            if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database,
+                Self.samePlace(mine, db)
+            {
                 db.access = mine.access
                 db.production = mine.production
                 db.environment = mine.environment
@@ -97,6 +101,12 @@ final class Databases: Sendable {
     }
 
     static func account(_ id: String) -> String { "db:" + id }
+
+    /// The same server and database, or the same file.
+    static func samePlace(_ a: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
+        a.engine == b.engine && a.host?.lowercased() == b.host?.lowercased() && a.port == b.port
+            && a.database == b.database && a.path == b.path && a.ssh == b.ssh
+    }
 
     /// The keychain items of a project's saved databases: forgotten with the project (its rows go by cascade).
     func accounts(ofRepo repoId: String) throws -> [String] {
