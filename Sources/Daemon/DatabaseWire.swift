@@ -40,17 +40,42 @@ enum DatabaseWire {
         return .failed("Can't find \(db.host ?? db.name) on the network: is a VPN or SSH needed to reach it?")
     }
 
+    /// The call's whole time, past what the server's own limit stops: a network gone mid-read (a VPN dropped, the Mac
+    /// asleep) answers nothing, so past it the connection is closed, which ends what waits on it.
+    static func within<T: Sendable>(
+        _ seconds: TimeInterval, _ db: DatabaseInfo, close: @escaping @Sendable () async -> Void,
+        _ body: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: WireOutcome<T>.self) { group in
+            group.addTask { .done(try await body()) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                return .late
+            }
+            defer { group.cancelAll() }
+            if case .done(let result) = try await group.next() { return result }
+            await close()
+            throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(seconds)) s.")
+        }
+    }
+
     /// A connection closed after its call: one the server dropped already has nothing more to say.
     static func close(_ body: () async throws -> Void) async {
         do { try await body() } catch { logger.debug("db close: \(error)") }
     }
 }
 
+/// The call's answer, or its time ran out first (`DatabaseWire.within`).
+private enum WireOutcome<T: Sendable>: Sendable {
+    case done(T)
+    case late
+}
+
 // MARK: Postgres
 
 enum PostgresWire {
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await with(c) { conn in
+        try await with(c, within: timeout + 10) { conn in
             try await run(conn, "BEGIN TRANSACTION READ ONLY")
             try await run(conn, "SET LOCAL statement_timeout = '\(Int(timeout))s'")
             return try await rows(conn, sql)
@@ -59,7 +84,7 @@ enum PostgresWire {
 
     /// The change made and rolled back; with RETURNING its rows are what it changed.
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c) { conn in
+        try await with(c, within: 2 * DatabaseEngines.readTimeout + 10) { conn in
             func attempt(_ statement: String, returning: Bool) async throws -> DatabaseRows {
                 try await run(conn, "BEGIN")
                 try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
@@ -77,7 +102,7 @@ enum PostgresWire {
     }
 
     static func write(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
             try await run(conn, "SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             return try await command(conn, sql)
         }
@@ -85,10 +110,11 @@ enum PostgresWire {
 
     /// Statements in one transaction: a failure leaves nothing done (the connection closes without COMMIT).
     static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
-        try await with(c) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
             try await run(conn, "BEGIN")
             var changed = 0
             for sql in statements { changed += try await command(conn, sql).changed ?? 0 }
+            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             try await run(conn, "COMMIT")
             return changed
         }
@@ -99,6 +125,7 @@ enum PostgresWire {
             try await run(conn, "BEGIN TRANSACTION READ ONLY")
             let columns = try await rows(conn, PostgresRun.schemaColumns)
             let counts = try await rows(conn, PostgresRun.schemaCounts)
+            try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
             let indexes = try await rows(conn, PostgresRun.schemaIndexes)
             var schema = DatabaseSchemaBuilder.build(columns: columns.rows, counts: counts.rows, indexes: indexes.rows)
             schema.functions = try await rows(conn, PostgresRun.schemaFunctions).rows.compactMap { $0.first ?? nil }
@@ -124,7 +151,9 @@ enum PostgresWire {
     }
 
     private static func with<T: Sendable>(
-        _ c: DatabaseConnection, _ body: @Sendable (PostgresConnection) async throws -> T
+        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
+        _ body: @escaping @Sendable (PostgresConnection) async throws -> T
+    /// `seconds`: the call's whole time (`DatabaseWire.within`).
     ) async throws -> T {
         let db = c.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
@@ -147,7 +176,9 @@ enum PostgresWire {
             ).get()
         } catch { throw failure(error, db) }
         do {
-            let result = try await body(conn)
+            let result = try await DatabaseWire.within(
+                seconds, db, close: { await DatabaseWire.close { try await conn.close() } }
+            ) { try await body(conn) }
             await DatabaseWire.close { try await conn.close() }
             return result
         } catch {
@@ -223,7 +254,7 @@ enum PostgresWire {
 /// MySQL and MariaDB over their text protocol: values come as the server writes them.
 enum MySQLWire {
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await with(c) { conn in
+        try await with(c, within: timeout + 10) { conn in
             try await limit(conn, timeout)
             _ = try await run(conn, "START TRANSACTION READ ONLY")
             return try await run(conn, sql)
@@ -231,7 +262,7 @@ enum MySQLWire {
     }
 
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c) { conn in
+        try await with(c, within: 60) { conn in
             let tables = try await run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
             guard tables == "0" else { throw MySQLRun.cantRollBack }
             _ = try await run(conn, "START TRANSACTION")
@@ -243,7 +274,7 @@ enum MySQLWire {
     }
 
     static func write(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
             var result = try await run(conn, sql)
             result.changed = try await changed(conn)
             return result
@@ -251,7 +282,7 @@ enum MySQLWire {
     }
 
     static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
-        try await with(c) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
             _ = try await run(conn, "START TRANSACTION")
             var changed = 0
             for sql in statements {
@@ -304,7 +335,9 @@ enum MySQLWire {
     }
 
     private static func with<T: Sendable>(
-        _ c: DatabaseConnection, _ body: @Sendable (MySQLConnection) async throws -> T
+        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
+        _ body: @escaping @Sendable (MySQLConnection) async throws -> T
+    /// `seconds`: the call's whole time (`DatabaseWire.within`).
     ) async throws -> T {
         let db = c.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
@@ -321,7 +354,9 @@ enum MySQLWire {
             ).get()
         } catch { throw failure(error, db) }
         do {
-            let result = try await body(conn)
+            let result = try await DatabaseWire.within(
+                seconds, db, close: { await DatabaseWire.close { try await conn.close().get() } }
+            ) { try await body(conn) }
             await DatabaseWire.close { try await conn.close().get() }
             return result
         } catch {
