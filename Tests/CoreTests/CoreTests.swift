@@ -346,6 +346,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
             Tmux.Session(name: "old", windows: 1, attached: 0, activity: Date(timeIntervalSince1970: 100))
         ])
     #expect(Tmux.noServer("no server running on /tmp/tmux-501/default") && !Tmux.noServer("tmux: command not found"))
+    #expect(Tmux.noServer("server exited unexpectedly"))   // its last session ended while it answered
     let own = Tmux.own()
     #expect(Tmux.isOwn(own) && Tmux.name(own) == own && own != Tmux.own())
     #expect(!Tmux.isOwn("kelp_test") && !Tmux.isOwn("kelp-tab-2") && !Tmux.isOwn("kelp-2"))

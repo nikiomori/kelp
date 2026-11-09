@@ -58,8 +58,10 @@ public enum Tmux {
         }.sorted { $0.activity > $1.activity }
     }
 
-    /// `list-sessions` failed only because no tmux server runs there (it starts with the first session).
+    /// `list-sessions` failed only because no tmux server runs there (it starts with the first session), or the one
+    /// that ran exited while it answered (its last session just ended): no sessions either way.
     public static func noServer(_ stderr: String) -> Bool {
         stderr.contains("no server running") || stderr.contains("error connecting to")
+            || stderr.contains("server exited unexpectedly")
     }
 }
