@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GRDB
 
 /// Kelp's skills for a Claude Code session: each a plugin folder the app writes into `agent-skills`, passed one by one
 /// (`--plugin-dir`), with a sentence of context. The browser's goes only to a project with a web app, by default:
@@ -22,9 +23,11 @@ extension SessionSetup {
             FileManager.default.enumerator(
                 at: root.appendingPathComponent("vms"), includingPropertiesForKeys: nil,
                 options: [.skipsSubdirectoryDescendants, .skipsHiddenFiles])?.nextObject() != nil
+        let hasDatabases = all.contains { $0.lastPathComponent == "kelp-db" } && hasDatabases(worktreeId: worktreeId)
         let on = all.filter {
             ($0.lastPathComponent != "kelp-browser" || browser?.on == true)
                 && ($0.lastPathComponent != "kelp-vm" || machines)
+                && ($0.lastPathComponent != "kelp-db" || hasDatabases)
         }
         var argv = on.flatMap { [flag, $0.path] }
         let guide = browser.flatMap {
@@ -81,6 +84,18 @@ extension SessionSetup {
 
     /// UI state: an agent here ran `kelp browser` once, so this project has pages to look at from now on.
     static func browserUsedKey(_ repo: String) -> String { "browser.used.\(repo)" }
+
+    /// Whether the chat's project has a database Kelp knows of: found in its files, or added by hand (`Databases`).
+    func hasDatabases(worktreeId: String?) -> Bool {
+        guard let id = worktreeId,
+            let worktree = Log.store.attempt("the workspace \(id)", { try store.worktree(id) }) ?? nil
+        else { return false }
+        if remotes.of(worktree.path) == nil, !DatabaseFind.find(in: worktree.path).isEmpty { return true }
+        let byHand = Log.store.attempt("the project's databases") {
+            try store.db.read { try SavedDatabase.filter(Column("repoId") == worktree.repoId).fetchCount($0) }
+        }
+        return (byHand ?? 0) > 0
+    }
 
     func browserSkill(worktreeId: String?, cwd: String) -> BrowserSkill {
         let repo = worktreeId.flatMap { id in Log.store.attempt("the workspace \(id)") { try store.worktree(id) } ?? nil

@@ -50,6 +50,16 @@ enum AgentSkills {
                 + "a Mac app's UI, an app on an Android emulator or an iOS simulator. "
                 + "kelp vm run <name> -- <command> runs it there, in this project's folder at the same path.",
             body: vmGuide)
+        // Written whenever it's on; the daemon gives it only to chats in a project with a database
+        // (`SessionSetup.hasDatabases`).
+        put(
+            "kelp-db", on: settings[SettingKeys.skillDatabases],
+            description:
+                "Use when you need to read or change this project's database (Postgres, MySQL, SQLite) in Kelp, the "
+                + "IDE this session runs in: its tables, rows, a query plan, a fix to data. kelp db query runs it "
+                + "without its password; the user sees what you ran, and a change waits for their Allow. Not psql "
+                + "with the .env's password.",
+            body: databaseGuide)
         // Always written: which chats get it is the daemon's choice (Settings' In Web Projects / Always / Never, and each project's).
         put(
             "kelp-browser", on: true,
@@ -205,6 +215,34 @@ enum AgentSkills {
         `click X Y` (screen points, as its screenshots are), `type`, `key <name> home|enter|tab|delete`, `scroll`, `drag`.
         `kelp vm run <name> -- <program>` runs a program in the simulator (simctl spawn). It shuts down after 10 idle minutes:
         the next command boots it again in about 20 seconds, its apps closed.
+
+        """
+
+    private static let databaseGuide = """
+        # The project's databases in Kelp
+
+        This session runs inside Kelp and the `kelp` CLI is on PATH. Kelp found this project's databases (compose, .env,
+        config/database.yml, SQLite files) or the user added them. Use `kelp db`, not psql or mysql with a password from
+        the project's files: Kelp holds the passwords, and the user sees each statement you run in its Databases panel.
+
+        - `kelp db list` — the databases: name, engine, where it was found, and what you may do (read, ask, free).
+        - `kelp db schema [table] [--db name]` — tables with their row counts; with a table, its columns (type, null,
+          primary key, → what a foreign key points to) and indexes. Read it before you write a query.
+        - `kelp db query "SELECT …" [--db name] [--limit 200]` — one statement. Rows come as a table, 200 at most
+          unless you ask; cells over 200 characters are cut. `--json` prints rows as JSON lines. `--db` can be left
+          out when there's one.
+        - `kelp db open [name]` — the database in a tab beside you, for the user.
+
+        Reads run in a read-only transaction. A change (INSERT, UPDATE, DELETE, DDL) goes by the database:
+        - ask: Kelp tries it, rolls it back, and asks the user ("Allow changing 1204 rows in app_dev?"); your
+          command waits for the answer, up to ten minutes. Denied, it fails: don't retry it, ask the user what they
+          want instead.
+        - read (and every production database): refused. Tell the user what you would run, or use a dev database.
+        - free: it runs.
+
+        One statement per call, each on a connection of its own: a transaction can't span calls.
+        Prefer a migration in the project's own tool for schema changes the code depends on; use `kelp db` to look,
+        to try a query, and for data fixes the user asked for.
 
         """
 

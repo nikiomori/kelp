@@ -20,6 +20,7 @@ final class Workspaces: Sendable {
     let headQueue = DispatchQueue(label: "kelp.heads")   // syncs one at a time, off every reader and the pool
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
     let routines: Routines   // agents on a schedule, each in a workspace of its own
+    let databases: Databases   // their projects' databases (db.*): what agents may do with them, what they ran
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root
@@ -28,6 +29,8 @@ final class Workspaces: Sendable {
         self.sessions = sessions
         self.clients = clients
         self.routines = Routines(store: store, sessions: sessions, clients: clients)
+        self.databases = Databases(
+            store: store, sessions: sessions, watches: sessions.watches, remotes: remotes, offloads: sessions.offloads)
     }
 
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }

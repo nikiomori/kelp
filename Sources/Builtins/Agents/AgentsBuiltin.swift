@@ -108,6 +108,10 @@ extension Builtins {
                     s(SettingKeys.skillVM, "Run commands in Kelp machines", "boolean",
                         "Claude Code runs Linux builds, tests and servers in a machine of yours, not on this Mac.",
                         group: "Claude Code skills"),
+                    s(SettingKeys.skillDatabases, "Query the project's databases", "boolean",
+                        "Claude Code reads your databases through Kelp, never their passwords; a change waits for "
+                            + "your Allow.",
+                        group: "Claude Code skills"),
                     s(SettingKeys.skillBrowser, "Use pages in Kelp's browser", "enum",
                         "Your app in a tab beside it; a project can have its own.",
                         help:

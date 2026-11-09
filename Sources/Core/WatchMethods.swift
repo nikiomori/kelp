@@ -42,6 +42,9 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     /// The pages agents made in a workspace (`ArtifactsEvent`): read when its `.kelp/artifacts` changes. Nothing for a
     /// remote project. Key: worktree id.
     case artifacts
+    /// A workspace's databases and what was run on them (`DatabasesEvent`): read when one runs, or when a file that
+    /// names one changes. Key: worktree id.
+    case databases
 }
 
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching

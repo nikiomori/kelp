@@ -907,6 +907,223 @@
         ],
         "type" : "object"
       },
+      "DatabaseInfo" : {
+        "description" : "A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.",
+        "properties" : {
+          "access" : {
+            "$ref" : "#/components/schemas/DatabaseInfo.Access"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "engine" : {
+            "$ref" : "#/components/schemas/DatabaseInfo.Engine"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "name" : {
+            "description" : "Its name in the project: what `kelp db --db` and the tab's address use.",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "A SQLite database's file, absolute.",
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer"
+          },
+          "production" : {
+            "description" : "Agents only read it, whatever `access` says: on a host that isn't this Mac, or named so.",
+            "type" : "boolean"
+          },
+          "source" : {
+            "description" : "The file it was found in, relative to the project (\"compose.yaml\", \".env.production\"); nil: added by hand.",
+            "type" : "string"
+          },
+          "user" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "access",
+          "engine",
+          "name",
+          "production"
+        ],
+        "type" : "object"
+      },
+      "DatabaseInfo.Access" : {
+        "description" : "What agents may do with it: not see it, read it, change it once the user allows each change, change it freely.",
+        "enum" : [
+          "hidden",
+          "read",
+          "ask",
+          "free"
+        ],
+        "type" : "string"
+      },
+      "DatabaseInfo.Engine" : {
+        "enum" : [
+          "sqlite",
+          "postgres",
+          "mysql"
+        ],
+        "type" : "string"
+      },
+      "DatabaseRun" : {
+        "description" : "A statement run on a project's database, by an agent (`session`) or the user.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "changed" : {
+            "type" : "integer"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "error" : {
+            "description" : "The database's error, or why it didn't run.",
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "ms" : {
+            "type" : "integer"
+          },
+          "rows" : {
+            "type" : "integer"
+          },
+          "session" : {
+            "description" : "The agent's session; nil: the user's.",
+            "type" : "string"
+          },
+          "sql" : {
+            "type" : "string"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/DatabaseRun.State"
+          }
+        },
+        "required" : [
+          "at",
+          "database",
+          "id",
+          "sql",
+          "state"
+        ],
+        "type" : "object"
+      },
+      "DatabaseRun.State" : {
+        "enum" : [
+          "done",
+          "asks",
+          "denied",
+          "refused",
+          "failed"
+        ],
+        "type" : "string"
+      },
+      "DatabaseSchema" : {
+        "description" : "A database's tables, as an agent reads them before it writes a query.",
+        "properties" : {
+          "tables" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseSchema.Table"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "tables"
+        ],
+        "type" : "object"
+      },
+      "DatabaseSchema.Column" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "nullable" : {
+            "type" : "boolean"
+          },
+          "primary" : {
+            "type" : "boolean"
+          },
+          "references" : {
+            "description" : "\"users.id\" for a foreign key.",
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "name",
+          "nullable",
+          "primary",
+          "type"
+        ],
+        "type" : "object"
+      },
+      "DatabaseSchema.Table" : {
+        "properties" : {
+          "columns" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseSchema.Column"
+            },
+            "type" : "array"
+          },
+          "indexes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "description" : "Its rows: counted for SQLite, the planner's estimate elsewhere.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "columns",
+          "indexes",
+          "name"
+        ],
+        "type" : "object"
+      },
+      "DatabasesEvent" : {
+        "description" : "A watched workspace's databases and their latest runs, newest first: pushed when one runs or a database changes.",
+        "properties" : {
+          "databases" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseInfo"
+            },
+            "type" : "array"
+          },
+          "runs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseRun"
+            },
+            "type" : "array"
+          },
+          "worktree" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "databases",
+          "runs",
+          "worktree"
+        ],
+        "type" : "object"
+      },
       "Delivered" : {
         "description" : "How many Kelp windows were told.",
         "properties" : {
@@ -2333,6 +2550,49 @@
           "stderr",
           "stdout",
           "timedOut"
+        ],
+        "type" : "object"
+      },
+      "QueryResult" : {
+        "description" : "What a statement gave: its columns and rows (text, nil for NULL), cut at the asked limit.",
+        "properties" : {
+          "changed" : {
+            "description" : "Rows a change touched; nil for a read.",
+            "type" : "integer"
+          },
+          "columns" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "description" : "Its entry in the database's history (`db.result`).",
+            "type" : "string"
+          },
+          "ms" : {
+            "type" : "integer"
+          },
+          "rows" : {
+            "items" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "type" : "array"
+          },
+          "total" : {
+            "description" : "The rows it gave, `rows` or more: past the limit they're counted only up to what Kelp keeps.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "columns",
+          "id",
+          "ms",
+          "rows",
+          "total"
         ],
         "type" : "object"
       },
@@ -4104,7 +4364,8 @@
           "hostDetail",
           "machines",
           "machineDetail",
-          "artifacts"
+          "artifacts",
+          "databases"
         ],
         "type" : "string"
       },
@@ -4893,6 +5154,216 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "What the Databases panel shows: the databases and what was run on them lately.",
+      "name" : "db.activity",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabasesEvent"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The databases of the workspace's project: found in its files, and those added by hand. An agent isn't told of one hidden from agents.",
+      "name" : "db.list",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/DatabaseInfo"
+          },
+          "type" : "array"
+        }
+      }
+    },
+    {
+      "description" : "Runs one statement. From an agent: a read, in a read-only transaction; a change goes by the database's `agentAccess`, and waits for the user's Allow when it asks. `limit`: the rows sent back (the history keeps more, for the tab).",
+      "name" : "db.query",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "sql",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/QueryResult"
+        }
+      }
+    },
+    {
+      "description" : "Forgets one added by hand and its password; a found one goes back to how it was found.",
+      "name" : "db.remove",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "A run's rows, kept for the tab (a change that asks: the rows it would leave); nil once it's gone from what's kept.",
+      "name" : "db.result",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/QueryResult"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Adds a database by hand, or changes one (what agents may do, production): by name. A found one keeps its address; `password`, for one added by hand, goes to the login keychain (\"\" deletes it, nil keeps it).",
+      "name" : "db.save",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/DatabaseInfo"
+          }
+        },
+        {
+          "name" : "password",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Its tables; with `table`, only that one.",
+      "name" : "db.schema",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "table",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/DatabaseSchema"
+        }
+      }
     },
     {
       "description" : "Downloads an extension from GitHub (`IDE.librarySource` reads the forms) into a new temporary folder named by its id, with `.kelp-source.json` saying where it came from. Nothing is installed: the caller shows what it runs, then moves it in (`IDE.installExtension`).",
@@ -10758,6 +11229,13 @@
       "name" : "event.context",
       "params" : {
         "$ref" : "#/components/schemas/ContextEvent"
+      }
+    },
+    {
+      "description" : "A watched workspace's databases and their latest runs, newest first: pushed when one runs or a database changes.",
+      "name" : "event.databases",
+      "params" : {
+        "$ref" : "#/components/schemas/DatabasesEvent"
       }
     },
     {

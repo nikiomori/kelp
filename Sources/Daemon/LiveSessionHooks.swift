@@ -32,6 +32,18 @@ extension LiveSession {
         }
     }
 
+    /// A question Kelp asked for one of the agent's commands (a database change, `Databases`) is over, answered or not:
+    /// that command goes on, so the agent works, and nothing it asked is open any more.
+    func kelpAsked(_ question: String) {
+        state.withLock { st in
+            st.nothingAsked()
+            guard st.record.summary == question else { return }
+            st.record.summary = ""
+            if st.detector.status == .waiting { st.detector.override(.working, because: "Kelp's question was over") }
+            emit(st.sync() ?? st.record)
+        }
+    }
+
     /// Background shells ended: they leave the record now, not at the next Stop. Whether it changed.
     func tasksEnded(_ ids: [String]) -> Bool {
         state.withLock { st in

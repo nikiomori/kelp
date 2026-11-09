@@ -27,6 +27,7 @@ public enum SettingKeys {
     public static let skillAgents = Setting("agents.skills.agents", true)
     public static let skillArtifacts = Setting("agents.skills.artifacts", true)
     public static let skillVM = Setting("agents.skills.vm", true)
+    public static let skillDatabases = Setting("agents.skills.databases", true)
     /// "auto", "on" or "off"; true and false before it was a choice.
     public static let skillBrowser = Setting("agents.skills.browser", "auto")
 

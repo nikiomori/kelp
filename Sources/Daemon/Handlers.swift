@@ -103,6 +103,7 @@ extension SourceControl: DaemonService {
     static func of(_ daemon: Daemon) -> SourceControl { daemon.sourceControl }
 }
 extension Forges: DaemonService { static func of(_ daemon: Daemon) -> Forges { daemon.forges } }
+extension Databases: DaemonService { static func of(_ daemon: Daemon) -> Databases { daemon.workspaces.databases } }
 extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
 extension Clients: DaemonService { static func of(_ daemon: Daemon) -> Clients { daemon.clients } }
 extension LSPHost: DaemonService { static func of(_ daemon: Daemon) -> LSPHost { daemon.lsp } }
@@ -306,8 +307,8 @@ extension Daemon {
             Methods.miscMethods + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods
             + Methods.integrationMethods + Methods.projectMethods
             + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
-            + Methods.vmMethods
-        let async = Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods
+            + Methods.vmMethods + Methods.databaseMethods
+        let async = Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods + [DatabaseQuery.self]
         let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }()

@@ -57,6 +57,10 @@ let usage = """
       artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                            browser, where they're signed in); list one an agent published elsewhere
+      \(Main.dbUsage)
+                                           the project's databases (compose, .env, database.yml, SQLite files) through
+                                           Kelp, which holds their passwords: one statement a call; an agent's change
+                                           waits for the user's Allow where the database asks
       \(Main.vmUsage)
                                            a Linux machine for commands: run goes through SSH (no network address), the
                                            project folder at the same path inside; it pauses and sleeps when unused, and
@@ -256,6 +260,7 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
         case "routine": try await routines(sub, c)
         case "artifact": try await artifacts(sub, c)
         case "vm": try await vm(sub, c)
+        case "db": try await db(sub, c)
         default: print(usage)
         }
     }

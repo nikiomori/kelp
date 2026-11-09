@@ -28,7 +28,8 @@ enum AgentRules {
         SessionSubagentJournal.self, SessionSubagentSteps.self, SessionTrail.self, SessionTurns.self,
         SessionUsage.self, SessionWhy.self, SettingsGet.self, SkillsBrowser.self, StateGet.self, TmuxList.self,
         UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self, VMList.self, WorktreeDirty.self,
-        WorktreeList.self, WorktreeUnmerged.self, ClientEvents.self, WatchStart.self, WatchStop.self
+        WorktreeList.self, WorktreeUnmerged.self, ClientEvents.self, WatchStart.self, WatchStop.self,
+        DatabaseList.self, DatabaseSchemaRead.self
     ]
     private static let acting: [any RPCMethod.Type] = [
         // its own sessions and those it started (`actsOn`, named ids), its hooks and reports
@@ -43,7 +44,9 @@ enum AgentRules {
         // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do
         UIOpen.self, UICommand.self, UIBrowser.self, PortsStop.self, SettingsSet.self, ExtensionFetch.self,
         WorkspaceCreate.self, WorktreeCreate.self, WorktreeNote.self, WorktreeArchive.self, WorktreeRemove.self,
-        VMConnect.self, VMScreen.self, VMType.self, VMControl.self
+        VMConnect.self, VMScreen.self, VMType.self, VMControl.self,
+        // a database's statement: read-only, or a change as the database's `agentAccess` says (`Databases.query`)
+        DatabaseQuery.self
     ]
 }
 

@@ -233,7 +233,8 @@ public final class Store: Sendable {
                 table.add(column: "commit", .text)
             }
         }
-        migrator.registerMigration("turn") { db in   // an agent's turns, kept for the diff of any of them; they go with their session
+        // an agent's turns, kept for the diff of any of them; they go with their session
+        migrator.registerMigration("turn") { db in
             try db.create(table: "turn") { table in
                 table.primaryKey("id", .text)
                 table.column("session", .text).notNull().indexed()
@@ -259,6 +260,15 @@ public final class Store: Sendable {
         }
         migrator.registerMigration("worktree.madeBy") { db in
             try db.alter(table: "worktree") { t in t.add(column: "madeBy", .text) }
+        }
+        // a project's databases: added by hand, or what was changed of a found one
+        migrator.registerMigration("database") { db in
+            try db.create(table: "database") { t in
+                t.primaryKey("id", .text)   // repoId/name
+                t.column("repoId", .text).notNull().indexed().references("repo", onDelete: .cascade)
+                t.column("byHand", .boolean).notNull()
+                t.column("json", .text).notNull()   // the Database, as sent
+            }
         }
         return migrator
     }

@@ -117,6 +117,12 @@ extension Daemon {
                 Log.session.error("reading workspace \(key) for its artifacts: \(error)")
                 return (nil, nil)
             }
+        case .databases:
+            // Its files are read again (a .env or compose file may have changed); what ran is in memory.
+            do { return (line(try await ask(DatabaseActivity(worktreeId: key))), nil) } catch {
+                Log.session.error("reading workspace \(key)'s databases: \(error)")
+                return (nil, nil)
+            }
         case .machines:
             // Each machine's kelp-vm answers from memory; one with a command running is asked over its own connection who runs it.
             do {
