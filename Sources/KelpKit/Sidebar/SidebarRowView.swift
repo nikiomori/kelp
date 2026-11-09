@@ -87,16 +87,16 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.add(fade, forKey: "fade")
     }
 
-    /// A project's card: 4 pt over its first row and under its last (8 between cards), 4 more inside under the rows below its name.
+    /// A project's card: 6 pt over its first row and under its last, 2 of them inside the card (so 8 between cards).
     static func pads(_ group: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
-        (group.first ? 4 : 0, group.last ? (group.first ? 4 : 8) : 0)
+        (group.first ? 6 : 0, group.last ? 6 : 0)
     }
 
     override func drawBackground(in dirtyRect: NSRect) {
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
-        // In a card the pill is 2 pt inside it on every side, its corners following the card's (radiusLG − 2); a row on its own gets a pill
-        // where its card would be.
-        var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(8).insetBy(dx: 0, dy: 2)
+        // In a card the pill is 4 pt inside it on every side, as far as from the next pill, its corners following
+        // the card's (radiusLG − 4); a row on its own gets a pill where its card would be.
+        var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
         pill.origin.y += pad.top + gap
         pill.size.height -= pad.top + pad.bottom + gap
         let radius = Self.pillRadius(inCard: group != nil)
@@ -130,8 +130,8 @@ final class SidebarRowView: NSTableRowView {
             edge.stroke()
         }
     }
-    /// A lone row's pill has a card's corners; one in a card follows the card's, 2 pt in (4 on the sides and 2 above and below looked lopsided).
-    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 2 : Metrics.radiusLG }
+    /// A lone row's pill has a card's corners; one in a card follows the card's, 4 pt in: radiusSM.
+    static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
     /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
     private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }
@@ -227,7 +227,7 @@ enum ServerLook: String {
 }
 
 /// A project's card: one shape under all of its rows, so it grows and shrinks with them as the project opens or folds
-/// (SidebarController.placeCards). 4 pt in from its first row's top and its last row's bottom (SidebarRowView.pads).
+/// (SidebarController.placeCards). 2 pt round its first and last rows, 4 pt round their pills (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
     /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it;

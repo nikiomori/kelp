@@ -154,7 +154,7 @@ extension SidebarController {
             let color = look.style == .card ? look.colors[id] : nil
             guard !root.children.isEmpty || color != nil else { continue }
             var frame = SidebarRowView.band(rows, 6)
-            // Flipped: 4 in from the first row's top and the last row's bottom.
+            // Flipped: 4 in from the first row's top and the last row's bottom, 2 round their content (`pads` 6).
             if root.children.isEmpty {
                 frame = frame.insetBy(dx: 0, dy: 1)
             } else {
