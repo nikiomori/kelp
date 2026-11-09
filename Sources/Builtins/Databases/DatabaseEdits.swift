@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 /// What the user changed in a table's rows, and the statements that save it: an UPDATE per edited row and a DELETE per
-/// deleted one, each found by its primary key's values as they were read; an INSERT per new row.
+/// deleted one, each found by its primary key's values as they were read (with no key, by all its values, and only one
+/// such row touched); an INSERT per new row.
 struct DatabaseEdits: Equatable {
     /// The new value by row and column (nil: NULL).
     private(set) var cells: [Int: [Int: String?]] = [:]
@@ -48,31 +49,38 @@ struct DatabaseEdits: Equatable {
         deleted = []
     }
 
-    /// Deletes, then updates, then inserts, in row order; nil when a row can't be told apart (no primary key among
-    /// the columns) and something needs it.
+    /// Deletes, then updates, then inserts, in row order.
     func statements(
         table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]]
-    ) -> [String]? {
-        let keys = primary.compactMap { columns.firstIndex(of: $0) }
-        let keyed = !keys.isEmpty && keys.count == primary.count
-        if !keyed, !cells.isEmpty || !deleted.isEmpty { return nil }
+    ) -> [String] {
+        let primaries = primary.compactMap { columns.firstIndex(of: $0) }
+        let keyed = !primaries.isEmpty && primaries.count == primary.count
+        let keys = keyed ? primaries : Array(columns.indices)
+        let name = Self.name(table, engine)
         func match(_ row: Int) -> String {
             keys.map { key in
                 let old = rows[row][key]
-                return "\(Self.name(columns[key], engine)) "
-                    + (old == nil ? "IS NULL" : "= \(Self.literal(old, engine))")
+                // Without a key every column is compared, as text in Postgres (json has no "=")
+                let column = Self.name(columns[key], engine) + (!keyed && engine == .postgres ? "::text" : "")
+                return column + (old == nil ? " IS NULL" : " = \(Self.literal(old, engine))")
             }.joined(separator: " AND ")
         }
-        let name = Self.name(table, engine)
-        let deletes = deleted.sorted().filter { rows.indices.contains($0) }.map {
-            "DELETE FROM \(name) WHERE " + match($0)
+        // ponytail: rows told apart by their values; two identical rows are one (either goes). CockroachDB has no ctid.
+        func one(_ row: Int) -> String {
+            if keyed { return " WHERE " + match(row) }
+            switch engine {
+            case .mysql: return " WHERE " + match(row) + " LIMIT 1"
+            case .postgres: return " WHERE ctid = (SELECT ctid FROM \(name) WHERE \(match(row)) LIMIT 1)"
+            case .sqlite, .duckdb: return " WHERE rowid = (SELECT rowid FROM \(name) WHERE \(match(row)) LIMIT 1)"
+            }
         }
+        let deletes = deleted.sorted().filter { rows.indices.contains($0) }.map { "DELETE FROM \(name)" + one($0) }
         let updates = cells.keys.sorted().compactMap { row -> String? in
             guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
             let set = changed.keys.sorted().map { column in
                 "\(Self.name(columns[column], engine)) = \(Self.literal(changed[column] ?? nil, engine))"
             }
-            return "UPDATE \(name) SET \(set.joined(separator: ", ")) WHERE " + match(row)
+            return "UPDATE \(name) SET \(set.joined(separator: ", "))" + one(row)
         }
         let inserts = added.compactMap { row -> String? in
             let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }

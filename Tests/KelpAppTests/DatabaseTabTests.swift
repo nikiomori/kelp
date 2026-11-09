@@ -14,7 +14,16 @@ import Testing
     let sql = edits.statements(
         table: "orders", engine: .postgres, columns: ["id", "status", "note"], primary: ["id"], rows: rows)
     #expect(sql == [#"UPDATE "orders" SET "status" = 'o''k', "note" = NULL WHERE "id" = '2'"#])
-    #expect(edits.statements(table: "t", engine: .sqlite, columns: ["a"], primary: [], rows: rows) == nil)
+    // No primary key: the row found by all its values, one row touched
+    #expect(
+        edits.statements(table: "t", engine: .postgres, columns: ["a", "b", "c"], primary: [], rows: rows) == [
+            #"UPDATE "t" SET "b" = 'o''k', "c" = NULL WHERE ctid = (SELECT ctid FROM "t" WHERE "a"::text = '2' AND "#
+                + #""b"::text = 'it''s' AND "c"::text = 'x' LIMIT 1)"#
+        ])
+    #expect(
+        edits.statements(table: "t", engine: .mysql, columns: ["a", "b", "c"], primary: [], rows: rows) == [
+            "UPDATE `t` SET `b` = 'o''k', `c` = NULL WHERE `a` = '2' AND `b` = 'it''s' AND `c` = 'x' LIMIT 1"
+        ])
     #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public`.`my``t`")
     #expect(DatabaseEdits.literal(#"a\b"#, .mysql) == #"'a\\b'"#)
 }

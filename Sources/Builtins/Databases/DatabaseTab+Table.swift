@@ -30,7 +30,7 @@ extension DatabaseTab {
         reading?.cancel()
         busy.stopAnimation(nil)
         guard let result else { return }
-        grid.editable = !primary.isEmpty
+        grid.editable = current?.kind != "view"   // a table without a key too: its rows found by their values
         grid.source = (name, engine)
         let orders = grid.orders
         grid.show(columns: result.columns, rows: result.rows, info: info)
@@ -64,8 +64,11 @@ extension DatabaseTab {
     /// "1–200 of ≈ 12 408 rows · filtered · 14 ms", ‹ › where there's more.
     func pageChanged(shown: Int, ms: Int) {
         let first = page * Self.pageSize
-        let total = counted ?? (filters.isActive ? nil : current?.rows)
-        let exact = counted != nil || engine.isFile
+        // A page not full is the last one: the total is known, whatever the server's estimate says (0 before ANALYZE)
+        let ended = shown < Self.pageSize
+        let estimate = (filters.isActive ? nil : current?.rows).flatMap { $0 >= first + shown ? $0 : nil }
+        let total = ended ? first + shown : counted ?? estimate
+        let exact = ended || counted != nil || engine.isFile
         var words: [String] = []
         if shown == 0 {
             words.append(String(localized: "No rows"))
@@ -76,7 +79,7 @@ extension DatabaseTab {
                     ?? range)
         }
         if filters.isActive { words.append(String(localized: "filtered")) }
-        if !grid.editable { words.append(String(localized: "no primary key: read only")) }
+        if !grid.editable { words.append(String(localized: "a view: read only")) }
         words.append("\(ms) ms")
         status.stringValue = words.joined(separator: " · ")
         previous.isEnabled = page > 0
@@ -336,6 +339,14 @@ extension DatabaseTab {
             grid.edits.clear()
             await showTable(name)
             status.stringValue += " · " + Self.rows(done.changed ?? 0) + " " + String(localized: "saved")
+            // Each statement is one row; fewer means a row wasn't where it was read (changed meanwhile)
+            if let changed = done.changed, changed < statements.count {
+                Banner.show(
+                    String(
+                        localized:
+                            "\(statements.count - changed) of the rows weren’t found as they were read: someone changed them meanwhile. Reloaded."
+                    ))
+            }
         }
     }
 }
