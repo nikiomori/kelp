@@ -328,18 +328,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     } catch { _ = Daemon.startFailed(error, root: root) }   // what kelpd does with it
     #expect((try? String(contentsOf: err, encoding: .utf8))?.contains("another kelpd is already running") == true)
     first.stop()
-    // Up to 2 s for the lock: in a heavily loaded full run it was once still held for a moment after stop() returned
-    // (cause not found; stop() closes it last, and it's O_CLOEXEC). What's tested here is the reason file, not that timing.
-    var third: Daemon?
-    _ = try await waitFor(2) {
-        let d = try Daemon(root: root)
-        do {
-            try d.start()
-            third = d
-        } catch {}
-        return third != nil
-    }
-    let started = try #require(third)
+    let started = try await restarted(root)   // what's tested here is the reason file, not when the lock goes
     #expect(!FileManager.default.fileExists(atPath: err.path))
     started.stop()
 }

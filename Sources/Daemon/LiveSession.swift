@@ -170,12 +170,12 @@ final class LiveSession: Sendable {
     }
     /// How long it has done nothing. An agent with hooks tells by its status (and someone typing): at rest it still redraws
     /// by itself, such as Claude Code's "Checking for updates". For the others, output is all there is.
-    var idleSeconds: TimeInterval {
+    func idleSeconds(at now: Date) -> TimeInterval {
         state.withLock { st in
             let last =
                 st.hooked
                 ? max(st.record.statusAt ?? st.started, st.lastInputAt ?? st.started) : st.lastOutputAt ?? st.started
-            return Date().timeIntervalSince(last)
+            return now.timeIntervalSince(last)
         }
     }
     var isAttached: Bool { state.withLock { !$0.attached.isEmpty } }

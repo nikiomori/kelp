@@ -35,8 +35,7 @@ private func end(_ session: String) {
     #expect(try await waitFor(10) { try await screen(w.c).contains("marker-42") })
 
     w.d.stop()
-    let d = try Daemon(root: w.root)
-    try d.start()
+    let d = try await restarted(w.root)
     defer { d.stop() }
     let c = try client(w.root)
     #expect(try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)
@@ -167,8 +166,7 @@ private func end(_ session: String) {
     #expect(try await waitFor(10) { try await status(c0, s.id) == .done })
 
     d0.stop()
-    let d = try Daemon(root: root)
-    try d.start()
+    let d = try await restarted(root)
     defer { d.stop() }
     let c = try client(root)
     #expect(try await status(c, s.id) == .paused)

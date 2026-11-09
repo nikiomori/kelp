@@ -540,8 +540,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     _ = try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"], undo: "u"))
     w.d.stop()
-    let d = try Daemon(root: w.root)
-    try d.start()
+    let d = try await restarted(w.root)
     defer { d.stop() }
     _ = try await client(w.root).call(GitUndoDiscard(id: wt.id, undo: "u"))
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")

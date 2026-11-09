@@ -15,8 +15,9 @@ extension Sessions {
     }
 
     /// Pause agents that have sat idle for `hibernateMinutes` with nobody watching. Not one that asks something: the pause would
-    /// end the question unanswered, and its row, Needs You until then, would say Paused.
-    func hibernateIdle() {
+    /// end the question unanswered, and its row, Needs You until then, would say Paused. `now`: the ticker's clock; a
+    /// test moves it instead of waiting.
+    func hibernateIdle(now: Date = Date()) {
         let minutes = settings[SettingKeys.hibernateMinutes]
         guard minutes > 0 else { return }
         // Only one a pause can bring back (`LiveSession.resumable`, known since its start: nothing is read on the tick).
@@ -26,7 +27,7 @@ extension Sessions {
             !parents.contains(ls.snapshot.id) && ls.resumable && [.done, .idle].contains(ls.snapshot.status)
                 && ls.snapshot.continueAt == nil
                 && (ls.snapshot.background ?? []).isEmpty
-                && !ls.isAttached && ls.idleSeconds > minutes * 60
+                && !ls.isAttached && ls.idleSeconds(at: now) > minutes * 60
         }.map { ($0, $0.inputs) }
         // Off the ticker: waiting for programs to exit (up to 3 s each) must not hold up status for everyone else.
         let start = pausingIdle.withLock { busy -> Bool in
@@ -293,7 +294,7 @@ extension Sessions {
         if comesBack {
             Log.session.attempt("keeping what \(ls.snapshot.id) hadn't typed") { try store.owe(ls.takeOwed()) }
         }
-        return ls.pty.terminate()   // SIGKILL after 2 s for what ignores the hangup, so all is gone within waitGone's 3
+        return ls.pty.terminate()   // SIGKILL after 2 s for what ignores the hangup, which waitGone waits for
     }
 
     /// What waited in the store while it didn't run.
@@ -302,9 +303,10 @@ extension Sessions {
         ls.giveBack(Log.session.attempt("reading what \(id) hadn't typed") { try store.takeOwed(id) } ?? [])
     }
 
-    /// Until these processes have exited (or 3 s, for one that ignores the hangup).
+    /// Until these processes have exited and are reaped. What ignores the hangup gets SIGKILL 2 s after it, from a
+    /// timer a busy machine runs late: given up on only after 10 s, for one even that doesn't end (stuck in the kernel).
     static func waitGone(_ pids: [pid_t]) {
-        let end = Date().addingTimeInterval(3)
+        let end = Date().addingTimeInterval(10)
         while Date() < end, pids.contains(where: { kill($0, 0) == 0 }) { usleep(20_000) }
     }
 }

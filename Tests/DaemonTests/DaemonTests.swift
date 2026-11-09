@@ -65,6 +65,21 @@ func daemon(agents: [AgentManifest] = [], lspDelays: (retry: TimeInterval, idle:
     return (d, try client(root), root)
 }
 
+/// A daemon started on `root` as soon as the one stopped there has let go of the home: in a loaded run the lock was
+/// still held a moment after stop() returned (cause not found; stop() closes it last, and it's O_CLOEXEC).
+func restarted(_ root: URL) async throws -> Daemon {
+    var started: Daemon?
+    try await waitFor(10) {
+        let d = try Daemon(root: root)
+        do {
+            try d.start()
+            started = d
+        } catch {}
+        return started != nil
+    }
+    return try #require(started)
+}
+
 typealias World = (d: Daemon, c: RPCClient, root: URL, repo: Repo)
 
 /// Every status change `id` made so far has been saved and sent: what a check that nothing changed reads after.
@@ -281,10 +296,13 @@ final class NoteBox: @unchecked Sendable {
     let c = w.c, wt = try await workspace(w, "h")
     let s: Session = try await c.call(
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy"]), as: Session.self)
-    try await hibernate(after: 0.03, c)   // ~2 s
+    #expect(try await waitFor { try await c.call(SessionRead(id: s.id)).contains("STARTED") })
+    // A minute idle, by the ticker's clock moved on rather than waited out: paused once its status says it's at rest.
+    try await hibernate(after: 1, c)
     #expect(
         try await waitFor(15) {
-            try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused
+            w.d.sessions.hibernateIdle(now: Date() + 61)
+            return try await c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused
         })
     // A hook that comes after the pause (the agent was on its way out) doesn't wake it.
     _ = try await c.call("session.hook", .obj(["id": .string(s.id), "event": "done"]))

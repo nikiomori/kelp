@@ -177,6 +177,17 @@ private func submitted(_ screen: String) -> String {
     #expect(try w.d.store.session(a.id)?.status == .paused)
 }
 
+/// What's stopped is waited for until it's gone, not for a fixed while: SIGKILL comes from a timer, which a busy
+/// machine runs late, and a program still there when its workspace goes would write into a folder being removed.
+@Test func waitingForProgramsEndsWhenTheyAreGone() throws {
+    let late = Process()   // ends by itself after waitGone's old 3 s, as a SIGKILL's late timer would end it
+    late.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    late.arguments = ["3.5"]
+    try late.run()
+    Sessions.waitGone([late.processIdentifier])
+    #expect(kill(late.processIdentifier, 0) != 0)
+}
+
 /// Text sent to a session that is still starting waits until it's ready, however it came to be starting (just created,
 /// or woken by someone else a moment before): typed at once, a program that flushes its input on startup loses it.
 @Test func textForAStartingSessionWaitsUntilItIsReady() async throws {
