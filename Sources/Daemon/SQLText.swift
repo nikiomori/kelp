@@ -18,7 +18,8 @@ enum SQLText {
                     [false, true].map { Reading(backslash: backslash, nested: $0) }
                 }
             case .mysql: [false, true].map { Reading(backslash: $0, mysql: true, dollar: false) }
-            case .sqlite: [Reading(backslash: false, dollar: false)]
+            // Appwrite's is Kelp's own narrow SQL, translated to its API one statement at a time
+            case .sqlite, .appwrite: [Reading(backslash: false, dollar: false)]
             }
         }
     }
