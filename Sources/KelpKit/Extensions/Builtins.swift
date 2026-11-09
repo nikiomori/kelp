@@ -117,7 +117,9 @@ package enum Builtins {
                     s(SettingKeys.language, "Language", "enum", "Takes effect the next time Kelp opens.",
                         // Each language in its own words, so it can be found whichever language Kelp is in.
                         options: ["system", "en", "ru"],
-                        labels: ["system": String(localized: "Match System"), "en": "English", "ru": "Русский"])
+                        labels: ["system": String(localized: "Match System"), "en": "English", "ru": "Русский"]),
+                    s(SettingKeys.confirmQuit, "Ask before quitting", "boolean",
+                        "⌘Q and closing the window ask “Quit Kelp?” first.")
                 ], custom: { AnyView(GeneralSettings()) }, keywords: ["Updates", "Background", "Login Items"], order: 5),
             SettingsSection(
                 id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],

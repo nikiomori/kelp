@@ -52,6 +52,7 @@ final class Updates: NSObject {
         if app.sessions.contains(where: { $0.status != .exited }), await BackgroundItem.blocked, await !agentsMayEnd() {
             return
         }
+        AppDelegate.quitChosen = true
         installNow?()
     }
 

@@ -21187,6 +21187,50 @@
           }
         }
       }
+    },
+    "Ask before quitting": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрашивать перед выходом"
+          }
+        }
+      }
+    },
+    "⌘Q and closing the window ask “Quit Kelp?” first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘Q и закрытие окна сначала спрашивают «Выйти из Kelp?»."
+          }
+        }
+      }
+    },
+    "Are you sure you want to quit Kelp?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы уверены, что хотите выйти из Kelp?"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выйти"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -121,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// and any remote file's save came back (not if one failed).
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let edited = app.workbench.editedFiles
-        guard !edited.isEmpty, !unsavedAnswered else { return .terminateNow }
+        guard !edited.isEmpty, !unsavedAnswered else { return confirmQuit() }
         let system = Self.systemQuit
         var answered: Bool?
         Task {
@@ -152,6 +152,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The quit question was answered (saved, or Don't Save): the next terminate goes through.
     private var unsavedAnswered = false
 
+    /// Settings › General › Ask before quitting: ⌘Q and closing the window ask in a sheet. A relaunch, an update, a
+    /// logout and an answered unsaved-files question are a choice already, so they don't.
+    private func confirmQuit() -> NSApplication.TerminateReply {
+        guard app.settings[SettingKeys.confirmQuit], !Self.quitChosen, !unsavedAnswered, !Self.systemQuit else {
+            return .terminateNow
+        }
+        guard !askingToQuit else { return .terminateCancel }   // a second ⌘Q while the sheet is up
+        askingToQuit = true
+        Task {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Are you sure you want to quit Kelp?")
+            alert.addButton(withTitle: String(localized: "Quit"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            alert.showsSuppressionButton = true
+            let quit = await runSheet(alert) == .alertFirstButtonReturn
+            askingToQuit = false
+            if alert.suppressionButton?.state == .on { app.settings.set(SettingKeys.confirmQuit, false) }
+            guard quit else { return }
+            Self.quitChosen = true
+            NSApp.terminate(nil)
+        }
+        return .terminateCancel
+    }
+    private var askingToQuit = false
+    /// Set by quits the user chose some other way (Relaunch, Install Update): they don't ask again.
+    static var quitChosen = false
+
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }   // the daemon keeps sessions alive
     /// A new copy, then this one quits: the daemon and everything running in it carry on under the new window.
     static func relaunch() {
@@ -163,6 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     Banner.show(
                         String(localized: "Couldn't relaunch Kelp: \(error.localizedDescription)"), style: .error)
                 } else {
+                    quitChosen = true
                     NSApp.terminate(nil)
                 }
             }

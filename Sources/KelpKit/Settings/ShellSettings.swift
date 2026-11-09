@@ -13,6 +13,7 @@ extension SettingKeys {
     static let awakeButton = Setting("workbench.awakeButton", true)
     @MainActor static let iconTheme = Setting("workbench.iconTheme", FileIcon.standard)
     static let language = Setting("workbench.language", "system")
+    static let confirmQuit = Setting("workbench.confirmQuit", false)
 
     /// nil: every panel's icon shows.
     static let hiddenPanels = Setting<[String]?>("workbench.inspector.hiddenPanels", nil)
