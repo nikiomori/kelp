@@ -16,9 +16,9 @@ for name in ${@:-AppIcon AppIconDev}; do
   done
   iconutil -c icns "$SET" -o Resources/$name.icns
   echo "wrote Resources/$name.icns"
+  # The same drawing in layers, for the icon styles of macOS 26 (scripts/bundle.sh compiles it with actool).
+  python3 scripts/icon-layers.py Resources/$name.svg Resources/$name.icon
 done
-# The same drawing in layers, for the icon styles of macOS 26 (scripts/bundle.sh compiles it with actool).
-[[ " ${@:-AppIcon} " != *" AppIcon "* ]] || python3 scripts/icon-layers.py Resources/AppIcon.svg Resources/AppIcon.icon
 [ $# -eq 0 ] || exit 0
 for x in 1 2; do
   "$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=$x --window-size=660,400 \

@@ -70,17 +70,13 @@ ICON=Resources/AppIcon${CH:+Dev}.icns   # from AppIcon(Dev).svg: scripts/icon.sh
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 # macOS 26 draws an icon in the style chosen in System Settings › Appearance (Default, Dark, Clear, Tinted) only from
 # Assets.car (CFBundleIconName): actool compiles it from Resources/AppIcon.icon, the same drawing in layers
-# (scripts/icon-layers.py). Its own AppIcon.icns stops at 256 px, so the bundle keeps ours, which macOS 14 and 15 draw.
-# Beta and Dev keep the flat blueprint.
-if [ -n "$CH" ]; then
-  "${P[@]}" -c "Delete :CFBundleIconName"
-else
-  T=$(mktemp -d)
-  xcrun actool "$PWD/Resources/AppIcon.icon" --compile "$T" --platform macosx --minimum-deployment-target 14.0 \
-    --app-icon AppIcon --output-partial-info-plist "$T/partial.plist" >"$T/log" 2>&1 && [ -f "$T/Assets.car" ] ||
-    { cat "$T/log"; echo "actool could not compile Resources/AppIcon.icon: Kelp needs Xcode 26 or later"; exit 1; }
-  cp "$T/Assets.car" "$APP/Contents/Resources/"; rm -rf "$T"
-fi
+# (scripts/icon-layers.py); Beta and Dev's from AppIconDev.icon. actool's own AppIcon.icns stops at 256 px, so the
+# bundle keeps ours, which macOS 14 and 15 draw. actool names the icon after its file, hence the copy.
+T=$(mktemp -d); cp -R "${ICON%.icns}.icon" "$T/AppIcon.icon"
+xcrun actool "$T/AppIcon.icon" --compile "$T" --platform macosx --minimum-deployment-target 14.0 \
+  --app-icon AppIcon --output-partial-info-plist "$T/partial.plist" >"$T/log" 2>&1 && [ -f "$T/Assets.car" ] ||
+  { cat "$T/log"; echo "actool could not compile ${ICON%.icns}.icon: Kelp needs Xcode 26 or later"; exit 1; }
+cp "$T/Assets.car" "$APP/Contents/Resources/"; rm -rf "$T"
 [ -d "$BIN/Sparkle.framework" ] && cp -R "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/" || true
 for b in "$BIN"/*.bundle(N); do cp -R "$b" "$APP/Contents/Resources/"; done
 scripts/strings.sh install "$APP/Contents/Resources"   # English and Russian
