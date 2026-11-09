@@ -130,10 +130,13 @@ extension AppDelegate {
                 ["history": "Session History", "settings": "Settings"][$0] ?? $0
             }
             // The frame view includes the title bar and toolbar.
+            // "popover": the card a KELP_HOVER opened (taken after the hover, like the rest).
             let picked =
                 env["KELP_SNAPSHOT_WINDOW"] == "settings"
                 ? SettingsWindow.window
-                : NSApp.windows.filter(\.isVisible).last { want != nil && $0.title.hasPrefix(want ?? "") }
+                : want == "popover"
+                    ? NSApp.windows.last { $0.isVisible && $0.className.contains("Popover") }
+                    : NSApp.windows.filter(\.isVisible).last { want != nil && $0.title.hasPrefix(want ?? "") }
             guard let window = picked ?? main.window,
                 let root = window.contentView?.superview ?? window.contentView
             else { exit(2) }
