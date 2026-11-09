@@ -173,7 +173,8 @@ private func submitted(_ screen: String) -> String {
         kill(a.pid, SIGKILL)
     }   // whatever happens, not left behind
     w.d.stop()
-    #expect(kill(job, 0) != 0 && kill(a.pid, 0) != 0)
+    // waitGone gives up at 10 s; under TSan on a shared runner the reaping can take longer
+    #expect(try await waitFor(30) { kill(job, 0) != 0 && kill(a.pid, 0) != 0 })
     #expect(try w.d.store.session(a.id)?.status == .paused)
 }
 

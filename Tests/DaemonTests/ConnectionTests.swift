@@ -47,7 +47,7 @@ import os
         while case let n = read(fd, &b, b.count), n > 0 { total += n }
         return total
     }
-    c.drain(within: 5)
+    c.drain(within: 60)   // the test's own time: 4 MB under TSan on a shared runner took more than 5 s
     c.hangUp()
     #expect(await reader.value == reply.count)
     c.close()

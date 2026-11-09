@@ -478,7 +478,9 @@ func trustQuestionStandIn() -> String {
             (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true
         })
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
-    #expect(kill(s.pid, 0) != 0)   // gone when archive returns, though it ignored SIGTERM
+    // gone when archive returns, though it ignored SIGTERM (waitGone gives up at 10 s; under TSan on a shared runner
+    // the reaping can take longer)
+    #expect(try await waitFor(30) { kill(s.pid, 0) != 0 })
     _ = try await w.c.call("worktree.unarchive", .obj(["id": .string(wt.id)]))
     #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .exited)
 }

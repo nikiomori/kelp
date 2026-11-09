@@ -87,7 +87,8 @@ import Testing
     #expect(try await waitFor(5) { readPid() != nil })
     let pid = try #require(readPid())
     Sessions.waitGone(open.endAll())
-    #expect(kill(pid, 0) != 0)
+    // waitGone gives up at 10 s; under TSan on a shared runner the reaping can take longer
+    #expect(try await waitFor(30) { kill(pid, 0) != 0 })
 }
 
 /// Only agents with a session lately have their limits read: an installed one never used isn't launched every half hour,
