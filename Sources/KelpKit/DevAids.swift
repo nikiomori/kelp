@@ -471,7 +471,8 @@ extension AppDelegate {
             var queued = false   // a button tracks the mouse until its mouse-up, which has to be in the queue already
             let double = spec.hasPrefix("2:")
             var text = double ? String(spec.dropFirst(2)) : spec
-            let right = text.hasPrefix("r@") || text.hasPrefix("r:")   // "r@x,y", "r:label": a right click (context menus)
+            // "r@x,y", "r:label": a right click (context menus)
+            let right = text.hasPrefix("r@") || text.hasPrefix("r:")
             if right { text = String(text.dropFirst(text.hasPrefix("r:") ? 2 : 1)) }
             if text.hasPrefix("@"), case let xy = text.dropFirst().split(separator: ",").compactMap({ Double($0) }),
                 xy.count == 2
