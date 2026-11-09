@@ -120,21 +120,27 @@ struct SettingsView: View {
 }
 
 /// A section's symbol on a coloured tile, as System Settings shows its panes: the one place colour tells things apart without
-/// meaning a state, so a section is found by eye. Sections extensions add are grey.
+/// meaning a state, so a section is found by eye. Like System Settings' tiles: a filled white glyph on a top-lit gradient.
+/// Sections extensions add are grey.
 private struct SettingsIcon: View {
     let symbol: String, id: String
     var body: some View {
-        Image(systemName: symbol).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
+        Image(systemName: symbol).symbolVariant(.fill).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
             .background(
-                Self.tint[id, default: .gray], in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
+                Self.tint[id, default: Self.gray].gradient,
+                in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
-    /// Grey is General's alone. Terminal is a terminal's near-black, lifted in dark mode, where dark grey sank into the sidebar.
+    /// Apple's light-mode system colours in both modes, as System Settings keeps them: the dark-mode ones are neon on a tile.
+    /// Keyboard is grey as in System Settings. Terminal is a terminal's near-black, lifted in dark mode, where it sank.
+    private static let gray = Color(nsColor: NSColor(hex: 0x8E8E93))
     static let tint: [String: Color] = [
-        "general": .gray, "appearance": .blue, "agents": .purple, "catalog": .mint, "notifications": .pink,
-        "terminal": Color(nsColor: .dynamic(light: .darkGray, dark: NSColor(white: 0.42, alpha: 1))),
-        "editor": .teal, "git": .orange, "integrations": .green, "keyboard": .indigo, "extensions": .brown
+        "general": gray, "keyboard": gray, "appearance": hex(0x007AFF), "agents": hex(0xAF52DE),
+        "catalog": hex(0x00C7BE), "notifications": hex(0xFF3B30), "editor": hex(0x30B0C7), "databases": hex(0x5856D6),
+        "git": hex(0xFF9500), "integrations": hex(0x34C759), "extensions": hex(0xA2845E),
+        "terminal": Color(nsColor: .dynamic(light: NSColor(hex: 0x3A3A3C), dark: NSColor(white: 0.42, alpha: 1)))
     ]
+    private static func hex(_ value: Int) -> Color { Color(nsColor: NSColor(hex: value)) }
 }
 
 private struct SectionForm: View {
