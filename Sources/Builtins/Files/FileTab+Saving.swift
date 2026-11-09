@@ -13,8 +13,9 @@ extension FileTab {
         autosaving.cancel()
         _ = await saving?.value   // a save on its way: what's asked is checked against what it wrote
         guard let editor, isEdited else { return true }
-        let action = FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk)
-        if autosave, action == .write, await writeAndClose() { return true }
+        // The version this is checked against: what's written goes only over it, whatever is read meanwhile
+        let action = FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk), checked = known?.stamp
+        if autosave, action == .write, await writeAndClose(over: checked) { return true }
         let alert = NSAlert()
         alert.messageText = String(localized: "Do you want to save the changes you made to “\(title)”?")
         alert.informativeText =
@@ -28,7 +29,7 @@ extension FileTab {
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.addButton(withTitle: String(localized: "Don't Save"))
         switch await runSheet(alert) {
-        case .alertFirstButtonReturn: return await writeAndClose(answering: action)
+        case .alertFirstButtonReturn: return await writeAndClose(answering: action, over: checked)
         case .alertThirdButtonReturn:
             discard()
             return true
@@ -120,14 +121,16 @@ extension FileTab {
     /// The buffer to the file, by the daemon (atomically, through a symlink to the file it points at), only over the version
     /// last read or written here; `overAnything`: whatever is there (Save Here). Changed meanwhile: asked about, unless
     /// only touched (its text still what this tab last saved), which is written over once. Only through `serially`.
-    private func write(overAnything: Bool = false, touched: Bool = false) async -> Bool {
+    /// `checked`: the version a caller checked before a wait of its own (closing), else the one known now.
+    private func write(overAnything: Bool = false, touched: Bool = false, checked: FileStamp? = nil) async -> Bool {
         guard let editor else { return true }
         // A Swift string, made off the main thread (5 MB took 400 ms on it): the buffer is compared against it on every
         // keystroke, fast only with a Swift string on this side (`FileSync.same`).
-        let buffer = editor.text, at = edits
+        // The version the save was checked against, taken before the wait: an agent's version read meanwhile isn't it.
+        let buffer = editor.text, at = edits, base = overAnything ? nil : checked ?? known?.stamp
         let text = await Task.detached { String(decoding: Data(buffer.utf8), as: UTF8.self) }.value
         writing = true
-        let res = await app.tryCall(FilesWrite(path: path, text: text, base: overAnything ? nil : known?.stamp))
+        let res = await app.tryCall(FilesWrite(path: path, text: text, base: base))
         writing = false
         defer {
             if readAgain {
@@ -160,8 +163,9 @@ extension FileTab {
 
     /// Closing with a save: the tab waits until the file has it, and stays (with its edits) when that failed.
     /// `answering`: what the sheet said it does, so a Save that puts a deleted file back or replaces an agent's version does.
-    func writeAndClose(answering action: FileSync.Action = .write) async -> Bool {
-        await serially { [self] in await write(overAnything: action != .write) }
+    /// `over`: the version that was checked; an agent's read after it isn't written over.
+    func writeAndClose(answering action: FileSync.Action = .write, over checked: FileStamp? = nil) async -> Bool {
+        await serially { [self] in await write(overAnything: action != .write, checked: checked) }
     }
 
     var pendingSave: Task<Void, Never>? { saving.map { s in Task { _ = await s.value } } }

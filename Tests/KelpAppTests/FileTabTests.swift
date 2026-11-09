@@ -147,6 +147,39 @@ extension AppOfItsOwn {
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "theirs\n")
     }
 
+    /// The agent's version read while a save is on its way (its text is made off the main thread: a while for a big file,
+    /// or on a busy machine) isn't the one the save was checked against: the save still doesn't write over it. It did.
+    @Test func anAgentsVersionReadDuringASaveIsNotWrittenOver() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let p = try file("one\n")
+        let tab = await opened(p, in: rig)
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p) != nil })   // the watch's first version
+        tab.editor?.setText(String(repeating: "mine\n", count: 2_000_000))
+        try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)   // the agent, as ⌘S checks
+        let saved = Task { await tab.save() }
+        rig.app.land(FileEvent(path: p, stamp: "theirs"))   // its version pushed at once: the tab reads it meanwhile
+        #expect(await !saved.value)
+        #expect(try String(contentsOfFile: p, encoding: .utf8) == "theirs\n")
+    }
+
+    /// Closing checks the version first and writes after a wait of its own (the save before it, the sheet): an agent's
+    /// version read in between isn't the one it writes over.
+    @Test func closingWritesOnlyOverTheVersionItChecked() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let p = try file("one\n")
+        let tab = await opened(p, in: rig)
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p) != nil && tab.known != nil })
+        let checked = tab.known?.stamp
+        tab.editor?.setText("mine\n")
+        tab.editor?.onChange?("mine\n")
+        try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
+        #expect(try await waitFor(5) { tab.known?.stamp != checked })   // the agent's version read meanwhile
+        #expect(await !tab.writeAndClose(over: checked))
+        #expect(try String(contentsOfFile: p, encoding: .utf8) == "theirs\n")
+    }
+
     /// An agent's change to a file edited here, once its version is pushed: the edit stays, and ⌘S asks instead of
     /// writing over it (here, with no window to ask in, it just doesn't write).
     @Test func anAgentsChangeToAnEditedFileKeepsTheEditAndAsks() async throws {
