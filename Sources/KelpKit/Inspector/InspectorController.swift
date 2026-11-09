@@ -80,7 +80,9 @@ final class InspectorController: NSViewController {
             sep.bottomAnchor.constraint(equalTo: under.topAnchor)
         ]
         // As tall as the tab strips beside it (Settings › Appearance › Tab height).
-        track(owner: self) { [app] in TabStrip.height(app.settings) } changed: { height in
+        track(owner: self) { [app] in
+            TabStrip.height(app.settings)
+        } changed: { height in
             zip(band, [height / 2, -height / 2, -height, height]).forEach { $0.constant = $1 }
         }
         top = [
@@ -249,9 +251,14 @@ final class InspectorController: NSViewController {
         n.translatesAutoresizingMaskIntoConstraints = false
         b.addSubview(n)
         let half = Metrics.segmentPoint / 2
-        // 3 pt past the glyph's half: 1 pt left the branch's right node touching the number.
+        // 3 pt past the glyph's half: 1 pt left the branch's right node touching the number. A wider one ("19") moves
+        // left rather than onto the next icon: it ends 3 pt before that glyph.
+        let start = n.leadingAnchor.constraint(equalTo: b.centerXAnchor, constant: half + 3)
+        start.priority = .defaultHigh
+        let nextGlyph = Metrics.iconGap + (Metrics.segment.width - Metrics.segmentPoint) / 2
         NSLayoutConstraint.activate([
-            n.leadingAnchor.constraint(equalTo: b.centerXAnchor, constant: half + 3),
+            start,
+            n.trailingAnchor.constraint(lessThanOrEqualTo: b.trailingAnchor, constant: nextGlyph - 3),
             n.centerYAnchor.constraint(equalTo: b.centerYAnchor, constant: Metrics.iconGap - half - 1)
         ])
     }
