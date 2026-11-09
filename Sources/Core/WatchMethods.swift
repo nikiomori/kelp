@@ -209,7 +209,7 @@ public struct FilesEvent: RPCEvent, Equatable {
     }
 }
 
-/// A watched workspace's artifacts (`.kelp/artifacts`), newest first, pushed when that folder changed.
+/// A watched workspace's artifacts (`.kelp/artifacts`), latest change first, pushed when that folder changed.
 public struct ArtifactsEvent: RPCEvent, Equatable {
     public static let name = "event.artifacts"
     public var worktree: String, items: [ArtifactItem]

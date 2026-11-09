@@ -128,10 +128,10 @@ private func tempRoot() throws -> URL {
         url: "https://claude.ai/artifact/abc", title: "Deck", type: "page", root: root.path, session: nil,
         now: Date(timeIntervalSince1970: 2))
     let items = Artifacts.items(root: root.path)
-    #expect(items.map(\.title) == ["Deck", "Two points"])
-    #expect(items[0].target == "https://claude.ai/artifact/abc" && items[0].modified == nil && items[0].points == nil)
-    #expect(items[1].points == 2 && items[1].answered == 1 && items[1].session == "s1" && items[1].created == 1)
-    #expect(items[1].target == page.path && (items[1].modified ?? 0) > Date().timeIntervalSince1970 - 60)
+    #expect(items.map(\.title) == ["Two points", "Deck"])   // by the last change: the review was just saved
+    #expect(items[1].target == "https://claude.ai/artifact/abc" && items[1].modified == nil && items[1].points == nil)
+    #expect(items[0].points == 2 && items[0].answered == 1 && items[0].session == "s1" && items[0].created == 1)
+    #expect(items[0].target == page.path && (items[0].modified ?? 0) > Date().timeIntervalSince1970 - 60)
 }
 
 /// A turn's end keeps a version of each page its chat made, only when the page changed, and the last 20 of them.
@@ -184,4 +184,48 @@ private func tempRoot() throws -> URL {
         atPath: base.appendingPathComponent("zero/doc.md").path, withDestinationPath: "/dev/zero")
     #expect(Artifacts.list(root: root.path).map(\.slug).sorted() == ["web", "zero"])
     #expect(Artifacts.items(root: root.path).contains { $0.slug == "zero" })   // listed, its endless file not read
+}
+
+/// A page published again moves to the top with its new time; what the tool sent of it is kept for the preview: the
+/// whole page, a canvas's first board (which makes it a design), or edits to the copy.
+@Test func artifactPageCopies() throws {
+    let root = try tempRoot(), url = "https://claude.ai/artifact/xyz"
+    func hook(_ tool: String, _ input: JSONValue) -> JSONValue {
+        .obj([
+            "hook_event_name": "PostToolUse", "tool_name": .string("mcp__claude-artifacts__\(tool)"),
+            "tool_input": input,
+            "tool_response": .array([.obj(["type": "text", "text": .string(#"{"title":"Plan","url":"\#(url)"}"#)])])
+        ])
+    }
+    let first = try #require(Artifacts.published(hook: hook("publish_version", .obj(["content": "<p>one two</p>"]))))
+    #expect(first.type == "page" && first.page == .html("<p>one two</p>"))
+    _ = try Artifacts.addNative(
+        url: url, title: first.title, type: first.type, root: root.path, session: nil, page: first.page,
+        now: Date(timeIntervalSince1970: 1))
+    _ = try Artifacts.create(.doc, title: "Later", root: root.path, session: nil, now: Date(timeIntervalSince1970: 2))
+    let copy = try #require(Artifacts.items(root: root.path).first { $0.url == url }?.preview)
+    #expect(try String(contentsOfFile: copy, encoding: .utf8) == "<p>one two</p>")
+
+    let edit = try #require(
+        Artifacts.published(
+            hook: hook("edit_version", .obj(["edits": .array([.obj(["old_text": "two", "new_text": "three"])])]))))
+    _ = try Artifacts.addNative(
+        url: url, title: edit.title, type: edit.type, root: root.path, session: nil, page: edit.page,
+        now: Date().addingTimeInterval(60))
+    #expect(try String(contentsOfFile: copy, encoding: .utf8) == "<p>one three</p>")
+    let items = Artifacts.items(root: root.path)
+    #expect(items.first?.url == url && items.count == 2)   // published again: before the later doc
+
+    let board = root.appendingPathComponent("Main.dc.html")
+    try "<div>board</div>".write(to: board, atomically: true, encoding: .utf8)
+    let files: JSONValue = .array([
+        .obj(["as": "project/canvas.json", "path": "/nowhere/canvas.json"]),
+        .obj(["as": "project/Main.dc.html", "path": .string(board.path)])
+    ])
+    let canvas = try #require(Artifacts.published(hook: hook("publish_files", .obj(["files": files]))))
+    #expect(canvas.type == "design" && canvas.page == .file(board.path))
+    _ = try Artifacts.addNative(
+        url: url, title: canvas.title, type: canvas.type, root: root.path, session: nil, page: canvas.page)
+    #expect(Artifacts.items(root: root.path).first { $0.url == url }?.type == "design")
+    #expect(try String(contentsOfFile: copy, encoding: .utf8) == "<div>board</div>")
 }

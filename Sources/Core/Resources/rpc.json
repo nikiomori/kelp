@@ -169,6 +169,10 @@
             "description" : "A review's points, and how many have a pick.",
             "type" : "integer"
           },
+          "preview" : {
+            "description" : "What its preview shows: its file, or Kelp's copy of a page on a service (`Artifacts.pageCopy`); nil for none.",
+            "type" : "string"
+          },
           "session" : {
             "type" : "string"
           },
@@ -227,7 +231,7 @@
         "type" : "object"
       },
       "ArtifactsEvent" : {
-        "description" : "A watched workspace's artifacts (`.kelp/artifacts`), newest first, pushed when that folder changed.",
+        "description" : "A watched workspace's artifacts (`.kelp/artifacts`), latest change first, pushed when that folder changed.",
         "properties" : {
           "items" : {
             "items" : {
@@ -11807,7 +11811,7 @@
       }
     },
     {
-      "description" : "A watched workspace's artifacts (`.kelp/artifacts`), newest first, pushed when that folder changed.",
+      "description" : "A watched workspace's artifacts (`.kelp/artifacts`), latest change first, pushed when that folder changed.",
       "name" : "event.artifacts",
       "params" : {
         "$ref" : "#/components/schemas/ArtifactsEvent"

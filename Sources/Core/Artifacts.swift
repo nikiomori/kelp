@@ -14,6 +14,8 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     public var url: String?
     /// Its file as each turn of its agent left it, oldest first (`Artifacts.keepVersions`).
     public var versions: [ArtifactVersion]?
+    /// A page on a service: when its agent last published it again (nil: only once).
+    public var updated: Date?
 
     public init(
         type: String, title: String, created: Date, session: String? = nil, file: String? = nil, url: String? = nil,
@@ -43,6 +45,8 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
     public var modified: Double?
     /// Its kept versions, oldest first; `changed`: the file differs from the last of them (written since, or none kept yet).
     public var versions: [ArtifactVersion]?, changed: Bool?
+    /// What its preview shows: its file, or Kelp's copy of a page on a service (`Artifacts.pageCopy`); nil for none.
+    public var preview: String?
 
     public init(
         slug: String, type: String, title: String, created: Double, session: String? = nil, url: String? = nil,
@@ -75,7 +79,7 @@ public enum Artifacts {
 
     public static let folder = ".kelp/artifacts"
 
-    /// The pages an agent's own tools publish. ponytail: one service; a field in the agent manifest once a second has one.
+    /// The pages an agent's own tools publish. Limit: one service; a field in the agent manifest once a second has one.
     static var nativePage: Regex<Substring> { /https:\/\/claude\.ai\/artifact\/[A-Za-z0-9_-]+/ }
 
     public static func dir(root: String) -> URL { URL(fileURLWithPath: root).appendingPathComponent(folder) }
@@ -128,17 +132,29 @@ public enum Artifacts {
             """
     }
 
-    /// Keeps the link to a page the agent published on its own service; nil when it's known already (a later version).
+    /// Keeps the link to a page the agent published on its own service, and what it sent of the page (its preview);
+    /// nil when it's known already: a later version, which moves its time and, given one, its title and kind.
     public static func addNative(
-        url: String, title: String, type: String, root: String, session: String?, now: Date = Date()
+        url: String, title: String, type: String, root: String, session: String?, page: PublishedPage? = nil,
+        now: Date = Date()
     ) throws -> URL? {
-        guard !list(root: root).contains(where: { $0.record.url == url }) else { return nil }
+        if let known = list(root: root).first(where: { $0.record.url == url }) {
+            let folder = dir(root: root).appendingPathComponent(known.slug)
+            var record = known.record
+            record.updated = now
+            if title != url { record.title = title }
+            if type != "page" { record.type = type }
+            try save(record, in: folder)
+            try keepPage(page, in: folder)
+            return nil
+        }
         let folder = try newFolder(title, root: root)
         try save(ArtifactRecord(type: type, title: title, created: now, session: session, url: url), in: folder)
+        try keepPage(page, in: folder)
         return folder
     }
 
-    /// The project's artifacts, newest first.
+    /// The project's artifacts, newest first (by when each was made).
     public static func list(root: String) -> [(slug: String, record: ArtifactRecord)] {
         let base = dir(root: root), fm = FileManager.default
         let names =
@@ -148,32 +164,42 @@ public enum Artifacts {
             .sorted { $0.record.created > $1.record.created }
     }
 
-    /// The list as the panel shows it: a review's answers counted from its file, each file's last save.
+    /// The list as the panel shows it, latest change first: a review's answers counted from its file, each file's
+    /// last save, a service's page's last publish.
     public static func items(root: String) -> [ArtifactItem] {
-        list(root: root).map { slug, r in
-            let target = target(slug, r, root: root)
-            var item = ArtifactItem(
-                slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
-                url: r.url, target: target)
-            guard r.url == nil else { return item }
-            let page = fileStat(target)
-            item.modified = page.map { Double($0.mtime.tv_sec) }
-            item.versions = r.versions
-            // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
-            let last = r.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
-            if r.type != Kind.review.rawValue, let page, let last, page.size != last.size || !page.newer(than: last) {
-                item.changed = page.size != last.size
-                return item
-            }
-            let text = small(target).map { String(decoding: $0, as: UTF8.self) }
-            if r.type == Kind.review.rawValue, let text {
-                let points = Review(text).points
-                item.points = points.count
-                item.answered = points.filter { $0.pick != nil }.count
-            }
-            item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
+        list(root: root).map { slug, r in item(slug, r, root: root) }
+            .sorted { ($0.modified ?? $0.created) > ($1.modified ?? $1.created) }
+    }
+
+    private static func item(_ slug: String, _ r: ArtifactRecord, root: String) -> ArtifactItem {
+        let target = target(slug, r, root: root)
+        var item = ArtifactItem(
+            slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
+            url: r.url, target: target)
+        guard r.url == nil else {
+            item.modified = r.updated?.timeIntervalSince1970
+            let copy = dir(root: root).appendingPathComponent(slug).appendingPathComponent(pageCopy).path
+            item.preview = fileStat(copy) == nil ? nil : copy
             return item
         }
+        item.preview = target
+        let page = fileStat(target)
+        item.modified = page.map { Double($0.mtime.tv_sec) }
+        item.versions = r.versions
+        // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
+        let last = r.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
+        if r.type != Kind.review.rawValue, let page, let last, page.size != last.size || !page.newer(than: last) {
+            item.changed = page.size != last.size
+            return item
+        }
+        let text = small(target).map { String(decoding: $0, as: UTF8.self) }
+        if r.type == Kind.review.rawValue, let text {
+            let points = Review(text).points
+            item.points = points.count
+            item.answered = points.filter { $0.pick != nil }.count
+        }
+        item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
+        return item
     }
 
     /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written). A repository can
@@ -222,7 +248,9 @@ public enum Artifacts {
     /// A page an agent's own tool published (claude-artifacts, Claude Docs), from a PostToolUse hook's payload:
     /// its link, and the title the tool was given. nil for any other tool or event: tools that only read or list
     /// (list_types, list_artifacts, read_artifact) name pages too, the types' own and other people's.
-    public static func published(hook payload: JSONValue) -> (url: String, title: String, type: String)? {
+    public static func published(hook payload: JSONValue) -> (
+        url: String, title: String, type: String, page: PublishedPage?
+    )? {
         guard payload["hook_event_name"]?.string == "PostToolUse", let tool = payload["tool_name"]?.string,
             tool.hasPrefix("mcp__"),
             publishers.contains(where: tool.hasSuffix), let response = payload["tool_response"]
@@ -233,9 +261,11 @@ public enum Artifacts {
         let title =
             input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
             ?? unescaped.firstMatch(of: /\\?"title\\?"\s*:\s*\\?"([^"\\]+)/).map { String($0.output.1) } ?? url
-        // Which of claude.ai's types it is, the answer doesn't say; a doc is the Docs connector's.
-        let type = payload["tool_name"]?.string?.contains("Claude_Docs") == true ? "doc" : "page"
-        return (url, title, type)
+        // Which of claude.ai's types it is, the answer doesn't say: a doc is the Docs connector's, a canvas's files are
+        // under project/ (the Design type's).
+        let sent = sentPage(tool: tool, input: input)
+        let type = tool.contains("Claude_Docs") ? "doc" : sent.canvas ? Kind.design.rawValue : "page"
+        return (url, title, type, sent.page)
     }
 
     /// The tools that make or change a page: claude-artifacts' and Claude Docs'.

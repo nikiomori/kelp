@@ -72,10 +72,13 @@ extension Main {
     /// From `kelp hook command`: a page the agent's own tool just published joins the project's list. It isn't opened:
     /// Kelp's tabs can't sign in to claude.ai (Google refuses embedded views), and the user's browser, which is signed
     /// in, would take the focus; the agent gives its link. Never fails the hook: the agent's tool already did its work.
-    static func notePublished(_ p: (url: String, title: String, type: String), cwd: String, session: String) async {
+    static func notePublished(
+        _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String
+    ) async {
         do {
             let root = try await projectRoot(cwd, try connect())
-            _ = try Artifacts.addNative(url: p.url, title: p.title, type: p.type, root: root, session: session)
+            _ = try Artifacts.addNative(
+                url: p.url, title: p.title, type: p.type, root: root, session: session, page: p.page)
         } catch {
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             FileHandle.standardError.write(Data("kelp: couldn't keep \(p.url): \(why)\n".utf8))
