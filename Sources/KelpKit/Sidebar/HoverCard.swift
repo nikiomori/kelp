@@ -236,6 +236,12 @@ final class CardModel {
         if folder != nil { app.extensions.all.ci?.carded(nil) }
     }
 
+    /// Typed and sent, as a reply from the banner is; refused (a half-typed line in its prompt), a banner says why.
+    func reply(_ text: String, to id: String) {
+        let app = self.app
+        Task { await app.call(SessionSend(id: id, text: text, enter: true)) }
+    }
+
     /// Compact Now, once the ring turns orange, while the agent is at its prompt (a question's menu would take the text).
     var compact: (() -> Void)? {
         guard let usage = context, ContextMeter.level(usage) >= 2, let agent = agents.first,
@@ -333,6 +339,13 @@ struct CardView: View {
                     }
                 }
                 AgentWork(model: model, id: agent.id)
+                if QuickReply.fits(agent.session) {
+                    HStack(spacing: 6) {
+                        ForEach(QuickReply.all) { r in
+                            Button(r.title) { model.reply(r.text, to: agent.id) }.controlSize(.small)
+                        }
+                    }
+                }
             }
             if !model.pages.isEmpty, let runs = model.app.extensions.all.runs {
                 HStack(spacing: 8) {

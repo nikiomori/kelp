@@ -31,7 +31,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                     UNTextInputNotificationAction(
                         identifier: "reply", title: String(localized: "Reply"),
                         textInputButtonTitle: String(localized: "Send"),
-                        textInputPlaceholder: String(localized: "Message to the agent"))
+                        textInputPlaceholder: String(localized: "Message to the agent")),
+                    UNNotificationAction(identifier: "goOn", title: QuickReply.goOn.title)
                 ], intentIdentifiers: []),
             UNNotificationCategory(
                 identifier: "limitReset",
@@ -430,10 +431,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         if !again { remind(of: s) }
     }
 
-    /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt. A question
+    /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt (or its
+    /// Continue, `QuickReply.goOn`). A question
     /// with a menu of its own (AskUserQuestion) has neither: typed text would wait behind the menu.
     static func category(_ s: Session) -> String? {
-        s.asksPermission ? "permission" : [.done, .error].contains(s.status) && s.limitHit == nil ? "reply" : nil
+        s.asksPermission ? "permission" : QuickReply.fits(s) ? "reply" : nil
     }
 
     nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
@@ -445,7 +447,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             return
         }
         guard let id = r.notification.request.content.userInfo["session"] as? String else { return }
-        let action = r.actionIdentifier, reply = (r as? UNTextInputNotificationResponse)?.userText
+        let action = r.actionIdentifier
+        let reply = action == "goOn" ? QuickReply.goOn.text : (r as? UNTextInputNotificationResponse)?.userText
         let all = r.notification.request.content.userInfo["sessions"] as? [String] ?? [id]
         let question = r.notification.request.content.userInfo["question"] as? String
         await MainActor.run {
@@ -453,7 +456,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 Notifications.goOn(app, all)
                 return
             }
-            if action == "reply", let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if action == "reply" || action == "goOn", let reply,
+                !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
                 // Sent without Kelp coming forward; refused (a half-typed line in its prompt), the agent is shown with the banner.
                 Task {
                     if await app.call(SessionSend(id: id, text: reply, enter: true)) == nil {
