@@ -135,7 +135,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         face.isHidden = face.image == nil
         chatTitle.stringValue =
             named.map(app.catalog.displayName) ?? (value == nil ? "" : String(localized: "What a new chat gets"))
-        counts.stringValue = AddonGroups.summary(items)
+        counts.stringValue = AddonGroups.summary(items, chat: value?.chat ?? false)
         // Something waits for a restart, and there's a chat to restart.
         shownChat = value?.chat == true ? chat : nil
         foot.isHidden = shownChat == nil || !items.contains(where: AddonGroups.waits)

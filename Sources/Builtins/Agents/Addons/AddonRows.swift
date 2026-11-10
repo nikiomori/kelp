@@ -10,7 +10,7 @@ struct AddonRows {
     let app: AppModel
     /// A switch was flipped: the key it stands for (`Addon.key`), and whether it's on now.
     var onSwitch: (String, Bool) -> Void = { _, _ in }
-    private static let most = 4
+    private static let most = 3
 
     func section(_ section: AddonLine.Section, count: Int) -> NSView {
         let name: String =

@@ -4,6 +4,9 @@ import Foundation
 /// `addons.list`'s rows: what a chat's own record says it loaded, laid over what the files name. The record knows
 /// what really loaded and what it weighs; the files know whose a skill is, where it sits and which agents read it.
 public enum AddonList {
+    /// The agents in the order rows show them: the one most chats run first.
+    static let order = ["claude", "codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
+
     /// `loaded`: a Claude Code chat's record, nil without one. `kelp`: the names of Kelp's own skills on disk.
     public static func build(loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String]) -> [Addon] {
         let onDisk = files.skills(cwd: cwd), named = files.servers(cwd: cwd)
@@ -124,16 +127,16 @@ public enum AddonList {
     /// The folders as skills: one a name, the agents of every folder that holds it (a link counts as its target), and
     /// a second real folder of the same name as a copy.
     static func merged(_ skills: [AddonFiles.Skill], files: AddonFiles) -> [Addon] {
-        var order: [String] = [], byName: [String: [AddonFiles.Skill]] = [:]
+        var names: [String] = [], byName: [String: [AddonFiles.Skill]] = [:]
         for skill in skills {
-            if byName[skill.name] == nil { order.append(skill.name) }
+            if byName[skill.name] == nil { names.append(skill.name) }
             byName[skill.name, default: []].append(skill)
         }
-        return order.compactMap { name in
+        return names.compactMap { name in
             guard let all = byName[name], let first = all.first else { return nil }
             let home = all.first { $0.real == $0.path } ?? first
-            var agents: [String] = []
-            for agent in all.flatMap(\.agents) where !agents.contains(agent) { agents.append(agent) }
+            let reading = Set(all.flatMap(\.agents))
+            let agents = order.filter(reading.contains) + reading.subtracting(order).sorted()
             let copies = Set(all.map(\.real)).subtracting([home.real]).sorted().map(files.tilde)
             return Addon(
                 kind: .skill, name: name, source: home.project ? .project : .yours, about: home.about,

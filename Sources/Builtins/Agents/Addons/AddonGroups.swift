@@ -106,11 +106,12 @@ enum AddonGroups {
     }
 
     /// "152 skills · 45 servers · ~7.5k tokens at start"; the tokens only when some are known.
-    static func summary(_ items: [Addon]) -> String {
+    /// `chat`: the list is a chat's own record, which knows what things weigh; the files alone don't.
+    static func summary(_ items: [Addon], chat: Bool = true) -> String {
         let skills = items.count { $0.kind == .skill }, servers = items.count { $0.kind == .server }
         var parts = [String(localized: "\(skills) skills"), String(localized: "\(servers) servers")]
         let known = items.compactMap(\.tokens)
-        if !known.isEmpty { parts.append(String(localized: "~\(k(known.reduce(0, +))) tokens at start")) }
+        if chat, !known.isEmpty { parts.append(String(localized: "~\(k(known.reduce(0, +))) tokens at start")) }
         return parts.joined(separator: " · ")
     }
 
