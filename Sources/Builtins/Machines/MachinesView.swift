@@ -66,14 +66,11 @@ struct MachinesView: View {
         let asleep = [.sleeping, .off, .error].contains(v.state)
         return HStack(spacing: Metrics.gapWide) {
             Group {
-                if v.machine.os == "macos" {
-                    Image(systemName: "apple.logo").font(.ui(12, weight: .semibold))
-                } else if v.machine.os == "android" {
-                    Image(systemName: "smartphone").font(.ui(12, weight: .semibold))
-                } else if v.machine.os == "ios" {
-                    Image(systemName: "iphone").font(.ui(12, weight: .semibold))
-                } else {
-                    Text(mark.letter).font(.ui(11, weight: .bold))
+                switch v.machine.kind {
+                case .macos: Image(systemName: "apple.logo").font(.ui(12, weight: .semibold))
+                case .android: Image(systemName: "smartphone").font(.ui(12, weight: .semibold))
+                case .ios: Image(systemName: "iphone").font(.ui(12, weight: .semibold))
+                case .linux: Text(mark.letter).font(.ui(11, weight: .bold))
                 }
             }
             .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)

@@ -4713,7 +4713,7 @@
             "type" : "boolean"
           },
           "os" : {
-            "description" : "`linux` for now.",
+            "description" : "What it is, as the wire and machine.json have it: `linux`, `macos`, `android` or `ios` (`kind`).",
             "type" : "string"
           },
           "rosetta" : {

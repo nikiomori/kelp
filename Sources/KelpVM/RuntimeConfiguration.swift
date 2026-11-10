@@ -16,7 +16,7 @@ extension Runtime {
             attachment: try VZDiskImageStorageDeviceAttachment(
                 url: file("disk.img"), readOnly: false,
                 cachingMode: .automatic, synchronizationMode: .fsync))
-        if machine.os == "macos" {
+        if machine.kind == .macos {
             try MacGuest.configure(config, folder: folder)
             config.storageDevices = [disk]
         } else {
@@ -68,13 +68,13 @@ extension Runtime {
         try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
         let shared = VZSharedDirectory(url: files, readOnly: false)
         let exchange = VZVirtioFileSystemDeviceConfiguration(
-            tag: machine.os == "macos" ? VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag : VMs.filesTag)
+            tag: machine.kind == .macos ? VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag : VMs.filesTag)
         exchange.share =
-            machine.os == "macos"
+            machine.kind == .macos
             ? VZMultipleDirectoryShare(directories: ["Kelp": shared]) : VZSingleDirectoryShare(directory: shared)
         config.directorySharingDevices.append(exchange)
         #if arch(arm64)   // Rosetta for Linux is Apple silicon's: an Intel Mac runs x86 guests as they are
-            if machine.os == "linux", machine.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
+            if machine.kind == .linux, machine.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
                 let rosetta = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
                 rosetta.share = try VZLinuxRosettaDirectoryShare()
                 config.directorySharingDevices.append(rosetta)

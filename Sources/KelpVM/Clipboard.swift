@@ -20,7 +20,7 @@ extension Runtime {
     }
 
     private func clipboardIn() {
-        guard machine.os == "macos", state == .running else { return }
+        guard machine.kind == .macos, state == .running else { return }
         let board = NSPasteboard.general
         guard board.changeCount != Clipboard.mac, let text = board.string(forType: .string) else {
             // Nothing new from the Mac: what the machine holds now is old news, not something to bring out.
@@ -37,7 +37,7 @@ extension Runtime {
     }
 
     private func clipboardOut() {
-        guard machine.os == "macos", state == .running else { return }
+        guard machine.kind == .macos, state == .running else { return }
         Task {
             guard let text = await guestText(), !text.isEmpty, text != Clipboard.guest else {
                 return

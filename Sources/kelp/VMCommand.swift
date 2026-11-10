@@ -75,12 +75,12 @@ extension Main {
                 : URL(fileURLWithPath: flag("--cwd") ?? FileManager.default.currentDirectoryPath).standardizedFileURL
                     .path
             if args.first == "--" { args.removeFirst() }
-            let os = try await c.call(VMList()).first(where: { $0.machine.name == name })?.machine.os
-            if os == "ios" {   // a process in the simulator (no shell there to read a line)
+            let os = try await c.call(VMList()).first(where: { $0.machine.name == name })?.machine.kind
+            if os == .ios {   // a process in the simulator (no shell there to read a line)
                 let to = try await c.call(VMConnect(name: name, cwd: nil))
                 exec(to.ssh + ["spawn", to.device ?? ""] + args)
             }
-            if os == "android" {
+            if os == .android {
                 let adb = try await c.call(VMConnect(name: name, cwd: nil)).ssh   // Android's shell, through adb
                 exec(adb + ["shell"] + (args.isEmpty ? [] : [args.joined(separator: " ")]))
             }
@@ -105,13 +105,13 @@ extension Main {
         guard let info = try await c.call(VMList()).first(where: { $0.machine.name == name }) else {
             fail("No machine called \(name).")
         }
-        guard info.machine.os != "linux" else {
+        guard info.machine.kind.hasScreen else {
             fail("\(name) is Linux: it has no screen. kelp vm run \(name) -- <command> runs commands in it.")
         }
-        if info.machine.os == "android" {
+        if info.machine.kind == .android {
             return try await android(action, adb: try await c.call(VMConnect(name: name, cwd: nil)).ssh)
         }
-        if info.machine.os == "ios" { return try await ios(action, try await c.call(VMConnect(name: name, cwd: nil))) }
+        if info.machine.kind == .ios { return try await ios(action, try await c.call(VMConnect(name: name, cwd: nil))) }
         guard !["install", "launch", "open"].contains(action) else {
             fail("\(action) is for Android and iOS machines: kelp vm run \(name) -- … does it on macOS.")
         }
@@ -304,7 +304,7 @@ extension Main {
         }
         if let connections = v.connections, connections > 0 { parts.append("\(connections) open") }
         if v.state == .sleeping {
-            parts.append(v.machine.os == "linux" ? "wakes in under a second" : "wakes in a few seconds")
+            parts.append(v.machine.kind == .linux ? "wakes in under a second" : "wakes in a few seconds")
         }
         if let step = v.step {
             parts.append(step.text(v.detail) + (v.progress.map { String(format: ": %.0f%%", $0 * 100) } ?? ""))

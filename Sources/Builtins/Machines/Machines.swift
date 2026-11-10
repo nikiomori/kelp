@@ -173,7 +173,7 @@ enum Machines {
             let wake =
                 info.state == .off
                 ? String(localized: "Boots in a few seconds")
-                : info.machine.os == "linux"
+                : info.machine.kind == .linux
                     ? String(localized: "Wakes in under a second") : String(localized: "Wakes in a few seconds")
             guard let disk = info.diskMiB else { return wake }
             let size = String(localized: "\(bytes(disk << 20)) on disk")

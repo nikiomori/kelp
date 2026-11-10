@@ -8,12 +8,12 @@ extension VMService {
         guard FileManager.default.fileExists(atPath: file.path) else {
             throw RPCError.invalidParams("No file \(file.path).")
         }
-        switch image.os {
-        case "macos":
+        switch image.kind {
+        case .macos:
             guard file.pathExtension.lowercased() == "ipsw" else {
                 throw RPCError.invalidParams("A macOS machine is made from a restore image (.ipsw).")
             }
-        case "linux":
+        case .linux:
             let handle = try FileHandle(forReadingFrom: file)
             defer { handle.closeFile() }
             let head = try handle.read(upToCount: 0x8006) ?? Data()
@@ -27,7 +27,7 @@ extension VMService {
                     "That's an installer ISO, which needs a screen: a Linux machine starts from a cloud image's raw disk."
                 )
             }
-        default:
+        case .android, .ios:
             throw RPCError.invalidParams(
                 "\(image.title) machines come from your SDK or Xcode: --file is for macOS (.ipsw) and Linux (a raw disk)."
             )
@@ -37,7 +37,7 @@ extension VMService {
     /// A Linux or macOS machine's exchange folder here (`~/Kelp` inside).
     /// Made here if it isn't yet (kelp-vm makes it too, as it starts the machine).
     func filesFolder(_ machine: VMMachine) -> String? {
-        guard ["linux", "macos"].contains(machine.os) else { return nil }
+        guard machine.kind.sharesFolders else { return nil }
         let files = file(machine.name, "files")
         if !FileManager.default.fileExists(atPath: files.path) {
             do { try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true) } catch {
@@ -51,7 +51,7 @@ extension VMService {
     /// it boots: cloud-init's growpart). A sleeping one's saved state wouldn't fit them: shut it down first.
     func configure(_ request: VMConfigure) throws -> VMInfo {
         var machine = try self.machine(request.name)
-        guard ["linux", "macos"].contains(machine.os) else {
+        guard machine.kind.resizable else {
             throw RPCError.invalidParams("An \(machine.os) machine's size is set when it's made.")
         }
         let state = info(machine).state
@@ -61,17 +61,12 @@ extension VMService {
                 ? "\(machine.name) isn't made yet." : "Shut \(machine.name) down first: a new size takes a fresh start."
             throw RPCError.invalidParams(why)
         }
-        let cores = ProcessInfo.processInfo.activeProcessorCount,
-            gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2)
+        let cores = ProcessInfo.processInfo.activeProcessorCount, memories = machine.kind.memoryRange()
         let cpus = request.cpus ?? machine.cpus, memory = request.memory ?? machine.memoryMiB >> 10
         let disk = request.disk ?? machine.diskGiB
-        let least = machine.os == "macos" ? 4 : 1
-        guard (1...cores).contains(cpus), (least...max(least, gib)).contains(memory),
-            (machine.diskGiB...2048).contains(disk)
-        else {
-            let most = max(least, gib)
+        guard (1...cores).contains(cpus), memories.contains(memory), (machine.diskGiB...2048).contains(disk) else {
             throw RPCError.invalidParams(
-                "Processors 1–\(cores), memory \(least)–\(most) GB, disk \(machine.diskGiB)–2048 GB "
+                "Processors 1–\(cores), memory \(memories.lowerBound)–\(memories.upperBound) GB, disk \(machine.diskGiB)–2048 GB "
                     + "(a disk only grows)."
             )
         }
@@ -98,7 +93,7 @@ extension VMService {
             throw RPCError.invalidParams("\(machine.name) is in use again: shut it down, then change its size.")
         }
         if disk > machine.diskGiB {
-            guard machine.os == "linux" else {
+            guard machine.kind == .linux else {
                 throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.")
             }
             guard truncate(file(machine.name, "disk.img").path, off_t(disk) << 30) == 0 else {

@@ -52,7 +52,7 @@ struct MachineView: View {
                     .truncationMode(.tail)
             }
             Spacer(minLength: 8)
-            if let os = info?.machine.os, os != "linux" {
+            if info?.machine.kind.hasScreen == true {
                 Button(String(localized: "Show Screen")) { Machines.control(app, machine: name, .show) }
                     .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             }
@@ -257,7 +257,7 @@ struct MachineView: View {
             if let files = info.files { exchange(files) }
             Text("Machine").sectionHeading().padding(.top, 10)
             facts(info)
-            if ["linux", "macos"].contains(info.machine.os), info.state != .off {
+            if info.machine.kind.resizable, info.state != .off {
                 Text("Shut it down to change its processors, memory or disk.").quietNote().padding(.horizontal, 6)
             }
         }
@@ -293,9 +293,8 @@ struct MachineView: View {
     /// What it is, a row each; processors, memory and a Linux disk as steppers while it's shut down (a disk only grows).
     private func facts(_ info: VMInfo) -> some View {
         let machine = info.machine, cores = ProcessInfo.processInfo.activeProcessorCount
-        let gib = max(1, Int(ProcessInfo.processInfo.physicalMemory >> 30) / 2), least = machine.os == "macos" ? 4 : 1
-        let editable = ["linux", "macos"].contains(machine.os) && info.state == .off
-        let phone = machine.os == "android"
+        let editable = machine.kind.resizable && info.state == .off
+        let phone = machine.kind == .android
         func row(_ label: String, _ value: some View) -> some View {
             GridRow {
                 Text(label).font(.ui(12)).foregroundStyle(.secondary)
@@ -316,13 +315,13 @@ struct MachineView: View {
                     Stepper(
                         "\(machine.memoryMiB >> 10) GB",
                         value: Binding(get: { machine.memoryMiB >> 10 }, set: { resize(memory: $0) }),
-                        in: least...max(least, gib)))
+                        in: machine.kind.memoryRange()))
             } else {
                 row(String(localized: "Processors"), text("\(machine.cpus)"))
                 row(String(localized: "Memory"), text(memory(info)))
             }
             if !phone {
-                if editable && machine.os == "linux" {
+                if editable && machine.kind == .linux {
                     row(
                         String(localized: "Disk"),
                         Stepper(

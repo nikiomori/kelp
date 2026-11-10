@@ -41,11 +41,11 @@ extension VMService {
             for entry in made where !keep.contains(entry) { remove(file(name, entry)) }
             step(vm, .starting)
             Task.detached {
-                switch vm.os {
-                case "macos": await self.makeMac(vm, ipsw: source)
-                case "android": await self.makeAndroid(vm)
-                case "ios": await self.makeIOS(vm)
-                default: if let image = VMImage.named(vm.image) { await self.make(vm, image, raw: source) }
+                switch vm.kind {
+                case .macos: await self.makeMac(vm, ipsw: source)
+                case .android: await self.makeAndroid(vm)
+                case .ios: await self.makeIOS(vm)
+                case .linux: if let image = VMImage.named(vm.image) { await self.make(vm, image, raw: source) }
                 }
             }
         }

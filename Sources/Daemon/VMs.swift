@@ -43,7 +43,7 @@ struct VMService: Sendable {
             if sessions, entry.state == .running {
                 let runs =
                     (entry.connections ?? 0) > 0 ? detail(name, status: st)?.runs.compactMap(\.session) ?? [] : []
-                let screen = entry.machine.os == "macos" ? st?.screen.map { [$0] } ?? [] : []
+                let screen = entry.machine.kind == .macos ? st?.screen.map { [$0] } ?? [] : []
                 entry.sessions = Array(Set(runs + screen)).sorted()
             }
             return entry
@@ -142,7 +142,7 @@ struct VMService: Sendable {
             try wake(machine)
             try check(ask(name, .init(op: .start), wait: 620))
         case .show:
-            guard machine.os != "linux" else {
+            guard machine.kind.hasScreen else {
                 throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.")
             }
             try wake(machine, show: true)   // begun with its window (Android's emulator starts headless otherwise)
@@ -166,7 +166,7 @@ struct VMService: Sendable {
     /// no `cwd`: its home folder, nothing shared.
     func connect(_ name: String, cwd: String?) throws -> VMConnection {
         let machine = try ready(name)
-        if machine.os == "ios" {   // simctl for its simulator, and its runner's port: booted first
+        if machine.kind == .ios {   // simctl for its simulator, and its runner's port: booted first
             try wake(machine)
             let reply = try ask(name, .init(op: .start), wait: 620)
             try check(reply)
@@ -175,7 +175,7 @@ struct VMService: Sendable {
             }
             return VMConnection(ssh: ["/usr/bin/xcrun", "simctl"], prefix: "", device: udid, port: port)
         }
-        if machine.os == "android" {   // adb to its emulator, booted or woken first
+        if machine.kind == .android {   // adb to its emulator, booted or woken first
             try wake(machine)
             let reply = try ask(name, .init(op: .start), wait: 620)
             try check(reply)
@@ -199,7 +199,7 @@ struct VMService: Sendable {
         let shared = try ask(name, .init(op: .share, path: project), wait: 5)
         try check(shared)
         guard let slot = shared.slot else { throw RPCError.internalError("\(name) didn't share \(project)") }
-        return VMConnection(ssh: ssh, prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd, os: machine.os))
+        return VMConnection(ssh: ssh, prefix: VMs.prefix(slot: slot, folder: project, cwd: cwd, os: machine.kind))
     }
 
     func ready(_ name: String) throws -> VMMachine {

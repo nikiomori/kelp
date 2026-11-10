@@ -105,7 +105,7 @@ import Testing
 
 /// On macOS the folder mounts with mount_virtiofs, and the line is still valid shell.
 @Test func aMacOSPrefixUsesItsOwnMount() throws {
-    let p = VMs.prefix(slot: 1, folder: "/Users/n/app", cwd: "/Users/n/app", os: "macos")
+    let p = VMs.prefix(slot: 1, folder: "/Users/n/app", cwd: "/Users/n/app", os: .macos)
     #expect(p.contains("sudo mount_virtiofs kelp1 '/Users/n/app'") && p.contains("grep -qF 'kelp1 on /Users/n/app ('"))
     let check = try Subprocess.run(["/bin/sh", "-n", "-c", p + "true"], cwd: "/", env: [:], timeLimit: 10)
     #expect(check.status == 0)
@@ -137,7 +137,7 @@ import Testing
 
 /// ~/Kelp in a machine: a link to the folder macOS mounts by itself, a mount of the tag in Linux; both leave one there be.
 @Test func aMachinesExchangeFolderIsKelpInItsHome() {
-    #expect(VMs.filesSetup(os: "macos") == #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#)
-    #expect(VMs.filesSetup(os: "linux").hasPrefix("mountpoint -q ~/Kelp ||"))
-    #expect(VMs.filesSetup(os: "linux").contains("virtiofs \(VMs.filesTag) ~/Kelp"))
+    #expect(VMs.filesSetup(os: .macos) == #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#)
+    #expect(VMs.filesSetup(os: .linux).hasPrefix("mountpoint -q ~/Kelp ||"))
+    #expect(VMs.filesSetup(os: .linux).contains("virtiofs \(VMs.filesTag) ~/Kelp"))
 }

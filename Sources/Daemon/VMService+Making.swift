@@ -26,17 +26,16 @@ extension VMService {
             throw RPCError.invalidParams(
                 "A Linux machine of your own is made from its disk: --file disk.raw (or --image debian-13).")
         }
-        let cores = ProcessInfo.processInfo.activeProcessorCount,
-            gib = Int(ProcessInfo.processInfo.physicalMemory >> 30)
-        let mac = image.os == "macos"
-        let cpus = request.cpus ?? (mac ? 4 : 2), memory = request.memory ?? (mac ? 6 : 2),
-            disk = request.disk ?? (mac ? 64 : ["android", "ios"].contains(image.os) ? 8 : 32)
-        guard (1...cores).contains(cpus), (1...max(1, gib / 2)).contains(memory), (8...2048).contains(disk) else {
-            throw RPCError.invalidParams("--cpus 1–\(cores), --memory 1–\(max(1, gib / 2)) GB, --disk 8–2048 GB.")
+        let cores = ProcessInfo.processInfo.activeProcessorCount, kind = image.kind, memories = kind.memoryRange()
+        let cpus = request.cpus ?? (kind == .macos ? 4 : 2), memory = request.memory ?? (kind == .macos ? 6 : 2),
+            disk = request.disk ?? [.macos: 64, .linux: 32][kind] ?? 8
+        guard (1...cores).contains(cpus), memories.contains(memory), (8...2048).contains(disk) else {
+            throw RPCError.invalidParams(
+                "--cpus 1–\(cores), --memory \(memories.lowerBound)–\(memories.upperBound) GB, --disk 8–2048 GB.")
         }
         let machine = VMMachine(
             name: request.name, os: image.os, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk,
-            user: VMs.user(NSUserName()), rosetta: image.os == "linux")
+            user: VMs.user(NSUserName()), rosetta: kind == .linux)
         let machineFolder = folder(machine.name)
         // an earlier try's remains, its simulator and password with it
         if failure(machine.name) != nil { try discard(machine.name) }
@@ -49,16 +48,16 @@ extension VMService {
             throw RPCError.invalidParams("There's already a machine called \(machine.name).")
         }
         chmod(machineFolder.path, 0o700)
-        step(machine, image.os == "macos" && given == nil ? .asking : .starting)
+        step(machine, kind == .macos && given == nil ? .asking : .starting)
         // to go on after a restart
         if let given { try given.path.write(to: file(machine.name, "source"), atomically: true, encoding: .utf8) }
         try JSONEncoder().encode(machine).write(to: file(machine.name, "machine.json"))
         Task.detached {
-            switch image.os {
-            case "macos": await self.makeMac(machine, ipsw: given)
-            case "android": await self.makeAndroid(machine)
-            case "ios": await self.makeIOS(machine)
-            default: await self.make(machine, image, raw: given)
+            switch kind {
+            case .macos: await self.makeMac(machine, ipsw: given)
+            case .android: await self.makeAndroid(machine)
+            case .ios: await self.makeIOS(machine)
+            case .linux: await self.make(machine, image, raw: given)
             }
         }
         return info(machine)

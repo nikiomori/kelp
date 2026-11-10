@@ -47,7 +47,7 @@ extension VMService {
     /// A macOS machine's screen, read or driven from the Mac's side by its kelp-vm (`VMScreen`), waking it first.
     func screen(_ name: String, _ args: [String], session: String?) throws {
         let machine = try ready(name)
-        guard machine.os == "macos" else {
+        guard machine.kind == .macos else {
             throw RPCError.invalidParams("\(name) isn't a macOS machine: its screen goes through adb or the simulator.")
         }
         try wake(machine)
@@ -123,7 +123,7 @@ extension VMService {
         // user's setting, so as the user (sysadminctl wants the password); then all of it written to the machine's disk.
         let unlock =
             "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0"
-            + " && { \(VMs.filesSetup(os: "macos")); } && sync"   // ~/Kelp: its first boot had no key for kelp-vm to make it
+            + " && { \(VMs.filesSetup(os: .macos)); } && sync"   // ~/Kelp: its first boot had no key for kelp-vm to make it
         let unlocked = try Subprocess.run(
             ["/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name, unlock],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)

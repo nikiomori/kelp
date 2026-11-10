@@ -6,7 +6,7 @@ import Foundation
 /// disk when none is open, and wakes on the next.
 public struct VMMachine: Codable, Sendable, Equatable {
     public var name: String
-    /// `linux` for now.
+    /// What it is, as the wire and machine.json have it: `linux`, `macos`, `android` or `ios` (`kind`).
     public var os: String
     /// Its `VMImage.id`.
     public var image: String
@@ -30,6 +30,31 @@ public struct VMMachine: Codable, Sendable, Equatable {
         self.user = user
         self.rosetta = rosetta
         self.network = network
+    }
+}
+
+extension VMMachine {
+    public var kind: VMKind { VMKind(os) }
+}
+
+/// What a machine is (`VMMachine.os` and `VMImage.os` on the wire), and what follows from that.
+public enum VMKind: String, Sendable, CaseIterable {
+    case linux, macos, android, ios
+
+    /// One the wire names; a name this build doesn't know reads as Linux, as it always has.
+    public init(_ os: String) { self = VMKind(rawValue: os) ?? .linux }
+
+    /// A screen of its own: shown in a window (`vm.control` show), read and driven by agents (`vm.screen`).
+    public var hasScreen: Bool { self != .linux }
+    /// Its processors, memory and disk change after it's made (`vm.configure`): an Android or iOS device's are its own.
+    public var resizable: Bool { self == .linux || self == .macos }
+    /// Folders of the Mac shared into it: a project at its own path, the exchange folder (`VMInfo.files`). Android and
+    /// iOS take files through adb and simctl.
+    public var sharesFolders: Bool { self == .linux || self == .macos }
+    /// The memory it may be given, GB: up to half the Mac's (`macGiB`), and at least what it needs (macOS: 4).
+    public func memoryRange(macGiB: Int = Int(ProcessInfo.processInfo.physicalMemory >> 30)) -> ClosedRange<Int> {
+        let least = self == .macos ? 4 : 1
+        return least...max(least, macGiB / 2)
     }
 }
 
@@ -173,6 +198,7 @@ public struct VMImage: Sendable, Equatable {
     /// The raw disk inside the archive.
     public var member: String
     public var os = "linux"
+    public var kind: VMKind { VMKind(os) }
 
     public static let all = [
         VMImage(
@@ -271,9 +297,9 @@ public enum VMs {
 
     /// The command line run inside: `folder` mounted at its own path from its slot (again when that path holds another
     /// slot, or went stale), then `cwd`, then the command.
-    public static func prefix(slot: Int, folder: String, cwd: String, os: String = "linux") -> String {
+    public static func prefix(slot: Int, folder: String, cwd: String, os: VMKind = .linux) -> String {
         let dir = ShellQuote.word(folder), tag = "kelp\(slot)", cd = "cd \(ShellQuote.word(cwd)) || exit 1; "
-        guard os == "macos" else {
+        guard os == .macos else {
             return "{ [ \"$(findmnt -n -o SOURCE --mountpoint \(dir))\" = \(tag) ] && ls \(dir) >/dev/null 2>&1; } "
                 + "|| { sudo umount -l \(dir) 2>/dev/null; sudo mount --mkdir -t virtiofs \(tag) \(dir); } || exit 1; "
                 + cd
@@ -367,8 +393,8 @@ public enum VMs {
     /// Its exchange folder's share: a macOS guest mounts it by itself under /Volumes/My Shared Files/Kelp, a Linux one
     /// takes the tag; `filesSetup` makes it `~/Kelp` either way, as the machine boots.
     public static let filesTag = "kelpfiles"
-    public static func filesSetup(os: String) -> String {
-        os == "macos"
+    public static func filesSetup(os: VMKind) -> String {
+        os == .macos
             ? #"[ -e ~/Kelp ] || ln -s "/Volumes/My Shared Files/Kelp" ~/Kelp"#
             : "mountpoint -q ~/Kelp || { mkdir -p ~/Kelp && sudo mount -t virtiofs \(filesTag) ~/Kelp; }"
     }

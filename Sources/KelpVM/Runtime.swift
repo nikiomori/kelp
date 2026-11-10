@@ -85,7 +85,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
         let join: (String?) -> Void = { [self] error in
             guard error == nil else { return finish(client, counted) }
-            if machine.os == "macos" {
+            if machine.kind == .macos {
                 guard let ip = guestAddress(), MacGuest.bridge(client, to: ip, ended: { self.finish(client, counted) })
                 else {
                     log("can't reach sshd")
@@ -205,7 +205,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                 done(error, nil)
             }
         case .screen:
-            guard machine.os == "macos" else { return done("Its screen is a macOS machine's.", nil) }
+            guard machine.kind == .macos else { return done("Its screen is a macOS machine's.", nil) }
             lastUse = now()
             wake { error in
                 guard error == nil else { return done(error, nil) }
@@ -300,7 +300,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
         guard FileManager.default.fileExists(atPath: saved.path) else {
             #if arch(arm64)   // a macOS machine's configuration doesn't build on Intel (`MacGuest.needsAppleSilicon`)
-                if machine.os == "macos", !FileManager.default.fileExists(atPath: file("booted").path) {
+                if machine.kind == .macos, !FileManager.default.fileExists(atPath: file("booted").path) {
                     // The first boot: macOS sets the account up, signs in and turns Remote Login on by itself.
                     do {
                         let password = try String(contentsOf: file("password"), encoding: .utf8).trimmingCharacters(
@@ -359,7 +359,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         guard Date().timeIntervalSince(since) < (firstBoot ? 1800 : 180) else {
             return started(VMError("sshd didn't answer"))
         }
-        if machine.os == "macos" {
+        if machine.kind == .macos {
             let ip = guestAddress()
             return Thread.detachNewThread {
                 let ok = ip.map(MacGuest.banner) ?? false
@@ -386,7 +386,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         guard ok else { return retry(restored, since) }
         FileManager.default.createFile(atPath: file("booted").path, contents: nil)
         // Restored: its clock set to now. Booted: its exchange folder made ~/Kelp (a restore keeps that).
-        let command = restored ? setClock() : VMs.filesSetup(os: machine.os)
+        let command = restored ? setClock() : VMs.filesSetup(os: machine.kind)
         Task {
             do { _ = try await own(command) } catch { log("\(command): \(error.localizedDescription)") }
             started(nil)
@@ -394,7 +394,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     }
 
     private func retry(_ restored: Bool, _ since: Date) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + (machine.os == "macos" ? 1 : 0.2)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (machine.kind == .macos ? 1 : 0.2)) {
             MainActor.assumeIsolated { self.awaitSSH(restored: restored, error: nil, since: since) }
         }
     }
@@ -466,7 +466,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     /// The balloon gives the Mac back what the guest doesn't use (`VMs.memoryTarget`). A restore maps all of `memoryMiB`;
     /// this takes it back.
     private func adjustMemory() {
-        guard machine.os == "linux" else { return }   // a macOS guest has no /proc/meminfo, and keeps all it was given
+        guard machine.kind == .linux else { return }   // a macOS guest has no /proc/meminfo, and keeps all it was given
         Task {
             guard let text = try? await own("cat /proc/meminfo") else { return }
             func kb(_ key: String) -> Int? {
@@ -521,7 +521,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             screenWindow.delegate = self
             screenWindow.center()
             window = screenWindow
-            if machine.os == "macos" { PasswordButton.add(to: screenWindow, machine: machine.name, folder: folder) }
+            if machine.kind == .macos { PasswordButton.add(to: screenWindow, machine: machine.name, folder: folder) }
         }
         let view = window?.contentView as? VZVirtualMachineView
         if view?.virtualMachine !== vm { view?.virtualMachine = vm }
@@ -651,7 +651,7 @@ extension Result {
 extension Runtime {
     /// The command that sets the guest's clock to now.
     private func setClock() -> String {
-        guard machine.os == "macos" else { return "sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null" }
+        guard machine.kind == .macos else { return "sudo date -s @\(Int(Date().timeIntervalSince1970)) >/dev/null" }
         let formatter = DateFormatter()
         formatter.dateFormat = "MMddHHmmyyyy.ss"
         formatter.timeZone = TimeZone(identifier: "UTC")
