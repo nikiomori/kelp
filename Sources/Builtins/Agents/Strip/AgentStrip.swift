@@ -41,6 +41,11 @@ final class AgentStrip {
     private var buttons: [String: StripButton] = [:]
     private var card: StripCard?
     private var observers: [NSObjectProtocol] = []
+    /// What the strip was last laid out with: under the pointer it stays so (`frozen`).
+    private var laidOut: (opened: String?, peeking: Bool)?
+    /// Something changed while it stood still under the pointer: laid out once the pointer leaves.
+    private var deferred = false
+    private var relayout: Timer?
 
     init(app: AppModel) { self.app = app }
 
@@ -146,9 +151,18 @@ final class AgentStrip {
         line.apply(fullScreen: state.fullScreen)
         let wasUp = isShowing
         let hidden = place?.edge != nil && !peeking
-        let opened = hidden ? nil : StripModel.opened(state.items)
-        let shownNow = state.items.map { item in
-            let button = buttons[item.workspace] ?? StripButton()
+        // Under the pointer the tiles stay where they are: a pill moving to other news would slide the tile being aimed at
+        // away. News comes as its tile's mark meanwhile, and the strip is laid out anew once the pointer leaves.
+        let frozen = row.pointerOn && wasUp && laidOut?.peeking == peeking
+        var opened = hidden ? nil : StripModel.opened(state.items)
+        if frozen, let was = laidOut, state.items.contains(where: { $0.workspace == was.opened }) {
+            opened = was.opened
+        }
+        deferred =
+            frozen
+            && (opened != StripModel.opened(state.items) || Set(buttons.keys) != Set(state.items.map(\.workspace)))
+        let shownNow = state.items.compactMap { item -> StripButton? in
+            guard let button = buttons[item.workspace] ?? (frozen ? nil : StripButton()) else { return nil }
             buttons[item.workspace] = button
             button.update(item, open: item.workspace == opened, app: app)
             button.onClick = { [weak self] in self?.clicked(item) }
@@ -158,8 +172,11 @@ final class AgentStrip {
             }
             return button
         }
-        row.setViews(shownNow, in: .leading)
-        buttons = buttons.filter { key, _ in state.items.contains { $0.workspace == key } }
+        if !frozen {
+            row.setViews(shownNow, in: .leading)
+            buttons = buttons.filter { key, _ in state.items.contains { $0.workspace == key } }
+            laidOut = (opened, peeking)
+        }
         if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) {
             closeCard()
         }
@@ -169,7 +186,7 @@ final class AgentStrip {
             goesOn = true
         }
         showEdge(hidden: hidden)
-        put(appearing: !wasUp)
+        if !frozen { put(appearing: !wasUp) }
         follow(opened)
         expireDone()
         tell(hidden: hidden)
@@ -212,6 +229,13 @@ final class AgentStrip {
     /// The pointer on a hidden strip brings it all out at once; off it, it goes back after a moment.
     func hoverStrip(_ on: Bool) {
         row.pointerOn = on
+        relayout?.invalidate()
+        if !on, deferred {
+            relayout = Timer.scheduledTimer(withTimeInterval: Motion.hoverOpen, repeats: false) { [weak self] _ in
+                // the main run loop's timer
+                MainActor.assumeIsolated { if self?.row.pointerOn == false { self?.refresh() } }
+            }
+        }
         peekTimer?.invalidate()
         guard place?.edge != nil, on != peeking, on || card == nil else { return }
         peekTimer = Timer.scheduledTimer(withTimeInterval: on ? Motion.hoverOpenWarm : Motion.hoverOpen, repeats: false)

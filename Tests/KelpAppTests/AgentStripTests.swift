@@ -220,3 +220,26 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     app.sessions = [s]
     #expect(card.question == "Allow npm test?")
 }
+
+/// News under the pointer doesn't move the tiles: the pill stays where it was until the pointer leaves.
+@MainActor @Test func theStripStandsStillUnderThePointer() async throws {
+    let rig = try await AppRig()
+    _ = NSApplication.shared
+    let strip = AgentStrip(app: rig.app)
+    strip.front = { false }   // behind another app, whatever another test brings forward
+    strip.animates = false
+    var other = rig.workspace
+    other.id = "other-workspace"
+    rig.app.worktrees.append(other)
+    strip.start()
+    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?", at: 5)]
+    #expect(try await waitFor(5) { strip.isShowing })
+    let before = try #require(strip.frame)
+    strip.hoverStrip(true)
+    // An older question elsewhere: it would open into the pill.
+    rig.app.sessions.append(session(other.id, .waiting, summary: "Which port, 3000 or 8080?", at: 1))
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(strip.frame == before)
+    strip.hoverStrip(false)
+    #expect(try await waitFor(5) { strip.frame != before })
+}
