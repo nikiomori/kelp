@@ -480,6 +480,22 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect([one("a", nil), one("b", "a"), one("c", "b")].children(of: "a").map(\.id) == ["b", "c"])
 }
 
+/// A failed run is told by its exit code, not by the words of its summary (which an agent's or a rewording changes):
+/// 1–127 failed, a signal (closing it, Stop) didn't, nor did a terminal whose last command failed.
+@Test func aSessionEndedWithAnErrorByItsExitCode() {
+    func ended(_ code: Int?, agent: String = "custom") -> Session {
+        var s = Session(cwd: "/", command: "", agent: agent, status: .exited, summary: "npm run dev")
+        s.exitCode = code
+        return s
+    }
+    #expect(ended(2).endedWithError && ended(127).endedWithError)
+    #expect(!ended(0).endedWithError && !ended(143).endedWithError && !ended(nil).endedWithError)
+    #expect(!ended(1, agent: "shell").endedWithError)
+    var running = ended(1)
+    running.status = .working
+    #expect(!running.endedWithError)
+}
+
 @Test func theAgentBoardPutsWhoNeedsYouFirst() {
     let repo = Repo(id: "r", name: "kelp", path: "/p"), w = Worktree(id: "w", repoId: "r", branch: "main", path: "/p")
     func agent(_ id: String, _ status: AgentStatus, at t: Double, kind: String? = "claude") -> Session {

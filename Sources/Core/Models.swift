@@ -295,6 +295,10 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// Ended here, its agent maybe still running on the host: a remote agent's tmux session outlives the ssh that showed it
     /// (255: the connection dropped) and its tmux client (1: killed). tmux exits 0 when the session ended.
     public var connectionLost: Bool { status == .exited && tmux != nil && (exitCode ?? 0) != 0 }
+    /// Its program ended by itself with an error (exit code 1–127; 128 and up is the signal that stopped it, as closing or
+    /// Stop does). A terminal's code is its last command's, not the terminal failing. Limit: a program that exits with 128
+    /// or more by itself reads as stopped.
+    public var endedWithError: Bool { status == .exited && agent != "shell" && (1...127).contains(exitCode ?? 0) }
 }
 
 extension [Session] {

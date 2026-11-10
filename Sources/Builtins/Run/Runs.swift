@@ -298,8 +298,8 @@ final class Runs: NSObject, NSMenuDelegate {
                     Banner.show(
                         String(localized: "The connection to the host dropped. \(name) keeps running there."),
                         action: show)
-                } else if session.summary.hasPrefix("Ended with an error") {
-                    let reason = session.summary.replacingOccurrences(of: "Ended with an error ", with: "")
+                } else if session.endedWithError, let code = session.exitCode {
+                    let reason = "(exit code \(code))"
                     Banner.show(String(localized: "\(name) failed \(reason)"), style: .error, action: show)
                 } else {
                     Banner.show(String(localized: "\(name) finished"), action: show)
