@@ -13,6 +13,11 @@ extension Builtins {
         icon: "sparkles", essential: true
     ) { app in
         return Contributions(
+            panels: [
+                PanelSpec(id: "addons", title: "Skills & MCP", icon: "powerplug", extensionId: "kelp.agents") {
+                    AddonsPanel(app: app)
+                }
+            ],
             commands: [
                 CommandSpec(id: "agents.new", title: "New Agent", key: "opt+cmd+t") { args in
                     starter(app)?.newAgent(args["agent"]?.string, prompt: args["prompt"]?.string)

@@ -1,0 +1,128 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+
+/// The Skills & MCP panel's rows, drawn: a section's title with its count, a group's line (chevron, name, count), an
+/// item (its kind's symbol, name, where it is, the agents that get it, what it costs), and what's wrong with one.
+@MainActor
+struct AddonRows {
+    let app: AppModel
+    private static let most = 4
+
+    func section(_ section: AddonLine.Section, count: Int) -> NSView {
+        let name: String =
+            switch section {
+            case .needsLook: String(localized: "Needs a Look")
+            case .servers: String(localized: "MCP Servers")
+            case .skills: String(localized: "Skills")
+            case .instructions: String(localized: "Instructions")
+            }
+        let title = label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
+        return line([title, digits(count), NSView()], inset: Metrics.inset)
+    }
+
+    func group(_ g: AddonGroup, count: Int, open: Bool) -> NSView {
+        let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
+        chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
+        chevron.contentTintColor = .tertiaryLabelColor
+        chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
+        let row = line(
+            [chevron, label(g.title, font: .ui(TextSize.row)), NSView(), digits(count)], inset: Metrics.inset)
+        row.setAccessibilityLabel(g.title)
+        return row
+    }
+
+    func item(_ addon: Addon, nested: Bool) -> NSView {
+        var views: [NSView] = [mark(addon), label(addon.name, font: .ui(TextSize.row)), NSView()]
+        if addon.kind != .skill, let origin = addon.origin { views.append(caption(origin, truncating: true)) }
+        if let faces = faces(addon.agents) { views.append(faces) }
+        if let tokens = addon.tokens { views.append(caption(AddonGroups.tokens(tokens), truncating: false)) }
+        let row = line(views, inset: nested ? Self.nested : Metrics.inset)
+        row.toolTip = AddonGroups.tip(addon)
+        return row
+    }
+
+    /// Needs a Look: the name over what's wrong, in red.
+    func problem(_ addon: Addon) -> NSView {
+        let warning = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Problem")))
+        warning.symbolConfiguration = .chrome(Metrics.iconSmall)
+        warning.contentTintColor = .textRed
+        let words = NSStackView(views: [
+            label(addon.name, font: .ui(TextSize.row)),
+            label(addon.problem ?? "", font: .ui(TextSize.caption), color: .textRed)
+        ])
+        words.orientation = .vertical
+        words.alignment = .leading
+        words.spacing = Metrics.lineGap
+        words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let row = line([warning, words, NSView()], inset: Metrics.inset)
+        row.toolTip = [addon.problem, AddonGroups.tip(addon)].compactMap { $0 }.joined(separator: "\n")
+        return row
+    }
+
+    /// The agents that get it, as their icons; nil when the list doesn't say.
+    private func faces(_ ids: [String]) -> NSView? {
+        guard !ids.isEmpty else { return nil }
+        let icons = ids.prefix(Self.most).map {
+            NSImageView(image: app.catalog.icon($0, size: Metrics.iconLarge) ?? NSImage())
+        }
+        let stack = NSStackView(views: icons)
+        stack.spacing = Metrics.iconGap
+        stack.toolTip = ids.map { app.catalog.name($0) }.joined(separator: ", ")
+        stack.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return stack
+    }
+
+    private func mark(_ addon: Addon) -> NSImageView {
+        let symbol =
+            switch addon.kind {
+            case .skill: "doc.text"
+            case .server: "server.rack"
+            case .instructions: "text.alignleft"
+            }
+        let image = NSImageView(image: .symbol(symbol))
+        image.symbolConfiguration = .chrome(Metrics.iconSmall)
+        image.contentTintColor = .secondaryLabelColor
+        return image
+    }
+
+    // MARK: Parts
+
+    /// A group's items start where its name does.
+    private static let chevron: CGFloat = 12
+    private static var nested: CGFloat { Metrics.inset + chevron + Metrics.gap }
+
+    private func digits(_ n: Int) -> NSTextField {
+        let field = label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
+        field.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return field
+    }
+
+    private func caption(_ text: String, truncating: Bool) -> NSTextField {
+        let field = label(text, font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
+        if truncating {   // where it is gives way before the name does
+            field.lineBreakMode = .byTruncatingMiddle
+            field.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal)
+        } else {
+            field.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+        return field
+    }
+
+    private func label(_ text: String, font: NSFont, color: NSColor = .labelColor) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = font
+        field.textColor = color
+        field.lineBreakMode = .byTruncatingTail
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+
+    private func line(_ views: [NSView], inset: CGFloat) -> NSStackView {
+        let stack = NSStackView(views: views)
+        stack.spacing = Metrics.gap
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.inset)
+        return stack
+    }
+}

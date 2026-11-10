@@ -1,0 +1,102 @@
+import Core
+import Foundation
+
+/// A folded group of the Skills & MCP panel: one kind's items from one source, or the servers that wait for a sign-in.
+struct AddonGroup: Hashable {
+    var kind: Addon.Kind
+    /// nil: the servers waiting for a sign-in, whatever brought them.
+    var source: Addon.Source?
+
+    var title: String {
+        guard let source else { return String(localized: "Not signed in") }
+        return switch source {
+        case .kelp: String(localized: "Kelp")
+        case .yours: String(localized: "Yours")
+        case .project: String(localized: "This project")
+        case .account where kind == .server: String(localized: "claude.ai connectors")
+        case .account: String(localized: "claude.ai")
+        case .plugin: String(localized: "Plugins")
+        case .agent: String(localized: "Built in")
+        }
+    }
+    /// The person's own skills and the project's show; the many others wait for a click.
+    var openAtFirst: Bool { kind == .skill && (source == .yours || source == .project) }
+}
+
+/// One line of the panel's list.
+enum AddonLine: Equatable {
+    enum Section: Equatable { case needsLook, servers, skills, instructions }
+    case section(Section, count: Int)
+    case group(AddonGroup, count: Int, open: Bool)
+    /// `nested`: under a group's line.
+    case item(Addon, nested: Bool)
+    /// In Needs a Look: its name over what's wrong.
+    case problem(Addon)
+}
+
+/// What the panel lists, in its order, without AppKit: what needs a look, the servers (the person's and the
+/// project's one by one, the rest folded), the skills by who brought them, the instruction files.
+enum AddonGroups {
+    static let skillSources: [Addon.Source] = [.kelp, .yours, .project, .account, .plugin, .agent]
+    static let folded: [Addon.Source] = [.account, .plugin, .agent]
+
+    /// `toggled`: the groups the person folded or unfolded, against `openAtFirst`.
+    static func lines(_ items: [Addon], toggled: Set<AddonGroup>) -> [AddonLine] {
+        var out: [AddonLine] = []
+        let problems = items.filter { $0.problem != nil }
+        if !problems.isEmpty { out += [.section(.needsLook, count: problems.count)] + problems.map(AddonLine.problem) }
+        let servers = items.filter { $0.kind == .server }
+        if !servers.isEmpty {
+            out.append(.section(.servers, count: servers.count))
+            let ready = servers.filter { !$0.signIn }
+            out += ready.filter { !folded.contains($0.source) }.map { .item($0, nested: false) }
+            for source in folded {
+                out += group(.init(kind: .server, source: source), ready.filter { $0.source == source }, toggled)
+            }
+            out += group(.init(kind: .server, source: nil), servers.filter(\.signIn), toggled)
+        }
+        let skills = items.filter { $0.kind == .skill }
+        if !skills.isEmpty {
+            out.append(.section(.skills, count: skills.count))
+            for source in skillSources {
+                out += group(.init(kind: .skill, source: source), skills.filter { $0.source == source }, toggled)
+            }
+        }
+        let files = items.filter { $0.kind == .instructions }
+        if !files.isEmpty {
+            out += [.section(.instructions, count: files.count)] + files.map { .item($0, nested: false) }
+        }
+        return out
+    }
+
+    private static func group(_ g: AddonGroup, _ items: [Addon], _ toggled: Set<AddonGroup>) -> [AddonLine] {
+        guard !items.isEmpty else { return [] }
+        let open = g.openAtFirst != toggled.contains(g)
+        return [.group(g, count: items.count, open: open)] + (open ? items.map { .item($0, nested: true) } : [])
+    }
+
+    /// "152 skills · 45 servers · ~7.5k tokens at start"; the tokens only when some are known.
+    static func summary(_ items: [Addon]) -> String {
+        let skills = items.count { $0.kind == .skill }, servers = items.count { $0.kind == .server }
+        var parts = [String(localized: "\(skills) skills"), String(localized: "\(servers) servers")]
+        let known = items.compactMap(\.tokens)
+        if !known.isEmpty { parts.append(String(localized: "~\(k(known.reduce(0, +))) tokens at start")) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// A row's tooltip: what it says about itself, where it is, its other copies.
+    static func tip(_ addon: Addon) -> String {
+        ([addon.about, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }).compactMap { $0 }
+            .joined(separator: "\n")
+    }
+
+    static func tokens(_ n: Int) -> String { String(localized: "\(k(n)) tok") }
+
+    /// 17_600 → "17.6k", 31_000 → "31k", 640 → "640": as the context card says it (ContextParts.k, internal to
+    /// KelpKit).
+    static func k(_ tokens: Int) -> String {
+        guard tokens >= 1000 else { return "\(tokens)" }
+        let tenths = (tokens + 50) / 100
+        return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
+    }
+}
