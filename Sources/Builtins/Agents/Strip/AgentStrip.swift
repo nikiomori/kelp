@@ -184,6 +184,7 @@ final class AgentStrip {
         }
         glint.isHidden = edge == nil
         glint.cell = state.items.map(\.cell).min()
+        glint.twice = state.items.count { $0.cell == .asks } > 1
         let side: CGFloat = 4, room = StripModel.handle + side
         row.edgeInsets = NSEdgeInsets(
             top: side, left: edge == .right ? room : side, bottom: side, right: edge == .left ? room : side)

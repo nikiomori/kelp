@@ -67,36 +67,44 @@ extension StripModel {
     static func newsKey(_ item: StripItem) -> String { "\(item.session)|\(item.since.timeIntervalSince1970)" }
 }
 
-/// The sliver's one sign: a short bar in the state's colour that glows for a question or a failure, a dot when something
-/// finished, a grey bar breathing while they work.
+/// The sliver's one sign: a short bar in the state's colour that glows for a question (and breathes) or a failure, a dot
+/// when something finished, a still grey bar while they work.
 final class StripGlint: NSView {
     static let size = NSSize(width: 6, height: 14)
-    private let mark = CALayer()
+    private let mark = CALayer(), second = CALayer()
 
     var cell: DockFace.Cell? { didSet { if cell != oldValue { needsDisplay = true } } }
+    /// More than one workspace asks: two bars, so a second question doesn't hide behind the first.
+    var twice = false { didSet { if twice != oldValue { needsDisplay = true } } }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.addSublayer(mark)
+        layer?.addSublayer(second)
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.size.width),
             heightAnchor.constraint(equalToConstant: Self.size.height)
         ])
+        followReduceMotion(#selector(motionChanged))
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    @objc private func motionChanged() { needsDisplay = true }
+
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
-        let size = Self.size, dot = cell == .done
+        let size = Self.size, dot = cell == .done, two = twice && cell == .asks
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        let bar: CGFloat = two ? 2 : size.width - 2
         mark.frame =
             dot
             ? CGRect(x: 0, y: (size.height - size.width) / 2, width: size.width, height: size.width)
-            : CGRect(x: 1, y: 0, width: size.width - 2, height: size.height)
-        mark.cornerRadius = dot ? size.width / 2 : (size.width - 2) / 2
+            : CGRect(x: two ? 0 : 1, y: 0, width: bar, height: size.height)
+        second.frame = CGRect(x: size.width - bar, y: 0, width: bar, height: size.height)
+        second.isHidden = !two
         let color: NSColor =
             switch cell {
             case .asks: .systemOrange
@@ -104,23 +112,28 @@ final class StripGlint: NSView {
             case .done: .labelColor
             default: .secondaryLabelColor
             }
-        mark.backgroundColor = color.cgColor
         let glows = cell == .asks || cell == .failed
-        mark.shadowColor = color.cgColor
-        mark.shadowRadius = glows ? 4 : 0
-        mark.shadowOpacity = glows ? 0.9 : 0
-        mark.shadowOffset = .zero
+        for layer in [mark, second] {
+            layer.cornerRadius = dot ? size.width / 2 : bar / 2
+            layer.backgroundColor = color.cgColor
+            layer.shadowColor = color.cgColor
+            layer.shadowRadius = glows ? 4 : 0
+            layer.shadowOpacity = glows ? 0.9 : 0
+            layer.shadowOffset = .zero
+            layer.removeAllAnimations()
+        }
         CATransaction.commit()
-        mark.removeAllAnimations()
-        guard cell == .working, !Motion.reduced else { return }
+        // What breathes is what waits for you, as a tab's glow does; work going on is the quiet state and stands still.
+        guard cell == .asks, !Motion.reduced else { return }
         let breathe = CABasicAnimation(keyPath: "opacity")
         breathe.fromValue = 1
         breathe.toValue = 0.35
-        breathe.duration = Motion.wait / 2
+        breathe.duration = Motion.breathe
         breathe.autoreverses = true
         breathe.repeatCount = .infinity
+        breathe.beginTime = Motion.beat(2 * Motion.breathe)
         breathe.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)   // as the spinners
-        mark.add(breathe, forKey: "breathe")
+        for layer in [mark, second] { layer.add(breathe, forKey: "breathe") }
     }
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
