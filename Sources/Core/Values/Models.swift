@@ -174,6 +174,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// The one of them it waits for (a test run, not a server): its tab glows for it while it works. A Stop says which; one
     /// sent to the background mid-turn counts until then, unless it looks like a server. nil when it waits for none.
     public var awaiting: String?
+    /// The answers its question offers while it waits on one (AskUserQuestion with one question and one answer): one of
+    /// them is picked by its label (`session.choose`), as a click on it would. nil for any other wait, and once it goes on.
+    public var choices: [String]?
     /// The command its shell tool runs now (`AgentCommand`, from its hooks); nil between them.
     public var running: String?
     /// The plan limit that stopped it; nil again once it does anything else.

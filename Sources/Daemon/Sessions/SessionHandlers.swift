@@ -155,13 +155,19 @@ extension SessionChoose: Handled {
     var answersQuestion: Bool { true }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
+        // Not Allow or Deny but one of a question's answers (`Session.choices`): picked in its menu, by its label.
+        guard answer == "allow" || answer == "deny" else {
+            guard ls.choose(answer, to: question) != nil else { return false }
+            sessions.publish(ls)
+            return true
+        }
         // Kelp's own question (a database change): its command waits on it, whatever the screen says meanwhile.
-        if sessions.permissions.answerKelp(id, question: question, answer == "allow" ? "allow" : "deny") { return true }
+        if sessions.permissions.answerKelp(id, question: question, answer) { return true }
         // A question cut short (a long or many-line command) is answered where it shows whole: in the agent's dialog.
         if let question, !Hooks.shownWhole(question) { return false }
         // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu. A banner's answer
         // goes only to the question it showed: the hook waiting now may be a newer one's.
-        if ls.asks(question), sessions.permissions.answerPermission(id, answer == "allow" ? "allow" : "deny") {
+        if ls.asks(question), sessions.permissions.answerPermission(id, answer) {
             _ = ls.answeredThroughHook()
             sessions.publish(ls)
             return true

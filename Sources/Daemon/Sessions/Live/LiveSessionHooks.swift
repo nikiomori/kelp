@@ -23,15 +23,16 @@ extension LiveSession {
     func hook(
         _ event: HookEvent, trigger: String? = nil, message: String? = nil, asker: String? = nil,
         question: Bool = false,
-        answered: Bool = false, goal: String? = nil, at: TimeInterval? = nil
+        answered: Bool = false, goal: String? = nil, choices: [String]? = nil, at: TimeInterval? = nil
     ) {
         state.withLock { st in
             if let at, at < st.newestHook { return }
-            let said = st.record.summary, awaited = st.record.awaiting
+            let said = st.record.summary, awaited = st.record.awaiting, offered = st.record.choices
             st.hook(
                 event, trigger: trigger, message: message, asker: asker, question: question, answered: answered,
-                goal: goal)
-            emit(st.sync() ?? (st.record.summary != said || st.record.awaiting != awaited ? st.record : nil))
+                goal: goal, choices: choices)
+            let changed = st.record.summary != said || st.record.awaiting != awaited || st.record.choices != offered
+            emit(st.sync() ?? (changed ? st.record : nil))
         }
     }
 

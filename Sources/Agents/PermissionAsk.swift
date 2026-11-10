@@ -44,6 +44,18 @@ extension Hooks {
         return "Allow " + (text.count > 120 ? String(text.prefix(119)) + "…" : text) + "?"
     }
 
+    /// What an AskUserQuestion dialog offers, by label: only for one question with one answer to pick, where a single click
+    /// says all of it. A dialog of several questions, or of several answers each, is answered in the agent.
+    public static func choices(_ notification: JSONValue) -> [String]? {
+        guard notification["notification_type"]?.string == "permission_request",
+            notification["tool_name"]?.string == "AskUserQuestion",
+            let questions = notification["tool_input"]?["questions"]?.array, questions.count == 1,
+            questions[0]["multiSelect"]?.bool != true
+        else { return nil }
+        let labels = questions[0]["options"]?.array?.compactMap { $0["label"]?.string.map(oneLine) } ?? []
+        return labels.isEmpty || labels.contains(where: \.isEmpty) ? nil : labels
+    }
+
     /// Whether a permission's question shows all it would allow: one cut short or a command of several lines doesn't,
     /// so it is answered in the agent's own dialog, never with one click on a banner or the Dock.
     public static func shownWhole(_ question: String) -> Bool { !question.hasSuffix("…?") }

@@ -187,6 +187,9 @@ extension Store {
                 table.add(column: "guessed", .boolean)
             }
         }
+        migrator.registerMigration("session.choices") { db in
+            try db.alter(table: "session") { t in t.add(column: "choices", .text) }
+        }
         migrator.registerMigration("uiState.viewed") { db in   // a workspace's read marks go with it, as its layout does
             try db.execute(
                 sql:

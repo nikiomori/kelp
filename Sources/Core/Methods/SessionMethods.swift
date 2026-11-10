@@ -79,7 +79,7 @@ public struct SessionKill: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
-/// `answer`: allow | deny, to the menu on screen → false when there is none. `question`: what the answer was given to (the
+/// `answer`: allow | deny, or one of the session's `choices` by its label, to the menu on screen → false when there is none. `question`: what the answer was given to (the
 /// session's summary a banner showed) → false too once the agent asks something else, or several things at once.
 public struct SessionChoose: RPCMethod {
     public static let name = "session.choose"

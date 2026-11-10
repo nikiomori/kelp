@@ -3344,6 +3344,13 @@
             "description" : "Whether Claude Code got Kelp's browser skill, and why (\"on · Vite in package.json\"); nil for agents without skills.",
             "type" : "string"
           },
+          "choices" : {
+            "description" : "The answers its question offers while it waits on one (AskUserQuestion with one question and one answer): one of them is picked by its label (`session.choose`), as a click on it would. nil for any other wait, and once it goes on.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "command" : {
             "type" : "string"
           },
@@ -9786,7 +9793,7 @@
       }
     },
     {
-      "description" : "`answer`: allow | deny, to the menu on screen → false when there is none. `question`: what the answer was given to (the session's summary a banner showed) → false too once the agent asks something else, or several things at once.",
+      "description" : "`answer`: allow | deny, or one of the session's `choices` by its label, to the menu on screen → false when there is none. `question`: what the answer was given to (the session's summary a banner showed) → false too once the agent asks something else, or several things at once.",
       "name" : "session.choose",
       "paramStructure" : "by-name",
       "params" : [

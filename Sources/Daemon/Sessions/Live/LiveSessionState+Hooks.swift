@@ -24,9 +24,11 @@ extension LiveSession.State {
     mutating func hook(
         _ event: HookEvent, trigger: String? = nil, message: String? = nil, asker: String? = nil,
         question: Bool = false, answered: Bool = false,
-        goal: String? = nil
+        goal: String? = nil, choices: [String]? = nil
     ) {
         heard()
+        // A question's answers are good while it waits on it: what it says next (another dialog, its work) has its own.
+        if event != .waiting { record.choices = nil }
         // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
         // isn't waiting for it. The next Stop says again.
         if kept.holding, event == .working { record.awaiting = nil }
@@ -48,7 +50,10 @@ extension LiveSession.State {
         case .waiting:
             if let asker { kept.asking[asker, default: 0] += 1 }
             if question { kept.questionOpen = true }
-            if let message, !message.isEmpty { record.summary = message }
+            if let message, !message.isEmpty {
+                record.summary = message
+                record.choices = choices
+            }
             detector.hook(event)
         case .working:
             // Not the end of a dialog a hook counted: a prompt can't be sent past one, and anything in the session can say

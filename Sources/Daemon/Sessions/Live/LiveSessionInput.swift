@@ -120,7 +120,12 @@ extension LiveSession {
             let inTmux = state.record.tmux != nil,
                 screen = inTmux ? StartupQuestion.optionsOnLines(state.menuScreen()) : state.menuScreen()
             let pattern =
-                answer == "allow" ? #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"# : #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
+                switch answer {
+                case "allow": #"^(\d+\.\s*)?(Yes|Allow|Approve)\b(?!,)"#
+                case "deny": #"^(\d+\.\s*)?(No|Deny|Reject)\b"#
+                // one of its answers, by its label
+                default: #"^(\d+\.\s*)?"# + NSRegularExpression.escapedPattern(for: answer) + #"\s*$"#
+                }
             let lines = screen.split(whereSeparator: \.isNewline).map {
                 $0.trimmingCharacters(in: CharacterSet(charactersIn: " ❯›>"))
             }

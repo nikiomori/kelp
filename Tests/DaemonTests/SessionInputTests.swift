@@ -402,3 +402,26 @@ import os
     #expect(LiveSession.printedStopped("■ Conversation   interrupted - tell the model\nwhat to do differently."))
     #expect(!LiveSession.printedStopped("Reading the interrupt handler in main.swift"))
 }
+
+/// A question's answer picked by its label (the Dock strip's card): the cursor's option is confirmed there; a label the menu
+/// doesn't show presses nothing.
+@Test func aQuestionsAnswerIsPickedByItsLabel() async throws {
+    let script =
+        #"stty -icanon -echo; printf 'Which layout?\n\xe2\x9d\xaf 1. Grid\n  2. List\n'; IFS= read -rsn1 k; [[ -z "$k" ]] && echo PICKED; sleep 30"#
+    let p = try await world(agents: [
+        AgentManifest(id: "menu", name: "Menu", command: "/bin/bash", args: ["-c", script])
+    ])
+    defer { p.d.stop() }
+    let w = try await firstWorkspace(p), s = try await p.c.call(SessionCreate(worktreeId: w.id, agent: "menu"))
+    func screen() async throws -> String { try await p.c.call(SessionRead(id: s.id)) }
+    #expect(try await waitFor(5) { try await screen().contains("2. List") })
+    let ls = try #require(p.d.sessions.existing(s.id))
+    ls.hook(.waiting, message: "Which layout?", choices: ["Grid", "List"])
+    #expect(ls.snapshot.choices == ["Grid", "List"])
+    #expect(try await p.c.call(SessionChoose(id: s.id, answer: "Table", question: "Which layout?")) == false)
+    #expect(ls.state.withLock { $0.steering == nil })
+    #expect(try await p.c.call(SessionChoose(id: s.id, answer: "Grid", question: "Which layout?")))
+    #expect(try await waitFor(5) { try await screen().contains("PICKED") })
+    ls.hook(.working)
+    #expect(ls.snapshot.choices == nil)   // answered: nothing left to pick
+}
