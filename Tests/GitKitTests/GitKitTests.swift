@@ -688,3 +688,15 @@ private let sample = FileDiff(
     #expect(try Git.branchFiles(repo, base: "main") == ["login.swift"])
     #expect(throws: GitError.self) { try Git.branchFiles(repo, base: "--output=x") }
 }
+
+/// What a turn keeps under refs/kelp: a ref made, read back, and dropped with others in one run.
+@Test func refsAreKeptReadAndDropped() throws {
+    let repo = try tempRepo()
+    let head = try #require(try Git.head(repo))
+    #expect(try Git.resolve("refs/kelp/none", cwd: repo) == nil)
+    try Git.setRef("refs/kelp/a", to: head, reflog: "kept", cwd: repo)
+    try Git.setRef("refs/kelp/b", to: head, cwd: repo)
+    #expect(try Git.resolve("refs/kelp/a", cwd: repo) == head)
+    try Git.deleteRefs(["refs/kelp/a", "refs/kelp/gone", "refs/kelp/b"], cwd: repo)
+    #expect(try Git.resolve("refs/kelp/a", cwd: repo) == nil && Git.resolve("refs/kelp/b", cwd: repo) == nil)
+}

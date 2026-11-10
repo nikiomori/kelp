@@ -15,14 +15,10 @@ extension SessionTurnUndo: Handled {
             throw RPCError.invalidParams("The files changed since you looked; nothing was put back.")
         }
         // What it was before stays reachable for Redo (git gc keeps it), each undo's in the ref's log.
-        try Git.run(
-            ["update-ref", "--create-reflog", "-m", "undo turn " + turn, Turns.undoneRef(id), before], cwd: dir,
-            remotes: remotes)
+        try Git.setRef(Turns.undoneRef(id), to: before, reflog: "undo turn " + turn, cwd: dir, remotes: remotes)
         // And what was staged before it, so Redo is the undo taken back whole; none (conflicts) drops an older one's.
         let staged = try Git.indexTree(dir, remotes: remotes)
-        try Git.run(
-            ["update-ref"] + (staged.map { [Turns.undoneStagedRef(id), $0] } ?? ["-d", Turns.undoneStagedRef(id)]),
-            cwd: dir, remotes: remotes)
+        try Git.setRef(Turns.undoneStagedRef(id), to: staged, cwd: dir, remotes: remotes)
         let index = try turns.kept(Turns.stagedRef(mark.id), in: dir)
         do {
             try Git.restore(plan.files, from: mark.tree, now: before, index: index, cwd: dir, remotes: remotes)
@@ -52,8 +48,8 @@ extension SessionTurnRedo: Handled {
         let plan = try Git.changed(since: before, cwd: dir, remotes: remotes), staged = Turns.undoneStagedRef(id)
         try Git.restore(
             plan.files, from: before, now: state, index: try turns.kept(staged, in: dir), cwd: dir, remotes: remotes)
-        try Git.run(["update-ref", "-d", ref], cwd: dir, remotes: remotes)
-        try Git.run(["update-ref", "-d", staged], cwd: dir, remotes: remotes)
+        try Git.setRef(ref, to: nil, cwd: dir, remotes: remotes)
+        try Git.setRef(staged, to: nil, cwd: dir, remotes: remotes)
         return Done()
     }
 }
@@ -75,8 +71,7 @@ struct Turns: Sendable {
 
     /// The tree a ref of these keeps, nil when there is none: nothing was undone, or nothing staged could be kept.
     func kept(_ ref: String, in dir: String) throws -> String? {
-        let tree = try Git.line(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: remotes)
-        return tree.isEmpty ? nil : tree
+        try Git.resolve(ref, cwd: dir, remotes: remotes)
     }
 
     /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
@@ -91,9 +86,7 @@ struct Turns: Sendable {
         guard status != .working, status != .waiting else {
             throw RPCError.invalidParams("The agent is still in its turn: stop it first.")
         }
-        let head = try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: dir, ok: [0, 1], remotes: remotes)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (head.isEmpty ? nil : head) == mark.head else {
+        guard try Git.head(dir, remotes: remotes) == mark.head else {
             throw RPCError.invalidParams("Commits were made since that turn began; undoing it now would mix them up.")
         }
         let others = live.all.filter { other in   // anywhere in the checkout, by any path to it
@@ -104,10 +97,7 @@ struct Turns: Sendable {
         guard others.isEmpty else {
             throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.")
         }
-        guard
-            try !Git.run(["rev-parse", "--verify", "-q", mark.tree + "^{tree}"], cwd: dir, ok: [0, 1], remotes: remotes)
-                .isEmpty
-        else {
+        guard try Git.resolve(mark.tree + "^{tree}", cwd: dir, remotes: remotes) != nil else {
             throw RPCError.invalidParams("That turn's snapshot is gone: git cleaned it up.")
         }
         return (mark, dir)
@@ -126,10 +116,8 @@ struct Turns: Sendable {
                     try Git.indexTree(mark.folder, remotes: remotes)
                 } ?? nil
             guard let dropped = try store.addTurn(mark), remotes.of(mark.folder) == nil else { return }   // no snapshots on a host
-            try Git.run(["update-ref", "refs/kelp/turns/" + mark.id, mark.tree], cwd: mark.folder, remotes: remotes)
-            if let staged {
-                try Git.run(["update-ref", Self.stagedRef(mark.id), staged], cwd: mark.folder, remotes: remotes)
-            }
+            try Git.setRef("refs/kelp/turns/" + mark.id, to: mark.tree, cwd: mark.folder, remotes: remotes)
+            if let staged { try Git.setRef(Self.stagedRef(mark.id), to: staged, cwd: mark.folder, remotes: remotes) }
             delete(
                 (dropped + (try store.session(mark.session) == nil ? [mark] : [])).flatMap { old in
                     Self.refs(old).map { ($0, old.folder) }
@@ -158,9 +146,7 @@ struct Turns: Sendable {
         for (folder, group) in Dictionary(grouping: refs, by: \.folder)
         where remotes.of(folder) == nil && FileManager.default.fileExists(atPath: folder) {
             Log.store.attempt("dropping turn refs in \(folder)") {
-                _ = try Git.run(
-                    ["update-ref", "--stdin"], cwd: folder, stdin: group.map { "delete \($0.ref)\n" }.joined(),
-                    remotes: remotes)
+                try Git.deleteRefs(group.map(\.ref), cwd: folder, remotes: remotes)
             }
         }
     }

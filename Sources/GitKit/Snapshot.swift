@@ -21,6 +21,33 @@ extension Git {
         }
     }
 
+    /// The object `rev` names (a ref, `HEAD`, `<tree>^{tree}`), nil when there's none: a ref never made, a snapshot
+    /// git has cleaned up, a repository with no commit yet.
+    public static func resolve(_ rev: String, cwd: String, remotes: Remotes = .none) throws -> String? {
+        let object = try line(["rev-parse", "--verify", "-q", rev], cwd: cwd, ok: [0, 1], remotes: remotes)
+        return object.isEmpty ? nil : object
+    }
+
+    /// The commit checked out; nil before the first one.
+    public static func head(_ cwd: String, remotes: Remotes = .none) throws -> String? {
+        try resolve("HEAD", cwd: cwd, remotes: remotes)
+    }
+
+    /// Keeps `object` under `ref` (a snapshot under refs/kelp/…, so `git gc` leaves it); nil drops the ref. `reflog`: the
+    /// line the ref's log keeps for this, so what it pointed at before stays reachable too.
+    public static func setRef(
+        _ ref: String, to object: String?, reflog: String? = nil, cwd: String, remotes: Remotes = .none
+    ) throws {
+        let log = reflog.map { ["--create-reflog", "-m", $0] } ?? []
+        try run(["update-ref"] + log + (object.map { [ref, $0] } ?? ["-d", ref]), cwd: cwd, remotes: remotes)
+    }
+
+    /// Drops `refs` in one git run; one already gone stops none of the others.
+    public static func deleteRefs(_ refs: [String], cwd: String, remotes: Remotes = .none) throws {
+        try run(
+            ["update-ref", "--stdin"], cwd: cwd, stdin: refs.map { "delete \($0)\n" }.joined(), remotes: remotes)
+    }
+
     /// What is staged now, written as a tree object: kept beside a turn's snapshot, so undoing the turn puts the index
     /// back as well as the files. From a copy of the index too (`write-tree` on the real one rewrites it, under its
     /// lock, which an agent's `git add` then finds taken). nil when there is none to write: unresolved conflicts (git

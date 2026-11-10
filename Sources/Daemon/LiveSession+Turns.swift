@@ -33,14 +33,8 @@ extension LiveSession {
                 let tree = try? Git.snapshotTree(cwd, remotes: remotes)   // none in a folder without git
                 self?.state.withLock { $0.turnTree = tree }
                 if let tree, let keep = self?.callbacks.turnStarted {
-                    let head = Log.session.attempt("a turn's HEAD") {
-                        try Git.run(["rev-parse", "--verify", "-q", "HEAD"], cwd: cwd, ok: [0, 1], remotes: remotes)
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                    keep(
-                        SessionTurns.Mark(
-                            session: id, tree: tree, head: head?.isEmpty == false ? head : nil, folder: cwd,
-                            prompt: prompt))
+                    let head = Log.session.attempt("a turn's HEAD") { try Git.head(cwd, remotes: remotes) } ?? nil
+                    keep(SessionTurns.Mark(session: id, tree: tree, head: head, folder: cwd, prompt: prompt))
                 }
             } else if let start, let base = self?.turnBase {
                 let files = ((try? Git.changesSince(tree: base, cwd: cwd, remotes: remotes)) ?? [])

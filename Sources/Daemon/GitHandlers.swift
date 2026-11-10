@@ -228,10 +228,8 @@ extension GitWebPages: Handled {
     func handle(_ scm: SourceControl) throws -> Pages? {
         let path = try scm.store.repoPath(worktreeId: worktreeId, repoId: repoId).1
         // no origin: nothing to link to
-        guard let origin = try? Git.run(["remote", "get-url", "origin"], cwd: path, remotes: scm.remotes) else {
-            return nil
-        }
-        return Git.webPages(remote: origin.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard let origin = try? Git.origin(path, remotes: scm.remotes) else { return nil }
+        return Git.webPages(remote: origin)
     }
 }
 

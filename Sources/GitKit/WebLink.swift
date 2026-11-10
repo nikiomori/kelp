@@ -3,11 +3,16 @@ import Foundation
 
 /// Links to a file on the repository's website (GitHub, GitLab, Bitbucket) at the commit checked out now.
 extension Git {
+    /// The address of the checkout's `origin` remote.
+    public static func origin(_ cwd: String, remotes: Remotes = .none) throws -> String {
+        try line(["remote", "get-url", "origin"], cwd: cwd, remotes: remotes)
+    }
+
     /// `path` absolute; `lines` 1-based. Fails when origin isn't on a website Kelp knows how to link to.
     public static func webURL(path: String, lines: ClosedRange<Int>?, remotes: Remotes = .none) throws -> String {
         let dir = (path as NSString).deletingLastPathComponent
         let top = try line(["rev-parse", "--show-toplevel"], cwd: dir, remotes: remotes)
-        let remote = try line(["remote", "get-url", "origin"], cwd: dir, remotes: remotes)
+        let remote = try origin(dir, remotes: remotes)
         let sha = try line(["rev-parse", "HEAD"], cwd: dir, remotes: remotes)
         let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path,
             root = URL(fileURLWithPath: top).resolvingSymlinksInPath().path

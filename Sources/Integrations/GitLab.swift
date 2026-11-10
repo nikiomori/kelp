@@ -27,7 +27,7 @@ public enum GitLab {
 
     /// The checkout's origin is a GitLab (gitlab.com or a host with "gitlab" in its name).
     public static func isGitLab(cwd: String) -> Bool {
-        isGitLab(remote: (try? Git.line(["remote", "get-url", "origin"], cwd: cwd)) ?? "")
+        isGitLab(remote: (try? Git.origin(cwd)) ?? "")
     }
 
     /// By the host only: github.com/someone/gitlab-ci-local is a GitHub repository.
