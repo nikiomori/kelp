@@ -537,7 +537,7 @@ func trustQuestionStandIn() -> String {
 
 @Test func aStuckGitOrSshCallIsStopped() throws {
     let t = Date()
-    #expect(throws: (any Error).self) { try Git.runData(["30"], cwd: "/tmp", executable: "/bin/sleep", timeLimit: 0.5) }
+    #expect(throws: (any Error).self) { try Subprocess.output(["/bin/sleep", "30"], cwd: "/tmp", timeLimit: 0.5) }
     #expect(Date().timeIntervalSince(t) < 5)   // stopped, not waited out
     #expect(RemoteHost(host: "box", path: "/x").sshArgs(tty: false).contains("ConnectTimeout=15"))
 }

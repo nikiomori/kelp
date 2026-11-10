@@ -44,11 +44,10 @@ public enum GitLab {
         }
         // raw: a title is text, never read as a number or a file
         let rawFields = fields.flatMap { ["--raw-field", "\($0.0)=\($0.1)"] }
-        do {
-            return Data(try Git.run(["api", "-X", method, path] + rawFields, cwd: cwd, executable: exe).utf8)
-        } catch let error
-            as GitError
-        { throw GitHubError(args: error.args, status: error.status, stderr: error.stderr) }
+        let args = ["api", "-X", method, path] + rawFields
+        do { return try Subprocess.output([exe] + args, cwd: cwd, env: Git.toolEnv) } catch let error as ProgramError {
+            throw GitHubError(args: args, status: error.status, stderr: error.stderr)
+        }
     }
 
     /// A value for a query string: everything but unreserved characters escaped, so "fix+x" or "a&b=c" stay one value

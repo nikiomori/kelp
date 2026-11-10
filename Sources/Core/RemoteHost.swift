@@ -85,6 +85,14 @@ public struct RemoteHost: Codable, Sendable, Equatable {
         path == "~"
             ? "~" : path.hasPrefix("~/") ? "~/" + ShellQuote.word(String(path.dropFirst(2))) : ShellQuote.word(path)
     }
+
+    /// `script` in sh on the host (whatever its login shell is), its output as the bytes it wrote.
+    @discardableResult
+    public func run(_ script: String, stdin: Data? = nil, timeLimit: TimeInterval = 300) throws -> Data {
+        try Subprocess.output(
+            [ssh] + sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), stdin: stdin,
+            timeLimit: timeLimit)
+    }
 }
 
 /// The remote projects of one Kelp home. A `.kelp-remote` counts only in its `remote` folder: one anywhere else (say,

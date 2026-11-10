@@ -233,8 +233,7 @@ extension RemoteHost {
 
     /// `ssh -O`: asks the shared connection's master, which adds or drops a forwarding without a new login.
     func control(_ op: String, _ spec: String) throws {
-        _ = try Git.run(
-            ["-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory(),
-            executable: ssh)
+        try Subprocess.output(
+            [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory())
     }
 }

@@ -8,16 +8,16 @@ extension Workspaces {
     /// What the workspace's files offer to run, read where they are: on a remote project's host, through its shell (its
     /// PATH: nvm, pyenv), over the shared connection.
     func runOptions(_ worktree: Worktree) throws -> [RunOption] {
-        let out: String
+        let out: Data
         if let remote = remotes.of(worktree.path) {
-            out = try Git.run(
-                remote.sshArgs(tty: false) + [remote.command(["sh", "-c", Runnables.script])], cwd: NSHomeDirectory(),
-                executable: remotes.ssh)
+            out = try Subprocess.output(
+                [remotes.ssh] + remote.sshArgs(tty: false) + [remote.command(["sh", "-c", Runnables.script])],
+                cwd: NSHomeDirectory())
         } else {
-            out = try Git.run(
-                ["-c", Runnables.script], cwd: worktree.path, executable: "/bin/sh", env: ["PATH": Sessions.childPath])
+            out = try Subprocess.output(
+                ["/bin/sh", "-c", Runnables.script], cwd: worktree.path, env: ["PATH": Sessions.childPath])
         }
-        return Runnables.options(Runnables.parse(out))
+        return Runnables.options(Runnables.parse(String(decoding: out, as: UTF8.self)))
     }
 }
 

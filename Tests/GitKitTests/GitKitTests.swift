@@ -589,7 +589,7 @@ private let sample = FileDiff(
 @Test func aStuckRunStopsWithItsChildren() throws {
     let t = Date()
     #expect(throws: (any Error).self) {
-        try Git.runData(["-c", "sleep 30 & sleep 30; wait"], cwd: "/tmp", executable: "/bin/sh", timeLimit: 0.5)
+        try Subprocess.output(["/bin/sh", "-c", "sleep 30 & sleep 30; wait"], cwd: "/tmp", timeLimit: 0.5)
     }
     #expect(Date().timeIntervalSince(t) < 5)
 }
@@ -626,7 +626,7 @@ private let sample = FileDiff(
 @Test func aRunThatIgnoresSIGTERMStillEndsAtItsTimeLimit() throws {
     let start = Date()
     #expect(throws: (any Error).self) {
-        try Git.runData(["-c", "trap '' TERM; sleep 30"], cwd: "/tmp", executable: "/bin/sh", timeLimit: 0.5)
+        try Subprocess.output(["/bin/sh", "-c", "trap '' TERM; sleep 30"], cwd: "/tmp", timeLimit: 0.5)
     }
     #expect(Date().timeIntervalSince(start) < 10)   // SIGKILL 2 s after the SIGTERM it ignored
 }

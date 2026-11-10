@@ -27,12 +27,13 @@ extension RemoteListFolders: Handled {
             + #"for f in *; do [ -d "$f" ] || continue; if [ -e "$f/.git" ]; then echo "g $f"; else echo "d $f"; fi; done"#
         let out: String
         do {
-            out = try Git.run(
-                ["-o", "ConnectTimeout=10"] + remotes.host(host, path: "~").sshArgs(tty: false) + [
-                    "sh -c " + ShellQuote.word(script)
-                ],
-                cwd: NSHomeDirectory(), executable: remotes.ssh)
-        } catch let error as GitError {
+            out = String(
+                decoding: try Subprocess.output(
+                    [remotes.ssh, "-o", "ConnectTimeout=10"] + remotes.host(host, path: "~").sshArgs(tty: false) + [
+                        "sh -c " + ShellQuote.word(script)
+                    ],
+                    cwd: NSHomeDirectory()), as: UTF8.self)
+        } catch let error as ProgramError {
             let why = error.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw RPCError.invalidParams(why.isEmpty ? "Couldn't connect to \(host)." : why)
         }

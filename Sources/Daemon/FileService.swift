@@ -266,9 +266,7 @@ struct FileService: Sendable {
             "t=$(mktemp \(tmp)) || exit 1; "
             + "if ! { cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ]; }; then rm -f \"$t\"; exit 1; fi; "
             + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; rm -f \"$t\""
-        try Git.runData(
-            remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(script)], cwd: NSHomeDirectory(), stdin: data,
-            executable: remote.ssh)
+        try remote.run(script, stdin: data)
         return .init(stamp: Self.digest(data))
     }
 }

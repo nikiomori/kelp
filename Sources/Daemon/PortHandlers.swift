@@ -18,8 +18,7 @@ extension PortsStop: Handled {
             throw RPCError.invalidParams("That process isn't running in this workspace.")
         }
         if let (_, remote) = processes.remote(worktreeId) {
-            _ = try Git.run(
-                remote.sshArgs(tty: false) + ["kill \(pid)"], cwd: NSHomeDirectory(), executable: remote.ssh)
+            try Subprocess.output([remote.ssh] + remote.sshArgs(tty: false) + ["kill \(pid)"], cwd: NSHomeDirectory())
         } else {
             kill(pid, SIGTERM)
         }

@@ -39,7 +39,7 @@ extension GitHub {
         guard let exe = ghPath else {
             throw GitHubError(args: args, status: -1, stderr: "gh CLI not found (brew install gh)")
         }
-        do { return Data(try Git.run(args, cwd: cwd, executable: exe).utf8) } catch let error as GitError {
+        do { return try Subprocess.output([exe] + args, cwd: cwd, env: Git.toolEnv) } catch let error as ProgramError {
             throw GitHubError(args: args, status: error.status, stderr: error.stderr)
         }
     }
@@ -47,7 +47,9 @@ extension GitHub {
     /// For Settings: is gh installed, and who is signed in (nil: not signed in, or no network to ask).
     public static func account() -> (installed: Bool, user: String?) {
         guard let exe = ghPath else { return (false, nil) }
-        let login = try? Git.line(["api", "user", "--jq", ".login"], cwd: NSHomeDirectory(), executable: exe)
+        let login = (try? Subprocess.output(
+            [exe, "api", "user", "--jq", ".login"], cwd: NSHomeDirectory(), env: Git.toolEnv))
+            .map { String(decoding: $0, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) }
         return (true, login?.isEmpty == false ? login : nil)
     }
 

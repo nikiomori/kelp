@@ -660,7 +660,7 @@ func codeOnly(_ s: String) -> String {
 /// What the daemon runs on is handed to it (`Daemon(root:)`, its `Remotes`, `LSPHost`'s delays): nothing in the code it
 /// runs reads KELP_HOME's folders from the environment, keeps state in a static or opts out of the isolation checks. Two
 /// daemons in one process (tests) shared those, and the one set last won. And GitKit runs git on a remote project's host
-/// only when it's given the daemon's `Remotes`: in the daemon, a call that runs git (no other `executable:`) passes it.
+/// only when it's given the daemon's `Remotes`: in the daemon, a call that runs git passes it.
 /// (Integrations run gh and glab in local checkouts only: remote projects are refused before them, `refuseRemoteForge`.)
 @Test func theDaemonKeepsNoProcessGlobals() throws {
     let modules = [
@@ -712,7 +712,7 @@ func codeOnly(_ s: String) -> String {
             i = h.code.index(after: i)
         }
         let args = h.code[open..<min(i, h.code.endIndex)]
-        return !args.contains("remotes:") && !args.contains("executable:")
+        return !args.contains("remotes:")
     }
     #expect(named(blind) == [], "git run without the daemon's remotes")
 }

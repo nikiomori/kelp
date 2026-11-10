@@ -10,28 +10,20 @@ public struct GitError: Error, CustomStringConvertible, Sendable {
     public var stderr: String
     public var description: String { "git \(args.joined(separator: " ")) failed (\(status)): \(stderr)" }
     /// For people: git's first sentence without the command line or "fatal:" ("…overwritten by checkout:" keeps its next line).
-    public var message: String {
-        let lines = stderr.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter {
-            !$0.isEmpty
-        }
-        guard var first = lines.first else { return description }
-        for prefix in ["fatal: ", "error: "] where first.hasPrefix(prefix) { first.removeFirst(prefix.count) }
-        if first.hasSuffix(":"), lines.count > 1 { first += " " + lines[1] }
-        return first.prefix(1).uppercased() + first.dropFirst()
-    }
+    public var message: String { ProgramError.firstSentence(stderr) ?? description }
 }
 
 /// Running the system git (the daemon's). Behaviour matches what you'd see in a terminal.
 extension Git {
     @discardableResult
     public static func run(
-        _ args: [String], cwd: String, stdin: String? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-        env extra: [String: String] = [:], remotes: Remotes = .none
+        _ args: [String], cwd: String, stdin: String? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
+        remotes: Remotes = .none
     ) throws -> String {
         String(
             decoding: try runData(
-                args, cwd: cwd, stdin: stdin.map { Data($0.utf8) }, executable: executable, ok: ok, env: extra,
-                remotes: remotes), as: UTF8.self)
+                args, cwd: cwd, stdin: stdin.map { Data($0.utf8) }, ok: ok, env: extra, remotes: remotes),
+            as: UTF8.self)
     }
 
     /// Whether git says yes (exits 0): a ref that may not be there (`rev-parse --verify`), an upstream that may not be
@@ -50,23 +42,22 @@ extension Git {
 
     /// `run`'s output without the newline it ends with (and any space around it): a hash, a name, a path, a count.
     public static func line(
-        _ args: [String], cwd: String, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-        env extra: [String: String] = [:], remotes: Remotes = .none
+        _ args: [String], cwd: String, ok: Set<Int32> = [0], env extra: [String: String] = [:],
+        remotes: Remotes = .none
     ) throws -> String {
-        try run(args, cwd: cwd, executable: executable, ok: ok, env: extra, remotes: remotes)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        try run(args, cwd: cwd, ok: ok, env: extra, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// `run`, its output as the bytes git wrote (a diff of a file that isn't UTF-8 goes back to `git apply` unchanged).
     /// More than `Subprocess.outputLimit` of it is an error: nothing here works on a part as if it were the whole.
     @discardableResult
     public static func runData(
-        _ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-        env extra: [String: String] = [:], timeLimit: TimeInterval = 300, remotes: Remotes = .none
+        _ args: [String], cwd: String, stdin: Data? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
+        timeLimit: TimeInterval = 300, remotes: Remotes = .none
     ) throws -> Data {
         let output = try runPart(
-            args, cwd: cwd, stdin: stdin, executable: executable, ok: ok, env: extra, timeLimit: timeLimit,
-            limit: Subprocess.outputLimit, remotes: remotes)
+            args, cwd: cwd, stdin: stdin, ok: ok, env: extra, timeLimit: timeLimit, limit: Subprocess.outputLimit,
+            remotes: remotes)
         guard !output.truncated else { throw tooMuch(args) }
         return output.data
     }
@@ -80,53 +71,56 @@ extension Git {
     /// `runData` keeping the first `limit` bytes of the output: `truncated` says there was more (read and dropped), for a
     /// caller that shows a part (a long status, a huge diff) and says so.
     static func runPart(
-        _ args: [String], cwd: String, stdin: Data? = nil, executable: String = "/usr/bin/git", ok: Set<Int32> = [0],
-        env extra: [String: String] = [:], timeLimit: TimeInterval = 300, limit: Int,
-        remotes: Remotes = .none
+        _ args: [String], cwd: String, stdin: Data? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
+        timeLimit: TimeInterval = 300, limit: Int, remotes: Remotes = .none
     ) throws -> (data: Data, truncated: Bool) {
-        // timeLimit: longest a git / gh / ssh run may take before it's stopped (it then fails like any other error). Five
-        // minutes: far past any real fetch or push, short of a thread lost for good.
-        var args = args, executable = executable, cwd = cwd
+        // timeLimit: longest a git run (here or on a host) may take before it's stopped (it then fails like any other
+        // error). Five minutes: far past any real fetch or push, short of a thread lost for good.
+        // Paths as they are, not C-quoted ("\321\204…" for "ф"). No fsmonitor: a folder's own .git/config (one that
+        // came in a download, not a clone) would otherwise have every status Kelp runs start its program.
+        var args = ["-c", "core.quotePath=false", "-c", "core.fsmonitor=false"] + args
+        var argv0 = "/usr/bin/git", cwd = cwd
         var off: [(String, String)] = []
-        if executable == "/usr/bin/git" {
-            // Paths as they are, not C-quoted ("\321\204…" for "ф"). No fsmonitor: a folder's own .git/config (one that
-            // came in a download, not a clone) would otherwise have every status Kelp runs start its program.
-            args = ["-c", "core.quotePath=false", "-c", "core.fsmonitor=false"] + args
-            let remote = remotes.of(cwd)
-            if let sub = args.dropFirst(4).first, ["diff", "show", "log"].contains(sub) {   // a repo's diff drivers run nothing either
-                args.insert(contentsOf: ["--no-ext-diff", "--no-textconv"], at: 5)
-            }
-            // Reads verify no signature either: a repo's `log.showSignature` would run its own `gpg.program` on every log.
-            if let sub = args.dropFirst(4).first, readOnly.contains(sub) {
-                args = Self.noSignatures + args
-                if remote == nil { off = RepoFilters.off(cwd) }
-            }
-            if let host = remote {   // a remote project: the same git, on its host
-                args =
-                    host.sshArgs(tty: false) + [
-                        "cd \(RemoteHost.cdArg(host.path)) && git " + args.map(ShellQuote.word).joined(separator: " ")
-                    ]
-                executable = host.ssh
-                cwd = NSHomeDirectory()
-            }
+        let remote = remotes.of(cwd)
+        if let sub = args.dropFirst(4).first, ["diff", "show", "log"].contains(sub) {   // a repo's diff drivers run nothing either
+            args.insert(contentsOf: ["--no-ext-diff", "--no-textconv"], at: 5)
         }
-        var env = ProcessInfo.processInfo.environment
-        env["GIT_TERMINAL_PROMPT"] = "0"
-        env["LC_ALL"] = "C"
-        env["GIT_OPTIONAL_LOCKS"] = "0"   // a status doesn't rewrite the index (which would wake the file watchers again)
-        // gh and glab run git themselves: no fsmonitor and no signature program of a repo's own there either.
-        if executable != "/usr/bin/git" { off = [("core.fsmonitor", "false"), ("log.showSignature", "false")] }
-        env.merge(extra) { $1 }
-        env.merge(configEnv(off, after: env)) { $1 }
+        // Reads verify no signature either: a repo's `log.showSignature` would run its own `gpg.program` on every log.
+        if let sub = args.dropFirst(4).first, readOnly.contains(sub) {
+            args = Self.noSignatures + args
+            if remote == nil { off = RepoFilters.off(cwd) }
+        }
+        if let host = remote {   // a remote project: the same git, on its host
+            args =
+                host.sshArgs(tty: false) + [
+                    "cd \(RemoteHost.cdArg(host.path)) && git " + args.map(ShellQuote.word).joined(separator: " ")
+                ]
+            argv0 = host.ssh
+            cwd = NSHomeDirectory()
+        }
+        var env = gitEnv.merging(extra) { $1 }
+        env.merge(configEnv(off, after: ProcessInfo.processInfo.environment.merging(env) { $1 })) { $1 }
         // A host that drops packets or a credential helper waiting on nobody is stopped at the time limit, with its children.
-        let result = try Subprocess.run(
-            [executable] + args, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
-        guard ok.contains(result.status), !result.timedOut else {
-            throw GitError(
-                args: args, status: result.status,
-                stderr: String(decoding: result.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        do {
+            let result = try Subprocess.checked(
+                [argv0] + args, cwd: cwd, env: env, stdin: stdin, ok: ok, timeLimit: timeLimit, limit: limit)
+            return (result.stdout, result.truncated)
+        } catch let error as ProgramError {
+            throw GitError(args: args, status: error.status, stderr: error.stderr)
         }
-        return (result.stdout, result.truncated)
+    }
+
+    /// No password prompt nobody would see, and a status doesn't rewrite the index (which would wake the file watchers
+    /// again).
+    static let gitEnv = ["GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0"]
+
+    /// The environment for a program that runs git itself (gh, glab): `gitEnv`, and no fsmonitor and no signature
+    /// program of a repository's own there either.
+    public static var toolEnv: [String: String] {
+        gitEnv.merging(
+            configEnv(
+                [("core.fsmonitor", "false"), ("log.showSignature", "false")], after: ProcessInfo.processInfo.environment)
+        ) { $1 }
     }
 
     /// What Kelp runs by itself (watches, panels): these read, and never run a repository's own filters (`RepoFilters`).
@@ -210,15 +204,6 @@ extension Git {
                 args: ["rev-parse", "HEAD"], status: 1, stderr: "the branch's name reads as an option: \(name)")
         }
         return name
-    }
-}
-
-extension RemoteHost {
-    /// `script` in sh on the host (whatever its login shell is), its output as the bytes it wrote.
-    public func run(_ script: String, timeLimit: TimeInterval = 300) throws -> Data {
-        try Git.runData(
-            sshArgs(tty: false) + ["sh -c " + ShellQuote.word(script)], cwd: NSHomeDirectory(), executable: ssh,
-            timeLimit: timeLimit)
     }
 }
 

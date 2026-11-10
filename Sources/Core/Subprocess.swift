@@ -8,6 +8,34 @@ import os
 /// - stdin is written alongside, and a program that exits unread fails that write instead of raising SIGPIPE;
 /// - past `timeLimit` the program is stopped with everything it started (`stopTree`): its children hold the pipes too;
 /// - a child that outlives it holding the pipes (a daemon it started) doesn't hold up the result.
+/// A program `Subprocess.checked` ran that didn't succeed: its exit status (the signal's, stopped at its time limit) and
+/// what it said on stderr, or why its output wasn't read.
+public struct ProgramError: Error, CustomStringConvertible, Sendable {
+    public var program: String
+    public var status: Int32
+    public var stderr: String
+    public var description: String { "\(program) failed (\(status)): \(stderr)" }
+    /// For people: its first sentence without "fatal:" ("…overwritten by checkout:" keeps its next line).
+    public var message: String { Self.firstSentence(stderr) ?? description }
+
+    public init(program: String, status: Int32, stderr: String) {
+        self.program = program
+        self.status = status
+        self.stderr = stderr
+    }
+
+    /// What a program said on stderr, as one sentence for people; nil when it said nothing.
+    public static func firstSentence(_ stderr: String) -> String? {
+        let lines = stderr.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter {
+            !$0.isEmpty
+        }
+        guard var first = lines.first else { return nil }
+        for prefix in ["fatal: ", "error: "] where first.hasPrefix(prefix) { first.removeFirst(prefix.count) }
+        if first.hasSuffix(":"), lines.count > 1 { first += " " + lines[1] }
+        return first.prefix(1).uppercased() + first.dropFirst()
+    }
+}
+
 public enum Subprocess {
     public struct Output: Sendable {
         public var status: Int32
@@ -108,6 +136,40 @@ public enum Subprocess {
                 )
             }
         }
+    }
+
+    /// `run` for a program that has to succeed (exit with one of `ok` before `timeLimit`): ssh, gh, `du`, a script.
+    /// It runs in this process's environment with `env` over it, and `LC_ALL=C`, so what it prints reads the same in
+    /// every locale. Failing, it's a `ProgramError` with what it said. Of each stream, the first `limit` bytes are kept.
+    public static func checked(
+        _ argv: [String], cwd: String, env extra: [String: String] = [:], stdin: Data? = nil, ok: Set<Int32> = [0],
+        timeLimit: TimeInterval = 300, limit: Int = outputLimit
+    ) throws -> Output {
+        var env = ProcessInfo.processInfo.environment
+        env["LC_ALL"] = "C"
+        env.merge(extra) { $1 }
+        let result = try run(argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
+        guard ok.contains(result.status), !result.timedOut else {
+            throw ProgramError(
+                program: argv.first.map { ($0 as NSString).lastPathComponent } ?? "", status: result.status,
+                stderr: String(decoding: result.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return result
+    }
+
+    /// `checked`'s output, all of it: more than `outputLimit` is an error, never a part taken for the whole.
+    @discardableResult
+    public static func output(
+        _ argv: [String], cwd: String, env: [String: String] = [:], stdin: Data? = nil, ok: Set<Int32> = [0],
+        timeLimit: TimeInterval = 300
+    ) throws -> Data {
+        let result = try checked(argv, cwd: cwd, env: env, stdin: stdin, ok: ok, timeLimit: timeLimit)
+        guard !result.truncated else {
+            throw ProgramError(
+                program: argv.first.map { ($0 as NSString).lastPathComponent } ?? "", status: result.status,
+                stderr: "It printed more than \(outputLimit >> 20) MB, more than Kelp reads.")
+        }
+        return result.stdout
     }
 
     /// Whether `pid` is a program `run` started in this process and still waits for: what that one starts in turn (a repo's

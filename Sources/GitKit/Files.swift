@@ -108,8 +108,9 @@ extension ProjectFiles {
             if !caseSensitive { args.append("--ignore-case") }
             if wholeWord { args.append("--word-regexp") }
             // 1 = no matches
-            output = try Git.runPart(
-                args + ["--", query, "."], cwd: root, executable: rg, ok: [0, 1], limit: searchOutput)
+            let found = try Subprocess.checked(
+                [rg] + args + ["--", query, "."], cwd: root, ok: [0, 1], limit: searchOutput)
+            output = (found.stdout, found.truncated)
         } else {
             args = ["grep", "-n", "-z", "--untracked", "-I"]
             args.append(regex ? "-E" : "-F")   // the same patterns as rg's, near enough: ( is a group, not a character

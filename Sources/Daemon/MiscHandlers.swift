@@ -41,7 +41,9 @@ extension RepoWorktreeSizes: Handled {
 
     /// Blocks on disk as `du` counts them (16 GB of build products: about a second); unreadable files leave out only themselves.
     static func du(_ path: String) -> Int {
-        let out = (try? Git.run(["-sk", path], cwd: path, executable: "/usr/bin/du", ok: [0, 1])) ?? ""
+        let out = (try? Subprocess.output(["/usr/bin/du", "-sk", path], cwd: path, ok: [0, 1])).map {
+            String(decoding: $0, as: UTF8.self)
+        } ?? ""
         return (Int(out.prefix { $0.isNumber }) ?? 0) * 1024
     }
 }

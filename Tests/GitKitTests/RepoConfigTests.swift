@@ -163,8 +163,8 @@ import Testing
 /// gh and glab run git themselves: the git they run turns off a repo's fsmonitor as Kelp's own does.
 @Test func programsThatRunGitGetNoFsmonitor() throws {
     let repo = try tempRepo()
-    let out = try Git.run(
-        ["-c", "printf %s \"$GIT_CONFIG_COUNT $GIT_CONFIG_KEY_0=$GIT_CONFIG_VALUE_0\""], cwd: repo,
-        executable: "/bin/sh")
-    #expect(out == "2 core.fsmonitor=false")
+    let out = try Subprocess.output(
+        ["/bin/sh", "-c", "printf %s \"$GIT_CONFIG_COUNT $GIT_CONFIG_KEY_0=$GIT_CONFIG_VALUE_0\""], cwd: repo,
+        env: Git.toolEnv)
+    #expect(String(decoding: out, as: UTF8.self) == "2 core.fsmonitor=false")
 }
