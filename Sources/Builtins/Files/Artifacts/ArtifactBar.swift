@@ -32,6 +32,9 @@ final class ArtifactBar: NSObject {
     private let author = PointerButton()
     /// A canvas's check: what Kelp found wrong where it drew the boards (`CanvasScript`).
     private let check = PointerButton()
+    /// What its chat spent on it (Claude Code's): calls and dollars, quiet.
+    private let spent = NSTextField(labelWithString: "")
+    private var spentAt: Double?
     /// A canvas's Mark: a click on a board puts a mark on it, for the agent.
     private let mark = PointerButton()
     private var issues: [String] = []
@@ -78,6 +81,9 @@ final class ArtifactBar: NSObject {
         check.restFill = .fillRest
         check.isHidden = true
         check.onClick = { [weak self] in self?.showCheck() }
+        spent.font = .uiDigits(TextSize.row)
+        spent.textColor = .secondaryLabelColor
+        spent.isHidden = true
         mark.font = .ui(TextSize.row)
         mark.padding = Metrics.gap
         mark.restFill = .fillRest
@@ -86,7 +92,8 @@ final class ArtifactBar: NSObject {
         mark.isHidden = markdown.page != .canvas
         mark.onClick = { [weak self] in self?.toggleMarking() }
         return Bar.content(
-            [kind, ring, status], [latest, restore, mark, check, back, count, forward, author, more], stretching: status
+            [kind, ring, status], [spent, latest, restore, mark, check, back, count, forward, author, more],
+            stretching: status
         )
     }()
 
@@ -131,6 +138,7 @@ final class ArtifactBar: NSObject {
         let session = item?.session.flatMap(app.session)
         let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
         kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")
+        if let time = item?.modified, time != spentAt, item?.url == nil { countSpent(at: time) }
         if markdown.page == .canvas, let time = item?.modified, time != canvasTime {
             if canvasTime != nil { markdown.boardsChanged() }
             canvasTime = time
@@ -242,6 +250,21 @@ final class ArtifactBar: NSObject {
         check.isHidden = false
         check.title = found.isEmpty ? String(localized: "No Issues") : String(localized: "\(found.count) to Fix")
         check.toolTip = String(localized: "What Kelp found where it drew the boards: cut-off text, contrast, sizes")
+    }
+
+    /// What the chat spent on the page so far, once its file changed (at most every 10 s while it's being written).
+    private func countSpent(at time: Double) {
+        guard spentAt.map({ time - $0 >= 10 }) ?? true else { return }
+        spentAt = time
+        Task {
+            guard let s = await app.quiet(ArtifactCost(path: path)), let s else { return }
+            _ = view
+            spent.isHidden = false
+            spent.stringValue = String(localized: "\(s.calls) steps · \(s.cost, format: .currency(code: "USD"))")
+            spent.toolTip = String(
+                localized:
+                    "What its chat spent on it: \(s.output) tokens written, \(s.read) read, priced as the API would")
+        }
     }
 
     private func toggleMarking() {

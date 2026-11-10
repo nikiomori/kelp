@@ -52,3 +52,23 @@ public struct ArtifactCheck: RPCMethod {
     public var path: String
     public init(path: String) { self.path = path }
 }
+
+/// What the chat that made a page spent on it: its model calls from the page's start to its last change, priced as the
+/// API would. Claude Code's chats only (their transcripts are on this Mac); nil for another agent's, or none found.
+public struct ArtifactCost: InternalMethod {
+    public static let name = "artifact.cost"
+    public struct Spent: Codable, Sendable, Equatable {
+        /// Model calls; tokens written; tokens read (the prompt, its cached part included); US dollars.
+        public var calls: Int, output: Int, read: Int, cost: Double
+        public init(calls: Int, output: Int, read: Int, cost: Double) {
+            self.calls = calls
+            self.output = output
+            self.read = read
+            self.cost = cost
+        }
+    }
+    public typealias Result = Spent?
+    /// The page's file.
+    public var path: String
+    public init(path: String) { self.path = path }
+}

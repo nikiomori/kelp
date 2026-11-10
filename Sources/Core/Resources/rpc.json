@@ -282,6 +282,30 @@
         ],
         "type" : "object"
       },
+      "ArtifactCost.Spent" : {
+        "properties" : {
+          "calls" : {
+            "description" : "Model calls; tokens written; tokens read (the prompt, its cached part included); US dollars.",
+            "type" : "integer"
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "output" : {
+            "type" : "integer"
+          },
+          "read" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "calls",
+          "cost",
+          "output",
+          "read"
+        ],
+        "type" : "object"
+      },
       "ArtifactItem" : {
         "description" : "An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.",
         "properties" : {
@@ -5423,6 +5447,28 @@
           "type" : "array"
         }
       }
+    },
+    {
+      "description" : "What the chat that made a page spent on it: its model calls from the page's start to its last change, priced as the API would. Claude Code's chats only (their transcripts are on this Mac); nil for another agent's, or none found.",
+      "name" : "artifact.cost",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "description" : "The page's file.",
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ArtifactCost.Spent"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "A new page of `kind` titled `title` in the artifacts of the workspace `cwd` is in (of chat `session`'s own when it holds `cwd`; `cwd` itself in no workspace), its first lines written. Returns its file.",

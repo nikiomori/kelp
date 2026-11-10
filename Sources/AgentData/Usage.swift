@@ -70,6 +70,23 @@ public enum ClaudeUsage {
     }
 
     public static let blockLength: TimeInterval = 5 * 3600
+
+    /// The calls in one conversation's `transcript` between `from` and `to` (seconds since 1970), each once (a call's
+    /// lines repeat its usage), with their tokens and what they cost. Reads the whole file: off the pool.
+    public static func spent(transcript: URL, from: Double, to: Double) -> (
+        calls: Int, tokens: TokenCounts, cost: Double
+    ) {
+        guard let data = FileManager.default.contents(atPath: transcript.path) else { return (0, TokenCounts(), 0) }
+        var seen = Set<String>(), calls = 0, tokens = TokenCounts(), cost = 0.0
+        for line in data.split(separator: 0x0A) {
+            guard let call = UsageIndex.entry(Data(line)), call.time >= from, call.time <= to else { continue }
+            if let id = call.id, !seen.insert(id).inserted { continue }
+            calls += 1
+            tokens += call.tokens
+            cost += call.cost ?? 0
+        }
+        return (calls, tokens, cost)
+    }
 }
 
 public struct CodexLimits: Sendable, Equatable {

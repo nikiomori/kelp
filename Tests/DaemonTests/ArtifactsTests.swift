@@ -293,6 +293,9 @@ private func tempRoot() throws -> URL {
     let canvas = try await c.call(ArtifactNew(kind: .design, title: "Home", cwd: root.path, session: nil))
     await #expect(throws: RPCError.self) { try await c.call(ArtifactCheck(path: canvas)) }
     await #expect(throws: RPCError.self) { try await c.call(ArtifactCheck(path: file)) }
+    // What a chat spent is read from its Claude Code transcript: a page with no chat has none.
+    #expect(try await c.call(ArtifactCost(path: file)) == nil)
+    #expect(try await c.call(ArtifactCost(path: root.path + "/elsewhere.md")) == nil)
 }
 
 /// A design's version keeps its canvas with its boards' text, and a board's change makes a new one.

@@ -614,3 +614,21 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
     _ = idx.rows(roots: [dir], since: .distantPast)
     #expect(try Data(contentsOf: cache) == first)
 }
+
+/// What a chat spent on a page: its calls in the page's time, each once, priced.
+@Test func aChatsSpendingBetweenTwoTimesCountsEachCallOnce() throws {
+    let f = FileManager.default.temporaryDirectory.appendingPathComponent("spent-\(UUID().uuidString).jsonl")
+    defer { try? FileManager.default.removeItem(at: f) }
+    func line(_ id: String, _ ts: String, _ out: Int) -> String {
+        #"{"cwd":"/p","message":{"id":"\#(id)","model":"claude-opus-5-5","usage":{"input_tokens":100,"#
+            + #""output_tokens":\#(out),"cache_read_input_tokens":1000}},"type":"assistant","timestamp":"\#(ts)"}"#
+    }
+    try [
+        line("a", "2026-11-10T10:00:00.000Z", 50), line("a", "2026-11-10T10:00:00.000Z", 50),
+        line("b", "2026-11-10T10:05:00.000Z", 70), line("c", "2026-11-10T12:00:00.000Z", 900)
+    ].joined(separator: "\n").write(to: f, atomically: true, encoding: .utf8)
+    let from = try #require(ISO8601DateFormatter().date(from: "2026-11-10T09:59:00Z")).timeIntervalSince1970
+    let spent = ClaudeUsage.spent(transcript: f, from: from, to: from + 3600)
+    #expect(spent.calls == 2 && spent.tokens.output == 120 && spent.tokens.cacheRead == 2000)
+    #expect(abs(spent.cost - Pricing.cost(model: "claude-opus-5-5", tokens: spent.tokens)) < 1e-9)
+}

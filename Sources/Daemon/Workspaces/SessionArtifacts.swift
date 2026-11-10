@@ -1,3 +1,4 @@
+import AgentData
 import Core
 import Foundation
 
@@ -59,8 +60,30 @@ extension ArtifactCheck: AsyncHandled {
     }
 }
 
+extension ArtifactCost: Handled {
+    /// From a little before the page was made (the turn read its guide first) to its last change.
+    func handle(_ workspaces: Workspaces) throws -> Spent? {
+        guard let marker = path.range(of: "/\(Artifacts.folder)/") else { return nil }
+        let folder = URL(fileURLWithPath: path).deletingLastPathComponent(), root = String(path[..<marker.lowerBound])
+        guard let record = Artifacts.record(in: folder), let session = record.session,
+            let transcript = ClaudeHistory.transcript(id: session)
+        else { return nil }
+        let changed =
+            record.file == Artifacts.Kind.design.file
+            ? Artifacts.canvasTime(path, root: root)
+            : Artifacts.fileStat(path).map { Double($0.mtime.tv_sec) }
+        let spent = ClaudeUsage.spent(
+            transcript: transcript, from: record.created.timeIntervalSince1970 - 120,
+            to: (changed ?? Date().timeIntervalSince1970) + 5)
+        guard spent.calls > 0 else { return nil }
+        return Spent(
+            calls: spent.calls, output: spent.tokens.output,
+            read: spent.tokens.input + spent.tokens.cacheRead + spent.tokens.cacheWrite, cost: spent.cost)
+    }
+}
+
 extension Methods {
     static let artifactMethods: [any Answered.Type] = [
-        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self
+        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self, ArtifactCost.self
     ]
 }
