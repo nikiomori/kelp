@@ -24,7 +24,9 @@ extension AddonsList: Handled {
             URL(fileURLWithPath: $0.dir)
         }
         let files = own.map { AddonFiles(claude: $0) } ?? AddonFiles()
-        let items = AddonList.build(loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted())
+        let kept = ServerFiles.read(sessions.setup.serversFile).keys.sorted()
+        let items = AddonList.build(
+            loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted(), kept: kept)
         let off = sessions.setup.addonsOff(worktreeId: worktreeId).off
         return Addons(items: AddonSwitches.applied(off, to: items), chat: loaded != nil)
     }
@@ -37,6 +39,39 @@ extension AddonsSet: Handled {
     }
 }
 
+extension AddonsAdd: Handled {
+    func handle(_ addons: AgentAddons) throws -> Done {
+        let setup = addons.sessions.setup, worktree = try setup.store.worktree(named: worktreeId)
+        let found = entry ?? from.flatMap { AddonFiles().entry(name, of: $0, cwd: worktree.path) }
+        guard let found, found.command != nil || found.url != nil else {
+            throw RPCError.invalidParams("a server needs a command or an address")
+        }
+        guard !name.isEmpty, name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            throw RPCError.invalidParams("a server's name is letters, digits, - and _")
+        }
+        let file = project ? URL(fileURLWithPath: worktree.path).appendingPathComponent(".mcp.json") : setup.serversFile
+        try ServerFiles.write(name, found, to: file)
+        // Kelp's own holds what servers sign in with: the person's only.
+        if !project { try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
+        return Done()
+    }
+}
+
+extension AddonsRemove: Handled {
+    func handle(_ addons: AgentAddons) throws -> Done {
+        let setup = addons.sessions.setup, worktree = try setup.store.worktree(named: worktreeId)
+        guard key.hasPrefix("server:") else { throw RPCError.invalidParams("only a server is removed") }
+        let name = String(key.dropFirst(7)), mine = setup.serversFile
+        let shared = URL(fileURLWithPath: worktree.path).appendingPathComponent(".mcp.json")
+        guard let file = [mine, shared].first(where: { ServerFiles.read($0)[name] != nil }) else {
+            throw RPCError.invalidParams("Kelp didn't add \(name): it's in the agent's own settings")
+        }
+        try ServerFiles.write(name, nil, to: file)
+        try setup.setAddon(key, on: true, worktreeId: worktreeId)   // its switch goes with it
+        return Done()
+    }
+}
+
 extension Methods {
-    static let addonMethods: [any Answered.Type] = [AddonsList.self, AddonsSet.self]
+    static let addonMethods: [any Answered.Type] = [AddonsList.self, AddonsSet.self, AddonsAdd.self, AddonsRemove.self]
 }

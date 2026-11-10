@@ -66,3 +66,44 @@ import Testing
     #expect(out[1].fixed.isEmpty && out[1].off)
     #expect(out.dropFirst(2).map(\.id) == ["skill:kelp-vm", "plugin:ponytail", "skill:anthropic-skills:docx"])
 }
+
+/// A server added through Kelp sits in Kelp's own file and goes to the agents that take one at a start: Claude Code by
+/// the file, Codex on its command line, with what it signs in with in the chat's environment and not in the command.
+@Test func aServerAddedOnceGoesToTheAgentsThatTakeOne() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w), setup = w.d.sessions.setup
+    let entry = ServerEntry(command: "npx", args: ["-y", "pkg"], env: ["API_KEY": "secret"])
+    _ = try await w.c.call(AddonsAdd(worktreeId: wt.id, name: "context7", entry: entry))
+    _ = try await w.c.call(
+        AddonsAdd(
+            worktreeId: wt.id, name: "linear", entry: ServerEntry(url: "https://l.app/mcp", headers: ["Auth": "t"])))
+    #expect(ServerFiles.read(setup.serversFile)["context7"] == entry)
+    let mode = try FileManager.default.attributesOfItem(atPath: setup.serversFile.path)[.posixPermissions] as? Int
+    #expect(mode == 0o600)
+    let listed = try await w.c.call(AddonsList(worktreeId: wt.id)).items.first { $0.key == "server:context7" }
+    #expect(listed?.origin == Addon.kept && listed?.agents == ["claude", "codex"] && listed?.fixed == [])
+
+    #expect(setup.withServers(["claude"], flag: "--mcp-config") == ["claude", "--mcp-config", setup.serversFile.path])
+    let codex = setup.withCodexSwitches(["codex", "resume", "--last"], worktreeId: wt.id)
+    #expect(
+        codex == [
+            "codex", "-c", #"mcp_servers.context7={command="npx",args=["-y","pkg"],env_vars=["API_KEY"]}"#,
+            "-c", #"mcp_servers.linear={url="https://l.app/mcp",env_http_headers={"Auth"="KELP_MCP_LINEAR_AUTH"}}"#,
+            "resume", "--last"
+        ])
+    #expect(!codex.joined().contains("secret"))
+    #expect(setup.codexEnvironment(worktreeId: wt.id) == ["API_KEY": "secret", "KELP_MCP_LINEAR_AUTH": "t"])
+    #expect(setup.withCodexSwitches(codex, worktreeId: wt.id) == codex)   // a restart's, chosen again
+
+    // Off in the project: Codex isn't handed it; Claude Code's settings deny it (the file is one for every project).
+    _ = try await w.c.call(AddonsSet(worktreeId: wt.id, key: "server:context7", on: false))
+    #expect(setup.withCodexSwitches(["codex"], worktreeId: wt.id).count == 3)
+    _ = try await w.c.call(AddonsRemove(worktreeId: wt.id, key: "server:context7"))
+    _ = try await w.c.call(AddonsRemove(worktreeId: wt.id, key: "server:linear"))
+    #expect(setup.withServers(["claude", "--mcp-config", setup.serversFile.path], flag: "--mcp-config") == ["claude"])
+    #expect(setup.addonsOff(worktreeId: wt.id).off.isEmpty)
+    await #expect(throws: (any Error).self) {
+        _ = try await w.c.call(AddonsRemove(worktreeId: wt.id, key: "server:pencil"))
+    }
+}

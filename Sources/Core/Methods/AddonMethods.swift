@@ -16,6 +16,9 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
         case kelp, yours, project, plugin, account, agent
     }
 
+    /// `origin` of a server Kelp keeps in its own file: one `addons.remove` takes away.
+    public static let kept = "Kelp"
+
     public var kind: Kind, name: String, source: Source
     public var id: String { "\(kind.rawValue):\(name)" }
     /// Its own line about itself (a skill's description).
@@ -96,5 +99,102 @@ public struct AddonsSet: InternalMethod {
         self.worktreeId = worktreeId
         self.key = key
         self.on = on
+    }
+}
+
+/// An MCP server as Kelp keeps it and as the agents' own files spell it (`mcpServers`): a program it starts
+/// (`command`, `args`, `env`) or an address it calls (`url`, `headers`).
+public struct ServerEntry: Codable, Sendable, Equatable {
+    public var command: String?, args: [String]?, env: [String: String]?
+    public var url: String?, headers: [String: String]?
+    public init(
+        command: String? = nil, args: [String]? = nil, env: [String: String]? = nil, url: String? = nil,
+        headers: [String: String]? = nil
+    ) {
+        self.command = command
+        self.args = args
+        self.env = env
+        self.url = url
+        self.headers = headers
+    }
+
+    /// What someone pasted, read: a JSON entry (bare, under its name, or a whole `{"mcpServers": {…}}`), an address,
+    /// or a command line ("npx -y pkg", with `KEY=value` words before it as its environment). nil when it's none.
+    public static func parse(_ pasted: String) -> (name: String, entry: ServerEntry)? {
+        let text = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        if text.hasPrefix("{") { return json(text) }
+        if let url = URL(string: text), let host = url.host, ["http", "https"].contains(url.scheme ?? "") {
+            let words = host.split(separator: ".").filter { !["www", "mcp", "api"].contains($0) }
+            return (name(String(words.first ?? "server")), ServerEntry(url: text))
+        }
+        var words = text.split(separator: " ").map(String.init), env: [String: String] = [:]
+        while let first = words.first, let equals = first.firstIndex(of: "="), !first.hasPrefix("-"),
+            first[..<equals].allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" })
+        {
+            env[String(first[..<equals])] = String(first[first.index(after: equals)...])
+            words.removeFirst()
+        }
+        guard let command = words.first else { return nil }
+        // Named by its package: the last word that isn't a flag ("@upstash/context7-mcp" → "context7").
+        let package = words.dropFirst().last { !$0.hasPrefix("-") } ?? command
+        let entry = ServerEntry(command: command, args: Array(words.dropFirst()), env: env.isEmpty ? nil : env)
+        return (name(package), entry)
+    }
+
+    private static func json(_ text: String) -> (name: String, entry: ServerEntry)? {
+        // Typed half-way it isn't JSON yet: no server, and nothing to report.
+        func read<T: Decodable>(_ body: () throws -> T) -> T? {
+            do { return try body() } catch { return nil }
+        }
+        guard let value = read({ try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8)) }) else { return nil }
+        func entry(_ value: JSONValue?) -> ServerEntry? {
+            guard let value, let entry = read({ try value.decode(ServerEntry.self) }),
+                entry.command != nil || entry.url != nil
+            else { return nil }
+            return entry
+        }
+        if let bare = entry(value) { return (name(bare.args?.last ?? bare.url ?? bare.command ?? "server"), bare) }
+        guard case .object(let fields) = value["mcpServers"] ?? value, let first = fields.keys.sorted().first,
+            let named = entry(fields[first])
+        else { return nil }
+        return (first, named)
+    }
+
+    /// "@upstash/context7-mcp@latest" → "context7": a short name the agents take (letters, digits, - and _).
+    static func name(_ from: String) -> String {
+        var base = (from.split(separator: "/").last.map(String.init) ?? from)
+        if let at = base.firstIndex(of: "@"), at != base.startIndex { base = String(base[..<at]) }
+        for affix in ["mcp-server-", "server-", "mcp-"] where base.hasPrefix(affix) { base.removeFirst(affix.count) }
+        for affix in ["-mcp-server", "-mcp", "-server"] where base.hasSuffix(affix) { base.removeLast(affix.count) }
+        let clean = base.map { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" ? $0 : "-" }
+        return String(clean).trimmingCharacters(in: CharacterSet(charactersIn: "-")).lowercased()
+    }
+}
+
+/// Adds an MCP server for every agent Kelp can hand one to: kept in Kelp's own `mcp.json` (all projects) or, with
+/// `project`, in the project's `.mcp.json`, which goes to the team with the repository. One of the same name is
+/// replaced. With `from`, the entry is the one that agent's own file has under `name` ("claude", "codex").
+public struct AddonsAdd: InternalMethod {
+    public static let name = "addons.add"
+    public typealias Result = Done
+    public var worktreeId: String, name: String, entry: ServerEntry?, project: Bool, from: String?
+    public init(worktreeId: String, name: String, entry: ServerEntry?, project: Bool = false, from: String? = nil) {
+        self.worktreeId = worktreeId
+        self.name = name
+        self.entry = entry
+        self.project = project
+        self.from = from
+    }
+}
+
+/// Takes a server added through Kelp away again (`Addon.key`): from Kelp's own file, or from the project's `.mcp.json`.
+public struct AddonsRemove: InternalMethod {
+    public static let name = "addons.remove"
+    public typealias Result = Done
+    public var worktreeId: String, key: String
+    public init(worktreeId: String, key: String) {
+        self.worktreeId = worktreeId
+        self.key = key
     }
 }

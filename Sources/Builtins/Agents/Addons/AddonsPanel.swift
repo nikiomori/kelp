@@ -8,7 +8,7 @@ import KelpKit
 /// record. Read when the panel shows, and again when the workspace or the chat changes. A switch is the project's:
 /// chats started from then on follow it, and the one on screen can be restarted to.
 @MainActor
-final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
     private let table = NSTableView()
     private let empty = EmptyStateView()
@@ -41,7 +41,12 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         table.target = self
         table.action = #selector(clicked)
         // The inspector's own title names the panel: its bar names the chat, as Source Control's names the branch.
-        let header = Bar.panel([face, chatTitle], [more])
+        table.menu = NSMenu()
+        table.menu?.delegate = self
+        let add = IconButton(.symbol("plus"), tip: String(localized: "Add an MCP Server…")) { [weak self] in
+            self?.addServer()
+        }
+        let header = Bar.panel([face, chatTitle], [add, more])
         chatTitle.font = .ui(TextSize.row, weight: .medium)
         chatTitle.lineBreakMode = .byTruncatingTail
         chatTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -153,6 +158,27 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         Task { [weak self, app] in
             await app.call(AddonsSet(worktreeId: workspace, key: key, on: on))
             self?.reload()
+        }
+    }
+
+    private func addServer() {
+        guard let workspace = app.workbench.workspaceId else { return }
+        let project = app.projectName(app.worktree(workspace)?.repoId) ?? String(localized: "This Project")
+        Task { [weak self, app] in
+            guard let server = await AddonAddForm(project: project).ask() else { return }
+            await app.call(
+                AddonsAdd(worktreeId: workspace, name: server.name, entry: server.entry, project: server.project))
+            self?.reload()
+        }
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        guard let workspace = app.workbench.workspaceId, lines.indices.contains(table.clickedRow) else { return }
+        switch lines[table.clickedRow] {
+        case .item(let addon, _), .problem(let addon):
+            AddonMenu.fill(menu, addon, app: app, worktreeId: workspace) { [weak self] in self?.reload() }
+        case .section, .group: break
         }
     }
 

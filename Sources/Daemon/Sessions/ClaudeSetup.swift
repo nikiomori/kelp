@@ -13,9 +13,11 @@ extension SessionSetup {
     func claudeSetup(_ session: Session) -> SessionContextParts.Setup? {
         guard session.agent == "claude", remotes.of(session.cwd) == nil else { return nil }
         let carried = ["--plugin-dir", "--append-system-prompt", "--model", "--mcp-config"]
-        let flags = session.argv.indices.dropLast().filter { carried.contains(session.argv[$0]) }.flatMap {
-            [session.argv[$0], session.argv[$0 + 1]]
+        // Not Kelp's servers file: with it this copy would start them, and nobody watches it.
+        let flags = session.argv.indices.dropLast().filter {
+            carried.contains(session.argv[$0]) && session.argv[$0 + 1] != serversFile.path
         }
+        .flatMap { [session.argv[$0], session.argv[$0 + 1]] }
         let key = ([session.cwd, session.profile ?? ""] + flags).joined(separator: "\n")
         if let hit = contextSetups.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 1800 { return hit.setup }
         var env = ProcessInfo.processInfo.environment

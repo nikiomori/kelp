@@ -8,8 +8,15 @@ public enum AddonList {
     static let order = ["claude", "codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
 
     /// `loaded`: a Claude Code chat's record, nil without one. `kelp`: the names of Kelp's own skills on disk.
-    public static func build(loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String]) -> [Addon] {
-        let onDisk = files.skills(cwd: cwd), named = files.servers(cwd: cwd)
+    /// `kept`: the servers in Kelp's own file, which it hands to Claude Code and Codex.
+    public static func build(
+        loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = []
+    ) -> [Addon] {
+        let onDisk = files.skills(cwd: cwd)
+        let own = files.servers(cwd: cwd).filter { !kept.contains($0.name) }
+        let named =
+            own
+            + kept.map { AddonFiles.Server(name: $0, file: Addon.kept, agents: ["claude", "codex"], project: false) }
         var items: [Addon] = []
         if let loaded {
             items += loaded.skills.map { skill(of: $0, onDisk: onDisk, files: files) }

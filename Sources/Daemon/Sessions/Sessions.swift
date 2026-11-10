@@ -176,6 +176,7 @@ final class Sessions: Sendable {
                 argv, flag: flag, manifest: manifest, worktreeId: worktreeId, fresh: launch.argv == nil)
         }
         if local, manifest.id == "codex" { argv = setup.withCodexSwitches(argv, worktreeId: worktreeId) }
+        if local, manifest.id == "claude" { argv = setup.withServers(argv, flag: "--mcp-config") }
         // Kelp's skills (written by the app into this home), for this session only: nothing goes into ~/.claude. A restart's
         // argv carries the ones it had: they're chosen again, as for a new chat (the browser's may differ by now).
         if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {

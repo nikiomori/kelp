@@ -3435,6 +3435,39 @@
         ],
         "type" : "object"
       },
+      "ServerEntry" : {
+        "description" : "An MCP server as Kelp keeps it and as the agents' own files spell it (`mcpServers`): a program it starts (`command`, `args`, `env`) or an address it calls (`url`, `headers`).",
+        "properties" : {
+          "args" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "command" : {
+            "type" : "string"
+          },
+          "env" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "headers" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+
+        ],
+        "type" : "object"
+      },
       "Session" : {
         "properties" : {
           "agent" : {
@@ -5077,6 +5110,55 @@
   },
   "methods" : [
     {
+      "description" : "Adds an MCP server for every agent Kelp can hand one to: kept in Kelp's own `mcp.json` (all projects) or, with `project`, in the project's `.mcp.json`, which goes to the team with the repository. One of the same name is replaced. With `from`, the entry is the one that agent's own file has under `name` (\"claude\", \"codex\").",
+      "name" : "addons.add",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "entry",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/ServerEntry"
+          }
+        },
+        {
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "project",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The skills, MCP servers and instruction files of the workspace's agents; with `session`, what that chat loaded.",
       "name" : "addons.list",
       "paramStructure" : "by-name",
@@ -5102,6 +5184,34 @@
           "$ref" : "#/components/schemas/Addons"
         }
       }
+    },
+    {
+      "description" : "Takes a server added through Kelp away again (`Addon.key`): from Kelp's own file, or from the project's `.mcp.json`.",
+      "name" : "addons.remove",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Switches a skill, a server or a plugin (`Addon.key`) for the workspace's project. Chats started from then on get it or don't; one that runs keeps what it started with. Nothing of the agents' own is written: the choice is Kelp's (UI state `addons.off.<repo>`) and reaches an agent on its command line.",

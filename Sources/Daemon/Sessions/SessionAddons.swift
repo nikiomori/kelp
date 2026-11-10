@@ -60,23 +60,52 @@ extension SessionSetup {
         return out
     }
 
-    /// A Codex's `argv` with its own servers that are off here left out, right after the program.
-    /// Limit: a `-c mcp_servers.<name>.enabled=false` the person typed themselves is taken for Kelp's at a restart.
-    func withCodexSwitches(_ argv: [String], worktreeId: String?) -> [String] {
+    /// Kelp's own servers (`addons.add`): for every project, handed to the agents that take one at a start.
+    var serversFile: URL { root.appendingPathComponent("mcp.json") }
+
+    /// Kelp's servers a chat in the workspace starts with: all but what's off in its project.
+    /// A project's `.mcp.json` isn't among them: a branch can bring one, and the agent that reads it asks first.
+    func handedServers(worktreeId: String?) -> [String: ServerEntry] {
+        let off = addonsOff(worktreeId: worktreeId).off
+        return ServerFiles.read(serversFile).filter { !off.contains("server:\($0.key)") }
+    }
+
+    /// A Claude Code's `argv` with Kelp's servers file, when it holds any (what's off is denied in its settings).
+    func withServers(_ argv: [String], flag: String) -> [String] {
         var out: [String] = [], index = 0
         while index < argv.count {
-            if argv[index] == "-c", index + 1 < argv.count, argv[index + 1].hasPrefix("mcp_servers."),
-                argv[index + 1].hasSuffix(".enabled=false")
-            {
+            if argv[index] == flag, index + 1 < argv.count, argv[index + 1] == serversFile.path {
                 index += 2
                 continue
             }
             out.append(argv[index])
             index += 1
         }
-        let off = addonsOff(worktreeId: worktreeId).off
-        guard !off.isEmpty, !out.isEmpty else { return out }
-        out.insert(contentsOf: AddonSwitches.codexArgs(off, servers: AddonFiles().codexServers()), at: 1)
+        return ServerFiles.read(serversFile).isEmpty ? out : out + [flag, serversFile.path]
+    }
+
+    /// What Kelp's servers need of a Codex chat's environment (`ServerFiles.codex`): what they sign in with.
+    func codexEnvironment(worktreeId: String?) -> [String: String] {
+        ServerFiles.codex(handedServers(worktreeId: worktreeId)).environment
+    }
+
+    /// A Codex's `argv` with its own servers that are off here left out and Kelp's handed over, right after the program.
+    /// Limit: a `-c mcp_servers.…` the person typed themselves is taken for Kelp's at a restart.
+    func withCodexSwitches(_ argv: [String], worktreeId: String?) -> [String] {
+        var out: [String] = [], index = 0
+        while index < argv.count {
+            if argv[index] == "-c", index + 1 < argv.count, argv[index + 1].hasPrefix("mcp_servers.") {
+                index += 2
+                continue
+            }
+            out.append(argv[index])
+            index += 1
+        }
+        let off = addonsOff(worktreeId: worktreeId).off, own = AddonFiles().codexServers()
+        guard !out.isEmpty else { return out }
+        // One Codex has itself stays its own: Kelp's of the same name isn't laid over it.
+        let handed = handedServers(worktreeId: worktreeId).filter { !own.contains($0.key) }
+        out.insert(contentsOf: AddonSwitches.codexArgs(off, servers: own) + ServerFiles.codex(handed).args, at: 1)
         return out
     }
 }

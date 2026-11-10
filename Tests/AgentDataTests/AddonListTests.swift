@@ -86,3 +86,22 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
             "skill:tabbit", "skill:web-perf"
         ])
 }
+
+@Test func aCodexServerIsReadForHandingOn() {
+    let toml = """
+        model = "x"
+        [mcp_servers.node_repl]
+        command = "/Applications/Chat GPT.app/node_repl"
+        args = ["--stdio", "a b"]
+        [mcp_servers.node_repl.env]
+        NODE_PATH = "/x"
+        [mcp_servers.remote]
+        url = "https://r.dev/mcp"
+        """
+    #expect(
+        AddonFiles.codexEntry("node_repl", in: toml)
+            == ServerEntry(
+                command: "/Applications/Chat GPT.app/node_repl", args: ["--stdio", "a b"], env: ["NODE_PATH": "/x"]))
+    #expect(AddonFiles.codexEntry("remote", in: toml) == ServerEntry(url: "https://r.dev/mcp"))
+    #expect(AddonFiles.codexEntry("none", in: toml) == nil)
+}

@@ -69,6 +69,10 @@ final class SessionSetup: Sendable {
     func launchEnv(_ manifest: AgentManifest, _ rec: Session) -> [String: String] {
         var env = hookedEnv(manifest, rec)
         env["PATH"] = Sessions.childPath
+        // What Kelp's servers sign in with, by the names Codex's command line gives them. The person's own stays theirs.
+        if manifest.id == "codex", remotes.of(rec.cwd) == nil {
+            env.merge(codexEnvironment(worktreeId: rec.worktreeId)) { theirs, _ in theirs }
+        }
         return env
     }
 
