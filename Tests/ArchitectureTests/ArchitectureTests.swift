@@ -497,8 +497,8 @@ func codeOnly(_ s: String) -> String {
 /// helpers) doesn't.
 @Test func handlersAreHandedAServiceNotTheDaemon() throws {
     let own: Set<String> = [
-        "Sources/Daemon/Daemon.swift", "Sources/Daemon/Handlers.swift", "Sources/Daemon/Server.swift",
-        "Sources/Daemon/WatchHandlers.swift"
+        "Sources/Daemon/Daemon.swift", "Sources/Daemon/Server/Handlers.swift", "Sources/Daemon/Server/Server.swift",
+        "Sources/Daemon/Server/WatchHandlers.swift"
     ]
     let naming = sources(["Sources/Daemon"]).filter { f in
         !own.contains(f.path) && codeOnly(f.text).range(of: #"\bDaemon\b"#, options: .regularExpression) != nil
@@ -590,14 +590,14 @@ func codeOnly(_ s: String) -> String {
 /// checked for itself could forget, or check after it had already acted.
 @Test func whoMayCallAMethodIsCheckedInOnePlace() throws {
     let checks = try matches(#"\.requireApp\("#, in: ["Sources/Daemon"])
-    let dispatch = ["Sources/Daemon/Handlers.swift:"]
+    let dispatch = ["Sources/Daemon/Server/Handlers.swift:"]
     #expect(
         checks.allSatisfy { c in dispatch.contains { c.hasPrefix($0) } },
         "who-may-call checks outside the dispatcher: \(checks)")
     // Params are read as a method's type only where the caller is checked too: `checked`, or a session's input, which
     // checks `onlyFromKelp` itself right after (SessionLanes).
     let reads = try matches(#"\bdecoded\("#, in: ["Sources/Daemon"]).filter {
-        !$0.hasPrefix("Sources/Daemon/Handlers.swift:")
+        !$0.hasPrefix("Sources/Daemon/Server/Handlers.swift:")
     }
     #expect(
         reads.map { $0.split(separator: ":")[0] } == ["Sources/Daemon/SessionLanes.swift"],
