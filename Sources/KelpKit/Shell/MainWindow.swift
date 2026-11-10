@@ -20,6 +20,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let surface: DropRoot
     private let inspectorItem: NSSplitViewItem
     private let sidebarItem: NSSplitViewItem
+    private var dockWatch: NSKeyValueObservation?
     /// Focus mode (⌃⌘Z): both panels away; they slide in while the pointer is at the window's edge.
     /// Holds the panels' state from before, to put back on leaving.
     private var focusMode: (sidebar: Bool, inspector: Bool)? {
@@ -123,6 +124,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             rightEdge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor)
         ])
         created.contentViewController = root
+        watchDock()
         created.title = String(localized: "Kelp")
         created.setFrameAutosaveName("main")
         created.delegate = self
@@ -156,6 +158,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self?.setAutoHide(sidebar: false, $0)
             self?.inspectorToggle.menu = self?.autoHideMenu(
                 String(localized: "Auto-Hide Inspector"), SettingKeys.inspectorAutoHide, $0)
+        }
+    }
+    /// Workbench says whether the inspector is docked, however its column opens or closes (a toggle, focus mode, a narrow
+    /// window, its divider dragged shut).
+    private func watchDock() {
+        dockWatch = inspectorItem.observe(\.isCollapsed, options: [.initial, .new]) { [weak app] item, _ in
+            let docked = !item.isCollapsed
+            MainActor.assumeIsolated { app?.workbench.inspectorDocked = docked }   // AppKit sets it on the main thread
         }
     }
     /// A panel's column. It holds the panel while it's docked; while the panel hides (auto-hide, focus mode) the panel is
@@ -236,8 +246,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     var sidebarShown: Bool { !sidebarItem.isCollapsed || peeking === sidebarItem }
     var inspectorShown: Bool { !inspectorItem.isCollapsed || peeking === inspectorItem }
-    /// In its column beside the editors, not only peeking over them.
-    var inspectorDocked: Bool { !inspectorItem.isCollapsed }
 
     /// Quitting: focus mode's panels come back first, or the split's autosave would start the next launch wrong.
     func leaveFocusMode() {

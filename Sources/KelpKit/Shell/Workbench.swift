@@ -28,8 +28,9 @@ package final class Workbench {
     /// The panel's controller once the inspector has built it; nil before it's first shown.
     package func builtPanel(_ id: String) -> NSViewController? { window?.inspector.built(id) }
     /// The inspector panel in its column beside the editors, by id; nil while the inspector is hidden or only peeking.
-    /// Observable as far as the panel picked; the column opening or closing resizes the editors, which tabs see as a layout.
-    package var panelBeside: String? { window?.inspectorDocked == true ? inspectorPanel : nil }
+    package var panelBeside: String? { inspectorDocked ? inspectorPanel : nil }
+    /// The inspector is in its column beside the editors, not hidden or only peeking over them (the window says so).
+    var inspectorDocked = false
     package var workspaceId: String? {
         didSet {
             app.uiState["workbench.lastWorkspace"] = workspaceId.map(JSONValue.string)
