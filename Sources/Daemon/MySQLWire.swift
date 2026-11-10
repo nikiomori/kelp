@@ -17,7 +17,7 @@ enum MySQLWire {
     }
 
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c, within: 60) { conn in
+        try await with(c, within: DatabaseTimes.trial) { conn in
             let tables = try await run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
             guard tables == "0" else { throw MySQLRun.cantRollBack }
             _ = try await run(conn, "START TRANSACTION")
@@ -30,7 +30,7 @@ enum MySQLWire {
 
     /// `allowed`: as Postgres' (a row change only: MySQL's DDL isn't tried, so it has no count to hold it to).
     static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) async throws -> DatabaseRows {
-        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             if allowed != nil { _ = try await run(conn, "START TRANSACTION") }
             var result = try await run(conn, sql)
             result.changed = try await changed(conn)
@@ -46,7 +46,7 @@ enum MySQLWire {
     }
 
     static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
-        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             _ = try await run(conn, "START TRANSACTION")
             var changed = 0
             for sql in statements {
@@ -103,7 +103,7 @@ enum MySQLWire {
     /// call past its time is stopped on the server too (`KILL QUERY` from a second connection), since MySQL's own
     /// limit stops only a SELECT: a change that ran on would commit after the caller was told it didn't answer.
     private static func with<T: Sendable>(
-        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
+        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (MySQLConnection) async throws -> T
     ) async throws -> T {
         let db = c.database
@@ -129,20 +129,25 @@ enum MySQLWire {
             return result
         } catch DatabaseFailure.failed(let said) where said.hasPrefix("No answer from") {
             await DatabaseWire.close { try await conn.close().get() }
-            throw DatabaseFailure.failed(
-                said
-                    + (stopped.withLock { $0 }
-                        ? " Kelp stopped it on the server."
-                        : " It may still be running on the server: look before running it again."))
+            throw DatabaseFailure.failed(late(said, stopped: stopped.withLock { $0 }))
         } catch {
             await DatabaseWire.close { try await conn.close().get() }
             throw failure(error, db)
         }
     }
 
-    static let handshakeTimeout: TimeInterval = 10
+    /// A call past its time, said so that nobody reruns a change that may have run: KILL QUERY stops what still runs,
+    /// but one that had just finished (and committed, outside a transaction) stays done.
+    static func late(_ said: String, stopped: Bool) -> String {
+        said
+            + (stopped
+                ? " Kelp stopped it on the server, unless it had finished by then: look before running it again."
+                : " It may still be running on the server: look before running it again.")
+    }
+
+    static let handshakeTimeout = DatabaseTimes.handshake
     /// A KILL QUERY's handshake, and then its answer: what a call past its time adds to it, at most twice this.
-    static let killTimeout: TimeInterval = 3
+    static let killTimeout = DatabaseTimes.kill
 
     static func open(_ c: DatabaseConnection, handshake: TimeInterval = handshakeTimeout) async throws
         -> MySQLConnection

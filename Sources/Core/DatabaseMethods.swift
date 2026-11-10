@@ -228,6 +228,43 @@ public struct DatabaseSchemaRead: RPCMethod {
     }
 }
 
+/// The times kelpd gives a database's work, and what the calls that wait on it (`db.query`, `db.apply`, `db.check`)
+/// wait: read by both sides, so a caller is never told "timed out" of a change kelpd still commits.
+public enum DatabaseTimes {
+    /// A read's time limit, and a change's; the longest a user's read may be given (Settings › Databases).
+    public static let read: TimeInterval = 15, write: TimeInterval = 300, longestRead: TimeInterval = 300
+    /// A MySQL trial, its rollback included.
+    public static let trial: TimeInterval = 60
+    /// Asking Postgres whether the role is a superuser (`Databases.query`, for a production database).
+    public static let superuser: TimeInterval = 5
+    /// What a call takes past its statement's time before it's given up (`DatabaseWire.within`, a client's run).
+    public static let slack: TimeInterval = 10
+    /// Connecting: Postgres (`connect`), MySQL's handshake, and a KILL QUERY's handshake and then its answer (each
+    /// `kill`, what a MySQL call past its time adds); finding a compose service's container (`compose`).
+    public static let connect: TimeInterval = 8, handshake: TimeInterval = 10, kill: TimeInterval = 3
+    public static let compose: TimeInterval = 15
+    /// Reaching a server through SSH (`Databases.reach`): the shared connection opened (20 s) and checked (3 s).
+    /// Limit: `ssh -O forward` has no time of its own.
+    public static let reach: TimeInterval = 30
+
+    /// One connection's call that runs `seconds` at most, however it's reached: connected, run, given up on and
+    /// stopped on the server.
+    public static func call(_ seconds: TimeInterval) -> TimeInterval {
+        max(connect, handshake + 2 * kill, compose) + seconds + slack
+    }
+
+    /// An agent's statement: the superuser check, its try as a read, its trial (MySQL's client asks first whether
+    /// it can roll back), the user's answer, the change.
+    public static var query: TimeInterval {
+        reach + call(superuser) + call(longestRead) + call(read) + call(trial) + DatabaseQuery.answerWithin
+            + call(write)
+    }
+    /// The table's edits in one transaction. Limit: Appwrite's are a request each, with no time for them all.
+    public static var apply: TimeInterval { reach + call(write) }
+    /// The sheet's check: the tables, the version and the databases, each a call of its own.
+    public static var check: TimeInterval { reach + 3 * call(read) }
+}
+
 /// Runs one statement. From an agent: a read, in a read-only transaction; a change goes by the database's
 /// `agentAccess`, and waits for the user's Allow when it asks. `limit`: the rows sent back (the history keeps more,
 /// for the tab).
@@ -235,8 +272,9 @@ public struct DatabaseQuery: RPCMethod {
     public static let name = "db.query"
     public typealias Result = QueryResult
     /// An agent's change waits up to ten minutes for an answer (`answerWithin`), then runs up to five (kelpd's write
-    /// limit): the caller waits for both, or it's told "timed out" of a change still made, and a retry makes it twice.
-    public static var timeout: TimeInterval? { answerWithin + 300 + 60 }
+    /// limit): the caller waits for all of it (`DatabaseTimes.query`), or it's told "timed out" of a change still
+    /// made, and a retry makes it twice.
+    public static var timeout: TimeInterval? { DatabaseTimes.query + DatabaseTimes.slack }
     public static let answerWithin: TimeInterval = 600
     public var worktreeId: String, database: String, sql: String, limit: Int?
     public init(worktreeId: String, database: String, sql: String, limit: Int? = nil) {

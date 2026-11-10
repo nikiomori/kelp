@@ -113,7 +113,7 @@ enum PostgresWire {
     /// The change made and rolled back; with RETURNING its rows are what it changed. How many it changed is the
     /// command tag's, never the rows counted (they stop at `countLimit`).
     static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c, within: 2 * DatabaseEngines.readTimeout + 10) { conn in
+        try await with(c, within: 2 * DatabaseEngines.readTimeout + DatabaseTimes.slack) { conn in
             func attempt(_ statement: String) async throws -> DatabaseRows {
                 try await run(conn, "BEGIN")
                 try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
@@ -135,7 +135,7 @@ enum PostgresWire {
 
     /// `allowed`: the rows the user allowed it to change; it's committed only if it changes as many.
     static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) async throws -> DatabaseRows {
-        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             guard let allowed else {
                 try await run(conn, "SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
                 return try await command(conn, sql)
@@ -155,7 +155,7 @@ enum PostgresWire {
 
     /// Statements in one transaction: a failure leaves nothing done (the connection closes without COMMIT).
     static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
-        try await with(c, within: DatabaseEngines.writeTimeout + 10) { conn in
+        try await with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             try await run(conn, "BEGIN")
             try await run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             var changed = 0
@@ -197,7 +197,7 @@ enum PostgresWire {
 
     /// `seconds`: the call's whole time (`DatabaseWire.within`).
     private static func with<T: Sendable>(
-        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + 10,
+        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (PostgresConnection) async throws -> T
     ) async throws -> T {
         let db = c.database
@@ -211,7 +211,7 @@ enum PostgresWire {
         var config = PostgresConnection.Configuration(
             host: host, port: db.port ?? 5432, username: user, password: password, database: db.database,
             tls: db.ssl == "disable" ? .disable : db.ssl == "require" ? .require(context) : .prefer(context))
-        config.options.connectTimeout = .seconds(8)
+        config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
         // UTC: timestamptz as `PostgresText` writes it, so a row found by its values (`::text`) compares the same
         config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
         let conn: PostgresConnection
@@ -286,7 +286,8 @@ enum PostgresWire {
             // NIO's "connect(descriptor:addr:size:): Connection refused (errno: 61)": the reason, as psql says it
             if said.contains("Connection refused") { return DatabaseFailure.failed("Connection refused") }
             if said.contains("timed out") || said.contains("connectTimeout") {
-                return DatabaseFailure.failed("\(db.name) didn't answer at \(db.address) in 8 s.")
+                return DatabaseFailure.failed(
+                    "\(db.name) didn't answer at \(db.address) in \(Int(DatabaseTimes.connect)) s.")
             }
             return DatabaseFailure.failed(said)
         }

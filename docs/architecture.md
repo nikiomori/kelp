@@ -262,8 +262,10 @@ waits on its asking program (`PermissionWaits.waitForKelp`): cut off (Esc, a too
 late Allow; two asked at once wait their turn, oldest first; what agents may do is read again after the answer, and
 the Allow is for the rows the trial changed: where the change runs in kelpd (SQLite, over the wire) it's committed
 only if it changes as many, else nothing is changed; through a client (DuckDB, a container's psql or mysql) a table
-changed while it was asked can change a different number. A call past its time is stopped on the server too (MySQL's
-`KILL QUERY`, whose own limit stops only a SELECT); a MySQL server that takes the connection and never greets is given
+changed while it was asked can change a different number, so the question there says the number is only the trial's.
+A call past its time is stopped on the server too (MySQL's `KILL QUERY`, whose own limit stops only a SELECT), and
+said as one that may have finished; the calls' deadlines are the work's own times added up (`DatabaseTimes`), so a
+caller isn't told "timed out" of a change still made. A MySQL server that takes the connection and never greets is given
 10 s. What kelpd reads of an answer stops at 32 MB, refused whole rather than sent as fewer rows. The
 table tab's edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, `db.schema` and `db.query`,
 all three in their own workspaces; `databases.agents` (the default access) and the window's watch of the databases

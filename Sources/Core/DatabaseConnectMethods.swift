@@ -9,7 +9,7 @@ import Foundation
 public struct DatabaseCheck: InternalMethod {
     public static let name = "db.check"
     public typealias Result = DatabaseCheckResult
-    public static var timeout: TimeInterval? { 30 }
+    public static var timeout: TimeInterval? { DatabaseTimes.check + DatabaseTimes.slack }
     public var worktreeId: String, database: DatabaseInfo, password: String?
     public var versionOnly: Bool?
     public init(worktreeId: String, database: DatabaseInfo, password: String? = nil, versionOnly: Bool? = nil) {
@@ -213,7 +213,7 @@ public struct DatabaseStart: InternalMethod {
 public struct DatabaseApply: InternalMethod {
     public static let name = "db.apply"
     public typealias Result = QueryResult
-    public static var timeout: TimeInterval? { 320 }
+    public static var timeout: TimeInterval? { DatabaseTimes.apply + DatabaseTimes.slack }
     public var worktreeId: String, database: String, statements: [String]
     public init(worktreeId: String, database: String, statements: [String]) {
         self.worktreeId = worktreeId

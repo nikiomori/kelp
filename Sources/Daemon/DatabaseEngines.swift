@@ -54,7 +54,7 @@ enum DatabaseEngines {
     /// Rows kept of a result; more are counted up to `countLimit`.
     static let keep = QueryResult.kept, countLimit = QueryResult.counted
     /// A read's time limit, and a change's.
-    static let readTimeout: TimeInterval = 15, writeTimeout: TimeInterval = 300
+    static let readTimeout = DatabaseTimes.read, writeTimeout = DatabaseTimes.write
     /// What Kelp reads of a client's output: an answer past it is refused whole, never read as fewer rows.
     static let outputLimit = 32 << 20
 
@@ -141,9 +141,19 @@ enum DatabaseEngines {
         return try whole(rows, c.database.name)
     }
 
-    /// `allowed`: the rows the user allowed it to change (its trial's). Where it runs in kelpd (SQLite, over the wire)
-    /// it's committed only if it changes as many; through a client (DuckDB, a container's psql or mysql) it runs as
-    /// asked, so a table changed while it was asked can change a different number there.
+    /// Whether `write` holds a change to the rows the user allowed: where it runs in kelpd (SQLite, over the wire).
+    /// Limit: through a client (DuckDB, a container's psql or mysql) the script can't wait on the count before its
+    /// COMMIT, so it runs as asked, and the question says the number is only the trial's.
+    static func holdsAllowed(_ c: DatabaseConnection) -> Bool {
+        switch c.database.engine {
+        case .sqlite: true
+        case .postgres, .mysql: c.database.host != nil
+        case .duckdb, .appwrite: false
+        }
+    }
+
+    /// `allowed`: the rows the user allowed it to change (its trial's), committed only if it changes as many where
+    /// `holdsAllowed`; elsewhere it runs as asked, so a table changed while it was asked can change a different number.
     static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots) async throws
         -> DatabaseRows
     {
@@ -214,7 +224,7 @@ enum DatabaseEngines {
             "docker", also: ["/usr/local/bin", "/opt/homebrew/bin", "/Applications/Docker.app/Contents/Resources/bin"])
         let id = Subprocess.printed(
             [docker, "compose", "-f", service.file, "ps", "-q", service.name], path: "/usr/local/bin:/usr/bin:/bin",
-            timeout: 15)?.split(whereSeparator: \.isNewline).first.map(String.init)
+            timeout: DatabaseTimes.compose)?.split(whereSeparator: \.isNewline).first.map(String.init)
         guard let id, !id.isEmpty else {
             throw DatabaseFailure.failed(
                 "\(service.name) isn't running: docker compose up -d \(service.name) starts it.")

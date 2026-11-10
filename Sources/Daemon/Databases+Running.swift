@@ -43,7 +43,7 @@ extension Databases {
         do {
             let started = Date()
             // As Settings offers them: settings.json (or an agent's `kelp settings set`) can say anything
-            let timeout = min(300, max(1, sessions.settings[SettingKeys.databaseTimeout]))
+            let timeout = min(DatabaseTimes.longestRead, max(1, sessions.settings[SettingKeys.databaseTimeout]))
             guard SQLText.mayTryAsRead(sql, target.database.engine) else { throw DatabaseFailure.change }
             let rows = try await DatabaseEngines.read(target, sql, timeout: timeout, off: offloads)
             return finish(q, &run, rows, started: started, agent: forAgent)
@@ -88,7 +88,8 @@ extension Databases {
     private func superuser(_ c: DatabaseConnection) async throws -> Bool {
         do {
             let asked = "SELECT current_setting('is_superuser')"
-            return try await DatabaseEngines.read(c, asked, timeout: 5, off: offloads).rows.first?.first == "on"
+            return try await DatabaseEngines.read(c, asked, timeout: DatabaseTimes.superuser, off: offloads).rows.first?
+                .first == "on"
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
     }
 
@@ -179,7 +180,8 @@ extension Databases {
                     QueryResult(
                         id: run.id, columns: $0.columns, rows: $0.rows, total: $0.total, changed: $0.changed, ms: 0))
             })
-        let question = Self.question(sql, database: c.database.name, changed: trial?.changed)
+        let question = Self.question(
+            sql, database: c.database.name, changed: trial?.changed, held: DatabaseEngines.holdsAllowed(c))
         ls.askForKelp(question)
         let answer = await sessions.permissions.waitForKelp(
             session, question: question, within: DatabaseQuery.answerWithin, asker: pid)
@@ -216,10 +218,14 @@ extension Databases {
     /// What the agent's row asks: "Allow changing 1204 rows of orders in app_dev?", the table named so that two asked
     /// one after another read apart. "allow" makes the banner, the Dock and the strip offer Allow / Deny
     /// (`Session.asksPermission`).
-    static func question(_ sql: String, database: String, changed: Int?) -> String {
+    /// `held`: whether the change is held to that many rows (`DatabaseEngines.holdsAllowed`); else the number is only
+    /// what its trial changed.
+    static func question(_ sql: String, database: String, changed: Int?, held: Bool = true) -> String {
         if let changed, ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE"].contains(SQLText.verb(sql)) {
             let rows = "\(changed) \(changed == 1 ? "row" : "rows")"
-            return "Allow changing \(rows)\(table(sql).map { " of \($0)" } ?? "") in \(database)?"
+            let of = table(sql).map { " of \($0)" } ?? ""
+            guard held else { return "Allow changing rows\(of) in \(database)? Tried just now, it changed \(rows)." }
+            return "Allow changing \(rows)\(of) in \(database)?"
         }
         // The whole statement on one line; one too long to read there says it's cut, and where the rest is
         let code = SQLText.code(sql)
