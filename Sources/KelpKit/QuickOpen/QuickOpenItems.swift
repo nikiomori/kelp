@@ -126,7 +126,7 @@ extension QuickOpen {
             if let root, path.hasPrefix(root + "/") { return ("doc", String(path.dropFirst(root.count + 1))) }
             return ("doc", (path as NSString).abbreviatingWithTildeInPath)
         case "diff": return ("plus.forwardslash.minus", String(localized: "Changes"))
-        case "http", "https": return ("globe", URL(string: uri)?.host() ?? uri)
+        case "http", "https": return ("safari", URL(string: uri)?.host() ?? uri)
         default: return ("square.on.square", "")
         }
     }

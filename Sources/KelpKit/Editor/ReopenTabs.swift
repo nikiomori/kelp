@@ -128,7 +128,7 @@ final class RecentlyClosedMenu: NSObject, NSMenuDelegate {
         switch TabURI.scheme(uri) {
         case "session": "terminal"
         case "file": "doc"
-        case "http", "https": "globe"
+        case "http", "https": "safari"
         default: "doc.text"
         }
     }
