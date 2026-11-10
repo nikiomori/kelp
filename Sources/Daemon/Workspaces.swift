@@ -309,7 +309,7 @@ final class Workspaces: Sendable {
         let exists =
             try host.map {
                 String(
-                    decoding: try $0.run("[ -e \(IDE.shellWord(workspace.path)) ] && echo yes || true"), as: UTF8.self
+                    decoding: try $0.run("[ -e \(ShellQuote.word(workspace.path)) ] && echo yes || true"), as: UTF8.self
                 )
                 .hasPrefix("yes")
             }

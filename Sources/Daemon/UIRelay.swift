@@ -99,6 +99,7 @@ extension StateGet: Handled {
     func handle(_ ui: UIStore) throws -> JSONValue {
         if let prefix {
             var all = try ui.store.uiState(prefix: prefix)
+            // daemonState's, never a stale copy an older daemon left in uiState (or none, where the trust was taken back)
             for key in Store.trustKeys where key.hasPrefix(prefix) {
                 all[key] = try ui.store.daemonState(key, as: JSONValue.self)
             }

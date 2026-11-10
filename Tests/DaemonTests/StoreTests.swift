@@ -133,8 +133,9 @@ import os
     release.signal()
 }
 
-/// What the daemon decides by and keeps for itself moves out of the app's state once, where any `state.set` could write
-/// it: the trust as it was, the port forwardings from the JSON string they were kept in. The app's own keys stay.
+/// What the daemon decides by and keeps for itself is copied out of the app's state once, where any `state.set` could
+/// write it: the trust as it was, the port forwardings from the JSON string they were kept in. The old rows stay for an
+/// older daemon on the same store, and a stale one there doesn't win over the daemon's own.
 @Test func theDaemonsOwnStateMovesOutOfTheAppsOnce() throws {
     let path = tmp().appendingPathComponent("kelp.db").path
     do {
@@ -154,9 +155,22 @@ import os
     }
     let s = try Store(path: path)
     #expect(try s.daemonState(LSPOpen.trustKey, as: [String].self) == ["/p"])
-    #expect(try s.daemonState(IDE.extensionTrustKey, as: [String: String].self) == ["x": "d"])
+    #expect(try s.daemonState(ExtensionFiles.extensionTrustKey, as: [String: String].self) == ["x": "d"])
     #expect(try s.daemonState("ports.forwards", as: [Forwards.Record].self)?.map(\.here) == [1])
-    #expect(try s.uiState(prefix: "") == ["sidebar.order": .array([.string("a")])])
+    #expect(try s.uiState(prefix: "").keys.sorted() == ["extensions.trusted", "lsp.trusted", "ports.forwards", "sidebar.order"])
+    // An older daemon's write after the copy: stale; and trust taken back since leaves none, not the old row.
+    try s.setUIState(LSPOpen.trustKey, .array([.string("/stale")]))
+    try s.setDaemonState(ExtensionFiles.extensionTrustKey, nil as JSONValue?)
+    let ui = UIStore(store: s, clients: Clients())
+    let all = try StateGet(prefix: "").handle(ui)
+    #expect(all[LSPOpen.trustKey] == .array([.string("/p")]) && all[ExtensionFiles.extensionTrustKey] == nil)
+    #expect(all["sidebar.order"] == .array([.string("a")]))
+    #expect(try StateGet(key: LSPOpen.trustKey).handle(ui) == .array([.string("/p")]))
+    #expect(try StateGet(key: ExtensionFiles.extensionTrustKey).handle(ui) == .null)
+    // and the window's writes of trust go only to the daemon's table
+    try StateSet(key: LSPOpen.trustKey, value: .array([.string("/q")])).handle(ui)
+    #expect(try s.uiState(prefix: LSPOpen.trustKey)[LSPOpen.trustKey] == .array([.string("/stale")]))
+    #expect(try s.daemonState(LSPOpen.trustKey, as: [String].self) == ["/q"])
 }
 
 /// A routine's old run whose tab is open stays, though a hidden tab lets go of its terminal: the saved layouts say.
