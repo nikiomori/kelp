@@ -191,47 +191,6 @@ extension VMService {
             Thread.sleep(forTimeInterval: 5)
         }
     }
-
-    /// curl, which goes on where it stopped (`-C -`); how far (0…1), every few seconds, from a thread of its own. A file
-    /// still growing is another curl's (a kelpd before this one started it): waited for, not downloaded twice.
-    private func download(_ url: String, to file: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
-        let part = file.appendingPathExtension("part")
-        let head = try await blocking { try run(["/usr/bin/curl", "-fsIL", url], limit: 60) }
-        let total = Self.contentLength(head)
-        @Sendable func size() -> Double {
-            var st = stat()
-            return stat(part.path, &st) == 0 ? Double(st.st_size) : 0
-        }
-        while true {   // another curl's, still writing
-            let before = size()
-            try await Task.sleep(nanoseconds: 3_000_000_000)
-            if size() == before { break }
-            if total > 0 { progress(size() / total) }
-        }
-        let done = OSAllocatedUnfairLock(initialState: false)
-        Thread.detachNewThread {
-            while !done.withLock({ $0 }) {
-                if total > 0 { progress(min(1, size() / total)) }
-                Thread.sleep(forTimeInterval: 3)
-            }
-        }
-        defer { done.withLock { $0 = true } }
-        if total == 0 || size() < total {
-            let curl = ["/usr/bin/curl", "-fsSL", "--retry", "5", "-C", "-", "-o", part.path, url]
-            let out = try await Subprocess.run(curl, cwd: "/", env: [:], timeLimit: 6 * 3600)
-            guard out.status == 0 else {
-                throw RPCError.internalError("Downloading macOS: " + String(decoding: out.stderr, as: UTF8.self))
-            }
-        }
-        try FileManager.default.moveItem(at: part, to: file)
-    }
-
-    /// The last Content-Length of curl -I's headers (after redirects). Header lines end in CRLF, which Swift reads as one
-    /// Character: split on newlines, not on "\n".
-    static func contentLength(_ headers: String) -> Double {
-        let line = headers.components(separatedBy: .newlines).last { $0.lowercased().hasPrefix("content-length:") }
-        return line.flatMap { Double($0.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)) } ?? 0
-    }
 }
 
 extension VMService {

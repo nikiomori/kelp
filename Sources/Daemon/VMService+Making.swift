@@ -138,11 +138,16 @@ extension VMService {
         guard let want = line?.split(separator: " ").first else {
             throw RPCError.internalError("\(name) isn't in \(image.sums)")
         }
-        let watcher = DownloadProgress { progress(.downloading, $0) }
-        let (tmp, _) = try await URLSession.shared.download(from: url, delegate: watcher)
-        defer { remove(tmp) }
+        // Kept beside the images until it's unpacked: a kelpd that restarts midway goes on where this one stopped.
+        // Limit: two machines of an image made at once share the download; the one that unpacks it second may find the
+        // archive gone and fail (made again, it finds the image unpacked).
+        let archive = images.appendingPathComponent(name)
+        if !FileManager.default.fileExists(atPath: archive.path) {
+            try await download(image.url, to: archive) { progress(.downloading, $0) }
+        }
+        defer { remove(archive) }
         progress(.checking, nil)
-        guard try await blocking({ try Self.sha512(tmp) }) == want else {
+        guard try await blocking({ try Self.sha512(archive) }) == want else {
             throw RPCError.internalError("\(name) doesn't match its published checksum: not used")
         }
         progress(.unpacking, nil)
@@ -150,7 +155,7 @@ extension VMService {
         try Paths.ensure(dir)
         defer { remove(dir) }
         let out = try await Subprocess.run(
-            ["/usr/bin/tar", "-xf", tmp.path, "-C", dir.path, image.member], cwd: "/", env: [:], timeLimit: 600)
+            ["/usr/bin/tar", "-xf", archive.path, "-C", dir.path, image.member], cwd: "/", env: [:], timeLimit: 600)
         guard out.status == 0 else {
             throw RPCError.internalError("tar: " + String(decoding: out.stderr, as: UTF8.self))
         }
@@ -195,6 +200,49 @@ extension VMService {
             to: folder(machine.name).sshConfig, atomically: true, encoding: .utf8)
     }
 
+    /// curl, which goes on where it stopped (`-C -`); how far (0…1), every few seconds, from a thread of its own. A file
+    /// still growing is another curl's (a kelpd before this one started it): waited for, not downloaded twice.
+    func download(_ url: String, to file: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
+        let part = file.appendingPathExtension("part")
+        let head = try await blocking { try run(["/usr/bin/curl", "-fsIL", url], limit: 60) }
+        let total = Self.contentLength(head)
+        @Sendable func size() -> Double {
+            var st = stat()
+            return stat(part.path, &st) == 0 ? Double(st.st_size) : 0
+        }
+        while true {   // another curl's, still writing
+            let before = size()
+            try await Task.sleep(nanoseconds: 3_000_000_000)
+            if size() == before { break }
+            if total > 0 { progress(size() / total) }
+        }
+        if FileManager.default.fileExists(atPath: file.path) { return }   // the other one finished it
+        let done = OSAllocatedUnfairLock(initialState: false)
+        Thread.detachNewThread {
+            while !done.withLock({ $0 }) {
+                if total > 0 { progress(min(1, size() / total)) }
+                Thread.sleep(forTimeInterval: 3)
+            }
+        }
+        defer { done.withLock { $0 = true } }
+        if total == 0 || size() < total {
+            let curl = ["/usr/bin/curl", "-fsSL", "--retry", "5", "-C", "-", "-o", part.path, url]
+            let out = try await Subprocess.run(curl, cwd: "/", env: [:], timeLimit: 6 * 3600)
+            guard out.status == 0 else {
+                throw RPCError.internalError(
+                    "Downloading \(file.lastPathComponent): " + String(decoding: out.stderr, as: UTF8.self))
+            }
+        }
+        try FileManager.default.moveItem(at: part, to: file)
+    }
+
+    /// The last Content-Length of curl -I's headers (after redirects). Header lines end in CRLF, which Swift reads as one
+    /// Character: split on newlines, not on "\n".
+    static func contentLength(_ headers: String) -> Double {
+        let line = headers.components(separatedBy: .newlines).last { $0.lowercased().hasPrefix("content-length:") }
+        return line.flatMap { Double($0.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)) } ?? 0
+    }
+
     /// A program's output; its error when it fails.
     @discardableResult
     func run(_ argv: [String], limit: TimeInterval = 60) throws -> String {
@@ -204,25 +252,5 @@ extension VMService {
                 (argv[0] as NSString).lastPathComponent + ": " + String(decoding: out.stderr, as: UTF8.self))
         }
         return String(decoding: out.stdout, as: UTF8.self)
-    }
-}
-
-/// A download's progress, as it goes (URLSession's async download reports only the end).
-private final class DownloadProgress: NSObject, URLSessionTaskDelegate, Sendable {
-    let report: @Sendable (Double) -> Void
-    private let watching = OSAllocatedUnfairLock<(NSKeyValueObservation?, percent: Int)>(initialState: (nil, -1))
-    init(_ report: @escaping @Sendable (Double) -> Void) { self.report = report }
-    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        let observation = task.progress.observe(\.fractionCompleted) { [weak self, report] progress, _ in
-            let percent = Int(progress.fractionCompleted * 100)   // a percent at a time, not every few kilobytes
-            guard
-                self?.watching.withLock({ current in
-                    defer { current.percent = percent }
-                    return current.percent != percent
-                }) == true
-            else { return }
-            report(progress.fractionCompleted)
-        }
-        watching.withLock { $0.0 = observation }
     }
 }
