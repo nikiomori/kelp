@@ -68,6 +68,24 @@ import Testing
         }
     }
 
+    /// A quit before a new size leaves an emulator that's up alone, as a Linux machine's kelp-vm does: a command may
+    /// have woken it since kelpd looked.
+    @Test(.timeLimit(.minutes(1))) func aQuitForANewSizeLeavesOneThatsUp() async throws {
+        let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
+        defer { if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") } }
+        let (vm, sdk) = try standIn()
+        defer { try? FileManager.default.removeItem(at: sdk) }
+        func ask(_ r: VMHelper.Request) async -> String? {
+            await withCheckedContinuation { c in vm.handle(r) { c.resume(returning: $0) } }
+        }
+        var ended = false
+        vm.exitProcess = { ended = true }
+        #expect(await ask(.init(op: .start)) == nil)
+        #expect(await ask(.quitIfDown)?.contains("in use") == true)
+        #expect(vm.state == .running && !ended)
+        _ = await ask(.init(op: .sleep))
+    }
+
     /// SIGTERM leaves no emulator behind: one up is slept, one booting once it's up, one being saved once it's saved; and
     /// nothing new starts meanwhile (a start then would boot an emulator nobody ends).
     @Test(.timeLimit(.minutes(1))) func leavingEndsTheEmulatorWhateverItWasDoing() async throws {

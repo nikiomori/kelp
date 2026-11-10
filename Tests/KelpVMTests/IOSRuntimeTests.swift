@@ -27,6 +27,19 @@ import Testing
         #expect(try await waitFor(5) { kill(runner, 0) != 0 }, "no runner left")
     }
 
+    /// A quit before a new size leaves a simulator that's up alone.
+    @Test(.timeLimit(.minutes(1))) func aQuitForANewSizeLeavesOneThatsUp() async throws {
+        let (vm, folder) = try iOS()
+        defer { putAway(folder) }
+        var ended = false
+        vm.exitProcess = { ended = true }
+        #expect(await ask(vm, .start) == nil)
+        #expect(await withCheckedContinuation { c in vm.handle(.quitIfDown) { c.resume(returning: $0) } } != nil)
+        #expect(vm.state == .running && !ended)
+        vm.exitProcess = {}
+        _ = await ask(vm, .stop)
+    }
+
     /// A runner not built fails the start and says so; once it's there, the next start boots.
     @Test(.timeLimit(.minutes(1))) func aRunnerNotBuiltFailsTheStartAndTheNextOneRecovers() async throws {
         let (vm, folder) = try iOS(built: false)

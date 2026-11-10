@@ -5,12 +5,32 @@ import Testing
 @testable import KelpVM
 
 /// A new size waits for a machine that's down: not one running, nor one whose boot is being tried again (no VM for a
-/// second, still starting), which a quit would cut.
+/// second, still starting), which a quit would cut. Asked by its field, or by `args` as a kelpd before it asked.
 @Test func aQuitForANewSizeWaitsForAMachineThatsDown() {
-    #expect(Lifecycle.refusesQuit(["if-down"], hasVM: true, state: .running))
-    #expect(Lifecycle.refusesQuit(["if-down"], hasVM: false, state: .starting))
-    #expect(!Lifecycle.refusesQuit(["if-down"], hasVM: false, state: .off))
-    #expect(!Lifecycle.refusesQuit(nil, hasVM: true, state: .running))   // a plain quit (a delete) goes on
+    func refuses(_ request: VMHelper.Request, _ hasVM: Bool, _ state: VMState) -> Bool {
+        Lifecycle.refusesQuit(request, hasVM: hasVM, state: state, name: "m") != nil
+    }
+    let older = VMHelper.Request(op: .quit, args: ["if-down"])
+    #expect(refuses(.quitIfDown, true, .running) && refuses(older, true, .running))
+    #expect(refuses(.quitIfDown, false, .starting))
+    #expect(!refuses(.quitIfDown, false, .off))
+    #expect(!refuses(.init(op: .quit), true, .running))   // a plain quit (a delete) goes on
+}
+
+/// What a kind doesn't do is said the same by each runtime.
+@Test func whatAKindDoesntDoIsSaidOnce() {
+    func machine(_ os: String) -> VMMachine {
+        VMMachine(name: os, os: os, image: os, cpus: 1, memoryMiB: 1024, diskGiB: 8, user: "u")
+    }
+    #expect(
+        Lifecycle.unsupported(.share, machine("android")) != nil && Lifecycle.unsupported(.share, machine("ios")) != nil
+    )
+    #expect(
+        Lifecycle.unsupported(.share, machine("linux")) == nil && Lifecycle.unsupported(.share, machine("macos")) == nil
+    )
+    #expect(
+        Lifecycle.unsupported(.screen, machine("macos")) == nil && Lifecycle.unsupported(.screen, machine("ios")) != nil
+    )
 }
 
 /// kelp-vm ends after a sleep only with its machine down: not after a failed save, nor while a boot goes on.

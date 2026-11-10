@@ -75,7 +75,7 @@ extension VMService {
         if alive(machine.name) {
             let answer: VMHelper.Reply?
             // it hangs up as it goes
-            do { answer = try ask(machine.name, .init(op: .quit, args: ["if-down"]), wait: 10) } catch { answer = nil }
+            do { answer = try ask(machine.name, .quitIfDown, wait: 10) } catch { answer = nil }
             if let answer { try check(answer) }
             for _ in 0..<100 where alive(machine.name) { usleep(100_000) }
         }

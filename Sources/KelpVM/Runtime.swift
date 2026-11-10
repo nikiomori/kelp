@@ -205,7 +205,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                 done(error, nil)
             }
         case .screen:
-            guard machine.kind == .macos else { return done("Its screen is a macOS machine's.", nil) }
+            if let no = Lifecycle.unsupported(.screen, machine) { return done(no, nil) }
             lastUse = now()
             wake { error in
                 guard error == nil else { return done(error, nil) }
@@ -218,10 +218,10 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                 }
             }
         case .quit:
-            // `if-down` (a new size): not while it runs, which a command may have woken it to since it was asked.
+            // `ifDown` (a new size): not while it runs, which a command may have woken it to since it was asked.
             // Starting with no VM for a moment is a boot tried again (`awaitSSH`): in use too.
-            if Lifecycle.refusesQuit(request.args, hasVM: vm != nil, state: state) {
-                return done("\(machine.name) is in use again: shut it down, then change its size.", nil)
+            if let refused = Lifecycle.refusesQuit(request, hasVM: vm != nil, state: state, name: machine.name) {
+                return done(refused, nil)
             }
             done(nil, nil)
             guard let vm else { return leaveSoon() }

@@ -85,8 +85,7 @@ final class AndroidRuntime {
                 done(nil)
                 self.exitProcess()
             }   // off, nothing kept: the next start is the kelp-vm installed then
-        case .share: done("An Android machine shares no folders: adb push and pull copy files.")
-        case .screen: done("Typing into the screen is a macOS machine's.")
+        case .share, .screen: done(Lifecycle.unsupported(request.op, machine))
         case .show:
             lastUse = now()
             // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
@@ -104,6 +103,9 @@ final class AndroidRuntime {
             if state == .starting { return ready.append { _ in again() } }
             again()
         case .quit:
+            if let refused = Lifecycle.refusesQuit(request, hasVM: emulator != nil, state: state, name: machine.name) {
+                return done(refused)
+            }
             done(nil)
             stop { self.exitProcess() }
         }

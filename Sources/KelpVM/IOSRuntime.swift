@@ -72,8 +72,7 @@ final class IOSRuntime {
                 done(nil)
                 self.exitProcess()
             }   // a simulator keeps no running state to save; the next start is a new kelp-vm
-        case .share: done("An iOS machine shares no folders: kelp vm install takes an app from here.")
-        case .screen: done("Typing into the screen is a macOS machine's.")
+        case .share, .screen: done(Lifecycle.unsupported(request.op, machine))
         case .show:
             lastUse = now()
             wake { error in
@@ -86,6 +85,9 @@ final class IOSRuntime {
                 done(error)
             }
         case .quit:
+            if let refused = Lifecycle.refusesQuit(request, hasVM: runner != nil, state: state, name: machine.name) {
+                return done(refused)
+            }
             done(nil)
             stop { self.exitProcess() }
         }

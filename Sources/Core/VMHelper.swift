@@ -84,13 +84,28 @@ public enum VMHelper {
         /// `share`: the folder here; the answer's `slot` says which of the machine's shares holds it.
         public var path: String?
         public var args: [String]?, session: String?
+        /// A `begin` (`begin(show:)`) for a boot with its window.
+        public var show: Bool?
+        /// A `quit` for a new size (`quitIfDown`): only if the machine is down.
+        public var ifDown: Bool?
         /// A `start` kelpd sends as it wakes the machine (`VMService.wake`): answered as soon as it starts, the boot going
-        /// on; `show` along, for a boot with its window.
+        /// on; `show` along, for a boot with its window. `args` says so too, for a kelp-vm from before `show` (one that
+        /// outlived an upgrade of kelpd), and is read when `show` isn't there, for a kelpd from before it.
         public static func begin(show: Bool) -> Request {
-            .init(op: .start, args: show ? ["begin", "show"] : ["begin"])
+            var request = Request(op: .start, args: show ? ["begin", "show"] : ["begin"])
+            request.show = show
+            return request
         }
         public var begins: Bool { op == .start && args?.first == "begin" }
-        public var beginsShown: Bool { begins && args?.contains("show") == true }
+        public var beginsShown: Bool { begins && (show ?? args?.contains("show") == true) }
+        /// A `quit` kelpd sends before it writes a new size (`VMService.configure`): refused by a machine that's up
+        /// (`Lifecycle.refusesQuit`), which a command may have woken since. `args` says so too, as for `begin`.
+        public static var quitIfDown: Request {
+            var request = Request(op: .quit, args: ["if-down"])
+            request.ifDown = true
+            return request
+        }
+        public var quitsIfDown: Bool { op == .quit && (ifDown ?? (args == ["if-down"])) }
         /// A `sleep` kelpd's memory budget sends (`VMService.admit`): refused by a machine in use at that moment. The
         /// user's own sleep has no args, and isn't.
         public static var sleepIfIdle: Request { .init(op: .sleep, args: ["if-idle"]) }

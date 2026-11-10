@@ -90,7 +90,8 @@ import Testing
     let folder = try machine()
     defer { try? FileManager.default.removeItem(at: folder) }
     let linux = try Runtime(folder: folder)
-    #expect(await ask(linux, .init(op: .screen)).error == "Its screen is a macOS machine's.")
+    let noScreen = try #require(Lifecycle.unsupported(.screen, linux.machine))
+    #expect(await ask(linux, .init(op: .screen)).error == noScreen)
     let phone = VMMachine(name: "phone", os: "android", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")
     let android = AndroidRuntime(folder: folder, machine: phone)
     let ios = IOSRuntime(folder: folder, machine: phone)
