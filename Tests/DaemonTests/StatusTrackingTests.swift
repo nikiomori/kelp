@@ -27,11 +27,11 @@ private func onHost() -> LiveSession.State {
 @Test func aPromptClearsTheLastTurnsWords() {
     var s = hooked()
     s.record.summary = "Counted 356 files"
-    s.hook("working")
+    s.hook(.working)
     #expect(s.record.summary == "")
-    s.hook("compacting", trigger: "auto")
+    s.hook(.compacting, trigger: "auto")
     let compacting = s.record.summary
-    s.hook("working")
+    s.hook(.working)
     #expect(!compacting.isEmpty && s.record.summary == compacting)
 }
 
@@ -102,15 +102,15 @@ private func onHost() -> LiveSession.State {
 /// so the row must not turn working (it stayed so for hours, with the Mac kept awake) nor done (a notification for nothing).
 @Test func anIdleCompactionLeavesTheRowAsItWas() {
     var s = hooked()
-    s.hook("working")
-    s.hook("done")
+    s.hook(.working)
+    s.hook(.done)
     _ = s.sync()
     s.record.summary = "Asked what to do next"
     s.record.unread = false
-    s.hook("compacting", trigger: "auto")
+    s.hook(.compacting, trigger: "auto")
     #expect(s.sync() == nil && s.record.status == .done)
     #expect(s.record.summary == "Compacting the conversation…")
-    s.hook("compacted")
+    s.hook(.compacted)
     #expect(s.sync() == nil && s.record.status == .done && !s.record.unread)
     #expect(s.record.summary == "Asked what to do next")
 }
@@ -118,18 +118,18 @@ private func onHost() -> LiveSession.State {
 /// One in the middle of a turn goes on with it; a /compact the user typed ends at the prompt.
 @Test func aCompactionDuringATurnCarriesOnAndATypedOneEndsIdle() {
     var s = hooked()
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
-    s.hook("compacting", trigger: "auto")
-    s.hook("compacted")
+    s.hook(.compacting, trigger: "auto")
+    s.hook(.compacted)
     _ = s.sync()
     #expect(s.record.status == .working && s.record.summary.isEmpty)
-    s.hook("done")
+    s.hook(.done)
     _ = s.sync()
-    s.hook("compacting", trigger: "manual")
+    s.hook(.compacting, trigger: "manual")
     _ = s.sync()
     #expect(s.record.status == .working && s.record.summary == "Compacting the conversation…")
-    s.hook("compacted")
+    s.hook(.compacted)
     _ = s.sync()
     #expect(s.record.status == .idle && s.record.summary.isEmpty)
 }
@@ -138,7 +138,7 @@ private func onHost() -> LiveSession.State {
 /// what the agent waits for is quiet by design, so it gets longer; a live screen or a hook starts the wait again.
 @Test func aWorkingRowThatWentQuietIsReleased() {
     var s = hooked(), t = s.lastLifeUp
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
     t = s.lastLifeUp
     s.releaseStale(at: t + 120)
@@ -150,7 +150,7 @@ private func onHost() -> LiveSession.State {
     #expect(s.sync() != nil && s.record.status == .done)
     #expect(s.detector.source == "no sign of life for 180 s")   // no hook said so
 
-    s.hook("working")
+    s.hook(.working)
     s.kept.holding = true   // a Stop held for its subagents
     t = s.lastLifeUp
     s.record.goal = "tests pass"
@@ -164,7 +164,7 @@ private func onHost() -> LiveSession.State {
 /// said Idle until the next hook.
 @Test func aClearedReportLeavesTheStatusToTheHooks() {
     var s = hooked()
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
     s.apply(.init(state: "working", msg: "Migrating table 3 of 10", progress: 30))
     s.apply(.init(state: "clear"))
@@ -176,7 +176,7 @@ private func onHost() -> LiveSession.State {
 /// does). A subagent's says nothing of the main thread, and a row held as working stays held.
 @Test func aToolAfterTheTurnEndedMeansItWentOn() {
     var s = hooked()
-    s.hook("done")
+    s.hook(.done)
     _ = s.sync()
     #expect(s.record.status == .done)
     s.tool("PreToolUse", agent: "a1")
@@ -194,11 +194,11 @@ private func onHost() -> LiveSession.State {
 /// the first tool's PostToolUse comes with the second still open, so only the batch counts; and a subagent's stays its own.
 @Test func aPermissionIsAnsweredWhenItsToolsRan() {
     var s = hooked()
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
-    s.hook("waiting", asker: "")
+    s.hook(.waiting, asker: "")
     s.tool("PreToolUse", agent: nil)
-    s.hook("waiting", asker: "")
+    s.hook(.waiting, asker: "")
     _ = s.sync()
     s.tool("PostToolUse", agent: nil)
     #expect(s.sync() == nil && s.record.status == .waiting)
@@ -208,15 +208,15 @@ private func onHost() -> LiveSession.State {
     #expect(s.sync()?.status == .working)
     #expect(s.detector.source == "the tools it asked about ran")
 
-    s.hook("waiting", asker: "")
-    s.hook("waiting", asker: "a1")
+    s.hook(.waiting, asker: "")
+    s.hook(.waiting, asker: "a1")
     _ = s.sync()
     s.tool("PostToolBatch", agent: nil)
     #expect(s.sync() == nil)   // the subagent's dialog is still open
     s.tool("PostToolBatch", agent: "a1")
     #expect(s.sync()?.status == .working)
 
-    s.hook("waiting")
+    s.hook(.waiting)
     _ = s.sync()   // a Notification's question: no batch answers that
     s.tool("PostToolBatch", agent: nil)
     #expect(s.sync() == nil && s.record.status == .waiting)
@@ -226,7 +226,7 @@ private func onHost() -> LiveSession.State {
 /// answered since (the newer cursor is the input box's) doesn't count.
 @Test func aQuietRowWithAMenuOnScreenAsks() {
     var s = hooked()
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
     s.kept.holding = true
     s.record.goal = "tests pass"
@@ -236,7 +236,7 @@ private func onHost() -> LiveSession.State {
     #expect(s.detector.source == "no sign of life for 1800 s, and a menu on screen")
     #expect(s.record.unread && s.record.goal == "tests pass")
 
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
     s.ring += Data("\r\n❯ fix the login page\r\n".utf8)
     s.releaseStale(at: s.lastLifeUp + 200)
@@ -349,7 +349,7 @@ private func onHost() -> LiveSession.State {
     #expect(s.record.status == .working)
 
     s.spoke()
-    s.hook("done")
+    s.hook(.done)
     #expect(s.detector.hooked && s.sync()?.status == .done && s.record.summary.isEmpty)
     s.expectHook()
     #expect(s.lineSentUp == nil)   // they spoke once: an agent between turns isn't suspect
@@ -377,7 +377,7 @@ private func onHost() -> LiveSession.State {
     s.ring = Data("Do you want to proceed?\r\n ❯ 1. Yes\r\n   2. No\r\n Esc to cancel · Tab to amend\r\n".utf8)
     for _ in 0..<500 { s.ring.append(Data("\u{1B}[3;1H\u{1B}[38;2;1;1;1m⏺\u{1B}[3;1H\u{1B}[0m ".utf8)) }
     #expect(!StartupQuestion.menuOpen(s.screen(1500)))
-    s.hook("waiting")
+    s.hook(.waiting)
     _ = s.sync()
     #expect(s.menuOpen() && s.menuScreen().contains("2. No"))
     #expect(!s.readyForText(submits: true) && !s.readyForText(submits: false))
@@ -388,13 +388,13 @@ private func onHost() -> LiveSession.State {
     _ = s.sync()
     #expect(s.menuOpen() && !s.readyForText(submits: true))
     s.steering = nil
-    s.hook("waiting")
+    s.hook(.waiting)
     _ = s.sync()
 
     // A hook said so and no menu can be read (an AskUserQuestion, say): Enter would still answer it.
     s.ring = Data("Which one?".utf8)
     #expect(!s.menuOpen() && !s.readyForText(submits: true))
-    s.hook("working")
+    s.hook(.working)
     _ = s.sync()
     #expect(s.readyForText(submits: true))
 }
@@ -441,13 +441,13 @@ private func onHost() -> LiveSession.State {
 /// answered, so a key leaves the row asking. A batch through says all of them are.
 @Test func aKeyAnswersOneDialogOfABatch() {
     var s = hooked()
-    s.hook("working")
-    s.hook("waiting", asker: "")
-    s.hook("waiting", asker: "")
+    s.hook(.working)
+    s.hook(.waiting, asker: "")
+    s.hook(.waiting, asker: "")
     _ = s.sync()
     #expect(!s.answeredOne() && s.answeredOne())
-    s.hook("waiting", asker: "")
-    s.hook("waiting", asker: "")
+    s.hook(.waiting, asker: "")
+    s.hook(.waiting, asker: "")
     _ = s.sync()
     s.tool("PostToolBatch", agent: nil)
     #expect(s.kept.asking.isEmpty && s.sync()?.status == .working)
@@ -455,7 +455,7 @@ private func onHost() -> LiveSession.State {
 
 /// A turn cut short outside Kelp sends no hook: after the quiet, what it printed decides. A menu still open keeps it asking.
 @Test func aTurnCutShortElsewhereGoesIdleWhenItsScreenSaysSo() {
-    for status in ["working", "waiting"] {
+    for status in [HookEvent.working, .waiting] {
         var s = hooked()
         s.hook(status)
         _ = s.sync()
@@ -464,7 +464,7 @@ private func onHost() -> LiveSession.State {
         #expect(s.sync()?.status == .idle)
     }
     var open = hooked()
-    open.hook("waiting")
+    open.hook(.waiting)
     _ = open.sync()
     open.ring = Data(
         "Do you want to proceed?\r\n ❯ 1. Yes\r\n   2. No, and tell Claude what to do differently\r\n".utf8)
@@ -494,12 +494,12 @@ private func onHost() -> LiveSession.State {
 /// AskUserQuestion can ask several things: a key answers one, the form stays, and only its PostToolUse says it's through.
 @Test func aKeyDoesntEndAQuestionWithMoreToAsk() {
     var s = hooked()
-    s.hook("working")
-    s.hook("waiting", question: true)
+    s.hook(.working)
+    s.hook(.waiting, question: true)
     _ = s.sync()
     let through = s.answeredOne()
     #expect(!through)
-    s.hook("working", answered: true)   // its PostToolUse
+    s.hook(.working, answered: true)   // its PostToolUse
     let nothingLeft = s.answeredOne()
     #expect(nothingLeft && s.sync()?.status == .working)
 }

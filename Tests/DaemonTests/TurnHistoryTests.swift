@@ -237,7 +237,7 @@ import Testing
     let third = Task { try await c.call(SessionPermissionWait(id: id)) }
     #expect(try await waitFor(5) { w.d.sessions.permissions.waits.withLock { $0[id] != nil } })
     let ls = try #require(w.d.sessions.existing(id))
-    ls.hook("waiting", message: "Allow git push --force?", asker: "")
+    ls.hook(.waiting, message: "Allow git push --force?", asker: "")
     #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow ls?")) == false)
 
     #expect(w.d.sessions.permissions.waits.withLock { $0[id] != nil })
@@ -258,7 +258,7 @@ import Testing
     let c = w.c, id = s.id
     let waiting = Task { try await c.call(SessionPermissionWait(id: id)) }
     #expect(try await waitFor(5) { w.d.sessions.permissions.waits.withLock { $0[id] != nil } })
-    try #require(w.d.sessions.existing(id)).hook("waiting", message: "Allow npm test …?", asker: "")
+    try #require(w.d.sessions.existing(id)).hook(.waiting, message: "Allow npm test …?", asker: "")
     #expect(try await c.call(SessionChoose(id: id, answer: "allow", question: "Allow npm test …?")) == false)
     #expect(w.d.sessions.permissions.waits.withLock { $0[id] != nil })   // still the dialog's to answer
     w.d.sessions.permissions.answerPermission(id, nil)

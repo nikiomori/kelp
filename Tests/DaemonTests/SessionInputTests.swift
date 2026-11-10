@@ -127,9 +127,9 @@ import os
     func screen() async throws -> String { try await p.c.call(SessionRead(id: s.id)) }
     #expect(try await waitFor(5) { try await screen().contains("2. No") })
     let ls = try #require(p.d.sessions.existing(s.id))
-    ls.hook("waiting", message: "Allow rm -rf build?", asker: "")
+    ls.hook(.waiting, message: "Allow rm -rf build?", asker: "")
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow npm test?")) == false)
-    ls.hook("waiting", message: "Allow rm -rf build?", asker: "a subagent")
+    ls.hook(.waiting, message: "Allow rm -rf build?", asker: "a subagent")
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")) == false)
     #expect(ls.state.withLock { $0.steering == nil })   // nothing set to press it later either
     #expect(!(try await screen()).contains("ALLOWED"))
@@ -304,7 +304,7 @@ import os
     let old = try #require(w.d.sessions.live[s.id])
     let first = DispatchSemaphore(value: 0), second = DispatchSemaphore(value: 0)
     old.inOrder { first.wait() }
-    old.hook("working")   // its status change, queued behind `first`
+    old.hook(.working)   // its status change, queued behind `first`
     let paused = OSAllocatedUnfairLock(initialState: false)
     Thread.detachNewThread {
         try? w.d.sessions.pauseSessions(of: wt.id)

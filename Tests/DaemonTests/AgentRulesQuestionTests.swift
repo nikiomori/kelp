@@ -67,20 +67,20 @@ import Testing
         manifest: AgentManifest(
             id: "claude", name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings")),
         logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
-    s.hook("waiting", asker: "")
-    s.hook("working")
+    s.hook(.waiting, asker: "")
+    s.hook(.working)
     #expect(s.asked)
     #expect(s.answeredOne() && !s.asked)
 
-    s.hook("waiting", question: true)
-    s.hook("working")
+    s.hook(.waiting, question: true)
+    s.hook(.working)
     #expect(s.asked)
-    s.hook("working", answered: true)
+    s.hook(.working, answered: true)
     #expect(!s.asked)
 
-    s.hook("waiting", asker: "")
-    s.hook("waiting", question: true)
-    s.hook("working", answered: true)
+    s.hook(.waiting, asker: "")
+    s.hook(.waiting, question: true)
+    s.hook(.working, answered: true)
     #expect(s.asked)   // the permission dialog is still open
     s.tool("PostToolBatch", agent: nil)
     #expect(!s.asked)

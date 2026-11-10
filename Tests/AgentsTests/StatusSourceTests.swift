@@ -38,9 +38,9 @@ import Testing
     #expect(d.source == "reported by the program: blocked")
     d.program("nonsense")   // changes nothing, so it isn't the source either
     #expect(d.source == "reported by the program: blocked")
-    d.hook("done")
+    d.hook(.done)
     #expect(d.source == "hook: done")
-    d.hook("compacted")
+    d.hook(.compacted)
     #expect(d.source == "hook: done")
     d.override(.working)
     #expect(d.source == "set by Kelp")

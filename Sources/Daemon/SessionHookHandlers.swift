@@ -24,27 +24,33 @@ extension SessionHook: Handled {
             if Hooks.atPrompt(notification), ls.newest(at, says: true) { ls.atPrompt() }
             return Done()
         }
-        guard let event else { throw RPCError.invalidParams("missing event") }
-        if event == "command", let command {   // a Bash command for the list and the row, whenever its hook arrives
+        guard let name = event else { throw RPCError.invalidParams("missing event") }
+        guard let event = HookEvent(rawValue: name) else {
+            // A hooks file from another Kelp, or a typo in an agent's: said here, where it arrives, and nothing more.
+            Log.session.error("a hook said \(name, privacy: .public), which is no event")
+            ls.trail.add("\(trailLine): no such event")
+            return Done()
+        }
+        if event == .command, let command {   // a Bash command for the list and the row, whenever its hook arrives
             if ls.ran(command) != nil { sessions.publish(ls) }
             sessions.touchCommands(ls)
         }
         if let endedTasks, ls.tasksEnded(endedTasks) { sessions.publish(ls) }
-        if event == "subagent" {   // who runs says nothing of the turn: its Stop does
+        if event == .subagent {   // who runs says nothing of the turn: its Stop does
             ls.trail.add(trailLine)
             if ls.subagent(agentId, kind: hookName == "SubagentStart" ? agentType ?? "" : nil) { sessions.publish(ls) }
             return Done()
         }
-        guard ls.newest(at, says: event != "command") else {
+        guard ls.newest(at, says: event != .command) else {
             ls.trail.add("\(trailLine): older than what it said since")
             return Done()
         }
-        if event == "command" {   // a tool started or ended: what that says of its turn
+        if event == .command {   // a tool started or ended: what that says of its turn
             ls.tool(hookName, agent: agentId)
             return Done()
         }
         ls.trail.add(trailLine)
-        guard event == "done" else {
+        guard event == .done else {
             ls.hook(
                 event, trigger: trigger,
                 message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) },

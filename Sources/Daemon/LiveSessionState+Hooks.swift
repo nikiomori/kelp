@@ -22,35 +22,35 @@ extension LiveSession.State {
     /// permission dialog it is, for `tool`; `question`: AskUserQuestion opened, `answered`: its result came; `goal`: what
     /// the prompt set as a /goal.
     mutating func hook(
-        _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil,
+        _ event: HookEvent, trigger: String? = nil, message: String? = nil, asker: String? = nil,
         question: Bool = false, answered: Bool = false,
         goal: String? = nil
     ) {
         heard()
         // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
         // isn't waiting for it. The next Stop says again.
-        if kept.holding, event == "working" { record.awaiting = nil }
+        if kept.holding, event == .working { record.awaiting = nil }
         kept.holding = false
         let compacting = Session.compactingSummary
         switch event {
-        case "compacting":
+        case .compacting:
             compactManual = trigger == "manual"
             // Claude Code also compacts a conversation left idle (trigger "auto", nothing running): no turn follows to end
             // it, so the row keeps its status and only says what is going on.
             compactSummary = record.summary
             record.summary = compacting
-            if compactManual || detector.status == .working { detector.hook("working") }
-        case "compacted":
+            if compactManual || detector.status == .working { detector.hook(.working) }
+        case .compacted:
             if record.summary == compacting { record.summary = compactSummary ?? "" }
             compactSummary = nil
             if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
             compactManual = false
-        case "waiting":
+        case .waiting:
             if let asker { kept.asking[asker, default: 0] += 1 }
             if question { kept.questionOpen = true }
             if let message, !message.isEmpty { record.summary = message }
             detector.hook(event)
-        case "working":
+        case .working:
             // Not the end of a dialog a hook counted: a prompt can't be sent past one, and anything in the session can say
             // "working" (`kelp report`, a hook run by hand), after which an Enter typed in would answer it (`asked`).
             // Its answer ends it: a key, Kelp's Allow or Deny, its tools' batch (`tool`), the turn's end.

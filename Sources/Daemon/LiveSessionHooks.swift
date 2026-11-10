@@ -21,7 +21,8 @@ extension LiveSession {
     /// `State.hook`: the record goes out when its status or what the row says changed. `at`: checked again here, in the lock
     /// the change is made in: a newer hook on another thread may have gone first since `newest` said yes.
     func hook(
-        _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
+        _ event: HookEvent, trigger: String? = nil, message: String? = nil, asker: String? = nil,
+        question: Bool = false,
         answered: Bool = false, goal: String? = nil, at: TimeInterval? = nil
     ) {
         state.withLock { st in
@@ -110,7 +111,7 @@ extension LiveSession {
             } else if goal?.met != false {
                 st.record.goal = nil
             }
-            st.detector.hook(verdict != .done ? "working" : failure == nil ? "done" : "error")
+            st.detector.hook(verdict != .done ? .working : failure == nil ? .done : .error)
             if verdict == .done, let failure, !failure.isEmpty { st.record.summary = failure }
             if verdict == .done, failure == nil { st.retries = 0 }   // it ended well: the count starts again
             if verdict == .done, failure != nil, passes { retry(now: now, &st) }

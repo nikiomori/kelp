@@ -110,18 +110,19 @@ public struct StatusDetector: Sendable {
         return regexes.contains { $0.firstMatch(in: tail, range: range) != nil }
     }
 
-    /// Hook event: "working" | "waiting" | "done" | "error". Once seen, heuristics are off for this session.
-    public mutating func hook(_ event: String) {
+    /// A hook event: working, waiting, done and error say its status, the rest nothing. Once seen, heuristics are off for
+    /// this session.
+    public mutating func hook(_ event: HookEvent) {
         hooked = true
         guard !settled else { return }
         switch event {
-        case "working": status = .working
-        case "waiting": status = .waiting
-        case "done": status = .done
-        case "error": status = .error
-        default: return
+        case .working: status = .working
+        case .waiting: status = .waiting
+        case .done: status = .done
+        case .error: status = .error
+        case .command, .subagent, .compacting, .compacted: return
         }
-        source = "hook: \(event)"
+        source = "hook: \(event.rawValue)"
     }
 
     /// OSC 7501 report from the agent itself: as good as a hook, heuristics are off from here. Idle after work is a finished
@@ -235,4 +236,22 @@ public struct StatusDetector: Sendable {
         return escapes.stringByReplacingMatches(
             in: spaced, range: NSRange(spaced.startIndex..., in: spaced), withTemplate: "")
     }
+}
+
+/// What `kelp hook <event>` says (`SessionHook.event`): the words Kelp's hooks files write for an agent's hooks.
+public enum HookEvent: String, Sendable, CaseIterable {
+    /// A prompt went in, or a question was answered.
+    case working
+    /// It asks the user something.
+    case waiting
+    /// Its turn is over (Stop).
+    case done
+    /// Its turn failed.
+    case error
+    /// A tool started or ended, or a batch of them.
+    case command
+    /// A subagent started or ended.
+    case subagent
+    /// It compacts its conversation, and that's done.
+    case compacting, compacted
 }

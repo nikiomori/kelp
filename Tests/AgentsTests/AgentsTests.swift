@@ -31,10 +31,10 @@ func hooklessCodex() throws -> AgentManifest {
 @Test func hooksOverrideHeuristics() {
     let t0 = Date()
     var d = StatusDetector(manifest: .presets[0])
-    d.hook("working")
+    d.hook(.working)
     d.output("whatever", at: t0)
     #expect(d.tick(at: t0.addingTimeInterval(60)) == .working)
-    d.hook("done")
+    d.hook(.done)
     #expect(d.status == .done)
 }
 
@@ -232,7 +232,7 @@ func hooklessCodex() throws -> AgentManifest {
     var d = StatusDetector(manifest: claude)
     d.output("✻ redraw", at: Date())
     #expect(d.status == .idle)
-    d.hook("working")
+    d.hook(.working)
     #expect(d.status == .working)
 }
 
@@ -266,7 +266,7 @@ func hooklessCodex() throws -> AgentManifest {
     var d = StatusDetector(manifest: kilo)
     d.output("Thinking… esc interrupt", at: Date().addingTimeInterval(10))   // no turn guessed from what it prints
     #expect(d.status == .idle)
-    d.hook("working")
+    d.hook(.working)
     #expect(d.status == .working)
     let qwen = try #require(AgentManifest.presets.first { $0.id == "qwen" })
     #expect(qwen.hooks?.env == "QWEN_CODE_SYSTEM_SETTINGS_PATH")
@@ -543,7 +543,7 @@ func hooklessCodex() throws -> AgentManifest {
     d.output("Saving the conversation before quitting", at: Date(timeIntervalSince1970: 100))
     #expect(d.status == .paused)
     d.program("working")
-    d.hook("done")
+    d.hook(.done)
     #expect(d.status == .paused)
 }
 

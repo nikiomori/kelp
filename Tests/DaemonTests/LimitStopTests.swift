@@ -99,18 +99,18 @@ private func stopped(_ p: World, _ s: Session) async throws {
     s.ring = words
     _ = s.newLimits(words)
     #expect(s.record.limitHit == nil)   // still working
-    s.detector.hook("done")
+    s.detector.hook(.done)
     #expect(s.sync()?.limitHit?.resets == "Oct 30, 2026 3:40 PM")
 
     var late = state()   // long after they scrolled by
     late.ring = words
     _ = late.newLimits(words)
     late.limitSeen?.at = Date().addingTimeInterval(-60)
-    late.detector.hook("done")
+    late.detector.hook(.done)
     #expect(late.sync()?.limitHit == nil)
 
     var after = state()   // the turn stopped a moment before the words came
-    after.detector.hook("done")
+    after.detector.hook(.done)
     _ = after.sync()
     after.ring = words
     _ = after.newLimits(words)
