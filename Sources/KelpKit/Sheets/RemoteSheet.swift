@@ -8,19 +8,6 @@ extension RemoteHost {
     package static func of(_ dir: String) -> RemoteHost? {
         dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil
     }
-
-    /// The `Host` names in ~/.ssh/config (patterns left out): what a host field offers.
-    package nonisolated static func configHosts() -> [String] {
-        let text: String
-        do { text = try String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8) } catch {
-            return []
-        }
-        return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
-            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
-            guard words.first?.lowercased() == "host" else { return [] }
-            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
-        }
-    }
 }
 
 /// Open a project over SSH in two steps: connect to the host (ssh's own reason if Kelp can't), then pick the folder

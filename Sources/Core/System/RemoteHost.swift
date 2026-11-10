@@ -26,6 +26,19 @@ public struct RemoteHost: Codable, Sendable, Equatable {
             && host != ".."
     }
 
+    /// The `Host` names in ~/.ssh/config (patterns left out): what a host field offers.
+    public static func configHosts() -> [String] {
+        let text: String
+        do { text = try String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8) } catch {
+            return []
+        }
+        return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
+            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard words.first?.lowercased() == "host" else { return [] }
+            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
+        }
+    }
+
     /// ssh's options for this host: the shared connection; no password prompts where nobody can answer them. A host gone
     /// quiet (the network dropped, the Mac woke elsewhere) is given up on in 30 s, not ssh's 90: until then every read
     /// waits on it, and its panels show it connected.

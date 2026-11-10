@@ -127,7 +127,6 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `stacked`, `track`, the menu item helpers, `NSImage.symbol` with its glyphs, awaited sheets, `shortAgo` / `bytes`).
     // +1 so a discard and its Undo are one flow for the diff and Source Control (Git) and a file's change bars
     // (Files): `discardWithUndo`.
-    // +1 so Open over SSH and Add Database's SSH field offer the same hosts, read once: `RemoteHost.configHosts`.
     // +2 so a built-in's skill for agents is its own (`SkillSpec`): the guides to machines, databases, the browser,
     // artifacts, terminals and child agents left the shell.
     // +6 so the settings window names no built-in's section: a setting's choices are its own (`SettingChoices`), and the
@@ -141,8 +140,8 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // 301 → 296: a built-in starts sessions through `SessionStarter` and acts on the tabs on screen through Workbench
     // (`starter`, `focusedContent`, `split`…); the editor area isn't the built-ins' any more.
     // +1, nothing new: `focusedTab` is computed from the layout now, and its `package internal(set)` wasn't counted.
-    #expect(declared <= 320, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 320, "fewer now (\(declared)): lower the ceiling")
+    #expect(declared <= 319, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 319, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
