@@ -230,6 +230,17 @@
         ],
         "type" : "object"
       },
+      "Artifacts.Kind" : {
+        "description" : "The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.",
+        "enum" : [
+          "doc",
+          "review",
+          "slides",
+          "design",
+          "dashboard"
+        ],
+        "type" : "string"
+      },
       "ArtifactsEvent" : {
         "description" : "A watched workspace's artifacts (`.kelp/artifacts`), latest change first, pushed when that folder changed.",
         "properties" : {
@@ -2762,6 +2773,45 @@
         ],
         "type" : "object"
       },
+      "PublishedPage" : {
+        "description" : "What a publishing tool sent of the page itself: Kelp keeps a copy of it beside the link, for the panel's preview (Kelp's tabs can't sign in to the service, so they can't show the page there).",
+        "properties" : {
+          "edits" : {
+            "description" : "Changes to the last version (`edit_version`), applied to the copy.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublishedPage.Edit"
+            },
+            "type" : "array"
+          },
+          "file" : {
+            "description" : "A file on this Mac that holds it (`publish_files`: its index.html, or a canvas's first board).",
+            "type" : "string"
+          },
+          "html" : {
+            "description" : "The whole page (`publish_version`).",
+            "type" : "string"
+          }
+        },
+        "required" : [
+
+        ],
+        "type" : "object"
+      },
+      "PublishedPage.Edit" : {
+        "properties" : {
+          "new" : {
+            "type" : "string"
+          },
+          "old" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "new",
+          "old"
+        ],
+        "type" : "object"
+      },
       "QueryResult" : {
         "description" : "What a statement gave: its columns and rows (text, nil for NULL), cut at the asked limit.",
         "properties" : {
@@ -3791,6 +3841,139 @@
         ],
         "type" : "object"
       },
+      "ShownUI" : {
+        "description" : "What the app shows, as agents read it back (`kelp ui state`): nothing at all when no app is connected.",
+        "properties" : {
+          "commands" : {
+            "description" : "The palette's commands and the inspector's panels: what `kelp ui command` and `kelp open ext:` take.",
+            "items" : {
+              "$ref" : "#/components/schemas/ShownUI.Item"
+            },
+            "type" : "array"
+          },
+          "editor" : {
+            "$ref" : "#/components/schemas/ShownUI.Editor",
+            "description" : "The editor area's tabs."
+          },
+          "extensions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ShownUI.Extension"
+            },
+            "type" : "array"
+          },
+          "focusedFile" : {
+            "type" : "string"
+          },
+          "focusedSession" : {
+            "type" : "string"
+          },
+          "panels" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ShownUI.Item"
+            },
+            "type" : "array"
+          },
+          "workspace" : {
+            "$ref" : "#/components/schemas/ShownUI.Workspace",
+            "description" : "The workspace on screen."
+          }
+        },
+        "required" : [
+
+        ],
+        "type" : "object"
+      },
+      "ShownUI.Editor" : {
+        "properties" : {
+          "focused" : {
+            "description" : "The focused tab's URI (\"\" for none).",
+            "type" : "string"
+          },
+          "tabs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ShownUI.Item"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "focused",
+          "tabs"
+        ],
+        "type" : "object"
+      },
+      "ShownUI.Extension" : {
+        "properties" : {
+          "builtin" : {
+            "type" : "boolean"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "error" : {
+            "description" : "Why it didn't load.",
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "Its folder; nil for a built-in.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "builtin",
+          "enabled",
+          "id",
+          "name"
+        ],
+        "type" : "object"
+      },
+      "ShownUI.Item" : {
+        "description" : "A tab (its URI and title), a command or a panel (its id and title).",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "title"
+        ],
+        "type" : "object"
+      },
+      "ShownUI.Workspace" : {
+        "properties" : {
+          "branch" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "branch",
+          "id",
+          "name",
+          "path"
+        ],
+        "type" : "object"
+      },
       "Subagent" : {
         "description" : "A subagent of an agent's turn, at work or finished. `kind` is empty when only a terminal report told of it.",
         "properties" : {
@@ -4807,6 +4990,104 @@
         }
       },
       "x-internal" : true
+    },
+    {
+      "description" : "The link to a page an agent published on its own service (`url`, https), kept in the artifacts of the workspace `cwd` is in, as `artifact.new` finds it, with what its tool sent of the page (`page`, for the panel's preview). One known already is a later version: it moves its time and, given them, its title and kind. Returns whether it's new.",
+      "name" : "artifact.add",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cwd",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/PublishedPage"
+          }
+        },
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "One of `Artifacts.Kind`, or \"page\" for any other.",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "url",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      }
+    },
+    {
+      "description" : "A new page of `kind` titled `title` in the artifacts of the workspace `cwd` is in (of chat `session`'s own when it holds `cwd`; `cwd` itself in no workspace), its first lines written. Returns its file.",
+      "name" : "artifact.new",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cwd",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "kind",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Artifacts.Kind"
+          }
+        },
+        {
+          "description" : "The chat that makes it (its KELP_SESSION): answers to a review go back there.",
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "title",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      }
     },
     {
       "description" : "An empty `token` disconnects.",
@@ -5961,7 +6242,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Downloads an extension from GitHub (`IDE.librarySource` reads the forms) into a new temporary folder named by its id, with `.kelp-source.json` saying where it came from. Nothing is installed: the caller shows what it runs, then moves it in (`IDE.installExtension`).",
+      "description" : "Downloads an extension from GitHub (`ExtensionFiles.librarySource` reads the forms) into a new temporary folder named by its id, with `.kelp-source.json` saying where it came from. Nothing is installed: the caller shows what it runs, then moves it in (`ExtensionFiles.installExtension`).",
       "name" : "extension.fetch",
       "paramStructure" : "by-name",
       "params" : [
@@ -5993,7 +6274,7 @@
       "x-internal" : true
     },
     {
-      "description" : "The extension library (`IDE.libraryIndex`): what it holds, from its index.json. Settings' `extensions.library` names another index (a team's own library, a fork being tested).",
+      "description" : "The extension library (`ExtensionFiles.libraryIndex`): what it holds, from its index.json. Settings' `extensions.library` names another index (a team's own library, a fork being tested).",
       "name" : "extension.library",
       "paramStructure" : "by-name",
       "params" : [
@@ -10129,7 +10410,7 @@
       }
     },
     {
-      "description" : "An empty title names the session from its task again. To another screen of the same folder: the agent goes on as it was, its tab goes there.",
+      "description" : "To another screen of the same folder: the agent goes on as it was, its tab goes there.",
       "name" : "session.move",
       "paramStructure" : "by-name",
       "params" : [
@@ -10225,7 +10506,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Sets its title.",
+      "description" : "Sets its title; an empty one names the session from its task again.",
       "name" : "session.rename",
       "paramStructure" : "by-name",
       "params" : [
@@ -11149,7 +11430,7 @@
           "name" : "state",
           "required" : true,
           "schema" : {
-
+            "$ref" : "#/components/schemas/ShownUI"
           }
         }
       ],
@@ -11171,7 +11452,7 @@
       "result" : {
         "name" : "result",
         "schema" : {
-
+          "$ref" : "#/components/schemas/ShownUI"
         }
       },
       "x-internal" : true

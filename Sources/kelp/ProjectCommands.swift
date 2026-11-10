@@ -36,7 +36,7 @@ extension Main {
             _ = try await c.call(WorktreeNote(id: try await currentWorktreeID(c), note: args.joined(separator: " ")))
         case ("worktree", "remove"), ("worktree", "archive"):
             let force = has("--force"), drop = has("--drop-commits")   // two separate losses, each asked for by name
-            let id = try await resolve(c, args.first ?? "", "worktree.list")
+            let id = try await workspace(c, args.first ?? "")
             if sub == "remove" {
                 show(try await c.call(WorktreeRemove(id: id, force: force, dropCommits: drop)))
             } else {

@@ -33,7 +33,7 @@ extension Main {
                 try await c.call(
                     CommentSend(
                         id: try await currentWorktreeID(c),
-                        session: try await resolve(c, args.first ?? "", "session.list"))))
+                        session: try await session(c, args.first ?? ""))))
         default: print(usage)
         }
     }
@@ -68,30 +68,28 @@ extension Main {
         case ("github", "issue"), ("linear", "start"):   // kelp github issue 123 | kelp linear start ENG-123
             let repo = try await currentRepoID(c)
             guard let ref = args.first else { fail("issue number / identifier required") }
-            var params: [String: JSONValue] = ["repoId": .string(repo), "agent": .string(flag("--agent") ?? "claude")]
+            let agent = flag("--agent") ?? "claude", draft: Bool? = has("--send") ? false : nil
+            let request: TaskFromIssue
             if cmd == "github" {
                 let number = Int(ref.trimmingCharacters(in: CharacterSet(charactersIn: "#"))) ?? 0
                 let open = try await c.call(GitHubIssues(repoId: repo))
                 guard let issue = open.first(where: { $0.number == number }) else {
                     fail("issue #\(number) not found among open issues")
                 }
-                params["ref"] = .string("#\(number)")
-                params["title"] = .string(issue.title)
-                params["body"] = .string(issue.body)
-                params["url"] = .string(issue.url)
+                request = TaskFromIssue(
+                    repoId: repo, ref: "#\(number)", title: issue.title, body: issue.body, url: issue.url, agent: agent,
+                    draft: draft)
             } else {
                 let mine = try await c.call(LinearIssues())
                 guard let issue = mine.first(where: { $0.identifier.lowercased() == ref.lowercased() }) else {
                     fail("\(ref) not found in your Linear issues")
                 }
-                params["ref"] = .string(issue.identifier)
-                params["title"] = .string(issue.title)
-                params["body"] = .string(issue.description ?? "")
-                params["url"] = .string(issue.url)
-                params["linearId"] = .string(issue.id)
+                request = TaskFromIssue(
+                    repoId: repo, ref: issue.identifier, title: issue.title, body: issue.description ?? "",
+                    url: issue.url,
+                    linearId: issue.id, agent: agent, draft: draft)
             }
-            if has("--send") { params["draft"] = false }
-            let task = try await c.call(try JSONValue.object(params).decode(TaskFromIssue.self))
+            let task = try await c.call(request)
             print("\(task.worktree.branch)  \(task.worktree.path)")
             if !has("--send") {
                 print("The issue's text is typed into the agent, not sent: look it over in Kelp and press Return.")

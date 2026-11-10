@@ -49,7 +49,6 @@ public struct StateSet: InternalMethod {
     }
 }
 
-/// An empty title names the session from its task again.
 /// To another screen of the same folder: the agent goes on as it was, its tab goes there.
 public struct SessionMove: RPCMethod {
     public static let name = "session.move"
@@ -61,7 +60,7 @@ public struct SessionMove: RPCMethod {
     }
 }
 
-/// Sets its title.
+/// Sets its title; an empty one names the session from its task again.
 public struct SessionRename: RPCMethod {
     public static let name = "session.rename"
     public typealias Result = Done

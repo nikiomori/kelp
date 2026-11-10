@@ -224,8 +224,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 468, "lines over 120: \(over120)")
-    #expect(over120 >= 468, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 467, "lines over 120: \(over120)")
+    #expect(over120 >= 467, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out

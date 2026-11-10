@@ -7,7 +7,8 @@ let usage = """
       status                               repos, worktrees and sessions at a glance
       repo add [path] [--init | --no-git] | repo list
                                            a folder outside a repository needs one: git init it, or add it without git
-      worktree create <branch> [--repo id] [--base b] | list | current | note <text> | remove <id> [--force] [--drop-commits] | archive <id>
+      worktree create <branch> [--repo id] [--base b] [--no-setup] | list [--all] | current | note <text>
+             | remove <id> [--force] [--drop-commits] | archive <id>
       session new [--agent id] [--worktree id] [--cmd "..."] [--prompt text] [--title t] [--model m] [--split right|down] [--wait] [--outlive] | list
                                            from inside an agent, --agent starts its child: its news comes to the agent as input, and it ends
                                            with the agent. --outlive: not a child
@@ -32,7 +33,7 @@ let usage = """
       hook <working|waiting|done>          (called by agent hooks inside a session)
       report <working|blocked|done|error|idle|clear> [message] [--progress 0-100] [--kind permission|question|auth]
                                            inside a session: what you're doing, on your row and tab
-      github prs|issues [--filter mine|review] | checks [pr] | pr-create [--title t] [--draft] | pr-merge | issue <n> [--send]
+      github prs|issues [--filter mine|review] | checks [pr] | pr-create [--title t] [--draft] | pr-merge [--method squash|merge|rebase] | issue <n> [--send]
       linear login <key> | tasks | start <ENG-123> [--send]
                                            issue / start: the brief is typed into the new agent, not sent (--send sends it)
       open <path[:line]|url> [--split right|down] [--focus]   open a tab in the app (relative paths are fine);
@@ -270,12 +271,19 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
         }
     }
 
-    /// Accept a full id or a unique prefix (what `kelp status` prints) of a session (`session.list`) or else a workspace.
-    static func resolve(_ c: RPCClient, _ prefix: String, _ listMethod: String) async throws -> String {
+    /// A session's full id from it or a unique prefix of it (what `kelp status` prints).
+    static func session(_ c: RPCClient, _ prefix: String) async throws -> String {
         guard !prefix.isEmpty else { fail("id required") }
-        let ids =
-            listMethod == SessionList.name
-            ? try await c.call(SessionList()).map(\.id) : try await c.call(WorktreeList()).map(\.id)
+        return unique(prefix, among: try await c.call(SessionList()).map(\.id))
+    }
+
+    /// A workspace's full id from it or a unique prefix of it.
+    static func workspace(_ c: RPCClient, _ prefix: String) async throws -> String {
+        guard !prefix.isEmpty else { fail("id required") }
+        return unique(prefix, among: try await c.call(WorktreeList()).map(\.id))
+    }
+
+    private static func unique(_ prefix: String, among ids: [String]) -> String {
         let found = ids.filter { $0.hasPrefix(prefix) }
         guard found.count == 1 else { fail(found.isEmpty ? "no match for \(prefix)" : "ambiguous: \(prefix)") }
         return found[0]

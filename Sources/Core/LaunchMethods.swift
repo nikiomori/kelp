@@ -144,6 +144,19 @@ public struct TaskFromIssue: RPCMethod {
         branchPrefix: String?
     public var linearId: String?, agent: String?, prompt: String?
     public var model: String?, effort: String?, profile: String?, draft: Bool?, openURLs: Bool?, cols: Int?, rows: Int?
+    public init(
+        repoId: String, ref: String, title: String, body: String?, url: String?, linearId: String? = nil,
+        agent: String?, draft: Bool? = nil
+    ) {
+        self.repoId = repoId
+        self.ref = ref
+        self.title = title
+        self.body = body
+        self.url = url
+        self.linearId = linearId
+        self.agent = agent
+        self.draft = draft
+    }
 }
 
 /// A past conversation (`session`, as history.list gives it) as a live session, in `worktreeId` or its own folder.

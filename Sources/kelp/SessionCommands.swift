@@ -15,7 +15,7 @@ extension Main {
             if !outlive { request.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
             // A session outside every workspace would run where no tab or sidebar row shows it.
             if let ref = flag("--worktree") {
-                request.worktreeId = try await resolve(c, ref, "worktree.list")
+                request.worktreeId = try await workspace(c, ref)
             } else if let worktree = try await worktreeHere(c) {
                 request.worktreeId = worktree.id
             } else {
@@ -39,7 +39,7 @@ extension Main {
         case ("wait", let target?):   // until the session stops working, or reaches one of --for; prints the state it reached
             let want = flag("--for").map { Set($0.split(separator: ",").map(String.init)) },
                 timeout = flag("--timeout").map(duration)
-            let id = try await resolve(c, target, "session.list")
+            let id = try await session(c, target)
             guard
                 let session = try await waitFor(
                     c, id, timeout: timeout, until: { want?.contains($0.status.rawValue) ?? ($0.status != .working) })
@@ -55,7 +55,7 @@ extension Main {
             let kids = try await waitChildren(c, of: me, all: how == "all", timeout: flag("--timeout").map(duration))
             kids.forEach { print($0.id.prefix(8), $0.displayTitle, "·", $0.status.rawValue) }
         case ("why", let target?):
-            let id = try await resolve(c, target, "session.list")
+            let id = try await session(c, target)
             let why = try await c.call(SessionWhy(id: id)),
                 trail = try await c.call(SessionTrail(id: id)).split(separator: "\n")
             guard why != nil || !trail.isEmpty else { fail("session \(id) isn't running") }
@@ -73,29 +73,29 @@ extension Main {
             show(
                 try await c.call(
                     SessionRead(
-                        id: try await resolve(c, args.first ?? "", "session.list"),
+                        id: try await session(c, args.first ?? ""),
                         bytes: args.dropFirst().first.flatMap(Int.init) ?? 8192)))
         case ("terminal", "send"):
             let enter = !has("--no-enter")
             guard args.count >= 2 else { fail("terminal send <session> <text>") }
-            let id = try await resolve(c, args[0], "session.list")
+            let id = try await session(c, args[0])
             show(try await c.call(SessionSend(id: id, text: args.dropFirst().joined(separator: " "), enter: enter)))
         case ("session", "restart"):
             show(
-                try .from(try await c.call(SessionRestart(id: try await resolve(c, args.first ?? "", "session.list")))))
+                try .from(try await c.call(SessionRestart(id: try await session(c, args.first ?? "")))))
         case ("session", "rename"):
             _ = try await c.call(
                 SessionRename(
-                    id: try await resolve(c, args.first ?? "", "session.list"),
+                    id: try await session(c, args.first ?? ""),
                     title: args.dropFirst().joined(separator: " ")))
         case ("session", "handoff"):
             show(
                 try .from(
                     try await c.call(
                         SessionHandoff(
-                            id: try await resolve(c, args.first ?? "", "session.list"), agent: flag("--agent")))))
+                            id: try await session(c, args.first ?? ""), agent: flag("--agent")))))
         case ("terminal", "context"):
-            show(try await c.call(SessionContext(id: try await resolve(c, args.first ?? "", "session.list"))))
+            show(try await c.call(SessionContext(id: try await session(c, args.first ?? ""))))
         default: print(usage)
         }
     }
