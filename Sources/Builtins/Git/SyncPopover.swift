@@ -76,7 +76,7 @@ final class SyncPopover: NSViewController {
 
         // The popover's one action, in words alone and the accent (macOS 26's primary tint; the bezel colour before it).
         primary.bezelStyle = .push
-        primary.controlSize = .large
+        primary.controlSize = .regular   // a rounded rectangle, as Commit in the panel: large is a capsule
         if #available(macOS 26, *) {
             primary.tintProminence = .primary
         } else {
@@ -147,27 +147,9 @@ final class SyncPopover: NSViewController {
         }
         ci.alignment = .centerX   // its caption on the words' edge, its runs' pads past it
 
-        popover?.hasFullSizeContent = true   // the ground reaches under the arrow, else the arrow shows the glass
-        view = Self.ground(root)
-    }
-
-    /// The popover material under the glass, as Quick Open and the switcher have it: code scrolling behind the popover
-    /// shouldn't tint what's written here. It fills the whole popover, arrow included; the words keep clear of the arrow.
-    private static func ground(_ content: NSView) -> NSView {
-        let fx = NSVisualEffectView()
-        fx.material = .popover
-        fx.blendingMode = .withinWindow
-        fx.state = .active
-        content.translatesAutoresizingMaskIntoConstraints = false
-        fx.addSubview(content)
-        let safe = fx.safeAreaLayoutGuide
-        NSLayoutConstraint.activate([
-            content.topAnchor.constraint(equalTo: safe.topAnchor),
-            content.bottomAnchor.constraint(equalTo: safe.bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: safe.trailingAnchor)
-        ])
-        return fx
+        // On the popover's own glass, as the commit card, the hover card and every other popover: a ground of its own
+        // under it made this the one popover of another colour.
+        view = root
     }
 
     override func viewDidLoad() {
