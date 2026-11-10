@@ -3,19 +3,19 @@ import Foundation
 import os
 
 /// Why a terminal couldn't be started: which step failed and with what errno, so "Input/output error" says where.
-public struct PTYError: Error, LocalizedError, CustomStringConvertible {
-    public var step: String, code: Int32
-    public var description: String {
+struct PTYError: Error, LocalizedError, CustomStringConvertible {
+    var step: String, code: Int32
+    var description: String {
         "Couldn't start the terminal (\(step): \(String(cString: strerror(code))), errno \(code))"
     }
-    public var errorDescription: String? { description }
+    var errorDescription: String? { description }
 }
 
 /// A child process on a pseudo-terminal. The daemon owns this, so the process outlives any UI.
 /// Once the program has exited its fd and pid are gone for good: they may already name another session's terminal or
 /// another process, so nothing is written to the one or signalled at the other after that.
-public final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on `queue`) under it too
-    public let pid: pid_t
+final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on `queue`) under it too
+    let pid: pid_t
     let primaryFD: Int32
     private var source: DispatchSourceRead?
     private let queue = DispatchQueue(label: "kelp.pty")
@@ -49,11 +49,11 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     /// How its fds are closed: `close`, or a test's count of each close.
     private let closeFD: @Sendable (Int32) -> Void
 
-    public var onOutput: (@Sendable (Data) -> Void)?
-    public var onExit: (@Sendable (Int32) -> Void)?
+    var onOutput: (@Sendable (Data) -> Void)?
+    var onExit: (@Sendable (Int32) -> Void)?
 
     /// `trampoline`: the `kelp` binary that makes the PTY the child's controlling terminal (nil spawns directly).
-    public init(
+    init(
         argv: [String], cwd: String, env: [String: String], cols: UInt16 = 120, rows: UInt16 = 32,
         trampoline: String? = PTY.trampoline, closing: @escaping @Sendable (Int32) -> Void = { _ = close($0) }
     ) throws {
@@ -103,7 +103,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
 
     /// Starts reading the output and waiting for the exit. Set `onOutput` / `onExit` first: a program that prints (or
     /// fails) at once would otherwise lose that.
-    public func start() {
+    func start() {
         let first = phase.withLock { current -> Bool in
             guard current.terminal == .waiting else { return false }
             current.terminal = .reading
@@ -207,7 +207,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     deinit { hangUp() }
 
     /// Typing into the program; dropped once it has exited (the fd may be another terminal's by then).
-    public func write(_ data: Data) {
+    func write(_ data: Data) {
         guard phase.withLock({ $0.open }) else { return }
         // A program that stops reading doesn't make the daemon keep whatever is pasted at it: past the limit, it's dropped.
         let room = queued.withLock { count -> Bool in
@@ -236,19 +236,19 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
     }
 
     /// The program in the foreground when it isn't the one the PTY started (a shell running `npm run dev`, vim…).
-    public var foregroundProgram: String? {
+    var foregroundProgram: String? {
         guard let pg = foregroundGroup else { return nil }
         var name = [CChar](repeating: 0, count: 256)
         return proc_name(pg, &name, UInt32(name.count)) > 0 ? String(cBuffer: name) : "a program"
     }
 
     /// The foreground's process group (its leader's pid) when it isn't the program the PTY started.
-    public var foregroundGroup: pid_t? {
+    var foregroundGroup: pid_t? {
         let pg = phase.withLock { $0.open ? tcgetpgrp(primaryFD) : -1 }
         return pg > 0 && pg != pid ? pg : nil
     }
 
-    public func resize(cols: UInt16, rows: UInt16) {
+    func resize(cols: UInt16, rows: UInt16) {
         let ws = winsize(ws_row: rows, ws_col: cols, ws_xpixel: 0, ws_ypixel: 0)
         phase.withLock {
             if $0.open {
@@ -257,7 +257,7 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
             }
         }
     }
-    public func kill() {
+    func kill() {
         signal {
             Darwin.kill(-$0, SIGHUP)
             Darwin.kill($0, SIGTERM)
@@ -266,13 +266,13 @@ public final class PTY: @unchecked Sendable {   // phases under `phase`; source 
 
     /// The program and everything it started, read now: a shell runs each job in a process group of its own, and once
     /// the shell is gone its jobs belong to launchd and can't be found from here any more.
-    public func tree() -> [pid_t] { phase.withLock { $0.program == .reaped ? [] : Subprocess.tree(pid) } }
+    func tree() -> [pid_t] { phase.withLock { $0.program == .reaped ? [] : Subprocess.tree(pid) } }
 
     /// Hangup and SIGTERM to the program and everything it started (a server in a shell's job too), then SIGKILL to
     /// whatever is still there after `grace` seconds (some TUIs ignore SIGTERM, servers treat SIGHUP as "reload").
     /// Returns them all, for `Sessions.waitGone`.
     @discardableResult
-    public func terminate(grace: TimeInterval = 2) -> [pid_t] {
+    func terminate(grace: TimeInterval = 2) -> [pid_t] {
         let all = tree()
         kill()
         for child in all.dropFirst() {

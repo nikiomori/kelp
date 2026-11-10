@@ -8,7 +8,7 @@ import os
 /// The long-running process: owns PTYs, state and the JSON-RPC socket.
 /// Running sessions and who is connected each keep their own lock; the order they're taken in is in `Clients`.
 public final class Daemon: Sendable {
-    public let store: Store
+    let store: Store
     var socketPath: String { root.appendingPathComponent("kelp.sock").path }
     let root: URL
     let clients = Clients()
@@ -40,7 +40,10 @@ public final class Daemon: Sendable {
         VMService(home: root, helper: VMService.helper(beside: Daemon.executable))
     }
 
-    public convenience init(root: URL, store: Store? = nil) throws {
+    public convenience init(root: URL) throws { try self.init(root: root, store: nil) }
+
+    /// `store`: one this process has open already (an update that took its sessions back).
+    convenience init(root: URL, store: Store?) throws {
         try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60))
     }
 

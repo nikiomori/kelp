@@ -78,7 +78,7 @@ extension PTY {
     }
 
     /// The `kelp` CLI next to the daemon binary.
-    public static let trampoline: String? = {
+    static let trampoline: String? = {
         let dir = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent()
         var path = dir.appendingPathComponent("kelp").path
         #if DEBUG

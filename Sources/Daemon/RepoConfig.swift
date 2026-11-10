@@ -8,20 +8,20 @@ import Foundation
 ///   recipe.<action>: prompt template with {stagedPatch} {branch} {diffStat} {error} {linkedIssue}
 ///   run / test / lint / build: the project's commands (Run menu, ⌘R ⌘U)      script.<name>: any other one
 /// Its commands run only once the project is trusted (`Trust`), and again after the file changes.
-public struct RepoConfig: Sendable, Equatable {
-    public var setup: String?, issueCommand: String?
-    public var shared: [String] = [], tabs: [String] = []
+struct RepoConfig: Sendable, Equatable {
+    var setup: String?, issueCommand: String?
+    var shared: [String] = [], tabs: [String] = []
     /// Copied into each new worktree as APFS clones (`Git.cloneShared`), where `shared` links one folder for all.
-    public var clone: [String] = []
-    public var recipes: [String: String] = [:]
+    var clone: [String] = []
+    var recipes: [String: String] = [:]
     /// Named commands in the file's order.
-    public var scripts: [Script] = []
-    public typealias Script = ScriptsList.Script
+    var scripts: [Script] = []
+    typealias Script = ScriptsList.Script
     /// Run before each of its commands: the variables another tool's scripts expect (`ImportedConfig`); "" for a .kelp.yaml.
-    public var prelude = ""
-    public static let scriptNames: Set = ["run", "test", "lint", "build"]
+    var prelude = ""
+    static let scriptNames: Set = ["run", "test", "lint", "build"]
 
-    public static func parse(_ text: String) -> RepoConfig {
+    static func parse(_ text: String) -> RepoConfig {
         var config = RepoConfig()
         for line in text.split(whereSeparator: \.isNewline) {   // "\r\n" too (one Character, so not "\n")
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -55,12 +55,12 @@ public struct RepoConfig: Sendable, Equatable {
         return config
     }
     /// One of its commands as the shell gets it.
-    public func shell(_ command: String) -> String { prelude + command }
+    func shell(_ command: String) -> String { prelude + command }
 }
 
 /// Prompt templates for agent actions; a repo's `recipe.<name>` overrides the default.
-public enum Recipes {
-    public static let defaults: [String: String] = [
+enum Recipes {
+    static let defaults: [String: String] = [
         "commit":
             "Write a concise commit message for these staged changes and run `git commit` with it.\n\n{stagedPatch}",
         "fixCommit":
@@ -80,7 +80,7 @@ public enum Recipes {
             + "`kelp comment add <file> <line> \"<what's wrong and why>\"`. Skip style. At the end say in one line how many you left.",
         "issue": "Work on this issue.\n\n{title}\n\n{body}\n\n(Issue: {url})"
     ]
-    public static func render(_ name: String, config: RepoConfig, vars: [String: String]) -> String {
+    static func render(_ name: String, config: RepoConfig, vars: [String: String]) -> String {
         fill(config.recipes[name] ?? defaults[name] ?? "", framed(vars))
     }
 
@@ -91,7 +91,7 @@ public enum Recipes {
         "check": "check name", "files": "file names", "diffStat": "changed files"
     ]   // a pull request names its own files
     static let logTail = 12_000
-    public static func framed(_ vars: [String: String]) -> [String: String] {
+    static func framed(_ vars: [String: String]) -> [String: String] {
         vars.reduce(into: [:]) { out, kv in
             guard let what = untrusted[kv.key], !kv.value.isEmpty else {
                 out[kv.key] = kv.value
@@ -104,7 +104,7 @@ public enum Recipes {
 
     /// `{name}` from `vars` in one pass over the template: a value is never searched again, so an issue's text holding
     /// "{body}" stays as written whatever order the names come in.
-    public static func fill(_ template: String, _ vars: [String: String]) -> String {
+    static func fill(_ template: String, _ vars: [String: String]) -> String {
         template.replacing(/\{([^}]*)\}/) { vars[String($0.1)] ?? String($0.0) }
     }
 }

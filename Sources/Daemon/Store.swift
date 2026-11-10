@@ -4,22 +4,24 @@ import GRDB
 import os
 
 /// SQLite persistence for repos, worktrees, sessions and diff comments.
-public final class Store: Sendable {
+final class Store: Sendable {
     /// A pool on disk: reads run beside a write (WAL) instead of queueing behind it, and many come from the cooperative
     /// pool and connection reader threads, where waiting on a status write's fsync would hold up keystrokes. A queue in
     /// memory (tests: a pool needs a file).
-    public let db: any DatabaseWriter
+    /// Also the query surface of the records only one feature keeps (routines, comments, saved databases): they read and
+    /// write their own tables through it. Those writes aren't told (`changed`): only projects, workspaces and sessions are.
+    let db: any DatabaseWriter
 
     /// A project or workspace record written (as it is now) or deleted, or a session deleted (its writes are pushed as
     /// `event.session` where its live state is known).
-    public enum Change: Sendable {
+    enum Change: Sendable {
         case repo(Repo), worktree(Worktree), repoRemoved(String), worktreeRemoved(String), sessionRemoved(String)
     }
     /// Told of every one, after its write: every write goes through here, so the daemon pushes them from one place.
     /// In a struct: a lock holding the function itself got it back wrapped once more on every read (the generic inout's
     /// conversion, in a debug build at least), so each change was told slower, and a few thousand overflowed the stack.
-    public struct Listener: Sendable { public var tell: (@Sendable (Change) -> Void)? }
-    public let changed = OSAllocatedUnfairLock(initialState: Listener())
+    struct Listener: Sendable { var tell: (@Sendable (Change) -> Void)? }
+    let changed = OSAllocatedUnfairLock(initialState: Listener())
     /// A write and its telling, one at a time: changes are told in the order they were committed. Told after a write
     /// that wasn't, two writers could pass each other in between, and the app keep the older record. Recursive: one
     /// told that writes again (none does now) goes on.
@@ -31,7 +33,7 @@ public final class Store: Sendable {
         if let session = record as? Session, removed { tell(.sessionRemoved(session.id)) }
     }
 
-    public init(path: String? = nil) throws {
+    init(path: String? = nil) throws {
         // WAL: every status, summary and UI-state change is a write, and the rollback journal fsynced each one twice.
         var config = Configuration()
         config.journalMode = .wal
@@ -39,18 +41,18 @@ public final class Store: Sendable {
         try Self.migrator.migrate(db)
     }
 
-    public func repos() throws -> [Repo] { try db.read { try Repo.order(Column("name")).fetchAll($0) } }
-    public func repo(_ id: String) throws -> Repo? { try db.read { try Repo.fetchOne($0, key: id) } }
-    public func worktrees(repo: String? = nil) throws -> [Worktree] {
+    func repos() throws -> [Repo] { try db.read { try Repo.order(Column("name")).fetchAll($0) } }
+    func repo(_ id: String) throws -> Repo? { try db.read { try Repo.fetchOne($0, key: id) } }
+    func worktrees(repo: String? = nil) throws -> [Worktree] {
         try db.read { database in
             var query = Worktree.order(Column("createdAt"))
             if let repo { query = query.filter(Column("repoId") == repo) }
             return try query.fetchAll(database)
         }
     }
-    public func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
-    public func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
-    public func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
+    func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
+    func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
+    func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
     func owe(_ all: [OwedInput]) throws { try db.write { d in for input in all { try input.insert(d) } } }
     /// What's owed to `session`, in the order it came, and it's no longer kept here.
     func takeOwed(_ session: String) throws -> [OwedInput] {
@@ -62,7 +64,7 @@ public final class Store: Sendable {
         }
     }
     @discardableResult
-    public func save<R: PersistableRecord>(_ record: R) throws -> R {
+    func save<R: PersistableRecord>(_ record: R) throws -> R {
         try ordered.withLock {
             let saved = try db.write { database in try Self.revised(record, database).saved(database) }
             report(saved)
@@ -72,7 +74,7 @@ public final class Store: Sendable {
     /// Changes a record (a workspace, a session) in one write: read, change, save with nothing in between. Saving a copy
     /// read earlier would put back fields someone else changed meanwhile (a rename, a PR, archiving). Nil when it's gone.
     @discardableResult
-    public func update<R: FetchableRecord & PersistableRecord>(
+    func update<R: FetchableRecord & PersistableRecord>(
         _: R.Type, _ id: String, _ change: (inout R) throws -> Void
     ) throws -> R? {
         try ordered.withLock {
@@ -87,7 +89,7 @@ public final class Store: Sendable {
     }
     /// Only a row that's there: a session deleted meanwhile stays deleted (`save` would insert it again).
     @discardableResult
-    public func update<R: PersistableRecord>(_ record: R) throws -> R {
+    func update<R: PersistableRecord>(_ record: R) throws -> R {
         try ordered.withLock {
             let updated = try db.write { database in
                 let revised = try Self.revised(record, database)
@@ -109,14 +111,14 @@ public final class Store: Sendable {
         revisable.revision = now + 1
         return revisable as? R ?? record
     }
-    public func delete<R: PersistableRecord>(_ record: R) throws {
+    func delete<R: PersistableRecord>(_ record: R) throws {
         try ordered.withLock {
             try db.write { _ = try record.delete($0) }
             report(record, removed: true)
         }
     }
     /// A session deleted, with the turns that go with it, read in the same write: none added meanwhile is missed.
-    public func deleteSession(_ session: Session) throws -> [SessionTurns.Mark] {
+    func deleteSession(_ session: Session) throws -> [SessionTurns.Mark] {
         try ordered.withLock {
             let marks = try db.write { database in
                 let marks = try SessionTurns.Mark.filter(Column("session") == session.id).order(Column("at").desc)
@@ -131,7 +133,7 @@ public final class Store: Sendable {
     /// A turn that began; past `keep` of the session's, the oldest go, and are returned. nil, and nothing added, when its
     /// session is gone (deleted while the turn's snapshot was taken).
     @discardableResult
-    public func addTurn(_ turn: SessionTurns.Mark, keep: Int = 20) throws -> [SessionTurns.Mark]? {
+    func addTurn(_ turn: SessionTurns.Mark, keep: Int = 20) throws -> [SessionTurns.Mark]? {
         try db.write { database in
             guard try Session.exists(database, key: turn.session) else { return nil }
             try turn.insert(database)
@@ -144,16 +146,16 @@ public final class Store: Sendable {
         }
     }
     /// The session's turns, the newest first.
-    public func turns(session: String) throws -> [SessionTurns.Mark] {
+    func turns(session: String) throws -> [SessionTurns.Mark] {
         try db.read { try SessionTurns.Mark.filter(Column("session") == session).order(Column("at").desc).fetchAll($0) }
     }
 
-    public func comments(worktree: String) throws -> [DiffComment] {
+    func comments(worktree: String) throws -> [DiffComment] {
         try db.read { try DiffComment.filter(Column("worktreeId") == worktree).fetchAll($0) }
     }
 
     /// The app's UI state (`state.*`): JSON by key, e.g. `layout/<workspace>`, `sidebar.order`. Every key with this prefix.
-    public func uiState(prefix: String) throws -> [String: JSONValue] {
+    func uiState(prefix: String) throws -> [String: JSONValue] {
         try db.read { database in
             try Row.fetchAll(
                 database, sql: "SELECT key, value FROM uiState WHERE instr(key, ?) = 1", arguments: [prefix]
@@ -167,7 +169,7 @@ public final class Store: Sendable {
         }
     }
     /// Whether a tab of `uri` (`session:<id>`) is in a workspace's saved layout: open, shown or not.
-    public func inALayout(_ uri: String) throws -> Bool {
+    func inALayout(_ uri: String) throws -> Bool {
         try db.read { database in
             try Bool.fetchOne(
                 database,
@@ -199,7 +201,7 @@ public final class Store: Sendable {
     }
 
     /// No value deletes the key.
-    public func setUIState(_ key: String, _ value: JSONValue?) throws {
+    func setUIState(_ key: String, _ value: JSONValue?) throws {
         let text = try value.flatMap { String(bytes: try JSONEncoder().encode($0), encoding: .utf8) }
         try db.write { database in
             if let text {
