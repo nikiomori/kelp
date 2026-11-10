@@ -140,13 +140,7 @@ extension SourceControlController {
     }
 
     /// The details live in the CI Runs panel (it opens the failed job's log by itself); without it, the run's page.
-    func openCI() {
-        if app.extensions.all.panels.contains(where: { $0.id == "ci" }) {
-            app.workbench.showPanel("ci")
-        } else if let run = CIRuns.latest(ciRuns).first(where: \.failed) ?? ciRuns.first {
-            app.workbench.open(run.url)
-        }
-    }
+    func openCI() { worktreeId.map(RowMarks.of(app).openCI) }
 
     func loadGraph() async {
         guard let wid = worktreeId else { return }
