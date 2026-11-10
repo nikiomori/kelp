@@ -220,12 +220,8 @@ enum DatabaseEngines {
         guard let service = c.container else {
             throw DatabaseFailure.failed("\(c.database.name) has no address to reach it at.")
         }
-        let docker = try client(
-            "docker", also: ["/usr/local/bin", "/opt/homebrew/bin", "/Applications/Docker.app/Contents/Resources/bin"])
-        let id = Subprocess.printed(
-            [docker, "compose", "-f", service.file, "ps", "-q", service.name], path: "/usr/local/bin:/usr/bin:/bin",
-            timeout: DatabaseTimes.compose)?.split(whereSeparator: \.isNewline).first.map(String.init)
-        guard let id, !id.isEmpty else {
+        let docker = try client("docker", also: Databases.dockerFolders)
+        guard let id = Databases.container(service, docker: docker) else {
             throw DatabaseFailure.failed(
                 "\(service.name) isn't running: docker compose up -d \(service.name) starts it.")
         }
