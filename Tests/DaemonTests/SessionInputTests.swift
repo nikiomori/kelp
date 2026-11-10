@@ -89,7 +89,7 @@ import os
     #expect(try await waitFor(30) { w.d.sessions.existing(s.id)?.startedUp == true })
     _ = try await w.c.call(SessionSend(id: s.id, text: "hello"))
     #expect(try await waitFor(5) { try await screen().contains("2. No") })
-    #expect(try await waitFor(5) { w.d.sessions.existing(s.id)?.state.withLock(\.draftWaiting) == true })
+    #expect(try await waitFor(5) { w.d.sessions.existing(s.id)?.state.withLock(\.kept.draftWaiting) == true })
     _ = try await w.c.call(SessionWrite(id: s.id, text: "z"))   // read after anything typed before it
     #expect(try await waitFor(5) { try await screen().contains("SEEN") })
     #expect(!(try await screen()).contains("ANSWERED"))
@@ -133,7 +133,7 @@ import os
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")) == false)
     #expect(ls.state.withLock { $0.steering == nil })   // nothing set to press it later either
     #expect(!(try await screen()).contains("ALLOWED"))
-    ls.state.withLock { $0.asking["a subagent"] = nil }
+    ls.state.withLock { $0.kept.asking["a subagent"] = nil }
     #expect(try await p.c.call(SessionChoose(id: s.id, answer: "allow", question: "Allow rm -rf build?")))
     #expect(try await waitFor(5) { try await screen().contains("ALLOWED") })
 }
@@ -145,14 +145,14 @@ import os
     let wt = try await workspace(w, "unsent")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let ls = try #require(w.d.sessions.existing(s.id))
-    ls.state.withLock { $0.typing = "half" }
+    ls.state.withLock { $0.kept.typing = "half" }
     #expect(!ls.letGoIdle(seen: ls.inputs))
     ls.state.withLock {
-        $0.typing = ""
-        $0.draftWaiting = true
+        $0.kept.typing = ""
+        $0.kept.draftWaiting = true
     }
     #expect(!ls.letGoIdle(seen: ls.inputs))
-    ls.state.withLock { $0.draftWaiting = false }
+    ls.state.withLock { $0.kept.draftWaiting = false }
     #expect(ls.letGoIdle(seen: ls.inputs))
 }
 
@@ -180,38 +180,38 @@ import os
         logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
     func keys(_ k: String) -> String? { s.noteTyping(Data(k.utf8)) }
     _ = keys("fix the")
-    #expect(s.typing == "fix the")
+    #expect(s.kept.typing == "fix the")
     _ = keys("\u{7F}\u{7F}")
-    #expect(s.typing == "fix t")
+    #expect(s.kept.typing == "fix t")
     _ = keys("\u{17}")
-    #expect(s.typing == "fix ")   // ⌃W
+    #expect(s.kept.typing == "fix ")   // ⌃W
     _ = keys("x\u{1B}\u{7F}")
     _ = keys("\u{1B}\u{7F}")
-    #expect(s.typing.isEmpty)   // "x", then ⌥⌫ twice
+    #expect(s.kept.typing.isEmpty)   // "x", then ⌥⌫ twice
     _ = keys("\u{1B}[A")
-    #expect(s.typing.isEmpty)   // an arrow
+    #expect(s.kept.typing.isEmpty)   // an arrow
     _ = keys("\u{1B}[200~two\rlines\u{1B}[201~")
-    #expect(s.typing == "two\nlines")   // a paste's newlines don't send it
+    #expect(s.kept.typing == "two\nlines")   // a paste's newlines don't send it
     _ = keys("\u{3}")
-    #expect(s.typing.isEmpty)   // ⌃C
+    #expect(s.kept.typing.isEmpty)   // ⌃C
     #expect(keys("fix the login bug\r") == "fix the login bug")   // sent: the first prompt, which names the session
-    #expect(s.typing.isEmpty)
+    #expect(s.kept.typing.isEmpty)
     #expect(keys("and the tests\r") == nil)
     // As the kitty keyboard protocol sends them (Claude Code turns it on): ⌃U, ⌥⌫ (not its release), ⇧Return, Return.
     _ = keys("half")
     _ = keys("\u{1B}[117;5u")
-    #expect(s.typing.isEmpty)
+    #expect(s.kept.typing.isEmpty)
     _ = keys("half")
     _ = keys("\u{1B}[1075::117;5u")
-    #expect(s.typing.isEmpty)   // ⌃U on a Cyrillic layout
+    #expect(s.kept.typing.isEmpty)   // ⌃U on a Cyrillic layout
     _ = keys("ab cd")
     _ = keys("\u{1B}[127;3u")
     _ = keys("\u{1B}[127;3:3u")
-    #expect(s.typing == "ab ")
+    #expect(s.kept.typing == "ab ")
     _ = keys("\u{1B}[13;2u")
-    #expect(s.typing == "ab ")
+    #expect(s.kept.typing == "ab ")
     _ = keys("\u{1B}[13u")
-    #expect(s.typing.isEmpty)
+    #expect(s.kept.typing.isEmpty)
 }
 
 /// Sessions that ended over a week ago go, records and logs, and logs nobody's record names; paused and newer ones stay.

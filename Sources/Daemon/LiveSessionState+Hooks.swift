@@ -29,8 +29,8 @@ extension LiveSession.State {
         heard()
         // A prompt after a Stop held for its command (yours, or the <task-notification> that it ended): a new turn, which
         // isn't waiting for it. The next Stop says again.
-        if holding, event == "working" { record.awaiting = nil }
-        holding = false
+        if kept.holding, event == "working" { record.awaiting = nil }
+        kept.holding = false
         let compacting = "Compacting the conversation…"
         switch event {
         case "compacting":
@@ -46,15 +46,15 @@ extension LiveSession.State {
             if compactManual { detector.override(.idle, because: "/compact finished") }   // back at the prompt; an auto one carries on
             compactManual = false
         case "waiting":
-            if let asker { asking[asker, default: 0] += 1 }
-            if question { questionOpen = true }
+            if let asker { kept.asking[asker, default: 0] += 1 }
+            if question { kept.questionOpen = true }
             if let message, !message.isEmpty { record.summary = message }
             detector.hook(event)
         case "working":
             // Not the end of a dialog a hook counted: a prompt can't be sent past one, and anything in the session can say
             // "working" (`kelp report`, a hook run by hand), after which an Enter typed in would answer it (`asked`).
             // Its answer ends it: a key, Kelp's Allow or Deny, its tools' batch (`tool`), the turn's end.
-            if answered { questionOpen = false }
+            if answered { kept.questionOpen = false }
             goalAsked = goal
             if record.summary != compacting { record.summary = "" }   // the last turn's words, or the question just answered
             detector.hook(event)
@@ -75,7 +75,8 @@ extension LiveSession.State {
             guard agent == nil, [.done, .idle, .error].contains(detector.status) else { return }
             detector.override(.working, because: "a tool started after its turn ended")
         case "PostToolBatch":
-            guard asking.removeValue(forKey: agent ?? "") != nil, asking.isEmpty, detector.status == .waiting else {
+            guard kept.asking.removeValue(forKey: agent ?? "") != nil, kept.asking.isEmpty, detector.status == .waiting
+            else {
                 return
             }
             detector.override(.working, because: "the tools it asked about ran")
@@ -87,13 +88,13 @@ extension LiveSession.State {
 
     /// A line went in: an agent with hooks answers that with one, if they run at all.
     mutating func expectHook() {
-        if hooked, !hooksSpoke, lineSentUp == nil { lineSentUp = ProcessInfo.processInfo.systemUptime }
+        if hooked, !kept.hooksSpoke, lineSentUp == nil { lineSentUp = ProcessInfo.processInfo.systemUptime }
     }
 
     /// A hook came. Whatever the row said about them being off is over.
     mutating func spoke() {
-        guard !hooksSpoke else { return }
-        hooksSpoke = true
+        guard !kept.hooksSpoke else { return }
+        kept.hooksSpoke = true
         lineSentUp = nil
         if record.summary == Self.noHooks { record.summary = "" }
     }
@@ -111,20 +112,20 @@ extension LiveSession.State {
     /// A key answered a dialog: whether none is left open. Several are shown one after another, and a question still on
     /// screen must not read as work. Which one it answered doesn't matter: a batch's tools clear them all (`tool`).
     mutating func answeredOne() -> Bool {
-        if let (who, open) = asking.first { asking[who] = open > 1 ? open - 1 : nil }
-        return asking.isEmpty && !questionOpen
+        if let (who, open) = kept.asking.first { kept.asking[who] = open > 1 ? open - 1 : nil }
+        return kept.asking.isEmpty && !kept.questionOpen
     }
 
     /// A dialog a hook counted is still open (a permission's, AskUserQuestion's), whatever the status says since: what
     /// keeps an agent's keys out (`asksSomething`).
     /// Limit: hooks are the session's own word, so a program in it that sends an answer's hooks (PostToolBatch, Stop)
     /// by hand still un-says its question.
-    var asked: Bool { !asking.isEmpty || questionOpen }
+    var asked: Bool { !kept.asking.isEmpty || kept.questionOpen }
 
     /// Whatever it asked is over.
     mutating func nothingAsked() {
-        asking.removeAll()
-        questionOpen = false
+        kept.asking.removeAll()
+        kept.questionOpen = false
     }
 
     /// A sign of life from the agent: a hook, or what it printed.

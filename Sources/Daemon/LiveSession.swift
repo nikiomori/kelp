@@ -121,8 +121,8 @@ final class LiveSession: Sendable {
     var topic: String? { state.withLock { $0.lastTopic } }
     /// Claude Code transcript (from hook payloads): where its subagents' transcripts live.
     var transcriptPath: String? {
-        get { state.withLock { $0.transcript } }
-        set { state.withLock { $0.transcript = newValue } }
+        get { state.withLock { $0.kept.transcript } }
+        set { state.withLock { $0.kept.transcript = newValue } }
     }
     /// How long it has done nothing. An agent with hooks tells by its status (and someone typing): at rest it still redraws
     /// by itself, such as Claude Code's "Checking for updates". For the others, output is all there is.
@@ -309,7 +309,8 @@ final class LiveSession: Sendable {
                 // To a program that takes no pastes on one line: its newlines would submit a part of it each.
                 let report = st.reports.removeFirst()
                 type(
-                    st.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true, paste: false,
+                    st.kept.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true,
+                    paste: false,
                     &st)
             }
         }

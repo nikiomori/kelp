@@ -54,7 +54,7 @@ extension LiveSession {
             guard st.attached.isEmpty, st.inputs == seen, st.inputsInFlight == 0,
                 [.done, .idle].contains(st.record.status)
             else { return false }
-            guard st.typing.isEmpty, !st.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
+            guard st.kept.typing.isEmpty, !st.kept.draftWaiting else { return false }   // a half-typed line or a draft would go with the program
             st.letGo = true
             return true
         }
@@ -68,12 +68,7 @@ extension LiveSession {
                 id: st.record.id, pid: pty.pid, fd: fd, modes: String(decoding: st.historyModes.restore, as: UTF8.self),
                 bytes: min(st.ring.count, Self.ringLimit),
                 pending: st.pendingPrompts.map { .init(text: $0.text, draft: $0.draft, paste: $0.paste) },
-                status: .init(
-                    holding: st.holding, parked: st.parked, hooked: st.detector.hooked, asking: st.asking,
-                    questionOpen: st.questionOpen, turnEnd: st.turnEnd, transcript: st.transcript,
-                    boxEmpty: st.boxEmpty,
-                    pasteMode: st.pasteMode, draftWaiting: st.draftWaiting, typing: st.typing, hooksSpoke: st.hooksSpoke
-                ),
+                status: .init(kept: st.kept, hooked: st.detector.hooked),
                 reports: st.reports)
         }
     }
@@ -92,19 +87,10 @@ extension LiveSession {
             st.reports = reports
             st.ring = history
             st.ringModes.read(Data(modes.utf8))
-            if let status {
-                st.holding = status.holding
-                st.parked = status.parked
-                st.asking = status.asking
-                st.questionOpen = status.questionOpen
-                st.turnEnd = status.turnEnd
-                st.transcript = status.transcript
-                st.boxEmpty = status.boxEmpty ?? false
-                st.draftWaiting = status.draftWaiting ?? false
-                st.typing = status.typing ?? ""
-                st.hooksSpoke = status.hooksSpoke ?? false
+            if let status { st.kept = status.kept }
+            if status?.saysPasteMode != true {
+                st.kept.pasteMode = modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
             }
-            st.pasteMode = status?.pasteMode ?? modes.contains("\u{1B}[?2004h")   // from a kelpd that didn't say: as near as its modes tell
             st.detector.adopted(
                 st.record.status, screen: String(decoding: history.suffix(64_000), as: UTF8.self),
                 hooked: status?.hooked

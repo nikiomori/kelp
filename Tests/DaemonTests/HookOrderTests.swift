@@ -17,7 +17,7 @@ import Testing
     #expect(ls.stop([], goal: nil, at: 20) != nil)
     ls.hook("waiting", asker: "", at: 10)
     #expect(ls.state.withLock { $0.detector.status } != .waiting)
-    #expect(ls.state.withLock { $0.asking.isEmpty })
+    #expect(ls.state.withLock { $0.kept.asking.isEmpty })
     #expect(ls.stop([], goal: nil, at: 10) == nil)
 }
 
@@ -31,5 +31,5 @@ import Testing
     for _ in 0..<2 {
         _ = try await w.c.call(SessionHook(id: s.id, event: "waiting", hookName: "PermissionRequest", at: 50))
     }
-    #expect(w.d.sessions.existing(s.id)?.state.withLock { $0.asking.values.reduce(0, +) } == 1)
+    #expect(w.d.sessions.existing(s.id)?.state.withLock { $0.kept.asking.values.reduce(0, +) } == 1)
 }

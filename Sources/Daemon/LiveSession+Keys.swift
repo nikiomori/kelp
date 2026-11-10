@@ -55,7 +55,7 @@ extension LiveSession {
             // Moving through "trust this folder?" doesn't answer it: a launch prompt typed then would land its Enter on
             // whichever option the cursor reached ("No, exit"), and its text would be lost.
             if !(st.trustQuestionOpen() && Self.movesInMenu(keys)) { st.dialogSettled = true }
-            st.draftWaiting = false
+            st.kept.draftWaiting = false
             st.detector.input(typing: !keys.contains(0x0D))   // keys without Return: the prompt is still being written
             var read: Session?
             if st.record.unread {
@@ -80,7 +80,7 @@ extension LiveSession {
             }
             emit(st.sync() ?? read)
             if answering {
-                st.typing = ""
+                st.kept.typing = ""
                 return nil
             }
             return st.noteTyping(keys)

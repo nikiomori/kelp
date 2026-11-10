@@ -90,12 +90,12 @@ private func onHost() -> LiveSession.State {
 /// Esc in an empty box leaves it empty: a report waiting for that would wait for the next Return, and nothing says so.
 @Test func escLeavesTheBoxEmpty() {
     var s = hooked()
-    s.boxEmpty = true
+    s.kept.boxEmpty = true
     _ = s.noteTyping(Data([0x1B]))
     _ = s.noteTyping(Data("\u{1B}[27u".utf8))
-    #expect(s.boxEmpty)
+    #expect(s.kept.boxEmpty)
     _ = s.noteTyping(Data("a".utf8))
-    #expect(!s.boxEmpty)
+    #expect(!s.kept.boxEmpty)
 }
 
 /// Claude Code compacts a conversation that sits idle ("Compacted while idle…", trigger "auto"): no turn follows to end it,
@@ -151,7 +151,7 @@ private func onHost() -> LiveSession.State {
     #expect(s.detector.source == "no sign of life for 180 s")   // no hook said so
 
     s.hook("working")
-    s.holding = true   // a Stop held for its subagents
+    s.kept.holding = true   // a Stop held for its subagents
     t = s.lastLifeUp
     s.record.goal = "tests pass"
     s.releaseStale(at: t + 1000)
@@ -185,9 +185,9 @@ private func onHost() -> LiveSession.State {
     s.tool("PreToolUse", agent: nil)
     #expect(s.sync()?.status == .working)
     #expect(s.detector.source == "a tool started after its turn ended")
-    s.holding = true
+    s.kept.holding = true
     s.tool("PreToolUse", agent: nil)
-    #expect(s.holding)
+    #expect(s.kept.holding)
 }
 
 /// A permission dialog answered anywhere ends with its batch of tools. As Claude Code 2.1.316 sends it, two parallel dialogs:
@@ -228,7 +228,7 @@ private func onHost() -> LiveSession.State {
     var s = hooked()
     s.hook("working")
     _ = s.sync()
-    s.holding = true
+    s.kept.holding = true
     s.record.goal = "tests pass"
     s.ring = Data("Do you want to proceed?\r\n❯ 1. Yes\r\n  2. No\r\n".utf8)
     s.releaseStale(at: s.lastLifeUp + 1900)
@@ -450,7 +450,7 @@ private func onHost() -> LiveSession.State {
     s.hook("waiting", asker: "")
     _ = s.sync()
     s.tool("PostToolBatch", agent: nil)
-    #expect(s.asking.isEmpty && s.sync()?.status == .working)
+    #expect(s.kept.asking.isEmpty && s.sync()?.status == .working)
 }
 
 /// A turn cut short outside Kelp sends no hook: after the quiet, what it printed decides. A menu still open keeps it asking.

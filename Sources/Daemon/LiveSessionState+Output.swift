@@ -62,7 +62,7 @@ extension LiveSession.State {
     mutating func notePasteMode(_ data: Data) {
         let scan = pasteCarry + data
         if let on = scan.range(of: Data("\u{1B}[?2004".utf8), options: .backwards), on.upperBound < scan.endIndex {
-            pasteMode = scan[on.upperBound] == UInt8(ascii: "h")
+            kept.pasteMode = scan[on.upperBound] == UInt8(ascii: "h")
         }
         pasteCarry = Data(data.suffix(7))
     }

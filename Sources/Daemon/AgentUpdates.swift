@@ -48,7 +48,7 @@ extension LiveSession {
     /// `version`: tried once for each, for a Claude Code without the command (it prints "Unknown command", no more).
     func restartAgent(into version: String, quiet: TimeInterval) -> Bool {
         state.withLock { st in
-            guard st.updatedTo != version, st.record.status == .done, !st.parked, st.boxEmpty, st.startedUp,
+            guard st.updatedTo != version, st.record.status == .done, !st.kept.parked, st.kept.boxEmpty, st.startedUp,
                 st.pendingPrompts.isEmpty,
                 st.inputsInFlight == 0, st.readyForText(submits: true),
                 Date().timeIntervalSince(st.lastOutputAt ?? st.started) > quiet

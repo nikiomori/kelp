@@ -57,7 +57,7 @@ extension LiveSession {
     /// Background shells ended: they leave the record now, not at the next Stop. Whether it changed.
     func tasksEnded(_ ids: [String]) -> Bool {
         state.withLock { st in
-            let gone = st.turnEnd.ended(ids), left = st.record.background?.filter { !gone.contains($0) }
+            let gone = st.kept.turnEnd.ended(ids), left = st.record.background?.filter { !gone.contains($0) }
             guard left != st.record.background else { return false }
             st.record.background = left?.isEmpty == true ? nil : left
             if let awaited = st.record.awaiting, gone.contains(awaited) { st.record.awaiting = nil }
@@ -69,7 +69,7 @@ extension LiveSession {
     /// not after Esc (2.1.316), so a row still working or asking missed a Stop. Droid says it instead of a Stop when Esc stopped it.
     func atPrompt() {
         state.withLock { st in
-            guard !st.holding, st.detector.status == .working || st.detector.status == .waiting else { return }
+            guard !st.kept.holding, st.detector.status == .working || st.detector.status == .waiting else { return }
             st.nothingAsked()
             st.detector.override(.done, because: "it says it sits at its prompt")
             emit(st.sync())
@@ -97,12 +97,12 @@ extension LiveSession {
             if let at, at < st.newestHook { return nil }   // as in `hook`
             let now = Date()
             st.heard(at: now)
-            let (verdict, running) = st.turnEnd.stop(tasks, goal: goal)
+            let (verdict, running) = st.kept.turnEnd.stop(tasks, goal: goal)
             st.trail.add("stop: \(verdict)")
             st.nothingAsked()
             st.endCommands(at: now)
-            st.holding = verdict != .done
-            st.parked = !tasks.isEmpty || !crons.isEmpty
+            st.kept.holding = verdict != .done
+            st.kept.parked = !tasks.isEmpty || !crons.isEmpty
             st.record.background = running.isEmpty ? nil : running
             if case .command(let command) = verdict { st.record.awaiting = command } else { st.record.awaiting = nil }
             if case .goal(let goalText) = verdict {
@@ -158,7 +158,7 @@ extension LiveSession {
                 }
             }
             _ = st.newCommands()
-            if command.outcome == .background { st.turnEnd.started(command.id, command: command.command) }
+            if command.outcome == .background { st.kept.turnEnd.started(command.id, command: command.command) }
             let moved = command.outcome == .background && st.sentToBackground(command.command)
             let shown = st.showRunning()
             return moved || shown ? st.record : nil
@@ -168,7 +168,7 @@ extension LiveSession {
     /// The time to `release` by, if a Stop is held (an update took the wait for it along: it starts over).
     func heldAgain() -> Date? {
         state.withLock { st in
-            guard st.holding else { return nil }
+            guard st.kept.holding else { return nil }
             let now = Date()
             st.lastHookAt = now
             return now
@@ -179,7 +179,7 @@ extension LiveSession {
     func release(_ at: Date) {
         state.withLock { st in
             guard st.lastHookAt == at, st.detector.status == .working else { return }
-            st.holding = false
+            st.kept.holding = false
             st.record.goal = nil
             st.record.awaiting = nil
             st.detector.override(.done, because: "what the last Stop was held for is over")

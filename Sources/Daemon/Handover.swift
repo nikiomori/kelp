@@ -16,16 +16,33 @@ public struct Handover: Codable, Sendable {
         var reports: [String]?
     }
     struct Prompt: Codable, Sendable { var text: String, draft: Bool, paste: Bool }
-    /// What a session's status rests on beside its record. Lost, a Stop held for subagents read as done three minutes after
-    /// an update, a dialog answered elsewhere stayed Needs You, and an agent that reports itself was guessed at again.
+    /// What a session's status and typing rest on beside its record: the session's `Kept` whole, its fields beside
+    /// `hooked` (the status detector's), as kelpds before it wrote them one by one.
     struct Status: Codable, Sendable {
-        var holding: Bool, parked: Bool, hooked: Bool, asking: [String: Int], questionOpen: Bool, turnEnd: TurnEnd,
-            transcript: String?
-        var boxEmpty: Bool?
-        /// How text goes in, and what it would land on: lost, a multi-line send submitted line by line, and the next send's
-        /// Enter sent an unread draft or the user's half line.
-        var pasteMode: Bool?, draftWaiting: Bool?, typing: String?
-        var hooksSpoke: Bool?
+        var kept: LiveSession.Kept
+        var hooked: Bool?
+        /// Whether `pasteMode` was said: a kelpd from before it leaves the modes its terminal is in to tell.
+        var saysPasteMode = true
+
+        private enum CodingKeys: String, CodingKey { case hooked, pasteMode }
+
+        init(kept: LiveSession.Kept, hooked: Bool) {
+            self.kept = kept
+            self.hooked = hooked
+        }
+
+        init(from decoder: Decoder) throws {
+            kept = try LiveSession.Kept(from: decoder)
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            hooked = try c.decodeIfPresent(Bool.self, forKey: .hooked)
+            saysPasteMode = c.contains(.pasteMode)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            try kept.encode(to: encoder)
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encodeIfPresent(hooked, forKey: .hooked)
+        }
     }
     var socket: Int32, lock: Int32
     var sessions: [Session]

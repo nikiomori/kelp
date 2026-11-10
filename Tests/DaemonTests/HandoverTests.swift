@@ -14,11 +14,8 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     let s = LiveSession.State(
         record: Session(cwd: "/", command: "x"), manifest: AgentManifest(id: "x", name: "x", command: "x"),
         logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
-    let carried: Set = [
-        "record", "detector", "ring", "ringModes", "logSize", "holding", "parked", "asking", "questionOpen", "turnEnd",
-        "transcript",
-        "boxEmpty", "pasteMode", "draftWaiting", "typing", "hooksSpoke", "pendingPrompts", "reports"
-    ]
+    // `kept` whole (`LiveSession.Kept`): a field added there goes over by itself.
+    let carried: Set = ["record", "detector", "ring", "ringModes", "logSize", "kept", "pendingPrompts", "reports"]
     let fromLaunch: Set = [
         "hooked", "selfNames", "trail", "started", "wantsTopic", "wantsURL", "wantsLimits", "autoAnswers"
     ]
@@ -50,24 +47,47 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
         to = try await c.call(SessionCreate(cwd: root.path, command: "cat"))
     let old = try #require(d.sessions.existing(from.id)), new = try #require(d.sessions.existing(to.id))
     old.state.withLock {
-        $0.pasteMode = true
-        $0.draftWaiting = true
-        $0.typing = "half a li"
-        $0.hooksSpoke = true
+        $0.kept.pasteMode = true
+        $0.kept.draftWaiting = true
+        $0.kept.typing = "half a li"
+        $0.kept.hooksSpoke = true
     }
     let handed = try JSONDecoder().decode(Handover.Session.self, from: JSONEncoder().encode(old.handedOver(fd: 0)))
     new.adopted(modes: handed.modes, bytes: 0, status: handed.status)
     let s = new.state.withLock {
-        ($0.pasteMode, $0.draftWaiting, $0.typing, $0.hooksSpoke, $0.readyForText(submits: true))
+        ($0.kept.pasteMode, $0.kept.draftWaiting, $0.kept.typing, $0.kept.hooksSpoke, $0.readyForText(submits: true))
     }
     #expect(s.0 && s.1 && s.2 == "half a li" && s.3 && !s.4)
     // A kelpd that didn't say leaves the modes it was in.
-    let older = Handover.Status(
-        holding: false, parked: true, hooked: false, asking: [:], questionOpen: false, turnEnd: TurnEnd(),
-        transcript: nil)
+    let older = try JSONDecoder().decode(
+        Handover.Status.self,
+        from: Data(
+            #"{"holding":false,"parked":true,"hooked":false,"asking":{},"questionOpen":false,"turnEnd":\#(turnEnd)}"#
+                .utf8))
     new.adopted(modes: "\u{1B}[?2004h", bytes: 0, status: older)
-    #expect(new.state.withLock { $0.pasteMode })
+    #expect(new.state.withLock { $0.kept.pasteMode })
 }
+
+/// What a kelpd wrote before a session's kept state went over whole (each field on its own, the newer ones optional)
+/// is read as it said, and a field it didn't write has its default.
+@Test func anOlderHandOverIsReadAsItSaid() throws {
+    let json = #"""
+        {"socket":3,"lock":4,"sessions":[{"id":"s","pid":10,"fd":5,"modes":"","bytes":0,"status":{"holding":true,
+        "parked":false,"hooked":true,"asking":{"a":2},"questionOpen":true,"turnEnd":\#(turnEnd),"transcript":"/t.jsonl",
+        "boxEmpty":true,"typing":"half"}}]}
+        """#
+    let status = try #require(try JSONDecoder().decode(Handover.self, from: Data(json.utf8)).sessions.first?.status)
+    let kept = status.kept
+    #expect(kept.holding && !kept.parked && kept.asking == ["a": 2] && kept.questionOpen)
+    #expect(kept.transcript == "/t.jsonl" && kept.boxEmpty && kept.typing == "half")
+    #expect(!kept.draftWaiting && !kept.hooksSpoke && status.hooked == true && !status.saysPasteMode)
+    // And what this one writes, an older one reads: the same fields, at the same level.
+    let written = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(status))
+    #expect(written["holding"] == true && written["hooked"] == true && written["typing"] == "half")
+}
+
+/// An empty turn's end, as JSON.
+private let turnEnd = String(decoding: (try? JSONEncoder().encode(TurnEnd())) ?? Data("{}".utf8), as: UTF8.self)
 
 /// An update hands each running session to the next kelpd (`handOver`, then `start(adopting:)`; kelpd execs in between):
 /// the same program goes on, its history comes along, typing reaches it, and its end is still seen.
@@ -181,7 +201,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     try next.start(adopting: try #require(d.handOver()) as Handover)
     defer { next.stop() }
     func live(_ s: Session) throws -> LiveSession { try #require(next.sessions.existing(s.id)) }
-    #expect(try live(held).snapshot.status == .working && live(held).state.withLock { $0.holding })
+    #expect(try live(held).snapshot.status == .working && live(held).state.withLock { $0.kept.holding })
     #expect(try live(held).transcriptPath == "/p/\(held.id).jsonl")
     #expect(try live(reporting).snapshot.status == .waiting)   // no OSC 7501 on its screen: `kelp report` said so
     let c2 = try client(root)
