@@ -39,7 +39,7 @@ let package = Package(
         .target(name: "TerminalKit", dependencies: ["Core", "GhosttyKit"], linkerSettings: ghosttyLinks),
         .executableTarget(name: "kelpd", dependencies: ["Daemon"]),
         .executableTarget(name: "kelp", dependencies: ["Core"]),
-        // A virtual machine for agents (Core/VMs.swift): the only program signed with the virtualization entitlement.
+        // A virtual machine for agents (Core/VM/VMs.swift): the only program signed with the virtualization entitlement.
         .executableTarget(name: "KelpVM", dependencies: ["Core"], linkerSettings: [.linkedFramework("Virtualization")]),
         // Inside a macOS machine: its apps' controls for agents, over SSH (Sources/KelpGuest). Copied in as an app.
         .executableTarget(name: "KelpGuest"),

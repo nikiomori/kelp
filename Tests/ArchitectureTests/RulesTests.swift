@@ -76,7 +76,7 @@ import Testing
     let list = try #require(events.firstMatch(of: /rpcEvents: \[any RPCEvent\.Type\] = \[([^\]]*)\]/)?.1)
     let listed = Set(list.matches(of: /(\w+)\.self/).map { String($0.1) })
     #expect(declared.count > 20, "the events weren't found: \(declared.count)")
-    #expect(declared.subtracting(listed).sorted() == [], "add these to rpcEvents (Core/Events.swift)")
+    #expect(declared.subtracting(listed).sorted() == [], "add these to rpcEvents (Core/Wire/Events.swift)")
     #expect(listed.subtracting(declared).sorted() == [], "listed but not an RPCEvent")
 }
 

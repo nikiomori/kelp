@@ -1,7 +1,7 @@
 import AppKit
 import Core
 
-// kelp-vm <machine folder>: runs one of Kelp's virtual machines for kelpd (Core/VMs.swift). The only program that holds
+// kelp-vm <machine folder>: runs one of Kelp's virtual machines for kelpd (Core/VM/VMs.swift). The only program that holds
 // the virtualization entitlement; it keeps running while its machine sleeps, so the next SSH connection wakes it.
 //   kelp-vm --latest                    Apple's latest macOS restore image for this Mac, as JSON {url, build, version}
 //   kelp-vm --install <folder> <ipsw>   installs macOS into a machine's folder; how far in its `creating` file

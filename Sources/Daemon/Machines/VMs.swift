@@ -3,7 +3,7 @@ import CryptoKit
 import Foundation
 import os
 
-/// Kelp's virtual machines (Core/VMs.swift): makes them, starts each one's `kelp-vm` and asks it how it is. Keeps nothing in
+/// Kelp's virtual machines (Core/VM/VMs.swift): makes them, starts each one's `kelp-vm` and asks it how it is. Keeps nothing in
 /// memory: a machine is its folder (a `creating` file while it's being made, `failed` after that went wrong). A machine's
 /// own process outlives kelpd (started through `sh … &`, so it isn't kelpd's child): a restart or an upgrade here leaves
 /// what runs inside alone.

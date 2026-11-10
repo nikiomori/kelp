@@ -12,7 +12,7 @@ extension Main {
               | set <name> [--cpus N] [--memory GB] [--disk GB]   (Linux, macOS; shut down; a disk only grows, Linux's)
         """
 
-    /// `vm <action>`: Kelp's virtual machines (Core/VMs.swift).
+    /// `vm <action>`: Kelp's virtual machines (Core/VM/VMs.swift).
     static func vm(_ sub: String?, _ c: RPCClient) async throws {
         switch sub {
         case "list":

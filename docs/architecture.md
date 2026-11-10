@@ -130,7 +130,7 @@ view goes where its neighbours are: in a list or a pane, AppKit; a self-containe
 The Git built-in is a VS Code-style Source Control panel (`Sources/Builtins/Git/SourceControl.swift`): branch menu, commit box
 (Commit / Commit & Push / Amend), Merge / Staged / Changes sections with stage, unstage and discard, and a history graph
 whose lanes GitKit computes (`GitKit/History.swift`). Rows open `diff:` tabs, side by side or inline with hunk staging.
-Git runs in the daemon (`Daemon/GitHandlers.swift`: `git.branches`, `git.switch`, `git.graph`, `git.commitFiles`,
+Git runs in the daemon (`Daemon/SourceControl/GitHandlers.swift`: `git.branches`, `git.switch`, `git.graph`, `git.commitFiles`,
 `git.discard`, `git.remote`, `git.stash` …), never on the main thread.
 
 ## Settings
@@ -321,7 +321,7 @@ status report (hooks, `kelp report`, herdr's) from a program running inside a se
 (`Answered.reportsFor`), so one agent can't mark another done or asking.
 
 **An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Callers.caller`, a
-`Caller`, looked up as it connects, in Daemon/CallerLookup.swift): the session it runs in, by its process tree or a
+`Caller`, looked up as it connects, in Daemon/Rules/CallerLookup.swift): the session it runs in, by its process tree or a
 terminal it or a parent of it has, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd
 itself started (an extension's command or event, a repository's git hook, whatever they left running: kelpd leads its
 own process session, where it can); `unknown` for one gone before it could be read. It's the user's when Kelp can tell:

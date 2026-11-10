@@ -5,7 +5,7 @@ import KelpKit
 import UniformTypeIdentifiers
 import WorkbenchKit
 
-/// Kelp's virtual machines (Core/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
+/// Kelp's virtual machines (Core/VM/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 @MainActor
 enum Machines {
     /// Any Xcode in /Applications, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it): an app with a developer

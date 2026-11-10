@@ -8,7 +8,7 @@ import Testing
 
 @Test func aNameSearchIsWordsAPathMustHold() {
     let f = NameFilter("swift daemon !test")
-    #expect(f.matches("Sources/Daemon/LSPHost.swift", changed: false))
+    #expect(f.matches("Sources/Daemon/LSP/LSPHost.swift", changed: false))
     #expect(!f.matches("Tests/DaemonTests/x.swift", changed: false))   // left out
     #expect(!f.matches("Sources/Daemon/README.md", changed: false))   // not every word
     #expect(NameFilter("Sources/Daemon/").matches("sources/daemon/a", changed: false))
