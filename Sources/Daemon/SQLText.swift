@@ -6,20 +6,27 @@ import Foundation
 enum SQLText {
     /// How an engine reads quotes and comments, where engines differ: MySQL takes \\' as an escaped quote (unless
     /// NO_BACKSLASH_ESCAPES), `#` as a comment and `--` as one only before a space, and has no $tag$; Postgres (and
-    /// DuckDB, its parser) nests /* */ and has a \\ escape only in E'…' (or with standard_conforming_strings off).
+    /// DuckDB, its parser) nests /* */ and decides the \\ escape literal by literal: E'…' has it, a plain '…' doesn't
+    /// (unless standard_conforming_strings is off, when every string has it).
     struct Reading {
-        var backslash = true, mysql = false, nested = false, dollar = true
+        /// Which strings take \\' as an escaped quote. `afterE`: only E'…' (Postgres and DuckDB as they come);
+        /// `afterEAndOn`: and the '…' that goes on with one after a line break, which Postgres reads as more of the
+        /// E'…' and DuckDB as a plain string. The other prefixes need nothing: U&'…', B'…', X'…' and N'…' end at the
+        /// first quote that isn't doubled, as a plain string does (a \\ in U&'…' spells a character, never a quote).
+        enum Backslash: CaseIterable { case none, all, afterE, afterEAndOn }
+
+        var backslash = Backslash.all, mysql = false, nested = false, dollar = true
 
         /// Each way `engine` may read a statement: it's one only if every one of them says so (`single`).
         static func of(_ engine: DatabaseInfo.Engine) -> [Reading] {
             switch engine {
             case .postgres, .duckdb:
-                [false, true].flatMap { backslash in
+                Backslash.allCases.flatMap { backslash in
                     [false, true].map { Reading(backslash: backslash, nested: $0) }
                 }
-            case .mysql: [false, true].map { Reading(backslash: $0, mysql: true, dollar: false) }
+            case .mysql: [.none, .all].map { Reading(backslash: $0, mysql: true, dollar: false) }
             // Appwrite's is Kelp's own narrow SQL, translated to its API one statement at a time
-            case .sqlite, .appwrite: [Reading(backslash: false, dollar: false)]
+            case .sqlite, .appwrite: [Reading(backslash: .none, dollar: false)]
             }
         }
     }
@@ -84,11 +91,33 @@ enum SQLText {
             }
             return chars.count
         }
+        /// Whether what's before `index` is a name it goes on with (`nameE'…'`, `a1$$`), as Postgres' lexer reads:
+        /// digits and `$` belong to a name only after a letter or `_` (`1E'…'` is a number, then an E'…').
+        func inName(_ index: Int) -> Bool {
+            var j = index - 1
+            while j >= 0, ("0"..."9").contains(chars[j]) || chars[j] == "$" { j -= 1 }
+            return j >= 0 && (chars[j].isLetter || chars[j] == "_" || !chars[j].isASCII)
+        }
+        /// Whether the ' at `index` opens an E'…': an E or e of its own right before it.
+        func afterE(_ index: Int) -> Bool {
+            index > 0 && (chars[index - 1] == "E" || chars[index - 1] == "e") && !inName(index - 1)
+        }
+        // An E'…' just closed, with only spaces and comments since: a ' here goes on with it (`afterEAndOn`)
+        var goesOn = false
         while i < chars.count {
             let char = chars[i], next = at(i + 1)
-            let afterWord = i > 0 && (chars[i - 1].isLetter || chars[i - 1].isNumber || chars[i - 1] == "_")
+            let continues = goesOn
+            if !char.isWhitespace { goesOn = false }
             switch char {
             case "'", "\"", "`":
+                let escapes =
+                    switch reading.backslash {
+                    case .none: false
+                    case .all: char != "`"
+                    case .afterE: char == "'" && afterE(i)
+                    case .afterEAndOn: char == "'" && (afterE(i) || continues)
+                    }
+                goesOn = escapes && reading.backslash == .afterEAndOn
                 var end = i + 1
                 while end < chars.count {
                     if chars[end] == char {
@@ -98,7 +127,7 @@ enum SQLText {
                         }
                         break
                     }
-                    if reading.backslash, chars[end] == "\\", char != "`", end + 1 < chars.count { end += 1 }
+                    if escapes, chars[end] == "\\", end + 1 < chars.count { end += 1 }
                     end += 1
                 }
                 i = end + 1
@@ -106,15 +135,18 @@ enum SQLText {
                 let from = i
                 i = skip(to: "\n", from: i + 2)
                 comment(from..<i)
+                goesOn = continues
             case "#" where reading.mysql:
                 let from = i
                 i = skip(to: "\n", from: i + 1)
                 comment(from..<i)
+                goesOn = continues
             case "/" where next == "*":
                 let from = i
                 i = endOfComment(from: i + 2)
                 comment(from..<i)
-            case "$" where reading.dollar && !afterWord:
+                goesOn = continues
+            case "$" where reading.dollar && !inName(i):
                 // $$ or $tag$: a Postgres dollar-quoted string, to the same tag (a tag doesn't start with a digit).
                 var end = i + 1
                 while end < chars.count,
@@ -169,8 +201,8 @@ enum SQLText {
         }
         guard readings.allSatisfy({ statements(sql, $0).count <= 1 }) else {
             throw DatabaseFailure.failed(
-                "Kelp can't tell where this statement ends (a \\' or --x reads differently in each engine): "
-                    + "write the quote as '' and put a space after --.")
+                "Kelp can't tell where this statement ends (a \\' or --x reads differently in each engine, a \\' in "
+                    + "E'…' too): write the quote as '' and put a space after --.")
         }
         let code = code(only)
         guard !code.hasPrefix("\\"), !code.hasPrefix(".") else {
