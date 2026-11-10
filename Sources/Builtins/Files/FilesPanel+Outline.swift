@@ -23,6 +23,8 @@ extension FilesPanel {
         let img = NSImageView()
         img.image = app.fileIcons.image(node.name, folder: node.children != nil, expanded: tree.isItemExpanded(node))
         tf.lineBreakMode = .byTruncatingMiddle
+        // The name gives way, not its git letter.
+        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tf.font = .ui(TextSize.row)
         let badge = NSTextField(labelWithString: "")
         if let change = status[node.path] {

@@ -165,8 +165,12 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         split.dividerStyle = .thin
         split.addArrangedSubview(fs)
         split.addArrangedSubview(ts)
-        fs.widthAnchor.constraint(greaterThanOrEqualToConstant: 160).isActive = true
-        ts.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
+        // Wished for, not required: in a pane narrower than both the diff is narrower, not cut at its right.
+        for (pane, least) in [(fs, 160.0), (ts, 300.0)] {
+            let room = pane.widthAnchor.constraint(greaterThanOrEqualToConstant: least)
+            room.priority = .init(999)
+            room.isActive = true
+        }
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
         self.split = split
         fileList = fs

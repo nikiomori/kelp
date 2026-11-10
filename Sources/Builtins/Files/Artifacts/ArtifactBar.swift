@@ -45,6 +45,7 @@ final class ArtifactBar: NSObject {
         kind.textColor = .labelColor   // what this is: not a path, so not quiet like one
         status.textColor = .secondaryLabelColor
         for field in [kind, status] { field.lineBreakMode = .byTruncatingTail }
+        kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // it gives way before the buttons
         status.font = .ui(TextSize.row)
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ring.style = .spinning

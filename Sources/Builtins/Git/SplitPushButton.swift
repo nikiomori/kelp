@@ -7,7 +7,7 @@ import KelpKit
 @MainActor
 final class SplitPushButton: NSButton {
     /// Opens the menu (its own target and action).
-    let arrow = NSButton()
+    let arrow = PointerButton(frame: .zero)
     private let divider = NSView()
     private var keyWatch: [NSObjectProtocol] = []
     private let glow = EdgeGlow(radius: Metrics.radiusSM, spread: 4, strength: 0.7)
@@ -61,7 +61,6 @@ final class SplitPushButton: NSButton {
         controlSize = .large
         arrow.image = .symbol("chevron.down", arrowTip)
         arrow.toolTip = arrowTip
-        arrow.isBordered = false
         arrow.symbolConfiguration = .chrome()
         divider.wantsLayer = true
         for v in [arrow, divider, ring] {

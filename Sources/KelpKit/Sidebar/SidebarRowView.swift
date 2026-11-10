@@ -77,7 +77,11 @@ final class SidebarRowView: NSTableRowView {
     private func showHover() {
         let to: Float = (hovering || menuTarget) && !isSelected ? 1 : 0
         let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
+        // Without the layer's own 0.25 s change, which showed again under the fade below once that ended.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         hoverLayer.opacity = to
+        CATransaction.commit()
         guard !Motion.reduced, from != to else { return }
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = from

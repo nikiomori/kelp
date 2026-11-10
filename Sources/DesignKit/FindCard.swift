@@ -57,7 +57,10 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     public func begin(_ needle: String?) {
-        isHidden = false
+        if isHidden {
+            isHidden = false
+            comeIn()   // as a banner and the other cards over content
+        }
         if let needle, !needle.isEmpty, needle != field.stringValue {
             field.stringValue = needle
             search()

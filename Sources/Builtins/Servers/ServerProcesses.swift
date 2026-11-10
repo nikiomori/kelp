@@ -71,7 +71,7 @@ struct ServerProcesses: View {
             }
             .foregroundStyle(sort == by ? .primary : .secondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
     }
 }
 

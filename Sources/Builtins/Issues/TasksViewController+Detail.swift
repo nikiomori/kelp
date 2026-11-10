@@ -16,7 +16,8 @@ extension TasksViewController {
         field.font = .ui(size, weight: weight)
         field.textColor = color
         field.isSelectable = true
-        field.preferredMaxLayoutWidth = 520
+        // It wraps at the pane's width: measured for a wider one, its last lines were cut in the panel.
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
     }
     private func button(_ title: String, _ sym: String, _ action: @escaping () -> Void) -> NSButton {
@@ -99,6 +100,8 @@ extension TasksViewController {
                 color: .secondaryLabelColor))
         let wt = worktreeFor(branch: branch, pr: number)
         let actions = NSStackView()
+        actions.orientation = .vertical   // three buttons in a line are wider than the panel
+        actions.alignment = .leading
         actions.spacing = 8
         if wt == nil, let repoId {   // a folder of its own on the PR's head, as New Chat on Branch… › Pull Request makes
             actions.addArrangedSubview(

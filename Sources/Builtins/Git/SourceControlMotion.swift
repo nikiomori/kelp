@@ -56,6 +56,7 @@ extension SourceControlController {
             else { continue }
             NSAnimationContext.runAnimationGroup {
                 $0.duration = Motion.fast
+                $0.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 cell.animator().alphaValue = 0
             }
         }

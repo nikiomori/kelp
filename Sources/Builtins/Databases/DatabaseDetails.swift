@@ -137,13 +137,13 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         head.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
         var parts: [NSView] = [head]
         if let ref = column?.references, let value, case let target = ref.split(separator: "."), target.count == 2 {
-            let link = ClosureButton(title: "\(value) → \(target[0])") { [weak self] in
+            let link = PointerButton(title: "\(value) → \(target[0])") { [weak self] in
                 self?.onFollow(String(target[0]), String(target[1]), value)
             }
-            link.isBordered = false
             link.contentTintColor = .linkColor
             link.font = .uiMono(TextSize.caption)
             link.lineBreakMode = .byTruncatingMiddle
+            link.underlinesOnHover = true
             parts.append(link)
         }
         let multiline =
@@ -184,10 +184,9 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     private func agentPart() {
         if runs.isEmpty { add(note(String(localized: "No Agent Has Run Anything on It"))) }
         for run in runs.prefix(20) {
-            let sql = ClosureButton(title: run.sql.split(whereSeparator: \.isNewline).joined(separator: " ")) {
+            let sql = PointerButton(title: run.sql.split(whereSeparator: \.isNewline).joined(separator: " ")) {
                 [weak self] in self?.onRun(run)
             }
-            sql.isBordered = false
             sql.font = .uiMono(TextSize.caption)
             sql.lineBreakMode = .byTruncatingTail
             sql.alignment = .left

@@ -81,17 +81,15 @@ struct EnginePreset {
 
 /// A preset's tile in Add Database's grid: its round mark over its name (and what Kelp opens it as).
 @MainActor
-final class EngineTile: NSView {
+final class EngineTile: PointerControl {
     let preset: EnginePreset
-    private let action: () -> Void
-    private var hover = false {
-        didSet { needsDisplay = true }
-    }
+    private let run: () -> Void
 
     init(_ preset: EnginePreset, action: @escaping () -> Void) {
         self.preset = preset
-        self.action = action
+        run = action
         super.init(frame: .zero)
+        layer?.cornerRadius = Metrics.radiusLG
         let mark = NSImageView(image: preset.badge(36))
         let name = NSTextField(labelWithString: preset.name)
         name.font = .ui(TextSize.caption)
@@ -110,8 +108,6 @@ final class EngineTile: NSView {
         pin(stack)
         widthAnchor.constraint(equalToConstant: 76).isActive = true
         heightAnchor.constraint(equalToConstant: 82).isActive = true
-        addTrackingArea(
-            NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(preset.name)
@@ -119,17 +115,5 @@ final class EngineTile: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with event: NSEvent) { hover = true }
-    override func mouseExited(with event: NSEvent) { hover = false }
-    override func mouseUp(with event: NSEvent) { action() }
-    override func accessibilityPerformPress() -> Bool {
-        action()
-        return true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard hover else { return }
-        NSColor.quaternaryLabelColor.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusLG, yRadius: Metrics.radiusLG).fill()
-    }
+    override func clicked() { run() }
 }

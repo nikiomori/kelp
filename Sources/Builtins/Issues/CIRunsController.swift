@@ -172,6 +172,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// Shown, the log takes about half the height (the runs keep the rest); hidden, the runs have it all.
     private func showLogPane(_ on: Bool) {
         guard let pane = logPane, pane.view.isHidden == on else { return }
+        if view.window != nil { pane.split.crossfade(Motion.base) }   // half the panel changes hands: not at once
         pane.view.isHidden = !on
         pane.room.isActive = on
         if on { pane.split.setPosition(pane.split.bounds.height * 0.45, ofDividerAt: 0) }
@@ -213,22 +214,35 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             let open = Set(
                 runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
-            runs = (event.result?.runs ?? []).map { Item(.run($0)) }
+            let was = Dictionary(runs.compactMap { run in run.key.map { ($0, run) } }) { first, _ in first }
+            runs = (event.result?.runs ?? []).map { run in
+                let item = Item(.run(run))
+                // An open run keeps its rows until they're read again: shut and opened a moment later, the list jumped.
+                if let key = item.key, open.contains(key) { item.children = was[key]?.children }
+                return item
+            }
             workflows = event.result?.workflows ?? []
             workflowsButton.isHidden = workflows.isEmpty
             show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
             clock.clear()
             outline.reloadData()
             history.show(CIRuns.history(allRuns))
-            for run in runs where open.contains(run.key ?? "") {
-                await expand(run, openFailed: false)
-                guard !Task.isCancelled else { return }
+            let reopen = { [self] (run: Item) in
+                outline.expandItem(run)
                 for item in openBelow(run) where open.contains(item.key ?? "") { outline.expandItem(item) }
                 if let job = run.children?.first(where: { $0.id == selected }),
                     case let row = outline.row(forItem: job), row >= 0
                 {
                     outline.selectRowIndexes([row], byExtendingSelection: false)
                 }
+            }
+            for run in runs where open.contains(run.key ?? "") && run.children != nil { reopen(run) }
+            for run in runs where open.contains(run.key ?? "") {
+                // A run that was over when its jobs were last read has nothing new to say.
+                if run.children != nil, case .run(let before)? = was[run.key ?? ""]?.kind, before.finished { continue }
+                let read = await readJobs(run)
+                guard !Task.isCancelled else { return }
+                if read { reopen(run) }
             }
             guard !Task.isCancelled else { return }
             // A workflow's latest run failed (what Source Control's CI line shows): open it at the first failed job,
@@ -278,24 +292,29 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
 
-    func expand(_ item: Item, openFailed: Bool) async {
-        guard case .run(let run) = item.kind, let worktree else { return }
-        if item.children == nil {
-            // the banner says why; asked again next time
-            guard let jobs = await app.call(CIJobs(worktreeId: worktree, run: run.id)) else { return }
-            guard runs.contains(where: { $0 === item }) else { return }   // a newer list came meanwhile: these rows are gone
-            item.children = jobs.map { job in
-                let jobItem = Item(.job(job, run: run.id))
-                jobItem.children = CIRuns.rows(job.steps).map { row in
-                    if case .one(let step) = row { return Item(.step(step)) }
-                    let fold = Item(.fold(row, job: job.id))
-                    fold.children = row.steps.map { Item(.step($0)) }
-                    return fold
-                }
-                return jobItem
+    /// A run's jobs, read (again) into its rows. False: they couldn't be read, or a newer list came meanwhile.
+    private func readJobs(_ item: Item) async -> Bool {
+        guard case .run(let run) = item.kind, let worktree else { return false }
+        // the banner says why; asked again next time
+        guard let jobs = await app.call(CIJobs(worktreeId: worktree, run: run.id)) else { return false }
+        guard runs.contains(where: { $0 === item }) else { return false }   // these rows are gone
+        item.children = jobs.map { job in
+            let jobItem = Item(.job(job, run: run.id))
+            jobItem.children = CIRuns.rows(job.steps).map { row in
+                if case .one(let step) = row { return Item(.step(step)) }
+                let fold = Item(.fold(row, job: job.id))
+                fold.children = row.steps.map { Item(.step($0)) }
+                return fold
             }
-            outline.reloadItem(item, reloadChildren: true)
+            return jobItem
         }
+        outline.reloadItem(item, reloadChildren: true)
+        return true
+    }
+
+    func expand(_ item: Item, openFailed: Bool) async {
+        guard case .run = item.kind else { return }
+        if item.children == nil, await !readJobs(item) { return }
         outline.expandItem(item)
         if openFailed,
             let failed = item.children?.first(where: {

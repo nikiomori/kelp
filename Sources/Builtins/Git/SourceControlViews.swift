@@ -73,6 +73,8 @@ final class SectionCell: NSTableCellView, Hoverable {
         let titleField = NSTextField(labelWithString: title)
         titleField.font = .ui(TextSize.caption, weight: .semibold)
         titleField.textColor = .secondaryLabelColor
+        titleField.lineBreakMode = .byTruncatingTail
+        titleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let capsule = CountCapsule(count.map(String.init) ?? "")
         capsule.isHidden = count == nil
         let detailField = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
@@ -211,7 +213,10 @@ final class GraphBar: NSView {
     override func mouseUp(with e: NSEvent) {
         pressed = false
         showFill()
-        if !dragged { onToggle?() }
+        guard !dragged else { return }
+        wantsLayer = true
+        pressBounce()
+        onToggle?()
     }
 }
 
@@ -272,6 +277,8 @@ final class NoteCell: NSTableCellView {
         let field = NSTextField(labelWithString: text)
         field.font = .ui(TextSize.row)
         field.textColor = .secondaryLabelColor
+        field.lineBreakMode = .byTruncatingTail
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         pinRow(self, [field], leading: Metrics.inset + SectionCell.indent)
     }
     required init?(coder: NSCoder) { fatalError() }

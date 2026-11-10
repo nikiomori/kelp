@@ -42,6 +42,8 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let top = NSTextField(labelWithString: "\(match.path):\(match.line)")
         top.font = .uiDigits(TextSize.caption)
         top.textColor = .secondaryLabelColor
+        top.lineBreakMode = .byTruncatingHead   // the line number stays
+        top.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let txt = NSTextField(labelWithString: match.text)
         txt.font = .uiMono(TextSize.caption)
         txt.lineBreakMode = .byTruncatingTail

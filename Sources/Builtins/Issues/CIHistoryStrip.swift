@@ -29,7 +29,16 @@ final class CIHistoryStrip: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func show(_ history: CIRuns.History?) {
-        height?.constant = history == nil ? 0 : TextSize.of(Metrics.row)
+        let tall = history == nil ? 0 : TextSize.of(Metrics.row)
+        if tall != height?.constant {   // it opens, the runs under it moving down, not jumping
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = window == nil ? 0 : Motion.duration(Motion.base)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                ctx.allowsImplicitAnimation = true
+                height?.animator().constant = tall
+                superview?.layoutSubtreeIfNeeded()
+            }
+        }
         guard let history else { return }
         marks.setViews(history.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
         words.stringValue =

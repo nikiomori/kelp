@@ -65,6 +65,8 @@ extension NSView {
     public func turn(from angle: CGFloat) {
         wantsLayer = true
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
+        // The click's spring is on the same transform: its tail popped after the turn.
+        layer.removeAnimation(forKey: "press")
         let animation = CABasicAnimation(keyPath: "transform")
         animation.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
         animation.toValue = NSValue(caTransform3D: CATransform3DIdentity)
@@ -181,6 +183,9 @@ extension NSTableView {
         col.resizingMask = .autoresizingMask
         addTableColumn(col)
         (self as? NSOutlineView)?.outlineTableColumn = col
+        // The column is the panel's width and stays it: an outline otherwise widens it to its longest row whenever one
+        // opens, and the rows' right-hand ends (a run's time) go past the panel's edge.
+        (self as? NSOutlineView)?.autoresizesOutlineColumn = false
         headerView = nil
         style = .plain
         backgroundColor = .clear

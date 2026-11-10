@@ -212,6 +212,7 @@ private final class BannerCard: NSView {
         }
         NSAnimationContext.runAnimationGroup {
             $0.duration = Motion.duration(Motion.fast)
+            $0.timingFunction = CAMediaTimingFunction(name: .easeOut)   // as its slide
             animator().alphaValue = 1
         }
     }

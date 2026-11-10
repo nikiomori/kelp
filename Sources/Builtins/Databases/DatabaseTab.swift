@@ -210,8 +210,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         capsule.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         capsuleBox.spacing = Metrics.gap
         capsuleBox.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        let menuClick = NSClickGestureRecognizer(target: self, action: #selector(capsuleClicked))
-        capsuleBox.addGestureRecognizer(menuClick)
+        let capsuleButton = CapsuleControl { [weak self] in self?.capsuleClicked() }
+        capsuleButton.pin(capsuleBox)
         capsuleBox.toolTip = String(localized: "Its menu: environment, what agents may do, address")
         for button in [run, explain] { button.setContentHuggingPriority(.required, for: .horizontal) }
         filterToggle.keyEquivalent = "f"
@@ -219,7 +219,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         run.keyEquivalent = "\r"
         run.keyEquivalentModifierMask = .command
         return Bar.content(
-            [capsuleBox], [run, explain, reload, filterToggle, copyAs, detailsToggle], stretching: capsuleBox)
+            [capsuleButton], [run, explain, reload, filterToggle, copyAs, detailsToggle], stretching: capsuleButton)
     }
 
     private func footBar() -> NSView {
@@ -358,7 +358,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         capsuleChanged()
     }
 
-    @objc private func capsuleClicked() {
+    private func capsuleClicked() {
         guard let db = database else { return }
         let menu = NSMenu()
         let library =
@@ -395,4 +395,17 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         }
     }
 
+}
+
+/// The capsule as a control: under the pointer it fills, a click springs it and opens its menu.
+@MainActor
+private final class CapsuleControl: PointerControl {
+    private let run: () -> Void
+    init(action: @escaping () -> Void) {
+        run = action
+        super.init(frame: .zero)
+        layer?.cornerRadius = Metrics.radiusSM
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func clicked() { run() }
 }

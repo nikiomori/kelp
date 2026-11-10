@@ -58,7 +58,7 @@ struct AgentWork: View {
                     id: "finished", mark: .status(.done), title: String(localized: "Finished \(finished.count)"),
                     time: shortSpan(to.timeIntervalSince(from), smallest: .second), chevron: finishedShown ? 90 : 0))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
         if finishedShown {
             ForEach(finished) { run in
                 let took = (run.ended ?? run.started).timeIntervalSince(run.started)

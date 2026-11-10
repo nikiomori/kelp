@@ -88,23 +88,23 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         tiles.alignment = .leading
         tiles.spacing = 2
         layTiles("")
-        let later = ClosureButton(
+        let later = PointerButton(
             title: String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle — ask for one")
         ) {
             if let url = URL(string: "https://github.com/nikiomori/kelp/issues/new") { PreviewLinks.openOutside(url) }
         }
-        later.isBordered = false
         later.font = .ui(TextSize.caption)
         later.contentTintColor = .tertiaryLabelColor
+        later.underlinesOnHover = true
 
         found.orientation = .vertical
         found.alignment = .leading
         found.spacing = 0
         foundTitle.isHidden = true
-        let file = NSButton(title: String(localized: "Import from File…"), target: self, action: #selector(importFile))
-        file.isBordered = false
+        let file = PointerButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
         file.contentTintColor = .linkColor
         file.font = .ui(TextSize.row)
+        file.underlinesOnHover = true
         let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
         cancel.keyEquivalent = "\u{1b}"
         next.title = String(localized: "Continue")
@@ -301,15 +301,13 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
 /// A row of "Found on This Mac": the app's own icon (or a symbol), a name over a detail, and a click.
 @MainActor
-final class FoundRow: NSView {
-    private let action: () -> Void
-    private var hover = false {
-        didSet { needsDisplay = true }
-    }
+final class FoundRow: PointerControl {
+    private let run: () -> Void
 
     init(icon: NSImage, title: String, detail: String, trailing: String?, action: @escaping () -> Void) {
-        self.action = action
+        run = action
         super.init(frame: .zero)
+        layer?.cornerRadius = Metrics.radiusSM
         let image = NSImageView(image: icon)
         image.imageScaling = .scaleProportionallyUpOrDown
         let side = Metrics.iconMenu + 4
@@ -334,8 +332,6 @@ final class FoundRow: NSView {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
         pin(stack)
         heightAnchor.constraint(equalToConstant: Metrics.rowTwoLine + 4).isActive = true
-        addTrackingArea(
-            NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(title)
@@ -343,17 +339,5 @@ final class FoundRow: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with event: NSEvent) { hover = true }
-    override func mouseExited(with event: NSEvent) { hover = false }
-    override func mouseUp(with event: NSEvent) { action() }
-    override func accessibilityPerformPress() -> Bool {
-        action()
-        return true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard hover else { return }
-        NSColor.quaternaryLabelColor.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusSM, yRadius: Metrics.radiusSM).fill()
-    }
+    override func clicked() { run() }
 }

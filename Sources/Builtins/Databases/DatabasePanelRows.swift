@@ -157,10 +157,10 @@ struct DatabasePanelRows {
         why.toolTip = h.reason
         var views: [NSView] = [why, NSView()]
         if h.state == .stopped {
-            let start = ClosureButton(title: String(localized: "Start")) { [weak panel] in panel?.start(db) }
-            start.isBordered = false
+            let start = PointerButton(title: String(localized: "Start")) { [weak panel] in panel?.start(db) }
             start.contentTintColor = .linkColor
             start.font = .ui(TextSize.caption)
+            start.underlinesOnHover = true
             views.append(start)
         }
         return line(views, inset: Metrics.inset + 19 + Metrics.gap, trailing: Metrics.inset)   // under the name

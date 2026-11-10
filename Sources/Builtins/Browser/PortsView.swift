@@ -98,6 +98,8 @@ final class PortsView: NSView {
         let what = NSTextField(labelWithString: page.command)
         what.textColor = .secondaryLabelColor
         what.font = .ui(TextSize.row)
+        what.lineBreakMode = .byTruncatingTail
+        what.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let copy = ClosureButton(title: String(localized: "Copy")) { Task { await actions.copy(page, in: wid) } }
         let stop = ClosureButton(title: String(localized: "Stop")) {
             guard let pid = page.pid else { return }
@@ -120,7 +122,9 @@ final class PortsView: NSView {
                 menu.add(String(localized: "Stop")) { stop.performClick(nil) }
             }
         }
-        row.widthAnchor.constraint(equalToConstant: 460).isActive = true
+        let wide = row.widthAnchor.constraint(equalToConstant: 460)
+        wide.priority = .defaultHigh   // in a narrower pane the row is the pane's width, its buttons still in it
+        wide.isActive = true
         return row
     }
 }

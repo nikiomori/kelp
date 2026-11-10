@@ -19,3 +19,32 @@ import Testing
     #expect(start <= CACurrentMediaTime())
     #expect(abs(remainder(start, 2.4)) < 0.001)   // rounding can leave it just under a multiple
 }
+
+/// A tree of one long row under another, for `anOutlinesColumnStaysThePanelsWidth`.
+@MainActor
+private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { item == nil ? 1 : 1 }
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        item == nil ? "run" as NSString : "job" as NSString
+    }
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { item as? NSString == "run" }
+    func outlineView(_ outlineView: NSOutlineView, viewFor column: NSTableColumn?, item: Any) -> NSView? {
+        let cell = NSTableCellView()
+        cell.pin(NSTextField(labelWithString: String(repeating: "a long title of a run ", count: 8)))
+        return cell
+    }
+}
+
+/// Opening a row doesn't widen the column to the row's words: its right-hand end went past the panel's edge.
+@MainActor @Test func anOutlinesColumnStaysThePanelsWidth() {
+    let outline = NSOutlineView(), rows = LongRows()
+    let scroll = outline.plainList("rows")
+    scroll.frame = NSRect(x: 0, y: 0, width: 240, height: 300)
+    outline.dataSource = rows
+    outline.delegate = rows
+    outline.reloadData()
+    outline.expandItem(nil, expandChildren: true)
+    scroll.layoutSubtreeIfNeeded()
+    #expect(outline.numberOfRows == 2)
+    #expect(outline.frame.width <= 240)
+}

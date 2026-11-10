@@ -238,8 +238,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 444, "lines over 120: \(over120)")
-    #expect(over120 >= 444, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 443, "lines over 120: \(over120)")
+    #expect(over120 >= 443, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -706,7 +706,6 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Model/AppModel.swift": (1, "whether the projects' folders are there, off the main thread"),
         "KelpKit/Model/DaemonLink.swift": (2, "why kelpd didn't start, in Kelp's home; the bundled kelpd's date"),
         "KelpKit/DevAids/DevAids.swift": (3, "snapshots for tests"),
-        "KelpKit/Sheets/RemoteSheet.swift": (1, "the hosts in ~/.ssh/config"),
         "KelpKit/Sheets/CloneSheet.swift": (2, "whether the folder new projects go in is there"),
         "KelpKit/Settings/IconTheme.swift": (2, "an icon theme an extension brings"),
         "KelpKit/Settings/ExtensionsSettings.swift": (1, "an extension's own folder"),

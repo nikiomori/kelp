@@ -270,6 +270,7 @@ final class TabStrip: NSView {
                 button.alphaValue = 0
                 NSAnimationContext.runAnimationGroup {
                     $0.duration = Motion.base
+                    $0.timingFunction = CAMediaTimingFunction(name: .easeOut)   // as its neighbours slide
                     button.animator().alphaValue = 1
                 }
             }

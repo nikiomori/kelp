@@ -102,6 +102,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         col.resizingMask = .autoresizingMask
         outline.addTableColumn(col)
         outline.outlineTableColumn = col
+        outline.autoresizesOutlineColumn = false   // as wide as the sidebar, not as its longest open row
         outline.headerView = nil
         outline.style = .sourceList
         outline.rowSizeStyle = .custom

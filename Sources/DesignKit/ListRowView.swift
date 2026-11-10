@@ -91,7 +91,12 @@ public final class ListRowView: NSTableRowView {
             color = hovering && !isSelected && lights(self) ? NSColor.fillHover.cgColor : nil
         }
         let old = hoverFill.presentation()?.backgroundColor ?? hoverFill.backgroundColor
+        // A bare layer animates a new value by itself (0.25 s): under the fade below it showed again once that ended,
+        // and the fill came, half went and came back.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         hoverFill.backgroundColor = color
+        CATransaction.commit()
         guard !Motion.reduced, old != color else { return }
         let animation = CABasicAnimation(keyPath: "backgroundColor")
         animation.fromValue = old ?? NSColor.clear.cgColor

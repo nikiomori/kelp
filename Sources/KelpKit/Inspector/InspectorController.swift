@@ -350,9 +350,10 @@ final class InspectorController: NSViewController {
         vc.view.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(vc.view)
         // The panel follows the inspector's width but can't push it: a panel wider than its minimum is clipped instead
-        // of shrinking the editor (extension panels with long lines included).
+        // of shrinking the editor (extension panels with long lines included). Just under required: at 750, a label's
+        // own, a bar that didn't fit widened the whole panel instead of cutting its words, and the rows' ends went.
         let follow = vc.view.widthAnchor.constraint(equalTo: host.widthAnchor)
-        follow.priority = .defaultHigh
+        follow.priority = .init(999)
         NSLayoutConstraint.activate([
             vc.view.topAnchor.constraint(equalTo: host.topAnchor),
             vc.view.bottomAnchor.constraint(equalTo: host.bottomAnchor),

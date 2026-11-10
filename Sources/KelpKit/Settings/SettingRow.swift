@@ -188,7 +188,7 @@ struct HelpMark: View {
         } label: {
             Image(systemName: "info.circle").foregroundStyle(.secondary)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4).padding(.vertical, -3)   // the row stays its height
         .help(text)
         .accessibilityLabel(text)
         .popover(isPresented: $shown, arrowEdge: .bottom) {

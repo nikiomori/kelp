@@ -118,7 +118,7 @@ struct WeekGrid: View {
                             systemName: runs.contains { $0.routineId == routine.id && $0.isOpen }
                                 ? "stop.fill" : "play.fill")
                     }
-                    .buttonStyle(.borderless).help(String(localized: "Run Now")).frame(
+                    .buttonStyle(PointerButtonStyle()).help(String(localized: "Run Now")).frame(
                         width: Metrics.iconButton + Metrics.inset)
                 }
                 .frame(minHeight: 44)
