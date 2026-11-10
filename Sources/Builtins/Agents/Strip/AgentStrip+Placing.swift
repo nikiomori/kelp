@@ -5,34 +5,41 @@ import DesignKit
 import KelpKit
 
 extension AgentStrip {
-    /// Let go after a drag, where it would come to rest (`at`: thrown, further on its way): it goes to the nearest corner of
-    /// the screen that is on, or behind the side it went past; a card it left behind goes.
-    func dropped(at rest: NSRect? = nil) {
-        guard let panel else { return }
-        let frame = rest ?? panel.frame
-        guard let screen = Self.screen(under: panel.frame) else { return }
-        let area = screen.visibleFrame
+    /// Let go after a drag: thrown (`going` fast), it flies as far as it goes that way; else to the nearest corner of the
+    /// screen it's on, or behind the side it went past. A card it left behind goes.
+    func dropped(going velocity: CGVector = .zero) {
+        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
+        let frame = panel.frame, area = screen.visibleFrame
+        let nearest = StripModel.corner(nearest: frame, in: area)
+        if let way = StripModel.thrown(velocity), fling(way, from: nearest, edge: nil, on: screen) { return }
         if let edge = StripModel.edge(dropped: frame, in: area), Self.outer(edge, of: screen) {
             moved(to: Self.place(behind: edge, of: screen, at: frame))
             return
         }
-        moved(to: Self.place(StripModel.corner(nearest: frame, in: area), of: screen))
+        moved(to: Self.place(nearest, of: screen))
     }
 
-    /// Two fingers swept over it: the next of its places that way, behind the side from that side's corner, out again.
-    func swipe(_ way: StripSwipe) {
+    /// Two fingers swept over it: as far as it goes that way, behind the side from that side's corner, out again.
+    func swipe(_ way: StripWay) {
         guard let panel, let screen = Self.screen(under: panel.frame) else { return }
-        let area = screen.visibleFrame
-        let high = panel.frame.midY > area.midY
+        let high = panel.frame.midY > screen.visibleFrame.midY
         let corner =
             place?.edge.map { $0 == .left ? (high ? .topLeft : .bottomLeft) : (high ? .topRight : .bottomRight) }
             ?? self.corner
-        switch StripModel.swiped(from: corner, edge: place?.edge, way) {
+        fling(way, from: corner, edge: place?.edge, on: screen)
+    }
+
+    /// Off to where `way` sends it from `corner` (or from behind `edge`); false when there's nowhere further that way.
+    @discardableResult
+    private func fling(_ way: StripWay, from corner: StripCorner, edge: StripEdge?, on screen: NSScreen) -> Bool {
+        guard let panel else { return false }
+        switch StripModel.flung(from: corner, edge: edge, way) {
         case .corner(let to): moved(to: Self.place(to, of: screen))
-        case .edge(let edge) where Self.outer(edge, of: screen):
-            moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
-        case .edge, nil: break   // nowhere further that way
+        case .edge(let side) where Self.outer(side, of: screen):
+            moved(to: Self.place(behind: side, of: screen, at: panel.frame))
+        case .edge, nil: return false
         }
+        return true
     }
 
     /// At a corner of that screen; the foot of the main one is where it starts, so that's no place to keep.
@@ -143,6 +150,7 @@ extension AgentStrip {
             guard window.frame != frame || window.alphaValue != 1 else { return }
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = Motion.duration(Motion.appear)
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)   // flies off and slows into place
                 window.animator().setFrame(frame, display: true)
                 window.animator().alphaValue = 1
             }
@@ -164,7 +172,7 @@ extension AgentStrip {
         row.onHover = { [weak self] on in self?.hoverStrip(on) }
         row.onClick = { [weak self] in self?.peek(true) }
         let made = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
-        made.onDropped = { [weak self] rest in self?.dropped(at: rest) }
+        made.onDropped = { [weak self] velocity in self?.dropped(going: velocity) }
         row.onSwipe = { [weak self] way in self?.swipe(way) }
         panel = made
         return made

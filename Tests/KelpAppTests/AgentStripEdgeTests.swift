@@ -151,7 +151,7 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         #expect(strip.frame == before)
     }
 
-    /// Two fingers swept over the strip move it to the next place that way; the coasting after doesn't count.
+    /// Two fingers swept over the strip send it off as far as it goes that way, before they lift.
     @Test func aSwipeOverTheStripMovesIt() async throws {
         let rig = try await AppRig()
         _ = NSApplication.shared
@@ -170,7 +170,7 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
             e.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
             return try #require(NSEvent(cgEvent: e))
         }
-        for (phase, dx) in [(CGScrollPhase.began, 30), (.changed, 30), (.changed, 30), (.ended, 0)]
+        for (phase, dx) in [(CGScrollPhase.began, 20), (.changed, 20)]
             as [(CGScrollPhase, Int32)]
         {
             strip.row.scrollWheel(with: try scroll(phase, dx: dx))
