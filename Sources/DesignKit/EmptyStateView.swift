@@ -63,7 +63,10 @@ public final class EmptyStateView: NSView {
         self.title.stringValue = title
         self.text.stringValue = text ?? ""
         self.fix.stringValue = fix ?? ""
-        icon.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+        // Kelp's own drawing where it has one (the checklist, CI's check), as the panel's icon is.
+        icon.image = symbol.flatMap {
+            Glyph.image($0, size: Metrics.iconEmpty + 4) ?? NSImage(systemSymbolName: $0, accessibilityDescription: nil)
+        }
         icon.isHidden = icon.image == nil
         self.text.isHidden = (text ?? "").isEmpty
         self.fix.isHidden = (fix ?? "").isEmpty

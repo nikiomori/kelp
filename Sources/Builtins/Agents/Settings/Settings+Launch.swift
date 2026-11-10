@@ -44,7 +44,7 @@ extension AgentsSettings {
             Button {
                 copyText(cmd)
             } label: {
-                Image(systemName: "doc.on.doc")
+                Image(systemName: "doc.on.doc").font(.symbol())
             }.buttonStyle(PointerButtonStyle()).help("Copy")
         }
         .padding(Metrics.gapWide)

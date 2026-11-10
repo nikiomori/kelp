@@ -82,7 +82,7 @@ struct ExtensionsSettings: View {
                     }
                     Button("Reload Extensions") { registry.reload() }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "ellipsis.circle").font(.symbol())
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             }
@@ -129,7 +129,7 @@ struct ExtensionsSettings: View {
                 Divider()
                 Button("Uninstall", role: .destructive) { registry.uninstall(info.id) }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "ellipsis.circle").font(.symbol())
             }
             .menuStyle(.borderlessButton).fixedSize()
         }

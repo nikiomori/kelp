@@ -186,7 +186,7 @@ struct HelpMark: View {
         Button {
             shown.toggle()
         } label: {
-            Image(systemName: "info.circle").foregroundStyle(.secondary)
+            Image(systemName: "info.circle").font(.symbol()).foregroundStyle(.secondary)
         }
         .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4).padding(.vertical, -3)   // the row stays its height
         .help(text)

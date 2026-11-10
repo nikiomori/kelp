@@ -70,7 +70,7 @@ struct ServerView: View {
                     copyText(host)
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "ellipsis.circle").font(.symbol())
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .accessibilityLabel(String(localized: "More"))
@@ -80,11 +80,10 @@ struct ServerView: View {
     /// Not connected, or it couldn't be: why, in ssh's words, and the way back.
     private var offline: some View {
         let error = stats?.error
-        return ContentUnavailableView {
-            Label(
-                error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can't reach \(host)"),
-                systemImage: error == nil ? "server.rack" : "exclamationmark.triangle")
-        } description: {
+        return EmptyState(
+            error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can't reach \(host)"),
+            symbol: error == nil ? "server.rack" : "exclamationmark.triangle"
+        ) {
             VStack(spacing: 8) {
                 Text(
                     error == nil

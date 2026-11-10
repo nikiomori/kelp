@@ -82,7 +82,7 @@ struct SettingsView: View {
                 } else if let section = registry.all.settings.first(where: { $0.id == current }) {
                     if section.fillsPane { section.custom?() } else { SectionForm(section: section) }
                 } else {
-                    ContentUnavailableView("Pick a section", systemImage: "gearshape")
+                    EmptyState(String(localized: "Pick a Section"), symbol: "gearshape")
                 }
             }
             .navigationTitle(title)

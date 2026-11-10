@@ -67,7 +67,7 @@ struct MachineView: View {
                     copyText("kelp vm run \(name) -- ")
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "ellipsis.circle").font(.symbol())
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .accessibilityLabel(String(localized: "More"))
@@ -102,12 +102,9 @@ struct MachineView: View {
                 }
                 .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error:
-                ContentUnavailableView {
-                    Label(String(localized: "\(name) wasn't made"), systemImage: "exclamationmark.triangle")
-                } description: {
+                EmptyState(String(localized: "\(name) wasn't made"), symbol: "exclamationmark.triangle") {
                     Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .sleeping, .off:
                 ScrollView {   // what it is stays in view: its files, and its size to change while it's shut down
                     VStack(spacing: 0) {
@@ -117,21 +114,18 @@ struct MachineView: View {
                 }
             }
         } else {
-            ContentUnavailableView(
-                String(localized: "No machine called \(name)"), systemImage: "shippingbox",
-                description: Text("`kelp vm list` shows the machines.")
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            EmptyState(String(localized: "No machine called \(name)"), symbol: "shippingbox") {
+                Text("`kelp vm list` shows the machines.")
+            }
         }
     }
 
     private func asleep(_ info: VMInfo) -> some View {
-        ContentUnavailableView {
-            Label(
-                info.state == .sleeping
-                    ? String(localized: "\(name) is asleep") : String(localized: "\(name) is shut down"),
-                systemImage: info.state == .sleeping ? "moon" : "power")
-        } description: {
+        EmptyState(
+            info.state == .sleeping
+                ? String(localized: "\(name) is asleep") : String(localized: "\(name) is shut down"),
+            symbol: info.state == .sleeping ? "moon" : "power", lifted: false
+        ) {
             Text(
                 info.state == .sleeping
                     ? String(

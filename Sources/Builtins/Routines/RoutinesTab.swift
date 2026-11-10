@@ -36,9 +36,7 @@ struct RoutinesView: View {
                 header(week, list)
                 Divider()
                 if list.isEmpty {
-                    ContentUnavailableView {
-                        Label(String(localized: "No Routines"), systemImage: "clock.arrow.circlepath")
-                    } description: {
+                    EmptyState(String(localized: "No Routines"), symbol: "clock.arrow.circlepath") {
                         Text("An agent on a schedule: triage new issues every morning, run the tests every night.")
                     } actions: {
                         Button(String(localized: "New Routine…")) { newRoutine() }
