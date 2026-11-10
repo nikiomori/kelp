@@ -168,7 +168,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     w.d.sessions.discard(s)
     // Late: a title or status change that looked the session up before it went, running or not.
     w.d.sessions.publish(ls)
-    try w.d.sessions.change(s.id) { $0.title = "late" }
+    try w.d.sessions.edit(s.id) { $0.title = "late" }
     await withCheckedContinuation { c in ls.inOrder { c.resume() } }
     #expect(try w.d.store.session(s.id) == nil)
 }

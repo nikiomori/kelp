@@ -144,22 +144,23 @@ extension Sessions {
         done.wait()
     }
 
-    /// A session that isn't running, changed in the store and said. A running one changes in its LiveSession and is
-    /// published from there (`publish(ls)`): these are the only ways a session's record is written and sent.
-    /// Read or unread, live or not: an agent that ended or paused unread is read at a glance too (its record only).
-    func setUnread(_ id: String, _ on: Bool) throws {
-        try wakeLocks.withLock(id) {   // not woken meanwhile: then the live session's own record would be the one
+    /// A session's record changed wherever it lives: a running one in its LiveSession, published from there; one that
+    /// isn't in the store, and said. With `publish(ls)` for a running one's own changes, the only ways a session's record
+    /// is written and sent. Under its wake lock (`held`: the caller has it already): a paused record read here and saved
+    /// back can't land over a wake that started meanwhile, whose live record would be the one.
+    func edit(_ id: String, held: Bool = false, _ body: @escaping @Sendable (inout Session) -> Void) throws {
+        func apply() throws {
             if let ls = existing(id) {
-                if ls.setUnread(on) != nil { publish(ls) }
-            } else {
-                try change(id) { $0.unread = on }
+                if ls.change(body) { publish(ls) }
+            } else if let session = try store.update(Session.self, id, body) {
+                said(session)
             }
         }
+        if held { try apply() } else { try wakeLocks.withLock(id, apply) }
     }
 
-    func change(_ id: String, _ body: (inout Session) -> Void) throws {
-        if let session = try store.update(Session.self, id, body) { said(session) }
-    }
+    /// Read or unread, live or not: an agent that ended or paused unread is read at a glance too (its record only).
+    func setUnread(_ id: String, _ on: Bool) throws { try edit(id) { $0.unread = on } }
 
     /// Only on the session's status queue (`publish(ls)`, `publishLast`), where the snapshot is the latest.
     /// Its revision goes back into the running record before anyone hears of it: `session.list` gives that record, and one

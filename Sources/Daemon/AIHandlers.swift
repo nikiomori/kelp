@@ -32,14 +32,9 @@ extension SessionMove: Handled {
             guard let from = try session.worktreeId.flatMap(sessions.store.worktree), from.path == to.path else {
                 throw RPCError.invalidParams("Only a screen of the same folder can take it.")
             }
-            if let ls = sessions.existing(id) {
-                _ = ls.update { $0.worktreeId = worktreeId }
-                // Before the reply, as a record written here would be: the app finds it on its new screen.
-                sessions.notify(ls.snapshot)
-                sessions.publish(ls)
-            } else {
-                try sessions.change(id) { $0.worktreeId = worktreeId }
-            }
+            try sessions.edit(id, held: true) { $0.worktreeId = worktreeId }
+            // Before the reply, as a record written in the store is: the app finds it on its new screen.
+            if let ls = sessions.existing(id) { sessions.notify(ls.snapshot) }
         }
         return Done()
     }
@@ -48,20 +43,9 @@ extension SessionMove: Handled {
 extension SessionRename: Handled {
     var actsOn: String? { id }   // its title on the user's row: an agent names only its own and those it started
     func handle(_ sessions: Sessions) throws -> Done {
-        // Under its wake lock: a paused record read here and saved back must not land over a wake that started meanwhile.
-        try sessions.wakeLocks.withLock(id) {
-            if let ls = sessions.existing(id) {
-                _ = ls.update {
-                    $0.title = title
-                    $0.titleManual = !title.isEmpty
-                }
-                sessions.publish(ls)
-            } else {
-                try sessions.change(id) {
-                    $0.title = title
-                    $0.titleManual = !title.isEmpty
-                }
-            }
+        try sessions.edit(id) { [title] in
+            $0.title = title
+            $0.titleManual = !title.isEmpty
         }
         return Done()
     }

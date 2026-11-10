@@ -93,12 +93,12 @@ extension SessionKill: Handled {
                 _ = ls.update { $0.tmux = nil }
                 ls.pty.terminate()
             } else if try sessions.store.session(id)?.status == .paused {
-                try sessions.change(id) { $0.status = .exited }
+                try sessions.edit(id, held: true) { $0.status = .exited }
             }   // don't wake just to kill
         }
         guard let before else { return Done() }
         sessions.endOwnTmux(before)
-        if before.tmux != nil { try sessions.change(id) { $0.tmux = nil } }
+        if before.tmux != nil { try sessions.edit(id) { $0.tmux = nil } }
         return Done()
     }
 }
@@ -284,7 +284,7 @@ extension SessionContext: Handled {
     func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) }
 }
 
-/// Never re-inserts a deleted one (publish and change only update).
+/// Never re-inserts a deleted one (publish and edit only update).
 extension SessionMarkRead: Handled {
     // Not `quick`: they wait for a wake of the same session (`Sessions.setUnread`), as long as a locked keychain can take.
     func handle(_ sessions: Sessions) throws -> Done {

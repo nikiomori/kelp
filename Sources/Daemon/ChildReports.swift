@@ -224,12 +224,7 @@ extension Sessions {
         }
         for child in try store.sessions()
         where [child.parent, child.startedBy, child.origin].contains(old) || child.origin == typedOld {
-            if let ls = existing(child.id) {
-                _ = ls.update(pass)
-                publish(ls)
-            } else {
-                try change(child.id, pass)
-            }
+            try edit(child.id, pass)
         }
         for worktree in try store.worktrees() where worktree.madeBy == old || worktree.madeBy == typedOld {
             // In one write: a copy saved back would undo a rename or an archive meanwhile, or bring a removed one back.

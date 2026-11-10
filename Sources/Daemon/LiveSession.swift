@@ -381,13 +381,12 @@ extension LiveSession {
         }
     }
 
-    /// The record when that changed it.
-    func setUnread(_ unread: Bool) -> Session? {
+    /// Whether that changed the record: one that didn't needs no save.
+    func change(_ body: @Sendable (inout Session) -> Void) -> Bool {
         state.withLock { st in
-            guard st.record.unread != unread else { return nil }
-            st.record.unread = unread
-            return st.record
+            let before = st.record
+            body(&st.record)
+            return st.record != before
         }
     }
-
 }
