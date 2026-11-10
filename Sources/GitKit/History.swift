@@ -224,11 +224,11 @@ extension Git {
         let (newFiles, tracked) = (files.filter { untracked.contains($0) }, files.filter { !untracked.contains($0) })
         // Fixed prefixes, no colour: a user's diff.noprefix or color.diff=always would give a patch `git apply` can't take.
         let plain = ["--binary", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"]
-        var back = Data()
+        let changes = { try runData(["diff"] + plain + ["--"] + literal(tracked), cwd: path, remotes: remotes) }
+        var back = Data(), ofTracked = Data()
         do {
-            if !tracked.isEmpty {
-                back = try runData(["diff"] + plain + ["--"] + literal(tracked), cwd: path, remotes: remotes)
-            }
+            if !tracked.isEmpty { ofTracked = try changes() }
+            back = ofTracked
             for file in newFiles {
                 back += try runData(
                     ["diff"] + plain + ["--no-index", "--", "/dev/null", file], cwd: path, ok: [0, 1], remotes: remotes)
@@ -241,13 +241,25 @@ extension Git {
                     + "discard it in a terminal (git restore) if you're sure.")
         }
         try keep(back)
+        if !tracked.isEmpty {
+            // An edit saved since the patch was taken isn't in it and would go with no undo: the files are read again,
+            // right before they are written, and nothing is discarded if they changed. Limit: one saved between this
+            // diff and the restore, the next git run (milliseconds; a round trip on a host), still goes.
+            guard try changes() == ofTracked else {
+                throw GitError(
+                    args: ["restore"], status: 1,
+                    stderr: "The files changed while they were being discarded, so they were left as they are.")
+            }
+            try run(["restore", "--worktree", "--"] + literal(tracked), cwd: path, remotes: remotes)
+        }
         // New files go to the Trash on this Mac: should Undo fail, they are still there to put back.
         if remotes.of(path) == nil {
             for file in newFiles { try Trash.move(URL(fileURLWithPath: path).appendingPathComponent(file)) }
         } else if !newFiles.isEmpty {
+            // No Trash on a host: `back` holds each whole (a binary patch), the only copy once this ran, for as long as
+            // the caller keeps it. Limit: a new file saved again between its diff above and here goes as it is now.
             try run(["clean", "-f", "-q", "--"] + literal(newFiles), cwd: path, remotes: remotes)
         }
-        if !tracked.isEmpty { try run(["restore", "--worktree", "--"] + literal(tracked), cwd: path, remotes: remotes) }
         return back
     }
 
