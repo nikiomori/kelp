@@ -170,6 +170,8 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
             e.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
             return try #require(NSEvent(cgEvent: e))
         }
+        let before = strip.frame
+        strip.hoverStrip(true)   // the fingers are on it, so is the pointer: its tiles stay, it still goes
         for (phase, dx) in [(CGScrollPhase.began, 20), (.changed, 20)]
             as [(CGScrollPhase, Int32)]
         {
@@ -177,6 +179,28 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         }
         try await settled(strip)
         #expect(strip.place?.corner == .bottomLeft || strip.place?.corner == .bottomRight)
+        #expect(strip.frame != before)
+    }
+
+    /// Let go half past a side with the pointer still on it, it doesn't stay there: it springs back whole.
+    @Test func aStripLetGoHalfPastASideSpringsBackWhole() async throws {
+        let rig = try await AppRig()
+        _ = NSApplication.shared
+        StripPlace.save(StripPlace(corner: .bottomLeft, display: nil))
+        let strip = AgentStrip(app: rig.app)
+        strip.front = { false }
+        strip.animates = false
+        defer { StripPlace.save(nil) }
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .working)]
+        try await settled(strip) { strip.isShowing }
+        let home = try #require(strip.frame), panel = try #require(strip.panel)
+        strip.hoverStrip(true)
+        panel.setFrameOrigin(NSPoint(x: home.minX - home.width / 4, y: home.minY))   // a quarter past: no tuck
+        strip.dropped()
+        try await settled(strip)
+        #expect(strip.frame == home)
+        #expect(strip.place?.edge == nil)
     }
 
     /// Once `first` holds, until the strip stops moving: its animation's end, not a guess at how long one takes (a loaded

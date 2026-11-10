@@ -84,7 +84,16 @@ extension AgentStrip {
         closeCard()
         tip?.hide()
         line.hide()
+        goes()
+    }
+
+    /// To its new place with a spring, whatever is under the pointer (`refresh` keeps the tiles still there, and a dragged
+    /// strip is): not left half past a side where it was let go, but sprung back to where it's whole.
+    private func goes() {
+        springs = true
+        defer { springs = false }
         refresh()
+        if springs, isShowing { put(appearing: false) }
     }
 
     /// At the height it stands; the corner is the one it would take by that side.
@@ -113,7 +122,7 @@ extension AgentStrip {
         closeCard()
         tip?.hide()
         line.hide()
-        refresh()
+        goes()
     }
 
     private static func number(of screen: NSScreen) -> UInt32? {
@@ -148,12 +157,23 @@ extension AgentStrip {
         guard appearing else {
             // nothing moved: no animation to run
             guard window.frame != frame || window.alphaValue != 1 else { return }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Motion.duration(Motion.appear)
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)   // flies off and slows into place
-                window.animator().setFrame(frame, display: true)
-                window.animator().alphaValue = 1
-            }
+            let past = springs && !Motion.reduced ? StripModel.past(frame, from: window.frame) : frame
+            springs = false
+            moves += 1
+            let move = moves
+            NSAnimationContext.runAnimationGroup(
+                { context in
+                    context.duration = Motion.duration(Motion.appear)
+                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    window.animator().setFrame(past, display: true)
+                    window.animator().alphaValue = 1
+                },
+                completionHandler: past == frame
+                    ? nil
+                    : { [weak self] in
+                        // AppKit ends its animations on the main thread
+                        MainActor.assumeIsolated { self?.springBack(to: frame, after: move) }
+                    })
             return
         }
         window.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8), display: false)
@@ -164,6 +184,16 @@ extension AgentStrip {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().setFrame(frame, display: true)
             window.animator().alphaValue = 1
+        }
+    }
+
+    /// The spring's way back from a little past its place, unless it was sent somewhere else since.
+    private func springBack(to frame: NSRect, after move: Int) {
+        guard move == moves, let panel else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.fast)
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            panel.animator().setFrame(frame, display: true)
         }
     }
 

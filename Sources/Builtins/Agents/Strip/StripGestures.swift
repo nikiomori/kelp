@@ -54,4 +54,15 @@ extension StripModel {
         if to != corner { return .corner(to) }
         return way.x == 0 ? nil : .edge(way.x < 0 ? .left : .right)
     }
+
+    /// A spring's swing: a little further on the way from `from` to `frame`, a tenth of the way and at most `swing`.
+    static func past(_ frame: NSRect, from: NSRect) -> NSRect {
+        let dx = frame.midX - from.midX, dy = frame.midY - from.midY, way = hypot(dx, dy)
+        guard way > 0 else { return frame }
+        let by = min(swing, way / 10) / way
+        return frame.offsetBy(dx: dx * by, dy: dy * by)
+    }
+
+    /// How far past its place a moved strip swings before it settles.
+    static let swing: CGFloat = 10
 }
