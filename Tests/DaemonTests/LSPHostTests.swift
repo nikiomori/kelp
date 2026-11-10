@@ -84,7 +84,7 @@ private func lines(_ log: String) -> [String] {
     defer { d.stop() }
     let root = tmp().path, file = root + "/main.swift"
     let server = try fakeServer(in: root)
-    try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
     _ = try await c.call(
         LSPOpen(
             root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: "let x = 1"))
@@ -118,7 +118,7 @@ private func lines(_ log: String) -> [String] {
     let root = tmp().path, file = root + "/main.swift", server = try fakeServer(in: root)
     let text = "func greet() {\n    let word = 1\n}\n"
     try text.write(toFile: file, atomically: true, encoding: .utf8)
-    try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
     _ = try await c.call(
         LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: text))
     #expect(try await c.call(LSPSymbol(root: root, path: file, line: 2)) == "greet")
@@ -161,7 +161,7 @@ private func lines(_ log: String) -> [String] {
         Issue.record("opened in an untrusted project")
     } catch { #expect(LSPRefusal(error) == .untrusted) }
     do {
-        try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
+        try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
         _ = try await c.call(
             LSPOpen(
                 root: root, path: root + "/main.swift", languageId: "swift",
@@ -179,7 +179,7 @@ private func lines(_ log: String) -> [String] {
     let (d, c, _) = try daemon(lspDelays: (retry: 30, idle: 0))
     defer { d.stop() }
     let root = tmp().path, file = root + "/main.swift", server = try fakeServer(in: root)
-    try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
     func open(_ c: RPCClient) async throws {
         _ = try await c.call(
             LSPOpen(root: root, path: file, languageId: "swift", command: server.command, args: server.args, text: ""))
@@ -209,7 +209,7 @@ private func lines(_ log: String) -> [String] {
     defer { d.stop() }
     let root = tmp().path, a = root + "/a.swift", b = root + "/b.swift", server = try fakeServer(in: root)
     try "on disk".write(toFile: a, atomically: true, encoding: .utf8)
-    try d.store.setUIState(LSPOpen.trustKey, .array([.string(root)]))
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
     func open(_ path: String, _ text: String) async throws {
         _ = try await c.call(
             LSPOpen(root: root, path: path, languageId: "swift", command: server.command, args: server.args, text: text)

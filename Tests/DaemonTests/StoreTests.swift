@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GRDB
 import Testing
 import os
 
@@ -130,6 +131,32 @@ import os
     Thread.detachNewThread { if (try? s.repos().count) == 1 { read.signal() } }
     #expect(read.wait(timeout: .now() + 2) == .success)
     release.signal()
+}
+
+/// What the daemon decides by and keeps for itself moves out of the app's state once, where any `state.set` could write
+/// it: the trust as it was, the port forwardings from the JSON string they were kept in. The app's own keys stay.
+@Test func theDaemonsOwnStateMovesOutOfTheAppsOnce() throws {
+    let path = tmp().appendingPathComponent("kelp.db").path
+    do {
+        let old = try DatabaseQueue(path: path)
+        try Store.migrator.migrate(old, upTo: "database.productionByHand")
+        let forwards = #"[{"host":"box","target":"localhost:1","here":1,"worktree":"w","manual":true,"seen":false,"misses":0}]"#
+        let rows = [
+            ("lsp.trusted", #"["/p"]"#), ("extensions.trusted", #"{"x":"d"}"#),
+            ("ports.forwards", String(decoding: try JSONEncoder().encode(forwards), as: UTF8.self)),
+            ("sidebar.order", #"["a"]"#)
+        ]
+        try old.write { db in
+            for (key, value) in rows {
+                try db.execute(sql: "INSERT INTO uiState (key, value) VALUES (?, ?)", arguments: [key, value])
+            }
+        }
+    }
+    let s = try Store(path: path)
+    #expect(try s.daemonState(LSPOpen.trustKey, as: [String].self) == ["/p"])
+    #expect(try s.daemonState(IDE.extensionTrustKey, as: [String: String].self) == ["x": "d"])
+    #expect(try s.daemonState("ports.forwards", as: [Forwards.Record].self)?.map(\.here) == [1])
+    #expect(try s.uiState(prefix: "") == ["sidebar.order": .array([.string("a")])])
 }
 
 /// A routine's old run whose tab is open stays, though a hidden tab lets go of its terminal: the saved layouts say.

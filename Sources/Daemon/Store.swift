@@ -175,6 +175,29 @@ public final class Store: Sendable {
                 arguments: ["\"" + uri + "\""]) ?? false
         }
     }
+    /// The keys of the user's trust: Kelp's window writes them with `state.set` and reads them back with `state.get`, as
+    /// the rest of its state, but they're kept in `daemonState`, where nothing else the window or a script saves goes.
+    static let trustKeys: Set<String> = [LSPOpen.trustKey, IDE.extensionTrustKey]
+
+    /// What the daemon keeps apart from the app's own state, JSON by key: the user's trust (`trustKeys`), which it
+    /// decides by, and what it keeps for itself (`Forwards`). Each is written by the one method that owns it.
+    func daemonState<T: Decodable>(_ key: String, as type: T.Type) throws -> T? {
+        try db.read { try String.fetchOne($0, sql: "SELECT value FROM daemonState WHERE key = ?", arguments: [key]) }
+            .map { try JSONDecoder().decode(T.self, from: Data($0.utf8)) }
+    }
+    /// No value deletes the key.
+    func setDaemonState(_ key: String, _ value: (some Encodable)?) throws {
+        let text = try value.map { String(decoding: try JSONEncoder().encode($0), as: UTF8.self) }
+        try db.write { database in
+            if let text {
+                try database.execute(
+                    sql: "INSERT OR REPLACE INTO daemonState (key, value) VALUES (?, ?)", arguments: [key, text])
+            } else {
+                try database.execute(sql: "DELETE FROM daemonState WHERE key = ?", arguments: [key])
+            }
+        }
+    }
+
     /// No value deletes the key.
     public func setUIState(_ key: String, _ value: JSONValue?) throws {
         let text = try value.flatMap { String(bytes: try JSONEncoder().encode($0), encoding: .utf8) }

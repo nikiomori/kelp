@@ -97,8 +97,15 @@ struct UIStore {
 extension StateGet: Handled {
     static var quick: Bool { true }
     func handle(_ ui: UIStore) throws -> JSONValue {
-        if let prefix { return .object(try ui.store.uiState(prefix: prefix)) }
+        if let prefix {
+            var all = try ui.store.uiState(prefix: prefix)
+            for key in Store.trustKeys where key.hasPrefix(prefix) {
+                all[key] = try ui.store.daemonState(key, as: JSONValue.self)
+            }
+            return .object(all)
+        }
         guard let key else { throw RPCError.invalidParams("missing key") }
+        if Store.trustKeys.contains(key) { return try ui.store.daemonState(key, as: JSONValue.self) ?? .null }
         return try ui.store.uiState(prefix: key)[key] ?? .null
     }
 }
@@ -113,7 +120,12 @@ extension StateSet: Handled {
             : key.hasPrefix("lsp.") ? "Only Kelp's window can trust a project for language servers." : nil
     }
     func handle(_ ui: UIStore) throws -> Done {
-        try ui.store.setUIState(key, value)
+        // The trust is kept apart from the rest (`Store.trustKeys`): only this writes it, from Kelp's window.
+        if Store.trustKeys.contains(key) {
+            try ui.store.setDaemonState(key, value)
+        } else {
+            try ui.store.setUIState(key, value)
+        }
         return Done()
     }
 }

@@ -264,6 +264,27 @@ extension Store {
                 }
             }
         }
+        // What the daemon decides by or keeps for itself, out of the app's state, which `state.set` writes as it's
+        // told: the user's trust as it was, and the port forwardings (there a JSON string of their JSON) as their JSON.
+        migrator.registerMigration("daemonState") { db in
+            try db.create(table: "daemonState") { table in
+                table.primaryKey("key", .text)
+                table.column("value", .text).notNull()
+            }
+            try db.execute(
+                sql: """
+                    INSERT INTO daemonState (key, value)
+                    SELECT key, value FROM uiState WHERE key IN ('lsp.trusted', 'extensions.trusted')
+                    """)
+            try db.execute(
+                sql: """
+                    INSERT INTO daemonState (key, value)
+                    SELECT key, json_extract(value, '$') FROM uiState
+                    WHERE key = 'ports.forwards' AND json_valid(value) AND json_type(value) = 'text'
+                    """)
+            try db.execute(
+                sql: "DELETE FROM uiState WHERE key IN ('lsp.trusted', 'extensions.trusted', 'ports.forwards')")
+        }
         return migrator
     }
 }

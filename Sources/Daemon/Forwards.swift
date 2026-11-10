@@ -38,8 +38,8 @@ enum HostPorts {
 }
 
 /// Ports of remote projects' hosts brought to this Mac, one list for runs, clicks and the ones asked for by hand. It's
-/// kept in the store: a daemon restart leaves the connection and its forwardings, and a dropped connection comes back
-/// with the same ports here, so a page's address and cookies stay.
+/// kept in the store (`daemonState`, which only this writes): a daemon restart leaves the connection and its
+/// forwardings, and a dropped connection comes back with the same ports here, so a page's address and cookies stay.
 final class Forwards: Sendable {
     struct Record: Codable, Equatable, Sendable {
         /// `target`: "localhost:8000", as the host reaches it. `here`: the port on this Mac.
@@ -66,8 +66,7 @@ final class Forwards: Sendable {
         self.store = store
         let records =
             Log.store.attempt("reading the port forwardings") {
-                try JSONDecoder().decode(
-                    [Record].self, from: Data((try store.uiState(prefix: Self.key)[Self.key]?.string ?? "[]").utf8))
+                try store.daemonState(Self.key, as: [Record].self) ?? []
             } ?? []
         state = OSAllocatedUnfairLock(initialState: State(records: records))
     }
@@ -78,10 +77,7 @@ final class Forwards: Sendable {
                 edit(&current.records)
                 return current.records
             }
-            Log.store.attempt("saving the port forwardings") {
-                let text = String(decoding: try JSONEncoder().encode(records), as: UTF8.self)
-                try store.setUIState(Self.key, .string(text))
-            }
+            Log.store.attempt("saving the port forwardings") { try store.setDaemonState(Self.key, records) }
         }
     }
 

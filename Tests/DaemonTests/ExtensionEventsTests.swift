@@ -23,13 +23,11 @@ private func install(_ w: World, id: String = "hears", out: URL, allowed: Bool =
 /// Allowed as it is now, as Kelp's window records it.
 private func allow(_ w: World, _ id: String) throws {
     var record: [String: JSONValue] = [:]
-    if case .object(let was)? = try w.d.sessions.store.uiState(prefix: ExtensionFiles.extensionTrustKey)[
-        ExtensionFiles.extensionTrustKey]
-    {
+    if case .object(let was)? = try w.d.sessions.store.daemonState(ExtensionFiles.extensionTrustKey, as: JSONValue.self) {
         record = was
     }
     record[id] = .string(ExtensionFiles.extensionDigest(w.root.appendingPathComponent("extensions/\(id)")))
-    try w.d.sessions.store.setUIState(ExtensionFiles.extensionTrustKey, .object(record))
+    try w.d.sessions.store.setDaemonState(ExtensionFiles.extensionTrustKey, JSONValue.object(record))
 }
 
 private func lines(_ url: URL) -> [String] {
@@ -123,8 +121,8 @@ private func temporary() -> URL {
     try install(w, id: "other", out: other)
     let dir = w.root.appendingPathComponent("extensions"), workspace = try await firstWorkspace(w).id
     let allowed = ExtensionFiles.extensionDigest(dir.appendingPathComponent("other"))
-    try w.d.sessions.store.setUIState(
-        ExtensionFiles.extensionTrustKey, .obj(["hears": .string("what was there before"), "other": .string(allowed)]))
+    try w.d.sessions.store.setDaemonState(
+        ExtensionFiles.extensionTrustKey, JSONValue.obj(["hears": .string("what was there before"), "other": .string(allowed)]))
     let before = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "before"))
     _ = try await w.c.call(SessionReport(id: before.id, state: "blocked"))
     await #expect(throws: RPCError.self) {
@@ -133,9 +131,9 @@ private func temporary() -> URL {
     // The other heard it, after "hears" would have: they run one after the other, in folder order.
     #expect(try await waitFor(10) { lines(other) == ["agent.waiting|before|"] })
     #expect(lines(out) == [])
-    try w.d.sessions.store.setUIState(
+    try w.d.sessions.store.setDaemonState(
         ExtensionFiles.extensionTrustKey,
-        .obj(["hears": .string(ExtensionFiles.extensionDigest(dir.appendingPathComponent("hears")))]))
+        JSONValue.obj(["hears": .string(ExtensionFiles.extensionDigest(dir.appendingPathComponent("hears")))]))
     #expect(try await w.c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "hears")).stdout == "ran\n")
     let after = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "after"))
     _ = try await w.c.call(SessionReport(id: after.id, state: "blocked"))

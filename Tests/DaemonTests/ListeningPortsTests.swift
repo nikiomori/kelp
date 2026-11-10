@@ -122,7 +122,6 @@ private func socket(listening: Bool) throws -> (fd: Int32, port: Int) {
                 $0.append(Forwards.Record(host: "box", target: "localhost:\(i)", here: i, worktree: "w", manual: true))
             }
         }
-        let text = try store.uiState(prefix: "ports.forwards")["ports.forwards"]?.string ?? ""
-        #expect(try JSONDecoder().decode([Forwards.Record].self, from: Data(text.utf8)).count == 400)
+        #expect(try store.daemonState("ports.forwards", as: [Forwards.Record].self)?.count == 400)
     }
 }
