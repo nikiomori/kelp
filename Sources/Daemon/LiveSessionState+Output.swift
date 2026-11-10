@@ -111,15 +111,11 @@ extension LiveSession.State {
         return range.flatMap { Int(plain[$0]) }
     }
 
-    /// Plan limits Claude Code (or Cursor Agent or Codex, once it ran out) printed, when they changed.
-    mutating func newLimits(_ data: Data) -> [ClaudeLimits.Reading] {
-        guard wantsLimits, data.range(of: Data("limit".utf8)) != nil else { return [] }
-        let found =
-            record.agent == "cursor"
-            ? ClaudeLimits.parseCursorLimitHit(screen(1200)).map { [$0] } ?? []
-            : record.agent == "codex"
-                ? ClaudeLimits.parseCodexLimitHit(screen(1200)).map { [$0] } ?? []
-                : ClaudeLimits.parse(screen(1200))
+    /// Plan limits its agent printed (`limitScreen`: Claude Code's usage, or Cursor Agent's or Codex's once it ran out),
+    /// when they changed.
+    mutating func newLimits(_ data: Data) -> [LimitScreens.Reading] {
+        guard let limitScreen, data.range(of: Data("limit".utf8)) != nil else { return [] }
+        let found = LimitScreens.read(limitScreen, screen(1200))
         if !hooked, let hit = found.first(where: { $0.percent >= 100 }) {
             limitSeen = (LimitHit(kind: hit.kind, resets: hit.resets), Date())
             settleLimit()

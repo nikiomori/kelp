@@ -32,9 +32,10 @@ extension SessionRecap: AsyncHandled {
     }
 
     func handle(_ sessions: Sessions) async throws -> String? {
-        guard let ls = sessions.existing(id), ls.snapshot.agent == "claude", let transcript = ls.transcriptPath else {
-            return nil
-        }
+        // Claude Code's conversation, which a fork of goes on from (`AgentManifest.Transcript.claude`).
+        guard let ls = sessions.existing(id), let transcript = ls.transcriptPath,
+            let manifest = sessions.setup.agent(ls.snapshot.agent), manifest.transcript == .claude
+        else { return nil }
         guard sessions.recaps.withLock({ $0.insert(id).inserted }) else { return nil }
         defer { _ = sessions.recaps.withLock { $0.remove(id) } }
         // Claude Code finds a conversation by the folder it began in, which its transcript's folder names.
@@ -47,10 +48,10 @@ extension SessionRecap: AsyncHandled {
             !$0.key.hasPrefix("KELP_") && $0.key != "CLAUDE_CODE_CHILD_SESSION"
         }
         env["PATH"] = Sessions.childPath
-        if let name = rec.profile, let profile = sessions.setup.profile(name, agent: "claude") {
+        if let name = rec.profile, let profile = sessions.setup.profile(name, agent: manifest.id) {
             env[profile.key] = profile.dir
         }   // its own account
-        let claude = try LoginPath.resolve("claude")
+        let claude = try LoginPath.resolve(manifest.command)
         let out = try await Subprocess.run(
             Self.arguments(claude, conversation: conversation), cwd: cwd, env: env,
             stdin: Data(), timeLimit: 90)   // -p waits 3 s for stdin otherwise

@@ -54,7 +54,7 @@ final class AgentUsage: Sendable {
     /// Where the agents keep their conversations, account profiles' included (`Conversations.roots`).
     func agentRoots() -> (claude: [URL], codex: [URL]) { conversations.roots() }
 
-    func recordLimits(_ readings: [ClaudeLimits.Reading]) {
+    func recordLimits(_ readings: [LimitScreens.Reading]) {
         let now = Date().timeIntervalSince1970
         claudeLimits.withLock {
             for var reading in readings {

@@ -63,7 +63,8 @@ extension LiveSession {
         let selfNames: [String]   // what a title that only names the program or its folder contains (TerminalTitle.topic)
         let trail: StatusTrail
         let started = Date()
-        let wantsTopic: Bool, wantsURL: Bool, wantsLimits: Bool
+        let wantsTopic: Bool, wantsURL: Bool
+        let limitScreen: AgentManifest.LimitScreen?   // what it prints of its plan's limits, read as it runs
 
         // Output: the last `ringLimit` bytes, the modes in effect where they start (what the ring dropped had set them), the log.
         var ring = Data(), ringModes = TerminalModes()
@@ -83,7 +84,7 @@ extension LiveSession {
         var oscCarry = "", titleCarry = "", lastTopic: String?
         var utf8Carry = Data()   // the start of a character the last chunk was cut in (`UTF8Chunks`)
         var pasteCarry = Data()
-        var sawURL = false, sawBusy = false, lastLimits: [ClaudeLimits.Reading] = []
+        var sawURL = false, sawBusy = false, lastLimits: [LimitScreens.Reading] = []
         /// An agent without hooks printed that its plan ran out: it counts if its turn stops by it (`settleLimit`).
         var limitSeen: (hit: LimitHit, at: Date)?
         /// Turns in a row an API error that passes ended and Kelp went on with (`LiveSession.retry`).
@@ -156,7 +157,7 @@ extension LiveSession {
             self.logSize = logSize
             wantsTopic = callbacks.topic != nil
             wantsURL = callbacks.localURL != nil
-            wantsLimits = callbacks.limits != nil || record.agent == "codex"
+            limitScreen = manifest.limitScreen
         }
 
         /// The last `bytes` of what it printed, without escapes: what's on screen, near enough.

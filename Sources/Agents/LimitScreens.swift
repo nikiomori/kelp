@@ -16,6 +16,15 @@ public enum LimitScreens {
         pattern: #"([A-Za-z0-9\- ]{1,30}?) limit reached(?:\s*[·∙•|-]\s*resets ([^\n(·]{2,40}))?"#,
         options: .caseInsensitive)
 
+    /// What a session's screen says of its plan, as its agent prints it (`AgentManifest.limitScreen`).
+    public static func read(_ screen: AgentManifest.LimitScreen, _ text: String) -> [Reading] {
+        switch screen {
+        case .claude: parse(text)
+        case .cursor: parseCursorLimitHit(text).map { [$0] } ?? []
+        case .codex: parseCodexLimitHit(text).map { [$0] } ?? []
+        }
+    }
+
     public static func parse(_ text: String) -> [Reading] {
         let range = NSRange(text.startIndex..., in: text)
         func group(_ match: NSTextCheckingResult, _ index: Int) -> String? {
@@ -205,6 +214,3 @@ public enum LimitScreens {
 
     private static func bounded(_ percent: Double) -> Double { min(max(percent, 0), 100) }
 }
-
-/// Its old name, which the session core and AgentUsage still use. Limit: goes once they say LimitScreens.
-public typealias ClaudeLimits = LimitScreens

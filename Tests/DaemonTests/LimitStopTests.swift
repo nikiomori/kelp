@@ -91,7 +91,7 @@ private func stopped(_ p: World, _ s: Session) async throws {
     func state() -> LiveSession.State {
         LiveSession.State(
             record: Session(cwd: "/", command: "codex", agent: "codex"),
-            manifest: AgentManifest(id: "codex", name: "Codex", command: "codex"),
+            manifest: AgentManifest(id: "codex", name: "Codex", command: "codex", limitScreen: .codex),
             logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
     }
     let words = Data("You've hit your usage limit. Try again at Oct 30, 2026 3:40 PM.".utf8)

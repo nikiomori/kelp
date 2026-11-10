@@ -17,7 +17,7 @@ private let readAndEcho = "echo before; while read l; do echo got-$l; done"
     // `kept` whole (`LiveSession.Kept`): a field added there goes over by itself.
     let carried: Set = ["record", "detector", "ring", "ringModes", "logSize", "kept", "pendingPrompts", "reports"]
     let fromLaunch: Set = [
-        "hooked", "selfNames", "trail", "started", "wantsTopic", "wantsURL", "wantsLimits", "autoAnswers"
+        "hooked", "selfNames", "trail", "started", "wantsTopic", "wantsURL", "limitScreen", "autoAnswers"
     ]
     // Set by `adopted` as what's true of a program long past starting.
     let settled: Set = ["startedUp", "typedYet", "dialogSettled", "sawFirstPrompt"]

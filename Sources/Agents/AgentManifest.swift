@@ -72,6 +72,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     public var featured: Int?
     /// The conversation it keeps on disk in a form Kelp reads, if any.
     public var transcript: Transcript?
+    /// What it prints of its plan's limits while it runs, which its session reads (`LimitScreens.read`); nil: nothing.
+    public var limitScreen: LimitScreen?
     /// Account profiles: each login in a config folder of its own, which `AgentHome`'s variable points it at.
     public var profiles = false
     /// Ways to run it through another provider, as variables its docs define (Settings › Agent Catalog adds them).
@@ -85,6 +87,15 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         case codex
         /// pi's session files: a hand-off writes one, which the agent opens with `resumeIdFlag`.
         case pi
+    }
+
+    public enum LimitScreen: String, Codable, Sendable, CaseIterable {
+        /// Claude Code's: how much of each limit is used ("80% of your weekly limit"), the account's usage from then on.
+        case claude
+        /// Cursor Agent's: that the plan ran out, held over what its `/usage` says.
+        case cursor
+        /// Codex's: that the plan ran out, for the session to go on after the reset (its usage comes from its app-server).
+        case codex
     }
 
     public struct Provider: Codable, Sendable, Equatable {
@@ -108,7 +119,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         sessionIdFlag: String? = nil, resumeIdFlag: String? = nil,
         install: String? = nil, update: String? = nil, npm: String? = nil, about: String? = nil,
         color: String? = nil, apps: [String] = [], site: String? = nil, featured: Int? = nil,
-        transcript: Transcript? = nil, profiles: Bool = false, providers: [Provider] = []
+        transcript: Transcript? = nil, limitScreen: LimitScreen? = nil, profiles: Bool = false,
+        providers: [Provider] = []
     ) {
         self.id = id
         self.name = name
@@ -137,6 +149,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         self.site = site
         self.featured = featured
         self.transcript = transcript
+        self.limitScreen = limitScreen
         self.profiles = profiles
         self.providers = providers
     }
@@ -179,6 +192,9 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         transcript =
             try container.decodeIfPresent(String.self, forKey: .transcript).map { Transcript(rawValue: $0) }
             ?? preset?.transcript
+        limitScreen =
+            try container.decodeIfPresent(String.self, forKey: .limitScreen).map { LimitScreen(rawValue: $0) }
+            ?? preset?.limitScreen
         profiles = try container.decodeIfPresent(Bool.self, forKey: .profiles) ?? preset?.profiles ?? false
         providers = try container.decodeIfPresent([Provider].self, forKey: .providers) ?? preset?.providers ?? []
     }
@@ -187,7 +203,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         case id, name, command, args, env, waitingPatterns, quietSeconds, tracksStatus, modelFlag, models, effortArgs,
             autoAnswers, resumeArgs
         case sessionIdFlag, resumeIdFlag, pluginDirFlag, contextFlag, install, update, npm
-        case about, color, apps, site, featured, transcript, profiles, providers
+        case about, color, apps, site, featured, transcript, limitScreen, profiles, providers
         // `hooks`, as agent files have it
         case hooksSettingsFlag, hooksConfigDirEnv, hooksSettingsEnv, hooksHerdr, hooksCodexConfig
     }
@@ -226,6 +242,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         try fact(site, preset?.site, .site)
         try fact(featured, preset?.featured, .featured)
         try fact(transcript, preset?.transcript, .transcript)
+        try fact(limitScreen, preset?.limitScreen, .limitScreen)
         try fact(profiles, preset?.profiles ?? false, .profiles)
         try fact(providers, preset?.providers ?? [], .providers)
     }

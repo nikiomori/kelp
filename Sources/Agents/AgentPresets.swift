@@ -34,7 +34,8 @@ extension AgentManifest {
             sessionIdFlag: "--session-id", resumeIdFlag: "--resume",
             install: "curl -fsSL https://claude.ai/install.sh | bash", update: "claude update",
             npm: "@anthropic-ai/claude-code", about: "Anthropic’s coding agent", color: "#D97857", apps: ["Claude"],
-            site: "claude.ai", featured: 0, transcript: .claude, profiles: true, providers: claudeProviders),
+            site: "claude.ai", featured: 0, transcript: .claude, limitScreen: .claude, profiles: true,
+            providers: claudeProviders),
         // Its conversation in its own process, which ends with the tab: in Codex's shared background server (0.157 on) it
         // would run on after the tab closed, and a Codex started with -c (not on that server) couldn't open it again.
         // No update question: it stands before the prompt, which waits behind it, and Kelp offers updates itself.
@@ -49,7 +50,8 @@ extension AgentManifest {
             autoAnswers: [trust], resumeArgs: ["resume", "--last"], resumeIdFlag: "resume",
             install: "npm install -g @openai/codex", update: "npm install -g @openai/codex@latest",
             npm: "@openai/codex", about: "OpenAI’s coding agent", color: "#262626", apps: ["ChatGPT", "Codex"],
-            site: "chatgpt.com", featured: 1, transcript: .codex, profiles: true, providers: codexProviders),
+            site: "chatgpt.com", featured: 1, transcript: .codex, limitScreen: .codex, profiles: true,
+            providers: codexProviders),
         .init(
             id: "opencode", name: "OpenCode", command: "opencode", hooks: .pluginDir(env: "OPENCODE_CONFIG_DIR"),
             modelFlag: "-m",
@@ -66,8 +68,9 @@ extension AgentManifest {
             id: "cursor", name: "Cursor Agent", command: "cursor-agent", modelFlag: "--model", autoAnswers: [trust],
             resumeArgs: ["resume"],
             install: "curl https://cursor.com/install -fsS | bash", update: "cursor-agent update",
-            about: "Cursor’s agent in the terminal", color: "#262626", apps: ["Cursor"], site: "cursor.com", featured: 4
-        ),
+            about: "Cursor’s agent in the terminal", color: "#262626", apps: ["Cursor"], site: "cursor.com",
+            featured: 4,
+            limitScreen: .cursor),
         // Pi and Antigravity report through OSC 7501 only if Kelp's reply to their probe beats the terminal's DA reply;
         // their variables make them report anyway. Pi's installer runs again as the update; it fetches Node when it's
         // missing, which npm wouldn't.

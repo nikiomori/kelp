@@ -28,7 +28,7 @@ final class LiveSession: Sendable {
         /// The port a server says it couldn't get, before it printed any URL.
         var busyPort: (@Sendable (Int) -> Void)?
         /// Plan usage the agent printed (Claude Code's "used 80% of your weekly limit").
-        var limits: (@Sendable ([ClaudeLimits.Reading]) -> Void)?
+        var limits: (@Sendable ([LimitScreens.Reading]) -> Void)?
         /// A turn began: how its folder was, to keep (`SessionTurns`).
         var turnStarted: (@Sendable (SessionTurns.Mark) -> Void)?
         /// A turn ended, started by this prompt: the pages its agent made keep a version (`Artifacts.keepVersions`).
@@ -156,7 +156,7 @@ final class LiveSession: Sendable {
 
     /// What a chunk of output asked for, done after the lock.
     private struct Heard: Sendable {
-        var probe = false, topic: String?, url: String?, busy: Int?, limits: [ClaudeLimits.Reading] = []
+        var probe = false, topic: String?, url: String?, busy: Int?, limits: [LimitScreens.Reading] = []
         var answer: (input: String, asked: NSRegularExpression, after: Double)?
         var attached = Set<Int>(), id = ""
         var trimLog = false

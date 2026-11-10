@@ -272,10 +272,13 @@ final class SessionSetup: Sendable {
         return own.map { base + [flag, $0.id] } ?? base
     }
 
-    /// The conversation `agent` keeps on disk, as its manifest says.
-    func transcript(of agent: String?) -> AgentManifest.Transcript? {
-        AgentManifest.load(dir: root.appendingPathComponent("agents")).first { $0.id == agent }?.transcript
+    /// The agent's manifest: nil for a terminal or a command, or an agent whose file is gone.
+    func agent(_ id: String?) -> AgentManifest? {
+        AgentManifest.load(dir: root.appendingPathComponent("agents")).first { $0.id == id }
     }
+
+    /// The conversation `agent` keeps on disk, as its manifest says.
+    func transcript(of agent: String?) -> AgentManifest.Transcript? { self.agent(agent)?.transcript }
 
     func manifest(_ id: String?, command: String?, fallbackArgv: [String]? = nil) throws -> AgentManifest {
         if let command { return .custom(command) }

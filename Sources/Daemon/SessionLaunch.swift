@@ -89,7 +89,8 @@ extension Sessions {
             record: rec,
             manifest: setup.liveManifest(manifest, cwd: rec.cwd, worktreeId: rec.worktreeId, env: env, argv: argv),
             argv: try setup.launchArgv(argv, cwd: rec.cwd, manifest: manifest, tmux: rec.tmux), env: env,
-            historyDir: root.appendingPathComponent("history"), cols: cols, rows: rows, callbacks: callbacks(for: rec))
+            historyDir: root.appendingPathComponent("history"), cols: cols, rows: rows,
+            callbacks: callbacks(for: rec, limits: manifest.limitScreen))
         if rec.tmux != nil { ls.attachedToRunning() }
         do { try live.add(ls) } catch {   // its record stays paused
             ls.discard()
@@ -323,7 +324,9 @@ extension Sessions {
     /// What a session tells the daemon, from its first byte on. An ended session leaves `live`: its fd and pid belong to
     /// nobody now, and its log still shows what it printed. `devServerIn`: the first local URL it prints opens in that
     /// workspace's browser.
-    func callbacks(for rec: Session, devServerIn worktree: String? = nil) -> LiveSession.Callbacks {
+    func callbacks(
+        for rec: Session, limits screen: AgentManifest.LimitScreen?, devServerIn worktree: String? = nil
+    ) -> LiveSession.Callbacks {
         let sid = rec.id
         var callbacks = LiveSession.Callbacks()
         callbacks.output = { [weak self] id, data, subs in self?.deliver(id, data, to: subs) }
@@ -338,8 +341,11 @@ extension Sessions {
             if ls.snapshot.status != .waiting { permissions.answerPermission(sid, nil) }
             if snapshot.status == .exited { _ = live.remove(ls) }
         }
-        if rec.agent == "claude" { callbacks.limits = { [weak self] r in self?.agentUsage.recordLimits(r) } }
-        if rec.agent == "cursor" { callbacks.limits = { [weak self] r in self?.agentUsage.recordPlanHit("cursor", r) } }
+        switch screen {
+        case .claude: callbacks.limits = { [weak self] r in self?.agentUsage.recordLimits(r) }
+        case .cursor: callbacks.limits = { [weak self] r in self?.agentUsage.recordPlanHit(rec.agent ?? "", r) }
+        case .codex, nil: break   // Codex's usage comes from its app-server: its screen only says the plan ran out
+        }
         callbacks.turnEnded = { [weak self] prompt in
             self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
         }

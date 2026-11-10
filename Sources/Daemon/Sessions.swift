@@ -203,7 +203,9 @@ final class Sessions: Sendable {
             record: rec, manifest: setup.liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
             argv: try setup.launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
             historyDir: root.appendingPathComponent("history"), cols: launch.cols, rows: launch.rows,
-            callbacks: callbacks(for: rec, devServerIn: launch.openURLs ? worktreeId : nil))   // e.g. Jupyter Lab's URL
+            // A dev server's URL opens in the workspace's browser (e.g. Jupyter Lab's).
+            callbacks: callbacks(
+                for: rec, limits: manifest.limitScreen, devServerIn: launch.openURLs ? worktreeId : nil))
         if launch.tmux != nil { ls.attachedToRunning() }
         rec = ls.snapshot
         let sid = rec.id
@@ -316,7 +318,7 @@ final class Sessions: Sendable {
                 adoptedManifest, env: setup.hookedEnv(adoptedManifest, rec, secrets: false), argv: rec.argv)
             let ls = LiveSession(
                 record: rec, manifest: adoptedManifest, pty: pty, historyDir: root.appendingPathComponent("history"),
-                callbacks: callbacks(for: rec))
+                callbacks: callbacks(for: rec, limits: adoptedManifest.limitScreen))
             ls.adopted(
                 modes: handed.modes, bytes: handed.bytes, pending: handed.pending ?? [], reports: handed.reports ?? [],
                 status: handed.status)

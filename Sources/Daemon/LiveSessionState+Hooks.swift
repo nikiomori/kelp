@@ -31,7 +31,7 @@ extension LiveSession.State {
         // isn't waiting for it. The next Stop says again.
         if kept.holding, event == "working" { record.awaiting = nil }
         kept.holding = false
-        let compacting = "Compacting the conversation…"
+        let compacting = Session.compactingSummary
         switch event {
         case "compacting":
             compactManual = trigger == "manual"
