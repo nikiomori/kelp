@@ -13,18 +13,21 @@ struct ExtensionsSettings: View {
     /// Opened on the library when asked for (`SettingsWindow.show(section: "extensions", group: "library")`).
     @State private var library = UserDefaults.standard.string(forKey: "settings.group") == "library"
     var body: some View {
-        Form {
-            // The page's first row, as the Agent Catalog's filter: in the title bar it read as the window's, not the page's.
-            Section {
-                Picker("", selection: $library) {
-                    Text("Installed").tag(false)
-                    Text("Library").tag(true)
+        // Over the list on the content's left edge, as the Agent Catalog's filter: in a card of its own it was a box around
+        // one control, and in the title bar it read as the window's.
+        VStack(alignment: .leading, spacing: 0) {
+            Segments(
+                labels: [String(localized: "Installed"), String(localized: "Library")],
+                selection: Binding {
+                    library ? 1 : 0
+                } set: {
+                    library = $0 == 1
                 }
-                .pickerStyle(.segmented).labelsHidden().fixedSize().frame(maxWidth: .infinity)
-            }
-            if library { LibrarySection() } else { installed }
+            )
+            .padding([.horizontal, .top], Metrics.sheetInset)   // the grouped form's own margin
+            Form { if library { LibrarySection() } else { installed } }
+                .formStyle(.grouped)
         }
-        .formStyle(.grouped)
         .fileImporter(isPresented: $picking, allowedContentTypes: [.folder, UTType(filenameExtension: "vsix") ?? .zip])
         { result in
             guard case .success(let url) = result else { return }
