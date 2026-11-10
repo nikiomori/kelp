@@ -106,7 +106,7 @@ private struct PictureArt: View {
         case SettingKeys.serverLook.key: serverRow
         default:
             // A built-in's own setting, drawn by it.
-            app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.choices?.picture?(option)
+            app.extensions.specs[key]?.choices?.picture?(option)
         }
     }
 

@@ -29,9 +29,15 @@ struct ExtensionInfo: Identifiable {
 package final class ExtensionRegistry {
     /// The app whose extensions these are: built-ins contribute with it.
     let app: AppModel
-    init(app: AppModel) { self.app = app }
+    init(app: AppModel) {
+        self.app = app
+        follow()
+    }
     private(set) var extensions: [ExtensionInfo] = []
     private(set) package var all = Contributions()
+    /// Every setting's row by its key (the first section's, when two declare one): what reads a setting's default,
+    /// range, names or choices.
+    private(set) var specs: [String: SettingSpec] = [:]
     /// Bumped on every reload so views can refresh.
     private(set) var revision = 0
     private(set) var disabledLoaded: Set<String> = []
@@ -89,12 +95,39 @@ package final class ExtensionRegistry {
         merged.tabs.append(DeclarativeExtension.tabProvider(app))
         extensions = infos.sorted { ($0.builtin ? 0 : 1, $0.name) < ($1.builtin ? 0 : 1, $1.name) }
         all = merged
+        specs = Dictionary(merged.settings.flatMap(\.specs).map { ($0.key, $0) }) { first, _ in first }
         revision += 1
-        app.themes.apply()
-        AgentSkills.write(app)
         app.publishUIState()
         askTools(Set(infos.flatMap(\.requires)))
         askTrust(infos)
+    }
+
+    /// What follows settings.json: a built-in or an extension switched on or off loads them again, and the skills are
+    /// written again when one of their switches or the extensions change.
+    private func follow() {
+        track(owner: self, now: false) { [weak self] in
+            self?.disabled ?? []
+        } changed: { [weak self] off in
+            guard let self, !extensions.isEmpty, off != disabledLoaded else { return }
+            reload()
+        }
+        track(owner: self, now: false) { [weak self] in
+            self?.skillsRead
+        } changed: { [weak self] _ in
+            guard let self else { return }
+            AgentSkills.write(app)
+        }
+    }
+
+    /// What the skills written depend on: the extensions loaded (their skills, settings and themes) and each switch.
+    private var skillsRead: SkillsRead {
+        let settings = app.settings
+        let switches = [SettingKeys.skillExtensions, SettingKeys.skillSettings] + all.skills.compactMap(\.setting)
+        return SkillsRead(revision: revision, on: switches.map { settings[$0] })
+    }
+    private struct SkillsRead: Equatable {
+        let revision: Int
+        let on: [Bool]
     }
 
     /// Extensions that wait to be allowed are asked about once each version, after the folder has been still a moment (an

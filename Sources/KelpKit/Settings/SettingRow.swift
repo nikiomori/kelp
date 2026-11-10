@@ -168,7 +168,7 @@ struct SettingRow: View {
     /// Option values made readable: as the code declaring the setting names them (themes, agents: `SettingChoices`), else
     /// as its declaration calls them (`SettingSpec.labels`), else the value capitalized.
     static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
-        let spec = app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }
+        let spec = app.extensions.specs[key]
         if let name = spec?.choices?.name { return name(value) }
         return spec?.labels?[value] ?? loc(value.prefix(1).uppercased() + value.dropFirst())
     }

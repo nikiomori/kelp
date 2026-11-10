@@ -135,6 +135,19 @@ package final class ThemeManager {
 
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
 
+    /// Paints again whenever settings.json or the themes the extensions bring change; once, at launch.
+    func follow() {
+        track(owner: self) { [weak self] in
+            self.map { Painted(settings: $0.app.settings.values, themes: $0.app.extensions.all.themes) }
+        } changed: { [weak self] _ in
+            self?.apply()
+        }
+    }
+    private struct Painted: Equatable {
+        let settings: [String: JSONValue]
+        let themes: [Theme]
+    }
+
     func apply() {
         let settings = app.settings
         // One choice, like VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's;

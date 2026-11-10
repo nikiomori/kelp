@@ -15,6 +15,8 @@ extension SettingKeys {
     @MainActor static let iconTheme = Setting("workbench.iconTheme", FileIcon.standard)
     static let language = Setting("workbench.language", "system")
     static let confirmQuit = Setting("workbench.confirmQuit", false)
+    /// Keyboard shortcuts set by hand, command id → key ("" none): Settings › Keyboard, its own page. Not a row.
+    static let keys = Setting<JSONValue?>("keys", nil)
 
     /// nil: every panel's icon shows.
     static let hiddenPanels = Setting<[String]?>("workbench.inspector.hiddenPanels", nil)

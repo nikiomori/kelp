@@ -32,7 +32,7 @@ enum KeyBindings {
     private static let mask: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
 
     static func overrides(_ settings: SettingsStore) -> [String: String] {
-        guard case .object(let keys)? = settings.value("keys") else { return [:] }
+        guard case .object(let keys)? = settings[SettingKeys.keys] else { return [:] }
         return keys.compactMapValues(\.string)
     }
 
@@ -109,7 +109,7 @@ enum KeyBindings {
     static func set(_ id: String, _ key: KeySpec?, in settings: SettingsStore) {
         var keys = overrides(settings)
         if let key { keys[id] = key.key.isEmpty ? "" : key.description } else { keys[id] = nil }
-        settings.set("keys", keys.isEmpty ? nil : .object(keys.mapValues { .string($0) }))
+        settings.set(SettingKeys.keys, keys.isEmpty ? nil : .object(keys.mapValues { .string($0) }))
     }
 
     /// "⇧⌘K", as menus show it.
@@ -261,7 +261,7 @@ struct KeyboardSettings: View {
                 detail: String(localized: "The shortcuts you set are lost."),
                 action: String(localized: "Restore Defaults"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
-            app.settings.set("keys", nil)
+            app.settings.set(SettingKeys.keys, nil)
             later()
         }
     }

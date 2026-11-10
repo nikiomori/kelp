@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.watchHangs()
         LatinShortcuts.install()
         app.extensions.reload()
+        app.themes.follow()
         main = MainWindowController(app: app)
         main.showWindow(nil)
         app.noProject.registerHotKey()
@@ -69,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.buildMenu()
         }
         track(owner: self) { [app] in
-            app.settings.value("keys")
+            app.settings[SettingKeys.keys]
         } changed: { [weak self] _ in
             self?.buildMenu()
         }

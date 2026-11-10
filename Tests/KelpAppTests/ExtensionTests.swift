@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -69,6 +70,20 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(info.id == "t.one" && info.error == nil && info.unavailable == nil)
     #expect(c.commands.map(\.title) == ["Hi"])
     #expect(c.panels.map(\.id) == ["t.one.p"])
+}
+
+/// settings.json is followed, not pushed: a built-in switched off there (by the CLI, by hand) is unloaded, and the skill
+/// it gave agents goes with it; switched on again, both come back.
+@MainActor @Test func aBuiltInSwitchedOffInSettingsTakesItsSkillAlong() async throws {
+    let m = AppModel(builtins: Builtins.all)
+    m.extensions.reload()
+    let vm = Paths.agentSkills.appendingPathComponent("kelp-vm/skills/kelp-vm/SKILL.md").path
+    #expect(try await waitFor(5) { FileManager.default.fileExists(atPath: vm) })
+    m.settings.apply([SettingKeys.disabledExtensions.key: .array(["kelp.machines"])])
+    #expect(try await waitFor(5) { !m.extensions.all.skills.contains { $0.name == "kelp-vm" } })
+    #expect(try await waitFor(5) { !FileManager.default.fileExists(atPath: vm) })
+    m.settings.apply([:])
+    #expect(try await waitFor(5) { FileManager.default.fileExists(atPath: vm) })
 }
 
 /// A row of a kind Kelp doesn't have, or of one of Kelp's own (the theme gallery), shows as text, and the extension

@@ -28,19 +28,10 @@ package final class SettingsStore {
         apply(incoming)
     }
 
+    /// What's set now. What follows it reads it under observation: the theme (`ThemeManager.follow`), the extensions
+    /// switched on and the skills written (`ExtensionRegistry.follow`), the views.
     func apply(_ incoming: [String: JSONValue]) {
-        guard incoming != values else { return }
-        // The skills only depend on their switches: don't rewrite their files (on main) for every other setting.
-        let skills = { (entries: [String: JSONValue]) in entries.filter { $0.key.hasPrefix("agents.skills.") } }
-        let skillsChanged = values.isEmpty || skills(incoming) != skills(values)
-        values = incoming
-        app.themes.apply()
-        if skillsChanged { AgentSkills.write(app) }
-        if !app.extensions.extensions.isEmpty,
-            app.extensions.disabled(SettingKeys.disabledExtensions.read(in: incoming)) != app.extensions.disabledLoaded
-        {
-            app.extensions.reload()
-        }
+        if incoming != values { values = incoming }
     }
 
     /// What Kelp itself sets per language: prose reads best wrapped.
@@ -58,10 +49,7 @@ package final class SettingsStore {
     func value(_ key: String, language: String? = nil) -> JSONValue? {
         if let language, let found = own(key, language) { return found }
         if let found = values[key] { return found }
-        for section in app.extensions.all.settings {
-            if let spec = section.specs.first(where: { $0.key == key }) { return spec.default }
-        }
-        return nil
+        return app.extensions.specs[key]?.default
     }
     /// By name, for a key that isn't declared here (a row of Settings, an extension's): typed, else nil.
     func string(_ key: String, language: String? = nil) -> String? { value(key, language: language)?.string }
@@ -79,7 +67,7 @@ package final class SettingsStore {
         clamped(setting.key, setting.read(stored(setting.key, language)))
     }
     private func clamped(_ key: String, _ raw: Double) -> Double {
-        app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.clamped(raw) ?? raw
+        app.extensions.specs[key]?.clamped(raw) ?? raw
     }
     private func stored(_ key: String, _ language: String?) -> JSONValue? {
         language.flatMap { own(key, $0) } ?? values[key]

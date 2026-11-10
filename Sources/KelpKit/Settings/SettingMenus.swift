@@ -36,9 +36,7 @@ extension NSMenu {
 
     private func addChoiceItems(_ setting: Setting<String>, _ app: AppModel, tryOn: Bool) {
         let key = setting.key
-        guard let spec = app.extensions.all.settings.lazy.flatMap(\.specs).first(where: { $0.key == key }) else {
-            return
-        }
+        guard let spec = app.extensions.specs[key] else { return }
         let now = app.settings[setting], preview = ChoicePreview(app.settings)
         if tryOn, delegate == nil { delegate = preview }
         for option in SettingRow.options(spec, app) {
