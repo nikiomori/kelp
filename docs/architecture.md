@@ -71,7 +71,7 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
 | panels | right inspector (selector icons) |
 | editors | center tab types, listed in each pane's "+" menu and the empty workspace |
 | commands | command palette (⇧⌘P), menus, key bindings, `kelp run <id>` |
-| settings | Settings window (generated forms) and `~/.kelp/settings.json`; a row says what its options are called and how they show (`labels`, `look`), a built-in's pictured setting brings its drawings (`pictures`), one whose choices are what's installed brings them and their names (`options`, `names`: the default agent), so the window names no built-in's key |
+| settings | Settings window (generated forms) and `~/.kelp/settings.json`; a row says what its options are called and how they show (`labels`, `look`), a built-in's setting brings what only its code knows of its choices (`choices`: the agents installed and their names, a pictured setting's drawings), and its section its tile's colour and previews (`tint`, `previews`), so the window names no built-in's key or section |
 | themes | Appearance settings; build the window round the terminal and editor, and color all three |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
@@ -87,6 +87,7 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
 | dockMenu (built-ins only) | items of its own in the Dock icon's menu, under New Chat (hide the agent strip for an hour, or bring it back) |
 | dockUsage (built-ins only) | the Dock icon's Plan Usage face, the fullest limit (Agents'); none, and the plain icon |
 | runs (built-ins only) | what runs in a workspace (Run): the window bar's run chip and the page it serves, the Run menu's project commands, a run's tab (its look, port and Hide in Run Menu), the "+" menu's and the empty workspace's Run rows, the hover card's pages, a run's printed page, a new workspace's setup; none, and every session is a row and a tab |
+| skills (built-ins only) | a skill for agents about the built-in's feature (`SkillSpec`: Machines' `kelp vm`, Databases' `kelp db`, Browser's, Files' artifacts, Agents' terminals and child agents), written with the shell's own two (`AgentSkills`); off with its built-in |
 
 A panel may say what it shows (`PanelSpec.role`: `.changes`, `.checks`), so the shell and the built-ins ask for "the changes"
 or "the checks" (after a pull, from a row's CI mark) without naming whose panel that is; a built-in off by default says so
@@ -141,10 +142,10 @@ in the module that alone reads one), and read by that declaration: `app.settings
 
 ## AI agents and the IDE: skills
 Every agent session gets `KELP_SOCKET` and the `kelp` CLI on PATH (open files/URLs, settings, extensions,
-`ui state`). What an agent should *do* with it comes from two skills the app writes as Claude Code plugins in
-`~/.kelp/agent-skills/` (`AgentSkills`): **kelp-extensions** (this repo's docs/extensions.md: where an extension
-goes, its format, how to reload) and **kelp-settings** (every setting key, generated from the registry, and how to
-change it). The daemon loads that folder per Claude session with `--plugin-dir`; turning a skill off in
+`ui state`). What an agent should *do* with it comes from skills the app writes as Claude Code plugins in
+`~/.kelp/agent-skills/` (`AgentSkills`): the shell's **kelp-extensions** (this repo's docs/extensions.md: where an
+extension goes, its format, how to reload) and **kelp-settings** (every setting key, generated from the registry, and
+how to change it), and each built-in's own about its feature (the `skills` contribution). The daemon loads that folder per Claude session with `--plugin-dir`; turning a skill off in
 Settings › Agents removes it. Nothing is written to the agent's own config. The app reloads extensions when their
 files change.
 
