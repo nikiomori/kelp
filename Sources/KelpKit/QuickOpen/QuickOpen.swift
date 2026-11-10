@@ -81,10 +81,9 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             panel.setFrame(end, display: false)
             return show()
         }
-        // From the pill's place and width, as tall as the field and a row, faint; to its full size in 0.2 s.
-        panel.setFrame(
-            NSRect(x: pillFrame.minX, y: pillFrame.maxY + 6 - 120, width: max(pillFrame.width, 200), height: 120),
-            display: false)
+        // At its full size from the start, faint and a little up towards the pill, and down into place: growing from
+        // the pill's size, it was laid out and its glass resized for every frame.
+        panel.setFrame(end.offsetBy(dx: 0, dy: Metrics.gapWide), display: false)
         panel.alphaValue = 0
         show()
         NSAnimationContext.runAnimationGroup { ctx in

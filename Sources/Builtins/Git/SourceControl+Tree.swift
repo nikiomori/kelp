@@ -93,6 +93,8 @@ extension SourceControlController {
         if collapsed.contains(s.rawValue) { collapsed.remove(s.rawValue) } else { collapsed.insert(s.rawValue) }
         UserDefaults.standard.set(Array(collapsed), forKey: "scm.collapsed")
         turning = s
+        // What folds isn't moved row by row: it fades into what's there next, as a panel does, not at once.
+        if view.window != nil { (s == .graph ? view : outline).crossfade(Motion.base) }
         if s == .graph { layoutGraph() } else { rebuildChanges() }
         DispatchQueue.main.async { [weak self] in self?.turning = nil }   // the outline asks for the cell when it lays out
     }

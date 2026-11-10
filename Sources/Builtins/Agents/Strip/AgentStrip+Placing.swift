@@ -161,6 +161,7 @@ extension AgentStrip {
         window.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Motion.duration(Motion.appear)
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().setFrame(frame, display: true)
             window.animator().alphaValue = 1
         }

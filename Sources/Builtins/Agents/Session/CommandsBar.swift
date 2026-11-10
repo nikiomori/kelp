@@ -174,13 +174,12 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     /// the agent at every step.
     private func fold(_ fold: Bool) {
         unfolded = !fold
-        if fold {
-            popover.close()
+        if fold { popover.close() } else if let run = current { open(run) }
+        // The console goes once the bar has closed over it: taken out first, an empty box shrank.
+        layOut(animated: true) { [weak self] in
+            guard let self, fold, !unfolded else { return }
             closeConsole()
-        } else if let run = current {
-            open(run)
         }
-        layOut(animated: true)
         header.chevron.turn(from: .pi)
         if unfolded, !items.isEmpty { table.scrollRowToVisible(items.count - 1) }
     }
@@ -229,7 +228,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         layOut()
     }
 
-    func layOut(animated: Bool = false) {
+    func layOut(animated: Bool = false, then: (@MainActor () -> Void)? = nil) {
         var list: CGFloat = 0, shown: CGFloat = 0
         if unfolded {
             let rows =
@@ -248,12 +247,16 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
                 consoleHeight.animator().constant = shown
                 height.animator().constant = bar
             } completionHandler: {
-                MainActor.assumeIsolated { GhosttyTerminalView.holdSize(false) }   // AppKit runs it on the main thread
+                MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                    GhosttyTerminalView.holdSize(false)
+                    then?()
+                }
             }
         } else {
             listHeight?.constant = list
             consoleHeight?.constant = shown
             height?.constant = bar
+            then?()
         }
         showHeader(Date())
     }

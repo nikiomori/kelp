@@ -334,6 +334,7 @@ final class InspectorController: NSViewController {
         let index = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0
         for (j, b) in buttons.enumerated() { b.state = j == index ? .on : .off }
         let panel = panels[index]
+        if panelTitle.stringValue != loc(panel.title), view.window != nil { panelTitle.crossfade() }   // as the panel
         panelTitle.stringValue = loc(panel.title)
         fold()
         showCounts()   // the shown panel's icon into the row, its dot seen

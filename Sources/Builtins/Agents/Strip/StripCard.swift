@@ -122,6 +122,7 @@ final class StripCard {
         if reply.superview != nil { shown.makeFirstResponder(reply) }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Motion.duration(Motion.appear)
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             shown.animator().setFrame(frame, display: true)
             shown.animator().alphaValue = 1
         }
@@ -147,7 +148,15 @@ final class StripCard {
         watchers = []
         if let spaces { NSWorkspace.shared.notificationCenter.removeObserver(spaces) }
         spaces = nil
-        panel?.orderOut(nil)
+        // It goes as the strip does: faded, not cut.
+        if let shown = panel {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.duration(Motion.fast)
+                shown.animator().alphaValue = 0
+            } completionHandler: {
+                MainActor.assumeIsolated { shown.orderOut(nil) }   // AppKit runs it on the main thread
+            }
+        }
         panel = nil
     }
 }

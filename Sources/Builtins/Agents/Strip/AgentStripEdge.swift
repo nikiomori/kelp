@@ -186,6 +186,7 @@ final class StripLine {
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Motion.duration(Motion.appear)
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(frame, display: true)
             panel.animator().alphaValue = 1
         }

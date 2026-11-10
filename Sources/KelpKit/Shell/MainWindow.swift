@@ -269,8 +269,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             focusMode = (
                 sidebarItem.isCollapsed || hides(sidebarItem), inspectorItem.isCollapsed || hides(inspectorItem)
             )
-            place()   // before the columns close: the floaters take their widths
-            slide([(sidebarItem, true), (inspectorItem, true)])
+            // The panels go to their floaters once the columns have closed over them: moved first, they vanished and
+            // two empty columns slid shut.
+            floatWidths()
+            slide([(sidebarItem, true), (inspectorItem, true)]) { [weak self] in self?.place() }
         }
         let on = focusMode != nil
         sidebarToggle.isHidden = on
@@ -291,19 +293,32 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         let item: NSSplitViewItem = sidebar ? sidebarItem : inspectorItem
         if peeking === item { stopPeek() }
-        place()
-        if focusMode == nil {
-            slide([(item, on)])
-            if !sidebar { UserDefaults.standard.set(on, forKey: "inspector.collapsed") }
+        guard focusMode == nil else { return place() }
+        if on {
+            floatWidths()
+            slide([(item, true)]) { [weak self] in self?.place() }   // as focus mode: the column closes over it first
+        } else {
+            place()
+            slide([(item, false)])
         }
+        if !sidebar { UserDefaults.standard.set(on, forKey: "inspector.collapsed") }
     }
     /// Columns open or close together as a floater slides, and at once under Reduce Motion. The terminals beside them
     /// keep their size until the columns stop: a program in one would redraw for every width on the way.
-    private func slide(_ columns: [(item: NSSplitViewItem, collapsed: Bool)]) {
+    /// `then`: once they stand, at once when nothing moves.
+    private func slide(_ columns: [(item: NSSplitViewItem, collapsed: Bool)], then: (@MainActor () -> Void)? = nil) {
         let moves = columns.filter { $0.item.isCollapsed != $0.collapsed }
-        guard !moves.isEmpty else { return }
-        if moves.contains(where: { $0.item === sidebarItem && $0.collapsed }) { sidebar.card.close() }   // its row is going, and with it the pointer's way out
-        guard !Motion.reduced else { return moves.forEach { $0.item.isCollapsed = $0.collapsed } }
+        guard !moves.isEmpty else {
+            then?()
+            return
+        }
+        // Its row is going, and with it the pointer's way out.
+        if moves.contains(where: { $0.item === sidebarItem && $0.collapsed }) { sidebar.card.close() }
+        guard !Motion.reduced else {
+            moves.forEach { $0.item.isCollapsed = $0.collapsed }
+            then?()
+            return
+        }
         GhosttyTerminalView.holdSize(true)
         moves.forEach { holdWidth($0.item, closing: $0.collapsed) }
         NSAnimationContext.runAnimationGroup { ctx in
@@ -314,6 +329,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             MainActor.assumeIsolated {   // AppKit runs it on the main thread
                 GhosttyTerminalView.holdSize(false)
                 self?.letWidthsGo()
+                then?()
             }
         }
     }
@@ -357,6 +373,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     /// Each panel where it belongs now: in its column, or in its floater while it hides. A panel leaving its open column
     /// for the floater keeps its width there.
+    /// A floater is as wide as its column was: read while the column is still open.
+    private func floatWidths() {
+        for item in [sidebarItem, inspectorItem] where !item.isCollapsed {
+            let wide = item.viewController.view.frame.width
+            if wide >= item.minimumThickness { floater(item).width = wide }
+        }
+    }
     private func place() {
         for (item, panel, edge) in [(sidebarItem, sidebar.view, leftEdge), (inspectorItem, inspector.view, rightEdge)] {
             let hide = hides(item), floating = floater(item), column = item.viewController.view
@@ -430,9 +453,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func togglePin(_ item: NSSplitViewItem) {
         let pin = item === sidebarItem ? !pinned.sidebar : !pinned.inspector
         if item === sidebarItem { pinned.sidebar = pin } else { pinned.inspector = pin }
+        if pin, peeking === item {
+            // It stays where it stands, in its floater, while its column opens under it, and then is in the column.
+            if let monitor = peekMoves { NSEvent.removeMonitor(monitor) }
+            peekMoves = nil
+            return slide([(item, false)]) { [weak self] in
+                self?.stopPeek()
+                self?.place()
+            }
+        }
         if peeking === item { stopPeek() }
-        place()
-        slide([(item, !pin)])
+        if pin {
+            place()
+            slide([(item, false)])
+        } else {
+            floatWidths()
+            slide([(item, true)]) { [weak self] in self?.place() }
+        }
     }
 
     /// Closing the window quits (the daemon keeps agents running) — through the unsaved-files question; Cancel keeps it.
