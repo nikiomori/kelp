@@ -37,6 +37,52 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             }
         }
     }
+    /// What the source menu lists, in its order.
+    enum Source: Int, CaseIterable {
+        case pulls, issues, linear, jira, projects
+
+        var title: String {
+            switch self {
+            case .pulls: String(localized: "Pull Requests")
+            case .issues: String(localized: "Issues")
+            case .linear: String(localized: "Linear")
+            case .jira: String(localized: "Jira")
+            case .projects: String(localized: "Projects")
+            }
+        }
+        /// The filter menu's own items (Linear adds its teams to them, Projects its boards once they're read).
+        var filters: [String] {
+            switch self {
+            case .pulls:
+                [String(localized: "All open"), String(localized: "Mine"), String(localized: "Review requested")]
+            case .issues: [String(localized: "All open"), String(localized: "Assigned to me")]
+            case .linear: [String(localized: "My issues")]
+            case .jira: [String(localized: "My open issues"), String(localized: "Custom JQL…")]
+            case .projects: [String(localized: "Loading projects…")]
+            }
+        }
+        /// Read from the project's forge (gh or glab): a missing remote or CLI is what an error says. Linear and Jira
+        /// need neither.
+        var needsRemote: Bool { self != .linear && self != .jira }
+        /// What to do when it can't be read and gh or glab has no fix to offer; nil: the error's own words.
+        var connectHint: String? {
+            switch self {
+            case .linear: String(localized: "Connect Linear in Settings › Integrations")
+            case .jira: String(localized: "Connect Jira in Settings › Integrations")
+            case .projects: String(localized: "Projects need `gh auth refresh -s read:project`")
+            case .pulls, .issues: nil
+            }
+        }
+        /// Empty with no filter; nil: "Nothing here", and no filter narrows it to say so.
+        var none: String? {
+            switch self {
+            case .pulls: String(localized: "No open pull requests")
+            case .issues: String(localized: "No open issues")
+            case .linear, .jira, .projects: nil
+            }
+        }
+    }
+    var shown: Source { Source(rawValue: source.indexOfSelectedItem) ?? .pulls }
     var rows: [Row] = []
     private(set) var repoId: String?
     private var projectOwner: String?
@@ -46,10 +92,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     private var jiraJQL = "project = ENG AND statusCategory != Done ORDER BY priority DESC"
 
     override func loadView() {
-        source.addItems(withTitles: [
-            String(localized: "Pull Requests"), String(localized: "Issues"),
-            String(localized: "Linear"), String(localized: "Jira"), String(localized: "Projects")
-        ])
+        source.addItems(withTitles: Source.allCases.map(\.title))
         source.selectItem(at: 0)
         source.target = self
         source.action = #selector(sourceChanged)
@@ -130,8 +173,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else { return }
         Task {
             let forge = await app.quiet(GitHubForge(repoId: repoId))   // the list's own load says what failed
-            source.item(at: 0)?.title =
-                forge == "gitlab" ? String(localized: "Merge Requests") : String(localized: "Pull Requests")
+            source.item(at: Source.pulls.rawValue)?.title =
+                forge == "gitlab" ? String(localized: "Merge Requests") : Source.pulls.title
         }
     }
 
@@ -139,29 +182,21 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         filter.removeAllItems()
         menus += 1
         let menu = menus
-        switch source.indexOfSelectedItem {
-        case 0:
-            filter.addItems(withTitles: [
-                String(localized: "All open"), String(localized: "Mine"), String(localized: "Review requested")
-            ])
-        case 1: filter.addItems(withTitles: [String(localized: "All open"), String(localized: "Assigned to me")])
-        case 3: filter.addItems(withTitles: [String(localized: "My open issues"), String(localized: "Custom JQL…")])
-        case 2:
-            filter.addItems(withTitles: [String(localized: "My issues")])
+        filter.addItems(withTitles: shown.filters)
+        if shown == .linear {
             Task {   // team boards
                 for team in await app.quiet(LinearTeams()) ?? [] where menu == menus {   // the list's own load says what failed
                     filter.addItem(withTitle: String(localized: "Team: \(team.name)"))
                     filter.lastItem?.representedObject = team.id
                 }
             }
-        default: filter.addItems(withTitles: [String(localized: "Loading projects…")])
         }
         reload()
     }
 
     /// Custom JQL asks for its query when picked, not on every refresh or workspace switch.
     @objc private func filterChanged() {
-        guard source.indexOfSelectedItem == 3, filter.indexOfSelectedItem == 1 else {
+        guard shown == .jira, filter.indexOfSelectedItem == 1 else {
             reload()
             return
         }
@@ -195,29 +230,29 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 status.stringValue = String(localized: "Loading…")
             }
         }
-        let src = source.indexOfSelectedItem, filterIndex = filter.indexOfSelectedItem
+        let src = shown, filterIndex = filter.indexOfSelectedItem
         Task {
             defer { slow.cancel() }
             var rows: [Row] = []
             do {
                 switch src {
-                case 0:
+                case .pulls:
                     rows = try await app.get(
                         GitHubPRs(repoId: repoId, filter: ["open", "mine", "review"][max(0, filterIndex)])
                     )
                     .map(Row.pr)
-                case 1:
+                case .issues:
                     rows = try await app.get(GitHubIssues(repoId: repoId, filter: filterIndex == 1 ? "mine" : "open"))
                         .map(Row.issue)
-                case 2:
+                case .linear:
                     let team = filter.selectedItem?.representedObject as? String
                     var issues = try await app.get(LinearIssues(teamId: team))
                     if team != nil { issues.sort { $0.state.name < $1.state.name } }
                     rows = issues.map(Row.linear)
-                case 3:
+                case .jira:
                     rows = try await app.get(JiraIssues(jql: filterIndex == 1 ? jiraJQL : nil)).map(Row.jira)
-                default:
-                    if filter.itemTitles.first == String(localized: "Loading projects…") {
+                case .projects:
+                    if filter.itemTitles == Source.projects.filters {
                         let ps = try await app.get(GitHubProjects(repoId: repoId))
                         guard gen == reloads else { return }
                         filter.removeAllItems()
@@ -239,14 +274,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 self.rows = rows
                 filter.isHidden = false
                 // Empty because of the filter isn't the same as empty: say which, and offer the way back.
-                let narrowed = rows.isEmpty && filterIndex > 0 && src < 2
-                let none = [String(localized: "No open pull requests"), String(localized: "No open issues")]
+                let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
                 status.stringValue = ""
                 let picked = filter.titleOfSelectedItem ?? ""
                 let why =
-                    narrowed
-                    ? String(localized: "None in “\(picked)”.")
-                    : src < 2 ? none[src] : String(localized: "Nothing here")
+                    narrowed ? String(localized: "None in “\(picked)”.") : src.none ?? String(localized: "Nothing here")
                 showAll.isHidden = !narrowed
                 setupButton.isHidden = true
                 showEmpty(rows.isEmpty ? why : nil)
@@ -254,21 +286,18 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 guard gen == reloads else { return }
                 showAll.isHidden = true
                 let message = (error as? RPCError)?.message ?? "\(error)"
-                setup = src == 2 || src == 3 ? nil : Forge.setup(for: message)
+                setup = src.needsRemote ? Forge.setup(for: message) : nil
                 setupButton.title = setup?.title ?? ""
                 setupButton.toolTip = setup?.command
                 setupButton.isHidden = setup == nil
                 self.rows = []
-                var why = setup?.note ?? message
-                if src == 2 { why = String(localized: "Connect Linear in Settings › Integrations") }
-                if src == 3 { why = String(localized: "Connect Jira in Settings › Integrations") }
-                if src == 4, setup == nil { why = String(localized: "Projects need `gh auth refresh -s read:project`") }
+                let why = setup?.note ?? src.connectHint ?? message
                 status.stringValue = ""
                 let quiet = Forge.noRemote(why)
                 filter.isHidden = quiet != nil   // the source stays: Linear and Jira need no remote
                 if let quiet {
                     showEmpty(quiet.text, symbol: "network", title: quiet.title, retry: true)
-                } else if src == 2 || src == 3 {
+                } else if !src.needsRemote {
                     showEmpty(why, symbol: "link")
                 } else {
                     showEmpty(why, error: String(localized: "Couldn't load the list"))
