@@ -97,7 +97,7 @@ final class StripButton: PointerControl {
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
     private var anyApp: NSTrackingArea?
-    private let bite = CAShapeLayer(), rounded = CAShapeLayer()
+    private let bite = CAShapeLayer()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -140,15 +140,14 @@ final class StripButton: PointerControl {
         let hole = CGPath(ellipseIn: round, transform: nil)
         bite.path = tile.subtracting(hole)
         icon.layer?.mask = bite
-        rounded.path = tile
     }
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
         if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
         let status = StripModel.status(item.cell)
-        // Working is a tile's own state: no mark. A mark is something to look at, and only then is the tile cut for it.
-        mark.status = item.cell == .working ? nil : status
-        icon.layer?.mask = item.cell == .working ? rounded : bite
+        // Every state has its mark in the tile's bite; working's is the spinning arc, so a strip of agents at work reads as
+        // work going on, not as a row of Dock icons.
+        mark.status = status
         // A clear icon keeps the tile's shape.
         effectiveAppearance.performAsCurrentDrawingAppearance {
             icon.layer?.backgroundColor = NSColor.fillHover.cgColor
