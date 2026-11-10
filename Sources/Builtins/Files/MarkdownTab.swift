@@ -40,11 +40,29 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     var onEditing: ((Bool) -> Void)?
     /// Writes the file: a review's picks are answers the agent reads from disk.
     var saveFile: (() async -> Bool)?
-    /// A review an agent wrote: its page is answered, not read (`ReviewPage`).
-    private var isReview: Bool { Review.isReview(url.path) }
-    /// An agent's page of HTML: the preview is the file itself.
-    private var isHTML: Bool { ["html", "htm"].contains(url.pathExtension.lowercased()) }
-    private var isSlides: Bool { url.lastPathComponent == Artifacts.Kind.slides.file && ArtifactBar.isPage(url.path) }
+    /// What the preview shows, from the file's path.
+    enum Page {
+        case markdown
+        /// An agent's slides: the Markdown cut into 16:9 slides.
+        case slides
+        /// A review an agent wrote: its page is answered, not read (`ReviewPage`).
+        case review
+        /// An agent's page of HTML: the preview is the file itself.
+        case html
+
+        @MainActor init(_ url: URL) {
+            if ["html", "htm"].contains(url.pathExtension.lowercased()) {
+                self = .html
+            } else if Review.isReview(url.path) {
+                self = .review
+            } else if url.lastPathComponent == Artifacts.Kind.slides.file && ArtifactBar.isPage(url.path) {
+                self = .slides
+            } else {
+                self = .markdown
+            }
+        }
+    }
+    private let page: Page
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
 
@@ -109,6 +127,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         links = PreviewLinks(app: app)
         self.editor = editor
         self.url = url
+        page = Page(url)
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -209,7 +228,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// Over the selection once it's made (not while the mouse is still dragging it); gone without one.
     private func placeSelectionBar() {
-        guard NSEvent.pressedMouseButtons == 0, !isHTML, !editor.view.isHidden, let selection = editor.selectionRect
+        guard NSEvent.pressedMouseButtons == 0, page != .html, !editor.view.isHidden,
+            let selection = editor.selectionRect
         else {
             return selectionBar.isHidden = true
         }
@@ -232,7 +252,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         if artifactBar != nil, let body = message.body as? [String: Any], body["kind"] as? String == "ask" {
             return ask(about: body["text"] as? String ?? "")
         }
-        if isReview, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
+        if page == .review, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             ["pick", "note", "send"].contains(kind)
         {
             guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
@@ -297,13 +317,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 let colors = CodeEditor.page
                 page = (colors.background.hexString, colors.text.hexString)
             }
-            let review = isReview, slides = isSlides, raw = isHTML, sendTo = pageAuthor?.title
+            let kind = self.page, sendTo = pageAuthor?.title
             // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
             // Kelp's do, beside it.
             let ask = artifactBar == nil ? [] : [PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))]
             let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
-                if raw { return (text, []) }
-                if review {
+                if kind == .html { return (text, []) }
+                if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
                     return (
                         MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.style,
@@ -313,9 +333,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 let body = MarkdownHTML.render(text, marking: true)
                 let html = MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page)
                 return (
-                    html + (slides ? MarkdownHTML.slidesStyle : ""),
+                    html + (kind == .slides ? MarkdownHTML.slidesStyle : ""),
                     [
-                        slides ? MarkdownHTML.slidesScript : nil, MarkdownHTML.mermaid(for: text, dark: dark),
+                        kind == .slides ? MarkdownHTML.slidesScript : nil, MarkdownHTML.mermaid(for: text, dark: dark),
                         MarkdownHTML.math(for: body), MarkdownHTML.scrollSync
                     ].compactMap { $0 }
                 )
@@ -327,7 +347,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
             let place =
-                currentMode == "split" && !review && !raw
+                currentMode == "split" && (kind == .markdown || kind == .slides)
                 ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(scrollY))"
             links.load(html, baseURL: base, scripts: scripts + ask + [place], world: Self.world, in: web)
         }
