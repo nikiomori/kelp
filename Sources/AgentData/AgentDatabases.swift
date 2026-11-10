@@ -6,6 +6,8 @@ import SQLite3
 /// a connection that may write applies, and Kelp doesn't write to an agent's files.
 public enum AgentDatabases {
     public static let agents = ["copilot", "opencode", "kilo", "antigravity"]
+    /// Those whose rows say what a call cost.
+    public static let ownPrice = ["opencode", "kilo"]
 
     /// `agent`'s databases changed since `since` (an older one has nothing newer in it).
     public static func files(_ agent: String, changedSince since: Date) -> [URL] {

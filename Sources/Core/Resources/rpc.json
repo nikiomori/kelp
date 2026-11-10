@@ -4269,6 +4269,13 @@
             },
             "type" : "array"
           },
+          "counted" : {
+            "description" : "The agents whose logs are read, in a fixed order (one not here keeps no counts on this Mac), and those whose own figure is the cost (the rest are priced from list prices). Nil from a kelpd before they were said.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "days" : {
             "description" : "`days` by day (\"yyyy-MM-dd\") and agent id; agents and groups most expensive first; `since` is the first day's start.",
             "items" : {
@@ -4279,6 +4286,12 @@
           "models" : {
             "items" : {
               "$ref" : "#/components/schemas/UsageReport.Group"
+            },
+            "type" : "array"
+          },
+          "ownPrice" : {
+            "items" : {
+              "type" : "string"
             },
             "type" : "array"
           },

@@ -273,6 +273,11 @@ final class SessionSetup: Sendable {
         return own.map { base + [flag, $0.id] } ?? base
     }
 
+    /// The conversation `agent` keeps on disk, as its manifest says.
+    func transcript(of agent: String?) -> AgentManifest.Transcript? {
+        AgentManifest.load(dir: root.appendingPathComponent("agents")).first { $0.id == agent }?.transcript
+    }
+
     func manifest(_ id: String?, command: String?, fallbackArgv: [String]? = nil) throws -> AgentManifest {
         if let command { return .custom(command) }
         if id == "custom", let argv = fallbackArgv {

@@ -30,6 +30,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         }
     }
 
+    /// Its lines say what a call cost (Grok's own figure, pi's): that's the price, not the list's.
+    public var ownPrice: Bool { [.grok, .pi, .omp].contains(self) }
+
     func reads(_ file: URL) -> Bool {
         switch self {
         case .claude: file.pathExtension == "jsonl"

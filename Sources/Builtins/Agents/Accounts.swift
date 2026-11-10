@@ -1,3 +1,4 @@
+import Agents
 import AppKit
 import Core
 import DesignKit
@@ -5,8 +6,8 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// Account profiles for Claude Code / Codex: each has its own config dir (CLAUDE_CONFIG_DIR / CODEX_HOME),
-/// so logins stay side by side and switching is just a different environment.
+/// Account profiles for the agents whose manifests have them (Claude Code, Codex): each has its own config dir
+/// (`AgentHome`'s variable), so logins stay side by side and switching is just a different environment.
 struct AccountProfile: Codable, Hashable, Identifiable {
     var name: String
     var agent: String
@@ -60,8 +61,7 @@ struct AccountsSettings: View {
             }
             HStack {
                 Picker("", selection: $newAgent) {
-                    Text("Claude Code").tag("claude")
-                    Text("Codex").tag("codex")
+                    ForEach(app.catalog.all.filter(\.profiles), id: \.id) { Text($0.name).tag($0.id) }
                 }.labelsHidden().fixedSize()
                 TextField("Profile name", text: $newName, prompt: Text("Profile name")).labelsHidden().textFieldStyle(
                     .roundedBorder

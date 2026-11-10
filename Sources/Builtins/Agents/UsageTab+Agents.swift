@@ -26,7 +26,9 @@ extension UsageReportView {
         (usage?.agents ?? []).filter { $0.tokens > 0 && (sel == nil || $0.id == sel) }
     }
     func value(_ d: UsageAgents.Day) -> Double { byCost ? d.cost : Double(d.tokens) }
-    func color(_ id: String) -> Color { Self.colors[id] ?? .gray }
+    func color(_ id: String) -> Color {
+        usage?.counted?.firstIndex(of: id).map { Self.palette[$0 % Self.palette.count] } ?? .gray
+    }
 
     func kpis(_ lines: [Line]) -> some View {
         let shown = series, cost = shown.reduce(0) { $0 + $1.cost }, tokens = shown.reduce(0) { $0 + $1.tokens }
@@ -170,7 +172,7 @@ extension UsageReportView {
             .overlay(alignment: .bottom) { Rectangle().fill(.quaternary).frame(height: 1) }
         } else {
             Text(
-                Self.counted.contains(line.id)
+                usage?.counted?.contains(line.id) ?? true
                     ? String(localized: "Not used in this time")
                     : String(localized: "Keeps no token counts on this Mac")
             )
@@ -193,7 +195,7 @@ extension UsageReportView {
             Text(agentUsage.map { money($0.cost, $0.tokens) } ?? "—").monospacedDigit()
             if let agentUsage, agentUsage.cost == 0 {
                 Text("no list price").font(.ui(11)).foregroundStyle(.secondary)
-            } else if let agentUsage, Self.ownPrice.contains(agentUsage.id) {
+            } else if let agentUsage, usage?.ownPrice?.contains(agentUsage.id) == true {
                 Text("as it reports").font(.ui(11)).foregroundStyle(.secondary)
             }
         }

@@ -88,9 +88,9 @@ extension AgentsSettings {
             input("Arguments", $args, .args, prompt: "space separated")
             input("Environment", $env, .env, prompt: "KEY=value, one per line", lines: 3...6)
             HStack {
-                if !Self.presets(m.id).isEmpty {
+                if !m.providers.isEmpty {
                     Menu("Provider Presets") {
-                        ForEach(Self.presets(m.id), id: \.0) { name, lines in Button(name) { addLines(lines) } }
+                        ForEach(m.providers, id: \.name) { p in Button(p.name) { addLines(p.env) } }
                     }.fixedSize()
                 }
                 Spacer()
@@ -166,38 +166,6 @@ extension AgentsSettings {
         }
     }
 
-    /// Ways to run an agent through another provider, as environment variables its docs define.
-    static func presets(_ agent: String) -> [(String, [String])] {
-        switch agent {
-        case "claude":
-            [
-                ("Anthropic API Key", ["ANTHROPIC_API_KEY="]),
-                ("Amazon Bedrock", ["CLAUDE_CODE_USE_BEDROCK=1", "AWS_REGION=us-east-1", "AWS_PROFILE=default"]),
-                (
-                    "Google Vertex AI",
-                    ["CLAUDE_CODE_USE_VERTEX=1", "CLOUD_ML_REGION=us-east5", "ANTHROPIC_VERTEX_PROJECT_ID="]
-                ),
-                ("Gateway (LiteLLM, Ollama…)", ["ANTHROPIC_BASE_URL=http://localhost:4000", "ANTHROPIC_AUTH_TOKEN="])
-            ]
-        case "codex":
-            [
-                ("OpenAI API Key", ["OPENAI_API_KEY="]),
-                (
-                    "OpenAI-compatible Endpoint (OpenRouter…)",
-                    ["OPENAI_BASE_URL=https://openrouter.ai/api/v1", "OPENAI_API_KEY="]
-                )
-            ]
-        case "gemini":
-            [
-                ("Gemini API Key", ["GEMINI_API_KEY="]),
-                (
-                    "Google Vertex AI",
-                    ["GOOGLE_GENAI_USE_VERTEXAI=true", "GOOGLE_CLOUD_PROJECT=", "GOOGLE_CLOUD_LOCATION=us-central1"]
-                )
-            ]
-        default: []
-        }
-    }
     private func addLines(_ lines: [String]) {
         var have = env.split(separator: "\n").map(String.init)
         for l in lines

@@ -1,3 +1,4 @@
+import Agents
 import AppKit
 import Core
 import DesignKit
@@ -102,12 +103,9 @@ package struct AgentActions {
         }
     }
 
-    /// Agents whose conversation `session.fork` can copy.
-    static let forkable: Set = ["claude", "codex"]
-
     /// "Fork Chat", for an agent that can: a new chat beside it going on from a copy of its conversation.
     func addFork(to m: NSMenu, _ sid: String) {
-        guard let agent = app.session(sid)?.agent, Self.forkable.contains(agent) else { return }
+        guard app.catalog.manifest(app.session(sid)?.agent)?.forks == true else { return }
         m.add(String(localized: "Fork Chat")) { fork(sid) }
     }
 

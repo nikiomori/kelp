@@ -295,7 +295,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         try? await Task.sleep(for: .milliseconds(1200))
         // Nobody at the Mac: a recap from a fork of its conversation (what it did, what's left) waits for whoever comes back.
         // Only for a banner that will show: a recap is a run of Claude, not worth it for a muted row or a short turn.
-        if session.status == .done, session.agent == "claude", app.settings[SettingKeys.recap],
+        if session.status == .done, app.catalog.manifest(session.agent)?.transcript == .claude,
+            app.settings[SettingKeys.recap],
             !Presence.here(),
             tells(session, turn: turn),
             let line = await app.quiet(SessionRecap(id: session.id)) ?? nil

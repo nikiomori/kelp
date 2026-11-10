@@ -124,12 +124,12 @@ extension SessionFork: Handled {
     /// Its command, going on from a copy of the conversation. Claude Code's pins one id, which the copy may not take
     /// (`following` pins the copy's once it's made); Codex's thread id ends its rollout's name.
     static func argv(_ old: Session, _ manifest: AgentManifest, _ sessions: Sessions) throws -> [String] {
-        switch old.agent {
-        case "claude":
+        switch manifest.transcript {
+        case .claude?:
             let resumed = SessionRestart.withoutSessionId(
                 sessions.setup.resumeArgv(old, manifest), flag: manifest.sessionIdFlag)
             if let argv = manifest.forking(resumed) { return argv }
-        case "codex":
+        case .codex?:
             let file = sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
             if let id = file.map({ String($0.deletingPathExtension().lastPathComponent.suffix(36)) }),
                 UUID(uuidString: id) != nil
@@ -152,15 +152,15 @@ extension SessionHandoff: Handled {
         let target = agent ?? old.agent
         var manifest = try sessions.setup.manifest(target, command: nil)
         let file = sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
-        let conversation = file.flatMap(Conversation.init(file:))
         let uncommitted = Self.uncommitted(old.cwd, sessions)
         let ask = prompt ?? "Continue the task where the previous agent left off."
         var launch = Sessions.Launch(self)
         launch.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
-        if let opened = try native(old, file: file, conversation, uncommitted: uncommitted, sessions) {
+        if let opened = try native(old, manifest, file: file, uncommitted: uncommitted, sessions) {
             manifest.args += opened
             launch.prompt = ask
         } else {
+            let conversation = file.flatMap(Conversation.init(file:))
             let brief = try Self.brief(of: old, conversation, limit: limit, uncommitted: uncommitted, sessions)
             launch.prompt = "Read \(brief.path) — the transcript of the previous agent session in this project. " + ask
         }
@@ -173,20 +173,21 @@ extension SessionHandoff: Handled {
     /// Codex imports a Claude Code transcript itself, as a thread it resumes (only into the default account: another
     /// account's Codex wouldn't find it). pi and oh-my-pi open a session of theirs Kelp writes, which they go on in.
     private func native(
-        _ old: Session, file: URL?, _ conversation: Conversation?, uncommitted: String, _ sessions: Sessions
+        _ old: Session, _ manifest: AgentManifest, file: URL?, uncommitted: String, _ sessions: Sessions
     ) throws -> [String]? {
-        switch agent ?? old.agent {
-        case "codex" where old.agent == "claude" && profile == nil:
-            let conversations = sessions.agentUsage.conversations
-            return file.flatMap { conversations.codexThread(importing: $0, cwd: old.cwd) }.map { ["resume", $0] }
-        case let target? where target == "pi" || target == "omp":
-            guard let conversation else { return nil }
+        switch manifest.transcript {
+        case .codex? where sessions.setup.transcript(of: old.agent) == .claude && profile == nil:
+            return file.flatMap { sessions.agentUsage.conversations.codexThread(importing: $0, cwd: old.cwd) }.map { ["resume", $0] }
+        case .pi?:
+            guard let conversation = file.flatMap(Conversation.init(file:)), let flag = manifest.resumeIdFlag else {
+                return nil
+            }
             let session = try conversation.piSession(
                 cwd: old.cwd, agent: old.agent ?? "agent", limit: limit, uncommitted: uncommitted)
             // One per hand-off: the agent writes on in it, and an earlier one may still be open.
             let path = try Self.handoffFile("\(old.id)-\(UUID().uuidString.prefix(8).lowercased()).jsonl", sessions)
             try session.write(to: path, atomically: true, encoding: .utf8)
-            return [target == "pi" ? "--session" : "--resume", path.path]
+            return [flag, path.path]
         default: return nil
         }
     }

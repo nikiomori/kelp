@@ -52,39 +52,13 @@ package struct AgentCatalog {
         return "\(base) \(index + 1)"
     }
 
+    /// The manifest of agent `id`, preset, file or extension's.
+    func manifest(_ id: String?) -> AgentManifest? { id.flatMap { id in all.first { $0.id == id } } }
     /// What an agent is, in a few words: the empty workspace and Settings › Agents say it beside the name.
-    package func about(_ id: String) -> String? {
-        switch id {
-        case "claude": String(localized: "Anthropic’s coding agent")
-        case "codex": String(localized: "OpenAI’s coding agent")
-        case "gemini": String(localized: "Retired by Google in June 2026: Antigravity takes its place")
-        case "opencode": String(localized: "Open source, works with any model provider")
-        case "cursor": String(localized: "Cursor’s agent in the terminal")
-        case "qwen": String(localized: "Alibaba’s open source agent")
-        case "amp": String(localized: "Sourcegraph’s agent")
-        case "copilot": String(localized: "GitHub Copilot in the terminal")
-        case "auggie": String(localized: "Augment Code’s agent")
-        case "crush": String(localized: "Charm’s open source agent, any model")
-        case "aider": String(localized: "Pair programming in git, any model")
-        case "droid": String(localized: "Factory’s agent")
-        case "hermes": String(localized: "Nous Research’s self-improving agent")
-        case "omp": String(localized: "Pi with an IDE’s tools wired in, any model")
-        case "fx": String(localized: "Vercel’s small native agent, any model")
-        case "pi": String(localized: "A minimal, extensible terminal agent, any model")
-        case "grok": String(localized: "xAI’s coding agent")
-        case "antigravity": String(localized: "Google’s Antigravity agent in the terminal")
-        case "kimi": String(localized: "Moonshot AI’s coding agent")
-        case "kilo": String(localized: "Open source agent, any model provider")
-        case "goose": String(localized: "Open source, extensible agent, any model")
-        case "kiro": String(localized: "AWS’s agent in the terminal")
-        default: nil
-        }
-    }
+    package func about(_ id: String) -> String? { manifest(id)?.about.map(loc) }
     /// What the empty workspace offers to install when no agent is on this Mac; the rest are in Settings › Agent Catalog.
     var suggested: [AgentManifest] {
-        ["claude", "codex", "antigravity", "opencode", "cursor"].compactMap { id in
-            all.first { $0.id == id && $0.install != nil }
-        }
+        all.filter { $0.featured != nil && $0.install != nil }.sorted { ($0.featured ?? 0) < ($1.featured ?? 0) }
     }
     /// The agent's own install command in a terminal tab of `e`, in plain sight; once it ends, the agent is looked for again.
     /// An installer that needs npm or Homebrew, on a Mac without it, says so here instead of failing in its tab.
@@ -120,25 +94,20 @@ package struct AgentCatalog {
             app.agentIcons.made[name] = (nil, image)
             return image
         }
-        let real = app.agentIcons.image(id), title = name(id), key = "\(id) \(size) \(title)"
+        let agent = manifest(id)
+        let real = app.agentIcons.image(id, apps: agent?.apps ?? [], site: agent?.site)
+        let title = name(id), key = "\(id) \(size) \(title)"
         if let known = app.agentIcons.made[key], known.source === real { return known.image }
         let image: NSImage
         if let copy = real?.copy() as? NSImage {
             copy.size = NSSize(width: size, height: size)
             image = copy
         } else {
-            image = IconTile.letter(title, color: Self.brand[id], size: size)
+            image = IconTile.letter(title, color: agent?.color.flatMap(NSColor.init(hex:)), size: size)
         }
         app.agentIcons.made[key] = (real, image)
         return image
     }
-    /// Colours for the initials of agents whose icon isn't found (yet): the vendor's, near enough.
-    private static let brand: [String: NSColor] = [
-        "claude": NSColor(srgbRed: 0.85, green: 0.47, blue: 0.34, alpha: 1),
-        "codex": NSColor(white: 0.15, alpha: 1), "grok": NSColor(white: 0.15, alpha: 1),
-        "cursor": NSColor(white: 0.15, alpha: 1), "gemini": .systemBlue,
-        "hermes": NSColor(srgbRed: 0.25, green: 0.55, blue: 0.85, alpha: 1)
-    ]
 }
 
 /// Which agent CLIs run on this Mac: found on the login shell's PATH and answering `--version` — a shim whose binary

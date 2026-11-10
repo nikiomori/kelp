@@ -11,21 +11,6 @@ final class AgentIcons {
     private(set) var images: [String: NSImage] = [:]
     @ObservationIgnored private var asked = Set<String>()
 
-    /// Where each known agent's icon comes from: its Mac app's name, its website.
-    static let sources: [String: (apps: [String], site: String?)] = [
-        "claude": (["Claude"], "claude.ai"), "codex": (["ChatGPT", "Codex"], "chatgpt.com"),
-        "cursor": (["Cursor"], "cursor.com"),
-        "antigravity": (["Antigravity"], "antigravity.google"), "kiro": (["Kiro"], "kiro.dev"),
-        "gemini": ([], "gemini.google.com"),
-        "grok": (["Grok"], "grok.com"), "qwen": ([], "qwen.ai"), "kimi": (["Kimi"], "kimi.com"),
-        "kilo": ([], "kilo.ai"),
-        "crush": ([], "charm.land"), "droid": (["Factory"], "factory.ai"), "opencode": ([], "opencode.ai"),
-        "amp": ([], "ampcode.com"),
-        "copilot": ([], "github.com"), "aider": ([], "aider.chat"), "auggie": ([], "augmentcode.com"),
-        "omp": ([], "omp.sh"), "fx": ([], "fx.sh"), "hermes": ([], "hermes-agent.nousresearch.com"),
-        "pi": ([], "pi.dev")
-    ]
-
     /// What `AgentCatalog.icon` made, by agent and size, with the icon it came from.
     @ObservationIgnored var made: [String: (source: NSImage?, image: NSImage)] = [:]
     /// A made image without its colour: rendering one takes a millisecond and more, for each paused row on each sidebar pass.
@@ -38,23 +23,24 @@ final class AgentIcons {
         return grey
     }
 
-    func image(_ id: String) -> NSImage? {
+    /// `apps`, `site`: where its manifest says the icon comes from when Kelp ships none.
+    func image(_ id: String, apps: [String], site: String?) -> NSImage? {
         if !asked.contains(id) {
             asked.insert(id)
-            load(id)
+            load(id, apps: apps, site: site)
         }
         return images[id]
     }
 
     private var folder: URL { Paths.root.appendingPathComponent("icons") }
 
-    private func load(_ id: String) {
+    private func load(_ id: String, apps: [String], site: String?) {
         if let logo = Self.logo(id) {
             images[id] = logo
             return
         }
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        for name in Self.sources[id]?.apps ?? [] {
+        for name in apps {
             for dir in ["/Applications", "\(home)/Applications"]
             where FileManager.default.fileExists(atPath: "\(dir)/\(name).app") {
                 images[id] = IconTile.app(NSWorkspace.shared.icon(forFile: "\(dir)/\(name).app"))
@@ -66,7 +52,7 @@ final class AgentIcons {
             images[id] = img
             return
         }
-        guard let site = Self.sources[id]?.site else { return }
+        guard let site else { return }
         let dir = folder
         Task.detached(priority: .utility) {
             guard let data = await Self.fetchIcon(site) else { return }

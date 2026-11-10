@@ -202,6 +202,10 @@ import Testing
     let agents = try await d.handle("usage.agents", .obj(["days": 1]), conn: -1)
     let claude = agents["agents"]?.array?.first { $0["id"]?.string == "claude" }
     #expect(claude?["tokens"]?.int == 8 && claude?["input"]?.int == 3 && claude?["output"]?.int == 5)
+    // Whose logs it reads and whose price is its own: the Usage tab's "keeps no counts" and "as it reports".
+    #expect(agents["counted"]?.array?.first?.string == "claude")
+    #expect(
+        agents["ownPrice"]?.array?.contains("grok") == true && agents["ownPrice"]?.array?.contains("claude") == false)
     await #expect(throws: RPCError.invalidParams("session required")) {
         try await d.handle("history.resume", .null, conn: -1)
     }

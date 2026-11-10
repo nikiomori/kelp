@@ -44,17 +44,10 @@ struct UsageReportView: View {
     /// The last year of weeks, for the board of days (read once, after the span's).
     @State private var year: [UsageAgents.Day] = []
 
-    /// The agents whose tokens the daemon reads (`usage.agents`): one that reports a plan but isn't here keeps no counts.
-    static let counted: Set = [
-        "claude", "codex", "grok", "antigravity", "kimi", "copilot", "opencode", "kilo", "pi", "omp", "qwen", "gemini"
+    /// The charts' colours, by an agent's place among those the daemon counts: the same in every span.
+    static let palette: [Color] = [
+        .blue, .purple, .orange, .brown, .mint, .yellow, .cyan, .red, .teal, .green, .pink, .indigo
     ]
-    /// Each agent's colour in the charts, the same in every span.
-    static let colors: [String: Color] = [
-        "claude": .blue, "grok": .orange, "codex": .purple, "copilot": .teal, "antigravity": .indigo,
-        "opencode": .green, "kilo": .pink, "pi": .mint, "omp": .yellow, "kimi": .brown, "qwen": .cyan, "gemini": .red
-    ]
-    /// Agents whose own figure is the cost (the rest are priced from list prices).
-    static let ownPrice: Set = ["grok", "pi", "omp", "opencode", "kilo"]
 
     var body: some View {
         let lines = agentLines(UsageView.plans(app).mapValues { (limits: $0.limits, readAt: $0.readAt) })

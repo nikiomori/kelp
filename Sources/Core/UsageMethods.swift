@@ -153,14 +153,20 @@ public struct UsageAgents: InternalMethod {
         /// `days` by day ("yyyy-MM-dd") and agent id; agents and groups most expensive first; `since` is the first day's start.
         public var days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group],
             since: Double
+        /// The agents whose logs are read, in a fixed order (one not here keeps no counts on this Mac), and those whose
+        /// own figure is the cost (the rest are priced from list prices). Nil from a kelpd before they were said.
+        public var counted: [String]?, ownPrice: [String]?
         public init(
-            days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double
+            days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double,
+            counted: [String]? = nil, ownPrice: [String]? = nil
         ) {
             self.days = days
             self.agents = agents
             self.models = models
             self.projects = projects
             self.since = since
+            self.counted = counted
+            self.ownPrice = ownPrice
         }
     }
     public var days: Int?

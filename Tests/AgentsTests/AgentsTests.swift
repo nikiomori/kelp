@@ -693,3 +693,28 @@ func hooklessCodex() throws -> AgentManifest {
             && installed("goose").installNeeds == nil)
     #expect(try installed("goose").install?.contains("CONFIGURE=false") == true)
 }
+
+/// What the app shows of an agent and what it can do come from its preset, for every agent Kelp knows: a few words, an
+/// installer, a folder for its account profiles. An override saved for one writes only what differs from the preset,
+/// so it keeps following it.
+@Test func everyPresetHasTheFactsTheAppShows() throws {
+    for m in AgentManifest.presets {
+        #expect(m.about?.isEmpty == false, "\(m.id) says what it is")
+        #expect(m.install != nil, "\(m.id) installs")
+        #expect(!m.profiles || AgentHome.variable(m.id) != nil, "\(m.id)'s profiles have a folder")
+        #expect(m.color.map { $0.hasPrefix("#") && $0.count == 7 } ?? true, "\(m.id)'s colour")
+        #expect(m.transcript != .pi || m.resumeIdFlag != nil, "\(m.id) opens the session a hand-off writes")
+    }
+    #expect(AgentManifest.presets.filter(\.forks).map(\.id).sorted() == ["claude", "codex"])
+    #expect(AgentManifest.presets.compactMap(\.featured).sorted() == [0, 1, 2, 3, 4])
+    var claude = try #require(AgentManifest.presets.first { $0.id == "claude" })
+    claude.command = "/opt/claude"
+    let saved = try JSONEncoder().encode(claude)
+    #expect(String(decoding: saved, as: UTF8.self).contains("about") == false)
+    let read = try JSONDecoder().decode(AgentManifest.self, from: saved)
+    #expect(read.command == "/opt/claude" && read.transcript == .claude && read.profiles && !read.providers.isEmpty)
+    // A format this Kelp doesn't know is none, not a file that doesn't load.
+    let other = try JSONDecoder().decode(
+        AgentManifest.self, from: Data(#"{"id":"mine","name":"Mine","command":"m","transcript":"aider"}"#.utf8))
+    #expect(other.transcript == nil && !other.forks)
+}

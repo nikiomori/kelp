@@ -78,7 +78,9 @@ extension UsageAgents: Handled {
         .sorted { ($0.cost, $0.tokens) > ($1.cost, $1.tokens) }
         return Result(
             days: days, agents: agents, models: group { $0.row.model }, projects: group { project($0.row.cwd) },
-            since: since.timeIntervalSince1970)
+            since: since.timeIntervalSince1970,
+            counted: UsageFormat.allCases.map(\.rawValue) + AgentDatabases.agents,
+            ownPrice: UsageFormat.allCases.filter(\.ownPrice).map(\.rawValue) + AgentDatabases.ownPrice)
     }
 }
 

@@ -62,6 +62,41 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     /// The agent's own install / update commands (run in a terminal you can watch), and its npm package for
     /// "is there a newer version".
     public var install: String?, update: String?, npm: String?
+    /// What it is, in a few English words: Settings and the empty workspace show it beside the name, translated.
+    public var about: String?
+    /// `#rrggbb`: the tile with its initial, while (or when) no icon is found.
+    public var color: String?
+    /// Where its icon comes from when Kelp ships none: its Mac app's names, then its website's own icon.
+    public var apps: [String] = [], site: String?
+    /// Its place among the agents the empty workspace offers to install when none is on this Mac; nil: not offered there.
+    public var featured: Int?
+    /// The conversation it keeps on disk in a form Kelp reads, if any.
+    public var transcript: Transcript?
+    /// Account profiles: each login in a config folder of its own, which `AgentHome`'s variable points it at.
+    public var profiles = false
+    /// Ways to run it through another provider, as variables its docs define (Settings › Agent Catalog adds them).
+    public var providers: [Provider] = []
+
+    public enum Transcript: String, Codable, Sendable, CaseIterable {
+        /// Claude Code's `projects/<folder>/<id>.jsonl`: subagent journals, recaps, a fork with `--fork-session`, and
+        /// Codex imports it at a hand-off.
+        case claude
+        /// Codex's rollouts: a fork goes on from its thread, and a hand-off from a Claude transcript imports into one.
+        case codex
+        /// pi's session files: a hand-off writes one, which the agent opens with `resumeIdFlag`.
+        case pi
+    }
+
+    public struct Provider: Codable, Sendable, Equatable {
+        public var name: String, env: [String]
+        public init(_ name: String, _ env: [String]) {
+            self.name = name
+            self.env = env
+        }
+    }
+
+    /// `session.fork` can copy its conversation.
+    public var forks: Bool { transcript == .claude || transcript == .codex }
 
     public init(
         id: String, name: String, command: String, args: [String] = [], env: [String: String] = [:],
@@ -71,7 +106,9 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         autoAnswers: [AutoAnswer] = [], resumeArgs: [String] = [], pluginDirFlag: String? = nil,
         contextFlag: String? = nil,
         sessionIdFlag: String? = nil, resumeIdFlag: String? = nil,
-        install: String? = nil, update: String? = nil, npm: String? = nil
+        install: String? = nil, update: String? = nil, npm: String? = nil, about: String? = nil,
+        color: String? = nil, apps: [String] = [], site: String? = nil, featured: Int? = nil,
+        transcript: Transcript? = nil, profiles: Bool = false, providers: [Provider] = []
     ) {
         self.id = id
         self.name = name
@@ -94,6 +131,14 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         self.install = install
         self.update = update
         self.npm = npm
+        self.about = about
+        self.color = color
+        self.apps = apps
+        self.site = site
+        self.featured = featured
+        self.transcript = transcript
+        self.profiles = profiles
+        self.providers = providers
     }
 
     public init(from decoder: Decoder) throws {
@@ -125,12 +170,24 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         install = try container.decodeIfPresent(String.self, forKey: .install) ?? preset?.install
         update = try container.decodeIfPresent(String.self, forKey: .update) ?? preset?.update
         npm = try container.decodeIfPresent(String.self, forKey: .npm) ?? preset?.npm
+        about = try container.decodeIfPresent(String.self, forKey: .about) ?? preset?.about
+        color = try container.decodeIfPresent(String.self, forKey: .color) ?? preset?.color
+        apps = try container.decodeIfPresent([String].self, forKey: .apps) ?? preset?.apps ?? []
+        site = try container.decodeIfPresent(String.self, forKey: .site) ?? preset?.site
+        featured = try container.decodeIfPresent(Int.self, forKey: .featured) ?? preset?.featured
+        // A format this Kelp doesn't read is none, not a file that doesn't load.
+        transcript =
+            try container.decodeIfPresent(String.self, forKey: .transcript).map { Transcript(rawValue: $0) }
+            ?? preset?.transcript
+        profiles = try container.decodeIfPresent(Bool.self, forKey: .profiles) ?? preset?.profiles ?? false
+        providers = try container.decodeIfPresent([Provider].self, forKey: .providers) ?? preset?.providers ?? []
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, command, args, env, waitingPatterns, quietSeconds, tracksStatus, modelFlag, models, effortArgs,
             autoAnswers, resumeArgs
         case sessionIdFlag, resumeIdFlag, pluginDirFlag, contextFlag, install, update, npm
+        case about, color, apps, site, featured, transcript, profiles, providers
         // `hooks`, as agent files have it
         case hooksSettingsFlag, hooksConfigDirEnv, hooksSettingsEnv, hooksHerdr, hooksCodexConfig
     }
@@ -155,9 +212,22 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         try container.encodeIfPresent(resumeIdFlag, forKey: .resumeIdFlag)
         try container.encodeIfPresent(pluginDirFlag, forKey: .pluginDirFlag)
         try container.encodeIfPresent(contextFlag, forKey: .contextFlag)
-        try container.encodeIfPresent(install, forKey: .install)
-        try container.encodeIfPresent(update, forKey: .update)
-        try container.encodeIfPresent(npm, forKey: .npm)
+        // What Kelp knows of a preset's agent is written only where this one differs: an override follows the preset.
+        let preset = Self.presets.first { $0.id == id }
+        func fact<T: Encodable & Equatable>(_ value: T, _ base: T, _ key: CodingKeys) throws {
+            if value != base { try container.encode(value, forKey: key) }
+        }
+        try fact(install, preset?.install, .install)
+        try fact(update, preset?.update, .update)
+        try fact(npm, preset?.npm, .npm)
+        try fact(about, preset?.about, .about)
+        try fact(color, preset?.color, .color)
+        try fact(apps, preset?.apps ?? [], .apps)
+        try fact(site, preset?.site, .site)
+        try fact(featured, preset?.featured, .featured)
+        try fact(transcript, preset?.transcript, .transcript)
+        try fact(profiles, preset?.profiles ?? false, .profiles)
+        try fact(providers, preset?.providers ?? [], .providers)
     }
 
     /// What an agent file says instead of a secret's value: the value is in the login keychain (`agent.<id>.<KEY>`).
@@ -236,7 +306,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     /// `argv` changed to continue a copy of its conversation (a session copied to another home, `HomeSeed`), leaving the
     /// one it names as it is; `following` drops the flag once the copy is made. Nil when no id is pinned, or the agent can't.
     public func forking(_ argv: [String]) -> [String]? {
-        guard id == "claude", let pin = sessionIdFlag, let resume = resumeIdFlag,
+        guard transcript == .claude, let pin = sessionIdFlag, let resume = resumeIdFlag,
             argv.contains(pin) || argv.contains(resume)
         else { return nil }
         return resuming(argv) + ["--fork-session"]
