@@ -23,16 +23,17 @@ extension UIRequests {
         guard let area = app.workbench.window?.editors.area(wid) else {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
+        guard let action = BrowserAction(rawValue: event.action) else {
+            throw RPCError.invalidParams("kelp browser knows no \(event.action)")
+        }
         let args = event.args ?? .object([:])
-        if event.action == "open",
-            let page = try await area.pageForOpen(shared: args["shared"]?.bool == true, args: args)
-        {
-            return try await area.browse(page, "info", args)
+        if action == .open, let page = try await area.pageForOpen(shared: args["shared"]?.bool == true, args: args) {
+            return try await area.browse(page, .info, args)
         }
         guard let page = area.browsedPage() else {
             throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
         }
-        return try await area.browse(page, event.action, args)
+        return try await area.browse(page, action, args)
     }
 }
 
@@ -84,11 +85,11 @@ extension EditorArea {
     }
 
     /// The action, by the tab's provider, on the tab, built if it wasn't yet.
-    func browse(_ page: TabRef, _ action: String, _ args: JSONValue) async throws -> JSONValue {
+    func browse(_ page: TabRef, _ action: BrowserAction, _ args: JSONValue) async throws -> JSONValue {
         guard let tab = content(page), let browse = app.extensions.tabProvider(for: page.uri)?.browse else {
             throw RPCError.invalidParams("That tab shows no page.")
         }
-        return try await browse(tab, action, args)
+        return try await browse(tab, action.rawValue, args)
     }
 
     /// The page it drove last (one it opened: `browsing` is set only by `open` and by this), else an agent's own.

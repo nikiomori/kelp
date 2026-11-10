@@ -133,8 +133,15 @@ public struct UICommand: InternalMethod {
     ]
 }
 
-/// `kelp browser`: `action` (open, snapshot, click, type, eval, screenshot, wait) on the browser tab of workspace
-/// `worktreeId`, done by the app, whose answer is the result. It waits for the page, up to `wait` seconds.
+/// What `kelp browser` does on a page (`UIBrowser.action`): the CLI's words, the shell's and the page tab's alike.
+public enum BrowserAction: String, CaseIterable, Sendable {
+    case open, snapshot, click, hover, type, press, upload, dialog, scroll, back, reload, eval, viewport, screenshot,
+        wait
+    case console, network, info
+}
+
+/// `kelp browser`: `action` (a `BrowserAction`) on the browser tab of workspace `worktreeId`, done by the app, whose
+/// answer is the result. It waits for the page, up to `wait` seconds.
 public struct UIBrowser: InternalMethod {
     public static let name = "ui.browser"
     public typealias Result = JSONValue

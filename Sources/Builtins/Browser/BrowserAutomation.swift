@@ -10,10 +10,13 @@ import WorkbenchKit
 extension BrowserTab {
     static let world = WKContentWorld.world(name: "kelp.browser")
 
-    func browse(_ action: String, _ args: JSONValue) async throws -> JSONValue {
+    func browse(_ name: String, _ args: JSONValue) async throws -> JSONValue {
+        guard let action = BrowserAction(rawValue: name) else {
+            throw RPCError.invalidParams("kelp browser knows no \(name)")
+        }
         func need(_ key: String) throws -> String {
             guard let value = args[key]?.string, !value.isEmpty else {
-                throw RPCError.invalidParams("\(action) needs \(key)")
+                throw RPCError.invalidParams("\(name) needs \(key)")
             }
             return value
         }
@@ -32,30 +35,30 @@ extension BrowserTab {
             throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")
         }
         switch action {
-        case "console", "network": return .string(listed(action == "console", clear: args["clear"]?.bool == true))
-        case "info": return try await settled()
-        case "open":
+        case .console, .network: return .string(listed(action == .console, clear: args["clear"]?.bool == true))
+        case .info: return try await settled()
+        case .open:
             // The page it shows already: an agent opens it again after changing the code, so nothing comes from the cache
             // (a dev server that doesn't ask for revalidation would hand back the old script).
             let url = try need("url")
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
-        case "reload":
+        case .reload:
             web.reloadFromOrigin()
             return try await settled()
-        case "viewport": return try await resize(try need("size"))
-        case "snapshot":
+        case .viewport: return try await resize(try need("size"))
+        case .snapshot:
             let find = args["find"]?.string ?? ""
             let text =
                 try await run(Self.snapshotJS, ["ref": args["ref"]?.string ?? "", "max": find.isEmpty ? 1500 : 20000])
                 as? String ?? ""
             return .string(find.isEmpty ? text : Self.found(find, in: text))
-        case "dialog":
+        case .dialog:
             let accept = try need("answer") == "accept", text = accept ? args["text"]?.string : nil
             dialogAnswer = (accept, text)
             guard accept else { return .string("The page's next question gets Cancel") }
             return .string("The page's next question gets OK" + (text.map { " and \"\($0)\"" } ?? ""))
-        case "upload":
+        case .upload:
             // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
             let files = (args["files"]?.array ?? []).compactMap { file -> [String: String]? in
                 if case .object(let fields) = file { return fields.compactMapValues(\.string) } else { return nil }
@@ -64,12 +67,12 @@ extension BrowserTab {
             _ = try await run(
                 Self.findJS + Self.flashJS + Self.uploadJS, shown(["ref": try need("ref"), "files": files]))
             return try await settled()
-        case "click", "hover":
+        case .click, .hover:
             _ = try await run(
-                Self.findJS + Self.flashJS + (action == "click" ? Self.clickJS : Self.hoverJS),
+                Self.findJS + Self.flashJS + (action == .click ? Self.clickJS : Self.hoverJS),
                 shown(["ref": try need("ref")]))
             return try await settled()
-        case "type":
+        case .type:
             _ = try await run(
                 Self.findJS + Self.flashJS + Self.typeJS,
                 shown([
@@ -77,17 +80,17 @@ extension BrowserTab {
                     "submit": args["submit"]?.bool == true
                 ]))
             return try await settled()
-        case "press":
+        case .press:
             _ = try await run(Self.pressJS, ["key": try need("key"), "ref": args["ref"]?.string ?? ""])
             return try await settled()
-        case "scroll":
+        case .scroll:
             let at = try await run(Self.scrollJS, ["to": args["to"]?.string ?? "down"]) as? String ?? ""
             return try await settled(["scroll": .string(at)])
-        case "back":
+        case .back:
             guard web.canGoBack else { throw RPCError.invalidParams("No page to go back to.") }
             web.goBack()
             return try await settled()
-        case "eval":
+        case .eval:
             // The page's own world: the agent asks about the page's state (its globals, its framework).
             // A promise that never settles ends here, before the daemon stops waiting: nothing is left awaiting it.
             let limit = Int(UIBrowser.wait - 10) * 1000
@@ -99,7 +102,7 @@ extension BrowserTab {
             let value = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
             // The CLI prints nothing for null: the agent couldn't tell it ran.
             return value == .null ? .string("null") : value
-        case "screenshot":
+        case .screenshot:
             _ = try await run(Self.calmJS)   // what an action started has played out and been drawn
             let image: NSImage
             do { image = try await web.takeSnapshot(configuration: nil) } catch {
@@ -110,7 +113,7 @@ extension BrowserTab {
                 throw RPCError.internalError("Couldn't write the screenshot")
             }
             return .object(["path": .string(path)])
-        case "wait":
+        case .wait:
             let text = args["text"]?.string, selector = args["selector"]?.string
             let seconds = min(args["timeout"]?.number ?? 10, UIBrowser.wait - 5),
                 end = Date().addingTimeInterval(seconds)
@@ -122,7 +125,6 @@ extension BrowserTab {
             }
             // What's left of the daemon's wait: an answer after it would find nobody waiting.
             return try await settled(within: min(30, max(1, UIBrowser.wait - 5 - seconds + end.timeIntervalSinceNow)))
-        default: throw RPCError.invalidParams("kelp browser knows no \(action)")
         }
     }
 
@@ -164,7 +166,7 @@ extension BrowserTab {
     }
 
     /// What an agent may still do on a page the user took over: look.
-    static let whileTakenOver: Set = ["wait", "info"]
+    static let whileTakenOver: Set<BrowserAction> = [.wait, .info]
 
     /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place.
     nonisolated static func found(_ text: String, in snapshot: String) -> String {
