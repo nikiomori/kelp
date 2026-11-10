@@ -280,9 +280,9 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let wt: Worktree = try await w.c.call(
         "worktree.create", .obj(["repoId": .string(w.repo.id), "branch": "feat/detached", "setup": false]),
         as: Worktree.self)
-    try Git.run(["checkout", "-q", "--detach"], cwd: wt.path)
+    try Git.run(["checkout", "-q", "--detach"], cwd: wt.path, remotes: .none)
     try "work\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
-    try Git.run(["commit", "-qam", "on no branch"], cwd: wt.path)
+    try Git.run(["commit", "-qam", "on no branch"], cwd: wt.path, remotes: .none)
     await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
     await #expect(throws: (any Error).self) {
         _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id), "force": true]))
@@ -471,7 +471,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(try d.store.worktrees(repo: r.id).isEmpty)
     try d.start()
     #expect(try await waitFor { try d.store.worktrees(repo: r.id).count == 1 })
-    try Git.run(["checkout", "-qb", "elsewhere"], cwd: path)
+    try Git.run(["checkout", "-qb", "elsewhere"], cwd: path, remotes: .none)
     #expect(try await waitFor { try d.store.worktrees(repo: r.id).first?.branch == "elsewhere" })
 }
 
@@ -509,11 +509,11 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
 @Test func agentConfigInASubfolderCounts() throws {
     let repo = try makeRepo()
     #expect(!AgentConfig.changed(repo, base: "main", remotes: .none))
-    try Git.run(["checkout", "-qb", "pr"], cwd: repo)
+    try Git.run(["checkout", "-qb", "pr"], cwd: repo, remotes: .none)
     try FileManager.default.createDirectory(atPath: repo + "/sub/.claude", withIntermediateDirectories: true)
     try "{}".write(toFile: repo + "/sub/.claude/settings.json", atomically: true, encoding: .utf8)
     #expect(AgentConfig.changed(repo, base: "main", remotes: .none))   // not committed yet
-    try Git.run(["add", "."], cwd: repo)
-    try Git.run(["commit", "-qm", "sub config"], cwd: repo)
+    try Git.run(["add", "."], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "sub config"], cwd: repo, remotes: .none)
     #expect(AgentConfig.changed(repo, base: "main", remotes: .none))   // committed on the branch
 }

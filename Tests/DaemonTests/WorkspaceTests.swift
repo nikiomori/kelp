@@ -16,13 +16,13 @@ import Testing
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     try #require(w.d.sessions.existing(s.id)).noteTurn(.working)
     #expect(try await waitFor(5) { !(try await w.c.call(SessionTurns(id: s.id))).isEmpty })
-    let refs = { try Git.run(["for-each-ref", "refs/kelp/turns/"], cwd: w.repo.path) }
+    let refs = { try Git.run(["for-each-ref", "refs/kelp/turns/"], cwd: w.repo.path, remotes: .none) }
     // The turn is listed before its snapshot's ref is written (git, off the turn's queue): waited for, not assumed
     #expect(try await waitFor(10) { try !refs().isEmpty })
-    try Git.run(["worktree", "lock", wt.path], cwd: w.repo.path)
+    try Git.run(["worktree", "lock", wt.path], cwd: w.repo.path, remotes: .none)
     await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: wt.id)) }
     #expect(try !refs().isEmpty)
-    try Git.run(["worktree", "unlock", wt.path], cwd: w.repo.path)
+    try Git.run(["worktree", "unlock", wt.path], cwd: w.repo.path, remotes: .none)
     _ = try await w.c.call(WorktreeRemove(id: wt.id))
     #expect(try refs().isEmpty)
 }
@@ -35,15 +35,15 @@ import Testing
     let wt = try await workspace(w, "half-gone")
     try FileManager.default.moveItem(atPath: wt.path, toPath: tmp().path + "/trashed")
     _ = try await w.c.call(WorktreeRemove(id: wt.id))
-    #expect(try Git.linkedWorktrees(w.repo.path).isEmpty && !Git.branchExists(w.repo.path, "half-gone"))
+    #expect(try Git.linkedWorktrees(w.repo.path, remotes: .none).isEmpty && !Git.branchExists(w.repo.path, "half-gone", remotes: .none))
     // Its own commit: refused, the record stays, until told to drop it.
     let own = try await workspace(w, "own-commit")
-    try Git.run(["commit", "-q", "--allow-empty", "-m", "only here"], cwd: own.path)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "only here"], cwd: own.path, remotes: .none)
     try FileManager.default.moveItem(atPath: own.path, toPath: tmp().path + "/trashed")
     await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: own.id)) }
-    #expect(try Git.branchExists(w.repo.path, "own-commit") && w.d.store.worktree(own.id) != nil)
+    #expect(try Git.branchExists(w.repo.path, "own-commit", remotes: .none) && w.d.store.worktree(own.id) != nil)
     _ = try await w.c.call(WorktreeRemove(id: own.id, dropCommits: true))
-    #expect(try Git.linkedWorktrees(w.repo.path).isEmpty && !Git.branchExists(w.repo.path, "own-commit"))
+    #expect(try Git.linkedWorktrees(w.repo.path, remotes: .none).isEmpty && !Git.branchExists(w.repo.path, "own-commit", remotes: .none))
 }
 
 /// A new workspace in a remote project whose host is slow to answer: every other project's workspaces sync meanwhile.
@@ -53,8 +53,8 @@ import Testing
     defer { d.stop() }
     let there = tmp().appendingPathComponent("slow-host").path
     try FileManager.default.createDirectory(atPath: there, withIntermediateDirectories: true)
-    try Git.run(["init", "-q", "-b", "main"], cwd: there)
-    try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there)
+    try Git.run(["init", "-q", "-b", "main"], cwd: there, remotes: .none)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there, remotes: .none)
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
     let shim = URL(fileURLWithPath: localSSH).deletingLastPathComponent()
     let flag = shim.appendingPathComponent("slow-host").path, asked = shim.appendingPathComponent("slow-asked").path
@@ -79,13 +79,13 @@ import Testing
     try ".env\n".write(toFile: repo + "/.git/info/exclude", atomically: true, encoding: .utf8)
     let clean = w.root.appendingPathComponent("clean").path, paused = w.root.appendingPathComponent("paused").path
     for (p, b) in [(clean, "clean"), (paused, "paused")] {
-        try Git.run(["worktree", "add", "-q", "-b", b, p], cwd: repo)
+        try Git.run(["worktree", "add", "-q", "-b", b, p], cwd: repo, remotes: .none)
     }
     try "SECRET=1\n".write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
     var s = Session(cwd: paused, command: "agent")
     s.status = .paused
     try w.d.store.save(s)
-    let listed = try Git.linkedWorktrees(repo).map(\.path)
+    let listed = try Git.linkedWorktrees(repo, remotes: .none).map(\.path)
     let res = try await w.c.call(RepoRemoveWorktrees(id: w.repo.id, paths: listed))
     #expect(res.removed.count == 1 && res.kept.count == 1 && res.kept.values.first?.contains("agent") == true, "\(res)")
     #expect(FileManager.default.fileExists(atPath: paused) && !FileManager.default.fileExists(atPath: clean))

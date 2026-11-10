@@ -2,15 +2,15 @@ import Core
 import Foundation
 
 extension Git {
-    public static func stage(_ path: String, files: [String], remotes: Remotes = .none) throws {
+    public static func stage(_ path: String, files: [String], remotes: Remotes) throws {
         try run(["add", "--"] + literal(files), cwd: path, remotes: remotes)
     }
-    public static func unstage(_ path: String, files: [String], remotes: Remotes = .none) throws {
+    public static func unstage(_ path: String, files: [String], remotes: Remotes) throws {
         try run(["reset", "-q", "HEAD", "--"] + literal(files), cwd: path, remotes: remotes)
     }
 
     /// Stage (or unstage, `reverse`) a single hunk of `diff` via `git apply --cached`.
-    public static func applyHunk(_ path: String, diff: FileDiff, hunk: Int, reverse: Bool, remotes: Remotes = .none)
+    public static func applyHunk(_ path: String, diff: FileDiff, hunk: Int, reverse: Bool, remotes: Remotes)
         throws
     {
         try runData(
@@ -19,7 +19,7 @@ extension Git {
     }
 
     /// Throw away one unstaged hunk of `diff` (the working tree's version of `git restore -p`): its reverse, applied to the files.
-    public static func discardHunk(_ path: String, diff: FileDiff, hunk: Int, remotes: Remotes = .none) throws {
+    public static func discardHunk(_ path: String, diff: FileDiff, hunk: Int, remotes: Remotes) throws {
         try runData(
             ["apply", "--recount", "--unidiff-zero", "-R", "-"], cwd: path, stdin: diff.patch(hunk: hunk),
             remotes: remotes)
@@ -29,7 +29,7 @@ extension Git {
     /// conflicts: staging them would commit the conflict markers.
     @discardableResult
     public static func commit(
-        _ path: String, message: String, all: Bool = false, amend: Bool = false, remotes: Remotes = .none
+        _ path: String, message: String, all: Bool = false, amend: Bool = false, remotes: Remotes
     ) throws -> String {
         if all {
             if try status(path, remotes: remotes).contains(where: \.conflicted) {
@@ -47,7 +47,7 @@ extension Git {
     }
 
     /// A merge is under way in this checkout (MERGE_HEAD exists): its conflicts and resolutions are the user's.
-    public static func isMerging(_ path: String, remotes: Remotes = .none) -> Bool {
+    public static func isMerging(_ path: String, remotes: Remotes) -> Bool {
         succeeds(["rev-parse", "-q", "--verify", "MERGE_HEAD"], cwd: path, remotes: remotes)
     }
 
@@ -56,7 +56,7 @@ extension Git {
     /// `onto`: the branch `target` must have checked out (the base); anything else is refused rather than merged into.
     public static func merge(
         branch: String, into target: String, onto: String? = nil, keepConflicts: Bool = false,
-        remotes: Remotes = .none
+        remotes: Remotes
     ) throws -> MergeResult {
         if let onto {
             let here = try currentBranch(target, remotes: remotes)
@@ -82,7 +82,7 @@ extension Git {
         }
     }
 
-    public static func log(_ path: String, base: String? = nil, limit: Int = 50, remotes: Remotes = .none) throws -> [(
+    public static func log(_ path: String, base: String? = nil, limit: Int = 50, remotes: Remotes) throws -> [(
         hash: String, subject: String
     )] {
         let range = try base.map { ["\(try rev($0))..HEAD"] } ?? []

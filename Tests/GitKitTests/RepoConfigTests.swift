@@ -11,27 +11,27 @@ import Testing
     let ran = repo + "/ran", script = repo + "/x.sh"
     try "#!/bin/sh\ntouch '\(ran)'\ncat \"$1\" 2>/dev/null\n".write(toFile: script, atomically: true, encoding: .utf8)
     chmod(script, 0o755)
-    try Git.run(["config", "core.fsmonitor", script], cwd: repo)
-    try Git.run(["config", "diff.x.textconv", script], cwd: repo)
-    try Git.run(["config", "filter.x.clean", script + " %f"], cwd: repo)
+    try Git.run(["config", "core.fsmonitor", script], cwd: repo, remotes: .none)
+    try Git.run(["config", "diff.x.textconv", script], cwd: repo, remotes: .none)
+    try Git.run(["config", "filter.x.clean", script + " %f"], cwd: repo, remotes: .none)
     try "*.txt diff=x filter=x\n".write(toFile: repo + "/.git/info/attributes", atomically: true, encoding: .utf8)
     try "a\nB\nc\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // the same size: status has to read it
-    #expect(try Git.status(repo).contains { $0.path == "f.txt" })
-    #expect(try Git.diff(repo, source: .unstaged).first?.hunks.isEmpty == false)
+    #expect(try Git.status(repo, remotes: .none).contains { $0.path == "f.txt" })
+    #expect(try Git.diff(repo, source: .unstaged, remotes: .none).first?.hunks.isEmpty == false)
     #expect(!FileManager.default.fileExists(atPath: ran))
     // From a linked worktree too, whose config is the main repository's.
     let wt = try Git.addWorktree(
-        repo: repo, branch: "w", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
+        repo: repo, branch: "w", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [], remotes: .none)
     try "a\nB\nc\n".write(toFile: wt + "/f.txt", atomically: true, encoding: .utf8)
     try? FileManager.default.removeItem(atPath: ran)
-    #expect(try Git.status(wt).contains { $0.path == "f.txt" })
+    #expect(try Git.status(wt, remotes: .none).contains { $0.path == "f.txt" })
     #expect(!FileManager.default.fileExists(atPath: ran))
-    try Git.run(["add", "f.txt"], cwd: repo)   // what the user does keeps the repo's filter
+    try Git.run(["add", "f.txt"], cwd: repo, remotes: .none)   // what the user does keeps the repo's filter
     #expect(FileManager.default.fileExists(atPath: ran))
-    try Git.run(["-c", "filter.x.clean=", "commit", "-qm", "two"], cwd: repo)
+    try Git.run(["-c", "filter.x.clean=", "commit", "-qm", "two"], cwd: repo, remotes: .none)
     try FileManager.default.removeItem(atPath: ran)
-    _ = try Git.run(["show", "HEAD"], cwd: repo)   // any patch Kelp reads, not only Diff's
-    _ = try Git.run(["log", "-p", "-1"], cwd: repo)
+    _ = try Git.run(["show", "HEAD"], cwd: repo, remotes: .none)   // any patch Kelp reads, not only Diff's
+    _ = try Git.run(["log", "-p", "-1"], cwd: repo, remotes: .none)
     #expect(!FileManager.default.fileExists(atPath: ran))
 }
 
@@ -43,17 +43,17 @@ import Testing
     try "TOKEN=1\n".write(toFile: repo + "/conf/.env", atomically: true, encoding: .utf8)
     try "conf/.env\n.env\n".write(toFile: repo + "/.gitignore", atomically: true, encoding: .utf8)
     try ".env\n".write(toFile: repo + "/.worktreeinclude", atomically: true, encoding: .utf8)
-    try Git.run(["add", ".gitignore", ".worktreeinclude"], cwd: repo)
-    try Git.run(["commit", "-qm", "include"], cwd: repo)
-    try Git.run(["checkout", "-qb", "evil"], cwd: repo)
+    try Git.run(["add", ".gitignore", ".worktreeinclude"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "include"], cwd: repo, remotes: .none)
+    try Git.run(["checkout", "-qb", "evil"], cwd: repo, remotes: .none)
     try FileManager.default.moveItem(atPath: repo + "/conf", toPath: repo + "/conf-real")
     try FileManager.default.createSymbolicLink(atPath: repo + "/conf", withDestinationPath: outside)
-    try Git.run(["add", "conf"], cwd: repo)
-    try Git.run(["commit", "-qm", "link"], cwd: repo)
-    try Git.run(["checkout", "-q", "main"], cwd: repo)   // takes the link away
+    try Git.run(["add", "conf"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "link"], cwd: repo, remotes: .none)
+    try Git.run(["checkout", "-q", "main"], cwd: repo, remotes: .none)   // takes the link away
     try FileManager.default.moveItem(atPath: repo + "/conf-real", toPath: repo + "/conf")
     let p = try Git.addWorktree(
-        repo: repo, branch: "w", base: "evil", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: ["conf/.env"])
+        repo: repo, branch: "w", base: "evil", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: ["conf/.env"], remotes: .none)
     #expect(!FileManager.default.fileExists(atPath: outside + "/.env"))
     #expect(FileManager.default.fileExists(atPath: p + "/.env"))   // one inside still comes
 }
@@ -65,17 +65,17 @@ import Testing
     let marker = repo + "/ran", script = repo + "/gpg.sh"
     try "#!/bin/sh\ntouch \(marker)\n".write(toFile: script, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script)
-    let tree = try Git.run(["write-tree"], cwd: repo).trimmingCharacters(in: .whitespacesAndNewlines)
+    let tree = try Git.run(["write-tree"], cwd: repo, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines)
     let signed =
         "tree \(tree)\nauthor a <a@a> 0 +0000\ncommitter a <a@a> 0 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n x\n -----END PGP SIGNATURE-----\n\nsigned\n"
     try signed.write(toFile: repo + "/commit.txt", atomically: true, encoding: .utf8)
-    let sha = try Git.run(["hash-object", "-t", "commit", "-w", "commit.txt"], cwd: repo).trimmingCharacters(
+    let sha = try Git.run(["hash-object", "-t", "commit", "-w", "commit.txt"], cwd: repo, remotes: .none).trimmingCharacters(
         in: .whitespacesAndNewlines)
-    try Git.run(["update-ref", "HEAD", sha], cwd: repo)
-    try Git.run(["config", "log.showSignature", "true"], cwd: repo)
-    try Git.run(["config", "gpg.program", script], cwd: repo)
-    _ = try Git.run(["log", "--format=%h", "HEAD"], cwd: repo)
-    _ = try Git.run(["show", "--stat", "HEAD"], cwd: repo)
+    try Git.run(["update-ref", "HEAD", sha], cwd: repo, remotes: .none)
+    try Git.run(["config", "log.showSignature", "true"], cwd: repo, remotes: .none)
+    try Git.run(["config", "gpg.program", script], cwd: repo, remotes: .none)
+    _ = try Git.run(["log", "--format=%h", "HEAD"], cwd: repo, remotes: .none)
+    _ = try Git.run(["show", "--stat", "HEAD"], cwd: repo, remotes: .none)
     #expect(!FileManager.default.fileExists(atPath: marker))
 }
 
@@ -83,7 +83,7 @@ import Testing
 /// last read: the cache follows the included file's stamp, not just .git/config's.
 @Test func aFilterInAnIncludedConfigIsSeenWhenItChanges() throws {
     let repo = try tempRepo()
-    try Git.run(["config", "include.path", "extra.cfg"], cwd: repo)
+    try Git.run(["config", "include.path", "extra.cfg"], cwd: repo, remotes: .none)
     try "[filter \"x\"]\n\tclean = cat\n".write(toFile: repo + "/.git/extra.cfg", atomically: true, encoding: .utf8)
     #expect(RepoFilters.names(repo) == ["x"])
     try "[filter \"x\"]\n\tclean = cat\n[filter \"y\"]\n\tsmudge = cat\n".write(
@@ -98,18 +98,18 @@ import Testing
 @Test func aFilterOfAnyNameIsTurnedOff() throws {
     for name in ["a=b", "c d", "e\tf", "g.h"] {
         let repo = try tempRepo()
-        try Git.run(["config", "filter.\(name).clean", "cat"], cwd: repo)
+        try Git.run(["config", "filter.\(name).clean", "cat"], cwd: repo, remotes: .none)
         #expect(RepoFilters.names(repo) == [name])
     }
     for name in ["a=b", "g.h"] {   // what .gitattributes can name
         let repo = try tempRepo()
         let marker = repo + "/.git/ran"
-        try Git.run(["config", "filter.\(name).clean", "touch \(marker); cat"], cwd: repo)
+        try Git.run(["config", "filter.\(name).clean", "touch \(marker); cat"], cwd: repo, remotes: .none)
         try "* filter=\(name)\n".write(toFile: repo + "/.git/info/attributes", atomically: true, encoding: .utf8)
         try "changed\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-        _ = try Git.run(["status", "--short"], cwd: repo)
+        _ = try Git.run(["status", "--short"], cwd: repo, remotes: .none)
         #expect(!FileManager.default.fileExists(atPath: marker), "\(name) status")
-        _ = try Git.snapshotTree(repo)
+        _ = try Git.snapshotTree(repo, remotes: .none)
         #expect(!FileManager.default.fileExists(atPath: marker), "\(name)")
     }
 }
@@ -122,7 +122,7 @@ import Testing
     try "#!/bin/sh\ntouch \(marker)\n".write(toFile: hook, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook)
     try "x\n".write(toFile: repo + "/f", atomically: true, encoding: .utf8)
-    _ = try Git.snapshotTree(repo)
+    _ = try Git.snapshotTree(repo, remotes: .none)
     #expect(!FileManager.default.fileExists(atPath: marker))
 }
 
@@ -132,22 +132,22 @@ import Testing
     let repo = try tempRepo()
     try FileManager.default.createDirectory(atPath: repo + "/sub/deep", withIntermediateDirectories: true)
     try "tracked\n".write(toFile: repo + "/sub/old.pem", atomically: true, encoding: .utf8)
-    try Git.run(["add", "sub/old.pem"], cwd: repo)
-    try Git.run(["commit", "-qm", "a cert"], cwd: repo)
+    try Git.run(["add", "sub/old.pem"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "a cert"], cwd: repo, remotes: .none)
     for f in [".env", "sub/deep/id_rsa", "sub/server.pem", "sub/credentials.json"] {
         try "SECRET-\(f)\n".write(toFile: repo + "/" + f, atomically: true, encoding: .utf8)
     }
     try "code\n".write(toFile: repo + "/sub/new.txt", atomically: true, encoding: .utf8)
-    let tree = try Git.snapshotTree(repo + "/sub")   // from a subfolder, as an agent working there
-    let files = try Git.run(["ls-tree", "-r", "--name-only", tree], cwd: repo).split(separator: "\n").map(String.init)
+    let tree = try Git.snapshotTree(repo + "/sub", remotes: .none)   // from a subfolder, as an agent working there
+    let files = try Git.run(["ls-tree", "-r", "--name-only", tree], cwd: repo, remotes: .none).split(separator: "\n").map(String.init)
     #expect(files.contains("sub/new.txt") && files.contains("sub/old.pem"), "\(files)")
     #expect(
         !files.contains {
             ["id_rsa", "server.pem", "credentials.json", ".env"].contains(($0 as NSString).lastPathComponent)
         }, "\(files)")
-    let secret = try Git.run(["hash-object", "--stdin"], cwd: repo, stdin: "SECRET-.env\n").trimmingCharacters(
+    let secret = try Git.run(["hash-object", "--stdin"], cwd: repo, stdin: "SECRET-.env\n", remotes: .none).trimmingCharacters(
         in: .whitespacesAndNewlines)
-    #expect(try Git.run(["cat-file", "--batch-check"], cwd: repo, stdin: secret + "\n").contains("missing"))
+    #expect(try Git.run(["cat-file", "--batch-check"], cwd: repo, stdin: secret + "\n", remotes: .none).contains("missing"))
 }
 
 /// A submodule's own config can define a filter too (`git status` runs in the submodule): it's turned off as well.

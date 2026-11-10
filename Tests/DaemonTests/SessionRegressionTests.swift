@@ -307,13 +307,13 @@ private func submitted(_ screen: String) -> String {
     try "keep me\n".write(toFile: victim, atomically: true, encoding: .utf8)
     let evil = "--output=" + victim
     let origin = try makeRepo()
-    let sha = try Git.run(["rev-parse", "HEAD"], cwd: origin).trimmingCharacters(in: .whitespacesAndNewlines)
-    try Git.run(["update-ref", "refs/heads/" + evil, sha], cwd: origin)
-    try Git.run(["symbolic-ref", "HEAD", "refs/heads/" + evil], cwd: origin)
+    let sha = try Git.run(["rev-parse", "HEAD"], cwd: origin, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines)
+    try Git.run(["update-ref", "refs/heads/" + evil, sha], cwd: origin, remotes: .none)
+    try Git.run(["symbolic-ref", "HEAD", "refs/heads/" + evil], cwd: origin, remotes: .none)
     let clone = tmp().path
-    try Git.run(["clone", "-q", "--", origin, clone], cwd: "/tmp")
-    #expect(Git.defaultBranch(repo: clone) != "--output=" + victim && !Git.defaultBranch(repo: clone).hasPrefix("-"))
-    #expect(throws: GitError.self) { try Git.currentBranch(clone) }
+    try Git.run(["clone", "-q", "--", origin, clone], cwd: "/tmp", remotes: .none)
+    #expect(Git.defaultBranch(repo: clone, remotes: .none) != "--output=" + victim && !Git.defaultBranch(repo: clone, remotes: .none).hasPrefix("-"))
+    #expect(throws: GitError.self) { try Git.currentBranch(clone, remotes: .none) }
     #expect(AgentConfig.changed(clone, base: evil, remotes: .none))   // refused: asked, not compared
     let w = try await world()
     defer { w.d.stop() }

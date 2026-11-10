@@ -68,7 +68,7 @@ import os
     #expect(try await waitFor { try await now()?.branch == "pocini-vhod" })
     let named = try await now()
     #expect(named?.note == "Почини вход" && named?.path == w.path)
-    #expect(Git.branchExists(repo.path, "pocini-vhod") && !Git.branchExists(repo.path, "ws-2"))
+    #expect(Git.branchExists(repo.path, "pocini-vhod", remotes: .none) && !Git.branchExists(repo.path, "ws-2", remotes: .none))
 }
 
 @Test func branchesKelpNamesTakeTheSettingsPrefix() async throws {

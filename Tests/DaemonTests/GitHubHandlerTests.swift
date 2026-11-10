@@ -207,12 +207,12 @@ private let fakeGlab: String = {
     let wt = try await workspace(r, "feat/mr")
     // origin looks like GitLab; pushes go to a bare repository here.
     let bare = tmp().path
-    try Git.run(["init", "-q", "--bare", bare], cwd: bare)
-    try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: wt.path)
-    try Git.run(["config", "url.\(bare).pushInsteadOf", "git@gitlab.example.com:g/r.git"], cwd: wt.path)
+    try Git.run(["init", "-q", "--bare", bare], cwd: bare, remotes: .none)
+    try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: wt.path, remotes: .none)
+    try Git.run(["config", "url.\(bare).pushInsteadOf", "git@gitlab.example.com:g/r.git"], cwd: wt.path, remotes: .none)
     try "x\n".write(toFile: wt.path + "/x.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "x.txt"], cwd: wt.path)
-    try Git.run(["commit", "-qm", "Add x"], cwd: wt.path)
+    try Git.run(["add", "x.txt"], cwd: wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "Add x"], cwd: wt.path, remotes: .none)
     let made = try await r.c.call(
         "github.pr-create", .obj(["worktreeId": .string(wt.id), "title": "Add x", "body": "Why", "draft": true]))
     #expect(made["url"]?.string == "https://gitlab.example.com/g/r/-/merge_requests/12")
@@ -233,7 +233,7 @@ private let fakeGlab: String = {
     defer { r.d.stop() }
     let wt = try await workspace(r, "feat/pages")
     #expect(try await r.c.call("git.webPages", .obj(["worktreeId": .string(wt.id)])) == .null)   // no origin: nothing to open
-    try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: wt.path)
+    try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: wt.path, remotes: .none)
     let pages = try await r.c.call("git.webPages", .obj(["worktreeId": .string(wt.id)]))
     #expect(pages["forge"]?.string == "gitlab" && pages["ci"]?.string == "https://gitlab.example.com/g/r/-/pipelines")
 }
@@ -245,7 +245,7 @@ private let fakeGlab: String = {
     let r = try await rig()
     defer { r.d.stop() }
     let wt = try await workspace(r, "feat/gl")
-    try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: r.repo.path)
+    try Git.run(["remote", "add", "origin", "git@gitlab.example.com:g/r.git"], cwd: r.repo.path, remotes: .none)
     let prs = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "mine"])).array ?? []
     #expect(
         prs.count == 1 && prs[0]["number"]?.int == 4 && prs[0]["isDraft"]?.bool == true
@@ -267,14 +267,14 @@ private let fakeGlab: String = {
     defer { r.d.stop() }
     let wt = try await workspace(r, "feat/gh")
     let bare = tmp().path
-    try Git.run(["init", "-q", "--bare", bare], cwd: bare)
-    try Git.run(["remote", "add", "origin", bare], cwd: wt.path)
+    try Git.run(["init", "-q", "--bare", bare], cwd: bare, remotes: .none)
+    try Git.run(["remote", "add", "origin", bare], cwd: wt.path, remotes: .none)
     try "x\n".write(toFile: wt.path + "/x.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "x.txt"], cwd: wt.path)
-    try Git.run(["commit", "-qm", "Add gh"], cwd: wt.path)
+    try Git.run(["add", "x.txt"], cwd: wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "Add gh"], cwd: wt.path, remotes: .none)
     let made = try await r.c.call("github.pr-create", .obj(["worktreeId": .string(wt.id), "draft": true]))
     #expect(made["url"]?.string == "https://github.com/o/r/pull/8")
-    #expect(Git.branchExists(bare, "feat/gh"))   // pushed before gh was asked
+    #expect(Git.branchExists(bare, "feat/gh", remotes: .none))   // pushed before gh was asked
     let create = calls().last { $0.hasPrefix("pr create") } ?? ""
     #expect(create.contains("--title Add gh") && create.contains("--base main") && create.hasSuffix("--draft"))
     _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "method": "rebase"]))

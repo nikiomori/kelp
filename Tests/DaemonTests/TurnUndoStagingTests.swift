@@ -20,17 +20,17 @@ import Testing
         try content.write(toFile: wt.path + "/" + name, atomically: true, encoding: .utf8)
     }
     let file = { (name: String) in try? String(contentsOfFile: wt.path + "/" + name, encoding: .utf8) }
-    let staged = { (name: String) in try? Git.run(["show", ":" + name], cwd: wt.path) }
+    let staged = { (name: String) in try? Git.run(["show", ":" + name], cwd: wt.path, remotes: .none) }
     try write("f.txt", text([:]))
-    try Git.run(["add", "f.txt"], cwd: wt.path)
-    try Git.run(["commit", "-qm", "ten lines"], cwd: wt.path)
+    try Git.run(["add", "f.txt"], cwd: wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "ten lines"], cwd: wt.path, remotes: .none)
     // The user stages the first line's change but not the last one's (`git add -p`), and adds a new file.
     let userStaged = text([1: "mine"]), userTree = text([1: "mine", 10: "mine too"])
     try write("f.txt", userStaged)
-    try Git.run(["add", "f.txt"], cwd: wt.path)
+    try Git.run(["add", "f.txt"], cwd: wt.path, remotes: .none)
     try write("f.txt", userTree)
     try write("u.txt", "user's\n")
-    try Git.run(["add", "u.txt"], cwd: wt.path)
+    try Git.run(["add", "u.txt"], cwd: wt.path, remotes: .none)
     let s: Session = try await w.c.call(
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     let live = try #require(w.d.sessions.existing(s.id))
@@ -39,12 +39,12 @@ import Testing
     let turn = try #require(try await w.c.call(SessionTurns(id: s.id)).first)
     // The index is read before the turn is listed and kept just after: waited for, not assumed.
     #expect(
-        try await waitFor(10) { Git.succeeds(["rev-parse", "--verify", "-q", Turns.stagedRef(turn.id)], cwd: wt.path) })
+        try await waitFor(10) { Git.succeeds(["rev-parse", "--verify", "-q", Turns.stagedRef(turn.id)], cwd: wt.path, remotes: .none) })
     // The agent edits both files and stages everything.
     let agentTree = text([1: "mine", 5: "agent's", 10: "mine too"])
     try write("f.txt", agentTree)
     try write("u.txt", "agent's\n")
-    try Git.run(["add", "f.txt", "u.txt"], cwd: wt.path)
+    try Git.run(["add", "f.txt", "u.txt"], cwd: wt.path, remotes: .none)
     live.noteTurn(.idle)
     let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
     #expect(plan.files.sorted() == ["f.txt", "u.txt"])
@@ -56,5 +56,5 @@ import Testing
     #expect(file("u.txt") == "agent's\n" && staged("u.txt") == "agent's\n")
     // Its session gone, the index trees kept for it go with its other refs.
     w.d.sessions.discard(try #require(try w.d.sessions.store.session(s.id)))
-    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
+    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path, remotes: .none).isEmpty)
 }

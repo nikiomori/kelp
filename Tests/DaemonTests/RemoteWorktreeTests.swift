@@ -36,7 +36,7 @@ import Testing
     let there = try makeRepo()
     let repo: Repo = try await c.call("repo.addRemote", .obj(["host": "box", "path": .string(there)]), as: Repo.self)
     let wt = try remoteWorktree(d, repo, "kept")
-    try Git.run(["worktree", "lock", wt.path], cwd: there)
+    try Git.run(["worktree", "lock", wt.path], cwd: there, remotes: .none)
     await #expect(throws: RPCError.self) { try await c.call(WorktreeRemove(id: wt.id, force: true, dropCommits: true)) }
     #expect(FileManager.default.fileExists(atPath: wt.path))
 }

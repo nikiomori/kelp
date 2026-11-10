@@ -19,7 +19,7 @@ public struct BitbucketClient: Sendable {
     }
 
     public static func slug(cwd: String) -> (workspace: String, repo: String)? {
-        (try? Git.origin(cwd)).flatMap { slug(remote: $0) }
+        (try? Git.origin(cwd, remotes: .none)).flatMap { slug(remote: $0) }
     }
 
     public func pullRequests(workspace: String, repo: String) async throws -> [GitHub.PullRequest] {

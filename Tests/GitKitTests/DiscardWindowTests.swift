@@ -10,7 +10,7 @@ import Testing
     let repo = try tempRepo()
     try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     #expect(throws: GitError.self) {
-        try Git.discard(repo, files: ["f.txt"]) { _ in
+        try Git.discard(repo, files: ["f.txt"], remotes: .none) { _ in
             try "saved meanwhile\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
         }
     }

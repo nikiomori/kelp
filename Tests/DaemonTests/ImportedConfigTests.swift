@@ -221,8 +221,8 @@ private func script(_ c: RepoConfig?, _ name: String) -> String? { c?.scripts.fi
     try FileManager.default.createDirectory(atPath: repoPath + "/.conductor", withIntermediateDirectories: true)
     try "[scripts]\nsetup = 'echo \"$CONDUCTOR_ROOT_PATH|$CONDUCTOR_PORT\" > SETUP_RAN'\n"
         .write(toFile: repoPath + "/.conductor/settings.toml", atomically: true, encoding: .utf8)
-    try Git.run(["add", "-A"], cwd: repoPath)
-    try Git.run(["commit", "-qm", "conductor"], cwd: repoPath)
+    try Git.run(["add", "-A"], cwd: repoPath, remotes: .none)
+    try Git.run(["commit", "-qm", "conductor"], cwd: repoPath, remotes: .none)
 
     let repo: Repo = try await c.call("repo.add", .obj(["path": .string(repoPath)]), as: Repo.self)
     let first = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "branch": "first"]))

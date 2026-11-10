@@ -142,12 +142,12 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     defer { r.d.stop() }
     #expect(try await r.c.call(GitUnsynced(id: r.wt.id)) == Unsynced(outgoing: [], incoming: []))
     let bare = tmp().path
-    try Git.run(["init", "-q", "--bare", "-b", "main"], cwd: bare)
-    try Git.run(["remote", "add", "origin", bare], cwd: r.wt.path)
-    try Git.run(["push", "-q", "-u", "origin", "feat/x"], cwd: r.wt.path)
+    try Git.run(["init", "-q", "--bare", "-b", "main"], cwd: bare, remotes: .none)
+    try Git.run(["remote", "add", "origin", bare], cwd: r.wt.path, remotes: .none)
+    try Git.run(["push", "-q", "-u", "origin", "feat/x"], cwd: r.wt.path, remotes: .none)
     try write(r, "n.txt", "n\n")
-    try Git.run(["add", "n.txt"], cwd: r.wt.path)
-    try Git.run(["commit", "-qm", "not pushed"], cwd: r.wt.path)
+    try Git.run(["add", "n.txt"], cwd: r.wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "not pushed"], cwd: r.wt.path, remotes: .none)
     let unsynced = try await r.c.call(GitUnsynced(id: r.wt.id))
     #expect(unsynced.outgoing.map(\.subject) == ["not pushed"] && unsynced.incoming.isEmpty)
 }
@@ -301,22 +301,22 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let r = try await rig()
     defer { r.d.stop() }
     try write(r, "new.txt", "work")
-    try Git.run(["add", "new.txt"], cwd: r.wt.path)
-    try Git.run(["commit", "-qm", "work"], cwd: r.wt.path)
-    try Git.run(["branch", "-m", "feat/renamed"], cwd: r.wt.path)
+    try Git.run(["add", "new.txt"], cwd: r.wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "work"], cwd: r.wt.path, remotes: .none)
+    try Git.run(["branch", "-m", "feat/renamed"], cwd: r.wt.path, remotes: .none)
     #expect(try await r.c.call(WorktreeUnmerged(id: r.wt.id)) == 1)
     await #expect(throws: RPCError.self) { try await r.c.call(WorktreeRemove(id: r.wt.id)) }   // the commit is only there
     _ = try await r.c.call(WorktreeRemove(id: r.wt.id, force: true, dropCommits: true))
-    #expect(!Git.branchExists(r.repo.path, "feat/renamed"))
+    #expect(!Git.branchExists(r.repo.path, "feat/renamed", remotes: .none))
 }
 
 /// A folder with new files is dirty though the repository doesn't list them.
 @Test func newFilesCountWhateverStatusShows() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    try Git.run(["config", "status.showUntrackedFiles", "no"], cwd: r.wt.path)
+    try Git.run(["config", "status.showUntrackedFiles", "no"], cwd: r.wt.path, remotes: .none)
     try write(r, "new.txt", "work")
-    #expect(try Git.isDirty(r.wt.path))
+    #expect(try Git.isDirty(r.wt.path, remotes: .none))
 }
 
 /// A home seeded from Kelp's shares its branch groups' folders: closing one here doesn't trash what Kelp may be working in.
@@ -370,12 +370,12 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     // A home from before, where scratch was an empty git repo: back to a plain folder. One with a commit stays a repo.
     let old = ScratchChats(root: root.appendingPathComponent("old"))
     try Paths.ensure(old.folder)
-    try Git.run(["init", "-q"], cwd: old.folder.path)
+    try Git.run(["init", "-q"], cwd: old.folder.path, remotes: .none)
     old.dropUnusedRepo(remotes: .none)
     #expect(!fm.fileExists(atPath: old.folder.path + "/.git"))
-    try Git.run(["init", "-q"], cwd: old.folder.path)
+    try Git.run(["init", "-q"], cwd: old.folder.path, remotes: .none)
     try Git.run(
-        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], cwd: old.folder.path)
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], cwd: old.folder.path, remotes: .none)
     old.dropUnusedRepo(remotes: .none)
     #expect(fm.fileExists(atPath: old.folder.path + "/.git"))
 }
@@ -420,14 +420,14 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { r.d.stop() }
     await #expect(throws: (any Error).self) { _ = try await r.call("git.push") }   // no remote at all
     let bare = tmp().path
-    try Git.run(["init", "-q", "--bare", "-b", "main"], cwd: bare)
-    try Git.run(["remote", "add", "origin", bare], cwd: r.wt.path)
-    try Git.run(["push", "-q", "-u", "origin", "feat/x"], cwd: r.wt.path)
+    try Git.run(["init", "-q", "--bare", "-b", "main"], cwd: bare, remotes: .none)
+    try Git.run(["remote", "add", "origin", bare], cwd: r.wt.path, remotes: .none)
+    try Git.run(["push", "-q", "-u", "origin", "feat/x"], cwd: r.wt.path, remotes: .none)
     try write(r, "n.txt", "n\n")
-    try Git.run(["add", "n.txt"], cwd: r.wt.path)
-    try Git.run(["commit", "-qm", "more"], cwd: r.wt.path)
+    try Git.run(["add", "n.txt"], cwd: r.wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "more"], cwd: r.wt.path, remotes: .none)
     _ = try await r.call("git.push")
-    #expect(try Git.run(["rev-parse", "feat/x"], cwd: bare) == (try Git.run(["rev-parse", "HEAD"], cwd: r.wt.path)))
+    #expect(try Git.run(["rev-parse", "feat/x"], cwd: bare, remotes: .none) == (try Git.run(["rev-parse", "HEAD"], cwd: r.wt.path, remotes: .none)))
 }
 
 @Test func cloneNamesAndNewFoldersAreChecked() throws {
@@ -597,10 +597,10 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
         CommentAdd(id: wt.id, file: "a.txt", start: 3, quote: "bye", text: "why remove?", side: "old"))
     #expect(gone.side == "old" && gone.commit?.isEmpty == false)
     // On a past commit's diff: that commit, not HEAD.
-    try Git.run(["commit", "-q", "--allow-empty", "-m", "later"], cwd: wt.path)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "later"], cwd: wt.path, remotes: .none)
     let past: DiffComment = try await c.call(
         CommentAdd(id: wt.id, file: "a.txt", start: 1, text: "in the older one", commit: "HEAD~1"))
-    let now = try Git.run(["rev-parse", "--short", "HEAD"], cwd: wt.path).trimmingCharacters(
+    let now = try Git.run(["rev-parse", "--short", "HEAD"], cwd: wt.path, remotes: .none).trimmingCharacters(
         in: .whitespacesAndNewlines)
     let pastHash = try #require(past.commit)
     #expect(

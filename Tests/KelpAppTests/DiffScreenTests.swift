@@ -250,7 +250,7 @@ extension AppOfItsOwn {
         var cached = ""
         #expect(
             try await waitFor(5) {
-                cached = try Git.run(["diff", "--cached"], cwd: repo)
+                cached = try Git.run(["diff", "--cached"], cwd: repo, remotes: .none)
                 return !cached.isEmpty
             })
         #expect(cached.contains("+bottom change") && !cached.contains("+top change"))

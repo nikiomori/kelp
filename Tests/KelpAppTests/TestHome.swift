@@ -48,12 +48,12 @@ final class AppRig {
         repo = root.appendingPathComponent("repo").path
         try FileManager.default.createDirectory(atPath: repo, withIntermediateDirectories: true)
         for a in [["init", "-q", "-b", "main"], ["config", "user.email", "t@t"], ["config", "user.name", "t"]] {
-            try Git.run(a, cwd: repo)
+            try Git.run(a, cwd: repo, remotes: .none)
         }
         for (name, text) in files { try text.write(toFile: repo + "/" + name, atomically: true, encoding: .utf8) }
         if !files.isEmpty {
-            try Git.run(["add", "."], cwd: repo)
-            try Git.run(["commit", "-qm", "init"], cwd: repo)
+            try Git.run(["add", "."], cwd: repo, remotes: .none)
+            try Git.run(["commit", "-qm", "init"], cwd: repo, remotes: .none)
         }
         project = try await client.call(RepoAdd(path: repo))
         guard let w = try await client.call(WorktreeList(repoId: project.id)).first else {
@@ -71,7 +71,7 @@ final class AppRig {
     func write(_ name: String, _ text: String) throws {
         try text.write(toFile: repo + "/" + name, atomically: true, encoding: .utf8)
     }
-    func git(_ args: String...) throws { try Git.run(args, cwd: repo) }
+    func git(_ args: String...) throws { try Git.run(args, cwd: repo, remotes: .none) }
 
     /// `vc` in a window that's never shown, at that size, kept until `done()`.
     func show(_ vc: NSViewController, _ w: CGFloat, _ h: CGFloat) {

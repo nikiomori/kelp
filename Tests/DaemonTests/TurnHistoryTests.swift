@@ -36,7 +36,7 @@ import Testing
     var last = GitDiff(id: wt.id, source: "turn", session: s.id)
     last.turn = marks[0].id
     #expect(try await w.c.call(last).map(\.path) == ["two.txt"])
-    #expect(try Git.run(["log", "--all", "--oneline"], cwd: wt.path).split(separator: "\n").count == 1)   // nothing in the project's history
+    #expect(try Git.run(["log", "--all", "--oneline"], cwd: wt.path, remotes: .none).split(separator: "\n").count == 1)   // nothing in the project's history
     // Paused, its turns still read, and it isn't woken for that.
     try w.d.sessions.pauseSessions(of: wt.id)
     #expect(w.d.sessions.existing(s.id) == nil)
@@ -63,7 +63,7 @@ import Testing
     try "agent's\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     try "made\n".write(toFile: wt.path + "/new.txt", atomically: true, encoding: .utf8)
     try "KEY=1\n".write(toFile: wt.path + "/.env", atomically: true, encoding: .utf8)
-    try Git.run(["add", "new.txt"], cwd: wt.path)   // the agent staged its new file
+    try Git.run(["add", "new.txt"], cwd: wt.path, remotes: .none)   // the agent staged its new file
     live.noteTurn(.idle)
     let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
     #expect(plan.files.sorted() == ["a.txt", "new.txt"])   // .env stays out
@@ -74,12 +74,12 @@ import Testing
     #expect(file("a.txt") == "later\n" && file("new.txt") == "made\n")
     // The turn's snapshot is reachable, so git gc keeps it while the turn is listed.
     #expect(
-        try Git.run(["rev-parse", "refs/kelp/turns/" + turn.id], cwd: wt.path).trimmingCharacters(
+        try Git.run(["rev-parse", "refs/kelp/turns/" + turn.id], cwd: wt.path, remotes: .none).trimmingCharacters(
             in: .whitespacesAndNewlines) == turn.tree)
     let fresh = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
     var after = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: fresh.state))
     #expect(file("a.txt") == before && file("new.txt") == nil && file(".env") == "KEY=1\n")
-    #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: wt.path).isEmpty)   // nothing of the turn left to commit
+    #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: wt.path, remotes: .none).isEmpty)   // nothing of the turn left to commit
     // Redo: what the undo took (the user's own "later" too) comes back, only while the folder is as the undo left it.
     _ = try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state))
     #expect(file("a.txt") == "later\n" && file("new.txt") == "made\n")
@@ -102,12 +102,12 @@ import Testing
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
     _ = try await w.c.call("session.kill", .obj(["id": .string(other.id)]))
     #expect(try await waitFor(5) { w.d.sessions.existing(other.id)?.snapshot.status ?? .exited == .exited })
-    try Git.run(["commit", "-q", "--allow-empty", "-m", "moved on"], cwd: wt.path)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "moved on"], cwd: wt.path, remotes: .none)
     await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
     // The session gone, its turns' snapshots and its undone state are no longer kept from git gc.
-    #expect(try !Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
+    #expect(try !Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path, remotes: .none).isEmpty)
     w.d.sessions.discard(try #require(try w.d.sessions.store.session(s.id)))
-    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
+    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path, remotes: .none).isEmpty)
 }
 
 /// An agent that worked from a subfolder: its turn is undone across the checkout, paths counted from the top.
@@ -117,8 +117,8 @@ import Testing
     let wt = try await workspace(w, "sub")
     try FileManager.default.createDirectory(atPath: wt.path + "/pkg", withIntermediateDirectories: true)
     try "pkg\n".write(toFile: wt.path + "/pkg/p.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "pkg"], cwd: wt.path)
-    try Git.run(["commit", "-qm", "pkg"], cwd: wt.path)
+    try Git.run(["add", "pkg"], cwd: wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "pkg"], cwd: wt.path, remotes: .none)
     let s: Session = try await w.c.call(
         "session.create",
         .obj([
@@ -196,11 +196,11 @@ import Testing
     defer { w.d.stop() }
     let wt = try await workspace(w, "gone-mid-turn")
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
-    let tree = try Git.snapshotTree(wt.path)
+    let tree = try Git.snapshotTree(wt.path, remotes: .none)
     w.d.sessions.discard(try #require(try w.d.store.session(s.id)))
     w.d.sessions.turns.keep(SessionTurns.Mark(session: s.id, tree: tree, head: nil, folder: wt.path, prompt: "p"))
     #expect(try w.d.store.turns(session: s.id).isEmpty)
-    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path).isEmpty)
+    #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path, remotes: .none).isEmpty)
 }
 
 /// A new branch given a name is named after it, "-2" when that's taken.

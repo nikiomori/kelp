@@ -42,7 +42,7 @@ extension Git {
     }
 
     /// The first `limit` commits of every branch, tag and remote, newest first, with graph lanes.
-    public static func graph(_ path: String, limit: Int, remotes: Remotes = .none) throws -> (
+    public static func graph(_ path: String, limit: Int, remotes: Remotes) throws -> (
         commits: [GraphCommit], more: Bool
     ) {
         let fmt = "%H%x1f%P%x1f%an%x1f%at%x1f%D%x1f%s%x1e"
@@ -77,7 +77,7 @@ extension Git {
 
     /// Files a commit changed against its first parent: `[(status letter, path)]`.
     /// `-z`: "M\0path\0" or, renamed or copied, "R100\0old\0new\0".
-    public static func commitFiles(_ path: String, commit: String, remotes: Remotes = .none) throws -> [FileChange] {
+    public static func commitFiles(_ path: String, commit: String, remotes: Remotes) throws -> [FileChange] {
         var entries = try run(
             ["show", "--format=", "--name-status", "-z", "-M", "--diff-merges=first-parent", rev(commit)], cwd: path,
             remotes: remotes
@@ -95,7 +95,7 @@ extension Git {
 
     /// The body of a commit's message, its author's email and its size against the first parent, in one git run.
     /// A binary file counts as a file, not as lines.
-    public static func commitDetails(_ path: String, commit: String, remotes: Remotes = .none) throws -> CommitDetails {
+    public static func commitDetails(_ path: String, commit: String, remotes: Remotes) throws -> CommitDetails {
         let out = try run(
             ["show", "--numstat", "--format=%ae%x1f%b%x1e", "-M", "--diff-merges=first-parent", rev(commit)], cwd: path,
             remotes: remotes)
@@ -116,7 +116,7 @@ extension Git {
 
     /// Source Control reads this on every change in the folder: one for-each-ref answers what took five git processes
     /// (each an ssh round trip for a remote project). Detached or before the first commit, HEAD is asked for itself.
-    public static func branches(_ path: String, remotes: Remotes = .none) throws -> BranchInfo {
+    public static func branches(_ path: String, remotes: Remotes) throws -> BranchInfo {
         let refs = try run(
             [
                 "for-each-ref",
@@ -171,7 +171,7 @@ extension Git {
 
     /// The newest `limit` commits a push would send and a pull would bring. With an upstream: HEAD against it; without
     /// one (never pushed, or its branch deleted), what is on no remote branch yet, as `branches` counts it.
-    public static func unsynced(_ path: String, limit: Int = 5, remotes: Remotes = .none) throws -> Unsynced {
+    public static func unsynced(_ path: String, limit: Int = 5, remotes: Remotes) throws -> Unsynced {
         func commits(_ range: [String]) throws -> [Unsynced.Commit] {
             try run(
                 ["log", "--format=%h%x09%an%x09%at%x09%s", "-n\(max(1, limit))"] + range, cwd: path, remotes: remotes
@@ -199,7 +199,7 @@ extension Git {
 
     /// Switch to a local branch, a remote one (creates the tracking branch), or a new one.
     public static func switchBranch(
-        _ path: String, to name: String, create: Bool = false, remote: Bool = false, remotes: Remotes = .none
+        _ path: String, to name: String, create: Bool = false, remote: Bool = false, remotes: Remotes
     ) throws {
         let local = remote ? String(name.drop { $0 != "/" }.dropFirst()) : name
         // Checked as git will read it, after "origin/" is taken off: "origin/-Cmain" would be `git switch -Cmain`.
@@ -218,7 +218,7 @@ extension Git {
     @discardableResult
     /// `keep` gets the patch before anything changes, and nothing does if it throws: what's thrown away is kept first.
     public static func discard(
-        _ path: String, files: [String], remotes: Remotes = .none, keep: (Data) throws -> Void = { _ in }
+        _ path: String, files: [String], remotes: Remotes, keep: (Data) throws -> Void = { _ in }
     ) throws -> Data {
         let untracked = Set(try status(path, remotes: remotes).filter(\.untracked).map(\.path))
         let (newFiles, tracked) = (files.filter { untracked.contains($0) }, files.filter { !untracked.contains($0) })
@@ -265,7 +265,7 @@ extension Git {
     /// Applies what a discard threw away again: `discard`'s patch, or with `hunk` a hunk's own (`FileDiff.patch(hunk:)`).
     /// git changes nothing in a file that has moved on since, so a newer edit is never written over. A discard that failed
     /// partway left some files as they were: those are let be, the rest put back, each file on its own.
-    public static func putBack(_ path: String, patch: Data, hunk: Bool, remotes: Remotes = .none) throws {
+    public static func putBack(_ path: String, patch: Data, hunk: Bool, remotes: Remotes) throws {
         let apply = ["apply"] + (hunk ? ["--recount", "--unidiff-zero"] : ["--binary"]) + ["-"]
         do { try runData(apply, cwd: path, stdin: patch, remotes: remotes) } catch {
             let files = perFile(patch)
@@ -308,7 +308,7 @@ extension Git {
 
     public enum Remote: String, Sendable { case pull, push, fetch }
 
-    public static func remote(_ path: String, _ op: Remote, remotes: Remotes = .none) throws {
+    public static func remote(_ path: String, _ op: Remote, remotes: Remotes) throws {
         switch op {
         case .pull:
             // Diverged branches make git refuse until it's told how to reconcile them. With neither pull.rebase nor pull.ff set
@@ -326,7 +326,7 @@ extension Git {
     }
 
     /// Pop puts staged changes back as staged when it can (`--index`), like VS Code.
-    public static func stash(_ path: String, pop: Bool, remotes: Remotes = .none) throws {
+    public static func stash(_ path: String, pop: Bool, remotes: Remotes) throws {
         guard pop else {
             try run(["stash", "push", "--include-untracked"], cwd: path, remotes: remotes)
             return

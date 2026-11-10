@@ -117,8 +117,8 @@ extension CIRuns {
     /// A probe: no git here (a folder that isn't a clone) means no such file.
     private static func trackedFiles(named name: String, cwd: String) -> [String] {
         do {
-            return try Git.run(["ls-files", "--", ":(glob)**/" + name], cwd: cwd).split(separator: "\n").map(
-                String.init)
+            let listed = try Git.run(["ls-files", "--", ":(glob)**/" + name], cwd: cwd, remotes: .none)
+            return listed.split(separator: "\n").map(String.init)
         } catch { return [] }
     }
 }

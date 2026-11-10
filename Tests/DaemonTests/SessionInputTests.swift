@@ -163,7 +163,7 @@ import os
     let wt = try await firstWorkspace(w),
         repo = try #require(try await w.c.call(RepoList()).first { $0.id == wt.repoId })
     let path = w.root.appendingPathComponent("linked").path
-    _ = try Git.run(["worktree", "add", "-q", "-b", "linked", path], cwd: repo.path)
+    _ = try Git.run(["worktree", "add", "-q", "-b", "linked", path], cwd: repo.path, remotes: .none)
     let s = try await w.c.call(SessionCreate(cwd: path, worktreeId: wt.id, command: "exec cat"))
     let listed = try await w.c.call(RepoWorktreeSizes(id: repo.id)).map(\.path)
     let kept = try await w.c.call(RepoRemoveWorktrees(id: repo.id, paths: listed))

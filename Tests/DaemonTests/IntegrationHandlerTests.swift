@@ -98,15 +98,15 @@ private let viewer = #"{"data":{"viewer":{"id":"u1","name":"Ada","email":"ada@x.
         }
         _ = try await c.call("bitbucket.setCredentials", .obj(["user": "me", "token": "t"]))
         let path = try makeRepo(), bare = tmp().path + ".git"
-        try Git.run(["init", "-q", "--bare", bare], cwd: "/tmp")
-        try Git.run(["remote", "add", "origin", "git@bitbucket.org:w/r.git"], cwd: path)
-        try Git.run(["config", "url.\(bare).pushInsteadOf", "git@bitbucket.org:w/r.git"], cwd: path)   // pushes stay here
+        try Git.run(["init", "-q", "--bare", bare], cwd: "/tmp", remotes: .none)
+        try Git.run(["remote", "add", "origin", "git@bitbucket.org:w/r.git"], cwd: path, remotes: .none)
+        try Git.run(["config", "url.\(bare).pushInsteadOf", "git@bitbucket.org:w/r.git"], cwd: path, remotes: .none)   // pushes stay here
         let repo: Repo = try await c.call("repo.add", .obj(["path": .string(path)]), as: Repo.self)
         let w = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
-        try Git.run(["checkout", "-qb", "switched-to"], cwd: w.path)   // outside Kelp: its record still says the old branch
+        try Git.run(["checkout", "-qb", "switched-to"], cwd: w.path, remotes: .none)   // outside Kelp: its record still says the old branch
         try "x".write(toFile: w.path + "/x.txt", atomically: true, encoding: .utf8)
-        try Git.run(["add", "."], cwd: w.path)
-        try Git.run(["commit", "-qm", "x"], cwd: w.path)
+        try Git.run(["add", "."], cwd: w.path, remotes: .none)
+        try Git.run(["commit", "-qm", "x"], cwd: w.path, remotes: .none)
         _ = try await c.call("github.pr-create", .obj(["worktreeId": .string(w.id), "title": "T", "body": "B"]))
         #expect(sent.withLock { $0 }.contains(#""source":{"branch":{"name":"switched-to"}}"#))
     }
@@ -121,7 +121,7 @@ private let viewer = #"{"data":{"viewer":{"id":"u1","name":"Ada","email":"ada@x.
         }
         clearKeys()
         let path = try makeRepo()
-        try Git.run(["remote", "add", "origin", "git@bitbucket.org:w/r.git"], cwd: path)
+        try Git.run(["remote", "add", "origin", "git@bitbucket.org:w/r.git"], cwd: path, remotes: .none)
         let repo: Repo = try await c.call("repo.add", .obj(["path": .string(path)]), as: Repo.self)
         let w = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
         let merge = JSONValue.obj(["worktreeId": .string(w.id), "pr": .int(7)])

@@ -16,10 +16,10 @@ import Testing
         lines.enumerated().map { changes[$0.offset + 1] ?? $0.element }.joined(separator: "\n") + "\n"
     }
     try text([:]).write(toFile: wt.path + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "f.txt"], cwd: wt.path)
-    try Git.run(["commit", "-qm", "twenty lines"], cwd: wt.path)
+    try Git.run(["add", "f.txt"], cwd: wt.path, remotes: .none)
+    try Git.run(["commit", "-qm", "twenty lines"], cwd: wt.path, remotes: .none)
     try text([1: "first", 20: "second"]).write(toFile: wt.path + "/f.txt", atomically: true, encoding: .utf8)
-    let hunks = try #require(try Git.diff(wt.path, source: .unstaged, file: "f.txt").first?.hunks)
+    let hunks = try #require(try Git.diff(wt.path, source: .unstaged, file: "f.txt", remotes: .none).first?.hunks)
     try #require(hunks.count == 2)
     let second = hunks[1]
     _ = try await w.c.call(

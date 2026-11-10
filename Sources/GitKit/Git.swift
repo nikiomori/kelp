@@ -36,7 +36,7 @@ extension Git {
     @discardableResult
     public static func run(
         _ args: [String], cwd: String, stdin: String? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
-        remotes: Remotes = .none
+        remotes: Remotes
     ) throws -> String {
         String(
             decoding: try runData(
@@ -46,7 +46,7 @@ extension Git {
 
     /// Whether git says yes (exits 0): a ref that may not be there (`rev-parse --verify`), an upstream that may not be
     /// set. A git that couldn't run at all says no too, and that's logged.
-    public static func succeeds(_ args: [String], cwd: String, remotes: Remotes = .none) -> Bool {
+    public static func succeeds(_ args: [String], cwd: String, remotes: Remotes) -> Bool {
         do {
             try run(args, cwd: cwd, remotes: remotes)
             return true
@@ -61,7 +61,7 @@ extension Git {
     /// `run`'s output without the newline it ends with (and any space around it): a hash, a name, a path, a count.
     public static func line(
         _ args: [String], cwd: String, ok: Set<Int32> = [0], env extra: [String: String] = [:],
-        remotes: Remotes = .none
+        remotes: Remotes
     ) throws -> String {
         try run(args, cwd: cwd, ok: ok, env: extra, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -71,7 +71,7 @@ extension Git {
     @discardableResult
     public static func runData(
         _ args: [String], cwd: String, stdin: Data? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
-        timeLimit: TimeInterval = 300, remotes: Remotes = .none
+        timeLimit: TimeInterval = 300, remotes: Remotes
     ) throws -> Data {
         let output = try runPart(
             args, cwd: cwd, stdin: stdin, ok: ok, env: extra, timeLimit: timeLimit, limit: Subprocess.outputLimit,
@@ -84,7 +84,7 @@ extension Git {
     /// caller that shows a part (a long status, a huge diff) and says so.
     static func runPart(
         _ args: [String], cwd: String, stdin: Data? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
-        timeLimit: TimeInterval = 300, limit: Int, remotes: Remotes = .none
+        timeLimit: TimeInterval = 300, limit: Int, remotes: Remotes
     ) throws -> (data: Data, truncated: Bool) {
         // timeLimit: longest a git run (here or on a host) may take before it's stopped (it then fails like any other
         // error). Five minutes: far past any real fetch or push, short of a thread lost for good.
@@ -165,7 +165,7 @@ extension Git {
     /// (Not `--literal-pathspecs`: `stash -u` uses pathspec magic of its own and then leaves untracked files behind.)
     static func literal(_ files: [String]) -> [String] { files.map { ":(literal)" + $0 } }
 
-    public static func root(of path: String, remotes: Remotes = .none) throws -> String {
+    public static func root(of path: String, remotes: Remotes) throws -> String {
         try line(["rev-parse", "--show-toplevel"], cwd: path, remotes: remotes)
     }
 
@@ -185,7 +185,7 @@ extension Git {
     }
 
     /// Default branch: origin/HEAD if set, else current branch of the main checkout.
-    public static func defaultBranch(repo: String, remotes: Remotes = .none) -> String {
+    public static func defaultBranch(repo: String, remotes: Remotes) -> String {
         if let ref = try? line(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd: repo, remotes: remotes) {
             let branch = String(ref.drop(while: { $0 != "/" }).dropFirst())
             if isRevision(branch) { return branch }
@@ -199,7 +199,7 @@ extension Git {
 
     /// Every workspace list asks this for each project: a local checkout's HEAD file answers without a git process.
     /// Detached, a linked worktree (.git is a file), a reftable repository or a remote project: git itself.
-    public static func currentBranch(_ path: String, remotes: Remotes = .none) throws -> String {
+    public static func currentBranch(_ path: String, remotes: Remotes) throws -> String {
         var name = ""
         if remotes.of(path) == nil, let head = String(contentsIfAny: URL(fileURLWithPath: path + "/.git/HEAD")),
             head.hasPrefix("ref: refs/heads/")

@@ -27,7 +27,7 @@ public enum GitLab {
 
     /// The checkout's origin is a GitLab (gitlab.com or a host with "gitlab" in its name).
     public static func isGitLab(cwd: String) -> Bool {
-        isGitLab(remote: (try? Git.origin(cwd)) ?? "")
+        isGitLab(remote: (try? Git.origin(cwd, remotes: .none)) ?? "")
     }
 
     /// By the host only: github.com/someone/gitlab-ci-local is a GitHub repository.
@@ -109,7 +109,7 @@ public enum GitLab {
 
     /// Opens a merge request from the branch checked out now (pushed already) into `base`; returns its page's URL.
     public static func createMR(cwd: String, title: String, body: String, base: String, draft: Bool) throws -> String {
-        let branch = try Git.currentBranch(cwd)
+        let branch = try Git.currentBranch(cwd, remotes: .none)
         let request = try JSONDecoder().decode(
             RawMR.self,
             from: api(

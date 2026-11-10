@@ -9,106 +9,106 @@ import WorkbenchKit
 /// This process's git and Kelp see none of the user's own (TestIsolation). Repos live under its folder.
 func tempRepo() throws -> String {
     let d = tmp().path
-    try Git.run(["init", "-q", "-b", "main"], cwd: d)
+    try Git.run(["init", "-q", "-b", "main"], cwd: d, remotes: .none)
     try "a\nb\nc\n".write(toFile: d + "/f.txt", atomically: true, encoding: .utf8)
     try "SECRET=1\n".write(toFile: d + "/.env", atomically: true, encoding: .utf8)
-    try Git.run(["add", "f.txt"], cwd: d)
-    try Git.run(["commit", "-qm", "init"], cwd: d)
+    try Git.run(["add", "f.txt"], cwd: d, remotes: .none)
+    try Git.run(["commit", "-qm", "init"], cwd: d, remotes: .none)
     return d
 }
 
 @Test func worktreeLifecycle() throws {
     let repo = try tempRepo()
     let dir = URL(fileURLWithPath: repo + "-wt")
-    let p = try Git.addWorktree(repo: repo, branch: "feat/x", base: "main", into: dir, copyFiles: [".env"])
+    let p = try Git.addWorktree(repo: repo, branch: "feat/x", base: "main", into: dir, copyFiles: [".env"], remotes: .none)
     #expect(FileManager.default.fileExists(atPath: p + "/.env"))
-    #expect(try Git.run(["worktree", "list"], cwd: repo).contains("[feat/x]"))
-    #expect(try Git.linkedWorktrees(repo).map { ($0.path as NSString).lastPathComponent } == ["feat-x"])   // the main checkout isn't one
-    #expect(try Git.linkedWorktrees(repo).first?.branch == "feat/x")
-    try Git.run(["worktree", "lock", p], cwd: repo)
-    #expect(try Git.linkedWorktrees(repo).first?.locked == true)
-    #expect(throws: GitError.self) { try Git.run(["worktree", "remove", p], cwd: repo) }   // what "Remove Clean Worktrees" relies on
-    try Git.run(["worktree", "unlock", p], cwd: repo)
-    #expect(try Git.linkedWorktrees(repo).first?.locked == false)
+    #expect(try Git.run(["worktree", "list"], cwd: repo, remotes: .none).contains("[feat/x]"))
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).map { ($0.path as NSString).lastPathComponent } == ["feat-x"])   // the main checkout isn't one
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.branch == "feat/x")
+    try Git.run(["worktree", "lock", p], cwd: repo, remotes: .none)
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.locked == true)
+    #expect(throws: GitError.self) { try Git.run(["worktree", "remove", p], cwd: repo, remotes: .none) }   // what "Remove Clean Worktrees" relies on
+    try Git.run(["worktree", "unlock", p], cwd: repo, remotes: .none)
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.locked == false)
     try "dirty".write(toFile: p + "/n.txt", atomically: true, encoding: .utf8)
-    #expect(throws: GitError.self) { try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: false) }
+    #expect(throws: GitError.self) { try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: false, remotes: .none) }
     try ".env.local\n".write(toFile: repo + "/.git/info/exclude", atomically: true, encoding: .utf8)
     try "local\n".write(toFile: p + "/.env.local", atomically: true, encoding: .utf8)   // ignored: no check sees it
-    try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: true)
+    try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: true, remotes: .none)
     // What git didn't see went to the Trash with the folder, not away for good.
     let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
     let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("feat-x/.env.local") }
     #expect(!kept.isEmpty)
-    #expect(!(try Git.run(["worktree", "list"], cwd: repo)).contains("feat-x"))
-    #expect(!(try Git.run(["worktree", "list"], cwd: repo).contains("[feat/x]")))
-    #expect(try Git.linkedWorktrees(repo).isEmpty)
+    #expect(!(try Git.run(["worktree", "list"], cwd: repo, remotes: .none)).contains("feat-x"))
+    #expect(!(try Git.run(["worktree", "list"], cwd: repo, remotes: .none).contains("[feat/x]")))
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).isEmpty)
 }
 
 @Test func diffParseAndHunkStaging() throws {
     let repo = try tempRepo()
     let big = (1...30).map(String.init).joined(separator: "\n") + "\n"
     try big.write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "g.txt"], cwd: repo)
-    try Git.run(["commit", "-qm", "g"], cwd: repo)
+    try Git.run(["add", "g.txt"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "g"], cwd: repo, remotes: .none)
     var lines = big.split(separator: "\n").map(String.init)
     lines[1] = "two"
     lines[28] = "twenty-nine"
     try (lines.joined(separator: "\n") + "\n").write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
 
-    let d = try Git.diff(repo, source: .unstaged, file: "g.txt")
+    let d = try Git.diff(repo, source: .unstaged, file: "g.txt", remotes: .none)
     #expect(d.count == 1 && d[0].hunks.count == 2)
     #expect(d[0].additions == 2 && d[0].deletions == 2)
     #expect(d[0].hunks[0].lines.first { $0.kind == .add }?.newLine == 2)
 
-    try Git.applyHunk(repo, diff: d[0], hunk: 1, reverse: false)
-    let staged = try Git.diff(repo, source: .staged)
+    try Git.applyHunk(repo, diff: d[0], hunk: 1, reverse: false, remotes: .none)
+    let staged = try Git.diff(repo, source: .staged, remotes: .none)
     #expect(staged[0].hunks.count == 1 && staged[0].hunks[0].lines.contains { $0.text == "twenty-nine" })
-    let rest = try Git.diff(repo, source: .unstaged, file: "g.txt")
+    let rest = try Git.diff(repo, source: .unstaged, file: "g.txt", remotes: .none)
     #expect(rest[0].hunks.count == 1 && rest[0].hunks[0].lines.contains { $0.text == "two" })
 
     // Discarding the unstaged hunk puts line 2 back in the file and leaves the staged one alone.
-    try Git.discardHunk(repo, diff: rest[0], hunk: 0)
+    try Git.discardHunk(repo, diff: rest[0], hunk: 0, remotes: .none)
     let file = try String(contentsOfFile: repo + "/g.txt", encoding: .utf8).split(separator: "\n")
     #expect(file[1] == "2" && file[28] == "twenty-nine")
-    #expect(try Git.diff(repo, source: .unstaged, file: "g.txt").isEmpty)
-    #expect(try Git.diff(repo, source: .staged).count == 1)
+    #expect(try Git.diff(repo, source: .unstaged, file: "g.txt", remotes: .none).isEmpty)
+    #expect(try Git.diff(repo, source: .staged, remotes: .none).count == 1)
 }
 
 @Test func statusUntrackedAndCommit() throws {
     let repo = try tempRepo()
     try "x\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
-    let s = try Git.status(repo)
+    let s = try Git.status(repo, remotes: .none)
     #expect(s.contains { $0.path == "new.txt" && $0.untracked })
-    let d = try Git.diff(repo, source: .allUncommitted)
+    let d = try Git.diff(repo, source: .allUncommitted, remotes: .none)
     #expect(d.contains { $0.path == "new.txt" && $0.additions == 1 })
-    try Git.stage(repo, files: ["new.txt"])
-    _ = try Git.commit(repo, message: "add new")
-    #expect(try Git.log(repo, limit: 1).first?.subject == "add new")
+    try Git.stage(repo, files: ["new.txt"], remotes: .none)
+    _ = try Git.commit(repo, message: "add new", remotes: .none)
+    #expect(try Git.log(repo, limit: 1, remotes: .none).first?.subject == "add new")
 }
 
 @Test func mergeAndConflict() throws {
     let repo = try tempRepo()
     let dir = URL(fileURLWithPath: repo + "-wt")
-    let p = try Git.addWorktree(repo: repo, branch: "feat", base: "main", into: dir, copyFiles: [])
+    let p = try Git.addWorktree(repo: repo, branch: "feat", base: "main", into: dir, copyFiles: [], remotes: .none)
     try "feat\n".write(toFile: p + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.commit(p, message: "feat", all: true)
+    try Git.commit(p, message: "feat", all: true, remotes: .none)
     try "main\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.commit(repo, message: "main", all: true)
-    let r = try Git.merge(branch: "feat", into: repo)
+    try Git.commit(repo, message: "main", all: true, remotes: .none)
+    let r = try Git.merge(branch: "feat", into: repo, remotes: .none)
     #expect(!r.merged && r.conflicts == ["f.txt"])
-    #expect(try Git.status(repo).filter(\.conflicted).isEmpty)   // aborted cleanly
+    #expect(try Git.status(repo, remotes: .none).filter(\.conflicted).isEmpty)   // aborted cleanly
 }
 
 @Test func branchDiff() throws {
     let repo = try tempRepo()
     let p = try Git.addWorktree(
-        repo: repo, branch: "b", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
+        repo: repo, branch: "b", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [], remotes: .none)
     try "z\n".write(toFile: p + "/z.txt", atomically: true, encoding: .utf8)
-    try Git.stage(p, files: ["z.txt"])
-    try Git.commit(p, message: "z")
-    #expect(try Git.diff(p, source: .branch(base: "main")).map(\.path) == ["z.txt"])
-    let c = try Git.log(p, base: "main")[0].hash
-    #expect(try Git.diff(p, source: .commit(c)).map(\.path) == ["z.txt"])
+    try Git.stage(p, files: ["z.txt"], remotes: .none)
+    try Git.commit(p, message: "z", remotes: .none)
+    #expect(try Git.diff(p, source: .branch(base: "main"), remotes: .none).map(\.path) == ["z.txt"])
+    let c = try Git.log(p, base: "main", remotes: .none)[0].hash
+    #expect(try Git.diff(p, source: .commit(c), remotes: .none).map(\.path) == ["z.txt"])
 }
 
 @Test func sideBySidePairingAndGaps() {
@@ -133,9 +133,9 @@ func tempRepo() throws -> String {
     try "needle here\n".write(toFile: repo + "/ignored.txt", atomically: true, encoding: .utf8)
     try FileManager.default.createDirectory(atPath: repo + "/src", withIntermediateDirectories: true)
     try "let x = 1\nfind the needle\n".write(toFile: repo + "/src/main.swift", atomically: true, encoding: .utf8)
-    let files = try ProjectFiles.list(repo)
+    let files = try ProjectFiles.list(repo, remotes: .none)
     #expect(files.contains("src/main.swift") && !files.contains("ignored.txt"))
-    let m = try ProjectFiles.search(repo, query: "needle")
+    let m = try ProjectFiles.search(repo, query: "needle", remotes: .none)
     #expect(m == [SearchMatch(path: "src/main.swift", line: 2, text: "find the needle")])
 }
 
@@ -181,41 +181,41 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     let repo = try tempRepo()
     try "a\nB\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     try Data([0, 1, 2, 0]).write(to: URL(fileURLWithPath: repo + "/blob.bin"))
-    try Git.run(["add", "f.txt", "blob.bin"], cwd: repo)
+    try Git.run(["add", "f.txt", "blob.bin"], cwd: repo, remotes: .none)
     try Git.run(
         [
             "commit", "-q", "--author=Ada <ada@example.com>", "-m", "fix: b", "-m",
             "Why it changed,\nwrapped.\n\nSecond paragraph."
-        ], cwd: repo)
-    let d = try Git.commitDetails(repo, commit: "HEAD")
+        ], cwd: repo, remotes: .none)
+    let d = try Git.commitDetails(repo, commit: "HEAD", remotes: .none)
     #expect(
         d
             == CommitDetails(
                 body: "Why it changed,\nwrapped.\n\nSecond paragraph.", email: "ada@example.com", files: 2, added: 2,
                 removed: 1))
-    #expect(try Git.commitDetails(repo, commit: "HEAD~1").body.isEmpty)
+    #expect(try Git.commitDetails(repo, commit: "HEAD~1", remotes: .none).body.isEmpty)
 }
 
 @Test func graphAndBranchesFromARealRepo() throws {
     let repo = try tempRepo()
-    try Git.run(["switch", "-q", "-c", "feature"], cwd: repo)
+    try Git.run(["switch", "-q", "-c", "feature"], cwd: repo, remotes: .none)
     try "g\n".write(toFile: repo + "/g.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "g.txt"], cwd: repo)
-    try Git.run(["commit", "-qm", "feature work"], cwd: repo)
-    try Git.run(["switch", "-q", "main"], cwd: repo)
-    try Git.run(["merge", "-q", "--no-ff", "-m", "merge feature", "feature"], cwd: repo)
-    let (commits, more) = try Git.graph(repo, limit: 50)
+    try Git.run(["add", "g.txt"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "feature work"], cwd: repo, remotes: .none)
+    try Git.run(["switch", "-q", "main"], cwd: repo, remotes: .none)
+    try Git.run(["merge", "-q", "--no-ff", "-m", "merge feature", "feature"], cwd: repo, remotes: .none)
+    let (commits, more) = try Git.graph(repo, limit: 50, remotes: .none)
     #expect(!more && commits.first?.subject == "merge feature" && commits.first?.parents.count == 2)
     #expect(commits.first?.refs.contains { $0.hasPrefix("HEAD -> ") } == true)
-    #expect(try Git.commitFiles(repo, commit: commits[0].hash).map(\.path) == ["g.txt"])
-    let b = try Git.branches(repo)
+    #expect(try Git.commitFiles(repo, commit: commits[0].hash, remotes: .none).map(\.path) == ["g.txt"])
+    let b = try Git.branches(repo, remotes: .none)
     #expect(b.current == "main" && b.local.contains("feature") && !b.merging)
     // Pop keeps what was staged staged.
     try "x\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.stage(repo, files: ["f.txt"])
-    try Git.stash(repo, pop: false)
-    try Git.stash(repo, pop: true)
-    #expect(try Git.status(repo).first { $0.path == "f.txt" }?.staged == true)
+    try Git.stage(repo, files: ["f.txt"], remotes: .none)
+    try Git.stash(repo, pop: false, remotes: .none)
+    try Git.stash(repo, pop: true, remotes: .none)
+    #expect(try Git.status(repo, remotes: .none).first { $0.path == "f.txt" }?.staged == true)
 }
 
 @Test func gitErrorsReadAsOneSentence() {
@@ -259,73 +259,73 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 
 @Test func snapshotSeesNewAndChangedFiles() throws {
     let d = tmp().path
-    try Git.run(["init", "-q", "-b", "main"], cwd: d)
+    try Git.run(["init", "-q", "-b", "main"], cwd: d, remotes: .none)
     try "a\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "."], cwd: d)
-    try Git.run(["commit", "-qm", "init"], cwd: d)
+    try Git.run(["add", "."], cwd: d, remotes: .none)
+    try Git.run(["commit", "-qm", "init"], cwd: d, remotes: .none)
     try "a\nb\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)   // changed before the turn: not the agent's
-    let base = try Git.snapshotTree(d)
+    let base = try Git.snapshotTree(d, remotes: .none)
     try "a\nb\nc\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)
     try "new\n".write(toFile: d + "/n.txt", atomically: true, encoding: .utf8)
-    let ch = try Git.changesSince(tree: base, cwd: d)
+    let ch = try Git.changesSince(tree: base, cwd: d, remotes: .none)
     #expect(ch.map(\.path).sorted() == ["a.txt", "n.txt"])
     #expect(ch.first { $0.path == "a.txt" }?.added == 1)
-    #expect(try Git.status(d).contains { $0.untracked && $0.path == "n.txt" })   // the real index is untouched
-    #expect(try Git.diff(d, source: .since(tree: base)).count == 2)
+    #expect(try Git.status(d, remotes: .none).contains { $0.untracked && $0.path == "n.txt" })   // the real index is untouched
+    #expect(try Git.diff(d, source: .since(tree: base), remotes: .none).count == 2)
 }
 
 @Test func hunksAtAFileEndWithoutNewlineStageAndDiscard() throws {
     let repo = try tempRepo()
     try "a\nb".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "n.txt"], cwd: repo)
-    try Git.run(["commit", "-qm", "n"], cwd: repo)
+    try Git.run(["add", "n.txt"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "n"], cwd: repo, remotes: .none)
     try "a\nb\nc".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
-    let d = try Git.diff(repo, source: .unstaged, file: "n.txt")
+    let d = try Git.diff(repo, source: .unstaged, file: "n.txt", remotes: .none)
     #expect(d[0].hunks[0].lines.filter { $0.noNewline == true }.count == 2)   // the old "b" and the new "c"
-    try Git.applyHunk(repo, diff: d[0], hunk: 0, reverse: false)
-    #expect(try Git.diff(repo, source: .unstaged, file: "n.txt").isEmpty)
-    try Git.applyHunk(repo, diff: try Git.diff(repo, source: .staged, file: "n.txt")[0], hunk: 0, reverse: true)
-    try Git.discardHunk(repo, diff: try Git.diff(repo, source: .unstaged, file: "n.txt")[0], hunk: 0)
+    try Git.applyHunk(repo, diff: d[0], hunk: 0, reverse: false, remotes: .none)
+    #expect(try Git.diff(repo, source: .unstaged, file: "n.txt", remotes: .none).isEmpty)
+    try Git.applyHunk(repo, diff: try Git.diff(repo, source: .staged, file: "n.txt", remotes: .none)[0], hunk: 0, reverse: true, remotes: .none)
+    try Git.discardHunk(repo, diff: try Git.diff(repo, source: .unstaged, file: "n.txt", remotes: .none)[0], hunk: 0, remotes: .none)
     #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "a\nb")
     // A new file without a final newline is staged as it is: nothing left over.
     try "x\ny".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
-    try Git.applyHunk(repo, diff: try Git.diff(repo, source: .unstaged, file: "new.txt")[0], hunk: 0, reverse: false)
-    #expect(try Git.diff(repo, source: .unstaged, file: "new.txt").isEmpty)
+    try Git.applyHunk(repo, diff: try Git.diff(repo, source: .unstaged, file: "new.txt", remotes: .none)[0], hunk: 0, reverse: false, remotes: .none)
+    #expect(try Git.diff(repo, source: .unstaged, file: "new.txt", remotes: .none).isEmpty)
 }
 
 @Test func hunksOfAFileThatIsntUTF8Apply() throws {
     let repo = try tempRepo()
     func cp1251(_ s: String) -> Data { s.data(using: .windowsCP1251) ?? Data() }
     try cp1251("привет\nмир\n").write(to: URL(fileURLWithPath: repo + "/ru.txt"))
-    try Git.run(["add", "ru.txt"], cwd: repo)
-    try Git.run(["commit", "-qm", "ru"], cwd: repo)
+    try Git.run(["add", "ru.txt"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "ru"], cwd: repo, remotes: .none)
     try cp1251("привет\nвсем\n").write(to: URL(fileURLWithPath: repo + "/ru.txt"))
-    let d = try Git.diff(repo, source: .unstaged, file: "ru.txt")
+    let d = try Git.diff(repo, source: .unstaged, file: "ru.txt", remotes: .none)
     #expect(d[0].latin1 == true)
-    try Git.applyHunk(repo, diff: d[0], hunk: 0, reverse: false)
-    #expect(try Git.diff(repo, source: .unstaged, file: "ru.txt").isEmpty)
+    try Git.applyHunk(repo, diff: d[0], hunk: 0, reverse: false, remotes: .none)
+    #expect(try Git.diff(repo, source: .unstaged, file: "ru.txt", remotes: .none).isEmpty)
 }
 
 @Test func pathsWithCyrillicSpacesAndQuotesReadAsThemselves() throws {
     let repo = try tempRepo()
     let names = ["файл.txt", "a b.txt", "q\"x.txt"]
     for n in names { try "1\n".write(toFile: repo + "/" + n, atomically: true, encoding: .utf8) }
-    try Git.stage(repo, files: names)
-    try Git.commit(repo, message: "names")
+    try Git.stage(repo, files: names, remotes: .none)
+    try Git.commit(repo, message: "names", remotes: .none)
     for n in names { try "2\n".write(toFile: repo + "/" + n, atomically: true, encoding: .utf8) }
-    #expect(Set(try Git.status(repo).map(\.path)) == Set(names + [".env"]))
-    #expect(Set(try Git.diff(repo, source: .unstaged).map(\.path)) == Set(names + [".env"]))
-    try Git.stage(repo, files: ["файл.txt"])
-    #expect(try Git.status(repo).first { $0.path == "файл.txt" }?.staged == true)
-    let head = try Git.log(repo, limit: 1)[0].hash
-    #expect(Set(try Git.commitFiles(repo, commit: head).map(\.path)) == Set(names))
+    #expect(Set(try Git.status(repo, remotes: .none).map(\.path)) == Set(names + [".env"]))
+    #expect(Set(try Git.diff(repo, source: .unstaged, remotes: .none).map(\.path)) == Set(names + [".env"]))
+    try Git.stage(repo, files: ["файл.txt"], remotes: .none)
+    #expect(try Git.status(repo, remotes: .none).first { $0.path == "файл.txt" }?.staged == true)
+    let head = try Git.log(repo, limit: 1, remotes: .none)[0].hash
+    #expect(Set(try Git.commitFiles(repo, commit: head, remotes: .none).map(\.path)) == Set(names))
 }
 
 @Test func fileNamesArentPatterns() throws {
     let repo = try tempRepo()
     try FileManager.default.createDirectory(atPath: repo + "/p", withIntermediateDirectories: true)
     for n in ["p/[id].tsx", "p/d.tsx"] { try "x\n".write(toFile: repo + "/" + n, atomically: true, encoding: .utf8) }
-    try Git.discard(repo, files: ["p/[id].tsx"])
+    try Git.discard(repo, files: ["p/[id].tsx"], remotes: .none)
     #expect(!FileManager.default.fileExists(atPath: repo + "/p/[id].tsx"))
     #expect(FileManager.default.fileExists(atPath: repo + "/p/d.tsx"))   // "[id]" isn't "i" or "d"
 }
@@ -334,19 +334,19 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 /// textconv driver); a new file waits in the Trash besides, should the Undo be refused.
 @Test func aDiscardComesBackWithAnExternalDiffSetUp() throws {
     let repo = try tempRepo()
-    try Git.run(["config", "diff.external", "/usr/bin/true"], cwd: repo)
+    try Git.run(["config", "diff.external", "/usr/bin/true"], cwd: repo, remotes: .none)
     try "*.txt diff=upper\n".write(toFile: repo + "/.git/info/attributes", atomically: true, encoding: .utf8)
-    try Git.run(["config", "diff.upper.textconv", "tr a-z A-Z <"], cwd: repo)
+    try Git.run(["config", "diff.upper.textconv", "tr a-z A-Z <"], cwd: repo, remotes: .none)
     let before = try String(contentsOfFile: repo + "/f.txt", encoding: .utf8)
     try "mine\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     try "new\n".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
-    let back = try Git.discard(repo, files: ["f.txt", "n.txt"])
+    let back = try Git.discard(repo, files: ["f.txt", "n.txt"], remotes: .none)
     #expect(
         try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == before
             && !FileManager.default.fileExists(atPath: repo + "/n.txt"))
     let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
     #expect(try FileManager.default.subpathsOfDirectory(atPath: trash).contains { $0.hasSuffix("/n.txt") })
-    try Git.putBack(repo, patch: back, hunk: false)
+    try Git.putBack(repo, patch: back, hunk: false, remotes: .none)
     #expect(try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == "mine\n")
     #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "new\n")
 }
@@ -355,18 +355,18 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     let repo = try tempRepo()
     try "changed\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
     try "new\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
-    try Git.commit(repo, message: "all", all: true)
-    #expect(try Git.status(repo).isEmpty)
-    #expect(Set(try Git.commitFiles(repo, commit: "HEAD").map(\.path)).isSuperset(of: ["f.txt", "new.txt"]))
+    try Git.commit(repo, message: "all", all: true, remotes: .none)
+    #expect(try Git.status(repo, remotes: .none).isEmpty)
+    #expect(Set(try Git.commitFiles(repo, commit: "HEAD", remotes: .none).map(\.path)).isSuperset(of: ["f.txt", "new.txt"]))
 
     let p = try Git.addWorktree(
-        repo: repo, branch: "feat", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [])
+        repo: repo, branch: "feat", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [], remotes: .none)
     try "feat\n".write(toFile: p + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.commit(p, message: "feat", all: true)
+    try Git.commit(p, message: "feat", all: true, remotes: .none)
     try "main\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
-    try Git.commit(repo, message: "main", all: true)
-    _ = try Git.merge(branch: "feat", into: repo, keepConflicts: true)
-    #expect(throws: GitError.self) { try Git.commit(repo, message: "markers", all: true) }
+    try Git.commit(repo, message: "main", all: true, remotes: .none)
+    _ = try Git.merge(branch: "feat", into: repo, keepConflicts: true, remotes: .none)
+    #expect(throws: GitError.self) { try Git.commit(repo, message: "markers", all: true, remotes: .none) }
 }
 
 /// A reply carries at most `Git.diffBudget` of git's output: a regenerated lock file comes back as its header (still
@@ -376,17 +376,17 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     let repo = try tempRepo()
     let lock = (0..<40_000).map { "\"package-\($0)\": \"1.0.\($0)\"" }   // ~1.2 MB: its diff is past one file's share of a review
     try (lock.joined(separator: "\n") + "\n").write(toFile: repo + "/a.lock", atomically: true, encoding: .utf8)
-    try Git.run(["add", "a.lock"], cwd: repo)
-    try Git.run(["commit", "-qm", "lock"], cwd: repo)
+    try Git.run(["add", "a.lock"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "lock"], cwd: repo, remotes: .none)
     try (lock.map { $0 + "-2" }.joined(separator: "\n") + "\n").write(
         toFile: repo + "/a.lock", atomically: true, encoding: .utf8)
     try "a\nB\nc\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
 
-    let all = try Git.diff(repo, source: .unstaged)
+    let all = try Git.diff(repo, source: .unstaged, remotes: .none)
     let big = try #require(all.first { $0.path == "a.lock" }), small = try #require(all.first { $0.path == "f.txt" })
     #expect(big.tooLarge == true && big.hunks.isEmpty && big.header.contains("+++ b/a.lock"))
     #expect(small.tooLarge == nil && small.hunks.count == 1)
-    let alone = try #require(try Git.diff(repo, source: .unstaged, file: "a.lock").first)
+    let alone = try #require(try Git.diff(repo, source: .unstaged, file: "a.lock", remotes: .none).first)
     #expect(alone.tooLarge == nil && alone.additions == 40_000)
 
     // Twelve new files of 900 KB in 1000 lines, 940 KB each with the lines' share: what's left of 8 MB holds eight.
@@ -394,7 +394,7 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     for i in 0..<12 {
         try String(repeating: line, count: 1000).write(toFile: repo + "/gen\(i).txt", atomically: true, encoding: .utf8)
     }
-    let new = try Git.diff(repo, source: .unstaged).filter { $0.path.hasPrefix("gen") }
+    let new = try Git.diff(repo, source: .unstaged, remotes: .none).filter { $0.path.hasPrefix("gen") }
     #expect(new.count == 12)
     #expect(new.filter { $0.tooLarge == true }.count == 4 && new.filter { !$0.hunks.isEmpty }.count == 8)
 }
@@ -402,7 +402,7 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 @Test func untrackedBigFilesArentRead() throws {
     let repo = try tempRepo()
     try Data(repeating: 0x61, count: 1_200_000).write(to: URL(fileURLWithPath: repo + "/big.log"))
-    let d = try Git.diff(repo, source: .unstaged, file: "big.log")
+    let d = try Git.diff(repo, source: .unstaged, file: "big.log", remotes: .none)
     #expect(d.count == 1 && d[0].binary && d[0].hunks.isEmpty)
 }
 
@@ -560,16 +560,16 @@ private let sample = FileDiff(
 
 @Test func aSnapshotShowsExactlyWhatChangedAndLeavesTheRealIndexAlone() throws {
     let repo = try tempRepo()
-    let before = try Git.snapshotTree(repo)
-    #expect(try Git.snapshotTree(repo) == before && Git.changesSince(tree: before, cwd: repo).isEmpty)   // nothing changed, same tree
+    let before = try Git.snapshotTree(repo, remotes: .none)
+    #expect(try Git.snapshotTree(repo, remotes: .none) == before && Git.changesSince(tree: before, cwd: repo, remotes: .none).isEmpty)   // nothing changed, same tree
     try "a\nb\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // +1 line in a tracked file
     try "x\ny\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)   // a new file counts too
-    let changes = try Git.changesSince(tree: before, cwd: repo).sorted { $0.path < $1.path }
+    let changes = try Git.changesSince(tree: before, cwd: repo, remotes: .none).sorted { $0.path < $1.path }
     #expect(
         changes.map(\.path) == ["f.txt", "new.txt"] && changes.map(\.added) == [1, 2]
             && changes.map(\.removed) == [0, 0])
-    #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: repo).isEmpty)   // the real index stayed as it was: nothing got staged
-    #expect(try Git.status(repo).contains { $0.path == "new.txt" && $0.untracked })
+    #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: repo, remotes: .none).isEmpty)   // the real index stayed as it was: nothing got staged
+    #expect(try Git.status(repo, remotes: .none).contains { $0.path == "new.txt" && $0.untracked })
 }
 
 @Test func sharedFoldersNeverLinkOutsideTheProject() throws {
@@ -599,7 +599,7 @@ private let sample = FileDiff(
 @Test func anUntrackedSymlinkIsShownNotFollowed() throws {
     let repo = try tempRepo()
     try FileManager.default.createSymbolicLink(atPath: repo + "/zero", withDestinationPath: "/dev/zero")
-    let d = try #require(try Git.diff(repo, source: .unstaged, file: "zero").first)   // returns at once: /dev/zero isn't read
+    let d = try #require(try Git.diff(repo, source: .unstaged, file: "zero", remotes: .none).first)   // returns at once: /dev/zero isn't read
     #expect(d.hunks.first?.lines.map(\.text) == ["/dev/zero"] && d.header.contains("120000"))
 }
 
@@ -607,21 +607,21 @@ private let sample = FileDiff(
     let repo = try tempRepo()
     try "#!/bin/sh\necho hi\n".write(toFile: repo + "/run.sh", atomically: true, encoding: .utf8)
     chmod(repo + "/run.sh", 0o755)
-    let d = try #require(try Git.diff(repo, source: .unstaged, file: "run.sh").first)
+    let d = try #require(try Git.diff(repo, source: .unstaged, file: "run.sh", remotes: .none).first)
     #expect(d.header.contains("new file mode 100755"))   // a hunk staged from it keeps the script runnable
 }
 
 /// A remote branch name is checked after its "origin/" is taken off: "origin/-Cmain" must not become `git switch -Cmain`.
 @Test func switchingRefusesANameThatReadsAsAnOption() throws {
     let repo = try tempRepo()
-    let before = try Git.run(["rev-parse", "main"], cwd: repo)
-    try Git.run(["switch", "-q", "-c", "other"], cwd: repo)
+    let before = try Git.run(["rev-parse", "main"], cwd: repo, remotes: .none)
+    try Git.run(["switch", "-q", "-c", "other"], cwd: repo, remotes: .none)
     try "x\n".write(toFile: repo + "/x.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "."], cwd: repo)
-    try Git.run(["commit", "-qm", "x"], cwd: repo)
-    #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "origin/-Cmain", remote: true) }
-    #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "-Cmain") }
-    #expect(try Git.run(["rev-parse", "main"], cwd: repo) == before)   // main wasn't reset onto this branch
+    try Git.run(["add", "."], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "x"], cwd: repo, remotes: .none)
+    #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "origin/-Cmain", remote: true, remotes: .none) }
+    #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "-Cmain", remotes: .none) }
+    #expect(try Git.run(["rev-parse", "main"], cwd: repo, remotes: .none) == before)   // main wasn't reset onto this branch
 }
 
 /// A run past its time limit ends even if it ignores SIGTERM: the thread waiting on it is given back.
@@ -637,7 +637,7 @@ private let sample = FileDiff(
 @Test func searchFindsAFileWithAColonInItsName() throws {
     let repo = try tempRepo()
     try "a needle\n".write(toFile: repo + "/a:b.txt", atomically: true, encoding: .utf8)
-    #expect(try ProjectFiles.search(repo, query: "needle") == [SearchMatch(path: "a:b.txt", line: 1, text: "a needle")])
+    #expect(try ProjectFiles.search(repo, query: "needle", remotes: .none) == [SearchMatch(path: "a:b.txt", line: 1, text: "a needle")])
     // git grep -z (remote projects, or no ripgrep) writes NUL after the line number too.
     #expect(ProjectFiles.parseGrep("a:b.txt\u{0}3\u{0}x: y\n") == [SearchMatch(path: "a:b.txt", line: 3, text: "x: y")])
 }
@@ -649,14 +649,14 @@ private let sample = FileDiff(
     let victim = NSTemporaryDirectory() + "victim-\(UUID().uuidString).txt"
     try "keep\n".write(toFile: victim, atomically: true, encoding: .utf8)
     let evil = "--output=" + victim
-    #expect(throws: GitError.self) { _ = try Git.log(repo, base: evil) }
-    #expect(throws: GitError.self) { _ = try Git.diff(repo, source: .branch(base: evil)) }
-    #expect(throws: GitError.self) { _ = try Git.diff(repo, source: .commit(evil)) }
-    #expect(throws: GitError.self) { _ = try Git.commitFiles(repo, commit: evil) }
-    #expect(throws: GitError.self) { try Git.renameBranch(repo, from: "main", to: evil) }
+    #expect(throws: GitError.self) { _ = try Git.log(repo, base: evil, remotes: .none) }
+    #expect(throws: GitError.self) { _ = try Git.diff(repo, source: .branch(base: evil), remotes: .none) }
+    #expect(throws: GitError.self) { _ = try Git.diff(repo, source: .commit(evil), remotes: .none) }
+    #expect(throws: GitError.self) { _ = try Git.commitFiles(repo, commit: evil, remotes: .none) }
+    #expect(throws: GitError.self) { try Git.renameBranch(repo, from: "main", to: evil, remotes: .none) }
     let into = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wt-\(UUID().uuidString)")
     #expect(throws: GitError.self) {
-        _ = try Git.addWorktree(repo: repo, branch: "x", base: evil, into: into, copyFiles: [])
+        _ = try Git.addWorktree(repo: repo, branch: "x", base: evil, into: into, copyFiles: [], remotes: .none)
     }
     #expect(try String(contentsOfFile: victim, encoding: .utf8) == "keep\n")
 }
@@ -675,28 +675,28 @@ private let sample = FileDiff(
 /// committed.
 @Test func branchFilesAreWhatItCommittedSinceItsBase() throws {
     let repo = try tempRepo()
-    try Git.run(["switch", "-qc", "fix"], cwd: repo)
+    try Git.run(["switch", "-qc", "fix"], cwd: repo, remotes: .none)
     try "x\n".write(toFile: repo + "/login.swift", atomically: true, encoding: .utf8)
-    try Git.run(["add", "login.swift"], cwd: repo)
-    try Git.run(["commit", "-qm", "login"], cwd: repo)
-    try Git.run(["switch", "-q", "main"], cwd: repo)
+    try Git.run(["add", "login.swift"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "login"], cwd: repo, remotes: .none)
+    try Git.run(["switch", "-q", "main"], cwd: repo, remotes: .none)
     try "b\n".write(toFile: repo + "/base.txt", atomically: true, encoding: .utf8)   // the base moved on meanwhile
-    try Git.run(["add", "base.txt"], cwd: repo)
-    try Git.run(["commit", "-qm", "base"], cwd: repo)
-    try Git.run(["switch", "-q", "fix"], cwd: repo)
+    try Git.run(["add", "base.txt"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "base"], cwd: repo, remotes: .none)
+    try Git.run(["switch", "-q", "fix"], cwd: repo, remotes: .none)
     try "z\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // not committed: status says it
-    #expect(try Git.branchFiles(repo, base: "main") == ["login.swift"])
-    #expect(throws: GitError.self) { try Git.branchFiles(repo, base: "--output=x") }
+    #expect(try Git.branchFiles(repo, base: "main", remotes: .none) == ["login.swift"])
+    #expect(throws: GitError.self) { try Git.branchFiles(repo, base: "--output=x", remotes: .none) }
 }
 
 /// What a turn keeps under refs/kelp: a ref made, read back, and dropped with others in one run.
 @Test func refsAreKeptReadAndDropped() throws {
     let repo = try tempRepo()
-    let head = try #require(try Git.head(repo))
-    #expect(try Git.resolve("refs/kelp/none", cwd: repo) == nil)
-    try Git.setRef("refs/kelp/a", to: head, reflog: "kept", cwd: repo)
-    try Git.setRef("refs/kelp/b", to: head, cwd: repo)
-    #expect(try Git.resolve("refs/kelp/a", cwd: repo) == head)
-    try Git.deleteRefs(["refs/kelp/a", "refs/kelp/gone", "refs/kelp/b"], cwd: repo)
-    #expect(try Git.resolve("refs/kelp/a", cwd: repo) == nil && Git.resolve("refs/kelp/b", cwd: repo) == nil)
+    let head = try #require(try Git.head(repo, remotes: .none))
+    #expect(try Git.resolve("refs/kelp/none", cwd: repo, remotes: .none) == nil)
+    try Git.setRef("refs/kelp/a", to: head, reflog: "kept", cwd: repo, remotes: .none)
+    try Git.setRef("refs/kelp/b", to: head, cwd: repo, remotes: .none)
+    #expect(try Git.resolve("refs/kelp/a", cwd: repo, remotes: .none) == head)
+    try Git.deleteRefs(["refs/kelp/a", "refs/kelp/gone", "refs/kelp/b"], cwd: repo, remotes: .none)
+    #expect(try Git.resolve("refs/kelp/a", cwd: repo, remotes: .none) == nil && Git.resolve("refs/kelp/b", cwd: repo, remotes: .none) == nil)
 }

@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Git {
-    public static func lineStats(_ cwd: String, remotes: Remotes = .none) throws -> LineStats {
+    public static func lineStats(_ cwd: String, remotes: Remotes) throws -> LineStats {
         var stats = LineStats()
         // No commit yet: there's no HEAD, the staged files are all there is.
         let tracked =

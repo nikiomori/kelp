@@ -5,7 +5,7 @@ extension Git {
     /// The working tree as it is now (tracked and new files, .gitignore respected) written as a tree object, so a
     /// later diff shows exactly what changed since. A copy of the index is updated, never the real one; files whose
     /// stat didn't change aren't hashed again.
-    public static func snapshotTree(_ cwd: String, remotes: Remotes = .none) throws -> String {
+    public static func snapshotTree(_ cwd: String, remotes: Remotes) throws -> String {
         try onIndexCopy(cwd, remotes: remotes) { env, quiet in
             // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good,
             // and `git push --mirror` send them.
@@ -23,27 +23,27 @@ extension Git {
 
     /// The object `rev` names (a ref, `HEAD`, `<tree>^{tree}`), nil when there's none: a ref never made, a snapshot
     /// git has cleaned up, a repository with no commit yet.
-    public static func resolve(_ rev: String, cwd: String, remotes: Remotes = .none) throws -> String? {
+    public static func resolve(_ rev: String, cwd: String, remotes: Remotes) throws -> String? {
         let object = try line(["rev-parse", "--verify", "-q", rev], cwd: cwd, ok: [0, 1], remotes: remotes)
         return object.isEmpty ? nil : object
     }
 
     /// The commit checked out; nil before the first one.
-    public static func head(_ cwd: String, remotes: Remotes = .none) throws -> String? {
+    public static func head(_ cwd: String, remotes: Remotes) throws -> String? {
         try resolve("HEAD", cwd: cwd, remotes: remotes)
     }
 
     /// Keeps `object` under `ref` (a snapshot under refs/kelp/…, so `git gc` leaves it); nil drops the ref. `reflog`: the
     /// line the ref's log keeps for this, so what it pointed at before stays reachable too.
     public static func setRef(
-        _ ref: String, to object: String?, reflog: String? = nil, cwd: String, remotes: Remotes = .none
+        _ ref: String, to object: String?, reflog: String? = nil, cwd: String, remotes: Remotes
     ) throws {
         let log = reflog.map { ["--create-reflog", "-m", $0] } ?? []
         try run(["update-ref"] + log + (object.map { [ref, $0] } ?? ["-d", ref]), cwd: cwd, remotes: remotes)
     }
 
     /// Drops `refs` in one git run; one already gone stops none of the others.
-    public static func deleteRefs(_ refs: [String], cwd: String, remotes: Remotes = .none) throws {
+    public static func deleteRefs(_ refs: [String], cwd: String, remotes: Remotes) throws {
         try run(
             ["update-ref", "--stdin"], cwd: cwd, stdin: refs.map { "delete \($0)\n" }.joined(), remotes: remotes)
     }
@@ -52,7 +52,7 @@ extension Git {
     /// back as well as the files. From a copy of the index too (`write-tree` on the real one rewrites it, under its
     /// lock, which an agent's `git add` then finds taken). nil when there is none to write: unresolved conflicts (git
     /// writes no tree of those), a remote project. A file added with `git add -N` isn't in it.
-    public static func indexTree(_ cwd: String, remotes: Remotes = .none) throws -> String? {
+    public static func indexTree(_ cwd: String, remotes: Remotes) throws -> String? {
         guard remotes.of(cwd) == nil, try run(["ls-files", "-u"], cwd: cwd, remotes: remotes).isEmpty else {
             return nil
         }
@@ -84,7 +84,7 @@ extension Git {
     }
 
     /// Files changed since a snapshot, with line counts ("Changed 3 files +40 −5" after an agent's turn).
-    public static func changesSince(tree: String, cwd: String, remotes: Remotes = .none) throws -> [(
+    public static func changesSince(tree: String, cwd: String, remotes: Remotes) throws -> [(
         path: String, added: Int, removed: Int
     )] {
         let now = try snapshotTree(cwd, remotes: remotes)
@@ -101,7 +101,7 @@ extension Git {
 
 extension Git {
     /// The files HEAD changed since it left `base` (their merge base), committed only: `status` has the rest.
-    public static func branchFiles(_ cwd: String, base: String, remotes: Remotes = .none) throws -> [String] {
+    public static func branchFiles(_ cwd: String, base: String, remotes: Remotes) throws -> [String] {
         try run(["diff", "--name-only", "--no-renames", "-z", "\(try rev(base))...HEAD"], cwd: cwd, remotes: remotes)
             .split(separator: "\0").map(String.init)
     }
@@ -111,7 +111,7 @@ extension Git {
 extension Git {
     /// The files that differ now from snapshot `tree`, secrets left out (`holdsSecrets`: what the user put there stays), and the
     /// snapshot of now, which `restore` is given back so nothing that changes meanwhile is written over.
-    public static func changed(since tree: String, cwd: String, remotes: Remotes = .none) throws -> (
+    public static func changed(since tree: String, cwd: String, remotes: Remotes) throws -> (
         files: [String], now: String
     ) {
         let now = try snapshotTree(cwd, remotes: remotes)
@@ -141,7 +141,7 @@ extension Git {
     /// is unstaged, back to HEAD, which is the turn's. Refused when the folder isn't the snapshot `now` any more;
     /// afterwards none of them may still differ.
     public static func restore(
-        _ files: [String], from tree: String, now: String, index: String? = nil, cwd: String, remotes: Remotes = .none
+        _ files: [String], from tree: String, now: String, index: String? = nil, cwd: String, remotes: Remotes
     ) throws {
         func names(_ args: [String]) throws -> Set<String> {
             Set(try run(args, cwd: cwd, remotes: remotes).split(separator: "\0").map(String.init))

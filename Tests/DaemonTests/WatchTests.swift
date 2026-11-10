@@ -352,8 +352,8 @@ private final class Heard: Sendable {
     let base = try await firstWorkspace(w)
     let fix = try await w.c.call(WorktreeCreate(repoId: base.repoId, branch: "fix", setup: false)).worktree
     try "x\n".write(toFile: fix.path + "/login.swift", atomically: true, encoding: .utf8)
-    try Git.run(["add", "login.swift"], cwd: fix.path)
-    try Git.run(["commit", "-qm", "login"], cwd: fix.path)
+    try Git.run(["add", "login.swift"], cwd: fix.path, remotes: .none)
+    try Git.run(["commit", "-qm", "login"], cwd: fix.path, remotes: .none)
     let heard = Heard()
     heard.listen(w.c)
     w.c.notify(WatchStart(.git, fix.id))

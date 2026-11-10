@@ -38,12 +38,12 @@ func trustAsShown(_ c: RPCClient, _ worktreeId: JSONValue) async throws -> JSONV
 
 func makeRepo() throws -> String {
     let d = tmp().path
-    try Git.run(["init", "-q", "-b", "main"], cwd: d)
+    try Git.run(["init", "-q", "-b", "main"], cwd: d, remotes: .none)
     try "hello\n".write(toFile: d + "/a.txt", atomically: true, encoding: .utf8)
     try "setup: touch SETUP_RAN\n".write(toFile: d + "/.kelp.yaml", atomically: true, encoding: .utf8)
     try "SETUP_RAN\n".write(toFile: d + "/.gitignore", atomically: true, encoding: .utf8)
-    try Git.run(["add", "."], cwd: d)
-    try Git.run(["commit", "-qm", "init"], cwd: d)
+    try Git.run(["add", "."], cwd: d, remotes: .none)
+    try Git.run(["commit", "-qm", "init"], cwd: d, remotes: .none)
     return d
 }
 
@@ -119,9 +119,9 @@ func workspace(_ w: World, _ branch: String) async throws -> Worktree {
         "worktree.create", .obj(["repoId": .string(repo.id), "branch": "feat/zero", "setup": false]))
     _ = try await trustAsShown(c, first["id"] ?? .null)
     let origin = tmp().path
-    try Git.run(["init", "-q", "--bare", origin], cwd: repo.path)
-    try Git.run(["remote", "add", "origin", origin], cwd: repo.path)
-    try Git.run(["push", "-q", "origin", "main:refs/pull/5/head"], cwd: repo.path)
+    try Git.run(["init", "-q", "--bare", origin], cwd: repo.path, remotes: .none)
+    try Git.run(["remote", "add", "origin", origin], cwd: repo.path, remotes: .none)
+    try Git.run(["push", "-q", "origin", "main:refs/pull/5/head"], cwd: repo.path, remotes: .none)
     let pr = try await c.call("worktree.create", .obj(["repoId": .string(repo.id), "pr": 5]))
     #expect(pr["setupNeedsTrust"]?.bool == true && pr["setupSession"] == nil && pr["branch"]?.string == "pr-5")
     // A setup runs as a session of its workspace: none was started, so none is on its way to SETUP_RAN.
@@ -240,8 +240,8 @@ final class NoteBox: @unchecked Sendable {
     try ".env.*\n".write(toFile: repoPath + "/.worktreeinclude", atomically: true, encoding: .utf8)
     try FileManager.default.createDirectory(atPath: repoPath + "/node_modules/x", withIntermediateDirectories: true)
     try "shared: node_modules\n".write(toFile: repoPath + "/.kelp.yaml", atomically: true, encoding: .utf8)
-    try Git.run(["add", "."], cwd: repoPath)
-    try Git.run(["commit", "-qm", "cfg"], cwd: repoPath)
+    try Git.run(["add", "."], cwd: repoPath, remotes: .none)
+    try Git.run(["commit", "-qm", "cfg"], cwd: repoPath, remotes: .none)
 
     let box = NoteBox()
     c.onNotification = { m, p in box.add(m, p) }
@@ -346,7 +346,7 @@ final class NoteBox: @unchecked Sendable {
         })
     #expect(first.note == "Workspace 1" && first.path == repo.path)
     #expect(workspace.note == "Workspace 2" && workspace.path == repo.path && workspace.branch == first.branch)
-    #expect(!Git.branchExists(repo.path, "ws-2"))
+    #expect(!Git.branchExists(repo.path, "ws-2", remotes: .none))
     _ = try await c.call("worktree.remove", .obj(["id": .string(workspace.id)]))
     #expect(FileManager.default.fileExists(atPath: repo.path))
     await #expect(throws: RPCError.self) { _ = try await c.call("worktree.remove", .obj(["id": .string(first.id)])) }
@@ -360,12 +360,12 @@ final class NoteBox: @unchecked Sendable {
     // An agent's leftovers: one where main is, one with a commit of its own, one with a file git doesn't track yet.
     // And one on a detached HEAD with a commit no branch has.
     for n in ["same", "ahead", "untracked"] {
-        try Git.run(["worktree", "add", "-q", "-b", "agent-" + n, ".claude/worktrees/" + n], cwd: repoPath)
+        try Git.run(["worktree", "add", "-q", "-b", "agent-" + n, ".claude/worktrees/" + n], cwd: repoPath, remotes: .none)
     }
-    try Git.run(["worktree", "add", "-q", "--detach", ".claude/worktrees/detached"], cwd: repoPath)
+    try Git.run(["worktree", "add", "-q", "--detach", ".claude/worktrees/detached"], cwd: repoPath, remotes: .none)
     let wt = repoPath + "/.claude/worktrees/"
-    try Git.run(["commit", "-q", "--allow-empty", "-m", "own"], cwd: wt + "ahead")
-    try Git.run(["commit", "-q", "--allow-empty", "-m", "loose"], cwd: wt + "detached")
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "own"], cwd: wt + "ahead", remotes: .none)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "loose"], cwd: wt + "detached", remotes: .none)
     try "x".write(toFile: wt + "untracked/new.txt", atomically: true, encoding: .utf8)
 
     let sizes = try await c.call(RepoWorktreeSizes(id: repo.id))
@@ -376,7 +376,7 @@ final class NoteBox: @unchecked Sendable {
     #expect(
         FileManager.default.fileExists(atPath: wt + "untracked/new.txt")
             && !FileManager.default.fileExists(atPath: wt + "same"))
-    #expect(!Git.branchExists(repoPath, "agent-same") && Git.branchExists(repoPath, "agent-ahead"))   // its commit lives on
+    #expect(!Git.branchExists(repoPath, "agent-same", remotes: .none) && Git.branchExists(repoPath, "agent-ahead", remotes: .none))   // its commit lives on
 }
 
 /// OSC 7501: a hookless agent probes, the daemon answers as the terminal, and its own report sets the status.

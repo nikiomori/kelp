@@ -6,7 +6,7 @@ extension ProjectFiles {
     /// Tracked + untracked-but-not-ignored files, relative paths. A tracked file deleted from the folder is left out: git
     /// tags it "R" (one git process instead of a stat per file, and it works on a remote host too). Outside a sparse
     /// checkout's cone ("S", never checked by git) a file is kept only if it's there. The first `limit`.
-    public static func list(_ root: String, limit: Int = listLimit, remotes: Remotes = .none) throws -> [String] {
+    public static func list(_ root: String, limit: Int = listLimit, remotes: Remotes) throws -> [String] {
         let args = ["ls-files", "-t", "--cached", "--others", "--deleted", "--exclude-standard", "-z"]
         let output: (data: Data, truncated: Bool)
         do {
@@ -33,7 +33,7 @@ extension ProjectFiles {
     /// What git ignores (`files.ignored`): a folder ignored whole is one entry ending with "/", not opened (.build/,
     /// node_modules/). `folder`, one of those: what's in it, one level, read from the folder. The first `limit`.
     /// Limit: on a host a name with a newline in it reads as two.
-    public static func ignored(_ root: String, folder: String? = nil, limit: Int = listLimit, remotes: Remotes = .none)
+    public static func ignored(_ root: String, folder: String? = nil, limit: Int = listLimit, remotes: Remotes)
         throws -> [String]
     {
         guard let folder else {
@@ -97,7 +97,7 @@ extension ProjectFiles {
     /// The first `limit` matches; what rg or git grep print past `searchOutput` bytes is read and dropped.
     public static func search(
         _ root: String, query: String, regex: Bool = false, caseSensitive: Bool = false, wholeWord: Bool = false,
-        limit: Int = searchLimit, remotes: Remotes = .none
+        limit: Int = searchLimit, remotes: Remotes
     ) throws -> [SearchMatch] {
         guard !query.isEmpty else { return [] }
         var args: [String], output: (data: Data, truncated: Bool)
@@ -163,7 +163,7 @@ extension ProjectFiles {
 
 extension Git {
     /// Which of `paths` (relative to `root`; a folder ends with "/") .gitignore and the other exclude files leave out.
-    public static func ignored(_ paths: [String], cwd root: String, remotes: Remotes = .none) throws -> Set<String> {
+    public static func ignored(_ paths: [String], cwd root: String, remotes: Remotes) throws -> Set<String> {
         // 10 s: it runs as files change, for a watch; one that takes longer (a held lock, a huge repo) counts every change.
         let out = try runData(
             ["check-ignore", "-z", "--stdin"], cwd: root, stdin: Data(paths.joined(separator: "\0").utf8), ok: [0, 1],

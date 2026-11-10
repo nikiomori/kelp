@@ -659,9 +659,8 @@ func codeOnly(_ s: String) -> String {
 
 /// What the daemon runs on is handed to it (`Daemon(root:)`, its `Remotes`, `LSPHost`'s delays): nothing in the code it
 /// runs reads KELP_HOME's folders from the environment, keeps state in a static or opts out of the isolation checks. Two
-/// daemons in one process (tests) shared those, and the one set last won. And GitKit runs git on a remote project's host
-/// only when it's given the daemon's `Remotes`: in the daemon, a call that runs git passes it.
-/// (Integrations run gh and glab in local checkouts only: remote projects are refused before them, `refuseRemoteForge`.)
+/// daemons in one process (tests) shared those, and the one set last won. (GitKit runs git on a remote project's host
+/// only when it's given the daemon's `Remotes`: no GitKit function has a default for it, so the compiler checks that.)
 @Test func theDaemonKeepsNoProcessGlobals() throws {
     let modules = [
         "Sources/Daemon", "Sources/Core", "Sources/GitKit", "Sources/LSPKit", "Sources/Agents", "Sources/AgentData",
@@ -689,32 +688,6 @@ func codeOnly(_ s: String) -> String {
     #expect(named(unsafe) == [], "nonisolated(unsafe)")
     #expect(named(statics) == [], "state in a static var")
     #expect(named(home) == [], "KELP_HOME's folders from the environment")
-    // GitKit's functions that can run on a host, and the daemon's calls of them that don't say which home's remotes.
-    let remoteAware = Set(
-        try found(#"func (\w+)\([^{]*?remotes: Remotes"#, in: files.filter { $0.path.hasPrefix("Sources/GitKit/") })
-            .compactMap { h in h.code[h.at].firstMatch(of: /func (\w+)\(/).map { String($0.1) } })
-    #expect(remoteAware.count >= 30, "\(remoteAware)")
-    let calls = try found(
-        #"\b(?:Git|ProjectFiles)\.(\w+)\("#, in: files.filter { $0.path.hasPrefix("Sources/Daemon/") })
-    let blind = calls.filter { h in
-        guard let name = h.code[h.at].firstMatch(of: /\.(\w+)\(/).map({ String($0.1) }), remoteAware.contains(name)
-        else { return false }
-        var depth = 0, i = h.at.upperBound
-        let open = h.code.index(before: i)
-        i = open
-        while i < h.code.endIndex {
-            if h.code[i] == "(" {
-                depth += 1
-            } else if h.code[i] == ")" {
-                depth -= 1
-                if depth == 0 { break }
-            }
-            i = h.code.index(after: i)
-        }
-        let args = h.code[open..<min(i, h.code.endIndex)]
-        return !args.contains("remotes:")
-    }
-    #expect(named(blind) == [], "git run without the daemon's remotes")
 }
 
 /// A project's files are read, written, watched, moved and made by the daemon (`files.*`, `WatchTopic.file(s)`), with a

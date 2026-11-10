@@ -12,8 +12,8 @@ import Testing
     try "a\n".write(toFile: repo + "/a.txt", atomically: true, encoding: .utf8)
     try String(repeating: line, count: 170_000).write(toFile: repo + "/huge.txt", atomically: true, encoding: .utf8)   // 17 MB
     try "z\n".write(toFile: repo + "/z.txt", atomically: true, encoding: .utf8)
-    try Git.run(["add", "a.txt", "huge.txt", "z.txt"], cwd: repo)
-    let d = try Git.diff(repo, source: .staged)
+    try Git.run(["add", "a.txt", "huge.txt", "z.txt"], cwd: repo, remotes: .none)
+    let d = try Git.diff(repo, source: .staged, remotes: .none)
     #expect(d.map(\.path) == ["a.txt", "huge.txt", "z.txt"])
     #expect(d.first?.tooLarge == nil && d.first?.additions == 1)
     #expect(d.dropFirst().allSatisfy { $0.tooLarge == true })   // z.txt came after the cut: never read
@@ -27,8 +27,8 @@ import Testing
         ["/bin/sh", "-c", "mkdir n && cd n && seq 10005 | xargs touch"], cwd: repo,
         env: ProcessInfo.processInfo.environment, timeLimit: 60)
     #expect(made.status == 0)
-    #expect(try Git.status(repo, limit: FileChange.limit).count == FileChange.limit)
-    #expect(try Git.status(repo).count == 10_006)   // .env too
-    #expect(try ProjectFiles.list(repo, limit: 10_000).count == 10_000)
-    #expect(try ProjectFiles.list(repo).count == 10_007)   // f.txt and .env too
+    #expect(try Git.status(repo, limit: FileChange.limit, remotes: .none).count == FileChange.limit)
+    #expect(try Git.status(repo, remotes: .none).count == 10_006)   // .env too
+    #expect(try ProjectFiles.list(repo, limit: 10_000, remotes: .none).count == 10_000)
+    #expect(try ProjectFiles.list(repo, remotes: .none).count == 10_007)   // f.txt and .env too
 }

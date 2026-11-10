@@ -36,7 +36,7 @@ extension Git {
     /// `only`: one file's status (a diff of one file mustn't walk every untracked folder in the repository). `limit`: the
     /// first that many entries (`FileChange.limit` for what's shown; git's output past them is read and dropped);
     /// without one, all of them or an error.
-    public static func status(_ path: String, only file: String? = nil, limit: Int = .max, remotes: Remotes = .none)
+    public static func status(_ path: String, only file: String? = nil, limit: Int = .max, remotes: Remotes)
         throws -> [FileChange]
     {
         let args = ["status", "--porcelain=v2", "-z", "-uall"] + (file.map { ["--"] + literal([$0]) } ?? [])

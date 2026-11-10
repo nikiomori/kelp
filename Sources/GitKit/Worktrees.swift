@@ -11,9 +11,9 @@ extension Git {
     /// there already, checked out as it is (a remote one, "origin/x", gets a local "x" that follows it); `base` unused.
     /// `copying`: the project's own files a worktree gets (`copyFiles`, `.worktreeinclude`'s: `.env` and the like), which
     /// a pull request's code shouldn't have to read.
-    public static func addWorktree(
+    public static func addWorktree(   // swiftlint:disable:this function_parameter_count
         repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
-        copying: Bool = true, remotes: Remotes = .none
+        copying: Bool = true, remotes: Remotes
     ) throws -> String {
         // "feat/a" and "feat-a" make one slug: the second gets "-2" rather than a confusing "already exists" from git.
         var path = dir.appendingPathComponent(slug(branch)).path, n = 2
@@ -53,7 +53,7 @@ extension Git {
     /// and that branch's name: `wanted` (the PR's own branch name) only when it is free and already at the head, your own PR
     /// up to date; else `pr-<N>`, moved to the head now. A local branch that only shares the PR's name is never taken for it.
     @discardableResult
-    public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes = .none)
+    public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes)
         throws -> String
     {
         do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch let github {
@@ -95,7 +95,7 @@ extension Git {
     /// merged and pushed is the project's own): a head Kelp fetched (`fetchPullRequest`), a `pr-*` branch, or a branch that follows a PR's ref
     /// (`gh pr checkout`, `glab mr checkout`: its `branch.<name>.merge` is refs/pull/… or refs/merge-requests/…). A
     /// fetched head found merged and pushed is dropped. Unknown (git failed): it does.
-    public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes = .none) -> Bool {
+    public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes) -> Bool {
         do {
             let merges = try run(
                 ["config", "--get-regexp", #"^branch\..*\.merge$"#], cwd: repo, ok: [0, 1], remotes: remotes)
@@ -124,7 +124,7 @@ extension Git {
     }
 
     /// Gitignored files matching `.worktreeinclude` globs (e.g. `.env*`, `config/*.local.json`) — copied into new worktrees.
-    public static func includedIgnoredFiles(repo: String, remotes: Remotes = .none) -> [String] {
+    public static func includedIgnoredFiles(repo: String, remotes: Remotes) -> [String] {
         guard let text = String(contentsIfAny: URL(fileURLWithPath: repo + "/.worktreeinclude")) else { return [] }
         let pats = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter {
             !$0.isEmpty && !$0.hasPrefix("#")
@@ -190,7 +190,7 @@ extension Git {
     /// `git worktree list` without its first entry, the main checkout.
     /// NUL-separated here (`-z`), so a path with a newline in it can't read as another worktree or a lock; a host's git
     /// may be older than that (2.36), so a remote project's list is read by lines.
-    public static func linkedWorktrees(_ repo: String, remotes: Remotes = .none) throws -> [(
+    public static func linkedWorktrees(_ repo: String, remotes: Remotes) throws -> [(
         path: String, branch: String?, locked: Bool
     )] {
         let nul = remotes.of(repo) == nil
@@ -207,15 +207,15 @@ extension Git {
         }
     }
 
-    public static func renameBranch(_ path: String, from old: String, to new: String, remotes: Remotes = .none) throws {
+    public static func renameBranch(_ path: String, from old: String, to new: String, remotes: Remotes) throws {
         try run(["branch", "-m", rev(old), rev(new)], cwd: path, remotes: remotes)
     }
 
-    public static func branchExists(_ repo: String, _ branch: String, remotes: Remotes = .none) -> Bool {
+    public static func branchExists(_ repo: String, _ branch: String, remotes: Remotes) -> Bool {
         succeeds(["rev-parse", "--verify", "--quiet", "refs/heads/" + branch], cwd: repo, remotes: remotes)
     }
 
-    public static func isDirty(_ path: String, remotes: Remotes = .none) throws -> Bool {
+    public static func isDirty(_ path: String, remotes: Remotes) throws -> Bool {
         // Whatever `status.showUntrackedFiles` says: new files count, it decides what's asked before a folder goes.
         !(try run(["status", "--porcelain", "--untracked-files=normal"], cwd: path, remotes: remotes)).isEmpty
     }
@@ -225,7 +225,7 @@ extension Git {
     /// refusal nothing has been removed. A local folder goes to the Trash: what git doesn't see (ignored .env files, a
     /// local database, submodules' own work) isn't checked above, and `worktree remove --force` would delete it for good.
     public static func removeWorktree(
-        repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none
+        repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes
     ) throws {
         try checkRemovable(
             repo: repo, path: path, branch: branch, force: force, dropCommits: dropCommits, remotes: remotes)
@@ -273,7 +273,7 @@ extension Git {
 
     /// What `removeWorktree` would refuse, without removing anything.
     public static func checkRemovable(
-        repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none
+        repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes
     ) throws {
         if !force, try isDirty(path, remotes: remotes) {
             throw GitError.refused("Worktree has uncommitted changes")
@@ -302,7 +302,7 @@ extension Git {
     /// it goes, and its branch by `removeWorktree`'s rule: refused while it has commits no other branch or remote has,
     /// unless `dropCommits`.
     public static func forgetWorktree(
-        repo: String, path: String, branch: String?, dropCommits: Bool = false, remotes: Remotes = .none
+        repo: String, path: String, branch: String?, dropCommits: Bool = false, remotes: Remotes
     ) throws {
         let branch = branch.flatMap { branchExists(repo, $0, remotes: remotes) ? $0 : nil }
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
@@ -323,14 +323,14 @@ extension Git {
     }
 
     /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (no commits yet: 0).
-    public static func commitsOnNoBranch(_ path: String, remotes: Remotes = .none) -> Int {
+    public static func commitsOnNoBranch(_ path: String, remotes: Remotes) -> Int {
         let out = try? line(
             ["rev-list", "--count", "HEAD", "--not", "--branches", "--remotes"], cwd: path, remotes: remotes)
         return Int(out ?? "") ?? 0
     }
 
     /// Commits on `branch` that no other local branch and no remote branch has: what deleting it would lose.
-    public static func onlyOnBranch(repo: String, _ branch: String, remotes: Remotes = .none) throws -> Int {
+    public static func onlyOnBranch(repo: String, _ branch: String, remotes: Remotes) throws -> Int {
         // --exclude before --branches takes the branch's name without refs/heads/ (with it, nothing is excluded).
         let out = try line(
             ["rev-list", "--count", "refs/heads/" + branch, "--not", "--exclude=" + branch, "--branches", "--remotes"],
