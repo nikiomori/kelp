@@ -27,7 +27,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private let table = NSTableView()
     private let search = NSSearchField()
     private let empty = EmptyStateView()
-    private let top = NSStackView()
+    /// The header every inspector panel has: 36 pt with its hairline.
+    private var bar: Bar?
     private var rows: [Row] = []
     private lazy var watched = Watched(.databases, in: app)
     private var shown = false
@@ -68,11 +69,9 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         let add = IconButton(.symbol("plus"), tip: String(localized: "Add Database…")) { [weak self] in
             self?.addDatabase()
         }
-        top.setViews([search, add], in: .leading)
-        top.spacing = Metrics.gap
-        top.edgeInsets = NSEdgeInsets(
-            top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.gapWide)
-        let column = NSStackView(views: [top, scroll])
+        let bar = Bar.panel([search], [add], stretching: search)
+        self.bar = bar
+        let column = NSStackView(views: [bar, scroll])
         column.orientation = .vertical
         column.spacing = 0
         let content = NSView()
@@ -108,7 +107,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private func alignSearch() {
         guard !rows.isEmpty else { return }
         let left = Metrics.inset + table.frameOfCell(atColumn: 0, row: 0).minX
-        if top.edgeInsets.left != left { top.edgeInsets.left = left }
+        if let stack = bar?.stack, stack.edgeInsets.left != left { stack.edgeInsets.left = left }
     }
     override func viewDidAppear() {
         super.viewDidAppear()
