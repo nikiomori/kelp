@@ -126,7 +126,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         files.addTableColumn(fc)
         files.dataSource = self
         files.delegate = self
-        files.rowHeight = 26
+        files.rowHeight = TextSize.of(Metrics.row)
         files.style = .sourceList
         files.headerView = nil
         fc.resizingMask = .autoresizingMask
