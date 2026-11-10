@@ -89,16 +89,13 @@ extension Builtins {
                     app.settings.set(SettingKeys.wordWrap, !on, language: language)
                 },
                 cmd("files.findInWorkspace", "Find in Project…", "shift+cmd+f") {
-                    app.workbench.showPanel("files")
-                    DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findInFiles() }   // after the panel is built
+                    FilesPanel.shown(app) { $0.findInFiles() }
                 },
                 cmd("files.showProblems", "Show Problems") {
-                    app.workbench.showPanel("files")
-                    DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.showProblems() }   // after the panel
+                    FilesPanel.shown(app) { $0.showProblems() }
                 },
                 cmd("files.findByName", "Find File by Name…") {
-                    app.workbench.showPanel("files")
-                    DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.findByName() }   // after the panel is built
+                    FilesPanel.shown(app) { $0.findByName() }
                 },
                 cmd("editor.goToLine", "Go to Line…", "cmd+l") {
                     if fileTab(app) != nil { app.workbench.openQuickly(text: ":") }

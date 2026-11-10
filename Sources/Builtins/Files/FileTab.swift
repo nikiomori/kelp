@@ -219,11 +219,11 @@ final class FileTab: SavableTab {
         bar.onTrust = { [weak self] in
             Task { [weak self] in
                 guard let self else { return }
-                await LSPManager.of(app).trust(app, root)
+                await LSPManager.of(app).trust(root)
             }
         }
         track(owner: self) { [weak self] in
-            self.map { LSPManager.of(app).restricts(app, $0.root, $0.language) } ?? false
+            self.map { LSPManager.of(app).restricts($0.root, $0.language) } ?? false
         } changed: { [weak bar] in
             bar?.show(restricted: $0)
         }
@@ -253,7 +253,7 @@ final class FileTab: SavableTab {
             let write = FilesWrite(path: path, text: editor.text, base: known?.stamp)
             Task { [app] in await app.call(write) }
         }
-        if lspOpenedOn != nil { LSPManager.of(app).close(app, root: root, path: path) }
+        if lspOpenedOn != nil { LSPManager.of(app).close(root: root, path: path) }
     }
 
     func focus() {

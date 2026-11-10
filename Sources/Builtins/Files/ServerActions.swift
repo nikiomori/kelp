@@ -22,8 +22,7 @@ struct ServerActions {
             await tab.lspCaughtUp()
             let found = await app.call(request) ?? []
             guard !found.isEmpty else { return Banner.show(String(localized: "No references found.")) }
-            app.workbench.showPanel("files")
-            DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.show(references: found) }   // after the panel is built
+            FilesPanel.shown(app) { $0.show(references: found) }
         }
     }
 

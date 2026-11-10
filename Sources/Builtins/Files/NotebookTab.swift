@@ -118,13 +118,6 @@ final class NotebookTab: NSViewController {
     }
 
     @objc private func askAgent() {
-        guard let sid = app.workbench.focusedSession else {
-            NSSound.beep()
-            return
-        }
-        Task {
-            await app.call(
-                SessionSend(id: sid, text: "Look at the notebook \(path) (cells and outputs). ", enter: false))
-        }
+        FileActions(app).sendToAgent(text: "Look at the notebook \(path) (cells and outputs).")
     }
 }

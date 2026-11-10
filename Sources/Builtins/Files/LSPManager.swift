@@ -11,12 +11,15 @@ import os
 @MainActor @Observable
 final class LSPManager {
     /// The app's language servers' side (one per app).
-    static func of(_ app: AppModel) -> LSPManager { app.part { LSPManager() } }
+    static func of(_ app: AppModel) -> LSPManager { app.part { LSPManager(app) } }
+    /// The app it belongs to: one of its parts, so it lives as long.
+    @ObservationIgnored private unowned let app: AppModel
+    private init(_ app: AppModel) { self.app = app }
     /// Server commands already reported missing this launch.
     @ObservationIgnored private var reported: Set<String> = []
-    func enabled(_ app: AppModel) -> Bool { app.settings[SettingKeys.lsp] }
+    func enabled() -> Bool { app.settings[SettingKeys.lsp] }
 
-    func language(_ app: AppModel, _ path: String) -> LanguageSpec? {
+    func language(_ path: String) -> LanguageSpec? {
         LanguageSpec.find(path, in: app.extensions.all.languages)
     }
 
@@ -28,11 +31,11 @@ final class LSPManager {
     /// Projects whose language servers may run (the daemon's UI state: one list per KELP_HOME).
     static let trustKey = LSPOpen.trustKey
     /// The scratch workspace too is asked about once: something cloned into it is someone else's code like any other.
-    func trusted(_ app: AppModel, _ root: String) -> Bool { app.uiState.strings(Self.trustKey).contains(root) }
+    func trusted(_ root: String) -> Bool { app.uiState.strings(Self.trustKey).contains(root) }
     /// The project isn't trusted to run code, and a file of `language` has a language server or a formatter that would.
-    func restricts(_ app: AppModel, _ root: String, _ language: LanguageSpec?) -> Bool {
+    func restricts(_ root: String, _ language: LanguageSpec?) -> Bool {
         guard let lang = language else { return false }
-        return (lang.server != nil && enabled(app) || lang.format != nil) && !trusted(app, root)
+        return (lang.server != nil && enabled() || lang.format != nil) && !trusted(root)
     }
     /// Roots asked about this run, and what starts once the user trusts them (the tabs that wanted a server).
     @ObservationIgnored private var waiting: [String: [@MainActor () -> Void]] = [:]
@@ -40,28 +43,27 @@ final class LSPManager {
     private(set) var putOff: Set<String> = []
     func notNow(_ root: String) { putOff.insert(root) }
     /// A code tab's bar asks (`TrustBar`): the project isn't trusted for `language`, and the question wasn't put off.
-    func asks(_ app: AppModel, _ root: String, _ language: LanguageSpec?) -> Bool {
-        restricts(app, root, language) && !putOff.contains(root)
+    func asks(_ root: String, _ language: LanguageSpec?) -> Bool {
+        restricts(root, language) && !putOff.contains(root)
     }
 
     /// Language servers on, and `root` trusted; else `start` runs once the user trusts it (`askTrust`).
-    func whenTrusted(_ app: AppModel, _ root: String, _ start: @escaping @MainActor () -> Void) -> Bool {
-        enabled(app) && askTrust(app, root, start)
+    func whenTrusted(_ root: String, _ start: @escaping @MainActor () -> Void) -> Bool {
+        enabled() && askTrust(root, start)
     }
 
     /// True when `root` is trusted to run its own code; else `then` runs once the user trusts it. The question is the
     /// tab's bar (`asks`); `again` (the user asked for it: Format) brings it back after Not Now.
-    func askTrust(_ app: AppModel, _ root: String, again: Bool = false, _ then: @escaping @MainActor () -> Void) -> Bool
-    {
-        if trusted(app, root) { return true }
+    func askTrust(_ root: String, again: Bool = false, _ then: @escaping @MainActor () -> Void) -> Bool {
+        if trusted(root) { return true }
         waiting[root, default: []].append(then)
         if again { putOff.remove(root) }
         return false
     }
 
     /// Recorded by the daemon first (a refusal shows, and nothing starts), then the tabs waiting for it start.
-    func trust(_ app: AppModel, _ root: String) async {
-        if !trusted(app, root) {
+    func trust(_ root: String) async {
+        if !trusted(root) {
             guard
                 await app.uiState.save(
                     Self.trustKey, .array((app.uiState.strings(Self.trustKey) + [root]).map(JSONValue.string)))
@@ -73,10 +75,10 @@ final class LSPManager {
     /// Gives a file a tab shows to its server, which the daemon starts when it isn't running. False when there's none: no
     /// server for its language, servers off, or refused — the daemon's reason shows (trust the project, install the server;
     /// `retry` runs once the user trusts it).
-    func open(_ app: AppModel, root: String, path: String, text: String, retry: @escaping @MainActor () -> Void) async
+    func open(root: String, path: String, text: String, retry: @escaping @MainActor () -> Void) async
         -> Bool
     {
-        guard enabled(app), let lang = language(app, path), let server = lang.server else { return false }
+        guard enabled(), let lang = language(path), let server = lang.server else { return false }
         await sent()   // after the file's close from a tab just closed, never before it
         do {
             _ = try await app.get(
@@ -86,8 +88,8 @@ final class LSPManager {
             return true
         } catch {
             switch LSPRefusal(error) {
-            case .untrusted?: _ = askTrust(app, root, retry)   // the daemon doesn't have it as trusted (another copy of Kelp recorded it)
-            case .notInstalled?: reportMissing(app, server)
+            case .untrusted?: _ = askTrust(root, retry)   // the daemon doesn't have it as trusted (another copy of Kelp recorded it)
+            case .notInstalled?: reportMissing(server)
             case nil: break   // no daemon now: a reconnect opens it again
             }
             return false
@@ -96,7 +98,7 @@ final class LSPManager {
 
     /// The file's whole text, as typed. Encoded and sent off the main thread (5 MB took 140 ms to encode on it), from one
     /// queue, so they stay in order with each other and with the close; one still waiting takes the newer text instead.
-    func change(_ app: AppModel, root: String, path: String, text: String) {
+    func change(root: String, path: String, text: String) {
         let key = root + "\n" + path
         let waiting = changes.withLock { queued in
             defer { queued[key] = LSPChange(root: root, path: path, text: text) }
@@ -105,7 +107,7 @@ final class LSPManager {
         guard !waiting else { return }
         app.notify(on: outbox) { [changes] in changes.withLock { $0.removeValue(forKey: key) } }
     }
-    func close(_ app: AppModel, root: String, path: String) {
+    func close(root: String, path: String) {
         app.notify(on: outbox) { LSPClose(root: root, path: path) }
     }
     private let outbox = DispatchQueue(label: "dev.kelp.lsp-changes")
@@ -114,20 +116,20 @@ final class LSPManager {
     func sent() async { await withCheckedContinuation { c in outbox.async { c.resume() } } }
 
     /// Completions at a 1-based position; none when the server can't say (quietly: they're offered while typing).
-    func completion(_ app: AppModel, root: String, path: String, line: Int, column: Int) async -> [CodeCompletion] {
+    func completion(root: String, path: String, line: Int, column: Int) async -> [CodeCompletion] {
         await app.quiet(LSPCompletion(root: root, path: path, line: line, column: column)) ?? []
     }
-    func definition(_ app: AppModel, root: String, path: String, line: Int, column: Int) async -> CodeLocation? {
+    func definition(root: String, path: String, line: Int, column: Int) async -> CodeLocation? {
         await app.quiet(LSPDefinition(root: root, path: path, line: line, column: column)) ?? nil
     }
-    func symbol(_ app: AppModel, root: String, path: String, line: Int) async -> String? {
+    func symbol(root: String, path: String, line: Int) async -> String? {
         await app.quiet(LSPSymbol(root: root, path: path, line: line)) ?? nil
     }
 
     /// Once per command and launch; the button runs the language's `install` in a terminal tab.
-    private func reportMissing(_ app: AppModel, _ server: LanguageSpec.Server) {
+    private func reportMissing(_ server: LanguageSpec.Server) {
         guard reported.insert(server.command).inserted else { return }
-        let name = server.command
+        let name = server.command, app = app
         var install: (String, @MainActor @Sendable () -> Void)?
         if let cmd = server.install {
             install = (

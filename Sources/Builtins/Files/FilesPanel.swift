@@ -18,6 +18,12 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
+    /// Brings the Files panel up and hands it to `then` once built: the inspector makes it on the next turn, when it
+    /// follows the panel just chosen.
+    static func shown(_ app: AppModel, _ then: @escaping @MainActor (FilesPanel) -> Void) {
+        app.workbench.showPanel("files")
+        DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel).map(then) }
+    }
     let outline = FilesOutline()
     /// The row whose name is being edited in place (a rename, or a new file).
     var renaming: (field: NSTextField, url: URL, open: Bool)?

@@ -49,7 +49,7 @@ extension FileTab {
     func sendUnsent() {
         guard let text = lspUnsent else { return }
         lspUnsent = nil
-        LSPManager.of(app).change(app, root: root, path: path, text: text)
+        LSPManager.of(app).change(root: root, path: path, text: text)
     }
 
     /// Before asking the server about a place in the file: what's typed and not sent yet goes first, so the question is
@@ -65,7 +65,7 @@ extension FileTab {
         let app = app
         codeEditor.completionProvider = { [weak self] line, col in
             await self?.lspCaughtUp()
-            return await LSPManager.of(app).completion(app, root: projectRoot, path: filePath, line: line, column: col)
+            return await LSPManager.of(app).completion(root: projectRoot, path: filePath, line: line, column: col)
                 .map {
                     CodeEditor.Completion(
                         label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind,

@@ -49,7 +49,7 @@ extension OneAtATime {
         #expect(!tab.isEdited)
         let overtype = time(10) { tv.replace([NSRange(location: end, length: 1)], with: ["y"]) }   // the saved length
         let text = e.text
-        let lsp = time(1) { LSPManager.of(rig.app).change(rig.app, root: rig.repo, path: p, text: text) }
+        let lsp = time(1) { LSPManager.of(rig.app).change(root: rig.repo, path: p, text: text) }
         print(
             String(
                 format:

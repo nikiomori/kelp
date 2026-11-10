@@ -53,7 +53,6 @@ func searchOption(
     _ app: AppModel, _ id: String, _ title: String, _ key: String, _ option: WritableKeyPath<SearchOptions, Bool>
 ) -> CommandSpec {
     Builtins.cmd(id, title, key) {
-        app.workbench.showPanel("files")
-        DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel)?.toggle(option) }   // after the panel is built
+        FilesPanel.shown(app) { $0.toggle(option) }
     }
 }

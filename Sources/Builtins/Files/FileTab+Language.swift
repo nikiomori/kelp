@@ -19,7 +19,7 @@ extension FileTab {
         }
         guard found.worktree.path != root else { return }   // its first bars: the project is the one it had
         if lspOpenedOn != nil {
-            LSPManager.of(app).close(app, root: root, path: path)
+            LSPManager.of(app).close(root: root, path: path)
             lspOpenedOn = nil
         }
         root = found.worktree.path
@@ -28,13 +28,13 @@ extension FileTab {
 
     func startLSP() {
         let filePath = path, projectRoot = root, app = app
-        guard LSPManager.of(app).language(app, filePath)?.server != nil,
-            LSPManager.of(app).whenTrusted(app, projectRoot, { [weak self] in self?.startLSP() })
+        guard LSPManager.of(app).language(filePath)?.server != nil,
+            LSPManager.of(app).whenTrusted(projectRoot, { [weak self] in self?.startLSP() })
         else { return }   // asked once per project
         Task { [weak self] in
             guard let text = self?.editor?.text,
                 await LSPManager.of(app).open(
-                    app, root: projectRoot, path: filePath, text: text, retry: { [weak self] in self?.startLSP() }),
+                    root: projectRoot, path: filePath, text: text, retry: { [weak self] in self?.startLSP() }),
                 let self, let editor
             else { return }
             lspOpenedOn = app.connections
@@ -50,7 +50,7 @@ extension FileTab {
             await lspCaughtUp()
             guard
                 let loc = await LSPManager.of(app).definition(
-                    app, root: projectRoot, path: filePath, line: line, column: column)
+                    root: projectRoot, path: filePath, line: line, column: column)
             else {
                 NSSound.beep()
                 return
@@ -63,7 +63,7 @@ extension FileTab {
 extension FileTab {
     // MARK: language commands
 
-    var language: LanguageSpec? { LSPManager.of(app).language(app, path) }
+    var language: LanguageSpec? { LSPManager.of(app).language(path) }
 
     /// The language's `run`, `test` or `format` with this file's variables filled in. Nil when there's none (a beep
     /// for a file of no language, else a banner).
@@ -81,7 +81,7 @@ extension FileTab {
         if template.contains("${symbol}") {
             await lspCaughtUp()
             symbol =
-                await LSPManager.of(app).symbol(app, root: root, path: path, line: line)
+                await LSPManager.of(app).symbol(root: root, path: path, line: line)
                 ?? LanguageSpec.word(in: editor?.text ?? "", line: line, column: column)
         }
         let relative = path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path
@@ -100,7 +100,7 @@ extension FileTab {
             return
         }   // its formatter would run here, not on the host
         guard let cmd = await command("format"), let editor else { return }
-        guard LSPManager.of(app).askTrust(app, root, again: true, { [weak self] in Task { await self?.format() } })
+        guard LSPManager.of(app).askTrust(root, again: true, { [weak self] in Task { await self?.format() } })
         else { return }   // its toolchain may be the repo's
         let text = editor.text, line = editor.cursor?.line ?? 1
         let result = await Shell.run(app, cmd, cwd: url.deletingLastPathComponent().path, input: text, timeout: 20)

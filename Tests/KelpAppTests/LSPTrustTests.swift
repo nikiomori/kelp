@@ -22,20 +22,20 @@ extension OneAtATime {
         let root = "/tmp/cloned-\(UUID().uuidString.prefix(6))"
         let app = AppModel(builtins: Builtins.all), lsp = LSPManager.of(app)
         var started = 0
-        #expect(!lsp.whenTrusted(app, root) { started += 1 })   // asks; nothing starts
-        #expect(!lsp.whenTrusted(app, root) { started += 1 })   // a second tab of it waits too (asked once)
-        #expect(await !lsp.open(app, root: root, path: root + "/main.rs", text: "", retry: {}))   // no server is given the file
-        #expect(started == 0 && !lsp.trusted(app, root))
+        #expect(!lsp.whenTrusted(root) { started += 1 })   // asks; nothing starts
+        #expect(!lsp.whenTrusted(root) { started += 1 })   // a second tab of it waits too (asked once)
+        #expect(await !lsp.open(root: root, path: root + "/main.rs", text: "", retry: {}))   // no server is given the file
+        #expect(started == 0 && !lsp.trusted(root))
         let rust: LanguageSpec? = LanguageSpec(id: "rust", extensions: ["rs"], server: .init(command: "rust-analyzer"))
-        #expect(lsp.asks(app, root, rust))   // its code tabs show the question
+        #expect(lsp.asks(root, rust))   // its code tabs show the question
         lsp.notNow(root)
-        #expect(!lsp.asks(app, root, rust) && lsp.restricts(app, root, rust))   // put off: "Restricted" alone says it
-        #expect(!lsp.askTrust(app, root, again: true) {})   // Format asks again
-        #expect(lsp.asks(app, root, rust))
-        await lsp.trust(app, root)   // the banner's "Trust and Start"
-        #expect(started == 2 && lsp.trusted(app, root))
-        #expect(lsp.whenTrusted(app, root) { started += 1 } && started == 2)   // trusted from now on: no waiting
-        #expect(!lsp.trusted(app, Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
+        #expect(!lsp.asks(root, rust) && lsp.restricts(root, rust))   // put off: "Restricted" alone says it
+        #expect(!lsp.askTrust(root, again: true) {})   // Format asks again
+        #expect(lsp.asks(root, rust))
+        await lsp.trust(root)   // the banner's "Trust and Start"
+        #expect(started == 2 && lsp.trusted(root))
+        #expect(lsp.whenTrusted(root) { started += 1 } && started == 2)   // trusted from now on: no waiting
+        #expect(!lsp.trusted(Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
     }
 
     /// Only Kelp's own window may record trust (the daemon checks who's asking): refused, the project stays untrusted and
@@ -49,8 +49,8 @@ extension OneAtATime {
         defer { if let me { setenv("KELP_APP_EXECUTABLE", me, 1) } }
         let root = "/tmp/refused-\(UUID().uuidString.prefix(6))", app = rig.app, lsp = LSPManager.of(app)
         var started = 0
-        _ = lsp.whenTrusted(app, root) { started += 1 }
-        await lsp.trust(app, root)
-        #expect(!lsp.trusted(app, root) && started == 0)
+        _ = lsp.whenTrusted(root) { started += 1 }
+        await lsp.trust(root)
+        #expect(!lsp.trusted(root) && started == 0)
     }
 }
