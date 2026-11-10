@@ -59,7 +59,7 @@ struct SettingsView: View {
                         Label {
                             Text(loc(section.title))
                         } icon: {
-                            SettingsIcon(symbol: section.icon, id: section.id)
+                            SettingsIcon(symbol: section.icon, tint: section.tint)
                         }.tag(Optional(section.id))
                     }
                 }
@@ -67,7 +67,7 @@ struct SettingsView: View {
                     Label {
                         Text("Extensions")
                     } icon: {
-                        SettingsIcon(symbol: "puzzlepiece.extension", id: "extensions")
+                        SettingsIcon(symbol: "puzzlepiece.extension", tint: NSColor(hex: 0xA2845E))
                     }.tag(Optional("extensions"))
                 }
             }
@@ -121,26 +121,18 @@ struct SettingsView: View {
 
 /// A section's symbol on a coloured tile, as System Settings shows its panes: the one place colour tells things apart without
 /// meaning a state, so a section is found by eye. Like System Settings' tiles: a filled white glyph on a top-lit gradient.
-/// Sections extensions add are grey.
+/// Each section says its colour (`SettingsSection.tint`): Apple's light-mode system colours in both modes, as System
+/// Settings keeps them (the dark-mode ones are neon on a tile). One that says none is grey, as General and Keyboard are
+/// in System Settings, and as an extension's sections are.
 private struct SettingsIcon: View {
-    let symbol: String, id: String
+    let symbol: String, tint: NSColor?
     var body: some View {
         Image(systemName: symbol).symbolVariant(.fill).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
             .background(
-                Self.tint[id, default: Self.gray].gradient,
+                Color(nsColor: tint ?? NSColor(hex: 0x8E8E93)).gradient,
                 in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
-    /// Apple's light-mode system colours in both modes, as System Settings keeps them: the dark-mode ones are neon on a tile.
-    /// Keyboard is grey as in System Settings. Terminal is a terminal's near-black, lifted in dark mode, where it sank.
-    private static let gray = Color(nsColor: NSColor(hex: 0x8E8E93))
-    static let tint: [String: Color] = [
-        "general": gray, "keyboard": gray, "appearance": hex(0x007AFF), "agents": hex(0xAF52DE),
-        "catalog": hex(0x00C7BE), "notifications": hex(0xFF3B30), "editor": hex(0x30B0C7), "databases": hex(0x5856D6),
-        "git": hex(0xFF9500), "integrations": hex(0x34C759), "extensions": hex(0xA2845E),
-        "terminal": Color(nsColor: .dynamic(light: NSColor(hex: 0x3A3A3C), dark: NSColor(white: 0.42, alpha: 1)))
-    ]
-    private static func hex(_ value: Int) -> Color { Color(nsColor: NSColor(hex: value)) }
 }
 
 private struct SectionForm: View {
@@ -156,7 +148,7 @@ private struct SectionForm: View {
         let groups = section.groups
         ScrollViewReader { scroller in
             Form {
-                if section.id == "editor" { LanguagePicker(language: $language) }
+                if section.perLanguage { LanguagePicker(language: $language) }
                 ForEach(groups.indices, id: \.self) { index in
                     let rows = groups[index].1.filter {
                         (language.isEmpty || $0.perLanguage == true) && store.meets($0.requires)
@@ -165,13 +157,12 @@ private struct SectionForm: View {
                         EmptyView()
                     } else if let title = groups[index].0 {
                         Section(loc(title)) {
-                            SettingPreview(section: section.id, group: title)
                             section.previews[title]?()
                             ForEach(rows) { row($0) }
                         }.id(title)
                     } else {
                         Section {
-                            SettingPreview(section: section.id, group: nil)
+                            section.previews[""]?()
                             ForEach(rows) { row($0) }
                         }
                     }

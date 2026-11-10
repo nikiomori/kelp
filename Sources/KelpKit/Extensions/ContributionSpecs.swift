@@ -162,13 +162,37 @@ package struct SettingSpec: Codable, Identifiable {
     /// Read for each language's own files, so Settings' language picker shows it; the rest (the font, autosave,
     /// servers) is one value for every file. Limit: said by the row; a setting that starts reading its language says so.
     var perLanguage: Bool?
+    /// What the code declaring it knows of its choices (`SettingChoices`); never in a manifest.
+    var choices: SettingChoices?
     package var id: String { key }
+
+    enum CodingKeys: String, CodingKey {
+        case key, title, type, `default`, description, help, options, labels, look, range, group, hidden, requires
+        case placeholder, perLanguage
+    }
 
     var bounds: ClosedRange<Double>? {
         guard let range, range.count == 2, range[0] <= range[1] else { return nil }
         return range[0]...range[1]
     }
     func clamped(_ v: Double) -> Double { bounds.map { min(max(v, $0.lowerBound), $0.upperBound) } ?? v }
+}
+
+/// A setting's choices as only the code that declares it knows them: those there are now (the agents installed), what
+/// each is called when that isn't known where it's declared (`SettingSpec.labels` otherwise), and how each is drawn
+/// (`look` "pictures"). Asked when shown.
+package struct SettingChoices {
+    package init(
+        options: (@MainActor () -> [String])? = nil, name: (@MainActor (_ option: String) -> String)? = nil,
+        picture: (@MainActor (_ option: String) -> AnyView)? = nil
+    ) {
+        self.options = options
+        self.name = name
+        self.picture = picture
+    }
+    let options: (@MainActor () -> [String])?
+    let name: (@MainActor (_ option: String) -> String)?
+    let picture: (@MainActor (_ option: String) -> AnyView)?
 }
 
 package struct SettingsSection: Identifiable {
@@ -181,10 +205,8 @@ package struct SettingsSection: Identifiable {
         keywords: [String] = [],
         fillsPane: Bool = false,
         order: Int = 100,
-        previews: [String: @MainActor () -> AnyView] = [:],
-        pictures: [String: @MainActor (_ option: String) -> AnyView] = [:],
-        options: [String: @MainActor () -> [String]] = [:],
-        names: [String: @MainActor (_ option: String) -> String] = [:]
+        tint: NSColor? = nil,
+        previews: [String: @MainActor () -> AnyView] = [:]
     ) {
         self.id = id
         self.title = title
@@ -194,10 +216,8 @@ package struct SettingsSection: Identifiable {
         self.keywords = keywords
         self.fillsPane = fillsPane
         self.order = order
+        self.tint = tint
         self.previews = previews
-        self.pictures = pictures
-        self.options = options
-        self.names = names
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
@@ -207,6 +227,10 @@ package struct SettingsSection: Identifiable {
     var fillsPane: Bool
     /// Its place in Settings' list; an extension's sections come after Kelp's.
     var order: Int
+    /// Its tile's colour in Settings' list, as System Settings colours its panes (nil: grey, as an extension's are).
+    var tint: NSColor?
+    /// Settings' language picker shows over it: some of its rows are read for each language's own files.
+    var perLanguage: Bool { specs.contains { $0.perLanguage == true } }
     /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
     var groups: [(String?, [SettingSpec])] {
         specs.filter { $0.hidden != true }.reduce(into: []) { runs, spec in
@@ -219,14 +243,9 @@ package struct SettingsSection: Identifiable {
     }
     /// Sections of its own under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).
     var custom: (@MainActor () -> AnyView)?
-    /// Over a group of rows (by its heading), what they change, as it is now (`SettingPreview`).
+    /// Over a group of rows (by its heading; `""` the first, untitled one), what they change, as it is now
+    /// (`SettingSamples`).
     var previews: [String: @MainActor () -> AnyView]
-    /// A pictured setting's option drawn (`look` "pictures"), by its key: a built-in's own setting, drawn by it.
-    var pictures: [String: @MainActor (_ option: String) -> AnyView]
-    /// A setting's choices when they depend on what's there now (the agents installed), by its key, asked when shown;
-    /// and what each is called, when that isn't known where the setting is declared (`SettingSpec.labels` otherwise).
-    var options: [String: @MainActor () -> [String]]
-    var names: [String: @MainActor (_ option: String) -> String]
 }
 
 /// A skill Kelp gives agents, from the built-in whose feature it explains: written as a Claude Code plugin in Kelp's

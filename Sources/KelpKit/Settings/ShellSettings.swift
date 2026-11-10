@@ -36,14 +36,22 @@ extension SettingKeys {
 /// The shell's rows in Settings, beside its keys: what each is called, its choices and its help.
 extension Builtins {
     /// Appearance: the theme and text first, then how the sidebar, the inspector and the window look.
-    static let appearanceRows: [SettingSpec] =
+    static func appearanceRows(_ app: AppModel) -> [SettingSpec] {
         [
             s(
                 SettingKeys.theme, "Color theme", "theme",
                 "The window, terminal and editor together.",
                 help:
-                    "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors."
-            ),
+                    "The window, terminal and editor together. Match System switches Kelp Light / Dark with macOS; Ghostty keeps your Ghostty terminal colors.",
+                choices: SettingChoices(
+                    options: { ["auto", "ghostty"] + app.themes.themes.map(\.id) },
+                    name: { value in
+                        value == "auto"
+                            ? String(localized: "Match System")
+                            : value == "ghostty"
+                                ? String(localized: "Ghostty config")
+                                : app.themes.themes.first { $0.id == value }?.name ?? value
+                    })),
             s(
                 SettingKeys.textSize, "Text size", "enum",
                 "Everything but code.",
@@ -92,8 +100,12 @@ extension Builtins {
                 "Icons in Files, Source Control and tabs.",
                 help:
                     "Icons in Files, Source Control and tabs. VS Code icon themes work as they are: Settings › Extensions › Install…",
-                group: "Window")
+                group: "Window",
+                choices: SettingChoices(
+                    options: { app.fileIcons.themes.map(\.id) },
+                    name: { value in app.fileIcons.themes.first { $0.id == value }?.label ?? value }))
         ]
+    }
 
     static let generalRows = [
         s(

@@ -4,26 +4,25 @@ import DesignKit
 import EditorKit
 import SwiftUI
 
-/// Over a group of rows, what they change, drawn with the settings as they are: the terminal, the editor (a built-in's own,
-/// the sidebar's plan limits, come from its section: `SettingsSection.previews`). It follows each change at once, so a
-/// row is tried by looking up.
-struct SettingPreview: View {
-    let section: String
-    let group: String?
-
-    var body: some View {
-        switch (section, group) {
-        case ("terminal", nil): TerminalSample()
-        case ("editor", nil):
+/// What the settings change, drawn with them as they are and with the shell's themes, for the sections that show them
+/// over their rows (`SettingsSection.previews`) or as a choice's picture (`SettingChoices.picture`). Each follows a
+/// change at once, so a row is tried by looking up.
+@MainActor
+package enum SettingSamples {
+    /// A prompt and a command in the terminal's font, size, colours and cursor.
+    package static func terminal() -> AnyView { AnyView(TerminalSample()) }
+    /// The real editor on a few lines of Swift.
+    package static func editor() -> AnyView {
+        AnyView(
             EditorSample().frame(height: 132).clipShape(
                 RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(
-                    Color.primary.opacity(0.12)))
-        default: EmptyView()
-        }
+                    Color.primary.opacity(0.12))))
     }
+    /// A cursor style, in the terminal's own colours.
+    package static func cursor(_ option: String) -> AnyView { AnyView(CursorPicture(option: option)) }
 }
 
 /// A prompt and a command in the terminal's font, size, colors and cursor. Ghostty draws the real one; this is text in the

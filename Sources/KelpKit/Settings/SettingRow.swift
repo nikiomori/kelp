@@ -160,33 +160,17 @@ struct SettingRow: View {
         current.isEmpty || options.contains(current) ? options : options + [current]
     }
 
-    /// Choices that depend on what's installed are computed when shown (a built-in's by its section: `options`).
+    /// Choices that depend on what's installed are computed when shown (`SettingSpec.choices`).
     static func options(_ spec: SettingSpec, _ app: AppModel) -> [String] {
-        switch spec.key {
-        case SettingKeys.theme.key: return ["auto", "ghostty"] + app.themes.themes.map(\.id)
-        case SettingKeys.iconTheme.key: return app.fileIcons.themes.map(\.id)
-        default:
-            return app.extensions.all.settings.lazy.compactMap { $0.options[spec.key] }.first?() ?? spec.options ?? []
-        }
+        spec.choices?.options?() ?? spec.options ?? []
     }
 
-    /// Option values made readable: what's installed by its name (themes, icon themes; a built-in's, as its section
-    /// names them: `SettingsSection.names`), the rest as the setting's declaration calls them (`SettingSpec.labels`).
+    /// Option values made readable: as the code declaring the setting names them (themes, agents: `SettingChoices`), else
+    /// as its declaration calls them (`SettingSpec.labels`), else the value capitalized.
     static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
-        switch key {
-        case SettingKeys.theme.key:
-            return value == "auto"
-                ? String(localized: "Match System")
-                : value == "ghostty"
-                    ? String(localized: "Ghostty config")
-                    : app.themes.themes.first { $0.id == value }?.name ?? value
-        case SettingKeys.iconTheme.key: return app.fileIcons.themes.first { $0.id == value }?.label ?? value
-        default:
-            let sections = app.extensions.all.settings
-            if let name = sections.lazy.compactMap({ $0.names[key] }).first { return name(value) }
-            return sections.lazy.flatMap(\.specs).first { $0.key == key }?.labels?[value]
-                ?? loc(value.prefix(1).uppercased() + value.dropFirst())
-        }
+        let spec = app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }
+        if let name = spec?.choices?.name { return name(value) }
+        return spec?.labels?[value] ?? loc(value.prefix(1).uppercased() + value.dropFirst())
     }
 
     static let monospaced: [String] = NSFontManager.shared.availableFontFamilies.filter { fam in

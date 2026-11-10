@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 import SwiftUI
 import WorkbenchKit
 
@@ -46,25 +47,25 @@ package enum Builtins {
         _ setting: Setting<Value>, _ title: String, _ type: String, _ desc: String? = nil, help: String? = nil,
         options: [String]? = nil, labels: [String: String]? = nil, look: String? = nil, range: [Double]? = nil,
         group: String? = nil, hidden: Bool? = nil, requires: String? = nil, placeholder: String? = nil,
-        perLanguage: Bool? = nil
+        perLanguage: Bool? = nil, choices: SettingChoices? = nil
     ) -> SettingSpec {
         SettingSpec(
             key: setting.key, title: title, type: type, default: setting.fallback.setting, description: desc,
             help: help, options: options, labels: labels, look: look, range: range, group: group, hidden: hidden,
-            requires: requires, placeholder: placeholder, perLanguage: perLanguage)
+            requires: requires, placeholder: placeholder, perLanguage: perLanguage, choices: choices)
     }
 
     package static let appearance = Builtin(
         "kelp.appearance", "Appearance", "Themes for the window, terminal and editor.",
         icon: "paintpalette", essential: true
-    ) { _ in
+    ) { app in
         var contributions = Contributions()
         // Everything you see in one place (`appearanceRows`). General has what's about the app itself: its language,
         // updates, the background service. The rows are beside their keys, in ShellSettings.swift.
         contributions.settings = [
             SettingsSection(
                 id: "appearance", title: "Appearance", icon: "paintpalette",
-                specs: appearanceRows, order: 10),
+                specs: appearanceRows(app), order: 10, tint: NSColor(hex: 0x007AFF)),
             SettingsSection(
                 id: "general", title: "General", icon: "gearshape",
                 specs: generalRows, custom: { AnyView(GeneralSettings()) },

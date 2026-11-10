@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 import SwiftUI
 import WorkbenchKit
@@ -88,7 +89,7 @@ extension Builtins {
                         s(
                             SettingKeys.ciPopover, "CI in the branch popover", "boolean",
                             "The newest run of each workflow; a click opens CI Runs.", group: "CI")
-                    ], order: 80)
+                    ], order: 80, tint: NSColor(hex: 0xFF9500))
             ],
             tabs: [
                 TabProvider(schemes: ["diff"]) { DiffTab(uri: $0, app: app) },

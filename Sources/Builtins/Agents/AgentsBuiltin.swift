@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 import SwiftUI
 import WorkbenchKit
@@ -18,7 +19,11 @@ extension Builtins {
                     s(
                         SettingKeys.defaultAgent, "Default agent", "enum",
                         "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.",
-                        options: app.catalog.all.map(\.id)),
+                        options: app.catalog.all.map(\.id),
+                        // The agents installed now, by their names: asked when the row shows, not when this is declared.
+                        choices: SettingChoices(
+                            options: { app.catalog.installed(app.catalog.all).map(\.id) },
+                            name: { app.catalog.name($0) })),
                     s(
                         SettingKeys.commandsBar, "Show the commands an agent runs", "boolean",
                         "A line under its terminal with the commands it ran.",
@@ -139,10 +144,7 @@ extension Builtins {
                             "off": String(localized: "Never")
                         ], group: "Claude Code skills")
                 ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30,
-                previews: ["Plan limits": { AnyView(LimitsSample()) }],
-                // The agents installed now, by their names: asked when the row shows, not when this is declared.
-                options: [SettingKeys.defaultAgent.key: { app.catalog.installed(app.catalog.all).map(\.id) }],
-                names: [SettingKeys.defaultAgent.key: { app.catalog.name($0) }]),
+                tint: NSColor(hex: 0xAF52DE), previews: ["Plan limits": { AnyView(LimitsSample()) }]),
             SettingsSection(
                 id: "notifications", title: "Notifications", icon: "bell",
                 specs: [
@@ -184,7 +186,8 @@ extension Builtins {
                         labels: [
                             "needed": String(localized: "When Needed"), "always": String(localized: "Always"),
                             "off": String(localized: "Never")
-                        ], look: "pictures", group: "Dock"),
+                        ], look: "pictures", group: "Dock",
+                        choices: SettingChoices(picture: { AnyView(DockStripPicture(option: $0)) })),
                     s(
                         SettingKeys.dockStripComesFor, "Comes up for", "enum",
                         "A row you muted stays quiet here too.",
@@ -205,7 +208,8 @@ extension Builtins {
                         labels: [
                             "agents": String(localized: "Agents"), "usage": String(localized: "Plan Usage"),
                             "icon": String(localized: "App Icon")
-                        ], look: "pictures", group: "Dock"),
+                        ], look: "pictures", group: "Dock",
+                        choices: SettingChoices(picture: { AnyView(DockIconPicture(option: $0)) })),
                     s(
                         SettingKeys.phoneURL, "Phone notifications (ntfy address)", "string",
                         "When you've been away 5 minutes or Kelp is closed.",
@@ -216,16 +220,12 @@ extension Builtins {
                         SettingKeys.phoneDetails, "Show what the agent says on the phone", "boolean",
                         "Off: the agent's and the workspace's names only.",
                         group: "Phone", requires: SettingKeys.phoneURL.key)
-                ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50,
-                pictures: [
-                    SettingKeys.dockStrip.key: { AnyView(DockStripPicture(option: $0)) },
-                    SettingKeys.dockIcon.key: { AnyView(DockIconPicture(option: $0)) }
-                ]),
+                ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50, tint: NSColor(hex: 0xFF3B30)),
             SettingsSection(
                 id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
                 custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name),
                 fillsPane: true,
-                order: 40),
+                order: 40, tint: NSColor(hex: 0x00C7BE)),
             SettingsSection(
                 id: "terminal", title: "Terminal", icon: "terminal",
                 specs: [
@@ -233,7 +233,7 @@ extension Builtins {
                     s(SettingKeys.terminalFontSize, "Font size", "number", range: [8, 40]),
                     s(
                         SettingKeys.cursorStyle, "Cursor style", "enum", options: ["block", "bar", "underline"],
-                        look: "pictures"),
+                        look: "pictures", choices: SettingChoices(picture: SettingSamples.cursor)),
                     s(SettingKeys.optionAsAlt, "Option key sends Alt (Meta)", "boolean"),
                     s(
                         SettingKeys.cleanCopy, "Copy text without borders", "boolean",
@@ -247,7 +247,10 @@ extension Builtins {
                         help:
                             "They keep running when Kelp quits or updates, on the host for a remote project. Closing the tab ends them. Needs tmux."
                     )
-                ], order: 60)
+                ], order: 60,
+                // A terminal's near-black, lifted in dark mode, where it sank.
+                tint: .dynamic(light: NSColor(hex: 0x3A3A3C), dark: NSColor(white: 0.42, alpha: 1)),
+                previews: ["": SettingSamples.terminal])
         ]
         return Contributions(
             commands: [

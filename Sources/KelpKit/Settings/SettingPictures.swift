@@ -5,11 +5,10 @@ import SwiftUI
 /// Choices about how something looks, shown as what they look like: a small drawing per option, picked like a theme,
 /// instead of its name in a menu (`SettingSpec.look`). The value written is the option, as from the menu.
 enum SettingPictures {
-    /// What the shell draws; a built-in draws its own settings' (`SettingsSection.pictures`).
+    /// The shell's own settings it draws; a built-in draws its own (`SettingChoices.picture`).
     static let keys: Set<String> = [
         SettingKeys.textSize.key, SettingKeys.tabWidth.key, SettingKeys.tabHeight.key,
-        SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
-        SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.cursorStyle.key
+        SettingKeys.rowHeight.key, SettingKeys.agentDetail.key, SettingKeys.projectColor.key, SettingKeys.serverLook.key
     ]
 }
 
@@ -105,14 +104,15 @@ private struct PictureArt: View {
         case SettingKeys.agentDetail.key: agentRow
         case SettingKeys.projectColor.key: projectRow
         case SettingKeys.serverLook.key: serverRow
-        case SettingKeys.cursorStyle.key: cursor
-        default: app.extensions.all.settings.lazy.compactMap { $0.pictures[key] }.first?(option)
+        default:
+            // A built-in's own setting, drawn by it.
+            app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.choices?.picture?(option)
         }
     }
 
     private static let pink = Color(nsColor: .systemPink)
     /// Text drawn into a picture at a fixed size: the Text size picture shows each size itself, so it mustn't follow the setting.
-    private static func drawn(_ size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
+    static func drawn(_ size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
         .system(size: size, weight: weight, design: design)
     }
 
@@ -253,12 +253,17 @@ private struct PictureArt: View {
         .overlay { if option == "sparse" { shape.stroke(Color.primary.opacity(0.15)) } }
         .padding(.horizontal, 12)
     }
+}
 
-    /// In the terminal's own colors, as the sample above it.
-    private var cursor: some View {
+/// A cursor style, in the terminal's own colors, as the sample above it.
+struct CursorPicture: View {
+    let option: String
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
         let ink = app.themes.shown?.terminal.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .white
         return HStack(spacing: 1) {
-            Text(verbatim: "❯ ls").font(Self.drawn(12, design: .monospaced)).foregroundStyle(ink)
+            Text(verbatim: "❯ ls").font(PictureArt.drawn(12, design: .monospaced)).foregroundStyle(ink)
             Group {
                 switch option {
                 case "bar": Rectangle().frame(width: 2, height: 15)

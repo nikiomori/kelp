@@ -58,11 +58,11 @@ import Testing
     // One row per key: the Dock icon sat in two sections with two defaults.
     let keys = sections.flatMap(\.specs).map(\.key)
     #expect(Set(keys).count == keys.count)
-    // A drawn choice is an enum row, and every one has its drawings, the shell's or its section's: a renamed key would
-    // leave its pictures drawing nothing.
+    // A drawn choice is an enum row, and every one has its drawings, the shell's or its own (`choices`): a renamed key
+    // would leave the shell's drawing nothing.
     let pictured = sections.flatMap(\.specs).filter { $0.look == "pictures" }
     #expect(pictured.allSatisfy { $0.type == "enum" })
-    #expect(Set(pictured.map(\.key)) == SettingPictures.keys.union(sections.flatMap(\.pictures.keys)))
+    #expect(Set(pictured.filter { $0.choices?.picture == nil }.map(\.key)) == SettingPictures.keys)
     // What an option is called comes from where its setting is declared, the window naming no built-in's key.
     #expect(SettingRow.label(SettingKeys.dockStrip.key, "needed", m) == "When Needed")
     #expect(SettingRow.label(SettingKeys.ciBranchChip.key, "icon", m) == "In Place of the Branch Icon")
