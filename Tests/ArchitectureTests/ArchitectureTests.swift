@@ -315,7 +315,7 @@ func codeOnly(_ s: String) -> String {
         try matches(#"\bProcess\(\)|\bSubprocess\.run\("#, in: ["Sources/Core"]).map {
             String($0.split(separator: ":")[0])
         })
-    let core = ["Subprocess", "LoginPath", "ExtensionFiles"].map { "Sources/Core/\($0).swift" }
+    let core = ["System/Subprocess", "System/LoginPath", "Extensions/ExtensionFiles"].map { "Sources/Core/\($0).swift" }
     #expect(starters == Set(core))
 }
 
@@ -684,7 +684,7 @@ func codeOnly(_ s: String) -> String {
     let statics = try found(#"\bstatic var \w+(?:\s*:\s*[^={\n]+)?\s*="#, in: files)
     let home = try found(
         #"\bPaths\.(?:root|socket|agents|extensions|agentSkills|scratch)\b|\bfunc daemonError\(in root: URL ="#,
-        in: files.filter { $0.path != "Sources/Core/Paths.swift" })
+        in: files.filter { $0.path != "Sources/Core/System/Paths.swift" })
     #expect(named(unsafe) == [], "nonisolated(unsafe)")
     #expect(named(statics) == [], "state in a static var")
     #expect(named(home) == [], "KELP_HOME's folders from the environment")

@@ -7,7 +7,7 @@ import Testing
 /// safe, and a new one is added here with its own, or it fails. One that goes comes off the list.
 @Test func uncheckedSendablesSayWhatGuardsThem() throws {
     let guarded: [String: String] = [
-        "Sources/Core/FileWatcher.swift: FileWatcher": "an FSEventStream, started here and stopped on its own queue",
+        "Sources/Core/System/FileWatcher.swift: FileWatcher": "an FSEventStream, started here and stopped on its own queue",
         "Sources/LSPKit/LSPClient.swift: LSPClient": "Process and Pipe; what changes is under `state`'s lock",
         "Sources/Daemon/Daemon.swift: Running": "the sources, set up and cancelled under `running`'s lock",
         "Sources/Daemon/PTY.swift: PTY": "its phases under `phase`'s lock, the read source (set on `queue`) too",

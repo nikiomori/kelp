@@ -71,8 +71,8 @@ func sourceComments(in folder: URL) throws -> [String: String] {
     var found: [String: String] = [:]
     let declaration = /(?:(?:public|private|package|final|indirect) )*(struct|enum|class|extension) (\w+)/
     let field = /(?:public )?(?:var|let|case) (\w+)/
-    for file in try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
-    where file.pathExtension == "swift" {
+    let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)?.compactMap { $0 as? URL }
+    for file in files ?? [] where file.pathExtension == "swift" {
         var doc: [String] = [], inside: [(indent: Int, name: String)] = []
         for line in try String(contentsOf: file, encoding: .utf8).split(
             separator: "\n", omittingEmptySubsequences: false)
