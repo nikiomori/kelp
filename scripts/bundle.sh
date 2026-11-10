@@ -153,7 +153,8 @@ end run
 EOF
 for _ in {1..50}; do [ -f "$MNT/.DS_Store" ] && break; sleep 0.2; done   # Finder writes it after the window closes
 rm -rf "$MNT/.fseventsd"; sync
-hdiutil detach -quiet "$MNT"
+# Finder (or Spotlight) holds a disk whose window just closed a moment longer: "Resource busy" (16) until it lets go.
+for i in {1..10}; do hdiutil detach -quiet "$MNT" && break; (( i == 10 )) && hdiutil detach -force "$MNT"; sleep 1; done
 hdiutil convert -quiet "$STAGE.dmg" -format UDZO -ov -o "$DMG"
 rm -rf "$STAGE" "$STAGE.dmg"
 if [ -n "${SIGN_ID:-}" ]; then
