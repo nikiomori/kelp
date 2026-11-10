@@ -6,7 +6,7 @@ import Foundation
 /// agent settings can run hooks and servers the moment it's trusted).
 public enum AgentTrust {
     /// Whether `agent` trusts any of `folders` (or a folder above one). `env` is the session's: an account profile can point
-    /// the agent at a config of its own (CLAUDE_CONFIG_DIR, CODEX_HOME).
+    /// the agent at a config of its own (`AgentHome`).
     public static func trusts(
         agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()
     ) -> Bool {
@@ -15,11 +15,13 @@ public enum AgentTrust {
     }
 
     public static func trustedFolders(agent: String, env: [String: String], home: String) -> [String] {
-        switch agent {
-        case "claude": claude(env["CLAUDE_CONFIG_DIR"].map { $0 + "/.claude.json" } ?? home + "/.claude.json")
-        case "codex": codex((env["CODEX_HOME"] ?? home + "/.codex") + "/config.toml")
-        case "gemini": gemini(home + "/.gemini/trustedFolders.json")
-        case "kimi": kimi(env["KIMI_CODE_HOME"] ?? home + "/.kimi-code")
+        let dir = AgentHome.dir(agent, env: env, home: home)?.path ?? home
+        return switch agent {
+        case "claude":   // in its config folder when one is set; else beside that folder, in the home folder
+            claude((AgentHome.variable(agent).flatMap { env[$0] } == nil ? home : dir) + "/.claude.json")
+        case "codex": codex(dir + "/config.toml")
+        case "gemini": gemini(dir + "/trustedFolders.json")
+        case "kimi": kimi(dir)
         default: []   // no way to read its trust: Kelp doesn't answer for it
         }
     }

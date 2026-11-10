@@ -718,3 +718,16 @@ func hooklessCodex() throws -> AgentManifest {
         AgentManifest.self, from: Data(#"{"id":"mine","name":"Mine","command":"m","transcript":"aider"}"#.utf8))
     #expect(other.transcript == nil && !other.forks)
 }
+
+/// Where an agent keeps its files, and how History's conversations go on: one table for the folders, the manifest for
+/// the flag (a file can change it).
+@Test func agentFoldersAndResumingByIdComeFromOnePlace() throws {
+    let home = "/Users/x"
+    #expect(AgentHome.dir("codex", env: [:], home: home)?.path == "/Users/x/.codex")
+    #expect(AgentHome.dir("codex", env: ["CODEX_HOME": "/p/c"], home: home)?.path == "/p/c")
+    #expect(AgentHome.dir("gemini", env: ["GEMINI_CLI_HOME": "/g"], home: home)?.path == "/g/.gemini")
+    #expect(AgentHome.dir("aider", env: [:], home: home) == nil)
+    #expect(AgentHome.variable("claude") == "CLAUDE_CONFIG_DIR")
+    let flags = Dictionary(uniqueKeysWithValues: AgentManifest.presets.map { ($0.id, $0.resumeIdFlag) })
+    #expect(flags["claude"] == "--resume" && flags["codex"] == "resume")
+}

@@ -46,7 +46,7 @@ extension AgentManifest {
                 "low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
                 "high": ["-c", "model_reasoning_effort=high"]
             ],
-            autoAnswers: [trust], resumeArgs: ["resume", "--last"],
+            autoAnswers: [trust], resumeArgs: ["resume", "--last"], resumeIdFlag: "resume",
             install: "npm install -g @openai/codex", update: "npm install -g @openai/codex@latest",
             npm: "@openai/codex", about: "OpenAI’s coding agent", color: "#262626", apps: ["ChatGPT", "Codex"],
             site: "chatgpt.com", featured: 1, transcript: .codex, profiles: true, providers: codexProviders),

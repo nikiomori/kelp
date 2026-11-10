@@ -339,11 +339,6 @@ private func assistant(
     #expect(History.fullTextSearch(query: "Flux Capacitor", in: s).map(\.id) == ["a"])
     #expect(History.fullTextSearch(query: "the", in: s, limit: 1).count == 1)
     #expect(History.fullTextSearch(query: "", in: s).isEmpty)
-
-    #expect(History.resumeCommand(for: s[0]) == ["claude", "--resume", s[0].id])
-    var codex = s[0]
-    codex.agent = .codex
-    #expect(History.resumeCommand(for: codex) == ["codex", "resume", s[0].id])
 }
 
 @Test func missingDirsAreEmpty() {

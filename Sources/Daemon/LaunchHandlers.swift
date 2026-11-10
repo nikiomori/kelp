@@ -243,7 +243,10 @@ extension HistoryResume: Handled {
         var launch = Sessions.Launch(self)
         launch.title = session.title.isEmpty ? "Resumed \(session.agent.rawValue)" : session.title
         var manifest = try sessions.setup.manifest(session.agent.rawValue, command: nil)
-        manifest.args += Array(History.resumeCommand(for: session).dropFirst())
+        guard let flag = manifest.resumeIdFlag else {
+            throw RPCError.invalidParams("\(manifest.name) can't go on with a conversation by its id")
+        }
+        manifest.args += [flag, session.id]
         return try sessions.spawn(cwd: cwd, manifest: manifest, worktreeId: wid, launch)
     }
 }

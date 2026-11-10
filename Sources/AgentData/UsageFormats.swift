@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 /// One model call's tokens as an agent logged it.
@@ -13,21 +14,16 @@ struct UsageEntry {
 public enum UsageFormat: String, Sendable, CaseIterable {
     case claude, codex, grok, kimi, pi, omp, qwen, gemini
 
-    /// Where each keeps its sessions, as its own env moves them; Claude's and Codex's come with account profiles.
+    /// Where each keeps its sessions, in its folder (`AgentHome`); Claude's and Codex's come with account profiles.
     public var defaultRoot: URL? {
-        let env = ProcessInfo.processInfo.environment, home = FileManager.default.homeDirectoryForCurrentUser
-        func dir(_ variable: String, _ fallback: String) -> URL {
-            env[variable].map { URL(fileURLWithPath: $0) } ?? home.appendingPathComponent(fallback)
-        }
-        return switch self {
-        case .grok: dir("GROK_HOME", ".grok").appendingPathComponent("sessions")
-        case .kimi: dir("KIMI_CODE_HOME", ".kimi-code").appendingPathComponent("sessions")
-        case .pi: dir("PI_CODING_AGENT_DIR", ".pi/agent").appendingPathComponent("sessions")
-        case .omp: home.appendingPathComponent(".omp/agent/sessions")
-        case .qwen: dir("QWEN_HOME", ".qwen").appendingPathComponent("projects")
-        case .gemini: dir("GEMINI_CLI_HOME", "").appendingPathComponent(".gemini/tmp")
-        case .claude, .codex: nil
-        }
+        let inside: String? =
+            switch self {
+            case .grok, .kimi, .pi, .omp: "sessions"
+            case .qwen: "projects"
+            case .gemini: "tmp"
+            case .claude, .codex: nil
+            }
+        return inside.flatMap { inside in AgentHome.dir(rawValue)?.appendingPathComponent(inside) }
     }
 
     /// Its lines say what a call cost (Grok's own figure, pi's): that's the price, not the list's.

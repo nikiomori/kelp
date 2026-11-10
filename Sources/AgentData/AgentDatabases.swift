@@ -1,3 +1,4 @@
+import Core
 import Foundation
 import SQLite3
 
@@ -18,7 +19,7 @@ public enum AgentDatabases {
         let data = dir("XDG_DATA_HOME", ".local/share")
         let all: [URL] =
             switch agent {
-            case "copilot": [dir("COPILOT_HOME", ".copilot").appendingPathComponent("session-store.db")]
+            case "copilot": [AgentHome.dir(agent)].compactMap { $0?.appendingPathComponent("session-store.db") }
             case "opencode":
                 [
                     env["OPENCODE_DB"].map { URL(fileURLWithPath: $0) }
@@ -26,12 +27,11 @@ public enum AgentDatabases {
                 ]
             case "kilo": [data.appendingPathComponent("kilo/kilo.db")]
             case "antigravity":
-                (fm.enumerator(
-                    at: home.appendingPathComponent(".gemini/antigravity-cli/conversations"),
-                    includingPropertiesForKeys: nil,
-                    options: .skipsSubdirectoryDescendants)?.allObjects as? [URL] ?? []).filter {
-                        $0.pathExtension == "db"
-                    }
+                (AgentHome.dir(agent).flatMap {
+                    fm.enumerator(
+                        at: $0.appendingPathComponent("conversations"), includingPropertiesForKeys: nil,
+                        options: .skipsSubdirectoryDescendants)
+                }?.allObjects as? [URL] ?? []).filter { $0.pathExtension == "db" }
             default: []
             }
         func changed(_ path: String) -> TimeInterval {

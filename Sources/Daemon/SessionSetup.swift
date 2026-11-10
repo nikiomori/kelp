@@ -146,10 +146,9 @@ final class SessionSetup: Sendable {
             ?? agentUsage.conversations.homes.withLock { $0 }.claude
     }
 
-    /// Account profiles keep each agent login in its own config dir: switching needs no re-login.
-    static let configDirEnv = ["claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"]
+    /// Account profiles keep each agent login in its own config dir (`AgentHome`'s variable): switching needs no re-login.
     func profile(_ name: String, agent: String) -> (key: String, dir: String)? {
-        guard let key = Self.configDirEnv[agent] else { return nil }
+        guard let key = AgentHome.variable(agent) else { return nil }
         for entry in settings[SettingKeys.accounts]
         where entry["name"]?.string == name && entry["agent"]?.string == agent {
             if let dir = entry["dir"]?.string {

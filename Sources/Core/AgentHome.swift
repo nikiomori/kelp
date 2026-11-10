@@ -24,6 +24,11 @@ public enum AgentHome {
         return entry.inside.isEmpty ? url : url.appendingPathComponent(entry.inside)
     }
 
+    /// `dir` of an agent Kelp knows, under this process's environment.
+    public static func root(_ agent: String) -> URL {
+        dir(agent) ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("." + agent)
+    }
+
     /// The variable that points `agent` at a folder of its own: an account profile sets it.
     public static func variable(_ agent: String) -> String? { known[agent]?.variable }
 }

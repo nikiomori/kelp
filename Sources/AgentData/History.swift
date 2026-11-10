@@ -3,11 +3,8 @@ import Foundation
 import os
 
 public enum ClaudeHistory {
-    /// Where Claude Code keeps conversations: under CLAUDE_CONFIG_DIR when it's set, as Claude Code itself does.
-    public static let defaultRoot =
-        (ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"].map { URL(fileURLWithPath: $0) }
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")).appendingPathComponent(
-            "projects")
+    /// Where Claude Code keeps conversations: in its folder (`AgentHome`), as Claude Code itself does.
+    public static let defaultRoot = AgentHome.root("claude").appendingPathComponent("projects")
 
     /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).
     public static func lastReply(transcript url: URL) -> String? {
@@ -109,11 +106,8 @@ public enum ClaudeHistory {
 }
 
 public enum CodexHistory {
-    /// Under CODEX_HOME when it's set, as Codex itself does.
-    public static let defaultRoot =
-        (ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) }
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")).appendingPathComponent(
-            "sessions")
+    /// In its folder (`AgentHome`), as Codex itself does.
+    public static let defaultRoot = AgentHome.root("codex").appendingPathComponent("sessions")
 
     /// Sessions from `root/YYYY/MM/DD/rollout-*.jsonl`, newest first.
     public static func sessions(root: URL = defaultRoot) -> [AgentSessionInfo] {
@@ -245,13 +239,6 @@ public enum History {
             }
         }
         return out
-    }
-
-    public static func resumeCommand(for session: AgentSessionInfo) -> [String] {
-        switch session.agent {
-        case .claude: ["claude", "--resume", session.id]
-        case .codex: ["codex", "resume", session.id]
-        }
     }
 }
 
