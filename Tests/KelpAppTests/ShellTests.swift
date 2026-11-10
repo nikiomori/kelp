@@ -172,6 +172,7 @@ import WorkbenchKit
     l.add("file:///x")
     l.save("other", to: app.uiState)
     host.replaceInBackground("session:old", with: "session:new", workspace: "other")
+    app.workbench.layouts.save()
     let after = WorkspaceLayout.load("other", from: app.uiState)
     #expect(after.tab(uri: "session:new")?.id == old.id && after.tab(uri: "session:old") == nil)
     #expect(after.allTabs.count == 2)

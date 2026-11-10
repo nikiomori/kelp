@@ -123,37 +123,38 @@ final class EditorHost: NSViewController {
         return (recent.filter { !gone.contains($0) }, gone)
     }
 
-    /// A tab for a workspace that isn't on screen: into its editor area if it's loaded, else into its saved layout.
+    /// A tab for a workspace that isn't on screen, into its layout (`Workbench.layouts`), which its editor area follows
+    /// if it's loaded: one already open there is brought to the front of its pane. What runs starts only in a loaded one.
     func openInBackground(_ uri: String, workspace id: String) {
-        if let area = areas[id] {
-            if TabURI.runs(uri) { area.runURI(uri) } else { area.open(uri, focus: false) }
+        guard !TabURI.runs(uri) else {
+            areas[id]?.runURI(uri)
             return
         }
-        guard !TabURI.runs(uri) else { return }
-        var layout = WorkspaceLayout.load(id, from: app.uiState)
-        if layout.tab(uri: uri) == nil {
+        var layout = app.workbench.layouts[id]
+        if let tab = layout.pageTab(for: uri) ?? layout.tab(uri: uri)
+            ?? layout.fileTab(sameFileAs: uri, real: EditorArea.realPath)
+        {
+            layout.select(tab.id)
+        } else {
             _ = layout.add(uri, to: layout.focusedGroup?.id)
-            layout.save(id, to: app.uiState)
         }
+        app.workbench.layouts[id] = layout
     }
 
-    /// Chats went from a workspace that may not be on screen, the same two ways: a group left with no tab closes.
+    /// Chats went from a workspace that may not be on screen: their tabs leave its layout, and a group left with no tab
+    /// closes.
     func chatsLeft(_ id: String) {
-        if let area = areas[id] {
-            area.reconcile()
-            return
-        }
-        var layout = WorkspaceLayout.load(id, from: app.uiState)
+        var layout = app.workbench.layouts[id]
         for tab in layout.allTabs
         where TabURI.scheme(tab.uri) == "session" && app.session(TabURI.body(tab.uri))?.worktreeId != id {
             layout.remove(tab.id)
         }
-        layout.save(id, to: app.uiState)
+        app.workbench.layouts[id] = layout
         if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
     }
 
-    /// A chat closed from its row, on any screen, with the questions its tab asks and ⇧⌘T after: its tab closing, or where
-    /// the screen isn't loaded yet, its session ending and its place in the saved layout going.
+    /// A chat closed from its row, on any screen, with the questions its tab asks and ⇧⌘T after: its tab closing where
+    /// it's built, else its session ending and its tab leaving the workspace's layout.
     func closeChat(_ sid: String, workspace id: String) {
         let uri = TabURI.session(sid)
         if let area = areas[id], let tab = area.layout.tab(uri: uri) {
@@ -163,37 +164,30 @@ final class EditorHost: NSViewController {
         let title = app.session(sid)?.displayTitle ?? ""
         Task {
             guard await app.extensions.tabProvider(for: uri)?.closeUnbuilt?(uri) ?? true else { return }
-            if let area = areas[id] {
-                area.reconcile()
-                return
-            }
-            var layout = WorkspaceLayout.load(id, from: app.uiState)
+            var layout = app.workbench.layouts[id]
             guard let tab = layout.tab(uri: uri) else { return }
+            areas[id]?.closed.insert(sid)   // loaded meanwhile: the daemon's next update mustn't bring the tab back
             app.workbench.closedTabs.remember(
                 ClosedTab(uri: uri, title: title, workspace: id, group: layout.group(of: tab.id), index: nil))
             layout.remove(tab.id)
-            layout.save(id, to: app.uiState)
+            app.workbench.layouts[id] = layout
             if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: sid) }
         }
     }
 
-    /// A restarted session into its old tab in a workspace that isn't on screen, the same two ways.
+    /// A restarted session into its old tab in a workspace that isn't on screen; with no old tab, a tab of its own.
     func replaceInBackground(_ old: String, with new: String, workspace id: String) {
-        if let area = areas[id] {
-            area.replace(old, with: new, focus: false)
-            return
-        }
-        var layout = WorkspaceLayout.load(id, from: app.uiState)
-        if layout.replace(old, with: new) == nil, layout.tab(uri: new) == nil {
-            layout.add(new, to: layout.focusedGroup?.id)
-        }
-        layout.save(id, to: app.uiState)
+        var layout = app.workbench.layouts[id]
+        guard let tab = layout.replace(old, with: new) else { return openInBackground(new, workspace: id) }
+        layout.select(tab.id)
+        app.workbench.layouts[id] = layout
     }
 
     private func refresh() {
         for (id, area) in areas where app.worktree(id) == nil {
             area.view.removeFromSuperview()
             areas[id] = nil
+            app.workbench.layouts.forget(id)
             recent.removeAll { $0 == id }
             // Closed from elsewhere (the CLI, an agent): unsaved files still get their question, only without Cancel.
             let edited = area.editedFiles

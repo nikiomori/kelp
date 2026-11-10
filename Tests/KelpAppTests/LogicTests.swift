@@ -38,9 +38,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     let id = "quit-\(UUID().uuidString.prefix(6))", key = "layout/\(id)"
     let app = AppModel(builtins: Builtins.all)
     let area = EditorArea(app: app, workspaceId: id)
-    area.scheduleSave()
+    area.layout.add("file:///tmp/quit.txt")
     #expect(app.uiState[key] == nil)   // waiting
-    EditorArea.saveLayouts()
+    app.workbench.layouts.save()
     #expect(app.uiState[key] != nil)
 }
 

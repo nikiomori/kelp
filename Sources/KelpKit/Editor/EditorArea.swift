@@ -10,7 +10,16 @@ package enum SplitDirection: String { case right, down }
 final class EditorArea: NSViewController {
     let app: AppModel
     let workspaceId: String
-    var layout: WorkspaceLayout
+    /// Its workspace's layout, kept by `Workbench.layouts`; what the area changes it draws at once.
+    var layout: WorkspaceLayout {
+        get { app.workbench.layouts[workspaceId] }
+        set {
+            drawn = newValue
+            app.workbench.layouts[workspaceId] = newValue
+        }
+    }
+    /// The layout as this area last made it: one that differs was changed elsewhere (a tab opened off screen).
+    private var drawn: WorkspaceLayout
     var contents: [String: TabContent] = [:]   // by tab id
     var recent: [String] = []   // tab ids by when last shown, newest last (EditorRelease)
     var hiddenAt: [String: Date] = [:]   // since when each built tab is off screen (EditorRelease)
@@ -20,7 +29,6 @@ final class EditorArea: NSViewController {
     private var renders = 0
     var start: StartView?
     private var responderObservation: NSKeyValueObservation?
-    let saveWork = Debounce()
     var reconciledOnce = false
     /// Sessions whose tab was just closed: until their kill lands, a daemon update mustn't bring the tab back.
     var closed: Set<String> = []
@@ -38,7 +46,7 @@ final class EditorArea: NSViewController {
     init(app: AppModel, workspaceId: String) {
         self.app = app
         self.workspaceId = workspaceId
-        layout = WorkspaceLayout.load(workspaceId, from: app.uiState)
+        drawn = app.workbench.layouts[workspaceId]
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -46,6 +54,12 @@ final class EditorArea: NSViewController {
     override func loadView() {
         let app = self.app
         view = NSView()
+        // A tab opened, replaced or closed here while another workspace is on screen lands in the layout: drawn here.
+        track(owner: self, now: false) { [weak self] in
+            self.map { $0.app.workbench.layouts[$0.workspaceId] }
+        } changed: { [weak self] layout in
+            if let layout { self?.changedElsewhere(layout) }
+        }
         track(owner: self) { [app] in
             app.extensions.revision
         } changed: { [weak self] _ in
@@ -112,6 +126,17 @@ final class EditorArea: NSViewController {
         render()
     }
 
+    /// Its layout changed elsewhere (`EditorHost`'s ways for a workspace not on screen): a tab whose URI changed under it
+    /// shows the new one, and the panes follow.
+    private func changedElsewhere(_ now: WorkspaceLayout) {
+        guard now != drawn else { return }
+        let before = Dictionary(drawn.allTabs.map { ($0.id, $0.uri) }) { first, _ in first }
+        drawn = now
+        for tab in now.allTabs where before[tab.id].map({ $0 != tab.uri }) == true { contents[tab.id] = nil }
+        arrange()
+        render()
+    }
+
     override func viewDidAppear() {
         super.viewDidAppear()
         responderObservation = view.window?.observe(\.firstResponder, options: [.new]) { [weak self] w, _ in
@@ -166,7 +191,6 @@ final class EditorArea: NSViewController {
         for gid in groupViews.keys where layout.groups[gid] == nil { groupViews[gid] = nil }
         let live = Set(layout.allTabs.map(\.id))
         for id in contents.keys where !live.contains(id) { contents[id] = nil }
-        scheduleSave()
     }
 
     private func build(_ node: LayoutNode) -> NSView {
@@ -350,8 +374,7 @@ final class EditorArea: NSViewController {
                 group.tabs[index].uri != look.uri
             {
                 group.tabs[index].uri = look.uri
-                layout.groups[gid] = group
-                scheduleSave()   // e.g. the browser navigated
+                layout.groups[gid] = group   // e.g. the browser navigated
             }
             refreshGroup(gid)
             app.publishUIState()

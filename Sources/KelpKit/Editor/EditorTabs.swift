@@ -16,7 +16,6 @@ extension EditorArea {
         if let gid = layout.group(of: tab) { refreshGroup(gid) }
         if focus { focusSelected() }
         publishFocus()
-        scheduleSave()
     }
 
     /// A `terminal:` or `agent:` URI: what it says is run. Kelp's own callers only (`ArchitectureTests`), never a URL that came

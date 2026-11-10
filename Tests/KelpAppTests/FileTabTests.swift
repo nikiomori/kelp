@@ -97,7 +97,7 @@ extension AppOfItsOwn {
         rig.app.daemon.use(client)
         rig.app.worktrees = [rig.workspace]
         await UnsavedBackups.reopen(rig.app, in: host)
-        #expect(WorkspaceLayout.load(workspace, from: rig.app.uiState).tab(uri: "untitled:7") != nil)
+        #expect(rig.app.workbench.layouts[workspace].tab(uri: "untitled:7") != nil)
         #expect(rig.app.uiState["backup.gone.untitled:8"] == nil)
     }
 
@@ -119,7 +119,7 @@ extension AppOfItsOwn {
         await UnsavedBackups.reopen(rig.app, in: EditorHost(app: rig.app))
         #expect(rig.app.uiState["backup.gone.\(uri)"] == nil)
         #expect(rig.app.uiState.strings("backup.\(rig.workspace.id).\(uri)") == [uri, rig.workspace.id, "typed"])
-        #expect(WorkspaceLayout.load(rig.workspace.id, from: rig.app.uiState).tab(uri: uri) != nil)
+        #expect(rig.app.workbench.layouts[rig.workspace.id].tab(uri: uri) != nil)
     }
 
     @Test func anAgentsChangeShowsWhenNothingIsEditedHere() async throws {

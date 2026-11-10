@@ -201,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ n: Notification) {
         main?.leaveFocusMode()
-        EditorArea.saveLayouts()   // a tab moved in the last half second
+        app.workbench.layouts.save()   // a tab moved in the last half second
         app.flush()
     }
 

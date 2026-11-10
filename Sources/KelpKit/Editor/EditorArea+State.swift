@@ -1,4 +1,4 @@
-// What an editor area tells and keeps: the focused tab, its layout and dividers, its tabs for the palette and ui.state.
+// What an editor area tells and keeps: the focused tab, its dividers, its tabs for the palette and ui.state.
 import AppKit
 import Core
 import DesignKit
@@ -49,26 +49,6 @@ extension EditorArea {
         DispatchQueue.main.async { [weak self] in self?.contents[tab.id]?.focus() }
     }
 
-    // MARK: persistence
-
-    func scheduleSave() {
-        Self.unsaved.add(self)
-        saveWork.after(0.5) { [weak self] in self?.saveLayout() }
-    }
-    private func saveLayout() {
-        Self.unsaved.remove(self)
-        layout.save(workspaceId, to: app.uiState)
-    }
-    /// Areas whose layout is waiting out the pause before it's saved (weak: one that's gone has nothing to save).
-    private static let unsaved = NSHashTable<EditorArea>.weakObjects()
-    /// Quitting: layouts still waiting are saved now, before the app's last writes go out.
-    static func saveLayouts() {
-        for area in unsaved.allObjects {
-            area.saveWork.cancel()
-            area.saveLayout()
-        }
-    }
-
     /// Every open tab (URI and title), for the palette.
     var openTabs: [(String, String)] {
         layout.allTabs.map { ($0.uri, contents[$0.id]?.title ?? placeholder($0).title) }
@@ -94,6 +74,5 @@ extension EditorArea: NSSplitViewDelegate {
         let shares = lengths.map { $0 / total }
         if layout.sizes?[key].map({ zip($0, shares).allSatisfy { abs($0 - $1) < 0.002 } }) == true { return }
         layout.sizes = (layout.sizes ?? [:]).merging([key: shares]) { $1 }
-        scheduleSave()
     }
 }

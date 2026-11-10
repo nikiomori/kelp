@@ -82,3 +82,5 @@ package final class Workbench {
         }
     }
 }
+    /// Every workspace's layout, loaded or not (`WorkspaceLayouts`).
+    @ObservationIgnored lazy var layouts = WorkspaceLayouts(state: app.uiState)
