@@ -23,6 +23,11 @@ final class AgentStrip {
     /// Just answered: the next question follows in the card.
     private var goesOn = false
     var place = StripPlace.load()
+    /// Where it stood before a call took it behind the edge (`call(_:)`); nil outside a call. Its own nil: above the Dock.
+    var beforeCall: StripPlace??
+    let calls = CallWatch()
+    /// Put somewhere by hand during this call: it stays there.
+    var placedInCall = false
     var corner: StripCorner { place?.corner ?? .bottom }
     var tip: StripTip?
     /// When finished work read in Kelp leaves the strip.
@@ -76,6 +81,8 @@ final class AgentStrip {
                 MainActor.assumeIsolated { self?.refresh() }   // queue: .main
             }
         }
+        calls.onChange = { [weak self] on in self?.call(on) }
+        calls.start()
         let behind = NSApplication.didResignActiveNotification
         observers.append(
             NotificationCenter.default.addObserver(forName: behind, object: nil, queue: .main) { [weak self] _ in
@@ -190,6 +197,8 @@ final class AgentStrip {
         follow(opened)
         expireDone()
         tell(hidden: hidden)
+        // Up for the first time in a call: it goes behind the edge as it would have when the call began.
+        if calls.inCall, !placedInCall, beforeCall == nil, place?.edge == nil, isShowing { call(true) }
     }
 
     /// The handle and its sign, on the side away from the edge it hides behind.

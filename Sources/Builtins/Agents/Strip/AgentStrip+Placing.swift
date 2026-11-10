@@ -21,13 +21,42 @@ extension AgentStrip {
 
     /// From the menu: behind the side of its screen it's nearer, where it stands.
     func tuck() {
-        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
+        if let behind = tucked() { moved(to: behind) }
+    }
+
+    /// Behind the side of its screen it's nearer (the other, if a screen stands past that one), at its height.
+    func tucked() -> StripPlace? {
+        guard let panel, let screen = Self.screen(under: panel.frame) else { return nil }
         let area = screen.visibleFrame
         let nearer: StripEdge = panel.frame.midX > area.midX ? .right : .left
         guard let edge = [nearer, nearer == .right ? .left : .right].first(where: { Self.outer($0, of: screen) }) else {
-            return
+            return nil
         }
-        moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
+        return Self.place(behind: edge, of: screen, at: panel.frame)
+    }
+
+    /// A call began or ended (`CallWatch`): out of the way behind the nearer side while it lasts, and back where it stood
+    /// after. Not kept: the place the person chose stays theirs, and one they choose during the call wins.
+    func call(_ on: Bool) {
+        if on, !placedInCall, place?.edge == nil, beforeCall == nil, let behind = tucked() {
+            beforeCall = .some(place)
+            put(behind)
+        } else if !on {
+            placedInCall = false
+            if let was = beforeCall {
+                beforeCall = nil
+                put(was)
+            }
+        }
+    }
+
+    private func put(_ place: StripPlace?) {
+        self.place = place
+        peeking = false
+        closeCard()
+        tip?.hide()
+        line.hide()
+        refresh()
     }
 
     /// At the height it stands; the corner is the one it would take by that side.
@@ -48,6 +77,8 @@ extension AgentStrip {
     }
 
     func moved(to place: StripPlace?) {
+        beforeCall = nil
+        placedInCall = calls.inCall
         self.place = place
         StripPlace.save(place)
         peeking = false

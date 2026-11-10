@@ -122,6 +122,30 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         #expect(StripPlace.load()?.edge == .right)
     }
 
+    /// A call takes the strip behind the nearer side and back where it stood after, without keeping that place.
+    @Test func aCallTakesTheStripBehindTheEdgeAndBack() async throws {
+        let rig = try await AppRig()
+        _ = NSApplication.shared
+        StripPlace.save(nil)
+        let strip = AgentStrip(app: rig.app)
+        strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
+        defer { StripPlace.save(nil) }
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .working)]
+        try await settled(strip) { strip.isShowing }
+        let before = try #require(strip.frame)
+        strip.call(true)
+        try await settled(strip)
+        guard strip.place?.edge != nil else { return }   // a screen stands past both sides on this Mac
+        #expect(try #require(strip.frame) != before)
+        #expect(StripPlace.load() == nil)   // the place the person chose stays theirs
+        strip.call(false)
+        try await settled(strip)
+        #expect(strip.place == nil)
+        #expect(strip.frame == before)
+    }
+
     /// Once `first` holds, until the strip stops moving: its animation's end, not a guess at how long one takes (a loaded
     /// machine runs them late). Gives up after 15 s, a failure there.
     private func settled(_ strip: AgentStrip, after first: () -> Bool = { true }) async throws {
