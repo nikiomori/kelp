@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GitKit
 
 /// What the git handlers are handed (GitHandlers.swift: source control, files and review comments): the workspaces'
 /// records, how to reach a remote project's host, what discards threw away, and the sessions a turn's diff reads and a
@@ -12,6 +13,55 @@ struct SourceControl: Sendable {
 
     /// The folder of the workspace a client named.
     func folder(_ worktreeId: String) throws -> String { try store.worktree(named: worktreeId).path }
+
+    /// What an agent's turn changed, and where it worked then (its own worktree, maybe): `turn`, one of its history, up
+    /// to the next one's start or now for the newest; else since its last turn started. A paused agent isn't woken: its
+    /// turns are kept in the store.
+    func turnDiff(session: String?, turn: String?) throws -> (folder: String, source: DiffSource) {
+        guard let sessionId = session, let rec = try store.session(sessionId) else {
+            throw RPCError.invalidParams("No such agent.")
+        }
+        let ls = sessions.existing(sessionId)
+        if let turn {
+            let marks = try store.turns(session: sessionId)
+            guard let index = marks.firstIndex(where: { $0.id == turn }) else {
+                throw RPCError.invalidParams("No such turn of that agent.")
+            }
+            let mark = marks[index]
+            return (mark.folder, index > 0 ? .between(mark.tree, marks[index - 1].tree) : .since(tree: mark.tree))
+        }
+        // The one in memory, else the last kept (gone after the daemon restarted), in the folder it was taken in.
+        if let base = ls?.turnBase { return (ls?.turnDir ?? ls?.snapshot.cwd ?? rec.cwd, .since(tree: base)) }
+        guard let last = try store.turns(session: sessionId).first else {
+            throw RPCError.invalidParams("That agent hasn't started a turn yet.")
+        }
+        return (last.folder, .since(tree: last.tree))
+    }
+
+    /// The branch checked out in `workspace` now (a switch makes the record stale) merged into its project's base, and
+    /// only the base, in the main checkout: refused while either has uncommitted changes or the main one is mid-merge.
+    func merge(_ workspace: Worktree, keepConflicts: Bool) throws -> GitMerge.Result {
+        guard let repo = try store.repo(workspace.repoId) else { throw RPCError.invalidParams("no repo") }
+        if try Git.isDirty(workspace.path, remotes: remotes) {
+            throw RPCError.invalidParams("worktree has uncommitted changes")
+        }
+        // The main checkout too: a merge (and the abort a conflict brings) must never touch the user's own work there.
+        if Git.isMerging(repo.path, remotes: remotes) {
+            throw RPCError.invalidParams("The main checkout is in the middle of a merge. Finish or abort it first.")
+        }
+        if try Git.isDirty(repo.path, remotes: remotes) {
+            throw RPCError.invalidParams("The main checkout has uncommitted changes. Commit or stash them first.")
+        }
+        let branch = (try? Git.currentBranch(workspace.path, remotes: remotes)) ?? workspace.branch
+        // Detached: "HEAD" would merge the main checkout into itself ("Already up to date") and report success.
+        guard branch != "HEAD" else {
+            throw RPCError.invalidParams(
+                "This workspace isn't on a branch (detached HEAD). Create a branch for its commits, then merge.")
+        }
+        let res = try Git.merge(
+            branch: branch, into: repo.path, onto: repo.baseBranch, keepConflicts: keepConflicts, remotes: remotes)
+        return GitMerge.Result(merged: res.merged, conflicts: res.conflicts)
+    }
 
     /// What discards threw away, for a minute (`git.undoDiscard`): a file each, named by its folder and the name the
     /// caller gave it, so the Undo still works after the daemon was upgraded in place, restarted or crashed.

@@ -182,4 +182,206 @@ final class Workspaces: Sendable {
         }
         return ("Workspace \(number)", "ws-\(number)")
     }
+
+    /// A workspace on a branch of its own, in a worktree of `repo`, as `asked` says: its `branch` (else "ws-N", or named
+    /// after `note`), made from `base` (else the project's), checked out as it is (`existing`), or a pull request's head
+    /// (`pr`). What its .kelp.yaml links, clones and starts waits for the user's trust in the file.
+    func createBranchWorkspace(in repo: Repo, _ asked: WorktreeCreate) throws -> WorktreeCreate.Result {
+        let note = asked.note, pr = asked.pr, existing = asked.existing == true
+        // Its git would run on this Mac, not the host: a remote project's workspaces all share its folder.
+        guard remotes.of(repo.path) == nil else {
+            throw RPCError.invalidParams(
+                "Remote projects work in their folder: branches in worktrees aren't available there yet.")
+        }
+        // Opened without Git: said in words, not as git's refusal.
+        do { _ = try Git.root(of: repo.path, remotes: remotes) } catch {
+            throw RPCError.invalidParams("“\(repo.name)” isn't a Git repository, so it has no branches.")
+        }
+        let auto = try nextWorkspace(in: repo)
+        var branch = try clientRef(asked.branch.flatMap { $0.isEmpty ? nil : $0 }) ?? auto.branch
+        // A name given for a new branch names it too, as a first prompt would (`nameBranch`), "-2" if it's taken.
+        if asked.branch == nil, pr == nil, let given = note?.trimmingCharacters(in: .whitespaces), !given.isEmpty,
+            !Naming.slug(given).isEmpty
+        {
+            let wanted = sessions.branchPrefix + Naming.slug(given)
+            var suffix = 2
+            branch = wanted
+            while Git.branchExists(repo.path, branch, remotes: remotes) {
+                branch = "\(wanted)-\(suffix)"
+                suffix += 1
+            }
+        }
+        if let pr {
+            branch = try Git.fetchPullRequest(
+                repo: repo.path, number: pr, wanted: asked.branch == nil ? nil : branch, remotes: remotes)
+        }
+        let base = try clientRef(asked.base.flatMap { $0.isEmpty ? nil : $0 }) ?? repo.baseBranch
+        let into = Self.worktreesDir(root, repo, chosen: sessions.settings[SettingKeys.worktreesFolder])
+        // A pull request's code, fetched now or under what it starts from (`holdsPullRequest`): it gets none of the project's
+        // own files (.env), and nothing of .kelp.yaml runs on it until the user says so (below).
+        let checksOut = existing || pr != nil
+        let fromPR = pr != nil || Git.holdsPullRequest(repo.path, at: checksOut ? branch : base, remotes: remotes)
+        let path = try Git.addWorktree(
+            repo: repo.path, branch: branch, base: base, into: into, copyFiles: repo.copyFiles,
+            existing: checksOut, copying: !fromPR, remotes: remotes)
+        // "origin/x" checked out as the local "x" that follows it
+        if existing, !Git.branchExists(repo.path, branch, remotes: remotes) {
+            branch = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
+        }
+        var workspace = Worktree(
+            repoId: repo.id, branch: branch, path: path, note: note ?? (asked.branch == nil ? auto.name : ""),
+            base: base)
+        workspace.madeBy = Sessions.asker
+        try store.save(workspace)
+        var result = WorktreeCreate.Result(worktree: workspace)
+        // Everything .kelp.yaml does waits for the user's trust in this version of the file, not only `setup`: `tabs`
+        // starts agents and `shared` links folders, and a freshly cloned repository wrote that file, not the user.
+        // Checked and used from one read. A pull request brings code the file's trust doesn't cover (an install script of
+        // its author's): nothing runs on it until the user says so, nor on a branch made on top of one (`fromPR`).
+        let read = configAndTrust(repo.path), cfg = read.config, trusted = read.trusted && !fromPR
+        if trusted {
+            Git.linkShared(cfg.shared, repo: repo.path, worktree: path)
+            for why in Git.cloneShared(cfg.clone, repo: repo.path, worktree: path) {
+                Log.session.error(
+                    ".kelp.yaml clone left out \(why, privacy: .public): the worktree is on another volume, or the path is busy"
+                )
+            }
+            if asked.tabs != false {
+                for tab in cfg.tabs {
+                    do {
+                        _ = try sessions.spawn(
+                            cwd: path, manifest: sessions.setup.manifest(tab, command: nil), worktreeId: workspace.id)
+                    } catch { Log.session.error(".kelp.yaml tab \(tab, privacy: .public) didn't start: \(error)") }
+                }
+            }
+        }
+        let asks = cfg.setup != nil || !cfg.tabs.isEmpty || !cfg.shared.isEmpty || !cfg.clone.isEmpty
+        if asks, asked.setup != false, !trusted {
+            result.setupNeedsTrust = true   // the app asks, then scripts.trust + scripts.run "setup"
+        } else if let cmd = cfg.setup, asked.setup != false {
+            var launch = Sessions.Launch()
+            launch.title = "setup"
+            let session = try sessions.spawn(
+                cwd: path, manifest: .custom(cfg.shell(cmd)), worktreeId: workspace.id, launch)
+            result.setupSession = session.id
+        }
+        notify(ChangedEvent.worktree)
+        sessions.events.workspaceAdded(result.worktree)
+        return result
+    }
+
+    /// Archiving keeps the folder, ignored files (.env, node_modules, builds) and all: its agents pause, and unarchiving
+    /// finds everything where it was. A project keeps at least one workspace.
+    func archive(_ workspace: Worktree, _ repo: Repo) throws {
+        if isMain(workspace, repo),
+            try store.worktrees(repo: repo.id).filter({ isMain($0, repo) && !$0.archived }).count < 2
+        {
+            throw RPCError.invalidParams("A project keeps at least one workspace.")
+        }
+        try sessions.pauseSessions(of: workspace.id)
+        try store.update(Worktree.self, workspace.id) { $0.archived = true }
+        notify(ChangedEvent.worktree)
+    }
+
+    /// The workspace and its agents go. One in the project's folder leaves the folder as it is (a project keeps at least
+    /// one); a worktree's folder goes too, and its branch with it unless it has commits no other branch has (`dropCommits`)
+    /// or its folder holds changes (`force`).
+    func removeWorkspace(_ workspace: Worktree, _ repo: Repo, force: Bool, dropCommits drop: Bool) throws {
+        if isMain(workspace, repo) {
+            guard try store.worktrees(repo: repo.id).filter({ isMain($0, repo) }).count > 1 else {
+                throw RPCError.invalidParams("A project keeps at least one workspace; remove the project instead.")
+            }
+            sessions.discard(try store.sessions().filter { $0.worktreeId == workspace.id })
+            try store.delete(workspace)
+            notify(ChangedEvent.worktree)
+            return
+        }
+        if Self.borrowed(workspace.path, seed: Paths.seed) {
+            try sessions.pauseSessions(of: workspace.id)
+            sessions.discard(try store.sessions().filter { $0.worktreeId == workspace.id })
+            try store.delete(workspace)
+            notify(ChangedEvent.worktree)
+            return
+        }
+        let branch = branchNow(of: workspace, in: repo)
+        // A remote project's folder is on its host: looked for there.
+        let host = remotes.of(repo.path)   // the project's: its worktrees are on its host too
+        let exists =
+            try host.map {
+                String(
+                    decoding: try $0.run("[ -e \(IDE.shellWord(workspace.path)) ] && echo yes || true"), as: UTF8.self
+                )
+                .hasPrefix("yes")
+            }
+            ?? FileManager.default.fileExists(atPath: workspace.path)
+        if exists {
+            // Refuse before anything stops; then stop its agents and only then remove, checking again: an agent still
+            // writing can't have its work deleted under it.
+            try Git.checkRemovable(
+                repo: repo.path, path: workspace.path, branch: branch, force: force, dropCommits: drop,
+                remotes: remotes)
+            try sessions.pauseSessions(of: workspace.id)
+            try Git.removeWorktree(
+                repo: repo.path, path: workspace.path, branch: branch, force: force, dropCommits: drop,
+                remotes: remotes)
+        } else {
+            try sessions.pauseSessions(of: workspace.id)
+            // Gone already (a removal that stopped after the Trash): git's record and the branch mustn't stay behind.
+            try Git.forgetWorktree(
+                repo: repo.path, path: workspace.path, branch: branch, dropCommits: drop, remotes: remotes)
+        }
+        // Its sessions' turn refs live in the project's repository: dropped there, once the folder is gone. Not before:
+        // a removal that fails keeps the workspace, and its turns keep their snapshots.
+        for session in try store.sessions() where session.worktreeId == workspace.id {
+            sessions.turns.dropRefs(of: session.id, in: repo.path)
+        }
+        sessions.discard(try store.sessions().filter { $0.worktreeId == workspace.id })
+        try store.delete(workspace)
+        notify(ChangedEvent.worktree)
+    }
+
+    /// The project's other worktrees at `paths` (ones Kelp didn't make), each to the Trash, unless it's in use, holds
+    /// work or isn't one of them: what was kept says why. A removed one's branch goes too if another branch has its
+    /// commits.
+    func removeWorktrees(_ paths: [String], of repo: Repo) throws -> RepoRemoveWorktrees.Result {
+        let linked = try Git.linkedWorktrees(repo.path, remotes: remotes)
+        let ours = try RepoWorktreeSizes.ours(store, repo)
+        var out = RepoRemoveWorktrees.Result(removed: [], kept: [:])
+        // A paused agent comes back where it last worked: its folder is as much in use as a running one's.
+        let stored = try store.sessions().filter { $0.status != .exited }.map(\.currentDir)
+        let inUse = sessions.live.all.map(\.snapshot.currentDir) + stored
+        for path in paths {
+            guard let worktree = linked.first(where: { $0.path == path }), !ours.contains(RepoWorktreeSizes.real(path))
+            else {
+                out.kept[path] = "Not one of the project's other worktrees."
+                continue
+            }
+            // Nothing in it yet is what a worktree an agent just made looks like: its folder would go from under it.
+            let real = RepoWorktreeSizes.real(path) + "/"
+            if inUse.contains(where: { (RepoWorktreeSizes.real($0) + "/").hasPrefix(real) }) {
+                out.kept[path] = "An agent works in it."
+                continue
+            }
+            // git removes one whose commits are on no branch (a detached HEAD): they'd be left to `git gc`.
+            if case let commits = Git.commitsOnNoBranch(path, remotes: remotes), commits > 0 {
+                out.kept[path] = "It has \(commits) commit\(commits == 1 ? "" : "s") on no branch (a detached HEAD)."
+                continue
+            }
+            do {
+                // Kept with changes, untracked files or a lock; else the folder goes to the Trash, ignored files (.env, a
+                // local database) and all, which `git worktree remove` would delete for good. Its branch stays: below.
+                try Git.removeWorktree(repo: repo.path, path: path, branch: nil, force: false, remotes: remotes)
+                // -d: only if its commits are on another branch
+                if let branch = worktree.branch, Git.isRevision(branch) {
+                    _ = Log.store.attempt("deleting merged branch \(branch)") {
+                        try Git.run(["branch", "-d", branch], cwd: repo.path, remotes: remotes)
+                    }
+                }
+                out.removed.append(path)
+            } catch let error as GitError { out.kept[path] = error.message } catch {
+                out.kept[path] = error.localizedDescription
+            }
+        }
+        return out
+    }
 }

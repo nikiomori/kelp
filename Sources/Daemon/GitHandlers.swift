@@ -34,31 +34,7 @@ extension GitDiff: Handled {
         var dir = workspace.path
         let src: DiffSource
         switch source ?? "all" {
-        case "turn":   // since the agent's last turn started, where it worked then (its own worktree, maybe)
-            // A paused agent isn't woken: its turns are kept in the store.
-            guard let sessionId = session, let rec = try scm.store.session(sessionId) else {
-                throw RPCError.invalidParams("No such agent.")
-            }
-            let ls = scm.sessions.existing(sessionId)
-            dir = ls?.turnDir ?? ls?.snapshot.cwd ?? rec.cwd
-            if let turn {   // one turn of its history: up to the next one's start, or now for the newest
-                let marks = try scm.store.turns(session: sessionId)
-                guard let index = marks.firstIndex(where: { $0.id == turn }) else {
-                    throw RPCError.invalidParams("No such turn of that agent.")
-                }
-                dir = marks[index].folder
-                src = index > 0 ? .between(marks[index].tree, marks[index - 1].tree) : .since(tree: marks[index].tree)
-            } else {
-                // The one in memory, else the last kept (gone after the daemon restarted), in the folder it was taken in.
-                if let base = ls?.turnBase {
-                    src = .since(tree: base)
-                } else if let last = try scm.store.turns(session: sessionId).first {
-                    dir = last.folder
-                    src = .since(tree: last.tree)
-                } else {
-                    throw RPCError.invalidParams("That agent hasn't started a turn yet.")
-                }
-            }
+        case "turn": (dir, src) = try scm.turnDiff(session: session, turn: turn)
         case "unstaged": src = .unstaged
         case "staged": src = .staged
         case "branch":
@@ -142,29 +118,7 @@ extension GitCommit: Handled {
 
 extension GitMerge: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
-        let workspace = try scm.store.worktree(named: id)
-        guard let repo = try scm.store.repo(workspace.repoId) else { throw RPCError.invalidParams("no repo") }
-        if try Git.isDirty(workspace.path, remotes: scm.remotes) {
-            throw RPCError.invalidParams("worktree has uncommitted changes")
-        }
-        // The main checkout too: a merge (and the abort a conflict brings) must never touch the user's own work there.
-        if Git.isMerging(repo.path, remotes: scm.remotes) {
-            throw RPCError.invalidParams("The main checkout is in the middle of a merge. Finish or abort it first.")
-        }
-        if try Git.isDirty(repo.path, remotes: scm.remotes) {
-            throw RPCError.invalidParams("The main checkout has uncommitted changes. Commit or stash them first.")
-        }
-        // The branch checked out in the workspace now (a switch makes the record stale), into the base and only the base.
-        let branch = (try? Git.currentBranch(workspace.path, remotes: scm.remotes)) ?? workspace.branch
-        // Detached: "HEAD" would merge the main checkout into itself ("Already up to date") and report success.
-        guard branch != "HEAD" else {
-            throw RPCError.invalidParams(
-                "This workspace isn't on a branch (detached HEAD). Create a branch for its commits, then merge.")
-        }
-        let res = try Git.merge(
-            branch: branch, into: repo.path, onto: repo.baseBranch, keepConflicts: keepConflicts == true,
-            remotes: scm.remotes)
-        return Result(merged: res.merged, conflicts: res.conflicts)
+        try scm.merge(scm.store.worktree(named: id), keepConflicts: keepConflicts == true)
     }
 }
 

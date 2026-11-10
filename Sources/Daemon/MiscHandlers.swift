@@ -50,46 +50,7 @@ extension RepoRemoveWorktrees: Handled {
     var notForAgents: String? { "Only the user clears a project's worktrees." }
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
-        let linked = try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes),
-            ours = try RepoWorktreeSizes.ours(workspaces.store, repo)
-        var out = Result(removed: [], kept: [:])
-        // A paused agent comes back where it last worked: its folder is as much in use as a running one's.
-        let stored = try workspaces.store.sessions().filter { $0.status != .exited }.map(\.currentDir)
-        let inUse = workspaces.sessions.live.all.map(\.snapshot.currentDir) + stored
-        for path in paths {
-            guard let worktree = linked.first(where: { $0.path == path }), !ours.contains(RepoWorktreeSizes.real(path))
-            else {
-                out.kept[path] = "Not one of the project's other worktrees."
-                continue
-            }
-            // Nothing in it yet is what a worktree an agent just made looks like: its folder would go from under it.
-            let real = RepoWorktreeSizes.real(path) + "/"
-            if inUse.contains(where: { (RepoWorktreeSizes.real($0) + "/").hasPrefix(real) }) {
-                out.kept[path] = "An agent works in it."
-                continue
-            }
-            // git removes one whose commits are on no branch (a detached HEAD): they'd be left to `git gc`.
-            if case let commits = Git.commitsOnNoBranch(path, remotes: workspaces.remotes), commits > 0 {
-                out.kept[path] = "It has \(commits) commit\(commits == 1 ? "" : "s") on no branch (a detached HEAD)."
-                continue
-            }
-            do {
-                // Kept with changes, untracked files or a lock; else the folder goes to the Trash, ignored files (.env, a
-                // local database) and all, which `git worktree remove` would delete for good. Its branch stays: below.
-                try Git.removeWorktree(
-                    repo: repo.path, path: path, branch: nil, force: false, remotes: workspaces.remotes)
-                // -d: only if its commits are on another branch
-                if let branch = worktree.branch, Git.isRevision(branch) {
-                    _ = Log.store.attempt("deleting merged branch \(branch)") {
-                        try Git.run(["branch", "-d", branch], cwd: repo.path, remotes: workspaces.remotes)
-                    }
-                }
-                out.removed.append(path)
-            } catch let error as GitError { out.kept[path] = error.message } catch {
-                out.kept[path] = error.localizedDescription
-            }
-        }
-        return out
+        return try workspaces.removeWorktrees(paths, of: repo)
     }
 }
 

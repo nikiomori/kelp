@@ -333,8 +333,8 @@ extension TaskFromIssue: AsyncHandled {
             return unique
         }
         let created = try await work.forges.offloads.run {
-            try WorktreeCreate(repoId: repo.id, branch: unique, note: "\(ref) \(title)", tabs: false).handle(
-                work.workspaces)
+            try work.workspaces.createBranchWorkspace(
+                in: repo, WorktreeCreate(repoId: repo.id, branch: unique, note: "\(ref) \(title)", tabs: false))
         }
         // The record, the repo's config and the agent's PTY: disk and a process, through `offload` like the rest.
         let (worktree, session) = try await work.forges.offloads.run { () throws -> (Worktree, Session) in
