@@ -79,7 +79,7 @@ public final class Daemon: Sendable {
             Log.start.error("no folder for ssh connections: \(error)")
         }
         watches.reading.withLock {
-            $0.read = { [weak self] k, fast in await self?.sample(k, fast: fast) ?? (nil, nil) }
+            $0.topic = { [weak self] k in self?.topic(k) ?? Watches.Topic { _ in (nil, nil) } }
         }
         self.store.changed.withLock {
             $0.tell = { [weak self] c in

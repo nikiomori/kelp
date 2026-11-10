@@ -23,113 +23,187 @@ extension Daemon {
         }
     }
 
-    /// The topic's event as it is now, as sent (nil: nothing to say, a failure that stays quiet), and when to read it
-    /// again with nothing else saying so (nil: only when something does).
-    func sample(_ watch: Watches.Key, fast: Bool) async -> (Data?, TimeInterval?) {
+    /// What a watch topic is, all of it here: which folder's file events can change it and which of them do (none: it
+    /// goes by its clock; a remote project's folder here holds only its marker), how it's read now (the event as sent,
+    /// nil when there's nothing to say, a failure that stays quiet; and when to read it again with nothing else saying
+    /// so, nil: only when something does), and from which clock on its reads back off while nothing changes: what asks
+    /// the network (gh, glab, ssh). Its reads hold the daemon until the watch stops.
+    func topic(_ watch: Watches.Key) -> Watches.Topic {
         let key = watch.key
         switch watch.topic {
         case .git:
-            // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
-            let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
-            let remote = worktree.map { remotes.of($0.path) != nil } ?? false
-            var event: GitEvent
-            do {
-                let changes = try await ask(GitStatus(id: key))
-                event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
-                event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
-                if !remote, let worktree { event.branchFiles = try await branchFiles(worktree) }
-            } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
-            return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
+            return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesStatus), backsOffFrom: 10) {
+                [self] _ in await gitRead(key)
+            }
         case .ports:
-            // A host is asked over ssh: less often, and as with git only while watched.
-            let remote = sessions.processes.remote(key) != nil
-            return (
-                (try? await ask(PortsList(worktreeId: key))).flatMap { line(PortsEvent(worktree: key, ports: $0)) },
-                remote ? 10 : 3
-            )
+            return Watches.Topic(backsOffFrom: 10) { [self] _ in
+                // A host is asked over ssh: less often, and as with git only while watched.
+                let remote = sessions.processes.remote(key) != nil
+                return (
+                    (try? await ask(PortsList(worktreeId: key))).flatMap { line(PortsEvent(worktree: key, ports: $0)) },
+                    remote ? 10 : 3
+                )
+            }
         case .activity:
-            do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) } catch {
-                return (line(ActivityEvent(error: error.rpcMessage)), 2)
+            return Watches.Topic { [self] _ in
+                do { return (line(ActivityEvent(usage: try await ask(SessionUsage()))), 2) } catch {
+                    return (line(ActivityEvent(error: error.rpcMessage)), 2)
+                }
             }
         case .ci:
             // gh / glab ask the forge: often while a run goes on (or just after a push asked, `fast`), else every 2 minutes,
-            // for a run started elsewhere (a merge on the forge, a push from another machine).
-            do {
-                let result = try await ask(CIRunsList(worktreeId: key))
-                let running = CIRuns.latest(result.runs).contains { $0.status != "completed" }
-                return (line(CIEvent(worktree: key, result: result)), running ? 10 : fast ? 5 : 120)
-            } catch {   // no network yet after a wake, a slow gh: tried again, or the mark stays on this error
-                return (line(CIEvent(worktree: key, error: error.rpcMessage)), 120)
+            // for a run started elsewhere (a merge on the forge, a push from another machine). A run going on isn't
+            // slowed: its clock is short for a reason.
+            return Watches.Topic(backsOffFrom: 120) { [self] fast in
+                do {
+                    let result = try await ask(CIRunsList(worktreeId: key))
+                    let running = CIRuns.latest(result.runs).contains { $0.status != "completed" }
+                    return (line(CIEvent(worktree: key, result: result)), running ? 10 : fast ? 5 : 120)
+                } catch {   // no network yet after a wake, a slow gh: tried again, or the mark stays on this error
+                    return (line(CIEvent(worktree: key, error: error.rpcMessage)), 120)
+                }
             }
         case .pr:
-            return (
-                (try? await ask(GitHubBranchPR(worktreeId: key))).flatMap { line(PREvent(worktree: key, pr: $0)) },
-                60
-            )
+            return Watches.Topic(backsOffFrom: 10) { [self] _ in
+                (
+                    (try? await ask(GitHubBranchPR(worktreeId: key))).flatMap { line(PREvent(worktree: key, pr: $0)) },
+                    60
+                )
+            }
         case .context:
             // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
-            let usage = try? await ask(SessionContextWindow(id: key))
-            let working = sessions.existing(key)?.snapshot.status == .working
-            return (line(ContextEvent(session: key, usage: usage ?? nil)), working ? 15 : nil)
+            return Watches.Topic { [self] _ in
+                let usage = try? await ask(SessionContextWindow(id: key))
+                let working = sessions.existing(key)?.snapshot.status == .working
+                return (line(ContextEvent(session: key, usage: usage ?? nil)), working ? 15 : nil)
+            }
         case .commands:
             // From memory; read again when one starts or ends (`Sessions.touchCommands`).
-            return (line(CommandsEvent(session: key, commands: sessions.existing(key)?.commands ?? [])), nil)
+            return Watches.Topic { [self] _ in
+                (line(CommandsEvent(session: key, commands: sessions.existing(key)?.commands ?? [])), nil)
+            }
         case .subagents:
             // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
-            do {
-                return (line(SubagentsEvent(session: key, steps: try await ask(SessionSubagentSteps(id: key)))), 3)
-            } catch { return (nil, 3) }
+            return Watches.Topic { [self] _ in
+                do {
+                    return (line(SubagentsEvent(session: key, steps: try await ask(SessionSubagentSteps(id: key)))), 3)
+                } catch { return (nil, 3) }
+            }
         case .limits:
             // From memory (the probes read the plans on their own clock): cheap.
-            return ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)
-        case .file:
-            // A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
-            guard key.hasPrefix("/"), remotes.containing(key) == nil else { return (nil, nil) }
-            var problems: [CodeProblem] = []
-            do { problems = try await ask(LSPProblems(path: key)) } catch {
-                Log.session.error("reading \(key)'s problems: \(error)")
+            return Watches.Topic { [self] _ in
+                ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)
             }
-            return (
-                line(
-                    FileEvent(path: key, stamp: FileService.stamp(key), problems: problems.isEmpty ? nil : problems)
-                ), nil
-            )
+        case .file:
+            guard key.hasPrefix("/"), remotes.containing(key) == nil else { return Watches.Topic { _ in (nil, nil) } }
+            return Watches.Topic(folder: Self.fileFolder(key)) { [self] _ in await fileRead(key) }
         case .files:
-            let remote =
-                store.look("workspace \(key)") { try $0.worktree(key) }.map { remotes.of($0.path) != nil } ?? false
-            var event: FilesEvent
-            do {
-                event = FilesEvent(
-                    worktree: key, paths: try await ask(FilesList(id: key)),
-                    ignored: try? await ask(FilesIgnored(id: key)))
-            } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
-            return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
-        case .artifacts: return (await artifacts(key), nil)
+            return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesFileList), backsOffFrom: 10) {
+                [self] _ in await filesRead(key)
+            }
+        case .artifacts:
+            return Watches.Topic(
+                folder: workspaceFolder(key) { _ in { $0.contains { $0.contains("/\(Artifacts.folder)/") } } }
+            ) {
+                [self] _ in (await artifacts(key), nil)
+            }
         case .databases:
             // Its files are read again (a .env or compose file may have changed); what ran is in memory.
-            do { return (line(try await ask(DatabaseActivity(worktreeId: key))), nil) } catch {
-                Log.session.error("reading workspace \(key)'s databases: \(error)")
-                return (nil, nil)
+            return Watches.Topic(folder: workspaceFolder(key) { _ in { $0.contains(where: DatabaseFind.matters) } }) {
+                [self] _ in
+                do { return (line(try await ask(DatabaseActivity(worktreeId: key))), nil) } catch {
+                    Log.session.error("reading workspace \(key)'s databases: \(error)")
+                    return (nil, nil)
+                }
             }
         case .machines:
             // Each machine's kelp-vm answers from memory; one with a command running is asked over its own connection who runs it.
-            do {
-                let all = try await ask(VMList())
-                return (
-                    line(MachinesEvent(machines: all)),
-                    all.contains { [.creating, .starting].contains($0.state) } ? 1 : 5
-                )
-            } catch { return (nil, 5) }
+            return Watches.Topic { [self] _ in
+                do {
+                    let all = try await ask(VMList())
+                    return (
+                        line(MachinesEvent(machines: all)),
+                        all.contains { [.creating, .starting].contains($0.state) } ? 1 : 5
+                    )
+                } catch { return (nil, 5) }
+            }
         case .machineDetail:
-            do { return (line(MachineEvent(name: key, detail: try await ask(VMDetailRead(name: key)))), 2) } catch {
-                return (nil, 2)
+            return Watches.Topic { [self] _ in
+                do { return (line(MachineEvent(name: key, detail: try await ask(VMDetailRead(name: key)))), 2) } catch {
+                    return (nil, 2)
+                }
             }
         case .host, .hostDetail:
             let again: TimeInterval = watch.topic == .host ? 10 : 2
-            do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: key)))), again) } catch {
-                return (nil, again)
+            return Watches.Topic { [self] _ in
+                do { return (line(HostEvent(stats: try await ask(HostStatsRead(host: key)))), again) } catch {
+                    return (nil, again)
+                }
             }
         }
+    }
+
+    /// A local workspace's folder, and which of its file events matter (made from its path); nil for a remote one.
+    private func workspaceFolder(
+        _ id: String, _ matters: (String) -> @Sendable ([String]) -> Bool
+    ) -> (String, @Sendable ([String]) -> Bool)? {
+        guard let worktree = store.look("workspace \(id)", { try $0.worktree(id) }), remotes.of(worktree.path) == nil
+        else { return nil }
+        return (worktree.path, matters(worktree.path))
+    }
+
+    /// The events `touches` counts, leaving out the folders git ignores.
+    private func workspaceFolder(
+        _ id: String, ignoring touches: @escaping @Sendable ([String]) -> Bool
+    ) -> (String, @Sendable ([String]) -> Bool)? {
+        let remotes = remotes
+        return workspaceFolder(id) { path in
+            let ignored = IgnoredFolders(root: path, remotes: remotes)
+            return { touches(ignored.drop($0)) }
+        }
+    }
+
+    private func gitRead(_ key: String) async -> (Data?, TimeInterval?) {
+        // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
+        let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
+        let remote = worktree.map { remotes.of($0.path) != nil } ?? false
+        var event: GitEvent
+        do {
+            let changes = try await ask(GitStatus(id: key))
+            event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
+            event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
+            if !remote, let worktree { event.branchFiles = try await branchFiles(worktree) }
+        } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
+        return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
+    }
+
+    private func filesRead(_ key: String) async -> (Data?, TimeInterval?) {
+        let remote = store.look("workspace \(key)") { try $0.worktree(key) }.map { remotes.of($0.path) != nil } ?? false
+        var event: FilesEvent
+        do {
+            event = FilesEvent(
+                worktree: key, paths: try await ask(FilesList(id: key)), ignored: try? await ask(FilesIgnored(id: key)))
+        } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
+        return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
+    }
+
+    /// A file's folder, as FSEvents names it (/tmp is /private/tmp), and its events that name it: the file itself may
+    /// not be there to resolve.
+    /// Limit: a symlink's target changing elsewhere isn't seen; watch the target's folder if that matters.
+    private static func fileFolder(_ path: String) -> (String, @Sendable ([String]) -> Bool) {
+        let dir = (path as NSString).deletingLastPathComponent, name = (path as NSString).lastPathComponent
+        let names = Set([path, ((Paths.real(dir) ?? dir) as NSString).appendingPathComponent(name)])
+        return (dir, { $0.contains(where: names.contains) })
+    }
+
+    /// A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
+    private func fileRead(_ path: String) async -> (Data?, TimeInterval?) {
+        var problems: [CodeProblem] = []
+        do { problems = try await ask(LSPProblems(path: path)) } catch {
+            Log.session.error("reading \(path)'s problems: \(error)")
+        }
+        let event = FileEvent(path: path, stamp: FileService.stamp(path), problems: problems.isEmpty ? nil : problems)
+        return (line(event), nil)
     }
 
     /// A workspace's artifacts, read on this Mac (a remote project's folder here holds only its marker). Every page

@@ -111,7 +111,7 @@ import os
 @Test func aFailedCIReadIsTriedAgain() async throws {
     let w = try await world()
     defer { w.d.stop() }
-    #expect(await w.d.sample(.init(topic: .ci, key: "no-such-workspace"), fast: false).1 == 120)
+    #expect(await w.d.topic(.init(topic: .ci, key: "no-such-workspace")).read(false).1 == 120)
 }
 
 /// A banner answers the question it showed. Its session asks something else by now, or several things (the summary is the

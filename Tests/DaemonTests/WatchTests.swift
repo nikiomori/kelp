@@ -50,7 +50,7 @@ private final class Heard: Sendable {
     #expect(try await waitFor(10) { heard.events(GitEvent.self).first?.changes?.map(\.path) == [".gitignore"] })
     // Judged by hand, as the watch judges its events: no event says a dropped one was seen, and a read counted after
     // a wait says nothing of which event made it.
-    let (_, matters) = try #require(w.d.watches.folder(key))
+    let (_, matters) = try #require(w.d.topic(key).folder)
     let built = wt.path + "/dist/js/a.js"
     #expect(matters([wt.path + "/src.txt"]) && !matters([built]) && !matters([built, wt.path + "/dist/b.js"]))
     #expect(matters([built, wt.path + "/src.txt"]))   // one that counts among those that don't
@@ -156,15 +156,17 @@ private final class Heard: Sendable {
         try? Wire.line(RPCNotification(ContextEvent(session: "s", usage: .init(used: used, window: 9))))
     }
     w.d.watches.reading.withLock {
-        $0.read = { _, _ in
-            guard
-                reads.withLock({
-                    $0 += 1
-                    return $0
-                }) == 1
-            else { return (line(2), nil) }
-            _ = try? await waitFor(10) { release.withLock { $0 } }
-            return (line(1), nil)   // the first read, from before the stop
+        $0.topic = { _ in
+            Watches.Topic { _ in
+                guard
+                    reads.withLock({
+                        $0 += 1
+                        return $0
+                    }) == 1
+                else { return (line(2), nil) }
+                _ = try? await waitFor(10) { release.withLock { $0 } }
+                return (line(1), nil)   // the first read, from before the stop
+            }
         }
     }
     w.c.notify(WatchStart(.context, "s"))
@@ -281,15 +283,19 @@ private final class Heard: Sendable {
 
 /// What's asked over the network slows down while nothing changes, up to a ceiling; a CI run going on and the local
 /// clocks don't.
-@Test func pollsOfTheNetworkSlowDownWhileNothingChanges() {
-    #expect(Watches.slowed(.pr, 60, quiet: 0) == 60)
-    #expect(Watches.slowed(.pr, 60, quiet: 1) == 120)
-    #expect(Watches.slowed(.pr, 60, quiet: 50) == 480)
-    #expect(Watches.slowed(.ci, 120, quiet: 3) == 960)
-    #expect(Watches.slowed(.ci, 10, quiet: 9) == 10)
-    #expect(Watches.slowed(.git, 10, quiet: 9) == 60)
-    #expect(Watches.slowed(.ports, 3, quiet: 9) == 3)
-    #expect(Watches.slowed(.limits, 10, quiet: 9) == 10)
+@Test func pollsOfTheNetworkSlowDownWhileNothingChanges() throws {
+    let d = try Daemon(root: tmp())
+    func slowed(_ topic: WatchTopic, _ next: TimeInterval, quiet: Int) -> TimeInterval {
+        Watches.slowed(next, quiet: quiet, from: d.topic(.init(topic: topic, key: "x")).backsOffFrom)
+    }
+    #expect(slowed(.pr, 60, quiet: 0) == 60)
+    #expect(slowed(.pr, 60, quiet: 1) == 120)
+    #expect(slowed(.pr, 60, quiet: 50) == 480)
+    #expect(slowed(.ci, 120, quiet: 3) == 960)
+    #expect(slowed(.ci, 10, quiet: 9) == 10)
+    #expect(slowed(.git, 10, quiet: 9) == 60)
+    #expect(slowed(.ports, 3, quiet: 9) == 3)
+    #expect(slowed(.limits, 10, quiet: 9) == 10)
 }
 
 /// Whoever looks at a subagent hears of its next step; a transcript says nothing of itself, so the topic reads it.
@@ -328,7 +334,7 @@ private final class Heard: Sendable {
     _ = try Artifacts.create(.doc, title: "Plan", root: wt.path, session: nil)
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Plan"] })
     // Judged by hand, as the watch judges its events: no event says a dropped one was seen.
-    let (_, matters) = try #require(w.d.watches.folder(Watches.Key(topic: .artifacts, key: wt.id)))
+    let (_, matters) = try #require(w.d.topic(Watches.Key(topic: .artifacts, key: wt.id)).folder)
     #expect(!matters([wt.path + "/other.txt"]) && matters([wt.path + "/\(Artifacts.folder)/plan/index.md"]))
 }
 
