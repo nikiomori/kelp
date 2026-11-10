@@ -47,7 +47,7 @@ final class IOSRuntime {
     private var using: Int { state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0 }
 
     private func reply(_ fd: Int32, _ error: String?) {
-        let up = [.running, .starting].contains(state)
+        let up = state.isUp   // never paused: a simulator can't be
         var answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? udid : nil)

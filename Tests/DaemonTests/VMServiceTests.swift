@@ -93,6 +93,20 @@ import os
         #expect(vms.list().isEmpty)
     }
 
+    /// With no kelp-vm to ask, an Android machine is asleep while its emulator's snapshot is kept, as a Linux one is
+    /// while its saved state is; shutting it down then forgets that snapshot, and the next start boots afresh.
+    @Test func anAndroidMachineSleepsInItsSnapshotUntilItsShutDown() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        let phone = VMMachine(
+            name: "phone", os: "android", image: "android", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "niko")
+        let f = vms.folder("phone"), snapshot = f.snapshot("phone")
+        try FileManager.default.createDirectory(at: snapshot, withIntermediateDirectories: true)
+        try JSONEncoder().encode(phone).write(to: f.machine)
+        #expect(vms.list().map(\.state) == [.sleeping])
+        #expect(try vms.control("phone", .stop).state == .off)
+        #expect(!FileManager.default.fileExists(atPath: snapshot.path))
+    }
+
     /// An agent driving a macOS machine's screen runs nothing in it, and still works with it: the session whose turn the
     /// screen is counts (the sidebar names it).
     @Test func whoseTurnTheScreenIsCountsAsWorkingInIt() throws {

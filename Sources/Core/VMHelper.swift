@@ -50,6 +50,27 @@ public struct VMFolder: Sendable, Equatable {
     public var runnerBuild: URL { file("dd") }
     /// What its kelp-vm prints (kelpd starts it so).
     public var log: URL { file("helper.log") }
+
+    /// An Android machine's quickboot snapshot, which its emulator saves as it sleeps.
+    public func snapshot(_ machine: String) -> URL {
+        avd.appendingPathComponent("\(machine).avd/snapshots/default_boot")
+    }
+
+    /// What the machine keeps while it sleeps: a Linux or macOS one's saved state, an Android one's snapshot. An iOS
+    /// simulator keeps none.
+    public func sleepState(_ machine: VMMachine) -> URL? {
+        switch machine.kind {
+        case .linux, .macos: savedState
+        case .android: snapshot(machine.name)
+        case .ios: nil
+        }
+    }
+
+    /// How the machine is with no kelp-vm running it: asleep while it keeps a state to wake from, else off. kelpd lists
+    /// it so, and a kelp-vm starts from it.
+    public func restingState(_ machine: VMMachine) -> VMState {
+        sleepState(machine).map { FileManager.default.fileExists(atPath: $0.path) } == true ? .sleeping : .off
+    }
 }
 
 /// Between the daemon and a machine's `kelp-vm`: one JSON line each way on its ctl.sock.

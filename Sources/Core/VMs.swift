@@ -69,6 +69,9 @@ public enum VMState: String, Codable, Sendable, CaseIterable {
     /// Stopped where it was, its memory still held: wakes at once.
     case paused
     case error
+
+    /// Holding the Mac's memory: running, paused, or on its way up.
+    public var isUp: Bool { self == .running || self == .paused || self == .starting }
 }
 
 public struct VMInfo: Codable, Sendable, Equatable, Identifiable {

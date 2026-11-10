@@ -89,8 +89,7 @@ struct VMService: Sendable {
         var st = stat()
         let disk = stat(folder(machine.name).disk.path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
         guard let reply = known ?? status(machine.name) else {
-            let asleep = FileManager.default.fileExists(atPath: folder(machine.name).savedState.path)
-            var result = VMInfo(machine: machine, state: asleep ? .sleeping : .off, diskMiB: disk)
+            var result = VMInfo(machine: machine, state: folder(machine.name).restingState(machine), diskMiB: disk)
             result.files = filesFolder(machine)
             return result
         }
@@ -155,7 +154,7 @@ struct VMService: Sendable {
             if alive(name) {
                 try check(ask(name, .init(op: .stop), wait: 60))
             } else {
-                remove(folder(name).savedState)
+                if let kept = folder(name).sleepState(machine) { remove(kept) }   // an Android one's snapshot too
             }
         }
         return info(machine)
@@ -230,9 +229,8 @@ struct VMService: Sendable {
             throw RPCError.internalError("Can't take the machines' wake lock: \(String(cString: strerror(errno)))")
         }
         defer { close(fd) }
-        let up: Set<VMState> = [.running, .paused, .starting]
         // up already: nothing to make room for, nor to wait behind
-        if let st = status(machine.name), up.contains(st.state) { return }
+        if status(machine.name)?.state.isUp == true { return }
         // Waited for 90 s at most (one wake puts others to sleep, a minute each at worst), on this offload thread.
         let end = Date().addingTimeInterval(90)
         while flock(fd, LOCK_EX | LOCK_NB) != 0 {
@@ -252,10 +250,9 @@ struct VMService: Sendable {
     /// Room in the memory budget (a quarter of the Mac's) for `machine` to wake: idle machines are put to sleep for it,
     /// else no. One alone wakes at any size it may have (up to half the Mac's): the budget is for them together.
     func admit(_ machine: VMMachine) throws {
-        let up: Set<VMState> = [.running, .paused, .starting]
-        if let me = status(machine.name), up.contains(me.state) { return }
+        if status(machine.name)?.state.isUp == true { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
-        var awake = list().filter { $0.machine.name != machine.name && up.contains($0.state) }
+        var awake = list().filter { $0.machine.name != machine.name && $0.state.isUp }
         // By the size each is given, not what it holds now (`memoryMiB`, its footprint): a guest just booted grows to it.
         func used() -> Int { awake.reduce(machine.memoryMiB) { $0 + $1.machine.memoryMiB } }
         let idle = awake.filter { $0.connections == 0 }.sorted { $0.machine.memoryMiB > $1.machine.memoryMiB }
@@ -373,7 +370,7 @@ struct VMService: Sendable {
     /// A sleep's answer: an error thrown, else whether it's down now (`sleep` leaves one that's starting as it is).
     func asleep(_ reply: VMHelper.Reply) throws -> Bool {
         try check(reply)
-        return ![.running, .paused, .starting].contains(reply.state)
+        return !reply.state.isUp
     }
 
     func check(_ reply: VMHelper.Reply) throws {

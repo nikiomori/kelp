@@ -59,9 +59,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         shares =
             (try? JSONDecoder().decode(
                 [Int: String].self, from: Data(contentsOf: VMFolder(folder).shares))) ?? [:]
-        state =
-            FileManager.default.fileExists(atPath: folder.appendingPathComponent("state.vzsave").path)
-            ? .sleeping : .off
+        state = VMFolder(folder).restingState(machine)
         targetMiB = machine.memoryMiB
         super.init()
     }

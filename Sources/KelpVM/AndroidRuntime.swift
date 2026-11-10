@@ -31,13 +31,12 @@ final class AndroidRuntime {
 
     private var serial: String { "emulator-\(port)" }
     private var avd: URL { VMFolder(folder).avd }
-    private var snapshot: URL { avd.appendingPathComponent("\(machine.name).avd/snapshots/default_boot") }
+    private var snapshot: URL { VMFolder(folder).snapshot(machine.name) }
 
     init(folder: URL, machine: VMMachine) {
         self.folder = folder
         self.machine = machine
-        state = .off
-        state = FileManager.default.fileExists(atPath: snapshot.path) ? .sleeping : .off
+        state = VMFolder(folder).restingState(machine)
     }
 
     func listen() {
@@ -58,7 +57,7 @@ final class AndroidRuntime {
     }
 
     private func reply(_ fd: Int32, _ error: String?) {
-        let up = [.running, .paused, .starting].contains(state)
+        let up = state.isUp
         let answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? serial : nil)
