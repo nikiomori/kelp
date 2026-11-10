@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import WorkbenchKit
 
 extension Builtins {
 
@@ -69,7 +70,7 @@ extension Builtins {
                             "Postgres and MySQL stop a read past it.", range: [1, 300])
                     ], keywords: ["SQL", "Postgres", "MySQL", "SQLite"], order: 75)
             ],
-            tabs: [TabProvider(schemes: ["db"]) { DatabaseTab(uri: $0, app: app) }],
+            tabs: [TabProvider(schemes: [TabURI.databaseScheme]) { DatabaseTab(uri: $0, app: app) }],
             // "+" and the empty workspace offer Database where the workspace has one: its databases are followed while it's
             // on screen (the daemon reads them again only when a file that names one changes).
             launched: [{ DatabaseFollow.start(app) }]
@@ -98,6 +99,11 @@ extension DatabasesEvent: Pushed {
     package static var forgottenWith: WatchTopic? { .databases }
 }
 
+extension TabURI {
+    /// A database's tab (`DatabaseURI`; the daemon and `kelp db` build it with `DatabaseTabURI`).
+    static let databaseScheme = "db"
+}
+
 /// "db:<workspace>/<name>", "?run=<id>" for one run's rows, "?table=<name>" for a table's.
 struct DatabaseURI: Equatable {
     var worktree: String, name: String, run: String?, table: String?
@@ -110,8 +116,8 @@ struct DatabaseURI: Equatable {
     }
 
     init?(_ uri: String) {
-        guard uri.hasPrefix("db:") else { return nil }
-        let body = uri.dropFirst(3).split(separator: "?", maxSplits: 1).map(String.init)
+        guard TabURI.scheme(uri) == TabURI.databaseScheme else { return nil }
+        let body = TabURI.body(uri).split(separator: "?", maxSplits: 1).map(String.init)
         let parts = body[0].split(separator: "/", maxSplits: 1).map(String.init)
         guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else { return nil }
         worktree = parts[0]
