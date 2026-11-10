@@ -110,11 +110,7 @@ extension GitHunk: Handled {
             workspace.path, source: rev ? .staged : .unstaged, file: file, remotes: scm.remotes
         )
         .first
-        // With its fingerprint, the hunk as shown line for line; with its header, that one; else by number.
-        let index =
-            fingerprint.map { f in diff?.hunks.firstIndex { $0.fingerprint == f } ?? -1 }
-            ?? header.map { h in diff?.hunks.firstIndex { $0.header == h } ?? -1 } ?? hunk ?? -1
-        guard let diff, diff.hunks.indices.contains(index) else {
+        guard let diff, let index = diff.shown(fingerprint: fingerprint, header: header, number: hunk) else {
             throw RPCError.invalidParams(
                 rev
                     ? "The file changed since it was shown; nothing was unstaged."
@@ -122,6 +118,16 @@ extension GitHunk: Handled {
         }
         try Git.applyHunk(workspace.path, diff: diff, hunk: index, reverse: rev, remotes: scm.remotes)
         return Done()
+    }
+}
+
+extension FileDiff {
+    /// The hunk a caller means, staging or discarding it: with its fingerprint, the hunk as shown line for line; with
+    /// its header, that one; else by number. nil when it isn't there any more (the file changed since it was shown).
+    func shown(fingerprint: String?, header: String?, number: Int?) -> Int? {
+        if let fingerprint { return hunks.firstIndex { $0.fingerprint == fingerprint } }
+        if let header { return hunks.firstIndex { $0.header == header } }
+        return number.flatMap { hunks.indices.contains($0) ? $0 : nil }
     }
 }
 
@@ -199,9 +205,9 @@ extension GitDiscard: Handled {
 extension GitDiscardHunk: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
         let worktree = try scm.store.worktree(named: id)
+        // Found as `git.hunk` finds it, wherever it is in the file now; `header` always comes, so never by number.
         guard let diff = try Git.diff(worktree.path, source: .unstaged, file: file, remotes: scm.remotes).first,
-            diff.hunks.indices.contains(hunk),
-            diff.hunks[hunk].header == header, fingerprint.map({ $0 == diff.hunks[hunk].fingerprint }) ?? true
+            let hunk = diff.shown(fingerprint: fingerprint, header: header, number: nil)
         else {
             throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
         }

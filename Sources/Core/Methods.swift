@@ -214,8 +214,9 @@ public struct WorktreeNote: RPCMethod {
     }
 }
 
-/// Throws away one hunk of a file's unstaged changes (index `hunk` of its unstaged diff) in workspace `id`. `header`
-/// is the hunk's "@@ … @@" line as the caller saw it: if the file changed since, nothing is thrown away.
+/// Throws away one hunk of a file's unstaged changes in workspace `id`: the one with `fingerprint`, else the one whose
+/// "@@ … @@" line is `header`, as the caller saw it (as `git.hunk` finds it; `hunk`, its number, isn't read). If
+/// the file changed since and that hunk isn't there, nothing is thrown away.
 public struct GitDiscardHunk: RPCMethod {
     public static let name = "git.discardHunk"
     public typealias Result = Done
