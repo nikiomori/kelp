@@ -9,7 +9,7 @@ import KelpKit
 /// use them now. They land in All my projects.
 @MainActor
 final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDelegate {
-    private unowned let sheet: DatabaseSheet
+    private let sheet: DatabaseSheet   // a read still running when it closes reads it after
     private let source: ImportSource, file: String?
     private let table = NSTableView()
     private let passwords = NSButton(), useHere = NSButton()
