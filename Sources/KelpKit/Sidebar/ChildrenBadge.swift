@@ -176,16 +176,17 @@ extension Subagent {
 }
 
 extension SidebarCell {
-    /// A row's second line: what it asks itself, or else what a child of its asks, under the child's name.
+    /// A row's second line: what it asks itself, or else what a child of its asks (`children`: the agents it started
+    /// and theirs, `AppModel.children(of:)`), under the child's name.
     /// `back`: why a parked agent came back (`Arrangement.parkedBack`), said when nothing more urgent is. `plans`: what
     /// a plan limit that stopped one says (`Contributions.plans`).
     static func line(
-        _ session: Session, mode: String, among all: [Session], back: String? = nil, plans: PlanWords? = nil
+        _ session: Session, mode: String, children: [Session], back: String? = nil, plans: PlanWords? = nil
     ) -> (prefix: (String, NSColor)?, text: String)? {
         let own = askLine(session, mode: mode, plans: plans)
         guard own?.prefix == nil else { return own }
         if let back { return ((String(localized: "Back:"), .secondaryLabelColor), back) }
-        for child in all.children(of: session.id) {
+        for child in children {
             if let line = askLine(child, mode: mode, plans: plans), let color = line.prefix?.1 {
                 return ((child.displayTitle + ":", color), line.text)
             }

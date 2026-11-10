@@ -299,7 +299,7 @@ final class SidebarCell: NSTableCellView {
                     ?? quiet ?? picked
             alphaValue = app.arrangement.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
             family.show(
-                app.sessions.children(of: sid), running: session.runningSubagents, finished: session.finishedSubagents)
+                app.children(of: sid), running: session.runningSubagents, finished: session.finishedSubagents)
             showChip(session)
             showState(session)
             showAsk(session)
@@ -369,7 +369,7 @@ extension SidebarCell {
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ session: Session) {
         let line = Self.line(
-            session, mode: app.settings[SettingKeys.agentDetail], among: app.sessions,
+            session, mode: app.settings[SettingKeys.agentDetail], children: app.children(of: session.id),
             back: app.arrangement.parkedBack[session.id], plans: app.extensions.all.plans)
         setAsk(line)
     }

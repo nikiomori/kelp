@@ -203,15 +203,16 @@ final class ScriptsMenu: NSObject, NSMenuDelegate {
         return state.kelp[wid]?.first { $0.command == line }.map { "kelp:" + $0.name }
     }
 
-    /// A page a session printed (event.devserver): a run's waits on the chip for a click; any other's (Jupyter) opens beside.
-    func served(_ event: DevServerEvent) -> Bool {
+    /// A page a session printed (event.devserver): a run's waits on the chip for a click. Any other's (Jupyter) in the
+    /// workspace on screen opens beside it, the keys staying where they are: the page comes while you may be typing.
+    func served(_ event: DevServerEvent) {
         if state.active[event.session] != nil {
             state.active[event.session]?.url = event.url
-            return true
+        } else if starting > 0 {
+            state.early[event.session] = event.url
+        } else if event.worktree == app.workbench.workspaceId {
+            app.workbench.open(event.url, split: .right, workspace: event.worktree, focus: false)
         }
-        guard starting > 0 else { return false }
-        state.early[event.session] = event.url
-        return true
     }
 
     /// The first time a project's commands would run: everything trusting the file allows (commands, the agents and links

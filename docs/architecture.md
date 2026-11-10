@@ -71,7 +71,7 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
 | panels | right inspector (selector icons) |
 | editors | center tab types, listed in each pane's "+" menu and the empty workspace |
 | commands | command palette (⇧⌘P), menus, key bindings, `kelp run <id>` |
-| settings | Settings window (generated forms) and `~/.kelp/settings.json`; a row says what its options are called and how they show (`labels`, `look`), a built-in's pictured setting brings its drawings (`pictures`), so the window names no built-in's key |
+| settings | Settings window (generated forms) and `~/.kelp/settings.json`; a row says what its options are called and how they show (`labels`, `look`), a built-in's pictured setting brings its drawings (`pictures`), one whose choices are what's installed brings them and their names (`options`, `names`: the default agent), so the window names no built-in's key |
 | themes | Appearance settings; build the window round the terminal and editor, and color all three |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
@@ -169,7 +169,7 @@ writes goes out on the caller's connection before the reply, so the caller finds
 its type (`RPCClient.onEvent`); the main actor gets the value. Its writes are queued, so the main thread never waits on
 the socket. A new connection hears no broadcast until its first request: it may be `kelp attach`'s byte stream.
 What has no record of its own is a topic a view watches while it's on screen (`watch.start` / `watch.stop`, `WatchTopic`): a workspace's git (read when its files change, FSEvents in the daemon), its
-ports, every session's CPU and memory, the branch's CI runs and pull request, an agent's context, the plan limits, a
+ports, every session's CPU and memory, the branch's CI runs and pull request, an agent's context (the ring on its tab: the agents of the workspace on screen), the plan limits, a
 file's version (its stamp only: `event.file`) and a workspace's file list (`event.files`). The
 daemon reads a topic once for all its watchers, only while someone watches, and pushes it (`event.git`, `event.ports`…)
 only when it changed; the app counts its watchers (`AppModel.watch`, `Watched`) and keeps the latest of each kind in a

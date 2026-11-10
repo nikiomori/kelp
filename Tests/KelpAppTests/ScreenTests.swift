@@ -95,7 +95,7 @@ extension OneAtATime {
             let r = rows(of: o)
             #expect(r.count == 2)   // the project and the parent
             #expect(r[1].contains("Graph") && !r[1].contains("reviewer"))
-            let line = try #require(SidebarCell.line(parent, mode: "needsYou", among: [parent, kid]))
+            let line = try #require(SidebarCell.line(parent, mode: "needsYou", children: [kid]))
             #expect(line.prefix?.0 == "reviewer:" && line.text.contains("npm test"))
         }
     }

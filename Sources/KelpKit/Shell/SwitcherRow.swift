@@ -40,7 +40,7 @@ struct SwitcherRow {
             folder.flatMap { RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) },
             folder.flatMap { app.extensions.all.ci?.pr($0.id)?.title }
         ].compactMap { $0 }
-        let said = lead.flatMap { SidebarCell.line($0, mode: "always", among: app.sessions) }
+        let said = lead.flatMap { SidebarCell.line($0, mode: "always", children: app.children(of: $0.id)) }
         var row = SwitcherRow(name: Self.name(title, place: place, badges: said == nil ? badges : []))
         if let lead {
             let mark = StatusMark(size: Metrics.iconLarge)

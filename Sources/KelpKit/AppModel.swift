@@ -22,6 +22,11 @@ package final class AppModel {
         }
     }
 
+    private func reposChanged() {
+        repoBy = nil
+        lookForFolders()
+    }
+
     private func lookForFolders() {
         let paths = repos.map(\.path)
         Task {
@@ -72,15 +77,16 @@ package final class AppModel {
     package var connected = false
     /// Connections made so far: each new one may be a new daemon, whose streams (`kelp attach`) start over.
     private(set) package var connections = 0
-    package var repos: [Repo] = [] { didSet { lookForFolders() } }
+    package var repos: [Repo] = [] { didSet { reposChanged() } }
     /// The projects' folders that aren't there (moved, deleted, a disk unplugged), by path: looked for off the main thread
     /// when the projects change and when Kelp comes to the front, not by each row on each update.
     private(set) var missingFolders: Set<String> = []
-    package var worktrees: [Worktree] = []
+    package var worktrees: [Worktree] = [] { didSet { worktreeBy = nil } }
     package var sessions: [Session] = [] {
         didSet {
             sessionAt = nil
             sessionsIn = nil
+            startedBy = nil
         }
     }
     /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
@@ -88,6 +94,15 @@ package final class AppModel {
     @ObservationIgnored private var sessionAt: [String: Int]?
     /// Each workspace's sessions, made the same way: every workspace row asks on every update.
     @ObservationIgnored private var sessionsIn: [String: [Session]]?
+    /// The agents each agent started that haven't ended, made the same way: every agent's row asks for its own.
+    @ObservationIgnored private var startedBy: [String: [Session]]?
+    /// Projects and workspaces by id, made the same way: asked for inside loops over every session and workspace.
+    @ObservationIgnored private var repoBy: [String: Repo]?
+    @ObservationIgnored private var worktreeBy: [String: Worktree]?
+    /// What the connection in use has been told to watch (`tell`): the daemon reads a topic again, and CI often for 45 s,
+    /// when one connection starts it twice, so a connection hears each once.
+    @ObservationIgnored weak var toldTo: RPCClient?
+    @ObservationIgnored var told: Set<WatchStart> = []
     /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
     /// What lets go of each topic's latest values once nothing watches a key (`latest`, `Pushed.forgottenWith`).
@@ -120,14 +135,18 @@ package final class AppModel {
     /// Puts these (siblings) in this order.
     func reorder(_ ids: [String]) { arrangement.order = ids + arrangement.order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {
-        let rank = Dictionary(arrangement.order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
+        let rank = arrangement.rank
         return xs.enumerated().sorted { (rank[$0.1.id] ?? .max, $0.0) < (rank[$1.1.id] ?? .max, $1.0) }.map(\.1)
     }
 
     /// A session as a reply or an event has it; an older copy than the one here (a reply that an event overtook) is dropped.
     package func upsert(_ s: Session) {
-        if let index = sessions.firstIndex(where: { $0.id == s.id }) {
-            if !s.isOlder(than: sessions[index]) { sessions[index] = s }
+        if let index = sessionIndex(s.id) {
+            if !s.isOlder(than: sessions[index]) {
+                let places = sessionAt
+                sessions[index] = s
+                sessionAt = places   // replaced where it was: every session's place holds
+            }
         } else {
             sessions.append(s)
         }
@@ -280,7 +299,7 @@ package final class AppModel {
         published = nil
         publishRefused = false   // a new daemon knows nothing yet
         publishUIState()
-        for w in watching.keys { connection.notify(w) }   // what the views watch, told to this daemon too
+        tellWatches(connection)   // what the views watch and this connection hasn't heard yet (a new daemon: all of it)
     }
 
     static let noService = String(localized: "Kelp's background service isn't running.")
@@ -541,7 +560,7 @@ package final class AppModel {
         switch event {
         case let session as Session:
             sessionEvents[session.id, default: 0] += 1
-            let old = sessions.first { $0.id == session.id }
+            let old = self.session(session.id)
             if session.isOlder(than: old) { return }
             if old != session { upsert(session) }   // views follow `sessions`
             notifier?.statusChanged(session, old)
@@ -549,12 +568,7 @@ package final class AppModel {
                 syncContextWatches()
                 arrangement.followParked(session)
             }
-        case let devServer as DevServerEvent:
-            // A run's page waits on the run chip for a click. Anything else (Jupyter) in the workspace on screen opens beside
-            // it; the keys stay where they are: the page comes while you may be typing.
-            if extensions.all.runs?.served(devServer) != true, devServer.worktree == workbench.workspaceId {
-                workbench.open(devServer.url, split: .right, workspace: devServer.worktree, focus: false)
-            }
+        case let devServer as DevServerEvent: extensions.all.runs?.served(devServer)
         case let busy as PortBusyEvent: extensions.all.runs?.portBusy(busy)
         case let repo as Repo: record(repo)
         case let worktree as Worktree: record(worktree)
@@ -571,8 +585,8 @@ package final class AppModel {
     /// is replaced in its tab by `AgentActions(app).restart` when the new one comes back.
     func removed(session id: String) {
         sessionEvents[id, default: 0] += 1
-        guard !restarting.contains(id), sessions.contains(where: { $0.id == id }) else { return }
-        sessions.removeAll { $0.id == id }
+        guard !restarting.contains(id), let index = sessionIndex(id) else { return }
+        sessions.remove(at: index)
         syncContextWatches()
     }
 
@@ -621,16 +635,25 @@ package final class AppModel {
         queue.async { if let made = message() { client?.notify(made) } }
     }
 
-    package func worktree(_ id: String?) -> Worktree? { worktrees.first { $0.id == id } }
+    package func worktree(_ id: String?) -> Worktree? {
+        let all = worktrees   // read through the observed property, as `session(_:)` does
+        if worktreeBy == nil { worktreeBy = Dictionary(all.map { ($0.id, $0) }) { first, _ in first } }
+        return id.flatMap { worktreeBy?[$0] }
+    }
     /// The workspace whose folder holds `path`: the innermost, for a branch's folder inside its project's.
     package func worktree(holding path: String) -> Worktree? {
         worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
     }
-    package func repo(_ id: String?) -> Repo? { repos.first { $0.id == id } }
-    package func session(_ id: String) -> Session? {
+    package func repo(_ id: String?) -> Repo? {
+        let all = repos   // read through the observed property, as `session(_:)` does
+        if repoBy == nil { repoBy = Dictionary(all.map { ($0.id, $0) }) { first, _ in first } }
+        return id.flatMap { repoBy?[$0] }
+    }
+    package func session(_ id: String) -> Session? { sessionIndex(id).map { sessions[$0] } }
+    private func sessionIndex(_ id: String) -> Int? {
         let all = sessions   // read through the observed property: a `track` that asks follows `sessions`
         if sessionAt == nil { sessionAt = Dictionary(all.indices.map { (all[$0].id, $0) }) { first, _ in first } }
-        return sessionAt?[id].map { all[$0] }
+        return sessionAt?[id]
     }
 
     /// The chats running in a workspace (not exited), in `sessions`' order.
@@ -661,5 +684,19 @@ package final class AppModel {
     /// Where the project is: "host:path" for a remote one (not the local folder that stands for it), else its path.
     func projectPlace(_ r: Repo) -> String {
         RemoteHost.of(r.path).map { "\($0.host):\($0.path)" } ?? (r.path as NSString).abbreviatingWithTildeInPath
+    }
+}
+
+extension AppModel {
+    /// The agents `id` started that haven't ended, and those they started (`[Session].children(of:)`, from an index).
+    func children(of id: String) -> [Session] {
+        let all = sessions   // read through the observed property, as `session(_:)` does
+        if startedBy == nil {
+            startedBy = Dictionary(grouping: all.filter { $0.parent != nil && $0.status != .exited }) {
+                $0.parent ?? ""
+            }
+        }
+        func under(_ id: String) -> [Session] { (startedBy?[id] ?? []).flatMap { [$0] + under($0.id) } }
+        return under(id)
     }
 }

@@ -7,10 +7,29 @@ extension AppModel {
     package func watch(_ topic: WatchTopic, _ key: String = "") {
         let start = WatchStart(topic, key)
         watching[start, default: 0] += 1
-        if watching[start] == 1 { notify { start } }
+        if watching[start] == 1, let client { tell(start, client) }
     }
 
-    package func unwatch(_ topic: WatchTopic, _ key: String = "") {
+    /// `start` sent on `connection`, unless that connection heard it already.
+    private func tell(_ start: WatchStart, _ connection: RPCClient) {
+        if toldTo !== connection {
+            toldTo = connection
+            told = []
+        }
+        if told.insert(start).inserted { connection.notify(start) }
+    }
+
+    /// What the views watch, told to a connection that hasn't heard it: all of it for a new daemon, and nothing twice for
+    /// the first one, whose lists' refresh and first views watched over it already. Returns what it sent.
+    @discardableResult func tellWatches(_ connection: RPCClient) -> [WatchStart] {
+        let unheard = watching.keys.filter { toldTo !== connection || !told.contains($0) }
+        for start in unheard { tell(start, connection) }
+        return unheard
+    }
+
+    package func unwatch(_ topic: WatchTopic, _ key: String = "") { unwatch(topic, key, forgetting: true) }
+
+    private func unwatch(_ topic: WatchTopic, _ key: String, forgetting: Bool) {
         let start = WatchStart(topic, key)
         guard let count = watching[start] else { return }
         if count > 1 {
@@ -18,8 +37,9 @@ extension AppModel {
             return
         }
         watching[start] = nil
+        told.remove(start)
         notify { WatchStop(topic, key) }
-        forget(topic, key)   // not shown anywhere now: no stale value when it's watched again
+        if forgetting { forget(topic, key) }   // not shown anywhere now: no stale value when it's watched again
     }
 
     /// Read it again now, and (CI) keep looking for a while: after a push, its run shows up within seconds.
@@ -83,22 +103,28 @@ extension AppModel {
     func removed(_ e: RemovedEvent) {
         if let id = e.repo {
             for x in [id] + worktrees.filter({ $0.repoId == id }).map(\.id) { recordEvents[x, default: 0] += 1 }
+            arrangement.forget([id] + worktrees.filter { $0.repoId == id }.map(\.id))
             repos.removeAll { $0.id == id }
             worktrees.removeAll { $0.repoId == id }
         }
         if let id = e.worktree {
             recordEvents[id, default: 0] += 1
+            arrangement.forget([id])
             worktrees.removeAll { $0.id == id }
         }
         if let id = e.session { removed(session: id) }
     }
 
-    /// The context ring of every agent that hasn't ended: watched while it runs, let go when it ends.
+    /// The context ring on an agent's tab: watched for the agents of the workspace on screen (the tabs there are) that
+    /// haven't ended, let go as another workspace is shown or the agent ends. A ring read before stays for the next time
+    /// its workspace shows, so it's there at once, until its agent ends.
     func syncContextWatches() {
-        let want = Set(sessions.filter { $0.agent != "shell" && $0.status != .exited }.map(\.id))
+        let shown = workbench.workspaceId
+        let live = Set(sessions.filter { $0.agent != "shell" && $0.status != .exited }.map(\.id))
+        let want = live.filter { session($0)?.worktreeId == shown }
         let have = Set(watching.keys.filter { $0.topic == .context }.map(\.key))
         for id in want.subtracting(have) { watch(.context, id) }
-        for id in have.subtracting(want) { unwatch(.context, id) }
+        for id in have.subtracting(want) { unwatch(.context, id, forgetting: !live.contains(id)) }
     }
 }
 

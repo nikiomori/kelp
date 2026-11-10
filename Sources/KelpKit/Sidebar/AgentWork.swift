@@ -69,7 +69,7 @@ struct AgentWork: View {
 
     private func rows(_ session: Session) -> [AgentWorkRow.Row] {
         let all =
-            model.app.sessions.children(of: session.id).map(kid)
+            model.app.children(of: session.id).map(kid)
             + session.runningSubagents.map { subagent($0, in: session) }
         return all.filter { $0.mark == .status(.waiting) } + all.filter { $0.mark == .status(.working) }
             + commands(session)

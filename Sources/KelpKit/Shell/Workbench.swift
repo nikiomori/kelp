@@ -33,6 +33,7 @@ package final class Workbench {
     package var workspaceId: String? {
         didSet {
             app.uiState["workbench.lastWorkspace"] = workspaceId.map(JSONValue.string)
+            if workspaceId != oldValue { app.syncContextWatches() }   // the rings on the tabs now on screen
         }
     }
     /// What's on screen now goes to the front of ⌃Tab's order: the server's page over a workspace, else the workspace.

@@ -10,7 +10,20 @@ final class Arrangement {
     init(app: AppModel) { self.app = app }
 
     /// Project and workspace ids in the order they were dragged into in the sidebar; ones never moved follow them.
-    var order: [String] = [] { didSet { app.uiState["sidebar.order"] = try? .from(order) } }
+    var order: [String] = [] {
+        didSet {
+            rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
+            app.uiState["sidebar.order"] = try? .from(order)
+        }
+    }
+    /// Each id's place in `order`, made once per change of it, not per list put in order.
+    private(set) var rank: [String: Int] = [:]
+    /// Projects and workspaces removed leave the order: it kept every id ever dragged. Only on a removal the daemon
+    /// reported, never from a list (one not read yet would say everything's gone).
+    func forget(_ ids: [String]) {
+        let gone = Set(ids)
+        if order.contains(where: gone.contains) { order.removeAll(where: gone.contains) }
+    }
     /// Rows told to keep quiet: id → until when (`Mutes`).
     var mutes: [String: Date] = [:] { didSet { app.uiState[Mutes.key] = Mutes.value(mutes) } }
     /// Agents parked: id → until when (`Parking`).

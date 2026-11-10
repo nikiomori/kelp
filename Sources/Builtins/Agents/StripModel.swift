@@ -86,11 +86,12 @@ enum StripModel {
     static func items(
         _ sessions: [Session], workspaces: [(id: String, name: String, repo: String?)], now: Date = Date()
     ) -> [StripItem] {
-        workspaces.compactMap { workspace in
+        let byWorkspace = Dictionary(grouping: sessions) { $0.worktreeId }   // once, not a scan per workspace
+        return workspaces.compactMap { workspace in
             func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) {
                 (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt)
             }
-            let own = sessions.filter { $0.worktreeId == workspace.id }.compactMap { session in
+            let own = (byWorkspace[workspace.id] ?? []).compactMap { session in
                 cell(session, now: now).map { (session, $0) }
             }
             .sorted { rank($0) < rank($1) }

@@ -64,9 +64,10 @@ extension Arrangement {
         if s.status == .error { unpark(s.id, back: String(localized: "it failed")) }
     }
 
-    /// CI that failed in a folder brings its parked agents back.
+    /// CI that failed in a folder brings its parked agents back: the newest run of any of its workflows, as the daemon
+    /// and the marks read the branch's CI (`CIRuns.latest`), not only the newest run of them all.
     func followParked(_ e: CIEvent) {
-        guard e.result?.runs.first?.conclusion == "failure" else { return }
+        guard CIRuns.latest(e.result?.runs ?? []).contains(where: { $0.conclusion == "failure" }) else { return }
         for s in app.sessions where s.worktreeId == e.worktree && isParked(s.id) {
             unpark(s.id, back: String(localized: "CI failed"))
         }

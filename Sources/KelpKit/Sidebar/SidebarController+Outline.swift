@@ -49,7 +49,7 @@ extension SidebarController {
     private func hasAsk(_ node: Node) -> Bool {
         guard case .agent(let id) = node.kind, let session = app.session(id) else { return false }
         return SidebarCell.line(
-            session, mode: app.settings[SettingKeys.agentDetail], among: app.sessions,
+            session, mode: app.settings[SettingKeys.agentDetail], children: app.children(of: id),
             back: app.arrangement.parkedBack[id], plans: app.extensions.all.plans) != nil
     }
     /// Room in a row for its project's card to open (over the project's name) and close (under its last row).

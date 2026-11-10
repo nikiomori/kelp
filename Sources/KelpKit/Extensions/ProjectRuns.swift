@@ -26,8 +26,8 @@ package struct ProjectRuns {
     let choices: @MainActor (_ workspace: String) -> [NewTabChoices.Action]
     /// A page the hover card lists, opened beside you (one that isn't a web page has its address copied).
     let open: @MainActor (ServedPage, _ workspace: String) -> Void
-    /// A page a session printed: true when it's a run's, which waits on the chip for a click.
-    let served: @MainActor (DevServerEvent) -> Bool
+    /// A page a session printed (`event.devserver`): a run's waits on the chip for a click, another's opens beside you.
+    let served: @MainActor (DevServerEvent) -> Void
     /// A run that couldn't start: says who holds its port.
     let portBusy: @MainActor (PortBusyEvent) -> Void
     /// A new workspace whose .kelp.yaml setup waits for the file's trust; the pull request it holds, if any.
@@ -42,7 +42,7 @@ package struct ProjectRuns {
         tabMenu: @escaping @MainActor (NSMenu, Session) -> Void,
         choices: @escaping @MainActor (String) -> [NewTabChoices.Action],
         open: @escaping @MainActor (ServedPage, String) -> Void,
-        served: @escaping @MainActor (DevServerEvent) -> Bool,
+        served: @escaping @MainActor (DevServerEvent) -> Void,
         portBusy: @escaping @MainActor (PortBusyEvent) -> Void,
         setup: @escaping @MainActor (String, Int?) async -> Void
     ) {
