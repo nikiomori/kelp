@@ -263,3 +263,16 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.permission("Allow github: create_issue?") == ("Allow github: create_issue?", nil))
     #expect(StripModel.permission("Allow Bash?") == ("Allow Bash?", nil))
 }
+
+/// A tile's menu starts with its own agent: what it says, then what can be done to it from here; the strip's own below.
+@MainActor @Test func aTilesMenuIsAboutItsAgentFirst() async throws {
+    let rig = try await AppRig()
+    let failed = session(rig.workspace.id, .error, summary: "Build failed")
+    rig.app.sessions = [failed]
+    let strip = AgentStrip(app: rig.app)
+    let item = try #require(
+        StripModel.items(rig.app.sessions, workspaces: [(rig.workspace.id, "kelp", nil)]).first)
+    let titles = strip.menu(for: item).items.map(\.title)
+    #expect(titles.prefix(5) == ["kelp — Build failed", "Open in Kelp", "Continue", "Later", "Mute Notifications"])
+    #expect(titles.contains("Hide Strip") && titles.contains("Strip Settings…"))
+}

@@ -12,7 +12,7 @@ final class AgentStrip {
     /// After Kelp goes behind: a quick trip to another app and back doesn't flash the strip.
     private static let settle: TimeInterval = 0.6
 
-    private let app: AppModel
+    let app: AppModel
     var state = State(items: [], mode: nil, comesFor: nil, fullScreen: true)
     /// Put off with Later, until the agent's state changes.
     private var putOff: Set<String> = []
@@ -166,7 +166,7 @@ final class AgentStrip {
             buttons[item.workspace] = button
             button.update(item, open: item.workspace == opened, app: app)
             button.onClick = { [weak self] in self?.clicked(item) }
-            button.onMenu = { [weak self] in self?.menu() ?? NSMenu() }
+            button.onMenu = { [weak self] in self?.menu(for: item) ?? NSMenu() }
             button.onHover = { [weak self, weak button] on in
                 if let button { self?.hover(item, on: on, over: button, open: item.workspace == opened) }
             }
@@ -352,24 +352,6 @@ final class AgentStrip {
         card?.close()
         card = nil
         if peeking, !row.pointerOn { hoverStrip(false) }
-    }
-
-    private func menu() -> NSMenu {
-        let menu = NSMenu(), hide = NSMenu()
-        for c in Mutes.choices() where c.until != Mutes.forever {
-            hide.add(c.title) { [weak self] in self?.hide(until: c.until) }
-        }
-        menu.setSubmenu(hide, for: menu.addItem(withTitle: String(localized: "Hide"), action: nil, keyEquivalent: ""))
-        menu.addChoiceMenu(SettingKeys.dockStripComesFor, app, title: String(localized: "Comes Up For"), tryOn: false)
-        menu.addToggle(SettingKeys.dockStripFullScreen, app, title: String(localized: "Over Full-Screen Apps"))
-        menu.addItem(.separator())
-        if place?.edge == nil { menu.add(String(localized: "Hide Behind the Edge")) { [weak self] in self?.tuck() } }
-        if place != nil {
-            menu.add(String(localized: "Move Back Above the Dock")) { [weak self] in self?.moved(to: nil) }
-        }
-        menu.add(String(localized: "Turn Off")) { [app] in app.settings.set(SettingKeys.dockStrip, "off") }
-        menu.addSettingsLink(String(localized: "Strip Settings…"), section: "notifications", group: "Dock", app)
-        return menu
     }
 
     private func goAway() {

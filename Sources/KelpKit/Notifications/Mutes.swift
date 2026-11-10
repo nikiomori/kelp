@@ -36,6 +36,11 @@ package enum Mutes {
             : String(localized: "Notifications muted until \(until.formatted(date: .omitted, time: .shortened))")
     }
 
+    /// Mutes these rows until then, as their row's menu does (the Dock strip's tile has one too).
+    @MainActor package static func mute(_ ids: [String], until: Date, in app: AppModel) {
+        app.arrangement.mute(ids, until: until)
+    }
+
     @MainActor package static func isMuted(_ s: Session, in app: AppModel) -> Bool {
         covers(app.arrangement.mutes, [s.id, s.worktreeId, app.worktree(s.worktreeId)?.repoId])
     }

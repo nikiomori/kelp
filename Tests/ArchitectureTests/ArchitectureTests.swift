@@ -141,8 +141,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // (`starter`, `focusedContent`, `split`…); the editor area isn't the built-ins' any more.
     // +1, nothing new: `focusedTab` is computed from the layout now, and its `package internal(set)` wasn't counted.
     // +5: the Dock strip's card types the quick replies the row card and the banner do (`QuickReply`, Continue, `fits`).
-    #expect(declared <= 324, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 324, "fewer now (\(declared)): lower the ceiling")
+    // +5: the Dock strip's card types the quick replies the row card and the banner do (`QuickReply`, Continue, `fits`).
+    // +1: its tile mutes a chat as the chat's row does (`Mutes.mute`).
+    #expect(declared <= 325, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 325, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
