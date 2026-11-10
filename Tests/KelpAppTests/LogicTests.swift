@@ -427,7 +427,7 @@ extension OneAtATime {
         #expect(paths["git"]?.hasSuffix("/git") == true && paths["kelp-no-such-agent"] == nil)
         #expect(await AgentAvailability.runs(try #require(paths["git"]), app: rig.app) != nil)
         #expect(await AgentAvailability.runs("/nonexistent/agent", app: rig.app) == nil)
-        rig.app.client = nil
+        rig.app.daemon.use(nil)
         #expect(await Shell.exec(rig.app, ["/bin/echo", "hi"]).code == -1)   // the app runs nothing itself
     }
 
@@ -435,7 +435,7 @@ extension OneAtATime {
     @Test func aHungDaemonIsNoticed() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
-        #expect(await AppModel.answers(rig.client, within: 5))
+        #expect(await DaemonLink.answers(rig.client, within: 5))
         let path = rig.root.appendingPathComponent("h.sock").path, fd = socket(AF_UNIX, SOCK_STREAM, 0)
         defer { close(fd) }
         var a = sockaddr_un()
@@ -447,7 +447,7 @@ extension OneAtATime {
             }
         }
         listen(fd, 1)   // never accepted: it connects, and nothing ever answers
-        #expect(await !AppModel.answers(try RPCClient(socket: path), within: 0.3))
+        #expect(await !DaemonLink.answers(try RPCClient(socket: path), within: 0.3))
     }
 
     /// An agent CLI that answered `--version` in the last day isn't started again until it changes.
@@ -510,12 +510,12 @@ extension OneAtATime {
 /// known, not only that it isn't running.
 @MainActor @Test func theNoServiceBannerSaysWhyTheDaemonDidntStart() throws {
     let root = tmp()
-    #expect(AppModel.whyNoService(root: root) == AppModel.noService)   // nothing left: nothing to add
+    #expect(DaemonLink.whyNoService(root: root) == DaemonLink.noService)   // nothing left: nothing to add
     try "xcrun: error: invalid active developer path\n".write(
         to: Paths.daemonError(in: root), atomically: true, encoding: .utf8)
-    let said = AppModel.whyNoService(root: root)
+    let said = DaemonLink.whyNoService(root: root)
     #expect(
-        said.hasPrefix(AppModel.noService) && said.contains("invalid active developer path")
+        said.hasPrefix(DaemonLink.noService) && said.contains("invalid active developer path")
             && said.contains("xcode-select --install"))
 }
 
@@ -544,9 +544,9 @@ extension OneAtATime {
     try other.run()
     defer { for p in [d, other] where p.isRunning { p.terminate() } }   // only what this test started
     kill(d.processIdentifier, SIGSTOP)
-    await AppModel.stop(other.processIdentifier)
+    await DaemonLink.stop(other.processIdentifier)
     #expect(other.isRunning)
-    await AppModel.stop(d.processIdentifier)
+    await DaemonLink.stop(d.processIdentifier)
     #expect(try await waitFor(5) { !(d.isRunning) })
     #expect(!d.isRunning && d.terminationReason == .uncaughtSignal)
 }

@@ -66,9 +66,8 @@ enum ExtensionTrust {
     static func waits(_ folder: URL, _ app: AppModel) -> Bool {
         let (commands, pages) = ExtensionFiles.commandsIn(manifest(folder))
         guard !commands.isEmpty || !pages.isEmpty else { return false }
-        guard app.uiState.loaded else { return app.client != nil }
-        return app.uiState[ExtensionFiles.extensionTrustKey]?[folder.lastPathComponent]?.string
-            != ExtensionFiles.extensionDigest(folder)
+        guard app.uiState.loaded else { return app.hasDaemon }
+        return app.uiState[ExtensionFiles.extensionTrustKey]?[folder.lastPathComponent]?.string != ExtensionFiles.extensionDigest(folder)
     }
 
     /// Allowed as `folders` are now. False when it couldn't be recorded (a banner says why).

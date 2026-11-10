@@ -89,12 +89,12 @@ extension AppOfItsOwn {
         // The workspaces didn't load (the daemon was slow): nothing is known gone, so nothing goes.
         rig.app.worktrees = []
         let client = rig.app.client
-        rig.app.client = nil
+        rig.app.daemon.use(nil)
         await UnsavedBackups.reopen(rig.app, in: host)
         #expect(
             rig.app.uiState["backup.gone.untitled:8"] != nil && rig.app.uiState["backup.\(workspace).untitled:7"] != nil
         )
-        rig.app.client = client
+        rig.app.daemon.use(client)
         rig.app.worktrees = [rig.workspace]
         await UnsavedBackups.reopen(rig.app, in: host)
         #expect(WorkspaceLayout.load(workspace, from: rig.app.uiState).tab(uri: "untitled:7") != nil)

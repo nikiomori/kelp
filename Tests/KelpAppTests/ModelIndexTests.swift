@@ -80,7 +80,7 @@ import Testing
     #expect(m.tellWatches(rig.client).isEmpty, "the same connection told again")
     let next = try RPCClient(socket: rig.root.appendingPathComponent("kelp.sock").path)
     defer { next.close() }
-    m.client = next
+    m.daemon.use(next)
     #expect(Set(m.tellWatches(next)) == Set(m.watching.keys))
     #expect(m.tellWatches(next).isEmpty)
 }

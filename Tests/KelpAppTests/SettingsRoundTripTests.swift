@@ -30,7 +30,7 @@ extension OneAtATime {
         let app = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let cli = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let m = AppModel(builtins: Builtins.all), s = m.settings
-        m.client = app
+        m.daemon.use(app)
         m.listen(app)
         await s.load()
 
@@ -59,7 +59,7 @@ extension OneAtATime {
         let app = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let cli = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let m = AppModel(builtins: Builtins.all), s = m.settings
-        m.client = app
+        m.daemon.use(app)
         m.listen(app)
         m.extensions.reload()
         await s.load()

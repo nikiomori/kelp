@@ -27,7 +27,7 @@ package final class UIState {
     /// banner saying why, when it did; kept for this run only without a daemon, as the subscript does.
     @discardableResult
     package func save(_ key: String, _ value: JSONValue?) async -> Bool {
-        if app.client != nil, await app.call(StateSet(key: key, value: value)) == nil { return false }
+        if app.hasDaemon, await app.call(StateSet(key: key, value: value)) == nil { return false }
         values[key] = value
         return true
     }

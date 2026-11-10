@@ -43,9 +43,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
 
 /// One way to the daemon, through AppModel: `call` (a banner), `tryCall` / `get` (the panel's error state) or `quiet`
 /// (decorations, which say so). `try?` around a call turned a failure into an empty list; the raw client skipped all of it.
-/// AppModel.swift itself is the way (it also manages the connection), so it isn't counted.
+/// AppModel.swift itself is the way, and DaemonLink.swift manages the connection, so they aren't counted.
 @Test func daemonErrorsAreNotSwallowed() throws {
-    func outside(_ found: [String]) -> [String] { found.filter { !$0.hasPrefix("Sources/KelpKit/AppModel.swift:") } }
+    let way = ["Sources/KelpKit/AppModel.swift:", "Sources/KelpKit/DaemonLink.swift:"]
+    func outside(_ found: [String]) -> [String] { found.filter { f in !way.contains { f.hasPrefix($0) } } }
     let swallowed = outside(try matches(#"try\? await (?:[^=\n]*\.)?(call|get|tryCall)\("#, in: appDirs))
     let raw = outside(try matches(#"\bclient\??\.(?:call|notify)\(|\bc\??\.call\("#, in: appDirs))
     #expect(swallowed == [], "try? around a call: \(swallowed)")
@@ -292,7 +293,7 @@ func codeOnly(_ s: String) -> String {
 /// start one count too: LoginPath runs the login shell (the app asks the daemon: `process.which`), the library's index and
 /// download run curl and tar.
 @Test func theAppStartsNoPrograms() throws {
-    let allowed = ["Sources/KelpKit/AppModel.swift", "Sources/KelpKit/DevAids.swift"]
+    let allowed = ["Sources/KelpKit/DaemonLink.swift", "Sources/KelpKit/DevAids.swift"]
     let found = try matches(
         #"\bProcess\(\)|\bSubprocess\.|posix_spawn|\bNSTask\b|\bLoginPath\.|\bfetchExtension\(|\blibrary\(index"#,
         in: appDirs
@@ -374,10 +375,8 @@ func codeOnly(_ s: String) -> String {
             2, "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch"
         ),
         "KelpKit/Sidebar/SidebarController.swift": (1, "relative times on the rows (\"now\" becomes \"1m\")"),
-        "KelpKit/AppModel.swift": (
-            7,
-            "connecting: waiting for the socket, retries and backoff; a look every 30 s for a daemon that hung, which can't push that"
-        ),
+        "KelpKit/AppModel.swift": (1, "things asked for at launch wait for the first connection, up to 5 s"),
+        "KelpKit/DaemonLink.swift": (6, "connecting: the socket, retries, backoff; a look every 30 s for a hung kelpd"),
         "KelpKit/Notifier.swift": (
             3,
             "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later"
@@ -711,9 +710,8 @@ func codeOnly(_ s: String) -> String {
     let own: [String: (Int, String)] = [
         "KelpKit/AgentCatalog.swift": (1, "an agent CLI's date: it isn't asked its version again until it changes"),
         "KelpKit/AgentIcons.swift": (4, "agents' icons, cached in Kelp's home"),
-        "KelpKit/AppModel.swift": (
-            3, "why kelpd didn't start, in Kelp's home; whether the projects' folders are there, off the main thread"
-        ),
+        "KelpKit/AppModel.swift": (1, "whether the projects' folders are there, off the main thread"),
+        "KelpKit/DaemonLink.swift": (2, "why kelpd didn't start, in Kelp's home; the bundled kelpd's date"),
         "KelpKit/DevAids.swift": (3, "snapshots for tests"),
         "KelpKit/RemoteSheet.swift": (1, "the hosts in ~/.ssh/config"),
         "KelpKit/CloneSheet.swift": (2, "whether the folder new projects go in is there"),

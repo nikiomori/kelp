@@ -276,7 +276,7 @@ import os
         }
     }
     let m = AppModel(builtins: [])
-    m.client = try RPCClient(socket: path)
+    m.daemon.use(try RPCClient(socket: path))
     m.repos = [Repo(id: "r1", name: "one", path: "/one")]
     let panel = TasksViewController(app: m)
     panel.show(worktree: nil)

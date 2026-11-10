@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         app.extensions.watch()
         Task {
-            await app.connect()
+            await app.daemon.connect()
             await app.noProject.ensure()   // connecting reloaded the extensions: settings (disabled ones) and what was allowed are known
             app.availability.refresh(force: true)
             #if DEBUG
@@ -201,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ n: Notification) {
         main?.leaveFocusMode()
         EditorArea.saveLayouts()   // a tab moved in the last half second
-        app.client?.flush()   // writes are queued: the last layout or state set goes out before the process ends
+        app.flush()
     }
 
     /// Folders dropped on the Dock icon or opened with `open -a Kelp <path>` become projects; files open as tabs.

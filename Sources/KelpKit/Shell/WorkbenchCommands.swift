@@ -120,7 +120,7 @@ extension Builtins {
         Task {
             let refusal: String
             do {
-                try await app.upgradeDaemon()
+                try await app.daemon.upgrade()
                 return
             } catch { refusal = AppModel.message(error) }
             let alert = NSAlert()
@@ -131,7 +131,7 @@ extension Builtins {
                 + String(localized: "Running agent sessions end. Projects, history and settings are kept.")
             alert.addButton(withTitle: String(localized: "Restart"))
             alert.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(alert) == .alertFirstButtonReturn { await app.restartDaemon() }
+            if await runSheet(alert) == .alertFirstButtonReturn { await app.daemon.restart() }
         }
     }
 }

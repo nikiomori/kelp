@@ -61,7 +61,7 @@ final class AppRig {
         }
         workspace = w
         let m = app, wb = app.workbench
-        m.client = client
+        m.daemon.use(client)
         m.listen(client)
         m.repos = [project]
         m.worktrees = [workspace]
