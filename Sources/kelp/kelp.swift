@@ -62,6 +62,10 @@ let usage = """
                                            the project's databases (compose, .env, database.yml, SQLite files) through
                                            Kelp, which holds their passwords: one statement a call; an agent's change
                                            waits for the user's Allow where the database asks
+      \(Main.addonUsage)
+                                           what this workspace's agents get besides the prompt: MCP servers and
+                                           skills, from the agents' own files and from what a chat loaded; a server
+                                           added here goes to Claude Code and Codex, off is for this project
       \(Main.vmUsage)
                                            a Linux machine for commands: run goes through SSH (no network address), the
                                            project folder at the same path inside; it pauses and sleeps when unused, and
@@ -267,6 +271,8 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
         case "artifact": try await artifacts(sub, c)
         case "vm": try await vm(sub, c)
         case "db": try await db(sub, c)
+        case "mcp": try await addons(.server, sub, c)
+        case "skill": try await addons(.skill, sub, c)
         default: print(usage)
         }
     }
