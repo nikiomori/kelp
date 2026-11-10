@@ -99,8 +99,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
         body.pin(ports)
-        view = stacked(bar, agentSlot, body)
+        let box = BrowserBox()
+        box.pin(stacked(bar, agentSlot, body))
+        view = box
         super.init()
+        box.reload = { [weak self] in self?.web.reload() }
         agentSlotHeight.isActive = true
         webFill = [
             web.topAnchor.constraint(equalTo: body.topAnchor), web.bottomAnchor.constraint(equalTo: body.bottomAnchor),
@@ -337,6 +340,23 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
     }
 
+}
+
+/// Holds a browser tab. While the focus is in it (the page or its address), ⌘R reloads the page before the menu bar
+/// gives it to Run, as in Safari; elsewhere ⌘R stays Run.
+private final class BrowserBox: NSView {
+    var reload: () -> Void = {}
+
+    override func performKeyEquivalent(with e: NSEvent) -> Bool {
+        let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
+        guard mods == .command, e.charactersIgnoringModifiers?.lowercased() == "r",
+            let focus = window?.firstResponder as? NSView, focus.isDescendant(of: self)
+        else {
+            return super.performKeyEquivalent(with: e)
+        }
+        reload()
+        return true
+    }
 }
 
 /// The user's clicks on the page in Design Mode: each one lets one element's message through, within a second of it.
