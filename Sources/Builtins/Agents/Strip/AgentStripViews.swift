@@ -10,6 +10,8 @@ final class StripPanel: NSPanel {
 
     /// Moved by the pointer, and let go.
     var onDropped: (() -> Void)?
+    /// ⎋ while it has the keys (a card).
+    var onCancel: (() -> Void)?
     /// What a hand trembles by: less than this is a click.
     private static let dragFrom: CGFloat = 4
 
@@ -25,6 +27,8 @@ final class StripPanel: NSPanel {
         if moved { onDropped?() }
         return moved
     }
+
+    override func cancelOperation(_ sender: Any?) { onCancel?() }
 
     /// From the event itself, in the screen's own coordinates: `locationInWindow` shifts as the window follows the pointer.
     private static func onScreen(_ e: NSEvent) -> CGPoint { e.cgEvent?.location ?? .zero }

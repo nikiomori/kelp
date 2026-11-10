@@ -170,3 +170,41 @@ enum StripModel {
     /// A question put off: it comes back as a new one when the agent's state changes.
     static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
 }
+
+/// What a card over the strip answers, by what the agent waits on.
+enum StripCardKind: Equatable {
+    /// Allow or Deny, the whole of what it would do shown above them.
+    case permission
+    /// One of its question's answers, a click each.
+    case choices([String])
+    /// Back at its prompt (done, failed): a line typed to it, or one of the quick replies.
+    case reply
+    /// Nothing to answer from here (a question in words, a menu of several questions): it opens in Kelp.
+    case look
+
+    @MainActor static func of(_ s: Session) -> StripCardKind {
+        if s.asksPermission { return .permission }
+        if s.status == .waiting, let choices = s.choices, !choices.isEmpty { return .choices(choices) }
+        return QuickReply.fits(s) ? .reply : .look
+    }
+}
+
+extension StripModel {
+    /// A permission's question as the card shows it: what kind of thing it allows, over the thing itself in full. "Allow npm
+    /// test?" → "Allow this command?" over `npm test`; "Allow editing App.swift?" → "Allow editing?" over the path; a bare tool
+    /// ("Allow github: create_issue?") stays as it is.
+    static func permission(_ summary: String) -> (title: String, detail: String?) {
+        guard summary.hasPrefix("Allow "), summary.hasSuffix("?") else { return (summary, nil) }
+        let what = String(summary.dropFirst(6).dropLast())
+        let kinds = [
+            ("editing", String(localized: "Allow editing?")), ("writing", String(localized: "Allow writing?")),
+            ("reading", String(localized: "Allow reading?")), ("fetching", String(localized: "Allow fetching?")),
+            ("searching the web for", String(localized: "Allow a web search?"))
+        ]
+        for (verb, title) in kinds where what.hasPrefix(verb + " ") {
+            return (title, what.dropFirst(verb.count + 1).trimmingCharacters(in: CharacterSet(charactersIn: "“”")))
+        }
+        guard what.contains(" "), !what.contains(": ") else { return (summary, nil) }
+        return (String(localized: "Allow this command?"), what)
+    }
+}

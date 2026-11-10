@@ -313,20 +313,13 @@ final class AgentStrip {
         }
     }
 
-    /// A question or a failure opens its card; finished work goes to its result in Kelp, and work going on to its workspace.
+    /// A question, a failure or finished work opens its card, answered from here; work going on goes to its workspace.
     private func clicked(_ item: StripItem) {
         tip?.hide()
-        switch item.cell {
-        case .working:
+        if item.cell == .working {
             NSApp.activate()
             app.workbench.show(workspace: item.workspace)
             return
-        case .done:
-            closeCard()
-            NSApp.activate()
-            app.workbench.focus(session: item.session)
-            return
-        case .asks, .failed: break
         }
         if card?.session == item.session {
             closeCard()
@@ -338,7 +331,11 @@ final class AgentStrip {
     private func open(_ item: StripItem) {
         closeCard()
         guard let session = app.session(item.session), let panel else { return }
-        let newCard = StripCard(session, app: app, fullScreen: state.fullScreen) { [weak self] end in
+        let asking = state.items.filter { $0.cell == .asks }.sorted { $0.since < $1.since }
+        let index = asking.firstIndex { $0.session == item.session }
+        let position = index.flatMap { asking.count > 1 ? ($0 + 1, asking.count) : nil }
+        let newCard = StripCard(session, app: app, fullScreen: state.fullScreen, position: position) {
+            [weak self] end in
             switch end {
             case .later: self?.later(item.session)
             case .answered:

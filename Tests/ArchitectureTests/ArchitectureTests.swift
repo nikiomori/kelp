@@ -140,8 +140,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // 301 → 296: a built-in starts sessions through `SessionStarter` and acts on the tabs on screen through Workbench
     // (`starter`, `focusedContent`, `split`…); the editor area isn't the built-ins' any more.
     // +1, nothing new: `focusedTab` is computed from the layout now, and its `package internal(set)` wasn't counted.
-    #expect(declared <= 319, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 319, "fewer now (\(declared)): lower the ceiling")
+    // +5: the Dock strip's card types the quick replies the row card and the banner do (`QuickReply`, Continue, `fits`).
+    #expect(declared <= 324, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 324, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -398,7 +399,7 @@ func codeOnly(_ s: String) -> String {
             1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
         ),
         "KelpKit/Sidebar/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
-        "Builtins/Agents/Strip/StripCard.swift": (
+        "Builtins/Agents/Strip/StripCardParts.swift": (
             1,
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"
         ),

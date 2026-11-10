@@ -243,3 +243,23 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     strip.hoverStrip(false)
     #expect(try await waitFor(5) { strip.frame != before })
 }
+
+/// The card answers what the agent waits on: a permission, one of its question's answers, or a line at its prompt.
+@MainActor @Test func theCardAnswersWhatTheAgentWaitsOn() {
+    var choosing = session("a", .waiting, summary: "Which layout?")
+    choosing.choices = ["Grid", "List"]
+    #expect(StripCardKind.of(session("a", .waiting, summary: "Allow npm test?")) == .permission)
+    #expect(StripCardKind.of(choosing) == .choices(["Grid", "List"]))
+    #expect(StripCardKind.of(session("a", .error, summary: "Build failed")) == .reply)
+    #expect(StripCardKind.of(session("a", .done, summary: "Release notes updated")) == .reply)
+    #expect(StripCardKind.of(session("a", .waiting, summary: "Which layout?")) == .look)   // a menu it can't answer
+}
+
+@MainActor @Test func aPermissionShowsWhatItAllowsWhole() {
+    #expect(
+        StripModel.permission("Allow SP=/tmp/x swift build?") == ("Allow this command?", "SP=/tmp/x swift build"))
+    #expect(StripModel.permission("Allow editing Sources/App.swift?") == ("Allow editing?", "Sources/App.swift"))
+    #expect(StripModel.permission("Allow searching the web for “swift 6”?") == ("Allow a web search?", "swift 6"))
+    #expect(StripModel.permission("Allow github: create_issue?") == ("Allow github: create_issue?", nil))
+    #expect(StripModel.permission("Allow Bash?") == ("Allow Bash?", nil))
+}
