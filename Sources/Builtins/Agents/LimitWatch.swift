@@ -36,7 +36,7 @@ final class LimitWatch {
     private func limitsChanged(_ usage: UsageGet.Result?) {
         guard let usage else { return }
         for a in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
-            let name = app.catalog.all.first { $0.id == a.agent }?.name ?? a.agent
+            let name = app.catalog.name(a.agent)
             let content = UNMutableNotificationContent()
             content.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
             content.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
@@ -72,7 +72,7 @@ final class LimitWatch {
         guard let first = stopped.first else { return }
         let ids = stopped.map(\.id)
         let content = UNMutableNotificationContent()
-        let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
+        let name = app.catalog.name(agent)
         content.title = String(localized: "\(name): the limit has reset")
         content.body = String(
             localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
@@ -97,7 +97,7 @@ final class LimitWatch {
             unusedNearReset(agent, l, resetAt: resetAt, window: window)
             guard let eta = forecast.warning(key, resetAt: resetAt, window: window) else { continue }
             guard forecastTold.insert(key).inserted else { continue }
-            let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
+            let name = app.catalog.name(agent)
             let content = UNMutableNotificationContent()
             content.title = String(localized: "\(name): \(l.kind) limit full in \(LimitForecast.duration(eta))")
             content.body = String(localized: "At this pace it fills before it resets.")
@@ -118,7 +118,7 @@ final class LimitWatch {
         guard (told[key].map { now - $0 > 86400 }) ?? true else { return }
         told[key] = now
         defaults.set(told.filter { now - $0.value <= 86400 }, forKey: saved)
-        let name = app.catalog.all.first { $0.id == agent }?.name ?? agent
+        let name = app.catalog.name(agent)
         let content = UNMutableNotificationContent()
         content.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
         content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")

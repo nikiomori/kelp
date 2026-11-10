@@ -16,7 +16,7 @@ final class StartView: NSView {
     /// No agent on this Mac: one of the suggested ones, installed in a terminal tab here.
     var onInstall: ((AgentManifest) -> Void)?
     private lazy var prompt: StartPrompt = {
-        let name = app.catalog.all.first { $0.id == def }?.name ?? def
+        let name = app.catalog.name(def)
         return StartPrompt(
             placeholder: String(localized: "What should \(name) do? Return starts it"),
             accessibilityLabel: String(localized: "First task for \(name)"))
@@ -254,7 +254,7 @@ final class StartView: NSView {
         for (id, tile) in tilesById { tile.show(notes[id]) }
         let anyPlan = tilesById.keys.contains { notes[$0] != nil }
         for tile in allTiles { tile.roomForPlan = anyPlan }
-        let name = app.catalog.all.first { $0.id == def }?.name ?? def
+        let name = app.catalog.name(def)
         let warning = plans?.warning(def, name, tilesById.keys.filter { $0 != def })
         planLine.stringValue = warning?.text ?? ""
         let other = warning?.instead

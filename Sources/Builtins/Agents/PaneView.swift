@@ -79,6 +79,11 @@ final class PaneView: NSView {
         guard askCard == nil else { return }
         let card = DatabaseAskCard(app: app, session: sessionId, worktree: worktree)   // it shows and hides itself
         askCard = card
+        overlay(card)
+    }
+
+    /// A card over the foot of the terminal, inset from its edges, above the ended bar.
+    private func overlay(_ card: NSView) {
         card.translatesAutoresizingMaskIntoConstraints = false
         addSubview(card)
         NSLayoutConstraint.activate([
@@ -285,13 +290,7 @@ final class PaneView: NSView {
         guard limitStrip == nil, s.limitHit != nil else { return }
         let strip = LimitStrip(app: app, session: s.id)   // it shows and hides itself
         limitStrip = strip
-        strip.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(strip)
-        NSLayoutConstraint.activate([
-            strip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gapWide * 1.5),
-            strip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gapWide * 1.5),
-            strip.bottomAnchor.constraint(equalTo: endedSlot.topAnchor, constant: -Metrics.gapWide * 1.5)
-        ])
+        overlay(strip)
     }
 
     func focus() { ghostty?.focus() }
