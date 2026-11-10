@@ -10,14 +10,14 @@ import WorkbenchKit
 extension Builtins {
     /// The Markdown file in the focused tab; a beep when it's something else.
     static func markdown(_ app: AppModel) -> MarkdownTab? {
-        let tab = (app.workbench.editor?.focusedContent as? FileTab)?.markdown
+        let tab = (app.workbench.focusedContent as? FileTab)?.markdown
         if tab == nil { NSSound.beep() }
         return tab
     }
 
     /// The file in the focused tab; a beep when it's something else.
     static func fileTab(_ app: AppModel) -> FileTab? {
-        let tab = app.workbench.editor?.focusedContent as? FileTab
+        let tab = app.workbench.focusedContent as? FileTab
         if tab == nil { NSSound.beep() }
         return tab
     }
@@ -45,7 +45,7 @@ extension Builtins {
                 cmd("files.quickOpen", "Open Quickly…", "cmd+p") { app.workbench.openQuickly() },
                 cmd("files.new", "New File", "opt+cmd+n") { app.workbench.open(UntitledTab.next(app)) },
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
-                    guard let md = (app.workbench.editor?.focusedContent as? FileTab)?.markdown else {
+                    guard let md = (app.workbench.focusedContent as? FileTab)?.markdown else {
                         NSSound.beep()
                         return
                     }
@@ -60,7 +60,7 @@ extension Builtins {
                 cmd("markdown.numbered", "Numbered List") { markdown(app)?.numbered() },
                 cmd("markdown.tasks", "Task List") { markdown(app)?.tasks() },
                 cmd("editor.save", "Save", "cmd+s") {
-                    guard let tab = app.workbench.editor?.focusedContent as? SavableTab else {
+                    guard let tab = app.workbench.focusedContent as? SavableTab else {
                         NSSound.beep()
                         return
                     }

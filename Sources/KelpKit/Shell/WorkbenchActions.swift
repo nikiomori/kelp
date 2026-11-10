@@ -10,10 +10,32 @@ extension Workbench {
     package var editedFiles: [SavableTab] { window?.editors.editedFiles ?? [] }
     /// The editor area with the keyboard: the workspace on screen's.
     /// Nil while a page is on screen: what acts on tabs waits until a workspace is back.
-    package var editor: EditorArea? { page == nil ? window?.editors.current : nil }
-    /// The editor area for what adds a tab (a command in a terminal, an agent): a page on screen gives way to the
+    var editor: EditorArea? { page == nil ? window?.editors.current : nil }
+    /// What starts agents and terminals in the workspace on screen; nil with none (or a page) on screen.
+    package var starter: SessionStarter? { editor?.starter }
+    /// What starts them for what adds a tab (a command in a terminal, an agent): a page on screen gives way to the
     /// workspace, as for `open`.
-    package var editorForNewTab: EditorArea? { area(nil) }
+    package var starterForNewTab: SessionStarter? { area(nil)?.starter }
+
+    // What a built-in may do to the workspace on screen's tabs (it never gets the editor area itself).
+    /// The tab with focus there, built.
+    package var focusedContent: TabContent? { editor?.focusedContent }
+    /// Every tab open there, by URI.
+    package var tabURIs: [String] { editor?.layout.allTabs.map(\.uri) ?? [] }
+    /// `new` in the tab that shows `old` there (an untitled file saved under a name).
+    package func replace(_ old: String, with new: String) { editor?.replace(old, with: new) }
+    /// The keys back to the tab in front there.
+    package func focusTab() { editor?.focusSelected() }
+    /// The focused tab into a new pane to the right or below; a beep with no workspace on screen.
+    package func split(_ direction: SplitDirection) {
+        guard let editor else { return NSSound.beep() }
+        editor.splitFocused(direction)
+    }
+    /// Agents side by side, or every tab in one pane (⌃⌘T); a beep with no workspace on screen.
+    package func toggleSideBySide() {
+        guard let editor else { return NSSound.beep() }
+        editor.toggleSideBySide()
+    }
 
     package func show(workspace id: String) { show(workspace: id, remember: true) }
 

@@ -19,7 +19,7 @@ enum ServerActions {
     static func runOnServer(_ app: AppModel, _ host: String, command: String? = nil, title: String? = nil) {
         guard let wid = serverWorkspace(app, host) else { return }
         app.workbench.show(workspace: wid)
-        app.workbench.editor?.run(command: command, title: title)
+        app.workbench.starter?.run(command: command, title: title)
     }
 
     /// htop where the host has it, else top.

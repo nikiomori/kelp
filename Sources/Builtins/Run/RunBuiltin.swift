@@ -58,7 +58,7 @@ extension Builtins {
 
     /// The file tab in front (only a file's tab has a file); a beep when there is none.
     private static func fileTab(_ app: AppModel) -> TabContent? {
-        guard let tab = app.workbench.editor?.focusedContent, tab.fileURL != nil else {
+        guard let tab = app.workbench.focusedContent, tab.fileURL != nil else {
             NSSound.beep()
             return nil
         }

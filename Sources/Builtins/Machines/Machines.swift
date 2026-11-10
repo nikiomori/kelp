@@ -94,7 +94,7 @@ enum Machines {
         let home = folder.map { !VMs.mayShare($0) } ?? true
         var line = "kelp vm run " + ShellQuote.word(name) + (home ? " --home" : "")
         if let command { line += " -- " + command }
-        app.workbench.editorForNewTab?.run(command: line, title: name)
+        app.workbench.starterForNewTab?.run(command: line, title: name)
     }
 
     /// The machines as the daemon last told (`WatchTopic.machines`).

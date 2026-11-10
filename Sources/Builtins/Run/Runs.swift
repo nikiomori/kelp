@@ -92,7 +92,7 @@ final class Runs: NSObject, NSMenuDelegate {
                 return
             }
             // Nothing in the project: ⌘R runs the focused file, ⌘U its test at the cursor, when its language says how.
-            if let tab = app.workbench.editor?.focusedContent, ["run", "test"].contains(name),
+            if let tab = app.workbench.focusedContent, ["run", "test"].contains(name),
                 tab.language?[command: name] != nil
             {
                 runFile(tab, name)

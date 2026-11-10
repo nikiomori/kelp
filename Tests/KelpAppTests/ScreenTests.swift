@@ -682,6 +682,6 @@ extension OneAtATime {
     wb.workspaceId = "w"
     wb.page = TabURI.server("host")
     #expect(wb.editor == nil)
-    _ = wb.editorForNewTab
+    _ = wb.starterForNewTab
     #expect(wb.page == nil && wb.workspaceId == "w")
 }

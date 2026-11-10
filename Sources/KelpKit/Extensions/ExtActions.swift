@@ -113,13 +113,13 @@ struct ExtActions {
 
     private func act(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
         if let command = a.terminal {
-            app.workbench.editorForNewTab?.run(command: expand(command, item: item, quote: true), title: a.title)
+            app.workbench.starterForNewTab?.run(command: expand(command, item: item, quote: true), title: a.title)
         } else if let uri = a.open, let run = runAction(uri, item: item) {
             switch run {
             case .agent(let agent, let prompt):
-                app.workbench.editorForNewTab?.newAgent(agent, prompt: prompt, draft: true)
+                app.workbench.starterForNewTab?.newAgent(agent, prompt: prompt, draft: true)
             case .terminal(let command, let title):
-                app.workbench.editorForNewTab?.run(command: command, title: title ?? a.title)
+                app.workbench.starterForNewTab?.run(command: command, title: title ?? a.title)
             case .tmux(let name):
                 app.workbench.runURI(
                     "terminal:?tmux=" + (name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name))
@@ -137,7 +137,7 @@ struct ExtActions {
         }
         // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), someone else's words.
         else if let prompt = a.agent {
-            app.workbench.editorForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
+            app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
         } else if let script = a.run {
             let cmd = expand(script, item: item, quote: true)
             Task {

@@ -145,7 +145,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
                     ]))
             }
         case "terminal":
-            app.workbench.editorForNewTab?.run(command: arg, title: body["title"] as? String)
+            app.workbench.starterForNewTab?.run(command: arg, title: body["title"] as? String)
             reply(id, .null)
         // What a page opens or hands an agent is often data it shows (an issue's link, its body): `open` doesn't run
         // commands or agents (kelp.terminal / kelp.agent do, by name), and an agent's prompt is typed for the user to send.
@@ -155,7 +155,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             }
             reply(id, .null)
         case "agent":
-            app.workbench.editorForNewTab?.newAgent(nil, prompt: arg, draft: true)
+            app.workbench.starterForNewTab?.newAgent(nil, prompt: arg, draft: true)
             reply(id, .null)
         case "badge":
             badge?.value = PanelBadge(arg)

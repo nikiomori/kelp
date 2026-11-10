@@ -344,11 +344,11 @@ final class PaneView: NSView {
         menu.addItem(.separator())
         menu.add(String(localized: "Split Right")) { [weak self] in
             self?.focus()
-            self?.app.workbench.editor?.splitFocused(.right)
+            self?.app.workbench.split(.right)
         }
         menu.add(String(localized: "Split Down")) { [weak self] in
             self?.focus()
-            self?.app.workbench.editor?.splitFocused(.down)
+            self?.app.workbench.split(.down)
         }
         return menu
     }

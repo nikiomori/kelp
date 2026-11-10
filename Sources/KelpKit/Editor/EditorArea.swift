@@ -7,10 +7,10 @@ package enum SplitDirection: String { case right, down }
 
 /// One workspace's editor area: groups of tabs in a split tree. Tabs are made by the providers extensions register.
 @MainActor
-package final class EditorArea: NSViewController {
+final class EditorArea: NSViewController {
     let app: AppModel
     let workspaceId: String
-    package var layout: WorkspaceLayout
+    var layout: WorkspaceLayout
     var contents: [String: TabContent] = [:]   // by tab id
     var recent: [String] = []   // tab ids by when last shown, newest last (EditorRelease)
     var hiddenAt: [String: Date] = [:]   // since when each built tab is off screen (EditorRelease)
@@ -43,7 +43,7 @@ package final class EditorArea: NSViewController {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    package override func loadView() {
+    override func loadView() {
         let app = self.app
         view = NSView()
         track(owner: self) { [app] in
@@ -112,14 +112,14 @@ package final class EditorArea: NSViewController {
         render()
     }
 
-    package override func viewDidAppear() {
+    override func viewDidAppear() {
         super.viewDidAppear()
         responderObservation = view.window?.observe(\.firstResponder, options: [.new]) { [weak self] w, _ in
             MainActor.assumeIsolated { self?.responderChanged(w.firstResponder) }   // the first responder changes on main
         }
         publishFocus()
     }
-    package override func viewWillDisappear() {
+    override func viewWillDisappear() {
         super.viewWillDisappear()
         responderObservation = nil
     }
@@ -248,7 +248,7 @@ package final class EditorArea: NSViewController {
         group.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
         group.strip.onNewAgent = { [weak self] in
             self?.layout.focused = gid
-            self?.newAgent()
+            self?.starter.newAgent()
         }
         group.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
         group.strip.hoverCard = tabCard
@@ -369,15 +369,15 @@ package final class EditorArea: NSViewController {
     private func showStart() {
         guard start == nil, let worktree else { return }
         let startView = StartView(app: app, worktree: worktree)
-        startView.onAgent = { [weak self] agent in self?.newAgent(agent) }
+        startView.onAgent = { [weak self] agent in self?.starter.newAgent(agent) }
         startView.onPrompt = { [weak self] agent, text in
             self?.startDraft = ""
-            self?.newAgent(agent, prompt: text)
+            self?.starter.newAgent(agent, prompt: text)
         }
         startView.draft = startDraft
         startView.onDraft = { [weak self] in self?.startDraft = $0 }
         startView.onOpen = { [weak self] uri in TabURI.runs(uri) ? self?.runURI(uri) : self?.open(uri) }
-        startView.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self) } }
+        startView.onInstall = { [weak self] m in if let self { app.catalog.install(m, in: self.starter) } }
         start = startView
         view.pin(startView)
         DispatchQueue.main.async { startView.focus() }

@@ -51,12 +51,12 @@ enum Forge {
 
     /// In a terminal tab, where the login asks its questions; from Settings too. No window to run it in: the command is copied.
     static func run(_ setup: Setup, in app: AppModel) {
-        guard let editor = app.workbench.editor else {
+        guard let starter = app.workbench.starter else {
             copyText(setup.command)
             Banner.show(String(localized: "Copied “\(setup.command)”: run it in Terminal"))
             return
         }
-        editor.run(command: setup.command, title: setup.title)
+        starter.run(command: setup.command, title: setup.title)
         app.workbench.bringToFront()
     }
 

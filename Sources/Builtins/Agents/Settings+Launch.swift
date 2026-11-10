@@ -17,11 +17,11 @@ extension AgentsSettings {
             }
             Spacer()
             Button("Start \(m.name)") {
-                guard let editor = app.workbench.editor else {
+                guard let starter = app.workbench.starter else {
                     Banner.show(String(localized: "Open a chat to start \(m.name) there."))
                     return
                 }
-                editor.newAgent(m.id)
+                starter.newAgent(m.id)
                 app.workbench.bringToFront()
             }
         }
@@ -129,11 +129,11 @@ extension AgentsSettings {
     }
 
     func install(_ m: AgentManifest) {
-        guard let editor = app.workbench.editor else {
+        guard let starter = app.workbench.starter else {
             run(m.install ?? "", String(localized: "Install \(m.name)"))
             return
         }   // says what to do
-        app.catalog.install(m, in: editor)
+        app.catalog.install(m, in: starter)
         app.workbench.bringToFront()
     }
 
@@ -144,12 +144,12 @@ extension AgentsSettings {
 
     /// The agent's own command, in a terminal in the workspace on screen, so what it does is in plain sight.
     private func run(_ cmd: String, _ title: String, in folder: String? = nil) {
-        guard let editor = app.workbench.editor else {
+        guard let starter = app.workbench.starter else {
             copyText(cmd)
             Banner.show(String(localized: "Open a chat to run it there — the command is on the clipboard: \(cmd)"))
             return
         }
-        editor.run(command: cmd, title: title, cwd: folder)
+        starter.run(command: cmd, title: title, cwd: folder)
         app.workbench.bringToFront()
     }
 

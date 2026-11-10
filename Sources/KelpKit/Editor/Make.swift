@@ -46,11 +46,11 @@ enum Make {
 @MainActor package func makeMenu(_ app: AppModel) -> NSMenu {
     let menu = NSMenu()
     Make.addItems(to: menu) { line in
-        guard let editor = app.workbench.editor else {
+        guard let starter = app.workbench.starter else {
             NSSound.beep()
             return
         }
-        editor.newAgent(prompt: line, draft: true)
+        starter.newAgent(prompt: line, draft: true)
     }
     return menu
 }

@@ -9,14 +9,14 @@ extension TasksViewController {
     /// The default agent starts on the issue in the workspace on screen, its text typed in but not sent: whoever filed the
     /// issue wrote it, so the user reads it before the agent acts on it.
     func startTask(ref: String, title: String, body: String, url: String) {
-        guard let editor = app.workbench.editor, let wid = app.workbench.workspaceId else {
+        guard let starter = app.workbench.starter, let wid = app.workbench.workspaceId else {
             NSSound.beep()
             return
         }
         Task {
             let issue = ["ref": ref, "title": title, "body": body, "url": url]
             guard let brief = await Self.issuePrompt(issue, in: wid, app) else { return }
-            editor.newAgent(nil, prompt: brief, draft: true)
+            starter.newAgent(nil, prompt: brief, draft: true)
         }
     }
 

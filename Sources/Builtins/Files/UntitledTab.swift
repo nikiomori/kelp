@@ -50,7 +50,7 @@ final class UntitledTab: SavableTab {
 
     /// The next free number in this workspace: Untitled-1, Untitled-2…
     static func next(_ app: AppModel) -> String {
-        let open = Set(app.workbench.editor?.layout.allTabs.map(\.uri) ?? [])
+        let open = Set(app.workbench.tabURIs)
         return (1...).lazy.map { "untitled:\($0)" }.first { !open.contains($0) } ?? "untitled:1"
     }
 
@@ -93,7 +93,7 @@ final class UntitledTab: SavableTab {
             return false
         }
         backup.drop()
-        app.workbench.editor?.replace(uri, with: TabURI.file(url.path))
+        app.workbench.replace(uri, with: TabURI.file(url.path))
         return true
     }
 

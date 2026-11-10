@@ -255,13 +255,13 @@ extension Builtins {
         return Contributions(
             commands: [
                 CommandSpec(id: "agents.new", title: "New Agent", key: "opt+cmd+t") { args in
-                    editor(app)?.newAgent(args["agent"]?.string, prompt: args["prompt"]?.string)
+                    starter(app)?.newAgent(args["agent"]?.string, prompt: args["prompt"]?.string)
                 },
-                cmd("terminal.new", "New Terminal", "cmd+t") { editor(app)?.newTerminal() },
+                cmd("terminal.new", "New Terminal", "cmd+t") { starter(app)?.newTerminal() },
                 cmd("terminal.tmux", "Attach to tmux Session…") { app.workbench.showTmuxSessions() },
-                cmd("terminal.splitRight", "Split Right", "cmd+d") { editor(app)?.splitFocused(.right) },
-                cmd("terminal.splitDown", "Split Down", "shift+cmd+d") { editor(app)?.splitFocused(.down) },
-                cmd("agents.sideBySide", "Agents Side by Side", "ctrl+cmd+t") { editor(app)?.toggleSideBySide() },
+                cmd("terminal.splitRight", "Split Right", "cmd+d") { app.workbench.split(.right) },
+                cmd("terminal.splitDown", "Split Down", "shift+cmd+d") { app.workbench.split(.down) },
+                cmd("agents.sideBySide", "Agents Side by Side", "ctrl+cmd+t") { app.workbench.toggleSideBySide() },
                 cmd("agents.nextNeedingYou", "Show Agent Needing You", "shift+cmd+u") {
                     app.workbench.showNextNeedingAttention()
                 },
@@ -329,6 +329,12 @@ private let alerts = [
 ]
 
 /// "After 4 Hours": when an idle agent pauses.
+/// What starts agents and terminals in the workspace on screen; a beep when there is none.
+@MainActor private func starter(_ app: AppModel) -> SessionStarter? {
+    if app.workbench.starter == nil { NSSound.beep() }
+    return app.workbench.starter
+}
+
 private func pauseAfter(_ value: String) -> String {
     let minutes = Int(value) ?? -1
     return minutes == 0

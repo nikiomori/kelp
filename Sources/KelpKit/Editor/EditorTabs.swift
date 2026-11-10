@@ -25,13 +25,13 @@ extension EditorArea {
         let components = URLComponents(string: uri)
         func value(_ name: String) -> String? { components?.queryItems?.first { $0.name == name }?.value }
         if TabURI.scheme(uri) == "agent" {
-            newAgent(
+            starter.newAgent(
                 components?.path.isEmpty == false ? components?.path : nil, prompt: value("prompt"), split: split,
                 focus: focus)
         } else if let name = value("tmux") {
-            newTmux(name, split: split, focus: focus)
+            starter.newTmux(name, split: split, focus: focus)
         } else {
-            run(command: value("cmd"), title: value("title"), split: split, focus: focus)
+            starter.run(command: value("cmd"), title: value("title"), split: split, focus: focus)
         }
     }
 
@@ -145,7 +145,7 @@ extension EditorArea {
         layout.attendedTabs(zoomed: zoomed).map(\.uri).filter { TabURI.scheme($0) == "session" }.map(TabURI.body)
     }
 
-    package var focusedContent: TabContent? { layout.focusedGroup?.selectedTab.flatMap { contents[$0.id] } }
+    var focusedContent: TabContent? { layout.focusedGroup?.selectedTab.flatMap { contents[$0.id] } }
 
     func closeFocusedTab() { if let tab = layout.focusedGroup?.selectedTab { closeTab(tab.id) } }
 
@@ -188,12 +188,12 @@ extension EditorArea {
     }
 
     /// Moves the focused tab into a new group to the right / below.
-    package func splitFocused(_ dir: SplitDirection) {
+    func splitFocused(_ dir: SplitDirection) {
         zoomed = nil
         arrangedByHand()
         guard let group = layout.focusedGroup, let tab = group.selectedTab else { return }
         if group.tabs.count == 1 {
-            newTerminal(split: dir)
+            starter.newTerminal(split: dir)
             return
         }   // nothing to move: open a terminal there, like a terminal app
         layout.split(tab.id, from: group.id, vertical: dir == .right, before: false)
@@ -218,7 +218,7 @@ extension EditorArea {
     }
 
     /// The title bar's button and ⌃⌘T: agents side by side, or every tab back in one pane, arranged by hand from then on.
-    package func toggleSideBySide() {
+    func toggleSideBySide() {
         zoomed = nil
         layout.manual = layout.manual == true ? nil : true
         if layout.manual == true { layout.tile([]) } else { arrange() }
@@ -283,7 +283,7 @@ extension EditorArea {
         func agentItem(_ agent: AgentManifest, in menu: NSMenu, column: CGFloat) {
             let item = menu.add(agent.name) { [weak self] in
                 focus()
-                self?.newAgent(agent.id)
+                self?.starter.newAgent(agent.id)
             }
             item.show(app.catalog.icon(agent.id))
             if let note = notes[agent.id] {
@@ -311,7 +311,7 @@ extension EditorArea {
         }
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: String(localized: "Open")))
-        let open = NewTabChoices.open(app, app.worktree(workspaceId)) { [weak self] in self?.newTerminal() }
+        let open = NewTabChoices.open(app, app.worktree(workspaceId)) { [weak self] in self?.starter.newTerminal() }
         for choice in open { menu.add(choice, before: focus) }
         let run = app.extensions.all.runs?.choices(workspaceId) ?? []
         if !run.isEmpty {
@@ -324,7 +324,7 @@ extension EditorArea {
             let sub = NSMenu()
             Make.addItems(to: sub, heading: false) { [weak self] line in
                 focus()
-                self?.newAgent(prompt: line, draft: true)
+                self?.starter.newAgent(prompt: line, draft: true)
             }
             let item = menu.addItem(withTitle: String(localized: "Make"), action: nil, keyEquivalent: "")
             item.show(.symbol("doc.text"))

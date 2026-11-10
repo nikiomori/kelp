@@ -57,7 +57,7 @@ extension FilesPanel {
         guard let window = view.window else { return }
         searchBy(name: false)
         if window.firstResponder === search.currentEditor() {
-            app.workbench.editor?.focusSelected()
+            app.workbench.focusTab()
             return
         }
         window.makeFirstResponder(search)

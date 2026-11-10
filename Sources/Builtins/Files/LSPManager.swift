@@ -136,7 +136,7 @@ final class LSPManager {
                 String(localized: "Install"),
                 {
                     if let workspace = app.workbench.workspaceId { app.workbench.show(workspace: workspace) }   // a page on screen gives way to it
-                    app.workbench.editor?.run(command: cmd, title: String(localized: "Install \(name)"))
+                    app.workbench.starter?.run(command: cmd, title: String(localized: "Install \(name)"))
                 }
             )
         }

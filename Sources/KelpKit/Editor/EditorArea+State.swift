@@ -41,7 +41,7 @@ extension EditorArea {
         app.publishUIState()
     }
 
-    package func focusSelected() {
+    func focusSelected() {
         guard let tab = layout.focusedGroup?.selectedTab else {
             start?.focus()
             return
@@ -84,7 +84,7 @@ extension EditorArea {
 
 extension EditorArea: NSSplitViewDelegate {
     /// A dragged divider stays where it was put: tab changes and relaunches rebuild the splits from these shares.
-    package func splitViewDidResizeSubviews(_ n: Notification) {
+    func splitViewDidResizeSubviews(_ n: Notification) {
         guard let sv = n.object as? NSSplitView, sv.window != nil, let key = sv.identifier?.rawValue,
             sv.arrangedSubviews.count == key.split(separator: ",").count
         else { return }   // being taken apart: not the user

@@ -88,7 +88,7 @@ package struct AgentCatalog {
     }
     /// The agent's own install command in a terminal tab of `e`, in plain sight; once it ends, the agent is looked for again.
     /// An installer that needs npm or Homebrew, on a Mac without it, says so here instead of failing in its tab.
-    package func install(_ m: AgentManifest, in e: EditorArea) {
+    package func install(_ m: AgentManifest, in e: SessionStarter) {
         guard let cmd = m.install else { return }
         Task { [app] in
             if let tool = m.installNeeds, let found = await app.quiet(ProcessWhich(commands: [tool])),

@@ -37,7 +37,7 @@ package enum Builtins {
         CommandSpec(id: id, title: title, key: key) { _ in run() }
     }
     /// The editor area on screen; a beep when there is none.
-    package static func editor(_ app: AppModel) -> EditorArea? {
+    static func editor(_ app: AppModel) -> EditorArea? {
         if app.workbench.editor == nil { NSSound.beep() }
         return app.workbench.editor
     }
