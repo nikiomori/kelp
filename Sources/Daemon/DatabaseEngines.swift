@@ -146,31 +146,25 @@ enum DatabaseEngines {
         return try whole(rows, c.database.name)
     }
 
-    /// Whether `write` holds a change to the rows the user allowed: where it runs in kelpd (SQLite, over the wire).
-    /// Limit: through a client (DuckDB, a container's psql or mysql) the script can't wait on the count before its
-    /// COMMIT, so it runs as asked, and the question says the number is only the trial's.
-    static func holdsAllowed(_ c: DatabaseConnection) -> Bool {
-        switch c.database.engine {
-        case .sqlite: true
-        case .postgres, .mysql: c.database.host != nil
-        case .duckdb, .appwrite: false
-        }
-    }
+    /// Whether `write` holds a change to the rows the user allowed: everywhere but Appwrite, whose change can't be
+    /// tried and taken back; there the question says the number is only what the rows matched when asked.
+    static func holdsAllowed(_ c: DatabaseConnection) -> Bool { c.database.engine != .appwrite }
 
     /// `allowed`: the rows the user allowed it to change (its trial's), committed only if it changes as many where
-    /// `holdsAllowed`; elsewhere it runs as asked, so a table changed while it was asked can change a different number.
+    /// `holdsAllowed`; elsewhere (Appwrite) it runs as asked, so a table changed while it was asked can change a
+    /// different number.
     static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots) async throws
         -> DatabaseRows
     {
         let rows: DatabaseRows =
             switch (c.database.engine, c.database.host) {
             case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql, allowed: allowed) }
-            case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql) }
+            case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql, allowed: allowed) }
             case (.appwrite, _): try await AppwriteWire.write(c, sql)
             case (.postgres, .some): try await PostgresWire.write(c, sql, allowed: allowed)
             case (.mysql, .some): try await MySQLWire.write(c, sql, allowed: allowed)
-            case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql) }
-            case (.mysql, nil): try await off.run { try MySQLRun.write(c, sql) }
+            case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql, allowed: allowed) }
+            case (.mysql, nil): try await off.run { try MySQLRun.write(c, sql, allowed: allowed) }
             }
         return try whole(rows, c.database.name)
     }

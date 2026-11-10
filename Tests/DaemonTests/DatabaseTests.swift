@@ -530,6 +530,15 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     let change = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'y' WHERE id > 1"))
     #expect(change.changed == 2)
+    // A change allowed for fewer rows than it changes now: none changed; allowed for as many, made, its rows kept.
+    #expect(throws: DatabaseEngines.notAsAllowed(3, 2)) {
+        try DuckDBRun.write(path, "UPDATE orders SET note = 'h'", allowed: 2)
+    }
+    let held = try DuckDBRun.write(path, "UPDATE orders SET note = 'h' WHERE id > 1", allowed: 2)
+    #expect(held.changed == 2 && held.rows.count == 2)
+    let notes = try await w.c.call(
+        DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT count(*) FROM orders WHERE note = 'h'"))
+    #expect(notes.rows == [["2"]])
     // The tab's edits: one transaction, the rows each changed counted (DuckDB prints no count of its own).
     let saved = try await w.c.call(
         DatabaseApply(

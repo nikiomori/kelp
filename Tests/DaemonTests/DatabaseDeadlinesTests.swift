@@ -38,20 +38,19 @@ import Testing
     }
 }
 
-/// Through a client (DuckDB, a container's psql or mysql) a change isn't held to the rows its trial changed: the
-/// question says the number is the trial's, not that it's what will change.
+/// A change held to the rows its trial changed is asked as that many; Appwrite's, which can't be held, says the number
+/// is the trial's, not that it's what will change. Every other way holds it, through a client too.
 @Test func aChangeNotHeldToItsRowsDoesNotPromiseThem() {
     let held = Databases.question("UPDATE orders SET a = 1", database: "app", changed: 2)
     #expect(held == "Allow changing 2 rows of orders in app?")
     let unheld = Databases.question("UPDATE orders SET a = 1", database: "app", changed: 2, held: false)
     #expect(unheld == "Allow changing rows of orders in app? Tried just now, it changed 2 rows.")
-    func connection(_ engine: DatabaseInfo.Engine, host: String?) -> DatabaseConnection {
-        DatabaseConnection(database: DatabaseInfo(name: "app", engine: engine, host: host))
+    func holds(_ engine: DatabaseInfo.Engine, host: String?) -> Bool {
+        DatabaseEngines.holdsAllowed(
+            DatabaseConnection(database: DatabaseInfo(name: "app", engine: engine, host: host)))
     }
-    #expect(DatabaseEngines.holdsAllowed(connection(.sqlite, host: nil)))
-    #expect(DatabaseEngines.holdsAllowed(connection(.postgres, host: "localhost")))
-    #expect(DatabaseEngines.holdsAllowed(connection(.mysql, host: "localhost")))
-    #expect(!DatabaseEngines.holdsAllowed(connection(.postgres, host: nil)))   // a container's psql
-    #expect(!DatabaseEngines.holdsAllowed(connection(.mysql, host: nil)))
-    #expect(!DatabaseEngines.holdsAllowed(connection(.duckdb, host: nil)))
+    for engine in DatabaseInfo.Engine.allCases where engine != .appwrite {
+        #expect(holds(engine, host: nil) && holds(engine, host: "localhost"), "\(engine)")
+    }
+    #expect(!holds(.appwrite, host: "https://appwrite.example.com"))
 }

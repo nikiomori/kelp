@@ -251,6 +251,7 @@ private let env = ProcessInfo.processInfo.environment
         DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "CREATE TABLE p (id INT PRIMARY KEY, v TEXT)"))
     _ = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: "INSERT INTO p VALUES (1, 'z'), (2, 'z')"))
+    try await heldThroughTheirClients(w, wt)
     for name in ["shop", "app_dev"] {
         let table = name == "shop" ? "t" : "p"
         await #expect(throws: RPCError.self, "\(name)") {
@@ -284,6 +285,28 @@ private let env = ProcessInfo.processInfo.environment
                 "DELETE FROM pp WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM pp WHERE v::text = 'a' LIMIT 1)"
             ]))
     #expect(one.changed == 1)
+}
+
+/// A change allowed for other than the rows it changes now isn't made, through each container's client too: t in shop,
+/// p in app_dev, each with two rows of 'z'.
+private func heldThroughTheirClients(_ w: World, _ wt: Worktree) async throws {
+    for name in ["shop", "app_dev"] {
+        let table = name == "shop" ? "t" : "p"
+        let c = try w.d.workspaces.databases.connection(wt.id, name, agent: false)
+        func write(_ sql: String, allowed: Int) throws -> DatabaseRows {
+            c.database.engine == .postgres
+                ? try PostgresRun.write(c, sql, allowed: allowed) : try MySQLRun.write(c, sql, allowed: allowed)
+        }
+        #expect(throws: DatabaseEngines.notAsAllowed(2, 1), "\(name)") {
+            try write("UPDATE \(table) SET v = 'n'", allowed: 1)
+        }
+        let same = try await w.c.call(
+            DatabaseQuery(worktreeId: wt.id, database: name, sql: "SELECT count(*) FROM \(table) WHERE v = 'z'"))
+        #expect(same.rows == [["2"]], "\(name): nothing changed")
+        _ = try await w.c.call(
+            DatabaseQuery(worktreeId: wt.id, database: name, sql: "INSERT INTO \(table) VALUES (3, 'y')"))
+        #expect(try write("DELETE FROM \(table) WHERE id = 3", allowed: 1).changed == 1, "\(name)")
+    }
 }
 
 /// Synchronous, for a `defer`: the test's containers and their volumes go.

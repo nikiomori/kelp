@@ -35,11 +35,29 @@ enum PostgresRun {
         return try attempt(sql)
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
+    /// `allowed`: as over the wire (`PostgresWire.write`), in psql's one session: the ROW_COUNT psql keeps of the
+    /// statement picks COMMIT or ROLLBACK. That choice is a script of Kelp's own on stdin; the statement still goes as
+    /// `-c`, which psql sends as it is, never reading its own commands in it.
+    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
+        let limit = "statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'"
+        guard let allowed else {
+            let out = try run(c, ["SET " + limit, sql], timeout: DatabaseEngines.writeTimeout + 10)
+            return section(out.last ?? "")
+        }
+        let decide = """
+            \\echo \(marker)
+            SELECT :ROW_COUNT = \(allowed) AS kelp_held \\gset
+            \\if :kelp_held
+            COMMIT;
+            \\else
+            ROLLBACK;
+            \\endif
+            """
         let out = try run(
-            c, ["SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'", sql],
-            timeout: DatabaseEngines.writeTimeout + 10)
-        return section(out.last ?? "")
+            c, ["BEGIN", "SET LOCAL " + limit, sql], then: decide, timeout: DatabaseEngines.writeTimeout + 10)
+        let rows = section(out.count >= 2 ? out[out.count - 2] : "")
+        guard out.last?.hasPrefix("COMMIT") == true else { throw DatabaseEngines.notAsAllowed(rows.changed, allowed) }
+        return rows
     }
 
     /// BEGIN, the statements, COMMIT: ON_ERROR_STOP ends psql at the first failure, its session rolling back.
@@ -98,8 +116,11 @@ enum PostgresRun {
             indexes: section(out[out.count - 1]).rows)
     }
 
-    /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them.
-    static func run(_ c: DatabaseConnection, _ commands: [String], timeout: TimeInterval) throws -> [String] {
+    /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them. `script`: psql's
+    /// own commands of Kelp's, run after them in the same session (stdin).
+    static func run(
+        _ c: DatabaseConnection, _ commands: [String], then script: String? = nil, timeout: TimeInterval
+    ) throws -> [String] {
         let db = c.database
         let (client, host, port) = try DatabaseEngines.invocation(c, "psql", secret: "PGPASSWORD")
         var argv =
@@ -113,12 +134,14 @@ enum PostgresRun {
             if index > 0 { argv += ["-c", "\\echo " + marker] }
             argv += ["-c", command]
         }
+        if script != nil { argv += ["-f", "-"] }
         let env = DatabaseEngines.environment([
             // UTC as over the wire (`PostgresText`): a row found by its values compares the same text
             "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password, "PGTZ": "UTC"
         ])
         let out = try Subprocess.run(
-            argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout, limit: DatabaseEngines.outputLimit)
+            argv, cwd: NSHomeDirectory(), env: env, stdin: script.map { Data($0.utf8) }, timeLimit: timeout,
+            limit: DatabaseEngines.outputLimit)
         guard out.status == 0, !out.timedOut else {
             if out.timedOut { throw DatabaseFailure.failed("No answer from \(db.name) in \(Int(timeout)) s.") }
             throw failure(String(decoding: out.stderr, as: UTF8.self))

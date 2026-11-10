@@ -20,13 +20,38 @@ enum DuckDBRun {
         return rows
     }
 
-    static func write(_ path: String, _ sql: String) throws -> DatabaseRows {
+    /// `allowed`: as SQLite's (`SQLiteRun.write`), in one script: the changed rows kept in a temporary table, a check
+    /// that fails (`error()`, and -bail stops before COMMIT) when they aren't as many, then the rows and COMMIT.
+    static func write(_ path: String, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
         let returning = SQLText.returning(sql)
-        let out = try run(path, readOnly: false, [returning ?? sql], timeout: DatabaseEngines.writeTimeout)
-        var rows = section(out.first ?? "")
-        rows.changed = returning == nil ? nil : rows.total
+        guard let allowed, let returning else {
+            let out = try run(path, readOnly: false, [returning ?? sql], timeout: DatabaseEngines.writeTimeout)
+            var rows = section(out.first ?? "")
+            rows.changed = returning == nil ? nil : rows.total
+            return rows
+        }
+        let script = [
+            "BEGIN", "CREATE TEMP TABLE kelp_changed AS WITH kelp_rows AS (\(returning)\n) SELECT * FROM kelp_rows",
+            "SELECT CASE count(*) WHEN \(allowed) THEN NULL ELSE error('\(notAllowed)' || count(*)) END "
+                + "FROM kelp_changed",
+            "SELECT * FROM kelp_changed", "COMMIT"
+        ]
+        let out: [String]
+        do { out = try run(path, readOnly: false, script, timeout: DatabaseEngines.writeTimeout) } catch let failure
+            as DatabaseFailure where failure.message.contains(notAllowed)
+        {
+            let count = failure.message.components(separatedBy: notAllowed).last.flatMap {
+                Int($0.prefix(while: \.isNumber))
+            }
+            throw DatabaseEngines.notAsAllowed(count, allowed)
+        }
+        var rows = section(out.count > 3 ? out[3] : "")
+        rows.changed = rows.total
         return rows
     }
+
+    /// The check's word when a change isn't the rows allowed, the count after it.
+    private static let notAllowed = "kelp: changed "
 
     /// The user's edits in one transaction (-bail stops before COMMIT): the rows each changed, as `.changes` prints
     /// them.

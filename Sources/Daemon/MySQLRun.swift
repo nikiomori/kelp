@@ -41,9 +41,25 @@ enum MySQLRun {
         return withCount(out[out.count - 2])
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let out = try run(c, [counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
-        return out.last.map(withCount) ?? DatabaseRows()
+    /// `allowed`: as over the wire (`MySQLWire.write`), in the client's one session: the server itself commits or rolls
+    /// back by the count it kept of the statement (a prepared COMMIT or ROLLBACK, as the mysql client has no `if`).
+    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
+        guard let allowed else {
+            let out = try run(c, [counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
+            return out.last.map(withCount) ?? DatabaseRows()
+        }
+        let decide = [
+            "SET @kelp_end = IF(@kelp_changed = \(allowed), 'COMMIT', 'ROLLBACK')", "PREPARE kelp_end FROM @kelp_end",
+            "EXECUTE kelp_end", "SELECT @kelp_changed = \(allowed) AS kelp_held"
+        ]
+        let kept = sql + "\n;\nSET @kelp_changed = ROW_COUNT();\nSELECT @kelp_changed AS " + changedColumn
+        let out = try run(c, ["START TRANSACTION", kept] + decide, timeout: DatabaseEngines.writeTimeout + 10)
+        guard out.count == 6 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
+        let rows = withCount(out[1])
+        guard section(out[5]).rows.first?.first == "1" else {
+            throw DatabaseEngines.notAsAllowed(rows.changed, allowed)
+        }
+        return rows
     }
 
     /// One script: mysql stops at the first error (no --force), so COMMIT never comes and its session rolls back.
