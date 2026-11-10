@@ -49,7 +49,7 @@ extension SessionHook: Handled {
                 event, trigger: trigger,
                 message: notification.flatMap { Hooks.message($0, alreadyWaiting: ls.snapshot.status == .waiting) },
                 asker: hookName == "PermissionRequest" ? agentId ?? "" : nil, question: hookName == "PreToolUse",
-                goal: goal, at: at)
+                answered: hookName == "PostToolUse", goal: goal, at: at)
             return Done()
         }
         // Its turn is over, and every command of it: a question Kelp asked for one goes unanswered.

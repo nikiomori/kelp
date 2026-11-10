@@ -499,7 +499,7 @@ private func onHost() -> LiveSession.State {
     _ = s.sync()
     let through = s.answeredOne()
     #expect(!through)
-    s.hook("working")
+    s.hook("working", answered: true)   // its PostToolUse
     let nothingLeft = s.answeredOne()
     #expect(nothingLeft && s.sync()?.status == .working)
 }

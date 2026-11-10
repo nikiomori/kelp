@@ -69,7 +69,7 @@ extension LiveSession {
             }
             if st.saysItself {
                 // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
-                if st.record.status == .waiting, Self.answersMenu(keys) {
+                if st.record.status == .waiting || st.asked, Self.answersMenu(keys) {
                     st.interruptArmed = (Date(), "")
                     if st.answeredOne() { st.detector.override(.working, because: "an answer typed in the terminal") }
                 }

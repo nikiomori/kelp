@@ -19,10 +19,11 @@ extension LiveSession.State {
 
     /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
     /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash"); `asker`: whose
-    /// permission dialog it is, for `tool`; `question`: AskUserQuestion opened; `goal`: what the prompt set as a /goal.
+    /// permission dialog it is, for `tool`; `question`: AskUserQuestion opened, `answered`: its result came; `goal`: what
+    /// the prompt set as a /goal.
     mutating func hook(
         _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil,
-        question: Bool = false,
+        question: Bool = false, answered: Bool = false,
         goal: String? = nil
     ) {
         heard()
@@ -50,7 +51,10 @@ extension LiveSession.State {
             if let message, !message.isEmpty { record.summary = message }
             detector.hook(event)
         case "working":
-            nothingAsked()
+            // Not the end of a dialog a hook counted: a prompt can't be sent past one, and anything in the session can say
+            // "working" (`kelp report`, a hook run by hand), after which an Enter typed in would answer it (`asked`).
+            // Its answer ends it: a key, Kelp's Allow or Deny, its tools' batch (`tool`), the turn's end.
+            if answered { questionOpen = false }
             goalAsked = goal
             if record.summary != compacting { record.summary = "" }   // the last turn's words, or the question just answered
             detector.hook(event)
@@ -110,6 +114,12 @@ extension LiveSession.State {
         if let (who, open) = asking.first { asking[who] = open > 1 ? open - 1 : nil }
         return asking.isEmpty && !questionOpen
     }
+
+    /// A dialog a hook counted is still open (a permission's, AskUserQuestion's), whatever the status says since: what
+    /// keeps an agent's keys out (`asksSomething`).
+    /// Limit: hooks are the session's own word, so a program in it that sends an answer's hooks (PostToolBatch, Stop)
+    /// by hand still un-says its question.
+    var asked: Bool { !asking.isEmpty || questionOpen }
 
     /// Whatever it asked is over.
     mutating func nothingAsked() {

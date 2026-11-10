@@ -22,12 +22,14 @@ extension LiveSession {
     /// the change is made in: a newer hook on another thread may have gone first since `newest` said yes.
     func hook(
         _ event: String, trigger: String? = nil, message: String? = nil, asker: String? = nil, question: Bool = false,
-        goal: String? = nil, at: TimeInterval? = nil
+        answered: Bool = false, goal: String? = nil, at: TimeInterval? = nil
     ) {
         state.withLock { st in
             if let at, at < st.newestHook { return }
             let said = st.record.summary, awaited = st.record.awaiting
-            st.hook(event, trigger: trigger, message: message, asker: asker, question: question, goal: goal)
+            st.hook(
+                event, trigger: trigger, message: message, asker: asker, question: question, answered: answered,
+                goal: goal)
             emit(st.sync() ?? (st.record.summary != said || st.record.awaiting != awaited ? st.record : nil))
         }
     }
