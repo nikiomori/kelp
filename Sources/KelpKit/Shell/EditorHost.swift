@@ -130,11 +130,27 @@ final class EditorHost: NSViewController {
             areas[id]?.runURI(uri)
             return
         }
-        var layout = app.workbench.layouts[id]
-        if let tab = layout.pageTab(for: uri) ?? layout.tab(uri: uri)
-            ?? layout.fileTab(sameFileAs: uri, real: EditorArea.realPath)
+        // The browser built-in is off: a web page opens outside, as `EditorArea.open` does.
+        if TabURI.scheme(uri) != "session", app.extensions.tabProvider(for: uri) == nil, let url = URL(string: uri),
+            url.scheme?.hasPrefix("http") == true
         {
+            return PreviewLinks.openOutside(url)
+        }
+        var layout = app.workbench.layouts[id]
+        if let tab = layout.pageTab(for: uri) ?? layout.tab(uri: uri) {
             layout.select(tab.id)
+        } else if let tab = layout.fileTab(sameFileAs: uri, real: EditorArea.realPath) {
+            layout.select(tab.id)
+            // The file at the line asked for: a built tab moves there now, one not built yet opens there.
+            if let line = TabURI.filePath(uri).line {
+                if let content = areas[id]?.contents[tab.id] {
+                    content.goTo(line: line)
+                } else if let gid = layout.group(of: tab.id),
+                    let index = layout.groups[gid]?.tabs.firstIndex(where: { $0.id == tab.id })
+                {
+                    layout.groups[gid]?.tabs[index].uri = uri
+                }
+            }
         } else {
             _ = layout.add(uri, to: layout.focusedGroup?.id)
         }
