@@ -41,8 +41,10 @@ extension Artifacts {
                the shared part.
             3. Run `kelp artifact check <name>` once and fix what it lists. Don't screenshot, open or read back the
                page: the user sees it beside you.
-            4. Answer in two lines: what is on the canvas, what you assumed. Marks arrive as
-               `Marks on <title>, <board>: 1 [data-id=…] …`: edit those elements in place, never rewrite a board.
+            4. Answer in two lines: what is on the canvas, what you assumed. The user's marks arrive as
+               `Marks on <canvas>: boards/A.html 1 [data-id=title] «Welcome»: bigger | …`: edit those elements in
+               place, never rewrite a board. `Picked “A. …”` means: build that row out, drop the others from
+               canvas.json.
 
             Craft, in short (more: `kelp artifact guide design craft`): real content, no lorem ipsum or invented
             numbers ([YOUR PRICE] instead); no gradient washes, emoji, cards with a coloured left border; text 4.5:1;

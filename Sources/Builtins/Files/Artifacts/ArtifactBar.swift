@@ -32,6 +32,8 @@ final class ArtifactBar: NSObject {
     private let author = PointerButton()
     /// A canvas's check: what Kelp found wrong where it drew the boards (`CanvasScript`).
     private let check = PointerButton()
+    /// A canvas's Mark: a click on a board puts a mark on it, for the agent.
+    private let mark = PointerButton()
     private var issues: [String] = []
     /// A canvas's time as the list last said: its boards' and the design system's latest change.
     private var canvasTime: Double?
@@ -76,8 +78,16 @@ final class ArtifactBar: NSObject {
         check.restFill = .fillRest
         check.isHidden = true
         check.onClick = { [weak self] in self?.showCheck() }
+        mark.font = .ui(TextSize.row)
+        mark.padding = Metrics.gap
+        mark.restFill = .fillRest
+        mark.title = String(localized: "Mark")
+        mark.toolTip = String(localized: "Click elements on the boards to mark them, then send your notes to the agent")
+        mark.isHidden = markdown.page != .canvas
+        mark.onClick = { [weak self] in self?.toggleMarking() }
         return Bar.content(
-            [kind, ring, status], [latest, restore, check, back, count, forward, author, more], stretching: status)
+            [kind, ring, status], [latest, restore, mark, check, back, count, forward, author, more], stretching: status
+        )
     }()
 
     init(app: AppModel, path: String, markdown: MarkdownTab) {
@@ -232,6 +242,11 @@ final class ArtifactBar: NSObject {
         check.isHidden = false
         check.title = found.isEmpty ? String(localized: "No Issues") : String(localized: "\(found.count) to Fix")
         check.toolTip = String(localized: "What Kelp found where it drew the boards: cut-off text, contrast, sizes")
+    }
+
+    private func toggleMarking() {
+        markdown.toggleMarking()
+        mark.title = markdown.marking ? String(localized: "Done Marking") : String(localized: "Mark")
     }
 
     private func showCheck() {

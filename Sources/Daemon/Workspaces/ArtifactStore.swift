@@ -172,10 +172,17 @@ extension Artifacts {
         -> Bool
     {
         let target = target(slug, record, root: root)
-        guard let live = small(target) else { return false }
+        let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
+        // A design's version is its canvas with every board's text: one file, so an older one shows whole.
+        let page =
+            record.file == Kind.design.file
+            ? small(target).flatMap {
+                CanvasSnapshot.live(json: String(decoding: $0, as: UTF8.self), folder: folder).data
+            } : small(target)
+        guard let live = page else { return false }
         var versions = record.versions ?? []
         if let last = versions.last, versionText(target: target, last.n).map({ Data($0.utf8) }) == live { return false }
-        let number = (versions.last?.n ?? 0) + 1, folder = URL(fileURLWithPath: target).deletingLastPathComponent()
+        let number = (versions.last?.n ?? 0) + 1
         let dir = folder.appendingPathComponent("versions")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try live.write(to: URL(fileURLWithPath: versionPath(target: target, number)))

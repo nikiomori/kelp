@@ -295,6 +295,21 @@ private func tempRoot() throws -> URL {
     await #expect(throws: RPCError.self) { try await c.call(ArtifactCheck(path: file)) }
 }
 
+/// A design's version keeps its canvas with its boards' text, and a board's change makes a new one.
+@Test func aCanvasVersionKeepsItsBoards() throws {
+    let root = try tempRoot()
+    let canvas = try Artifacts.create(.design, title: "Home", root: root.path, session: "s1")
+    try #"{"boards": [{"file": "boards/A.html"}]}"#.write(to: canvas, atomically: true, encoding: .utf8)
+    let board = canvas.deletingLastPathComponent().appendingPathComponent("boards/A.html")
+    try "<p>one</p>".write(to: board, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "first") == 1)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "nothing new") == 0)
+    try "<p>two</p>".write(to: board, atomically: true, encoding: .utf8)
+    #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "second") == 1)
+    let first = try #require(Artifacts.versionText(target: canvas.path, 1).flatMap(CanvasSnapshot.read))
+    #expect(first.boards == ["boards/A.html": "<p>one</p>"])
+}
+
 /// A canvas's time moves with its boards and the design system, which it is drawn with.
 @Test func aCanvasTimeFollowsItsBoardsAndTheSystem() throws {
     let root = try tempRoot()
@@ -304,6 +319,7 @@ private func tempRoot() throws -> URL {
     try "<p>hi</p>".write(to: board, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes(
         [.modificationDate: Date(timeIntervalSince1970: before + 5)], ofItemAtPath: board.path)
-    #expect(Artifacts.canvasTime(canvas.path, root: root.path) == before + 5)
-    #expect(Artifacts.items(root: root.path).first?.modified == before + 5)
+    // A file's time is kept to the microsecond: near enough.
+    #expect(abs((Artifacts.canvasTime(canvas.path, root: root.path) ?? 0) - (before + 5)) < 0.01)
+    #expect(abs((Artifacts.items(root: root.path).first?.modified ?? 0) - (before + 5)) < 0.01)
 }

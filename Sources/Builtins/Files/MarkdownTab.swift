@@ -70,6 +70,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// A canvas: the `kelp artifact check` waiting for its next drawing, and what the last one found.
     var pendingCheck: String?
     var checkIssues: [String]?
+    /// A canvas: whether a click on a board puts a mark on it (Mark in the bar).
+    var marking = false
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
 
@@ -102,6 +104,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// The file becomes `text` and is saved: an older version restored.
     func restore(_ text: String) {
+        if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return restoreCanvas(snapshot) }
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))
         Task { _ = await saveFile?() }
     }
@@ -263,8 +266,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         if artifactBar != nil, let body = message.body as? [String: Any], body["kind"] as? String == "ask" {
             return ask(about: body["text"] as? String ?? "")
         }
-        if page == .canvas, let body = message.body as? [String: Any], body["kind"] as? String == "check" {
-            return canvasChecked(body["issues"] as? [String] ?? [])
+        if page == .canvas, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
+            canvasMessage(kind, body)
+        {
+            return
         }
         if page == .review, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             ["pick", "note", "send"].contains(kind)
@@ -324,14 +329,14 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         renderTask = Task {
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            let text = shownVersion ?? editor.text, base = url.deletingLastPathComponent()
+            let text = shownVersion ?? editor.text, base = url.deletingLastPathComponent(), shown = shownVersion
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
                 let colors = CodeEditor.page
                 page = (colors.background.hexString, colors.text.hexString)
             }
-            let kind = self.page, sendTo = pageAuthor?.title
+            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, marking = marking
             let themes = CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
             // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
             // Kelp's do, beside it.
@@ -341,10 +346,16 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
                 if kind == .html { return (text, []) }
                 if kind == .canvas {
+                    let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
                     let built = CanvasPage.build(
-                        text, folder: base, root: Self.projectRoot(of: base.path), themes: themes ?? .both, ground: page
+                        snapshot, folder: base, root: Self.projectRoot(of: base.path), themes: themes ?? .both,
+                        ground: page
                     )
-                    return (built.html, [CanvasScript.source(issues: built.issues)])
+                    let edit = CanvasEdit.source(marks: built.marks, tweaks: built.tweaks, labels: labels)
+                    return (
+                        built.html,
+                        [CanvasScript.source(issues: built.issues), edit] + (marking ? ["kelpMark(true)"] : [])
+                    )
                 }
                 if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)

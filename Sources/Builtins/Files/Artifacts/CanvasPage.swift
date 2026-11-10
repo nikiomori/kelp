@@ -14,18 +14,23 @@ enum CanvasPage {
         var html: String
         /// What the files themselves say is wrong, before anything is drawn: part of the check.
         var issues: [String]
+        /// Each board's tweaks, and the marks not sent yet (`CanvasEdit`).
+        var tweaks: [String: [Tweak]] = [:]
+        var marks: [CanvasMark] = []
     }
 
-    /// The page for the canvas in `json`, its boards read from `folder` and the design system from `root`. `ground`:
-    /// the pane's background and text colours. Reads files: off the main thread.
+    /// The page for `snapshot` (the canvas and its boards' text), with the design system from `root` and the marks from
+    /// `folder`. `ground`: the pane's background and text colours. Reads files: off the main thread.
     static func build(
-        _ json: String, folder: URL, root: String, themes: Themes, ground: (background: String, text: String)?
+        _ snapshot: CanvasSnapshot, folder: URL, root: String, themes: Themes,
+        ground: (background: String, text: String)?
     ) -> Built {
+        let json = snapshot.canvas
         let system = DesignSystem.dir(root: root)
         let tokens = DesignSystem.css(tokens: read(system.appendingPathComponent("tokens.json")) ?? "")
         let kit = read(system.appendingPathComponent("kit.css")) ?? ""
         let hasSystem = !kit.isEmpty || !tokens.light.isEmpty
-        var issues: [String] = []
+        var issues: [String] = [], tweaks: [String: [Tweak]] = [:]
         guard let canvas = ArtifactCanvas.read(json) else {
             let why = "canvas.json doesn't read as {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}"
             return Built(html: shell(ground, body: note(why)), issues: [why])
@@ -40,7 +45,7 @@ enum CanvasPage {
         for row in canvas.rows {
             var frames = ""
             for board in row.boards {
-                guard let source = read(folder.appendingPathComponent(board.file)) else {
+                guard let source = snapshot.boards[board.file] else {
                     issues.append("\(board.file): no such file")
                     frames +=
                         "<div class=\"frame\"><div class=\"name\">\(escape(board.file))</div>"
@@ -48,9 +53,10 @@ enum CanvasPage {
                     continue
                 }
                 issues += lint(source, board: board.file, hasSystem: hasSystem)
-                let tweaks = Tweak.css(Tweak.all(in: source))
+                tweaks[board.file] = Tweak.all(in: source)
                 for theme in shown {
-                    let vars = (theme == "dark" ? tokens.dark : tokens.light) + " " + tweaks
+                    let vars =
+                        (theme == "dark" ? tokens.dark : tokens.light) + " " + Tweak.css(tweaks[board.file] ?? [])
                     let doc = boardPage(source, theme: theme, vars: vars, kit: kit, base: folder)
                     frames += frame(board, theme: theme, doc: doc, dark: shown.count > 1 && theme == "dark")
                 }
@@ -60,7 +66,10 @@ enum CanvasPage {
         }
         let empty = String(localized: "No boards yet: the agent writes them into boards/ and lists them here.")
         let body = canvas.boards.isEmpty ? note(empty) : rows
-        return Built(html: shell(ground, body: "<div id=\"kelp-canvas\">\(body)</div>"), issues: issues)
+        let marks = CanvasMark.read(Artifacts.small(folder.appendingPathComponent(CanvasMark.file).path))
+        return Built(
+            html: shell(ground, body: "<div id=\"kelp-canvas\">\(body)</div>"), issues: issues, tweaks: tweaks,
+            marks: marks)
     }
 
     /// A board's own page: `vars` (the system's tokens for its theme, then its tweaks), the kit, then the fragment.
@@ -121,6 +130,7 @@ enum CanvasPage {
               box-shadow: 0 0 0 0.5px rgba(0,0,0,.15), 0 1px 4px rgba(0,0,0,.18); }
             iframe[data-theme="dark"] { background: #1c1c1e; }
             .note { padding: 24px; opacity: 0.6; font-size: 13px; }
+            \(CanvasEdit.style)
             </style></head><body>\(body)</body></html>
             """
     }

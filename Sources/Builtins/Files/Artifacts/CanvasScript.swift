@@ -24,7 +24,7 @@ enum CanvasScript {
                 document.body.style.width = z < 1 ? (canvas.scrollWidth * z + 80) + 'px' : '';
               }
               addEventListener('resize', fit);
-              new ResizeObserver(fit).observe(document.documentElement);
+              new ResizeObserver(() => requestAnimationFrame(fit)).observe(document.documentElement);
               function rgb(s) {
                 const m = s.match(/rgba?\\(([^)]+)\\)/); if (!m) return null;
                 const p = m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number);
