@@ -186,7 +186,7 @@ public final class Daemon: Sendable {
         settingsEvents.watch()
         let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
         ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
-        ticker.setEventHandler { [self] in sessions.tick() }
+        ticker.setEventHandler { [self] in tick() }
         let prune = DispatchSource.makeTimerSource(queue: .global(qos: .background))
         prune.schedule(deadline: .now() + 60, repeating: 86400)   // ended sessions past `keepEnded`
         prune.setEventHandler { [self] in sessions.pruneEnded() }
@@ -606,4 +606,15 @@ public final class Daemon: Sendable {
     /// that carry state carry all of it (a session's record, a revision), so the later one read wins either way.
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
+    /// One round of the 0.5 s ticker. With no session running there's nothing to tick, pause or restart: only the Mac's
+    /// keep-awake is applied, so the last session's ending lets it go (and "always" keeps it). Whether the round ran.
+    @discardableResult
+    func tick() -> Bool {
+        guard !sessions.live.all.isEmpty else {
+            sessions.applyKeepAwake()
+            return false
+        }
+        _ = sessions.tick()
+        return true
+    }
 }

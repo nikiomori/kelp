@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GRDB
 
 /// What an agent's program may reach, beside `Daemon.allow`, which asks these.
 enum AgentRules {
@@ -91,11 +92,10 @@ extension Store {
         } else if let makerSession = Caller.session(of: maker), line.contains(where: { $0.id == makerSession }) {
             return true
         }
-        return try sessions().contains { session in
-            try session.worktreeId == workspace
-                && lineage(session.id).contains {
-                    typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
-                }
+        return try sessions(in: [workspace]).contains { session in
+            try lineage(session.id).contains {
+                typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
+            }
         }
     }
 
@@ -106,6 +106,11 @@ extension Store {
             case .workspace(let workspace): [workspace]
             case .project(let repo): Set(try worktrees(repo: repo).map(\.id))
             }
-        return try sessions().filter { ids.contains($0.worktreeId ?? "") }.map(\.id)
+        return try sessions(in: ids).map(\.id)
+    }
+
+    /// The sessions of these workspaces, by a query: an agent's call reads only those, not every session kept.
+    private func sessions(in workspaces: Set<String>) throws -> [Session] {
+        try db.read { try Session.filter(workspaces.contains(Column("worktreeId"))).fetchAll($0) }
     }
 }
