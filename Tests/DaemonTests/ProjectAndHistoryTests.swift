@@ -266,3 +266,18 @@ private func signals(_ s: DispatchSemaphore, _ n: Int, by deadline: DispatchTime
                 == "Ревью и оценка приложения"
         })
 }
+
+/// Settings › Agent Catalog saves how an agent starts through the daemon, and Reset takes it back to Kelp's preset.
+@Test func anAgentsLaunchIsSavedAndResetByTheDaemon() async throws {
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
+    var codex = try #require(AgentManifest.presets.first { $0.id == "codex" })
+    codex.command = "/opt/codex"
+    _ = try await c.call(AgentSave(agent: "codex", manifest: .from(codex)))
+    let dir = root.appendingPathComponent("agents")
+    #expect(AgentManifest.load(dir: dir).first { $0.id == "codex" }?.command == "/opt/codex")
+    await #expect(throws: (any Error).self) { try await c.call(AgentSave(agent: "claude", manifest: .from(codex))) }
+    _ = try await c.call(AgentSave(agent: "codex"))
+    #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("codex.json").path))
+    #expect(AgentManifest.load(dir: dir).first { $0.id == "codex" }?.command == "codex")
+}

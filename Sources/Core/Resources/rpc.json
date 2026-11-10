@@ -4952,6 +4952,34 @@
   },
   "methods" : [
     {
+      "description" : "Settings › Agent Catalog: how an agent starts, kept as its file in the agents folder. `manifest` is the whole file (secrets in it as `agent.setSecret` left them); nil removes it, and the agent starts as Kelp's preset says again.",
+      "name" : "agent.save",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "agent",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "manifest",
+          "required" : false,
+          "schema" : {
+
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Kept in the login keychain, read when the agent starts. No `value`: deleted.",
       "name" : "agent.setSecret",
       "paramStructure" : "by-name",

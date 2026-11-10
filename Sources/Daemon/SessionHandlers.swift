@@ -238,6 +238,20 @@ extension AgentSetSecret: Handled {
     }
 }
 
+extension AgentSave: Handled {
+    func handle(_ setup: SessionSetup) throws -> Done {
+        let dir = setup.root.appendingPathComponent("agents")
+        guard let manifest else {
+            AgentManifest.resetOverride(id: agent, dir: dir)
+            return Done()
+        }
+        let file = try manifest.decode(AgentManifest.self)
+        guard file.id == agent else { throw RPCError.invalidParams("the manifest is \(file.id)'s, not \(agent)'s") }
+        try AgentManifest.saveOverride(file, dir: dir)
+        return Done()
+    }
+}
+
 extension SessionBusy: Handled {
     func handle(_ sessions: Sessions) throws -> String? {
         guard let ls = sessions.existing(id) else { return nil }
@@ -303,7 +317,8 @@ extension SessionLastReply: Handled {
 extension Methods {
     static let sessionMethods: [any Handled.Type] = [
         SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
-        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, PortsList.self, PortsStop.self,
+        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, AgentSave.self, PortsList.self,
+        PortsStop.self,
         PortsForward.self,
         PortsUnforward.self, SessionUsage.self, HostStatsRead.self, HostDisconnect.self,
         SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self,

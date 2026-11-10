@@ -100,6 +100,18 @@ public struct AgentSetSecret: InternalMethod {
     }
 }
 
+/// Settings › Agent Catalog: how an agent starts, kept as its file in the agents folder. `manifest` is the whole file
+/// (secrets in it as `agent.setSecret` left them); nil removes it, and the agent starts as Kelp's preset says again.
+public struct AgentSave: InternalMethod {
+    public static let name = "agent.save"
+    public typealias Result = Done
+    public var agent: String, manifest: JSONValue?
+    public init(agent: String, manifest: JSONValue? = nil) {
+        self.agent = agent
+        self.manifest = manifest
+    }
+}
+
 /// CPU and memory of each running session's processes.
 public struct SessionUsage: RPCMethod {
     public static let name = "session.usage"

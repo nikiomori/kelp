@@ -198,7 +198,7 @@ extension AgentsSettings {
                 detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
                 action: String(localized: "Reset"))
             guard await runSheet(question) == .alertFirstButtonReturn else { return }
-            AgentManifest.resetOverride(id: m.id, dir: Paths.agents)
+            guard await app.call(AgentSave(agent: m.id)) != nil else { return }
             reload()
         }
     }
@@ -234,11 +234,13 @@ extension AgentsSettings {
             await app.call(AgentSetSecret(agent: manifest.id, key: k))   // removed: forget it
         }
         manifest.env = pairs.filter { !$0.value.isEmpty }   // a preset's blank line until it's filled in
-        do { try AgentManifest.saveOverride(manifest, dir: Paths.agents) } catch {
+        let file: JSONValue
+        do { file = try JSONValue.from(manifest) } catch {
             Banner.show(
                 String(localized: "Couldn't save \(manifest.name): \(error.localizedDescription)"), style: .error)
             return
         }
+        guard await app.call(AgentSave(agent: manifest.id, manifest: file)) != nil else { return }
         files = AgentManifest.load(dir: Paths.agents)
         if field == nil { load() }   // a secret reads as the keychain's mark now; not under someone's typing
         app.agents = AgentManifest.load(dir: Paths.agents)
