@@ -110,3 +110,32 @@ import Testing
     #expect(AgentsSettings.neighbour(of: "crush", by: 1, in: shown) == nil)
     #expect(AgentsSettings.neighbour(of: "gemini", by: 1, in: shown) == nil)
 }
+
+/// Every setting declared in code (`SettingKeys`, in Core or the module that reads it) is a row in Settings, which is how
+/// search, Quick Open and the agents' settings guide know it, or it's on this list with why. A key left without a row
+/// used to go unnoticed: only the people who read the code knew it was there.
+@MainActor @Test func everyDeclaredSettingHasARow() throws {
+    let noRow = [
+        "accounts.profiles": "the accounts are a list of their own, under Settings › Agents",
+        "extensions.disabled": "Settings › Extensions' switches",
+        "extensions.library": "where the library's index is: settings.json only, for someone running their own",
+        "usage.readClaudePlan": "Show plan limits' old name, read while the new one isn't set",
+        "workbench.inspector.panelOrder": "the inspector's icons as they were dragged"
+    ]
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let declaration = /static let \w+ = Setting(?:<[^\n]*?>)?\(\s*"([^"]+)"/
+    var declared: Set<String> = []
+    let sources = root.appendingPathComponent("Sources")
+    for case let file as URL in FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
+        .allObjects ?? [] where file.pathExtension == "swift"
+    {
+        let text = try String(contentsOf: file, encoding: .utf8)
+        for match in text.matches(of: declaration) { declared.insert(String(match.1)) }
+    }
+    #expect(declared.count > 80, "\(declared.count): the declarations weren't found")
+    let app = AppModel(builtins: Builtins.all)
+    let rows = Set(Builtins.all.flatMap { $0.contribute(app).settings.flatMap(\.specs).map(\.key) })
+    #expect(declared.subtracting(rows).subtracting(noRow.keys).sorted() == [], "a setting with no row")
+    #expect(Set(noRow.keys).intersection(rows).sorted() == [], "a row now: take it off the list")
+}
