@@ -274,7 +274,7 @@ final class WelcomeView: NSView {
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(
             labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
-        title.font = .ui(20, weight: .semibold)
+        title.font = .ui(TextSize.title, weight: .semibold)
         let body = NSTextField(
             wrappingLabelWithString: hasRepos
                 ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one.")

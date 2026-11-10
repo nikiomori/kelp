@@ -24,7 +24,7 @@ final class StartPrompt: NSView, NSTextViewDelegate {
 
     init(placeholder: String, accessibilityLabel: String) {
         super.init(frame: .zero)
-        let font = NSFont.ui(14)
+        let font = NSFont.ui(TextSize.heading)
         text.font = font
         text.isRichText = false
         text.allowsUndo = true

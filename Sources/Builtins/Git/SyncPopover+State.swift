@@ -13,7 +13,7 @@ extension SyncPopover {
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
         name.attributedTitle = NSAttributedString(
             string: info?.current ?? info?.head ?? "HEAD",
-            attributes: [.font: NSFont.ui(15, weight: .semibold), .foregroundColor: NSColor.labelColor])
+            attributes: [.font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.labelColor])
         name.image = .symbol("chevron.down", String(localized: "Switch Branch"))
         name.isEnabled = info != nil && running == nil
         state.stringValue = Self.standing(upstream: info?.upstream, ahead: ahead, behind: behind, hasRemote: hasRemote)

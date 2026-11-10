@@ -188,7 +188,7 @@ struct AgentsSettings: View {
                 Image(nsImage: app.catalog.icon(m.id, size: Metrics.rowTwoLine) ?? NSImage()).resizable()
                     .frame(width: Metrics.rowTwoLine, height: Metrics.rowTwoLine)
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                    Text(m.name).font(.ui(15, weight: .semibold))
+                    Text(m.name).font(.ui(TextSize.heading, weight: .semibold))
                     if let about = app.catalog.about(m.id) { Text(about).foregroundStyle(.secondary) }
                 }
             }

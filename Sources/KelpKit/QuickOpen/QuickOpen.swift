@@ -191,7 +191,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             material.pin(effect)
             panel.contentView = material
         }
-        field.font = .ui(18)
+        field.font = .ui(TextSize.heading)
         field.focusRingType = .none
         field.delegate = self
         field.sendsSearchStringImmediately = true

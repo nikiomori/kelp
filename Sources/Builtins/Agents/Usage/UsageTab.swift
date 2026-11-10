@@ -86,7 +86,7 @@ struct UsageReportView: View {
 
     /// What the tab's name doesn't say already: the span, where it's from, and whether the logs are still being read.
     private var header: some View {
-        HStack(spacing: Metrics.gapWide) {
+        HStack(spacing: 10) {
             Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(TextSize.caption))
                 .foregroundStyle(
                     .secondary)
@@ -265,7 +265,7 @@ struct UsageReportView: View {
     }
     func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.ui(17, weight: .semibold).monospacedDigit())
+            Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit())
             Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
         }
     }

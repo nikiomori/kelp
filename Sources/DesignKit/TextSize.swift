@@ -13,6 +13,10 @@ public enum TextSize {
     public internal(set) static var design = NSFontDescriptor.SystemDesign.default
 
     /// The chrome's sizes, named as the design system names them; `.ui(TextSize.row)`, not a number typed in.
+    /// The one big line of a page: a project's name on its empty workspace, a tab's own title, a meter's number: 20.
+    public nonisolated static let title: CGFloat = 20
+    /// A card's name, a popover's headline, the field you type what you want into (Quick Open, the start prompt): 15.
+    public nonisolated static let heading: CGFloat = 15
     /// Text in a panel, a sheet, a popover: 13.
     public nonisolated static let body: CGFloat = 13
     /// A list row's title, a field: 12.

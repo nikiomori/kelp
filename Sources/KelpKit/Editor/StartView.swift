@@ -51,7 +51,7 @@ final class StartView: NSView {
         icon.symbolConfiguration = .chrome(Metrics.iconHero)
         icon.contentTintColor = .tertiaryLabelColor
         let title = NSTextField(labelWithString: app.groupName(w) ?? app.projectName(w.repoId) ?? w.displayName)
-        title.font = .ui(20, weight: .semibold)
+        title.font = .ui(TextSize.title, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         title.alignment = .center
         // The window bar shows the folder; a remote project's host and path are said here, the bar has the local stand-in.
@@ -233,7 +233,7 @@ final class StartView: NSView {
             planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             stack.setCustomSpacing(22, after: planBar)
         }
-        planBar.spacing = Metrics.gapWide
+        planBar.spacing = 10
         planLine.font = .ui(TextSize.row)
         planLine.textColor = .secondaryLabelColor
         planSwitch.padding = Metrics.gap
@@ -264,7 +264,7 @@ final class StartView: NSView {
             planSwitch.title = String(localized: "Start in \(otherName)")
             planSwitch.onClick = { [weak self] in self?.start(other) }
         }
-        if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : Metrics.gapWide, after: under) }
+        if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : 10, after: under) }
     }
 
     /// With what was typed, if anything.
@@ -290,8 +290,8 @@ final class StartView: NSView {
         let column = NSStackView(views: [row, line, make])
         column.orientation = .vertical
         column.alignment = .leading
-        column.spacing = Metrics.gapWide
-        column.edgeInsets = NSEdgeInsets(top: 11, left: 12, bottom: Metrics.gapWide, right: 12)
+        column.spacing = 10
+        column.edgeInsets = NSEdgeInsets(top: 11, left: 12, bottom: 10, right: 12)
         let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
         box.pin(column)
         NSLayoutConstraint.activate([
