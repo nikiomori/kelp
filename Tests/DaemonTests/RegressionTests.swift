@@ -42,7 +42,7 @@ import Testing
     let s: Session = try await w.c.call(
         "session.create",
         .obj([
-            "worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(fake)),
+            "worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + ShellQuote.word(fake)),
             "prompt": "Fix the bug"
         ]), as: Session.self)
     func screen() async throws -> String {
@@ -184,7 +184,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let s: Session = try await w.c.call(
         "session.create",
         .obj([
-            "worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(fake)),
+            "worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + ShellQuote.word(fake)),
             "prompt": "Fix the bug"
         ]), as: Session.self)
     func screen() async throws -> String {
@@ -224,7 +224,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let script = "set -m; (trap '' HUP TERM; while :; do sleep 0.1; done) & echo $! > \(pidFile); echo started; wait"
     _ = try await w.c.call(
         "session.create",
-        .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(script))]))
+        .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + ShellQuote.word(script))]))
     #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: pidFile) })
     let job = try #require(
         pid_t((try String(contentsOfFile: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
@@ -259,7 +259,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     let script = #"stty -echo; printf '\033[?20'; sleep 0.5; printf '04hready\n'; exec cat -v"#
     let s: Session = try await w.c.call(
         "session.create",
-        .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(script))]),
+        .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + ShellQuote.word(script))]),
         as: Session.self)
     #expect(
         try await waitFor(10) {

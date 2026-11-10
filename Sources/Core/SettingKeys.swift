@@ -81,5 +81,5 @@ public enum SettingKeys {
     // Extensions
     /// nil: settings.json has no list yet, so the built-ins off by default are off.
     public static let disabledExtensions = Setting<[String]?>("extensions.disabled", nil)
-    public static let extensionLibrary = Setting("extensions.library", IDE.libraryIndex)
+    public static let extensionLibrary = Setting("extensions.library", ExtensionFiles.libraryIndex)
 }

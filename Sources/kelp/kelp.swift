@@ -154,7 +154,7 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
     if let repo = flag("--repo") { return repo }
     let cwd = FileManager.default.currentDirectoryPath
     // The nearest: a project inside another (~/code/app in ~/code) is the one its folder is in.
-    if let id = try await c.call(RepoList()).filter({ IDE.inside(cwd, $0.path) }).max(by: {
+    if let id = try await c.call(RepoList()).filter({ Paths.inside(cwd, $0.path) }).max(by: {
         $0.path.count < $1.path.count
     })?.id {
         return id
@@ -179,7 +179,7 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
                 guard let id = args.first else { fail("kelp attach <session>") }
                 Attach.run(id, detachKey: detachKey)
             case "schema":   // no daemon: the file ships with this binary
-                guard let file = IDE.resource("rpc", "json") else { fail("this build has no schema") }
+                guard let file = Paths.resource("rpc", "json") else { fail("this build has no schema") }
                 print(
                     has("--openrpc")
                         ? file

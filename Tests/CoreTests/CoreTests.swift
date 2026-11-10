@@ -535,35 +535,6 @@ final class Flag: @unchecked Sendable {   // the bool under lock
         try #require(c.range(of: RemoteHost.statusOption)).lowerBound < #require(c.range(of: "new-session")).lowerBound)
 }
 
-/// A command's short name, from commands agents really ran.
-@Test func aCommandIsCalledByItsProgram() {
-    for (command, name) in [
-        ("swift build --scratch-path /tmp/kelp-build/A --product kelp > /private/tmp/out.log 2>&1", "swift build"),
-        ("cd /private/tmp/claude-501/x && swift test --filter 'AgentsTests|CoreTests'", "swift test"),
-        ("export KELP_V1='release'; make release", "make release"),
-        ("/private/tmp/claude-501/scratchpad/run.sh 2>&1 | tee run.out", "run.sh"),
-        ("./Scripts/make-app.sh", "make-app.sh"),
-        ("for i in 1 2 3; do swift test --filter x; done", "swift test"),
-        ("KELP_HOME=/tmp/k /tmp/debug/KelpApp", "KelpApp"),
-        ("npm run dev -- --port 3000", "npm run dev"),
-        ("python3 -m pytest", "python3"),
-        ("sleep 30", "sleep"),
-        ("(cd web && pnpm build)", "pnpm build"),
-        ("exec cat", "cat"),
-        ("cd /tmp", "cd /tmp")
-    ] { #expect(CommandName.of(command) == name, "\(command)") }
-}
-
-/// Each folder keeps its own ten ports, the same each run, and two folders never share a block.
-@Test func everyFolderHasItsOwnPorts() {
-    let folders = (1...200).map { "/projects/app-\($0)" }
-    let ports = folders.map { PortBlocks.port(for: $0, among: folders) }
-    #expect(Set(ports).count == folders.count)
-    #expect(ports.allSatisfy { $0 >= 20_000 && $0 + 9 < 49_152 && $0 % 10 == 0 })   // under the ephemeral range
-    #expect(PortBlocks.first + PortBlocks.count * PortBlocks.size <= 49_152)
-    #expect(PortBlocks.port(for: folders[7], among: folders.reversed()) == ports[7])   // not the list's order
-}
-
 /// kelp ext check names each mistake and where it is; a sound extension has none.
 @Test func anExtensionsMistakesAreNamedWithWhereTheyAre() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -606,17 +577,18 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     try FileManager.default.createDirectory(at: dir.appendingPathComponent("web"), withIntermediateDirectories: true)
     try "{}".write(to: dir.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
     try "<p>hi</p>".write(to: dir.appendingPathComponent("web/index.html"), atomically: true, encoding: .utf8)
-    try #"{"source":"x"}"#.write(to: dir.appendingPathComponent(IDE.sourceFile), atomically: true, encoding: .utf8)   // Kelp's own
-    var files = ["extension.json": IDE.sha256(Data("{}".utf8)), "web/index.html": IDE.sha256(Data("<p>hi</p>".utf8))]
-    #expect(IDE.differing(dir, from: files) == nil)
-    files["web/index.html"] = IDE.sha256(Data("<p>other</p>".utf8))
-    #expect(IDE.differing(dir, from: files) == "web/index.html")
-    files["web/index.html"] = IDE.sha256(Data("<p>hi</p>".utf8))
+    try #"{"source":"x"}"#.write(
+        to: dir.appendingPathComponent(ExtensionFiles.sourceFile), atomically: true, encoding: .utf8)   // Kelp's own
+    var files = ["extension.json": Data("{}".utf8).sha256, "web/index.html": Data("<p>hi</p>".utf8).sha256]
+    #expect(ExtensionFiles.differing(dir, from: files) == nil)
+    files["web/index.html"] = Data("<p>other</p>".utf8).sha256
+    #expect(ExtensionFiles.differing(dir, from: files) == "web/index.html")
+    files["web/index.html"] = Data("<p>hi</p>".utf8).sha256
     files["gone.js"] = "00"
-    #expect(IDE.differing(dir, from: files) == "gone.js")
+    #expect(ExtensionFiles.differing(dir, from: files) == "gone.js")
     files["gone.js"] = nil
     files["extension.json"] = nil
-    #expect(IDE.differing(dir, from: files) == "extension.json")   // in the folder, not in the list
+    #expect(ExtensionFiles.differing(dir, from: files) == "extension.json")   // in the folder, not in the list
 }
 
 /// The library adds what community.json beside its index lists, as not reviewed, without what it reviewed itself.
@@ -629,11 +601,11 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     try
         #"[{"id":"docker","name":"Fake","version":"9","source":"https://github.com/x/docker"},{"id":"memo","name":"Memo","version":"0.1.0","source":"https://github.com/a/memo/tree/abc","stars":12,"weekly":3}]"#
         .write(to: dir.appendingPathComponent("community.json"), atomically: true, encoding: .utf8)
-    let all = try IDE.library(index: dir.appendingPathComponent("index.json").absoluteString)
+    let all = try ExtensionFiles.library(index: dir.appendingPathComponent("index.json").absoluteString)
     #expect(all.map(\.id) == ["docker", "memo"] && all[0].name == "Docker" && all[0].reviewed == nil)
     #expect(all[1].reviewed == false && all[1].weekly == 3)
     try FileManager.default.removeItem(at: dir.appendingPathComponent("community.json"))
-    #expect(try IDE.library(index: dir.appendingPathComponent("index.json").absoluteString).count == 1)
+    #expect(try ExtensionFiles.library(index: dir.appendingPathComponent("index.json").absoluteString).count == 1)
 }
 
 /// A declared setting reads its default while settings.json doesn't have it, the stored value when it does, and its

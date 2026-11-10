@@ -62,8 +62,8 @@ extension Databases {
         let project = try store.repo(worktree.repoId)?.path ?? worktree.path
         let target: String
         // Compared and cut as they really are: a project reached through a link has the same file at another path
-        let (real, realProject) = (IDE.real(path), IDE.real(project))
-        if IDE.inside(path, project), !IDE.inside(path, worktree.path), real.hasPrefix(realProject + "/") {
+        let (real, realProject) = (Paths.realNearest(path), Paths.realNearest(project))
+        if Paths.inside(path, project), !Paths.inside(path, worktree.path), real.hasPrefix(realProject + "/") {
             target = worktree.path + real.dropFirst(realProject.count)
         } else {
             let ext = (path as NSString).pathExtension, base = (path as NSString).deletingPathExtension

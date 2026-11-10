@@ -212,7 +212,7 @@ final class SessionSetup: Sendable {
         var project: String?
         if let wid = worktreeId, let worktree = store.look("workspace \(wid)", { try $0.worktree(wid) }),
             let repo = store.look("project \(worktree.repoId)", { try $0.repo(worktree.repoId) }),
-            IDE.inside(cwd, worktree.path),
+            Paths.inside(cwd, worktree.path),
             !AgentConfig.changed(worktree.path, base: repo.baseBranch, remotes: remotes)
         {
             project = repo.path

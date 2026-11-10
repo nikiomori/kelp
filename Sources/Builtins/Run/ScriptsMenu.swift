@@ -196,7 +196,7 @@ final class ScriptsMenu: NSObject, NSMenuDelegate {
         if let run = state.active[session.id] { return run.choice }
         guard session.agent == "custom", let wid = session.worktreeId, let line = session.argv.last else { return nil }
         if let option = state.found[wid]?.options.first(where: {
-            ($0.folder.isEmpty ? $0.command : "cd \(IDE.shellWord($0.folder)) && \($0.command)") == line
+            ($0.folder.isEmpty ? $0.command : "cd \(ShellQuote.word($0.folder)) && \($0.command)") == line
         }) {
             return option.id
         }

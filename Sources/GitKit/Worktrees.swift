@@ -142,7 +142,7 @@ extension Git {
     /// `dst` is still in `root` once symlinks are followed: a folder the branch commits as a link (`conf -> ~/x`) would
     /// take the copy (the user's ignored `.env`), or the folders made for it, out of the worktree.
     static func staysInside(_ dst: String, _ root: String) -> Bool {
-        IDE.inside((dst as NSString).deletingLastPathComponent, root)
+        Paths.inside((dst as NSString).deletingLastPathComponent, root)
     }
 
     /// Symlink shared directories (node_modules, .venv…) from the main checkout instead of reinstalling.
@@ -239,7 +239,8 @@ extension Git {
                 try host.map { remote in
                     String(
                         decoding: try remote.run(
-                            "cd -- \(IDE.shellWord(path)) 2>/dev/null && pwd -P || printf %s \(IDE.shellWord(path))"),
+                            "cd -- \(ShellQuote.word(path)) 2>/dev/null && pwd -P || printf %s \(ShellQuote.word(path))"
+                        ),
                         as: UTF8.self
                     ).trimmingCharacters(in: .newlines)
                 } ?? real(path)
@@ -262,7 +263,7 @@ extension Git {
         // ~/.kelp-trash, rather than deleted for good by `worktree remove --force`. The shell's pid keeps two removals
         // of a same-named folder in one second apart.
         if let host {
-            let quote = IDE.shellWord,
+            let quote = ShellQuote.word,
                 aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
             _ = try host.run(
                 "d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(quote(path)) ]; then mv -- \(quote(path)) \"$d\"/\(quote(aside))-$$; fi"

@@ -303,8 +303,8 @@ func codeOnly(_ s: String) -> String {
         try matches(#"\bProcess\(\)|\bSubprocess\.run\("#, in: ["Sources/Core"]).map {
             String($0.split(separator: ":")[0])
         })
-    #expect(
-        starters == ["Sources/Core/Subprocess.swift", "Sources/Core/LoginPath.swift", "Sources/Core/Library.swift"])
+    let core = ["Subprocess", "LoginPath", "ExtensionFiles"].map { "Sources/Core/\($0).swift" }
+    #expect(starters == Set(core))
 }
 
 /// `workbench.open` takes links from forges and trackers, so it only shows things. What runs a `terminal:` or `agent:` URI has

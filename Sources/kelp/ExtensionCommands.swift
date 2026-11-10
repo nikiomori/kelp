@@ -5,7 +5,7 @@ extension Main {
     static func ext(_ sub: String?, _ c: RPCClient) async throws {
         switch sub {
         case "list":
-            for e in try await IDE.extensions(client: c, dir: Paths.extensions).array ?? [] {
+            for e in try await ExtensionFiles.extensions(client: c, dir: Paths.extensions).array ?? [] {
                 let tags = [
                     e["builtin"]?.bool == true ? "(built-in)" : nil, e["enabled"]?.bool == false ? "(disabled)" : nil,
                     e["error"]?.string.map { "error: \($0)" }
@@ -15,13 +15,14 @@ extension Main {
         case "new":
             let name = flag("--name"), description = flag("--description")
             guard let id = args.first else { fail("ext new <id> [--name N] [--description D]") }
-            let folder = try IDE.scaffoldExtension(id: id, name: name, description: description, in: Paths.extensions)
+            let folder = try ExtensionFiles.scaffoldExtension(
+                id: id, name: name, description: description, in: Paths.extensions)
             print(
                 "created \(folder.path)\nguide:   \(folder.deletingLastPathComponent().appendingPathComponent("EXTENSIONS.md").path)"
             )
         case "enable", "disable":
             guard let id = args.first else { fail("ext enable|disable <id>") }
-            try await IDE.setExtension(id, enabled: sub == "enable", client: c)
+            try await ExtensionFiles.setExtension(id, enabled: sub == "enable", client: c)
         case "reload": show(try .from(try await c.call(UICommand(id: "extensions.reload"))))
         case "path": print(Paths.extensions.path)
         case "search":
@@ -33,7 +34,7 @@ extension Main {
             var dir: ObjCBool = false
             if what.contains("/"), FileManager.default.fileExists(atPath: what, isDirectory: &dir), dir.boolValue {
                 let src = URL(fileURLWithPath: what).standardizedFileURL
-                installed(try IDE.installExtension(src, as: src.lastPathComponent, in: Paths.extensions))
+                installed(try ExtensionFiles.installExtension(src, as: src.lastPathComponent, in: Paths.extensions))
             } else if what.contains("/") {
                 installed(try await fetch(what, as: nil, c, review: !args.contains("--yes")))
             } else {
@@ -50,7 +51,7 @@ extension Main {
             let library = try await c.call(ExtensionLibrary())
             var found = false
             for f in FileManager.default.items(in: Paths.extensions) {
-                guard let source = IDE.extensionSource(f), let id = manifest(f)["id"]?.string,
+                guard let source = ExtensionFiles.extensionSource(f), let id = manifest(f)["id"]?.string,
                     args.first.map({ $0 == id }) ?? true
                 else { continue }
                 found = true
@@ -86,8 +87,8 @@ extension Main {
         before: URL? = nil
     ) async throws -> URL {
         let folder = URL(fileURLWithPath: try await c.call(ExtensionFetch(source: source, files: files)).folder)
-        let had = before.map { IDE.commandsIn(manifest($0)) }
-        var (commands, pages) = IDE.commandsIn(manifest(folder))
+        let had = before.map { ExtensionFiles.commandsIn(manifest($0)) }
+        var (commands, pages) = ExtensionFiles.commandsIn(manifest(folder))
         if !review, let had {   // an update: only what's new needs a yes
             commands = commands.filter { !had.commands.contains($0) }
             pages = pages.filter { !had.pages.contains($0) }
@@ -104,7 +105,8 @@ extension Main {
                 guard readLine()?.lowercased().hasPrefix("y") == true else { fail("not installed") }
             }
         }
-        return try IDE.installExtension(folder, as: name ?? folder.lastPathComponent, in: Paths.extensions, move: true)
+        return try ExtensionFiles.installExtension(
+            folder, as: name ?? folder.lastPathComponent, in: Paths.extensions, move: true)
     }
 
     static func manifest(_ folder: URL) -> JSONValue {
@@ -114,7 +116,7 @@ extension Main {
 
     /// What was installed and what it can run: the CLI's version of the app's look before installing.
     static func installed(_ dest: URL) {
-        let info = manifest(dest), (commands, pages) = IDE.commandsIn(info)
+        let info = manifest(dest), (commands, pages) = ExtensionFiles.commandsIn(info)
         print(
             "installed \(info["id"]?.string ?? dest.lastPathComponent) \(info["version"]?.string ?? "") → \(dest.path)")
         if !commands.isEmpty || !pages.isEmpty { print("it can run:") }

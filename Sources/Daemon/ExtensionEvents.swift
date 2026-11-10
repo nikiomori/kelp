@@ -116,7 +116,7 @@ final class ExtensionEvents: Sendable {
             guard let first = manifest(FileManager.default.contents(atPath: file.path), folder),
                 first.contributes?.events?.contains(where: { $0.on == event }) == true
             else { return [] }
-            let read = IDE.extensionFiles(folder)
+            let read = ExtensionFiles.extensionFiles(folder)
             guard let manifest = manifest(read["/extension.json"], folder), !off.contains(manifest.id) else {
                 return []
             }

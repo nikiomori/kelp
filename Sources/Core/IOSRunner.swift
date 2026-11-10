@@ -14,7 +14,7 @@ public enum IOSRunner {
         ]
         var files: [String: String] = [:]
         for (path, name) in names {
-            guard let text = IDE.resource(name, "txt") else { return nil }
+            guard let text = Paths.resource(name, "txt") else { return nil }
             files[path] = text
         }
         return files

@@ -118,7 +118,7 @@ import Testing
     // A command line runs in sh on the host, not in this Mac's zsh; cwd (the project's folder) picks the host for another workspace's tab.
     let ssh = try d.sessions.setup.launchArgv(
         ["/bin/zsh", "-lc", "claude update"], cwd: repo.path, manifest: .custom("claude update"))
-    #expect(ssh.last?.hasSuffix(IDE.shellWord("'sh' '-c' 'claude update'")) == true)
+    #expect(ssh.last?.hasSuffix(ShellQuote.word("'sh' '-c' 'claude update'")) == true)
     let other: Session = try await c.call(
         "session.create", .obj(["cwd": .string(repo.path), "command": "pwd -P"]), as: Session.self)
     #expect(

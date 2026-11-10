@@ -2,7 +2,7 @@ import Foundation
 
 /// What a command is called where a tab or a row has room for a few words: "swift build" for
 /// `cd /x && swift build --product kelp > log 2>&1`, the file's name for a script.
-public enum CommandName {
+enum CommandName {
     /// Steps that only prepare what comes after them.
     private static let setup: Set<String> = [
         "cd", "pushd", "export", "unset", "set", "source", ".", "for", "while", "if"
@@ -10,7 +10,7 @@ public enum CommandName {
     /// Words in front of the program.
     private static let lead: Set<String> = ["do", "then", "exec", "time", "env", "sudo", "nohup", "command"]
 
-    public static func of(_ command: String) -> String {
+    static func of(_ command: String) -> String {
         let steps = command.replacingOccurrences(of: "&&", with: ";").replacingOccurrences(of: "||", with: ";")
             .split { $0 == ";" || $0 == "\n" }
         return steps.lazy.compactMap(name).first

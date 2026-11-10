@@ -496,9 +496,9 @@ private let sample = FileDiff(
 }
 
 @Test func remoteWordsAreQuotedForTheHostsShell() {
-    #expect(IDE.shellWord("plain") == "'plain'")
-    #expect(IDE.shellWord("it's") == "'it'\\''s'")
-    #expect(IDE.shellWord("$(touch x); `id`") == "'$(touch x); `id`'")   // single quotes: the shell expands nothing inside
+    #expect(ShellQuote.word("plain") == "'plain'")
+    #expect(ShellQuote.word("it's") == "'it'\\''s'")
+    #expect(ShellQuote.word("$(touch x); `id`") == "'$(touch x); `id`'")   // single quotes: the shell expands nothing inside
     #expect(RemoteHost.cdArg("~") == "~")
     #expect(RemoteHost.cdArg("~/my project") == "~/'my project'")   // the ~ stays outside so the host expands it
     #expect(RemoteHost.cdArg("/srv/a b") == "'/srv/a b'")
@@ -510,7 +510,7 @@ private let sample = FileDiff(
     // A local absolute path means nothing on the host: only the program's name is sent. Arguments with spaces and quotes survive one more level of quoting.
     #expect(
         r.command(["/Users/me/.local/bin/claude", "--resume", "a b"]) == "cd '/srv/app' && exec \"$SHELL\" -ilc "
-            + IDE.shellWord("'claude' '--resume' 'a b'"))
+            + ShellQuote.word("'claude' '--resume' 'a b'"))
     #expect(r.command([]) == r.command(nil))
 }
 

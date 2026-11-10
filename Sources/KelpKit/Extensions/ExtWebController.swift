@@ -133,7 +133,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         case "exec":
             // An array is one program and its words, each passed as it is (no shell reads them): `kelp.exec(["git", "log"])`.
             let argv = ExtBridge.decode(body["argv"], as: [String].self)
-            let line = argv.map { $0.map(IDE.shellWord).joined(separator: " ") } ?? arg
+            let line = argv.map { $0.map(ShellQuote.word).joined(separator: " ") } ?? arg
             Task {
                 let result = await Shell.run(
                     app, line, cwd: ctx.workspace?.path ?? folder.path, extension: folder.lastPathComponent)

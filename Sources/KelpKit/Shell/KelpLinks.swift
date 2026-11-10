@@ -32,7 +32,7 @@ struct KelpLinks {
             FileManager.default.fileExists(atPath: path, isDirectory: &dir)
             if !dir.boolValue {
                 openFile(path, line: query.first { $0.name == "line" }?.value.flatMap(Int.init))
-            } else if app.repos.contains(where: { IDE.inside(path, $0.path) }) {   // a link out of a project isn't in it
+            } else if app.repos.contains(where: { Paths.inside(path, $0.path) }) {   // a link out of a project isn't in it
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
                 let alert = NSAlert()
@@ -76,7 +76,7 @@ struct KelpLinks {
 
     /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.
     func isKnown(_ path: String) -> Bool {
-        (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { IDE.inside(path, $0) }
+        (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { Paths.inside(path, $0) }
     }
 }
 

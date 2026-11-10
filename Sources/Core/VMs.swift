@@ -249,7 +249,7 @@ public enum VMs {
               IdentitiesOnly yes
               UserKnownHostsFile "\(folder.appendingPathComponent("known_hosts").path)"
               StrictHostKeyChecking accept-new
-              ProxyCommand /usr/bin/nc -U \(IDE.shellWord(folder.appendingPathComponent(socket).path))
+              ProxyCommand /usr/bin/nc -U \(ShellQuote.word(folder.appendingPathComponent(socket).path))
               ServerAliveInterval 15
               LogLevel ERROR
 
@@ -272,14 +272,14 @@ public enum VMs {
     /// The command line run inside: `folder` mounted at its own path from its slot (again when that path holds another
     /// slot, or went stale), then `cwd`, then the command.
     public static func prefix(slot: Int, folder: String, cwd: String, os: String = "linux") -> String {
-        let dir = IDE.shellWord(folder), tag = "kelp\(slot)", cd = "cd \(IDE.shellWord(cwd)) || exit 1; "
+        let dir = ShellQuote.word(folder), tag = "kelp\(slot)", cd = "cd \(ShellQuote.word(cwd)) || exit 1; "
         guard os == "macos" else {
             return "{ [ \"$(findmnt -n -o SOURCE --mountpoint \(dir))\" = \(tag) ] && ls \(dir) >/dev/null 2>&1; } "
                 + "|| { sudo umount -l \(dir) 2>/dev/null; sudo mount --mkdir -t virtiofs \(tag) \(dir); } || exit 1; "
                 + cd
         }
         // macOS: mount(8) lists it as "kelp3 on /path (virtiofs, …)"; mount_virtiofs needs the folder there first.
-        return "{ mount | grep -qF \(IDE.shellWord("\(tag) on \(folder) (")) && ls \(dir) >/dev/null 2>&1; } "
+        return "{ mount | grep -qF \(ShellQuote.word("\(tag) on \(folder) (")) && ls \(dir) >/dev/null 2>&1; } "
             + "|| { sudo umount -f \(dir) 2>/dev/null; sudo mkdir -p \(dir) && sudo mount_virtiofs \(tag) \(dir); } || exit 1; "
             + cd
     }
@@ -303,7 +303,7 @@ public enum VMs {
     public static func command(_ command: String, session: String?) -> String {
         let id = (session ?? "-").filter { $0.isLetter || $0.isNumber || $0 == "-" }
         let run = "exec -a kelp-vm-run:\(id.isEmpty ? "-" : id) bash -l"
-        return command.isEmpty ? run : run + " -c " + IDE.shellWord(trapped + command)
+        return command.isEmpty ? run : run + " -c " + ShellQuote.word(trapped + command)
     }
     static let trapped = "trap : EXIT; "
 

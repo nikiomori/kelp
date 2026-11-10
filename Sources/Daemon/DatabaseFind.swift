@@ -107,7 +107,7 @@ enum DatabaseFind {
             .joined(separator: " ")
         let script =
             "for f in \(names); do [ -f \"$f\" ] && printf '\\036%s\\n' \"$f\" && head -c 1048576 \"$f\"; done; true"
-        return "cd \(RemoteHost.cdArg(path)) 2>/dev/null && exec sh -c " + IDE.shellWord(script)
+        return "cd \(RemoteHost.cdArg(path)) 2>/dev/null && exec sh -c " + ShellQuote.word(script)
     }
 
     static func parse(remote output: String, root: String) -> [FoundDatabase] {

@@ -200,7 +200,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     private func command(_ conversation: AgentSessionInfo) -> String {
-        let cwd = IDE.shellWord(conversation.cwd)
+        let cwd = ShellQuote.word(conversation.cwd)
         return conversation.agent == .codex
             ? "cd \(cwd) && codex resume \(conversation.id)" : "cd \(cwd) && claude --resume \(conversation.id)"
     }

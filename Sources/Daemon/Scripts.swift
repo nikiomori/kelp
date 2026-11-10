@@ -16,7 +16,7 @@ extension Workspaces {
         if let other = ImportedConfig.find(repoPath) { return (repoPath + "/" + other.file, other.text, other.config) }
         return (own, "", RepoConfig())
     }
-    static func digest(_ text: String) -> String { IDE.sha256(Data(text.utf8)) }
+    static func digest(_ text: String) -> String { Data(text.utf8).sha256 }
 
     /// The file read once, its parsed config and whether the user trusts exactly that text: checking one read and using
     /// another would let a write in between (an agent, a pull) slip in unseen.

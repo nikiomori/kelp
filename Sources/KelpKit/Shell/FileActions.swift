@@ -15,7 +15,7 @@ package struct FileActions {
         let root = app.worktree(app.workbench.workspaceId)?.path ?? ""
         let rel = !root.isEmpty && path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path
         let suffix = lines.map { $0.count == 1 ? ":\($0.lowerBound)" : ":\($0.lowerBound)-\($0.upperBound)" } ?? ""
-        return IDE.escapedPath(rel) + suffix
+        return ShellQuote.escapedPath(rel) + suffix
     }
 
     /// The agent the user was last with in this workspace (never a plain terminal).

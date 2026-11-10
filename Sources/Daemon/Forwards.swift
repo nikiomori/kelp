@@ -144,7 +144,8 @@ final class Forwards: Sendable {
     /// What the workspace's folder serves on the host, and where each is here. Never opens a connection (Kelp must not
     /// redial a host someone closed the lid on): without one, the last answer, marked offline.
     func ports(_ worktree: Worktree, _ remote: RemoteHost, sessions: [String]) -> [PortsList.Port] {
-        let args = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(HostPorts.script(remote.path))]
+        let args =
+            [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(HostPorts.script(remote.path))]
         guard let connection = remote.connection, let out = Subprocess.printed(args, path: "/usr/bin:/bin", timeout: 5)
         else {
             return state.withLock { $0.seen[worktree.id] ?? [] }.map {

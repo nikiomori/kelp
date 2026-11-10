@@ -24,7 +24,7 @@ public enum ShellTemplate {
                 quotes.inserted()   // for a shell on another machine: the value, quoted for that shell
             } else if let filled = value(String(rest[open.upperBound..<close])) {
                 let name = "KELP_V\(assign.count + 1)"
-                assign.append("\(name)=\(IDE.shellWord(filled))")
+                assign.append("\(name)=\(ShellQuote.word(filled))")
                 out += quotes.reference(name)
                 quotes.inserted()
             } else {
@@ -33,7 +33,8 @@ public enum ShellTemplate {
             }
             rest = rest[rest.index(after: close)...]
         }
-        assign += named.sorted { $0.key < $1.key }.compactMap { k, v in envName(k).map { "\($0)=\(IDE.shellWord(v))" } }
+        assign += named.sorted { $0.key < $1.key }.compactMap { k, v in envName(k).map { "\($0)=\(ShellQuote.word(v))" }
+        }
         return assign.isEmpty ? out + rest : "export " + assign.joined(separator: " ") + "; " + out + rest
     }
 
@@ -171,8 +172,8 @@ struct ShellQuotes {
     /// shell hands that quoted word on unchanged. nil anywhere else.
     func remoteLiteral(_ v: String) -> String? {
         guard remoteQuote, inDoc == nil, !inComment else { return nil }
-        let word = IDE.shellWord(v)
-        if inSingle { return "'" + IDE.shellWord(word) + "'" }
+        let word = ShellQuote.word(v)
+        if inSingle { return "'" + ShellQuote.word(word) + "'" }
         if inDouble {
             return word.reduce(into: "") { out, ch in
                 if "\\\"$`".contains(ch) { out.append("\\") }
@@ -188,7 +189,7 @@ struct ShellQuotes {
         guard !inSingle, !inDouble, inDoc == nil, !inComment,
             line.range(of: #"(^|[\s;|&(/])ssh\s(\\[;|&]|[^;|&])*$"#, options: .regularExpression) != nil
         else { return nil }
-        return IDE.shellWord(IDE.shellWord(v))
+        return ShellQuote.word(ShellQuote.word(v))
     }
 
     /// A line whose here-document a shell runs: `sh <<EOF`, `bash -s <<EOF`, `cat <<EOF | sh`.

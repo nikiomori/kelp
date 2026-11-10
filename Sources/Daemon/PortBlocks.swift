@@ -4,12 +4,12 @@ import Foundation
 /// every session started there; `.kelp.yaml` commands use `$KELP_PORT` or `$((KELP_PORT+1))`, as a shell does.
 /// A folder's block comes from its path, the same on every run; two that land on one block are told apart in path order.
 /// Limit: a folder added later whose path sorts first can move another's block when they collide (new sessions only).
-public enum PortBlocks {
+enum PortBlocks {
     /// 20000–48999: below macOS's ephemeral ports (49152 and up), where outgoing connections take their source ports.
-    public static let first = 20_000, size = 10, count = 2_900
+    static let first = 20_000, size = 10, count = 2_900
 
     /// The first port of `folder`'s block, among `folders` (every project folder Kelp knows).
-    public static func port(for folder: String, among folders: [String]) -> Int {
+    static func port(for folder: String, among folders: [String]) -> Int {
         var taken = Set<Int>()
         for other in Set(folders + [folder]).sorted() {
             var slot = start(other)

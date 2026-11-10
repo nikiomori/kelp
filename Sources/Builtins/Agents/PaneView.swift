@@ -96,7 +96,7 @@ final class PaneView: NSView {
             Bundle.main.bundleIdentifier == nil ? "kelp" : "Contents/MacOS/kelp"
         ).path
         return GhosttyTerminalView(
-            command: IDE.shellWord(kelp) + " attach \(s.id)", cwd: s.cwd,
+            command: ShellQuote.word(kelp) + " attach \(s.id)", cwd: s.cwd,
             env: ["KELP_SOCKET": Paths.socket.path, "KELP_HOME": Paths.root.path])
     }
 

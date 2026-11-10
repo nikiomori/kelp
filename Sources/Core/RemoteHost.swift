@@ -46,7 +46,7 @@ public struct RemoteHost: Codable, Sendable, Equatable {
         guard let argv, !argv.isEmpty else { return cd + " && exec \"$SHELL\" -l" }
         // A local absolute path means nothing there: the host finds the program by name.
         let words = [(argv[0] as NSString).lastPathComponent] + argv.dropFirst()
-        return cd + " && exec \"$SHELL\" -ilc " + IDE.shellWord(words.map(IDE.shellWord).joined(separator: " "))
+        return cd + " && exec \"$SHELL\" -ilc " + ShellQuote.word(words.map(ShellQuote.word).joined(separator: " "))
     }
 
     /// `argv` as `command` runs it, inside tmux session `name` on the host, or attached to that session again while it still
@@ -56,9 +56,10 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// none. Without tmux on the host, `argv` runs as it is.
     public func command(_ argv: [String], inTmux name: String) -> String {
         guard !argv.isEmpty else { return command(nil) }
-        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(IDE.shellWord).joined(
+        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(ShellQuote.word).joined(
             separator: " ")
-        let pane = "exec \"$SHELL\" -ilc " + IDE.shellWord(words)   // tmux runs a pane's one-string command in a shell
+        // tmux runs a pane's one-string command in a shell
+        let pane = "exec \"$SHELL\" -ilc " + ShellQuote.word(words)
         // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
         let options = [
             ["status", "off"], ["mouse", "on"], ["set-titles", "on"],
@@ -70,18 +71,19 @@ public struct RemoteHost: Codable, Sendable, Equatable {
             ["tmux", "new-session", "-A", "-s", name, pane]
             + options.flatMap { [";", "set-option", "-t", "=" + name + ":"] + $0 }
         let missed =
-            "s=$(tmux show-options -qv -t \(IDE.shellWord("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
+            "s=$(tmux show-options -qv -t \(ShellQuote.word("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
             + #"[ -z "$s" ] || printf '\033]7501;%s\007' "$s"; "#
         let cd = "cd \(Self.cdArg(path))"
         return cd + " && exec \"$SHELL\" -ilc "
-            + IDE.shellWord(
-                missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(IDE.shellWord).joined(separator: " ")
+            + ShellQuote.word(
+                missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(ShellQuote.word).joined(separator: " ")
                     + " || exec " + words)
     }
 
     /// `cd`'s argument: quoted, with a leading ~ left outside the quotes so the host's shell expands it.
     public static func cdArg(_ path: String) -> String {
-        path == "~" ? "~" : path.hasPrefix("~/") ? "~/" + IDE.shellWord(String(path.dropFirst(2))) : IDE.shellWord(path)
+        path == "~"
+            ? "~" : path.hasPrefix("~/") ? "~/" + ShellQuote.word(String(path.dropFirst(2))) : ShellQuote.word(path)
     }
 }
 

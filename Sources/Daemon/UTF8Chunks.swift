@@ -2,9 +2,9 @@ import Foundation
 
 /// Output read in chunks can end inside a character (a read of 64 KB cuts "…" in two): decoded alone, each half would
 /// read as U+FFFD. The cut-off bytes are kept for the next chunk instead.
-public enum UTF8Chunks {
+enum UTF8Chunks {
     /// `data` split into what decodes whole and the start of a character it ends in (at most 3 bytes).
-    public static func split(_ data: Data) -> (whole: Data, rest: Data) {
+    static func split(_ data: Data) -> (whole: Data, rest: Data) {
         let end = data.endIndex
         var cut = end
         while cut > data.startIndex, end - cut < 3, data[data.index(before: cut)] & 0xC0 == 0x80 {

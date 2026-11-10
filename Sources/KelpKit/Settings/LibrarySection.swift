@@ -47,7 +47,7 @@ struct LibrarySection: View {
                 )
                 .font(.ui(11)).foregroundStyle(.secondary)
                 Spacer()
-                if let url = URL(string: "https://github.com/\(IDE.libraryRepo)") {
+                if let url = URL(string: "https://github.com/\(ExtensionFiles.libraryRepo)") {
                     Link("Share Yours on GitHub", destination: url).font(.ui(11))
                 }
             }

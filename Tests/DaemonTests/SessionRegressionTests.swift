@@ -160,7 +160,7 @@ private func submitted(_ screen: String) -> String {
     let script = "set -m; (trap '' HUP TERM; while :; do sleep 0.1; done) & echo $! > \(pidFile); echo started; wait"
     _ = try await w.c.call(
         "session.create",
-        .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + IDE.shellWord(script))]))
+        .obj(["worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + ShellQuote.word(script))]))
     #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: pidFile) })
     #expect(
         try await waitFor(10) {

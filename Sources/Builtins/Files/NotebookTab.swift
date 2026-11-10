@@ -108,7 +108,7 @@ final class NotebookTab: NSViewController {
             guard
                 let session = await app.call(
                     SessionCreate(
-                        worktreeId: wid, command: "jupyter lab --no-browser " + IDE.shellWord(path),
+                        worktreeId: wid, command: "jupyter lab --no-browser " + ShellQuote.word(path),
                         title: "Jupyter", openURLs: true))
             else { return }
             app.sessions.append(session)

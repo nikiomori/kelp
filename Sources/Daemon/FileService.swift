@@ -142,7 +142,7 @@ struct FileService: Sendable {
     }
 
     /// A version on a host: its bytes' SHA-256.
-    static func digest(_ data: Data) -> FileStamp { "sha256:" + IDE.sha256(data) }
+    static func digest(_ data: Data) -> FileStamp { "sha256:" + data.sha256 }
 
     // MARK: here
 
@@ -200,7 +200,8 @@ struct FileService: Sendable {
     private func remoteBytes(_ remote: RemoteHost, _ path: String) throws -> Data {
         let limit = Unopenable.openLimit
         let script =
-            "f=\(IDE.shellWord(path)); if [ ! -e \"$f\" ]; then echo missing; elif [ ! -f \"$f\" ]; then echo special; "
+            "f=\(ShellQuote.word(path)); if [ ! -e \"$f\" ]; then echo missing; "
+            + "elif [ ! -f \"$f\" ]; then echo special; "
             + "else n=$(wc -c < \"$f\") || exit 1; echo $n; [ $n -gt \(limit) ] || head -c \(limit + 1) -- \"$f\"; fi"
         let out = try remote.run(script)
         guard let nl = out.firstIndex(of: 0x0A) else { throw RPCError.internalError("\(remote.host) didn't answer.") }
@@ -216,7 +217,7 @@ struct FileService: Sendable {
     /// `IconSearch` on the host, from one listing of the folders it looks in ("folder<TAB>name", and an AppIcon set's PNGs
     /// with their size), then the icon's bytes: kept in `keep` (emptied when there's none) → the kept copy.
     private func findIcon(_ remote: RemoteHost, keep: String) throws -> String? {
-        let places = IconSearch.places.map(IDE.shellWord).joined(separator: " ")
+        let places = IconSearch.places.map(ShellQuote.word).joined(separator: " ")
         let script =
             "cd \(RemoteHost.cdArg(remote.path)) || exit 1; export LC_ALL=C; "
             + #"l() { [ -d "$1" ] && ls -1A "$1" | while IFS= read -r f; do printf '%s\t%s\n' "$1" "$f"; done; }; l .; "#
@@ -245,7 +246,7 @@ struct FileService: Sendable {
     private func writeRemote(_ remote: RemoteHost, _ path: String, _ data: Data, base: FileStamp?) throws
         -> FilesWrite.Result
     {
-        let file = IDE.shellWord(path)
+        let file = ShellQuote.word(path)
         // Changed there since it was read: the caller decides. Compared by the bytes' digest; one that can't be read
         // (permissions) fails the save rather than being written over.
         if let base {
@@ -260,13 +261,13 @@ struct FileService: Sendable {
         // Sent to a file beside it, then copied over it on the host once all of it came (a dropped connection ends the
         // upload as if it were done: its size tells), so the file keeps its mode, owner and links. Limit: a disk that fills up
         // during that copy leaves it short, so the copy beside it stays then, and the error says where.
-        let tmp = IDE.shellWord(path + ".kelp-XXXXXX")
+        let tmp = ShellQuote.word(path + ".kelp-XXXXXX")
         let script =
             "t=$(mktemp \(tmp)) || exit 1; "
             + "if ! { cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ]; }; then rm -f \"$t\"; exit 1; fi; "
             + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; rm -f \"$t\""
         try Git.runData(
-            remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), stdin: data,
+            remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(script)], cwd: NSHomeDirectory(), stdin: data,
             executable: remote.ssh)
         return .init(stamp: Self.digest(data))
     }

@@ -7,10 +7,12 @@ extension Methods {
 
 extension ExtensionLibrary: Handled {
     func handle(_ settings: SettingsStore) throws -> Result {
-        try IDE.library(index: settings[SettingKeys.extensionLibrary])
+        try ExtensionFiles.library(index: settings[SettingKeys.extensionLibrary])
     }
 }
 
 extension ExtensionFetch: Handled {
-    func handle(_: NoService) throws -> Result { Result(folder: try IDE.fetchExtension(source, files: files).path) }
+    func handle(_: NoService) throws -> Result {
+        Result(folder: try ExtensionFiles.fetchExtension(source, files: files).path)
+    }
 }

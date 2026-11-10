@@ -79,7 +79,7 @@ import Testing
     #expect(listed.subtracting(declared).sorted() == [], "listed but not an RPCEvent")
 }
 
-/// "Is this path in that folder" is `IDE.inside`, which follows links and `..`: by hand (`a == b || a.hasPrefix(b +
+/// "Is this path in that folder" is `Paths.inside`, which follows links and `..`: by hand (`a == b || a.hasPrefix(b +
 /// "/")`, a workspace found by `hasPrefix($0.path + "/")`) a path spelled another way (/tmp for /private/tmp, a link)
 /// isn't in its own project. (A `hasPrefix(root + "/")` that then drops the root to show the rest is a string's, not
 /// this question, so it isn't counted.)
@@ -92,5 +92,5 @@ import Testing
             "\(f.path):\(code[..<(Range(m.range, in: code)?.lowerBound ?? code.startIndex)].filter { $0 == "\n" }.count + 1)"
         }
     }
-    #expect(found == [], "use IDE.inside")
+    #expect(found == [], "use Paths.inside")
 }

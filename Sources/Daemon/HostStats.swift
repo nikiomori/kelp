@@ -30,7 +30,7 @@ enum HostStatsReader {
         if !connect, remote.connection == nil {
             return HostStats(host: host, connected: false, error: errors.withLock { $0[host] })
         }
-        let argv = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)]
+        let argv = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(script)]
         let out = Log.session.attempt("reading \(host)'s stats") {
             try Subprocess.run(
                 argv, cwd: NSHomeDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 25, limit: 4 << 20)

@@ -11,7 +11,7 @@ public enum AgentTrust {
         agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()
     ) -> Bool {
         let trusted = trustedFolders(agent: agent, env: env, home: home)
-        return folders.contains { folder in trusted.contains { !$0.isEmpty && IDE.inside(folder, $0) } }
+        return folders.contains { folder in trusted.contains { !$0.isEmpty && Paths.inside(folder, $0) } }
     }
 
     public static func trustedFolders(agent: String, env: [String: String], home: String) -> [String] {

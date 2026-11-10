@@ -15,7 +15,7 @@ enum AgentSkills {
                 "Use when the user wants something added to or changed in Kelp, the IDE this session runs in: a panel, list, tab, command, "
                 + "setting, theme or language server — e.g. “add a Kelp panel with my Docker containers”, “show Android emulators in Kelp”. Kelp extensions are "
                 + "extension.json folders in $KELP_HOME/extensions; they are not Claude Code plugins, mods, hooks or MCP servers.",
-            body: extensionsSteps(ExtensionRegistry.userDir.path) + IDE.extensionGuide)
+            body: extensionsSteps(ExtensionRegistry.userDir.path) + ExtensionFiles.extensionGuide)
         put(
             "kelp-settings", on: settings[SettingKeys.skillSettings],
             description:
@@ -69,7 +69,7 @@ enum AgentSkills {
                 + "text — in Kelp, the IDE this session runs in: open it in a tab beside you that the user watches, read it, click, "
                 + "type, run JavaScript, take a screenshot, read its console and requests. Done with kelp browser, not a headless browser.",
             body: browserGuide)
-        try? IDE.writeGuide(in: ExtensionRegistry.userDir)   // the guide also sits next to the user's extensions, for people
+        try? ExtensionFiles.writeGuide(in: ExtensionRegistry.userDir)   // the guide also sits next to the user's extensions, for people
     }
 
     /// The exact folder this Kelp loads extensions from (the guide below says ~/.kelp, which a custom KELP_HOME changes).

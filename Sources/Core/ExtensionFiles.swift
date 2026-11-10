@@ -4,8 +4,22 @@ import os
 
 /// The extension library: github.com/nikiomori/kelp-extensions, a public repo of extensions reviewed before they're
 /// merged. Its CI writes index.json with each one's folder at the commit that was reviewed, and installing one downloads
-/// exactly that. Any other GitHub folder installs the same way, without the review.
-extension IDE {
+/// exactly that. Any other GitHub folder installs the same way, without the review. With what an extension's folder
+/// holds: its id, the authoring guide beside it, and the digest of its files the user allows.
+public enum ExtensionFiles {
+    public static func isValidExtensionID(_ id: String) -> Bool { id.wholeMatch(of: /[a-z0-9][a-z0-9.-]*/) != nil }
+
+    /// The extension authoring guide (Resources/extensions.md; docs/extensions.md links to it).
+    public static let extensionGuide = Paths.resource("extensions", "md") ?? ""
+
+    /// EXTENSIONS.md, rewritten when missing or older than this build's guide.
+    public static func writeGuide(in dir: URL) throws {
+        let guide = dir.appendingPathComponent("EXTENSIONS.md")
+        guard !extensionGuide.isEmpty, String(contentsIfAny: guide) != extensionGuide else { return }
+        try Paths.ensure(dir)
+        try extensionGuide.write(to: guide, atomically: true, encoding: .utf8)
+    }
+
     public static let libraryRepo = "nikiomori/kelp-extensions"
     public static let libraryIndex = "https://raw.githubusercontent.com/\(libraryRepo)/main/index.json"
     /// Where an installed extension came from, written by `fetchExtension`: `{"source": "https://github.com/…"}`.
@@ -98,14 +112,10 @@ extension IDE {
             guard fm.fileExists(atPath: url.path, isDirectory: &dir), !dir.boolValue else { continue }
             let path = String(url.resolvingSymlinksInPath().path.dropFirst(root.count + 1))
             if path == sourceFile { continue }   // Kelp's own, written after the download
-            guard let data = fm.contents(atPath: url.path), files[path] == sha256(data) else { return path }
+            guard let data = fm.contents(atPath: url.path), files[path] == data.sha256 else { return path }
             seen.insert(path)
         }
         return files.keys.sorted().first { !seen.contains($0) }
-    }
-
-    public static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     /// `archive` is a GitHub tarball (one top folder); the extension at `path` in it ends up in a temporary folder of its own.
@@ -281,4 +291,9 @@ extension IDE {
         walk(manifest)
         return (commands, pages)
     }
+}
+
+extension Data {
+    /// Its SHA-256, as hex.
+    public var sha256: String { SHA256.hash(data: self).map { String(format: "%02x", $0) }.joined() }
 }

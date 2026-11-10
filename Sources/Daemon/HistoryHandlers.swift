@@ -97,7 +97,7 @@ extension AgentUsage {
         return { cwd in
             if let name = named[cwd] { return name }
             let name =
-                repos.first { !cwd.isEmpty && IDE.inside(cwd, $0.path) }?.name
+                repos.first { !cwd.isEmpty && Paths.inside(cwd, $0.path) }?.name
                 ?? (cwd.isEmpty ? "Other" : (cwd as NSString).lastPathComponent)
             named[cwd] = name
             return name

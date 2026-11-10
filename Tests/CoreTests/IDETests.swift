@@ -6,9 +6,11 @@ import Testing
 /// The starter's list command must print one JSON object per line using only stock tools.
 @Test func scaffoldedExtensionWorks() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kx-\(UUID().uuidString.prefix(8))")
-    let folder = try IDE.scaffoldExtension(id: "files", name: nil, description: "Top-level files", in: dir)
-    #expect(try String(contentsOf: dir.appendingPathComponent("EXTENSIONS.md"), encoding: .utf8) == IDE.extensionGuide)
-    #expect(IDE.extensionGuide.hasPrefix("# Writing Kelp extensions"))   // found in Core's resource bundle
+    let folder = try ExtensionFiles.scaffoldExtension(id: "files", name: nil, description: "Top-level files", in: dir)
+    #expect(
+        try String(contentsOf: dir.appendingPathComponent("EXTENSIONS.md"), encoding: .utf8)
+            == ExtensionFiles.extensionGuide)
+    #expect(ExtensionFiles.extensionGuide.hasPrefix("# Writing Kelp extensions"))   // found in Core's resource bundle
     #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("README.md").path))
     let m = try JSONDecoder().decode(
         JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))
@@ -32,9 +34,12 @@ import Testing
     .compactMap { try? JSONDecoder().decode(JSONValue.self, from: Data($0.utf8)) }
     #expect(rows == [.obj(["name": "./a b.txt", "size": 2])])
 
-    #expect(throws: RPCError.self) { try IDE.scaffoldExtension(id: "files", name: nil, description: nil, in: dir) }   // exists
+    #expect(throws: RPCError.self) {
+        try ExtensionFiles.scaffoldExtension(id: "files", name: nil, description: nil, in: dir)
+    }   // exists
     #expect(
-        !IDE.isValidExtensionID("Bad_ID") && !IDE.isValidExtensionID("..") && IDE.isValidExtensionID("docker.compose-2")
+        !ExtensionFiles.isValidExtensionID("Bad_ID") && !ExtensionFiles.isValidExtensionID("..")
+            && ExtensionFiles.isValidExtensionID("docker.compose-2")
     )
 }
 
@@ -47,9 +52,9 @@ import Testing
 }
 
 @Test func droppedPathsAreBackslashEscaped() {
-    #expect(IDE.escapedPath("/tmp/My File's (1).png") == #"/tmp/My\ File\'s\ \(1\).png"#)
-    #expect(IDE.escapedPath(#"/a\b"#) == #"/a\\b"#)
-    #expect(IDE.escapedPath("/plain/path.txt") == "/plain/path.txt")
+    #expect(ShellQuote.escapedPath("/tmp/My File's (1).png") == #"/tmp/My\ File\'s\ \(1\).png"#)
+    #expect(ShellQuote.escapedPath(#"/a\b"#) == #"/a\\b"#)
+    #expect(ShellQuote.escapedPath("/plain/path.txt") == "/plain/path.txt")
 }
 
 /// Workspaces of a project share its folder: `kelp open` from an agent means that agent's own workspace.
@@ -75,18 +80,18 @@ import Testing
     try FileManager.default.createSymbolicLink(atPath: base + "/link", withDestinationPath: folder)
     try FileManager.default.createSymbolicLink(atPath: folder + "/out", withDestinationPath: base + "/a/bc")
     defer { try? FileManager.default.removeItem(atPath: base) }
-    #expect(IDE.inside(folder, folder) && IDE.inside(folder + "/", folder) && IDE.inside(folder, folder + "/"))
-    #expect(IDE.inside(folder + "/c/f.txt", folder) && IDE.inside(folder + "/not/there/yet.md", folder))
-    #expect(!IDE.inside(base + "/a/bc", folder) && !IDE.inside(base + "/a/bc/f.txt", folder))   // a sibling named alike
-    #expect(!IDE.inside(base + "/a", folder) && !IDE.inside("/", folder))
-    #expect(IDE.inside(folder + "/c/../c/f", folder) && !IDE.inside(folder + "/../bc/f", folder))   // `..` followed
-    #expect(IDE.inside(base + "/link/c", folder) && IDE.inside(folder + "/c", base + "/link"))   // through a link
-    #expect(IDE.inside(base + "/link/new/x.md", folder))   // through a link, not there yet
-    #expect(!IDE.inside(folder + "/out/f", folder))   // a link out of the folder
+    #expect(Paths.inside(folder, folder) && Paths.inside(folder + "/", folder) && Paths.inside(folder, folder + "/"))
+    #expect(Paths.inside(folder + "/c/f.txt", folder) && Paths.inside(folder + "/not/there/yet.md", folder))
+    #expect(!Paths.inside(base + "/a/bc", folder) && !Paths.inside(base + "/a/bc/f.txt", folder))   // a sibling named alike
+    #expect(!Paths.inside(base + "/a", folder) && !Paths.inside("/", folder))
+    #expect(Paths.inside(folder + "/c/../c/f", folder) && !Paths.inside(folder + "/../bc/f", folder))   // `..` followed
+    #expect(Paths.inside(base + "/link/c", folder) && Paths.inside(folder + "/c", base + "/link"))   // through a link
+    #expect(Paths.inside(base + "/link/new/x.md", folder))   // through a link, not there yet
+    #expect(!Paths.inside(folder + "/out/f", folder))   // a link out of the folder
     let real = try #require(Paths.real(folder)), plain = real.replacingOccurrences(of: "/private/", with: "/")
-    #expect(IDE.inside(plain + "/c", real) && IDE.inside(real + "/new", plain))   // /tmp is /private/tmp
-    #expect(IDE.inside("x/../y", FileManager.default.currentDirectoryPath))   // relative: from the current folder
-    #expect(IDE.inside("/a/b", "/") && !IDE.inside("/", "/a"))
+    #expect(Paths.inside(plain + "/c", real) && Paths.inside(real + "/new", plain))   // /tmp is /private/tmp
+    #expect(Paths.inside("x/../y", FileManager.default.currentDirectoryPath))   // relative: from the current folder
+    #expect(Paths.inside("/a/b", "/") && !Paths.inside("/", "/a"))
 }
 
 /// The daemon's placeholder is a new chat to people; a name someone gave it, or a first prompt did, stays.

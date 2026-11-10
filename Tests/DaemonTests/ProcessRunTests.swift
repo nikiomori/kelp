@@ -27,7 +27,8 @@ import Testing
     await #expect(throws: RPCError.self, "not allowed yet") {
         try await c.call(ProcessRun(argv: ["/bin/echo", "ran"], extensionId: "demo"))
     }
-    try d.sessions.store.setUIState(IDE.extensionTrustKey, .obj(["demo": .string(IDE.extensionDigest(ext))]))
+    try d.sessions.store.setUIState(
+        ExtensionFiles.extensionTrustKey, .obj(["demo": .string(ExtensionFiles.extensionDigest(ext))]))
     #expect(try await c.call(ProcessRun(argv: ["/bin/echo", "ok"], extensionId: "demo")).stdout == "ok\n")
     _ = try await c.call(SettingsSet(key: "extensions.disabled", value: .array(["me.demo"])))   // turned off
     for id in ["demo", "nope", "..", "demo/../demo"] {

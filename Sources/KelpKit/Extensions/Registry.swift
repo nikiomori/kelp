@@ -124,7 +124,7 @@ package final class ExtensionRegistry {
             }
             guard app.uiState.loaded else { return }   // nothing's asked before what was allowed is known
             let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter {
-                asked.insert(IDE.extensionDigest($0)).inserted
+                asked.insert(ExtensionFiles.extensionDigest($0)).inserted
             }
             guard !waiting.isEmpty else { return }
             trustAsk.after(3) { [weak self] in self?.ask(waiting) }
@@ -195,11 +195,11 @@ package final class ExtensionRegistry {
             let name = (try? JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: package)))?.manifest.id
             return (folder, name ?? src.deletingPathExtension().lastPathComponent)
         }.value
-        let shown = IDE.extensionFiles(folder)
+        let shown = ExtensionFiles.extensionFiles(folder)
         if shown["/extension.json"] != nil {
             guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else { return }
         }
-        let installed = try await Task.detached { try IDE.installExtension(folder, as: name, in: dir) }.value
+        let installed = try await Task.detached { try ExtensionFiles.installExtension(folder, as: name, in: dir) }.value
         _ = await ExtensionTrust.allow(installed.lastPathComponent, shown: shown, app)   // what the user just looked at
         reload()
     }
@@ -209,7 +209,8 @@ package final class ExtensionRegistry {
     /// `files`: the library's SHA-256 of each, which the download must match.
     func install(source: String, files: [String: String]? = nil) async -> Bool {
         guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
-        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir, shown = IDE.extensionFiles(folder)
+        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir,
+            shown = ExtensionFiles.extensionFiles(folder)
         guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else {
             try? FileManager.default.removeItem(at: folder)
             return false
@@ -217,7 +218,7 @@ package final class ExtensionRegistry {
         let installed: URL
         do {
             installed = try await Task.detached {
-                try IDE.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true)
+                try ExtensionFiles.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true)
             }.value
         } catch {
             Banner.show(

@@ -87,7 +87,7 @@ extension VMService {
     /// display and a Mac that never sleep (an agent's screenshot of a black screen says nothing). The file goes then.
     private func letKelpIn(_ machine: VMMachine) throws {
         let askpass = file(machine.name, "askpass")
-        try "#!/bin/sh\ncat \(IDE.shellWord(file(machine.name, "password").path))\n".write(
+        try "#!/bin/sh\ncat \(ShellQuote.word(file(machine.name, "password").path))\n".write(
             to: askpass, atomically: true, encoding: .utf8)
         chmod(askpass.path, 0o700)
         defer { remove(askpass) }
@@ -108,12 +108,12 @@ extension VMService {
         let password = try String(contentsOf: file(machine.name, "password"), encoding: .utf8)
         let rule = "\(machine.user) ALL=(ALL) NOPASSWD: ALL"
         let root =
-            "echo \(IDE.shellWord(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
-            + " && systemsetup -settimezone \(IDE.shellWord(TimeZone.current.identifier)) >/dev/null"   // the Mac's: times read the same
+            "echo \(ShellQuote.word(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
+            + " && systemsetup -settimezone \(ShellQuote.word(TimeZone.current.identifier)) >/dev/null"   // the Mac's: times read the same
         let sudo = try Subprocess.run(
             [
                 "/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name,
-                "sudo -S -p '' sh -c \(IDE.shellWord(root))"
+                "sudo -S -p '' sh -c \(ShellQuote.word(root))"
             ],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
         guard sudo.status == 0 else {

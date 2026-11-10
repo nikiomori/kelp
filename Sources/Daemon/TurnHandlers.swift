@@ -99,7 +99,7 @@ struct Turns: Sendable {
         let others = live.all.filter { other in   // anywhere in the checkout, by any path to it
             let snapshot = other.snapshot
             return snapshot.id != id && snapshot.status != .exited && snapshot.isAgent
-                && IDE.inside(other.turnDir ?? snapshot.cwd, dir)
+                && Paths.inside(other.turnDir ?? snapshot.cwd, dir)
         }
         guard others.isEmpty else {
             throw RPCError.invalidParams("Another agent works in this folder: its changes would go too.")

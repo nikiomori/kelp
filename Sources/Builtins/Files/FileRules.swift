@@ -93,7 +93,7 @@ final class FileRules {
     /// From the file's folder up to the workspace's, or a `root = true`: the nearer one's say stands.
     private func readConfig() async {
         var folder = (path as NSString).deletingLastPathComponent, found = EditorRules()
-        while IDE.inside(folder, root) {
+        while Paths.inside(folder, root) {
             if let text = await app.quiet(FilesRead(path: folder + "/.editorconfig"))?.text {
                 let (rules, isRoot) = EditorConfig.read(text, file: String(path.dropFirst(folder.count + 1)))
                 found = found.over(rules)

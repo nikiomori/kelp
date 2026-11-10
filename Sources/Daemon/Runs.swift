@@ -36,7 +36,7 @@ enum Runnables {
 
     /// Files as \036path\037text (a mark has no text), Go's cmd/* folders as marks, then \035 and the programs found.
     static var script: String {
-        let quoted = { (names: [String]) in names.map(IDE.shellWord).joined(separator: " ") }
+        let quoted = { (names: [String]) in names.map(ShellQuote.word).joined(separator: " ") }
         return #"for d in . * apps/* packages/* services/*; do [ -d "$d" ] || continue; "#
             + #"case "${d##*/}" in node_modules|vendor|venv|dist|build|target|out|coverage) continue;; esac; "#
             + "for f in \(quoted(files)); do [ -f \"$d/$f\" ] && { printf '\\036%s\\037' \"$d/$f\"; head -c 65536 \"$d/$f\"; }; done; "

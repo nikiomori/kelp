@@ -46,4 +46,35 @@ public enum Paths {
             return String(cString: resolved)
         }
     }
+
+    /// Whether `path` is `folder` or in it, both as they really are: `..` and links followed, a relative path taken from
+    /// the current folder. So `/a/bc` isn't in `/a/b`, a link out of the folder isn't in it, and `/tmp/x` is in
+    /// `/private/tmp`. The one way to ask it: a `hasPrefix(folder + "/")` by hand misses the links.
+    public static func inside(_ path: String, _ folder: String) -> Bool {
+        let (path, folder) = (realNearest(path), realNearest(folder))
+        return path == folder || path.hasPrefix(folder.hasSuffix("/") ? folder : folder + "/")
+    }
+
+    /// A path as it really is; one not there (yet) is its nearest folder that is, as it really is, and the rest as written.
+    public static func realNearest(_ path: String) -> String {
+        let standard = (URL(fileURLWithPath: path).path as NSString).standardizingPath
+        if let resolved = Paths.real(standard) { return resolved }
+        let up = (standard as NSString).deletingLastPathComponent
+        return up == standard
+            ? standard : (realNearest(up) as NSString).appendingPathComponent((standard as NSString).lastPathComponent)
+    }
+
+    /// A file of Resources/. Found by hand, not with Bundle.module, which stops the process when the bundle isn't where it
+    /// looks (`kelp` run through a symlink).
+    public static func resource(_ name: String, _ ext: String) -> String? {
+        let exe = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
+        let dirs = [
+            Bundle.main.resourceURL, Bundle(for: BundleToken.self).resourceURL,
+            exe?.appendingPathComponent("../Resources"), exe
+        ]
+        let bundles = dirs.lazy.compactMap { $0.flatMap { Bundle(url: $0.appendingPathComponent("Kelp_Core.bundle")) } }
+        let found = bundles.compactMap { $0.url(forResource: name, withExtension: ext) }
+        return found.first.flatMap { String(contentsIfAny: $0) }
+    }
+    private final class BundleToken {}
 }

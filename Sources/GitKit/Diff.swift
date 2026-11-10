@@ -276,7 +276,7 @@ extension Git {
                 chunk.forEach { out[$0] = .some(nil) }
                 continue
             }
-            let names = chunk.map { IDE.shellWord(host.path + "/" + $0) }.joined(separator: " ")
+            let names = chunk.map { ShellQuote.word(host.path + "/" + $0) }.joined(separator: " ")
             // Each file as a line with its length (-1: not read, -2: the budget is spent) and then that many bytes.
             let script =
                 "t=$(mktemp) || exit 1; left=\(left); for f in \(names); do if [ $left -le 0 ]; then echo -2; "

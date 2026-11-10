@@ -642,7 +642,7 @@ package final class AppModel {
     }
     /// The workspace whose folder holds `path`: the innermost, for a branch's folder inside its project's.
     package func worktree(holding path: String) -> Worktree? {
-        worktrees.filter { IDE.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
+        worktrees.filter { Paths.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
     }
     package func repo(_ id: String?) -> Repo? {
         let all = repos   // read through the observed property, as `session(_:)` does

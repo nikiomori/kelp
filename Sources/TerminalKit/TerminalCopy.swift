@@ -11,7 +11,9 @@ public enum TerminalPaste {
         return savedImage(pb).map { paths([$0]) }
     }
 
-    public static func paths(_ list: [String]) -> String { list.map(IDE.escapedPath).joined(separator: " ") + " " }
+    public static func paths(_ list: [String]) -> String {
+        list.map(ShellQuote.escapedPath).joined(separator: " ") + " "
+    }
 
     /// The MIME types a program that takes paste events (Kitty's mode 5522: omp) is offered instead of the text, from
     /// the declared types alone: "text/plain" when a paste would type something, and the image when it would be one.

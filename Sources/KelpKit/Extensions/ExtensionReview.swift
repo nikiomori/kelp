@@ -8,7 +8,7 @@ import DesignKit
 enum ExtensionReview {
     static func approve(_ folder: URL, manifest shown: JSONValue? = nil, allowing: Bool = false) async -> Bool {
         let manifest = shown ?? ExtensionTrust.manifest(folder)
-        let (commands, pages) = IDE.commandsIn(manifest)
+        let (commands, pages) = ExtensionFiles.commandsIn(manifest)
         let lines = commands + pages.map { String(localized: "\($0) — a web page, which can run any command") }
         let name = manifest["name"]?.string ?? folder.lastPathComponent
         let alert = NSAlert()
@@ -48,7 +48,7 @@ enum ExtensionTrust {
     static func manifest(_ folder: URL) -> JSONValue {
         manifest(["/extension.json": FileManager.default.contents(atPath: folder.path + "/extension.json") ?? Data()])
     }
-    /// The manifest of one read of a folder (`IDE.extensionFiles`).
+    /// The manifest of one read of a folder (`ExtensionFiles.extensionFiles`).
     static func manifest(_ files: [String: Data]) -> JSONValue {
         (try? JSONDecoder().decode(JSONValue.self, from: files["/extension.json"] ?? Data())) ?? .null
     }
@@ -56,7 +56,7 @@ enum ExtensionTrust {
     /// The folder installed as `name`, allowed as `shown` (the read its look listed): a file swapped between the look and
     /// the install makes it ask again, not run.
     static func allow(_ name: String, shown: [String: Data], _ app: AppModel) async -> Bool {
-        await record([name: IDE.extensionDigest(shown)], app)
+        await record([name: ExtensionFiles.extensionDigest(shown)], app)
     }
 
     /// Whether `folder`'s extension waits to be allowed: it runs something, and what was allowed isn't what's there, or
@@ -64,21 +64,23 @@ enum ExtensionTrust {
     /// (the daemon checks too), and the first connection that reads the state reloads (`loadedWithoutState`). With no
     /// record at all it waits too, until `adopt` has recorded what was there before Kelp asked.
     static func waits(_ folder: URL, _ app: AppModel) -> Bool {
-        let (commands, pages) = IDE.commandsIn(manifest(folder))
+        let (commands, pages) = ExtensionFiles.commandsIn(manifest(folder))
         guard !commands.isEmpty || !pages.isEmpty else { return false }
         guard app.uiState.loaded else { return app.client != nil }
-        return app.uiState[IDE.extensionTrustKey]?[folder.lastPathComponent]?.string != IDE.extensionDigest(folder)
+        return app.uiState[ExtensionFiles.extensionTrustKey]?[folder.lastPathComponent]?.string
+            != ExtensionFiles.extensionDigest(folder)
     }
 
     /// Allowed as `folders` are now. False when it couldn't be recorded (a banner says why).
     static func allow(_ folders: [URL], _ app: AppModel) async -> Bool {
-        await record(Dictionary(folders.map { ($0.lastPathComponent, IDE.extensionDigest($0)) }) { a, _ in a }, app)
+        await record(
+            Dictionary(folders.map { ($0.lastPathComponent, ExtensionFiles.extensionDigest($0)) }) { a, _ in a }, app)
     }
 
-    /// The look, and allowed as it was shown: the sheet lists what the manifest of the same read says (`IDE.extensionFiles`),
+    /// The look, and allowed as it was shown: the sheet lists what the manifest of the same read says (`ExtensionFiles.extensionFiles`),
     /// so one swapped while it was hashed can't be shown in place of the one allowed.
     static func review(_ folder: URL, _ app: AppModel) async -> Bool {
-        let files = IDE.extensionFiles(folder), manifest: JSONValue
+        let files = ExtensionFiles.extensionFiles(folder), manifest: JSONValue
         do { manifest = try JSONDecoder().decode(JSONValue.self, from: files["/extension.json"] ?? Data()) } catch {
             Banner.show(
                 String(
@@ -87,22 +89,24 @@ enum ExtensionTrust {
             return false
         }
         guard await ExtensionReview.approve(folder, manifest: manifest, allowing: true) else { return false }
-        return await record([folder.lastPathComponent: IDE.extensionDigest(files)], app)
+        return await record([folder.lastPathComponent: ExtensionFiles.extensionDigest(files)], app)
     }
 
     private static func record(_ digests: [String: String], _ app: AppModel) async -> Bool {
         guard app.connected else { return false }
         var allowed: [String: JSONValue] = [:]
-        if case .object(let was)? = app.uiState[IDE.extensionTrustKey] { allowed = was }
+        if case .object(let was)? = app.uiState[ExtensionFiles.extensionTrustKey] { allowed = was }
         for (name, d) in digests { allowed[name] = .string(d) }
-        return await app.uiState.save(IDE.extensionTrustKey, .object(allowed))
+        return await app.uiState.save(ExtensionFiles.extensionTrustKey, .object(allowed))
     }
 
     /// The first time this Kelp sees the daemon's state without the key, once: what was installed before Kelp asked
     /// (`askedSince`) is allowed as it is, and the record, even an empty one, marks it done. One made since, then or
     /// later, is asked about.
     static func adopt(_ folders: [URL], _ app: AppModel) async -> Bool {
-        guard app.connected, app.uiState.loaded, app.uiState[IDE.extensionTrustKey] == nil else { return false }
+        guard app.connected, app.uiState.loaded, app.uiState[ExtensionFiles.extensionTrustKey] == nil else {
+            return false
+        }
         return await allow(folders.filter { created($0) < askedSince }, app)
     }
 

@@ -58,9 +58,9 @@ enum ImportedConfig {
             let key = "scripts.run.\(id)."
             guard var cmd = toml.string(key + "command") else { continue }
             if let args = toml.strings(key + "args"), !args.isEmpty {
-                cmd += " " + args.map(IDE.shellWord).joined(separator: " ")
+                cmd += " " + args.map(ShellQuote.word).joined(separator: " ")
             }
-            if let cwd = toml.string(key + "options.cwd") { cmd = "cd \(IDE.shellWord(cwd)) && \(cmd)" }
+            if let cwd = toml.string(key + "options.cwd") { cmd = "cd \(ShellQuote.word(cwd)) && \(cmd)" }
             add(&config, id == main ? "run" : id, cmd)
         }
         add(&config, "archive", toml.string("scripts.archive"))
@@ -78,7 +78,7 @@ enum ImportedConfig {
 
     static func conductorVars(_ root: String) -> [(String, String)] {
         [
-            ("CONDUCTOR_ROOT_PATH", IDE.shellWord(root)), ("CONDUCTOR_WORKSPACE_PATH", here),
+            ("CONDUCTOR_ROOT_PATH", ShellQuote.word(root)), ("CONDUCTOR_WORKSPACE_PATH", here),
             ("CONDUCTOR_WORKSPACE_NAME", name), ("CONDUCTOR_PORT", port)
         ]
     }
@@ -100,7 +100,7 @@ enum ImportedConfig {
                     ? icon : toml.string(key + "name") ?? icon, cmd)
         }
         add(&config, "archive", toml.string("cleanup.darwin.script") ?? toml.string("cleanup.script"))
-        return finish(config, [("CODEX_SOURCE_TREE_PATH", IDE.shellWord(root)), ("CODEX_WORKTREE_PATH", here)])
+        return finish(config, [("CODEX_SOURCE_TREE_PATH", ShellQuote.word(root)), ("CODEX_WORKTREE_PATH", here)])
     }
 
     /// Cursor: a list of commands, or a script's path (from .cursor/), its Unix one first.
@@ -108,10 +108,10 @@ enum ImportedConfig {
         guard let json = JSONC.object(text) else { return nil }
         var config = RepoConfig()
         switch json["setup-worktree-unix"] ?? json["setup-worktree"] {
-        case let path as String: config.setup = "bash " + IDE.shellWord(root + "/.cursor/" + path)
+        case let path as String: config.setup = "bash " + ShellQuote.word(root + "/.cursor/" + path)
         case let list: config.setup = steps(list)
         }
-        return finish(config, [("ROOT_WORKTREE_PATH", IDE.shellWord(root))])
+        return finish(config, [("ROOT_WORKTREE_PATH", ShellQuote.word(root))])
     }
 
     /// Superset (now Paradev): lists of commands.
@@ -124,7 +124,7 @@ enum ImportedConfig {
         return finish(
             config,
             [
-                ("SUPERSET_ROOT_PATH", IDE.shellWord(root)), ("SUPERSET_WORKSPACE_PATH", here),
+                ("SUPERSET_ROOT_PATH", ShellQuote.word(root)), ("SUPERSET_WORKSPACE_PATH", here),
                 ("SUPERSET_WORKSPACE_NAME", name)
             ])
     }
@@ -161,7 +161,7 @@ enum ImportedConfig {
                 steps(script["command"]))
         }
         add(&config, "archive", steps(json["archiveScript"]) ?? steps(json["deleteScript"]))
-        return finish(config, [("SUPACODE_ROOT_PATH", IDE.shellWord(root)), ("SUPACODE_WORKTREE_PATH", here)])
+        return finish(config, [("SUPACODE_ROOT_PATH", ShellQuote.word(root)), ("SUPACODE_WORKTREE_PATH", here)])
     }
 
     /// cmux: its command palette's commands; one named "setup" is the setup.

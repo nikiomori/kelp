@@ -113,7 +113,7 @@ enum DeclarativeExtension {
                 version: manifest.version ?? "",
                 icon: manifest.icon ?? "puzzlepiece.extension",
                 builtin: false, path: folder, enabled: true)
-            info.source = IDE.extensionSource(folder)
+            info.source = ExtensionFiles.extensionSource(folder)
             info.error = problem.map { String(localized: "\($0) Still running the version from before the change.") }
             info.requires = manifest.requires ?? []
             if let missing = info.requires.first(where: { tools[$0] == false }) {

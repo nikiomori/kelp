@@ -29,7 +29,7 @@ extension RemoteListFolders: Handled {
         do {
             out = try Git.run(
                 ["-o", "ConnectTimeout=10"] + remotes.host(host, path: "~").sshArgs(tty: false) + [
-                    "sh -c " + IDE.shellWord(script)
+                    "sh -c " + ShellQuote.word(script)
                 ],
                 cwd: NSHomeDirectory(), executable: remotes.ssh)
         } catch let error as GitError {

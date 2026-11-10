@@ -18,12 +18,12 @@ extension Runnables {
         else {
             return nil
         }
-        let args = (spec["args"] as? [Any] ?? []).compactMap { $0 as? String }.map(IDE.shellWord)
+        let args = (spec["args"] as? [Any] ?? []).compactMap { $0 as? String }.map(ShellQuote.word)
         let folder = ["${workspaceFolder}", "${workspaceRoot}"]
         guard var command = filled(([program] + args).joined(separator: " "), folder) else { return nil }
         if let cwd = (spec["options"] as? [String: Any])?["cwd"] as? String {
             guard let dir = filled(cwd, folder) else { return nil }
-            if dir != "." { command = "cd \(IDE.shellWord(dir)) && \(command)" }
+            if dir != "." { command = "cd \(ShellQuote.word(dir)) && \(command)" }
         }
         let name = spec["label"] as? String ?? program
         let group = spec["group"] as? String ?? (spec["group"] as? [String: Any])?["kind"] as? String
@@ -33,15 +33,15 @@ extension Runnables {
 
     static func zedTask(_ found: Found, _ base: String, _ task: [String: Any]) -> RunOption? {
         guard let program = task["command"] as? String else { return nil }
-        let args = (task["args"] as? [Any] ?? []).compactMap { $0 as? String }.map(IDE.shellWord)
+        let args = (task["args"] as? [Any] ?? []).compactMap { $0 as? String }.map(ShellQuote.word)
         let env = (task["env"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }.sorted { $0.key < $1.key }
-            .map { "\($0.key)=\(IDE.shellWord($0.value))" }
+            .map { "\($0.key)=\(ShellQuote.word($0.value))" }
         let root = ["$ZED_WORKTREE_ROOT", "${ZED_WORKTREE_ROOT}"]
         guard var command = filled((env + [program] + args).joined(separator: " "), root), !command.contains("ZED_")
         else { return nil }
         if let cwd = task["cwd"] as? String {
             guard let dir = filled(cwd, root), !dir.contains("ZED_") else { return nil }
-            if dir != "." { command = "cd \(IDE.shellWord(dir)) && \(command)" }
+            if dir != "." { command = "cd \(ShellQuote.word(dir)) && \(command)" }
         }
         return opt(found, base, ".zed/tasks.json", task["label"] as? String ?? program, command)
     }
