@@ -203,10 +203,9 @@ final class FileTab: SavableTab {
             }
         }
         codeEditor.contextMenu = { [weak self] m in self?.contextMenu(m) }
-        track(owner: self) {
+        track(owner: self) {   // the editor follows on its own; the page's preview is drawn here
             app.themes.editorRevision
         } changed: { [weak self] _ in
-            self?.editor?.refreshAppearance()
             self?.markdown?.themeChanged()
         }
         if focusWhenLoaded { focus() }

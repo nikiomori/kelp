@@ -7,7 +7,7 @@ import WorkbenchKit
 @testable import BuiltinFiles
 @testable import KelpKit
 
-/// One at a time: applying settings sets what every editor reads (`CodeEditor.wrapLines`).
+/// One at a time: applying settings sets what every editor reads (`CodeEditor.current`).
 extension OneAtATime {
     /// A language's block beats the setting for all files, Kelp's own wrapping of prose comes after that, the rest follow the setting.
     @Test func aLanguagesBlockBeatsTheSettingForAllFiles() async throws {
@@ -30,7 +30,7 @@ extension OneAtATime {
     @Test func thePickersValueGoesInTheLanguagesOwnBlock() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
-        defer { CodeEditor.wrapLines = false }
+        defer { CodeEditor.set(\.wrapLines, false) }
         let s = rig.app.settings
         s.apply(["editor.tabSize": .int(4)])
         s.setOwn("editor.tabSize", .int(2), language: "python")
@@ -46,7 +46,7 @@ extension OneAtATime {
     @Test func aChangeGoesWhereTheValueIsRead() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
-        defer { CodeEditor.wrapLines = false }
+        defer { CodeEditor.set(\.wrapLines, false) }
         let s = rig.app.settings
         s.apply(["editor.wordWrap": .bool(false)])
         s.set("editor.wordWrap", .bool(false), language: "markdown")

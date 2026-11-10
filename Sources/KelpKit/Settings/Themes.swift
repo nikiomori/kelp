@@ -70,8 +70,8 @@ package final class ThemeManager {
     init(app: AppModel) { self.app = app }
     @ObservationIgnored private var lastTerminal: TerminalAppearance?
     @ObservationIgnored private var appearanceObserver: NSKeyValueObservation?
-    /// Editors' colors and font live in CodeEditor's statics, which Observation can't see: this counts their changes,
-    /// and open editors follow it.
+    /// Counts the changes of the editors' look (`CodeEditor.apply(look:)`, which Observation can't see), for code shown
+    /// outside an editor in it (a diff, a page's preview): the editors themselves follow on their own.
     private(set) package var editorRevision = 0
     private(set) var look = WindowLook()
     /// The chrome's text, what panels rebuild for: its size and the theme's face.
@@ -206,17 +206,10 @@ package final class ThemeManager {
         // Read by Foundation at launch, so a change shows the next time Kelp opens.
         let chosen = settings[SettingKeys.language], language = chosen == "system" ? nil : [chosen]
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
-        if palette != CodeEditor.palette || size != CodeEditor.fontSize || font != CodeEditor.fontName
-            || wrap != CodeEditor.wrapLines
-            || hang != CodeEditor.wrappingIndent
-        {
-            CodeEditor.palette = palette
-            CodeEditor.fontSize = size
-            CodeEditor.fontName = font
-            CodeEditor.wrapLines = wrap
-            CodeEditor.wrappingIndent = hang
-            editorRevision += 1
-        }
+        // Every editor follows at once; the revision is for what shows code outside one (a diff, a page's preview).
+        let code = CodeEditor.Look(
+            palette: palette, fontSize: size, fontName: font, wrapLines: wrap, wrappingIndent: hang)
+        if CodeEditor.apply(look: code) { editorRevision += 1 }
     }
 
     /// "#rrggbb" takes two more digits for alpha.

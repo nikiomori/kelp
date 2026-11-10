@@ -5,11 +5,20 @@ import Testing
 
 @testable import KelpKit
 
+extension CodeEditor {
+    /// One part of every editor's look, as Settings would change it.
+    static func set<T>(_ part: WritableKeyPath<Look, T>, _ value: T) {
+        var look = current
+        look[keyPath: part] = value
+        apply(look: look)
+    }
+}
+
 /// Settings › Editor › Wrap long lines: new editors start with it, and open ones follow when it changes.
 extension OneAtATime {
     @Test func wrapLongLinesReachesNewAndOpenEditors() throws {
         _ = NSApplication.shared
-        defer { CodeEditor.wrapLines = false }
+        defer { CodeEditor.set(\.wrapLines, false) }
         let url = URL(fileURLWithPath: "/tmp/wrap.txt")
         func wraps(_ editor: CodeEditor) throws -> Bool {
             try #require(editor.textView.textContainer).widthTracksTextView
@@ -17,8 +26,7 @@ extension OneAtATime {
         let open = CodeEditor(text: String(repeating: "word ", count: 200), url: url)
         #expect(try !wraps(open))
 
-        CodeEditor.wrapLines = true
-        open.refreshAppearance()
+        CodeEditor.set(\.wrapLines, true)   // the open one follows, nobody telling it
         #expect(try wraps(open))
         #expect(try wraps(CodeEditor(text: "x", url: url)))
     }
@@ -26,13 +34,13 @@ extension OneAtATime {
     /// A wrapped line goes on at its own indentation; the setting takes it back to the edge.
     @Test func wrappedRowsKeepTheLinesIndentation() throws {
         _ = NSApplication.shared
-        CodeEditor.wrapLines = true
+        CodeEditor.set(\.wrapLines, true)
         defer {
-            CodeEditor.wrapLines = false
-            CodeEditor.wrappingIndent = .same
+            CodeEditor.set(\.wrapLines, false)
+            CodeEditor.set(\.wrappingIndent, .same)
         }
         func secondRow(_ hang: CodeEditor.WrappingIndent) throws -> CGFloat {
-            CodeEditor.wrappingIndent = hang
+            CodeEditor.set(\.wrappingIndent, hang)
             let e = CodeEditor(
                 text: "        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
             let window = NSWindow(
@@ -56,8 +64,8 @@ extension OneAtATime {
     /// go on at its own indentation.
     @Test func wrappedRowsKeepTheirIndentationAfterAnEditAbove() throws {
         _ = NSApplication.shared
-        CodeEditor.wrapLines = true
-        defer { CodeEditor.wrapLines = false }
+        CodeEditor.set(\.wrapLines, true)
+        defer { CodeEditor.set(\.wrapLines, false) }
         let e = CodeEditor(
             text: "xx\n        " + String(repeating: "word ", count: 80), url: URL(fileURLWithPath: "/tmp/wrap.txt"))
         let window = NSWindow(

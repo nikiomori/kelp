@@ -33,5 +33,5 @@ public struct CodeGrammar: Sendable {
 
 extension CodeEditor {
     /// The theme's colour for each capture name, as the editor colours it; a name missing here goes by its first part.
-    public static var syntaxColors: [String: NSColor] { captureColors(look) }
+    public static var syntaxColors: [String: NSColor] { captureColors(colors) }
 }

@@ -44,11 +44,6 @@ final class UntitledTab: SavableTab {
             editor.setText(kept)
             editor.onChange?(kept)
         }
-        track(owner: self) {
-            app.themes.editorRevision
-        } changed: { [weak self] _ in
-            self?.editor.refreshAppearance()
-        }
     }
 
     /// The next free number in this workspace: Untitled-1, Untitled-2…

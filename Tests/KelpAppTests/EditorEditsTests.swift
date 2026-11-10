@@ -220,23 +220,22 @@ extension OneAtATime {
         let lm = try #require(tv.layoutManager)
         let keyword = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 0, effectiveRange: nil) as? NSColor
         let string = lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 9, effectiveRange: nil) as? NSColor
-        #expect(keyword == CodeEditor.look.keyword)
-        #expect(string == CodeEditor.look.string)
+        #expect(keyword == CodeEditor.colors.keyword)
+        #expect(string == CodeEditor.colors.string)
         type(tv, "var ")   // colored again after an edit, the tree following it
         e.colorVisible()
         #expect(
             lm.temporaryAttribute(.foregroundColor, atCharacterIndex: 4, effectiveRange: nil) as? NSColor
-                == CodeEditor.look.keyword)
+                == CodeEditor.colors.keyword)
     }
 
     @Test func aLongLineScrollsSidewaysUnlessItWraps() throws {
-        defer { CodeEditor.wrapLines = false }
+        defer { CodeEditor.set(\.wrapLines, false) }
         let (e, tv) = editor(String(repeating: "word ", count: 400), selecting: [NSRange(location: 0, length: 0)])
         tv.layoutManager?.ensureLayout(for: try #require(tv.textContainer))
         tv.sizeToFit()
         #expect(tv.frame.width > 1000)
-        CodeEditor.wrapLines = true
-        e.refreshAppearance()
+        CodeEditor.set(\.wrapLines, true)
         #expect(tv.frame.width <= 400)
     }
 
@@ -454,9 +453,9 @@ extension OneAtATime {
             lm.temporaryAttribute(.foregroundColor, atCharacterIndex: s.range(of: needle).location, effectiveRange: nil)
                 as? NSColor
         }
-        #expect(color("Title") == CodeEditor.look.keyword)
-        #expect(color("code") == CodeEditor.look.string)   // Markdown's inline grammar, inside a paragraph
-        #expect(color("let") == CodeEditor.look.keyword)   // Swift's, inside the fenced block
+        #expect(color("Title") == CodeEditor.colors.keyword)
+        #expect(color("code") == CodeEditor.colors.string)   // Markdown's inline grammar, inside a paragraph
+        #expect(color("let") == CodeEditor.colors.keyword)   // Swift's, inside the fenced block
         #expect(color("x =") == nil)   // not the block's string color: Swift's colors alone
     }
 
@@ -480,7 +479,7 @@ extension OneAtATime {
         e.colorVisible()
         #expect(
             lm.temporaryAttribute(.foregroundColor, atCharacterIndex: at, effectiveRange: nil) as? NSColor
-                == CodeEditor.look.keyword)
+                == CodeEditor.colors.keyword)
     }
 
     @Test func theContextMenuIsACodeEditorsOwn() throws {
