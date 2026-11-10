@@ -208,7 +208,9 @@ func codeOnly(_ s: String) -> String {
 @Test func theMainThreadNeverWaitsInALoopOfItsOwn() throws {
     #expect(try matches(#"runAsSheet|NSApp\.runModal\(for"#, in: appDirs) == [])
     #expect(
-        try matches(#"DispatchSemaphore"#, in: appDirs).filter { !$0.hasPrefix("Sources/KelpKit/DevAids/DevAids.swift") } == [])
+        try matches(#"DispatchSemaphore"#, in: appDirs).filter {
+            !$0.hasPrefix("Sources/KelpKit/DevAids/DevAids.swift")
+        } == [])
     // Until a `.terminateLater` reply AppKit runs a modal mode in which the main actor's tasks don't run: an async
     // question asked from there never shows (quitting with an unsaved file closed nothing and asked nothing).
     #expect(try matches(#"\.terminateLater"#, in: appDirs) == [])
@@ -238,8 +240,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 442, "lines over 120: \(over120)")
-    #expect(over120 >= 442, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 422, "lines over 120: \(over120)")
+    #expect(over120 >= 422, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -388,7 +390,9 @@ func codeOnly(_ s: String) -> String {
         ),
         "KelpKit/Sidebar/SidebarController.swift": (1, "relative times on the rows (\"now\" becomes \"1m\")"),
         "KelpKit/Model/AppModel.swift": (1, "things asked for at launch wait for the first connection, up to 5 s"),
-        "KelpKit/Model/DaemonLink.swift": (6, "connecting: the socket, retries, backoff; a look every 30 s for a hung kelpd"),
+        "KelpKit/Model/DaemonLink.swift": (
+            6, "connecting: the socket, retries, backoff; a look every 30 s for a hung kelpd"
+        ),
         "KelpKit/Notifications/Notifier.swift": (
             3,
             "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later"
@@ -409,7 +413,9 @@ func codeOnly(_ s: String) -> String {
             1, "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it"
         ),
         "Builtins/Git/RowMarks.swift": (1, "a passed CI's ✓ leaves the branch chip after a minute on screen"),
-        "Builtins/Agents/Session/PaneView.swift": (1, "a terminal out of sight lets go of its agent once it could pause idle"),
+        "Builtins/Agents/Session/PaneView.swift": (
+            1, "a terminal out of sight lets go of its agent once it could pause idle"
+        ),
         "Builtins/Agents/Session/CommandsBar.swift": (1, "a running command's time goes on (\"12s\" becomes \"13s\")"),
         "Builtins/Issues/CIRunRow.swift": (1, "a running job's time goes on, counted from when it began"),
         "Builtins/Files/FileTab+Saving.swift": (1, "typing settles before the language server hears it"),
@@ -433,7 +439,9 @@ func codeOnly(_ s: String) -> String {
             "the daemon's state read again, three times at most, after a read that failed, while that daemon is still there"
         ),
         "Builtins/Browser/BrowserAutomation.swift": (
-            3, "kelp browser waits for a page to load, or to show what it was told to wait for: WebKit says neither"
+            4,
+            "kelp browser waits for a page to load, to go quiet after an action, or to show what it was told to wait for: "
+                + "WebKit says none of them"
         )
     ]
     let all = try matches(
@@ -701,7 +709,9 @@ func codeOnly(_ s: String) -> String {
 /// why and how often (a ceiling per file): its own folders, a viewer's bytes, whether a path is there. Nothing else does.
 @Test func theAppDoesntTouchProjectFiles() throws {
     let own: [String: (Int, String)] = [
-        "KelpKit/Model/AgentCatalog.swift": (1, "an agent CLI's date: it isn't asked its version again until it changes"),
+        "KelpKit/Model/AgentCatalog.swift": (
+            1, "an agent CLI's date: it isn't asked its version again until it changes"
+        ),
         "KelpKit/Model/AgentIcons.swift": (4, "agents' icons, cached in Kelp's home"),
         "KelpKit/Model/AppModel.swift": (1, "whether the projects' folders are there, off the main thread"),
         "KelpKit/Model/DaemonLink.swift": (2, "why kelpd didn't start, in Kelp's home; the bundled kelpd's date"),
@@ -790,7 +800,8 @@ func codeOnly(_ s: String) -> String {
     #expect(named == 0, "event kinds named one by one in Watching.swift: \(named)")
     // AppModel's stored, observed properties: every `var` at its top level that isn't computed, nor marked
     // @ObservationIgnored (on its line, or on an attribute line of its own just above).
-    let model = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/Model/AppModel.swift"), encoding: .utf8)
+    let model = try String(
+        contentsOf: root.appendingPathComponent("Sources/KelpKit/Model/AppModel.swift"), encoding: .utf8)
     let lines = codeOnly(model).components(separatedBy: "\n")
     let stored = try NSRegularExpression(
         pattern: #"^    (?:(?:package|private|fileprivate|private\(set\)|package\(set\))\s+)*(?:lazy\s+)?var\s+\w+"#)

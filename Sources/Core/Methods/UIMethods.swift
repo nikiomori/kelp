@@ -136,7 +136,7 @@ public struct UICommand: InternalMethod {
 /// What `kelp browser` does on a page (`UIBrowser.action`): the CLI's words, the shell's and the page tab's alike.
 public enum BrowserAction: String, CaseIterable, Sendable {
     case open, snapshot, click, hover, type, press, upload, dialog, scroll, back, reload, eval, viewport, screenshot,
-        wait
+        wait, drag
     case console, network, info
 }
 

@@ -22,6 +22,11 @@ extension BrowserTab {
     func note(_ message: WKScriptMessage) {
         guard drive != nil, let entry = message.body as? [String: Any] else { return }
         let text = String((entry["text"] as? String ?? "").prefix(2000))
+        if entry["k"] as? String == "start", let id = entry["id"] as? String {
+            drive?.started(id)
+            return
+        }
+        if let id = entry["id"] as? String { drive?.inflight[id] = nil }
         if entry["k"] as? String == "net" {
             let status = (entry["status"] as? Int).map { $0 == 0 ? "failed" : String($0) } ?? "failed"
             let ms = (entry["ms"] as? Int).map { ", \($0) ms" } ?? ""
@@ -67,21 +72,25 @@ extension BrowserTab {
         }, true);
         addEventListener('unhandledrejection', e => log('error', 'Unhandled rejection: ' + str(e.reason)));
         const abs = u => { try { return new URL(u, location.href).href; } catch (_) { return String(u); } };
-        const net = (type, method, url, t, status, text) =>
-          post({k: 'net', type, method, url, status, ms: Math.round(performance.now() - t), text: text || ''});
+        // Each call says when it starts, so an action waits for the calls it set off (`AgentDrive.busy`).
+        const doc = Math.random().toString(36).slice(2); let seq = 0;
+        const start = () => { const id = doc + ++seq; post({k: 'start', id}); return id; };
+        const net = (type, method, url, t, status, text, id) =>
+          post({k: 'net', type, method, url, status, ms: Math.round(performance.now() - t), text: text || '', id});
         const F = window.fetch;
         if (F) window.fetch = function (input, init) {
-          const t = performance.now(), url = abs(input && input.url || input);
+          const t = performance.now(), url = abs(input && input.url || input), id = start();
           const method = String(init && init.method || input && input.method || 'GET').toUpperCase();
           return F.apply(this, arguments).then(
-            r => { net('fetch', method, r.url || url, t, r.status); return r; },
-            e => { net('fetch', method, url, t, 0, str(e)); throw e; });
+            r => { net('fetch', method, r.url || url, t, r.status, '', id); return r; },
+            e => { net('fetch', method, url, t, 0, str(e), id); throw e; });
         };
         const X = XMLHttpRequest.prototype, open = X.open, send = X.send;
         X.open = function (m, u) { this.__kelp = {method: String(m).toUpperCase(), url: abs(u)}; return open.apply(this, arguments); };
         X.send = function () {
-          const r = this.__kelp, t = performance.now();
-          if (r) this.addEventListener('loadend', () => net('xhr', r.method, this.responseURL || r.url, t, this.status));
+          const r = this.__kelp, t = performance.now(), id = r && start();
+          const done = () => net('xhr', r.method, this.responseURL || r.url, t, this.status, '', id);
+          if (r) this.addEventListener('loadend', done);
           return send.apply(this, arguments);
         };
         })();
@@ -107,6 +116,16 @@ final class AgentDrive {
     var logs: [String] = [], requests: [String] = []
     /// The questions the page answered and what it downloaded, since the last action's answer said them.
     var dialogs: [String] = [], downloads: [String] = []
+
+    /// The page's fetch and XHR calls still out, by id, with when each started.
+    var inflight: [String: Date] = [:]
+    /// A call started in the last 1.5 s is still out: what an action set off is loading.
+    var busy: Bool { inflight.values.contains { Date().timeIntervalSince($0) < 1.5 } }
+
+    func started(_ id: String) {
+        inflight = inflight.filter { Date().timeIntervalSince($0.value) < 60 }   // a page that left takes its calls along
+        inflight[id] = Date()
+    }
 
     static func add(_ line: String, to list: inout [String]) {
         list.append(line)

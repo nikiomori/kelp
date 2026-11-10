@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 extension Main {
     static let browserUsage = """
         browser open <url> [--shared] | snapshot [ref] [--find text] | click <ref> | hover <ref> | type <ref> <text> [--submit]
-                | press <key> [ref] | upload <ref> <file>… | dialog accept [text]|dismiss
+                | drag <ref> <onto-ref|css> | press <key> [ref] | upload <ref> <file>… | dialog accept [text]|dismiss
                 | scroll [down|up|top|bottom|<ref>] | back | reload | eval <js> | viewport <WxH>|reset
                 | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
         """
@@ -28,6 +28,10 @@ extension Main {
             }
             params["key"] = .string(key)
             if args.count > 1 { params["ref"] = .string(args[1]) }
+        case .drag:
+            guard args.count == 2 else { fail("browser drag <ref> <onto-ref | css selector>") }
+            params["ref"] = .string(args[0])
+            params["onto"] = .string(args[1])
         case .scroll: params["to"] = .string(args.first ?? "down")
         case .type:
             params["submit"] = .bool(has("--submit"))

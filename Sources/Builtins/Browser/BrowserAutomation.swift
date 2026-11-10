@@ -58,34 +58,15 @@ extension BrowserTab {
             drive.dialogAnswer = (accept, text)
             guard accept else { return .string("The page's next question gets Cancel") }
             return .string("The page's next question gets OK" + (text.map { " and \"\($0)\"" } ?? ""))
-        case .upload:
-            // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
-            let files = (args["files"]?.array ?? []).compactMap { file -> [String: String]? in
-                if case .object(let fields) = file { return fields.compactMapValues(\.string) } else { return nil }
-            }
-            guard !files.isEmpty else { throw RPCError.invalidParams("upload needs a file") }
-            _ = try await run(
-                Self.findJS + Self.flashJS + Self.uploadJS, shown(["ref": try need("ref"), "files": files]))
-            return try await settled()
-        case .click, .hover:
-            _ = try await run(
-                Self.findJS + Self.flashJS + (action == .click ? Self.clickJS : Self.hoverJS),
-                shown(["ref": try need("ref")]))
-            return try await settled()
-        case .type:
-            _ = try await run(
-                Self.findJS + Self.flashJS + Self.typeJS,
-                shown([
-                    "ref": try need("ref"), "text": args["text"]?.string ?? "",
-                    "submit": args["submit"]?.bool == true
-                ]))
-            return try await settled()
+        case .upload, .click, .hover, .drag, .type: return try await onElement(action, try need("ref"), args)
         case .press:
+            let before = await probe()
             _ = try await run(Self.pressJS, ["key": try need("key"), "ref": args["ref"]?.string ?? ""])
-            return try await settled()
+            return try await settled(after: before)
         case .scroll:
+            let before = await probe()
             let at = try await run(Self.scrollJS, ["to": args["to"]?.string ?? "down"]) as? String ?? ""
-            return try await settled(["scroll": .string(at)])
+            return try await settled(["scroll": .string(at)], after: before)
         case .back:
             guard web.canGoBack else { throw RPCError.invalidParams("No page to go back to.") }
             web.goBack()
@@ -126,6 +107,38 @@ extension BrowserTab {
             // What's left of the daemon's wait: an answer after it would find nobody waiting.
             return try await settled(within: min(30, max(1, UIBrowser.wait - 5 - seconds + end.timeIntervalSinceNow)))
         }
+    }
+
+    /// An action on the element of `ref`: its answer says what it did (`settled(after:)`).
+    private func onElement(_ action: BrowserAction, _ ref: String, _ args: JSONValue) async throws -> JSONValue {
+        let reach = Self.findJS + Self.reachJS + Self.flashJS, before = await probe()
+        switch action {
+        case .upload:
+            // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
+            let files = (args["files"]?.array ?? []).compactMap { file -> [String: String]? in
+                if case .object(let fields) = file { return fields.compactMapValues(\.string) } else { return nil }
+            }
+            guard !files.isEmpty else { throw RPCError.invalidParams("upload needs a file") }
+            let how = try await run(Self.findJS + Self.flashJS + Self.uploadJS, shown(["ref": ref, "files": files]))
+            return try await settled(
+                how as? String == "dropped" ? ["upload": .string("dropped on \(ref)")] : [:], after: before)
+        case .drag:
+            guard let onto = args["onto"]?.string, !onto.isEmpty else {
+                throw RPCError.invalidParams("drag needs onto")
+            }
+            _ = try await run(reach + Self.dragJS, shown(["ref": ref, "onto": onto, "editable": false]))
+        case .type:
+            let text = args["text"]?.string ?? "", submit = args["submit"]?.bool == true
+            let shows = try await run(
+                reach + Self.typeJS, shown(["ref": ref, "text": text, "submit": submit, "editable": true]))
+            // What the page made of it (a mask, a length limit, the option picked), when that isn't what was typed.
+            let field: [String: JSONValue] = (shows as? String).map { $0 == text ? [:] : ["shows": .string($0)] } ?? [:]
+            return try await settled(field, after: before, typing: true)
+        default:
+            let js = action == .click ? Self.clickJS : Self.hoverJS
+            _ = try await run(reach + js, shown(["ref": ref, "editable": false]))
+        }
+        return try await settled(after: before)
     }
 
     /// A page no pane shows (a tab behind another, a workspace not on screen) has no size, and one with none lays nothing
@@ -197,16 +210,24 @@ extension BrowserTab {
     }
 
     /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.
-    private func settled(_ extra: [String: JSONValue] = [:], within: TimeInterval = 30) async throws -> JSONValue {
+    /// After an action (`before`: the page as it was), once the page is quiet, `change` says what the action did: `new
+    /// page`, `page changed` or `nothing changed`. Typing changes the field: for it only a change the page made counts.
+    private func settled(
+        _ extra: [String: JSONValue] = [:], within: TimeInterval = 30, after before: Probe? = nil, typing: Bool = false
+    ) async throws -> JSONValue {
+        let acted = Date()
         try await Task.sleep(for: .milliseconds(150))   // a navigation the action started has begun
         let end = Date().addingTimeInterval(within)
         // A download the action started is waited for too, so its answer says where the file is.
         while web.isLoading || !downloading.isEmpty || downloadComing, Date() < end {
             try await Task.sleep(for: .milliseconds(100))
         }
-        var answer = extra.merging(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) {
-            $1
+        var answer = extra
+        if let before {
+            let change = Self.change(from: before, to: try await quiet(since: acted))
+            if !(typing && change == "nothing changed") { answer["change"] = .string(change) }
         }
+        answer.merge(["url": .string(web.url?.absoluteString ?? ""), "title": .string(web.title ?? "")]) { $1 }
         if web.isLoading { answer["loading"] = .bool(true) }
         if let drive, !drive.dialogs.isEmpty {
             answer["dialogs"] = .array(drive.dialogs.map(JSONValue.string))
@@ -218,6 +239,48 @@ extension BrowserTab {
         }
         if let loadError { answer["error"] = .string(loadError) }
         return .object(answer)
+    }
+
+    /// The page at a moment: which document, how many changes it has had, how long since the last (ms), and whether it's
+    /// still parsing. Nil while it can't say (between two documents).
+    struct Probe: Equatable {
+        var doc: Double, url: String, changes: Int, idle: Double, loading: Bool
+    }
+
+    func probe() async -> Probe? {
+        do {
+            guard let p = try await run(Self.probeJS) as? [String: Any], let doc = p["doc"] as? Double else {
+                return nil
+            }
+            return Probe(
+                doc: doc, url: p["url"] as? String ?? "", changes: p["n"] as? Int ?? 0, idle: p["idle"] as? Double ?? 0,
+                loading: p["ready"] as? String == "loading")
+        } catch {
+            return nil   // a navigation going on: the next document answers
+        }
+    }
+
+    /// The page once it's quiet after an action (`acted`): parsed, no change to its DOM for 80 ms, and no request it
+    /// started in the last 1.5 s still out (older ones are long polls and analytics). At most 0.8 s, 3 s while a
+    /// document loads: a page that never stops (a clock, a ticker) answers then.
+    private func quiet(since acted: Date) async throws -> Probe? {
+        let start = Date()
+        var limit: TimeInterval = 0.8
+        while true {
+            let now = await probe()
+            let loading = web.isLoading || now?.loading != false
+            if loading { limit = 3 }
+            if let now, !loading, min(now.idle, Date().timeIntervalSince(acted) * 1000) >= 80, drive?.busy != true {
+                return now
+            }
+            if Date().timeIntervalSince(start) >= limit { return now }
+            try await Task.sleep(for: .milliseconds(40))
+        }
+    }
+
+    nonisolated static func change(from before: Probe, to after: Probe?) -> String {
+        guard let after, after.doc == before.doc, after.url == before.url else { return "new page" }
+        return after.changes == before.changes ? "nothing changed" : "page changed"
     }
 
     /// The arguments of an action the user sees done: the element's glow, in the accent colour and Kelp's motion (ms).

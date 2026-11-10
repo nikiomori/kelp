@@ -36,7 +36,7 @@ import WorkbenchKit
     #expect(page.contains("- clickable [ref=e5]") && page.contains(#"- button "Buy" [ref=e6]"#))   // what's inside a clickable
 
     _ = try await tab.browse("type", .object(["ref": .string("e1"), "text": .string("a@b.c")]))
-    _ = try await tab.browse("click", .object(["ref": .string("e2")]))
+    #expect(try await tab.browse("click", .object(["ref": .string("e2")]))["change"] == .string("page changed"))
     #expect(
         try await tab.browse("eval", .object(["js": .string("document.getElementById('out').textContent")]))
             == .string("saved a@b.c"))
@@ -115,8 +115,8 @@ import WorkbenchKit
     tab.web.loadFileURL(dir.appendingPathComponent("one.html"), allowingReadAccessTo: dir)
     _ = try await tab.browse("info", .object([:]))
     _ = try await tab.browse("snapshot", .object([:]))
-    #expect(
-        try await tab.browse("click", .object(["ref": .string("e1")]))["url"]?.string?.hasSuffix("two.html") == true)
+    let went = try await tab.browse("click", .object(["ref": .string("e1")]))
+    #expect(went["url"]?.string?.hasSuffix("two.html") == true && went["change"] == .string("new page"))
     #expect(try await tab.browse("back", .object([:]))["url"]?.string?.hasSuffix("one.html") == true)
 
     // Opening the page it shows loads it again (a page's own state goes), as reload does.
@@ -212,11 +212,11 @@ import WorkbenchKit
     _ = try await act("click", ["ref": .string("e2")])   // the answer was used once
     #expect(try await eval("out.textContent") == .string("p null"))
 
-    _ = try await act("type", ["ref": .string("e3"), "text": .string("abcdef")])
+    #expect(try await act("type", ["ref": .string("e3"), "text": .string("abcdef")])["shows"] == .string("abcd"))
     #expect(
         try await eval("[document.getElementById('name').value, +keys.textContent]")
             == .array([.string("abcd"), .int(4)]))
-    #expect(try await act("snapshot", ["ref": .string("e3")]).string?.contains(#"- textbox [ref=e1]: "abcd""#) == true)
+    #expect(try await act("snapshot", ["ref": .string("e3")]).string?.contains(#"- textbox [ref=e3]: "abcd""#) == true)
 
     _ = try await act("snapshot", [:])
     let note: JSONValue = .object([
@@ -328,4 +328,151 @@ import WorkbenchKit
             == .bool(true))
     #expect(try await act("reset")["viewport"] == .string("1280x800"))
     await #expect(throws: RPCError.self) { try await act("tiny") }
+}
+
+/// What an action did comes back with it, and a person's limits hold: a button under a dialog isn't clicked (one under
+/// its own label is), a click that changed nothing says so, and what the click brought shows as `[new]` in the next
+/// snapshot. Transparent text isn't on the page; a long page keeps its end.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserSaysWhatAnActionDidAndWhatCovers() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString(
+        """
+        <button onclick="document.body.insertAdjacentHTML('beforeend', '<p>Invalid email</p>')">Check</button>
+        <button>Idle</button><p style="opacity: 0">Saved</p>
+        <label style="position: relative">Agree <input type="checkbox" id="c" style="opacity: 0; position: absolute;
+          inset: 0"><span style="position: absolute; inset: 0"></span></label>
+        <button id="under" style="position: fixed; top: 300px">Under</button>
+        <div role="dialog" aria-label="Cookies" style="position: fixed; top: 280px; height: 100px; left: 0; right: 0"></div>
+        """, baseURL: URL(string: "http://localhost/"))
+    _ = try await tab.browse("info", .object([:]))
+    func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
+        try await tab.browse(a, .object(args))
+    }
+    let page = try #require(try await act("snapshot").string)
+    #expect(!page.contains("Saved") && !page.contains("[new]"))
+    #expect(page.contains(#"- button "Check" [ref=e1]"#) && page.contains(#"- checkbox "Agree" [ref=e3]"#))
+    await #expect(throws: RPCError.self) { try await act("wait", ["text": .string("Saved"), "timeout": .double(1)]) }
+
+    #expect(try await act("click", ["ref": .string("e2")])["change"] == .string("nothing changed"))
+    #expect(try await act("click", ["ref": .string("e1")])["change"] == .string("page changed"))
+    let after = try #require(try await act("snapshot").string)
+    #expect(after.contains(#"- text: "Invalid email" [new]"#) && after.contains(#"- button "Check" [ref=e1]"#))
+    #expect(!after.contains(#""Check" [ref=e1] [new]"#))
+    #expect(try await act("snapshot").string?.contains("[new]") == false)   // seen now
+
+    _ = try await act("click", ["ref": .string("e3")])
+    #expect(try await act("eval", ["js": .string("c.checked")]) == .bool(true))
+    do {
+        _ = try await act("click", ["ref": .string("e4")])
+        Issue.record("a button under a dialog was clicked")
+    } catch {
+        #expect(AppModel.message(error).contains(#"e4 is under dialog "Cookies": nothing was done"#))
+    }
+
+    _ = try await act(
+        "eval",
+        ["js": .string("document.body.innerHTML = '<button>x</button>'.repeat(2000) + '<button>Submit</button>'")])
+    let long = try #require(try await act("snapshot").string)
+    #expect(long.contains("lines cut here"))
+    #expect(long.split(separator: "\n").last == #"- button "Submit" [ref=e2005] [new]"#)
+    _ = try await act("eval", ["js": .string("document.body.innerHTML = ''")])
+    #expect(try await act("snapshot").string?.contains("(nothing to read") == true)
+}
+
+/// A select takes an option's text, any case, or the one its text starts with, and a wrong one lists them; a date field
+/// refuses a date in another format; a frame of the page's own site is read and driven.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserPicksOptionsChecksDatesAndReadsFrames() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString(
+        """
+        <select id="s"><option value="ca">Canada</option><option value="us">United States</option><option>Uganda</option>
+        </select><input type="date" id="d">
+        <iframe title="Editor" srcdoc="<button onclick=&quot;this.textContent = 'done'&quot;>Inside</button>"></iframe>
+        """, baseURL: URL(string: "http://localhost/"))
+    _ = try await tab.browse("info", .object([:]))
+    func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
+        try await tab.browse(a, .object(args))
+    }
+    func message(_ a: String, _ args: [String: JSONValue]) async -> String {
+        do { _ = try await act(a, args) } catch { return AppModel.message(error) }
+        return ""
+    }
+    #expect(
+        try await waitFor(5) {
+            try await act("eval", ["js": .string("document.querySelector('iframe').contentDocument.body.innerText")])
+                == .string("Inside")
+        })
+    let page = try #require(try await act("snapshot").string)
+    #expect(page.contains(#"- iframe "Editor""#) && page.contains(#"  - button "Inside" [ref=e3]"#))
+
+    #expect(
+        try await act("type", ["ref": .string("e1"), "text": .string("united")])["shows"] == .string("United States"))
+    #expect(try await act("eval", ["js": .string("s.value")]) == .string("us"))
+    #expect(await message("type", ["ref": .string("e1"), "text": .string("u")]).contains("More than one option"))
+    #expect(
+        await message("type", ["ref": .string("e1"), "text": .string("France")]).contains(
+            #"No option "France" in e1: "Canada", "United States", "Uganda""#))
+    #expect(await message("type", ["ref": .string("e2"), "text": .string("14/03/2026")]).contains("takes YYYY-MM-DD"))
+    _ = try await act("type", ["ref": .string("e2"), "text": .string("2026-03-14")])
+    #expect(try await act("eval", ["js": .string("d.value")]) == .string("2026-03-14"))
+
+    #expect(try await act("click", ["ref": .string("e3")])["change"] == .string("page changed"))
+    #expect(try await act("snapshot").string?.contains(#"- button "done" [ref=e3]"#) == true)
+}
+
+/// `drag`: what the page makes draggable gets a browser's drag events and must take the drop (a list that sets
+/// `draggable` when pressed, as SortableJS does, too); anything else follows the pointer; files land on a drop zone.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserDragsAndDrops() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString(
+        """
+        <div id="a" onpointerdown="this.draggable = true" style="cursor: grab">Card</div>
+        <div id="done" style="height: 80px">Done</div><div id="no" style="height: 40px">No</div>
+        <div id="knob" style="cursor: grab; width: 20px">o</div><div id="end" style="height: 40px">End</div>
+        <div id="zone" role="button">Drop files</div><p id="out"></p>
+        <script>
+        a.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', 'card'));
+        done.addEventListener('dragover', e => e.preventDefault());
+        done.addEventListener('drop', e => out.textContent += 'dropped ' + e.dataTransfer.getData('text/plain') + ' ');
+        let moves = 0;
+        knob.addEventListener('pointerdown', () => { moves = 0;
+          document.onpointermove = () => moves++;
+          document.onpointerup = e => out.textContent += 'up ' + e.target.id + ' ' + moves + ' ' })
+        zone.addEventListener('dragover', e => e.preventDefault());
+        zone.addEventListener('drop', e => out.textContent += 'file ' + e.dataTransfer.files[0].name);
+        </script>
+        """, baseURL: URL(string: "http://localhost/"))
+    _ = try await tab.browse("info", .object([:]))
+    func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
+        try await tab.browse(a, .object(args))
+    }
+    let page = try #require(try await act("snapshot").string)
+    #expect(page.contains(#"- draggable "Card" [ref=e1]"#) && page.contains(#"- draggable "o" [ref=e2]"#))
+
+    #expect(
+        try await act("drag", ["ref": .string("e1"), "onto": .string("#done")])["change"] == .string("page changed"))
+    await #expect(throws: RPCError.self) { try await act("drag", ["ref": .string("e1"), "onto": .string("#no")]) }
+    _ = try await act("drag", ["ref": .string("e2"), "onto": .string("#end")])
+    let note: JSONValue = .object(["name": .string("a.txt"), "type": .string("text/plain"), "data": .string("aGk=")])
+    #expect(
+        try await act("upload", ["ref": .string("e3"), "files": .array([note])])["upload"] == .string("dropped on e3"))
+    #expect(try await act("eval", ["js": .string("out.textContent")]) == .string("dropped card up end 10 file a.txt"))
+}
+
+/// An action waits for the calls it set off, not for a long poll that started a while ago.
+@MainActor @Test func aCallJustStartedKeepsThePageBusy() {
+    let drive = AgentDrive()
+    #expect(!drive.busy)
+    drive.started("x1")
+    #expect(drive.busy)
+    drive.inflight["x1"] = Date().addingTimeInterval(-2)
+    #expect(!drive.busy)
+    let before = BrowserTab.Probe(doc: 1, url: "u", changes: 3, idle: 0, loading: false)
+    var after = before
+    #expect(BrowserTab.change(from: before, to: after) == "nothing changed")
+    after.changes = 4
+    #expect(BrowserTab.change(from: before, to: after) == "page changed")
+    after.url = "v"
+    #expect(BrowserTab.change(from: before, to: after) == "new page")
+    #expect(BrowserTab.change(from: before, to: nil) == "new page")
 }
