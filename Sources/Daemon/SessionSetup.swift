@@ -279,11 +279,10 @@ final class SessionSetup: Sendable {
             return .init(id: "custom", name: "Custom", command: argv.first ?? "/bin/zsh", args: Array(argv.dropFirst()))
         }
         let id = id ?? "shell"
-        // A plain shell has no meaningful "done": keep the heuristic quiet.
         if id == "shell" {
             return .init(
                 id: "shell", name: "Shell", command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
-                args: ["-l"], quietSeconds: 1e9)
+                args: ["-l"], tracksStatus: false)
         }
         guard
             let manifest = AgentManifest.load(dir: root.appendingPathComponent("agents")).first(where: { $0.id == id })

@@ -38,6 +38,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     public var waitingPatterns: [String] = AgentManifest.defaultWaiting
     /// Seconds without output before the heuristic decides the agent stopped.
     public var quietSeconds: Double = 3
+    /// Whether its status is read at all: a plain shell has no "done", so nothing it prints makes it working.
+    public var tracksStatus = true
     /// How it reports its own status, if it can (heuristics read the screen otherwise).
     public var hooks: HookTransport?
     /// `--model`-style flag and suggested models for the picker.
@@ -63,7 +65,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
 
     public init(
         id: String, name: String, command: String, args: [String] = [], env: [String: String] = [:],
-        waitingPatterns: [String] = AgentManifest.defaultWaiting, quietSeconds: Double = 3,
+        waitingPatterns: [String] = AgentManifest.defaultWaiting, quietSeconds: Double = 3, tracksStatus: Bool = true,
         hooks: HookTransport? = nil,
         modelFlag: String? = nil, models: [String] = [], effortArgs: [String: [String]] = [:],
         autoAnswers: [AutoAnswer] = [], resumeArgs: [String] = [], pluginDirFlag: String? = nil,
@@ -78,6 +80,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         self.env = env
         self.waitingPatterns = waitingPatterns
         self.quietSeconds = quietSeconds
+        self.tracksStatus = tracksStatus
         self.hooks = hooks
         self.modelFlag = modelFlag
         self.models = models
@@ -108,6 +111,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         waitingPatterns =
             try container.decodeIfPresent([String].self, forKey: .waitingPatterns) ?? defaults.waitingPatterns
         quietSeconds = try container.decodeIfPresent(Double.self, forKey: .quietSeconds) ?? defaults.quietSeconds
+        tracksStatus = try container.decodeIfPresent(Bool.self, forKey: .tracksStatus) ?? true
         hooks = try HookTransport(from: container)
         modelFlag = try container.decodeIfPresent(String.self, forKey: .modelFlag)
         models = try container.decodeIfPresent([String].self, forKey: .models) ?? []
@@ -124,7 +128,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, command, args, env, waitingPatterns, quietSeconds, modelFlag, models, effortArgs,
+        case id, name, command, args, env, waitingPatterns, quietSeconds, tracksStatus, modelFlag, models, effortArgs,
             autoAnswers, resumeArgs
         case sessionIdFlag, resumeIdFlag, pluginDirFlag, contextFlag, install, update, npm
         // `hooks`, as agent files have it
@@ -140,6 +144,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         try container.encode(env, forKey: .env)
         try container.encode(waitingPatterns, forKey: .waitingPatterns)
         try container.encode(quietSeconds, forKey: .quietSeconds)
+        if !tracksStatus { try container.encode(tracksStatus, forKey: .tracksStatus) }
         try hooks?.encode(to: &container)
         try container.encodeIfPresent(modelFlag, forKey: .modelFlag)
         try container.encode(models, forKey: .models)

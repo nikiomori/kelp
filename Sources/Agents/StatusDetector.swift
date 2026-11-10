@@ -43,7 +43,7 @@ public struct StatusDetector: Sendable {
 
     public mutating func output(_ chunk: String, at now: Date = clock) {
         // The agent reports itself: nothing here is read (tick checks the same). Plain shells don't track status.
-        guard !hooked, !settled, manifest.quietSeconds < 1e8 else { return }
+        guard !hooked, !settled, manifest.tracksStatus else { return }
         let (chunk, rest) = Self.wholeSequences(carry + chunk)
         carry = rest.count > 4096 ? "" : rest   // a sequence that never ends isn't kept for good
         let text = Self.stripANSI(chunk)
@@ -93,7 +93,8 @@ public struct StatusDetector: Sendable {
     /// Call periodically; returns the (possibly new) status.
     @discardableResult
     public mutating func tick(at now: Date = clock) -> AgentStatus {
-        guard !hooked, status == .working, let last = lastOutput, now.timeIntervalSince(last) >= manifest.quietSeconds
+        guard !hooked, manifest.tracksStatus, status == .working, let last = lastOutput,
+            now.timeIntervalSince(last) >= manifest.quietSeconds
         else { return status }
         status = asks ? .waiting : .done
         source =
