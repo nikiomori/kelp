@@ -34,6 +34,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             sheet.showStart()
         }
         _ = await runSheet(sheet.window)
+        sheet.pane = nil   // it holds the sheet: both go once what it still runs ends
     }
 
     /// Straight to the form, filled in: a file dropped on the panel, a database duplicated.
@@ -41,6 +42,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         let sheet = DatabaseSheet(app: app, worktreeId: worktreeId)
         sheet.openForm(address)
         _ = await runSheet(sheet.window)
+        sheet.pane = nil
     }
 
     private init(app: AppModel, worktreeId: String) {

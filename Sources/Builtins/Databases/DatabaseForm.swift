@@ -9,7 +9,7 @@ import KelpKit
 /// Add works without a check that passed: a server may be down for now.
 @MainActor
 final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
-    private unowned let sheet: DatabaseSheet
+    private let sheet: DatabaseSheet   // a check or a save still running when it closes reads it after
     private let engine: DatabaseInfo.Engine
     private let editing: DatabaseInfo?, container: String?
     private let host = NSTextField(), port = NSTextField(), user = NSTextField(), password = NSSecureTextField()
