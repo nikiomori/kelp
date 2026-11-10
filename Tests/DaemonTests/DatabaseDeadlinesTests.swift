@@ -46,8 +46,8 @@ import Testing
     let unheld = Databases.question("UPDATE orders SET a = 1", database: "app", changed: 2, held: false)
     #expect(unheld == "Allow changing rows of orders in app? Tried just now, it changed 2 rows.")
     func holds(_ engine: DatabaseInfo.Engine, host: String?) -> Bool {
-        DatabaseEngines.holdsAllowed(
-            DatabaseConnection(database: DatabaseInfo(name: "app", engine: engine, host: host)))
+        let c = DatabaseConnection(database: DatabaseInfo(name: "app", engine: engine, host: host))
+        return DatabaseEngines.runner(c, off: Slots(1)).holdsAllowed
     }
     for engine in DatabaseInfo.Engine.allCases where engine != .appwrite {
         #expect(holds(engine, host: nil) && holds(engine, host: "localhost"), "\(engine)")

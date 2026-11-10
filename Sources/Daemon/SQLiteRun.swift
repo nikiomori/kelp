@@ -3,7 +3,9 @@ import Foundation
 import GRDB
 
 /// A SQLite file in kelpd itself (GRDB).
-enum SQLiteRun {
+struct SQLiteRun: Sendable {
+    let c: DatabaseConnection, off: Slots
+
     static func open(_ path: String, readOnly: Bool) throws -> DatabaseQueue {
         var config = Configuration()
         config.readonly = readOnly

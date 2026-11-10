@@ -94,22 +94,8 @@ enum DatabaseEngines {
     {
         try whole(
             try await explained(c) {
-                try await readAnywhere(c, sql, timeout: timeout, off: off)
+                try await runner(c, off: off).read(sql, timeout: timeout)
             }, c.database.name)
-    }
-
-    private static func readAnywhere(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval, off: Slots)
-        async throws -> DatabaseRows
-    {
-        switch (c.database.engine, c.database.host) {
-        case (.sqlite, _): try await off.run { try SQLiteRun.read(path(c), sql, timeout: timeout) }
-        case (.duckdb, _): try await off.run { try DuckDBRun.read(path(c), sql, timeout: timeout) }
-        case (.appwrite, _): try await AppwriteWire.read(c, sql)
-        case (.postgres, .some): try await PostgresWire.read(c, sql, timeout: timeout)
-        case (.mysql, .some): try await MySQLWire.read(c, sql, timeout: timeout)
-        case (.postgres, nil): try await off.run { try PostgresRun.read(c, sql, timeout: timeout) }
-        case (.mysql, nil): try await off.run { try MySQLRun.read(c, sql, timeout: timeout) }
-        }
     }
 
     /// A server that isn't up, said with how to start it when a compose file runs it.
@@ -133,68 +119,26 @@ enum DatabaseEngines {
         guard SQLText.mayTry(sql, c.database.engine) else {
             throw DatabaseFailure.failed("\(SQLText.verb(sql)) can't be tried in a transaction there")
         }
-        let rows: DatabaseRows =
-            switch (c.database.engine, c.database.host) {
-            case (.sqlite, _): try await off.run { try SQLiteRun.trial(path(c), sql) }
-            case (.duckdb, _): try await off.run { try DuckDBRun.trial(path(c), sql) }
-            case (.appwrite, _): try await AppwriteWire.trial(c, sql)
-            case (.postgres, .some): try await PostgresWire.trial(c, sql)
-            case (.mysql, .some): try await MySQLWire.trial(c, sql)
-            case (.postgres, nil): try await off.run { try PostgresRun.trial(c, sql) }
-            case (.mysql, nil): try await off.run { try MySQLRun.trial(c, sql) }
-            }
-        return try whole(rows, c.database.name)
+        return try whole(try await runner(c, off: off).trial(sql), c.database.name)
     }
 
-    /// Whether `write` holds a change to the rows the user allowed: everywhere but Appwrite, whose change can't be
-    /// tried and taken back; there the question says the number is only what the rows matched when asked.
-    static func holdsAllowed(_ c: DatabaseConnection) -> Bool { c.database.engine != .appwrite }
-
-    /// `allowed`: the rows the user allowed it to change (its trial's), committed only if it changes as many where
-    /// `holdsAllowed`; elsewhere (Appwrite) it runs as asked, so a table changed while it was asked can change a
+    /// `allowed`: the rows the user allowed it to change (its trial's), committed only if it changes as many where the
+    /// runner `holdsAllowed`; elsewhere (Appwrite) it runs as asked, so a table changed while it was asked can change a
     /// different number.
     static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots) async throws
         -> DatabaseRows
     {
-        let rows: DatabaseRows =
-            switch (c.database.engine, c.database.host) {
-            case (.sqlite, _): try await off.run { try SQLiteRun.write(path(c), sql, allowed: allowed) }
-            case (.duckdb, _): try await off.run { try DuckDBRun.write(path(c), sql, allowed: allowed) }
-            case (.appwrite, _): try await AppwriteWire.write(c, sql)
-            case (.postgres, .some): try await PostgresWire.write(c, sql, allowed: allowed)
-            case (.mysql, .some): try await MySQLWire.write(c, sql, allowed: allowed)
-            case (.postgres, nil): try await off.run { try PostgresRun.write(c, sql, allowed: allowed) }
-            case (.mysql, nil): try await off.run { try MySQLRun.write(c, sql, allowed: allowed) }
-            }
-        return try whole(rows, c.database.name)
+        try whole(try await runner(c, off: off).write(sql, allowed: allowed), c.database.name)
     }
 
     /// The user's edits, all or none, in one transaction: the rows they changed. Through a container's client too: a
     /// failure stops it before COMMIT, and the session it ends rolls back.
     static func apply(_ c: DatabaseConnection, _ statements: [String], off: Slots) async throws -> Int {
-        switch (c.database.engine, c.database.host) {
-        case (.sqlite, _): try await off.run { try SQLiteRun.apply(path(c), statements) }
-        case (.duckdb, _): try await off.run { try DuckDBRun.apply(path(c), statements) }
-        case (.appwrite, _): try await AppwriteWire.apply(c, statements)
-        case (.postgres, .some): try await PostgresWire.apply(c, statements)
-        case (.mysql, .some): try await MySQLWire.apply(c, statements)
-        case (.postgres, nil): try await off.run { try PostgresRun.apply(c, statements) }
-        case (.mysql, nil): try await off.run { try MySQLRun.apply(c, statements) }
-        }
+        try await runner(c, off: off).apply(statements)
     }
 
     static func schema(_ c: DatabaseConnection, table: String?, off: Slots) async throws -> DatabaseSchema {
-        let schema: DatabaseSchema = try await explained(c) {
-            switch (c.database.engine, c.database.host) {
-            case (.sqlite, _): try await off.run { try SQLiteRun.schema(path(c)) }
-            case (.duckdb, _): try await off.run { try DuckDBRun.schema(path(c)) }
-            case (.appwrite, _): try await AppwriteWire.schema(c)
-            case (.postgres, .some): try await PostgresWire.schema(c)
-            case (.mysql, .some): try await MySQLWire.schema(c)
-            case (.postgres, nil): try await off.run { try PostgresRun.schema(c) }
-            case (.mysql, nil): try await off.run { try MySQLRun.schema(c) }
-            }
-        }
+        let schema = try await explained(c) { try await runner(c, off: off).schema() }
         guard let table else { return schema }
         let one = schema.tables.filter { $0.name.caseInsensitiveCompare(table) == .orderedSame }
         guard !one.isEmpty else {

@@ -4,7 +4,8 @@ import Foundation
 /// A DuckDB file through the `duckdb` program (Homebrew's), as CSV: NULL written as `PostgresRun.null`, so an empty
 /// string stays one. A read opens the file read-only, so DuckDB refuses a change; a change counts its rows through
 /// RETURNING (DuckDB prints no count of its own), tried in a transaction it rolls back.
-enum DuckDBRun {
+struct DuckDBRun: Sendable {
+    let c: DatabaseConnection, off: Slots
     static let marker = "--kelp-7f3e9c--"
 
     static func read(_ path: String, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {

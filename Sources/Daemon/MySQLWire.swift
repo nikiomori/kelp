@@ -7,7 +7,9 @@ import os
 // MySQL and MariaDB spoken by kelpd itself (MySQLNIO): reads, writes, schema, and a query's own time.
 
 /// MySQL and MariaDB over their text protocol: values come as the server writes them.
-enum MySQLWire {
+struct MySQLWire: Sendable {
+    let c: DatabaseConnection
+
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         try await with(c, within: timeout + 10) { conn in
             try await limit(conn, timeout)

@@ -3,7 +3,8 @@ import Foundation
 
 // Postgres inside a compose container: psql's reads, writes and schema.
 
-enum PostgresRun {
+struct PostgresRun: Sendable {
+    let c: DatabaseConnection, off: Slots
     /// Between a command's output and the next: what psql prints for `\echo`.
     static let marker = "--kelp-7f3e9c--"
     /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.

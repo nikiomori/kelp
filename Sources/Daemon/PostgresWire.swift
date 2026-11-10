@@ -6,7 +6,9 @@ import os
 
 // Postgres spoken by kelpd itself (PostgresNIO): reads, writes, schema, over one connection a call.
 
-enum PostgresWire {
+struct PostgresWire: Sendable {
+    let c: DatabaseConnection
+
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         try await with(c, within: timeout + 10) { conn in
             try await run(conn, "BEGIN TRANSACTION READ ONLY")

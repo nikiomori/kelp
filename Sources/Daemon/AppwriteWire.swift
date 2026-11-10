@@ -7,7 +7,9 @@ import Foundation
 /// SELECT * | count(*) | columns FROM t [WHERE …] [ORDER BY …] [LIMIT n] [OFFSET n]; INSERT INTO t (…) VALUES (…), …;
 /// UPDATE t SET … WHERE …; DELETE FROM t WHERE …. A WHERE has =, <>, <, <=, >, >=, [NOT] LIKE ('%a%', 'a%', '%a'),
 /// IS [NOT] NULL, [NOT] IN (…), [NOT] BETWEEN, AND, OR and brackets. The user's edits go in one Appwrite transaction.
-enum AppwriteWire {
+struct AppwriteWire: Sendable {
+    let c: DatabaseConnection
+
     struct Endpoint {
         var base: String, project: String, key: String, database: String
     }

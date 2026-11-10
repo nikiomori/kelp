@@ -181,7 +181,8 @@ extension Databases {
                         id: run.id, columns: $0.columns, rows: $0.rows, total: $0.total, changed: $0.changed, ms: 0))
             })
         let question = Self.question(
-            sql, database: c.database.name, changed: trial?.changed, held: DatabaseEngines.holdsAllowed(c))
+            sql, database: c.database.name, changed: trial?.changed,
+            held: DatabaseEngines.runner(c, off: offloads).holdsAllowed)
         ls.askForKelp(question)
         let answer = await sessions.permissions.waitForKelp(
             session, question: question, within: DatabaseQuery.answerWithin, asker: pid)
@@ -218,7 +219,7 @@ extension Databases {
     /// What the agent's row asks: "Allow changing 1204 rows of orders in app_dev?", the table named so that two asked
     /// one after another read apart. "allow" makes the banner, the Dock and the strip offer Allow / Deny
     /// (`Session.asksPermission`).
-    /// `held`: whether the change is held to that many rows (`DatabaseEngines.holdsAllowed`); else the number is only
+    /// `held`: whether the change is held to that many rows (`DatabaseRunner.holdsAllowed`); else the number is only
     /// what its trial changed.
     static func question(_ sql: String, database: String, changed: Int?, held: Bool = true) -> String {
         if let changed, ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE"].contains(SQLText.verb(sql)) {

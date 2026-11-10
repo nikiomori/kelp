@@ -4,7 +4,8 @@ import Foundation
 // MySQL inside a compose container: its batch client's reads, writes and schema.
 
 /// mysql inside a compose container (`docker exec`): its batch output.
-enum MySQLRun {
+struct MySQLRun: Sendable {
+    let c: DatabaseConnection, off: Slots
     static let marker = "kelp_7f3e9c"
 
     static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {

@@ -83,19 +83,9 @@ extension Databases {
         do {
             let all = q.versionOnly != true
             let tables = all ? try await DatabaseEngines.schema(near, table: nil, off: offloads).tables.count : 0
-            var version = near.database.engine.displayName, databases: [String] = []
-            switch near.database.engine {
-            case .postgres where near.database.host != nil:
-                version = try await PostgresWire.version(near)
-                if all { databases = try await PostgresWire.databases(near) }
-            case .mysql where near.database.host != nil:
-                version = try await MySQLWire.version(near)
-                if all { databases = try await MySQLWire.databases(near) }
-            case .appwrite:
-                version = try await AppwriteWire.version(near)
-                if all { databases = try await AppwriteWire.databases(near) }
-            default: break
-            }
+            let runner = DatabaseEngines.runner(near, off: offloads)
+            let version = try await runner.version() ?? near.database.engine.displayName
+            let databases = all ? try await runner.databases() : []
             return DatabaseCheckResult(
                 version: version, tables: tables, databases: databases,
                 ms: Int(Date().timeIntervalSince(started) * 1000))
