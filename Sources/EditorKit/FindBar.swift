@@ -6,11 +6,11 @@ import DesignKit
 @MainActor
 final class FindBar: NSView, NSSearchFieldDelegate {
     private weak var editor: CodeEditor?
-    let field = NSSearchField(), replaceField = NSSearchField()
-    private let count = NSTextField(labelWithString: "")
-    private lazy var steps = NSSegmentedControl.steps(
-        previous: String(localized: "Previous Match (⇧⌘G)"), next: String(localized: "Next Match (⌘G)"),
-        target: self, action: #selector(stepped))
+    /// The field, its count and steps, Done: what every find bar has (DesignKit); the options and Replace go in its slots.
+    private lazy var card = FindCard(
+        leading: [more], trailing: [caseToggle, wordToggle, regexToggle, scopeToggle], below: replaceRow)
+    var field: NSSearchField { card.field }
+    let replaceField = NSSearchField()
     private(set) var options = FindOptions()
     private var scope: NSRange?
     private var found: [NSTextCheckingResult] = []
@@ -42,34 +42,20 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     init(editor: CodeEditor) {
         self.editor = editor
         super.init(frame: .zero)
-        for searchField in [field, replaceField] {
-            searchField.delegate = self
-            searchField.controlSize = .small
-            searchField.font = .ui(12)
-            searchField.sendsSearchStringImmediately = true
-            searchField.focusRingType = .none
-            searchField.widthAnchor.constraint(equalToConstant: 170).isActive = true
-        }
-        field.placeholderString = String(localized: "Find")
+        replaceField.delegate = self
+        replaceField.controlSize = .small
+        replaceField.font = .ui(12)
+        replaceField.focusRingType = .none
+        replaceField.widthAnchor.constraint(equalToConstant: FindCard.fieldWidth).isActive = true
         replaceField.placeholderString = String(localized: "Replace")
         (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell?.isTransparent = true
-        count.font = .uiDigits(11)
-        count.textColor = .secondaryLabelColor
-        count.setContentHuggingPriority(.required, for: .horizontal)
-        let close = IconButton(Self.symbol("xmark"), tip: String(localized: "Close")) { [weak self] in self?.close() }
-        let top = NSStackView(views: [
-            more, field, count, caseToggle, wordToggle, regexToggle, scopeToggle, steps, close
-        ])
-        top.spacing = Metrics.gap
         replaceRow.spacing = Metrics.gap
         replaceRow.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.iconButton + Metrics.gap, bottom: 0, right: 0)
         replaceRow.isHidden = true
-        let rows = NSStackView(views: [top, replaceRow])
-        rows.orientation = .vertical
-        rows.alignment = .leading
-        rows.spacing = Metrics.gap
-        rows.edgeInsets = NSEdgeInsets(top: 5, left: 6, bottom: 5, right: 6)
-        let card = FloatingCard(rows, radius: Metrics.radiusMD)
+        card.onSearch = { [weak self] _ in self?.search(moving: true) }
+        card.onStep = { [weak self] in self?.step(forward: $0) }
+        card.onSelectAll = { [weak self] in self?.selectAllMatches() }
+        card.onClose = { [weak self] in self?.close() }
         card.translatesAutoresizingMaskIntoConstraints = false
         addSubview(card)
         NSLayoutConstraint.activate([
@@ -96,6 +82,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
 
     func begin(with text: String?) {
         isHidden = false
+        card.isHidden = false   // Esc hid it
         if let text, !text.isEmpty, text != field.stringValue { field.stringValue = text }
         window?.makeFirstResponder(field)
         field.currentEditor()?.selectAll(nil)
@@ -157,7 +144,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
         guard !query.isEmpty else { return }
         do { regex = try TextSearch.pattern(query, options) } catch {
-            count.stringValue = String(localized: "Not a valid pattern")
+            card.show(count: String(localized: "Not a valid pattern"), canStep: false)
             return
         }
         guard let regex else { return }
@@ -170,15 +157,15 @@ final class FindBar: NSView, NSSearchFieldDelegate {
 
     private func showCount() {
         guard !field.stringValue.isEmpty, regex != nil else {
-            if regex == nil, field.stringValue.isEmpty { count.stringValue = "" }
-            steps.isEnabled = false
+            if regex == nil, field.stringValue.isEmpty { card.show(count: "", canStep: false) }
             return
         }
         let more = found.count >= TextSearch.mostMatches ? "+" : ""
-        count.stringValue =
-            found.isEmpty
-            ? String(localized: "No matches") : String(localized: "\((index ?? 0) + 1) of \("\(found.count)\(more)")")
-        steps.isEnabled = !found.isEmpty
+        card.show(
+            count: found.isEmpty
+                ? String(localized: "No matches")
+                : String(localized: "\((index ?? 0) + 1) of \("\(found.count)\(more)")"),
+            canStep: !found.isEmpty)
     }
 
     /// Selected and in view. The keys stay in the field.
@@ -200,10 +187,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         show(((index ?? -1) + (forward ? 1 : found.count - 1)) % found.count)
     }
 
-    @objc private func stepped() { step(forward: steps.selectedSegment == 1) }
-
     /// Cursors in the text, one on each match: type to change them all.
-    private func selectAllMatches() {
+    func selectAllMatches() {
         guard let tv = editor?.textView, !found.isEmpty else { return }
         let ranges = found.map(\.range)
         close()
@@ -247,23 +232,12 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
     }
 
-    func controlTextDidChange(_ notification: Notification) {
-        if notification.object as? NSSearchField === field { search(moving: true) }
-    }
-
+    /// The Replace field's keys; the find field's are the card's.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
-        if sel == #selector(NSResponder.cancelOperation(_:)) {
-            close()
-            return true
-        }
-        guard sel == #selector(NSResponder.insertNewline(_:)) else { return false }
-        let mods = NSApp.currentEvent?.modifierFlags ?? []
-        if control === replaceField {
-            replaceOne()
-        } else if mods.contains(.option) {
-            selectAllMatches()
-        } else {
-            step(forward: !mods.contains(.shift))
+        switch sel {
+        case #selector(NSResponder.cancelOperation(_:)): card.close()
+        case #selector(NSResponder.insertNewline(_:)): replaceOne()
+        default: return false
         }
         return true
     }

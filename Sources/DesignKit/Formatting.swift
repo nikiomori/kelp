@@ -30,4 +30,8 @@ public func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.Un
 nonisolated(unsafe) private let spanFormatters = NSCache<NSString, DateComponentsFormatter>()   // NSCache is thread-safe, as is formatting
 
 /// Bytes as people read memory and disk: "870 MB", "3.1 GB".
-public func bytes(_ n: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .memory) }
+public func bytes(_ n: Int) -> String { bytes(n, file: false) }
+/// `file`: a file's size, as Finder shows it (by 1000, not 1024).
+public func bytes(_ n: Int, file: Bool) -> String {
+    ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: file ? .file : .memory)
+}

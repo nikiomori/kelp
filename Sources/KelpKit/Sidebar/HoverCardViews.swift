@@ -144,7 +144,7 @@ struct WorktreeSizes: View {
             ? String(path.dropFirst(root.count + 1)) : (path as NSString).abbreviatingWithTildeInPath
     }
     static func size(_ bytes: Int) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        DesignKit.bytes(bytes, file: true)
     }
 }
 

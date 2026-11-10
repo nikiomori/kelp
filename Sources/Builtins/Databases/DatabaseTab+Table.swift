@@ -91,7 +91,7 @@ extension DatabaseTab {
         if filters.isActive { words.append(String(localized: "filtered")) }
         if !grid.editable { words.append(String(localized: "a view: read only")) }
         if let bytes = current?.bytes {
-            words.append(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
+            words.append(DesignKit.bytes(bytes, file: true))
         }
         words.append(Self.took(ms))
         status.stringValue = words.joined(separator: " · ")

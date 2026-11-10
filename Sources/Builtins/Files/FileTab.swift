@@ -290,7 +290,7 @@ final class FileTab: SavableTab {
         case .tooBig(let size):
             String(
                 localized:
-                    "Too big to open here (\(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))). Open it with another app."
+                    "Too big to open here (\(DesignKit.bytes(size, file: true))). Open it with another app."
             )
         case .binary: String(localized: "Binary file — open it with another app.")
         }

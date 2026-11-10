@@ -93,7 +93,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
             add(
                 field(
                     String(localized: "Size, with indexes"),
-                    ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)))
+                    DesignKit.bytes(bytes, file: true)))
         }
         if let comment = table.comment { add(field(String(localized: "Comment"), comment)) }
         let keys = table.columns.filter(\.primary).map(\.name)
