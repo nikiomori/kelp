@@ -10,7 +10,10 @@ import WebKit
 extension BrowserTab: WKUIDelegate {
     /// The agent answers this page's questions: a page it drives (its own, or the user's it was let into, while it still
     /// does: ten minutes after its last action that tab is the user's again), not taken over.
-    var agentAnswers: Bool { watching && !takenOver && (agent || Date().timeIntervalSince(drivenAt) < 600) }
+    var agentAnswers: Bool {
+        guard let drive, !drive.takenOver else { return false }
+        return agent || Date().timeIntervalSince(drive.drivenAt) < 600
+    }
 
     func webView(
         _ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo
@@ -62,8 +65,8 @@ extension BrowserTab: WKUIDelegate {
 
     /// The answer `kelp browser dialog` left (used once), else `fallback`; noted where the agent reads.
     private func agentAnswer(_ kind: String, _ message: String, fallback: Bool) -> (accept: Bool, text: String?) {
-        let told = dialogAnswer != nil, answer = dialogAnswer ?? (fallback, nil)
-        dialogAnswer = nil
+        let told = drive?.dialogAnswer != nil, answer = drive?.dialogAnswer ?? (fallback, nil)
+        drive?.dialogAnswer = nil
         let shown = String(message.prefix(300)).replacingOccurrences(of: "\n", with: " ")
         let how =
             kind == "alert"
@@ -78,8 +81,7 @@ extension BrowserTab: WKUIDelegate {
     /// A dialog the agent's page answered: in its console, and in the answer of the action that brought it up.
     func noteDialog(_ line: String) {
         noteLog("[dialog] " + line)
-        dialogs.append(line)
-        if dialogs.count > Self.keep { dialogs.removeFirst(dialogs.count - Self.keep) }   // `while (true) alert()` stays bounded
+        if let drive { AgentDrive.add(line, to: &drive.dialogs) }
     }
 
     /// The page's question as a sheet: who asks (the frame's host, as Safari says it), what, and the buttons.

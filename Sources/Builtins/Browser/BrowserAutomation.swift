@@ -27,11 +27,11 @@ extension BrowserTab {
                 "This tab is on another site than the one the user let you use: kelp browser open <url> --shared asks again."
             )
         }
-        watch()
+        let drive = watch()
         sized()
-        drivenAt = Date()
+        drive.drivenAt = Date()
         // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs.
-        if takenOver, !Self.whileTakenOver.contains(action) {
+        if drive.takenOver, !Self.whileTakenOver.contains(action) {
             throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")
         }
         switch action {
@@ -55,7 +55,7 @@ extension BrowserTab {
             return .string(find.isEmpty ? text : Self.found(find, in: text))
         case .dialog:
             let accept = try need("answer") == "accept", text = accept ? args["text"]?.string : nil
-            dialogAnswer = (accept, text)
+            drive.dialogAnswer = (accept, text)
             guard accept else { return .string("The page's next question gets Cancel") }
             return .string("The page's next question gets OK" + (text.map { " and \"\($0)\"" } ?? ""))
         case .upload:
@@ -132,7 +132,7 @@ extension BrowserTab {
     /// out: no text to read, nothing to click. It gets the agent's viewport, else a laptop window's size, until a pane shows it.
     private func sized() {
         guard web.window == nil else { return }
-        if let viewport {
+        if let viewport = drive?.viewport {
             web.frame = CGRect(origin: .zero, size: viewport)
             return
         }
@@ -143,15 +143,16 @@ extension BrowserTab {
     /// `viewport 390x844`: the page at that size (`reset`: the pane's), and the size the page now says it has.
     private func resize(_ size: String) async throws -> JSONValue {
         if size == "reset" {
-            viewport = nil
+            drive?.viewport = nil
             if web.window == nil { web.frame = .zero }
         } else {
             let wh = size.lowercased().split(whereSeparator: { $0 == "x" || $0 == "×" }).compactMap { Int($0) }
             guard wh.count == 2, (200...4000).contains(wh[0]), (200...4000).contains(wh[1]) else {
                 throw RPCError.invalidParams("viewport takes WIDTHxHEIGHT, 200 to 4000 each (390x844), or reset")
             }
-            viewport = CGSize(width: wh[0], height: wh[1])
+            drive?.viewport = CGSize(width: wh[0], height: wh[1])
         }
+        placeWeb()
         if web.window == nil { sized() } else { view.layoutSubtreeIfNeeded() }   // off screen, layout would size it to nothing
         // The page takes its new size a moment later, longer on a busy Mac: wait until it says so (2 s at most). A timer,
         // not a frame: a page off screen draws none.
@@ -207,13 +208,13 @@ extension BrowserTab {
             $1
         }
         if web.isLoading { answer["loading"] = .bool(true) }
-        if !dialogs.isEmpty {
-            answer["dialogs"] = .array(dialogs.map(JSONValue.string))
-            dialogs = []
+        if let drive, !drive.dialogs.isEmpty {
+            answer["dialogs"] = .array(drive.dialogs.map(JSONValue.string))
+            drive.dialogs = []
         }
-        if !downloads.isEmpty {
-            answer["downloads"] = .array(downloads.map(JSONValue.string))
-            downloads = []
+        if let drive, !drive.downloads.isEmpty {
+            answer["downloads"] = .array(drive.downloads.map(JSONValue.string))
+            drive.downloads = []
         }
         if let loadError { answer["error"] = .string(loadError) }
         return .object(answer)

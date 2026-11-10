@@ -132,8 +132,7 @@ extension BrowserTab: WKDownloadDelegate {
     /// A download the agent's page made: in its console, and in the answer of the action that started it.
     private func noteDownload(_ line: String) {
         noteLog("[download] " + line)
-        downloads.append(line)
-        if downloads.count > Self.keep { downloads.removeFirst(downloads.count - Self.keep) }
+        if let drive { AgentDrive.add(line, to: &drive.downloads) }
     }
 
     /// `name` in `dir`, or as Safari names the next one when it's taken: `report-2.pdf`, `report-3.pdf`…

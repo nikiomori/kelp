@@ -33,34 +33,19 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
-    /// `kelp browser console | network` (BrowserLogs.swift): kept once an agent drives the page.
-    @ObservationIgnored var watching = false
-    /// When `kelp browser` last acted here (`agentAnswers`).
-    @ObservationIgnored var drivenAt = Date.distantPast
-    @ObservationIgnored var logs: [String] = []
-    @ObservationIgnored var requests: [String] = []
-    /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).
-    @ObservationIgnored var dialogAnswer: (accept: Bool, text: String?)?
-    /// The questions the agent's page answered since the last action's answer said them.
-    @ObservationIgnored var dialogs: [String] = []
+    /// What `kelp browser` keeps here once an agent drives the page (`watch()`); nil on a page only the user browses.
+    @ObservationIgnored var drive: AgentDrive?
     /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
     @ObservationIgnored var downloading: [ObjectIdentifier: (to: URL, source: URL?, page: URL?)] = [:]
     /// When WebKit last decided a navigation is a download that has no destination yet: an action's answer waits for it
     /// (5 s at most, in case it never starts), since on a busy Mac it can begin after the answer's first look.
     @ObservationIgnored var downloadDecided: Date?
     var downloadComing: Bool { downloadDecided.map { Date().timeIntervalSince($0) < 5 } ?? false }
-    /// What the agent's page downloaded since the last action's answer said it.
-    @ObservationIgnored var downloads: [String] = []
-    /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
-    var takenOver = false
     /// Under the toolbar once an agent drives the page: that it does, and Take Over / Hand Back. No height until then.
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
     @ObservationIgnored private let agentButton = PointerButton()
-    /// The page's size an agent set (`kelp browser viewport`): the page sits at the pane's top, in the middle, at that
-    /// size; nil fills the pane.
-    @ObservationIgnored var viewport: CGSize? { didSet { placeWeb() } }
     @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
     @ObservationIgnored private var webFixed: [NSLayoutConstraint] = []
     var title: String {
@@ -168,11 +153,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
             agentSlotHeight.isActive = false
         }
+        let takenOver = drive?.takenOver == true
         agentLabel.stringValue =
             (takenOver
                 ? String(localized: "You took this page over: the agent waits until you hand it back")
                 : String(localized: "An agent is using this page"))
-            + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
+            + (drive?.viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
         agentButton.title = takenOver ? String(localized: "Hand Back") : String(localized: "Take Over")
         agentButton.toolTip =
             takenOver
@@ -181,15 +167,15 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     private func toggleTakeOver() {
-        takenOver.toggle()
+        drive?.takenOver.toggle()
         showAgentBar()
     }
 
-    /// The page at `viewport`'s size, or filling the pane.
-    private func placeWeb() {
+    /// The page at the size the agent set (`AgentDrive.viewport`), or filling the pane.
+    func placeWeb() {
         NSLayoutConstraint.deactivate(webFill + webFixed)
         webFixed.removeSubrange(3...)
-        if let viewport {
+        if let viewport = drive?.viewport {
             webFixed += [
                 web.widthAnchor.constraint(equalToConstant: viewport.width),
                 web.heightAnchor.constraint(equalToConstant: viewport.height)
@@ -259,10 +245,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @objc private func showMore(_ sender: NSButton) {
         let menu = NSMenu()
         menu.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
-        if let viewport {
+        if let viewport = drive?.viewport {
             menu.add(String(localized: "Fill the Pane (the agent set \(Int(viewport.width))×\(Int(viewport.height)))"))
             { [weak self] in
-                self?.viewport = nil
+                self?.drive?.viewport = nil
+                self?.placeWeb()
             }
         }
         menu.addItem(.separator())
@@ -310,14 +297,14 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.stringValue = webView.url?.absoluteString ?? ""
         ports.isHidden = true
         page = (webView.url, webView.title)
-        if watching, let pageURL = webView.url?.absoluteString, pageURL != "about:blank" {
+        if drive != nil, let pageURL = webView.url?.absoluteString, pageURL != "about:blank" {
             noteLog("[page] \(pageURL)")
         }
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async
         -> WKNavigationResponsePolicy
     {
-        if watching, navigationResponse.isForMainFrame,
+        if drive != nil, navigationResponse.isForMainFrame,
             let httpResponse = navigationResponse.response as? HTTPURLResponse, let url = httpResponse.url
         {
             noteRequest("\(httpResponse.statusCode) \(url.absoluteString) (page)")
@@ -328,7 +315,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.stringValue = webView.url?.absoluteString ?? ""
         page = (webView.url, webView.title)
         if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
-        if watching { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
+        if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
     }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showError(error) }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {

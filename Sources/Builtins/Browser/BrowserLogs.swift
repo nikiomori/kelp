@@ -5,21 +5,22 @@ import WebKit
 /// (an agent's own page: since it opened). The page's `console`, `fetch` and `XMLHttpRequest` are wrapped in its own
 /// world (Kelp's world has its own globals), so the page could post fake entries: it only fills its own lists.
 extension BrowserTab {
-    static let keep = 500
-
     /// Starts keeping the lists: for the next documents, and for this one from now.
-    func watch() {
-        guard !watching else { return }
-        watching = true
+    @discardableResult
+    func watch() -> AgentDrive {
+        if let drive { return drive }
+        let made = AgentDrive()
+        drive = made
         showAgentBar()
         let uc = web.configuration.userContentController
         uc.add(WeakHandler(self), name: "kelpWatch")
         uc.addUserScript(WKUserScript(source: Self.watchJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web.evaluateJavaScript(Self.watchJS)
+        return made
     }
 
     func note(_ message: WKScriptMessage) {
-        guard watching, let entry = message.body as? [String: Any] else { return }
+        guard drive != nil, let entry = message.body as? [String: Any] else { return }
         let text = String((entry["text"] as? String ?? "").prefix(2000))
         if entry["k"] as? String == "net" {
             let status = (entry["status"] as? Int).map { $0 == 0 ? "failed" : String($0) } ?? "failed"
@@ -33,18 +34,16 @@ extension BrowserTab {
     }
 
     func noteLog(_ line: String) {
-        logs.append(line)
-        if logs.count > Self.keep { logs.removeFirst(logs.count - Self.keep) }
+        if let drive { AgentDrive.add(line, to: &drive.logs) }
     }
     func noteRequest(_ line: String) {
-        requests.append(line)
-        if requests.count > Self.keep { requests.removeFirst(requests.count - Self.keep) }
+        if let drive { AgentDrive.add(line, to: &drive.requests) }
     }
 
     /// The list as text, emptied after when `clear`.
     func listed(_ console: Bool, clear: Bool) -> String {
-        let list = console ? logs : requests
-        if clear { if console { logs = [] } else { requests = [] } }
+        let list = (console ? drive?.logs : drive?.requests) ?? []
+        if clear { if console { drive?.logs = [] } else { drive?.requests = [] } }
         return list.isEmpty ? (console ? "No console messages." : "No requests.") : list.joined(separator: "\n")
     }
 
@@ -87,4 +86,30 @@ extension BrowserTab {
         };
         })();
         """#
+}
+
+/// What an agent driving a page leaves on its tab (`kelp browser`), made by `BrowserTab.watch()`: a page only the user
+/// browses carries none of it.
+@MainActor
+final class AgentDrive {
+    /// Each list keeps its last lines only: `while (true) alert()` stays bounded.
+    static let keep = 500
+    /// When `kelp browser` last acted here (`BrowserTab.agentAnswers`).
+    var drivenAt = Date.distantPast
+    /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
+    var takenOver = false
+    /// The page's size the agent set (`kelp browser viewport`): the page sits at the pane's top, in the middle, at that
+    /// size; nil fills the pane (`BrowserTab.placeWeb`).
+    var viewport: CGSize?
+    /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).
+    var dialogAnswer: (accept: Bool, text: String?)?
+    /// `kelp browser console | network`.
+    var logs: [String] = [], requests: [String] = []
+    /// The questions the page answered and what it downloaded, since the last action's answer said them.
+    var dialogs: [String] = [], downloads: [String] = []
+
+    static func add(_ line: String, to list: inout [String]) {
+        list.append(line)
+        if list.count > keep { list.removeFirst(list.count - keep) }
+    }
 }

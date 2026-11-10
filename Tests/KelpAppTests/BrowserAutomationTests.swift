@@ -54,7 +54,7 @@ import WorkbenchKit
     _ = try await tab.browse("info", .object([:]))
     _ = try await tab.browse(
         "eval", .object(["js": .string("fetch('/api/x').catch(() => 0).then(() => console.error(new Error('boom')))")]))
-    #expect(try await waitFor(5) { tab.logs.contains { $0.contains("boom") } })
+    #expect(try await waitFor(5) { (tab.drive?.logs ?? []).contains { $0.contains("boom") } })
 
     let log = try #require(try await tab.browse("console", .object(["clear": .bool(true)])).string)
     #expect(
@@ -227,7 +227,7 @@ import WorkbenchKit
         try await eval("[f.files[0].name, f.files[0].size, f.files[0].type]")
             == .array([.string("note.txt"), .int(5), .string("text/plain")]))
 
-    tab.takenOver = true
+    tab.drive?.takenOver = true
     await #expect(throws: RPCError.self) { try await act("click", ["ref": .string("e1")]) }
     // The user may be signing in: what the page holds is theirs until they hand it back.
     await #expect(throws: RPCError.self) { try await act("snapshot", [:]) }
@@ -240,14 +240,14 @@ import WorkbenchKit
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
     let other = URL(string: "https://mail.other.com/")!, same = URL(string: "https://www.example.com/x")!
     #expect(!tab.leavesSharedSite(other, mainFrame: true))   // nobody drives it: the user's own browsing
-    tab.watch()
-    tab.drivenAt = Date()   // as `kelp browser` does on each action
+    let drive = tab.watch()
+    drive.drivenAt = Date()   // as `kelp browser` does on each action
     #expect(tab.leavesSharedSite(other, mainFrame: true) && !tab.leavesSharedSite(same, mainFrame: true))
-    tab.drivenAt = Date().addingTimeInterval(-601)
+    drive.drivenAt = Date().addingTimeInterval(-601)
     #expect(!tab.agentAnswers && !tab.leavesSharedSite(other, mainFrame: true))   // left alone a while: the user's tab again
-    tab.drivenAt = Date()
+    drive.drivenAt = Date()
     #expect(!tab.leavesSharedSite(other, mainFrame: false))   // a frame inside it (an embed) isn't the page going
-    tab.takenOver = true
+    drive.takenOver = true
     #expect(!tab.leavesSharedSite(other, mainFrame: true))   // the user, browsing
     let own = BrowserTab(uri: TabURI.agentPage("https://example.com/"), app: AppModel())
     own.watch()
