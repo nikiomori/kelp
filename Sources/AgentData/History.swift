@@ -9,6 +9,23 @@ public enum ClaudeHistory {
         ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")).appendingPathComponent(
             "projects")
 
+    /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).
+    public static func lastReply(transcript url: URL) -> String? {
+        guard let data = Data(tail: 262_144, of: url) else { return nil }
+        for line in data.split(separator: 0x0A).reversed() {
+            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                entry["type"] as? String == "assistant",
+                let content = (entry["message"] as? [String: Any])?["content"] as? [[String: Any]]
+            else { continue }
+            let text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined(
+                separator: "\n"
+            )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { return String(text.prefix(4000)) }
+        }
+        return nil
+    }
+
     /// Sessions under `root/<encoded-cwd>/<sessionId>.jsonl`, newest first. Subagent transcripts (deeper) are skipped.
     public static func sessions(root: URL = defaultRoot) -> [AgentSessionInfo] {
         let fm = FileManager.default

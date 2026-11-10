@@ -1,24 +1,29 @@
+import Core
 import Foundation
 
 /// What an agent's conversation file says, read for the agent it's handed to (session.handoff): Claude Code's transcript,
 /// Codex's rollout, pi's or oh-my-pi's session. What was said, and what was done beside it: the files it changed, the
 /// commands it ran, its last plan.
-struct Conversation {
-    struct Turn: Equatable {
-        var user: Bool, text: String
+public struct Conversation: Sendable {
+    public struct Turn: Equatable, Sendable {
+        public var user: Bool, text: String
+        public init(user: Bool, text: String) {
+            self.user = user
+            self.text = text
+        }
     }
-    var turns: [Turn] = []
+    public var turns: [Turn] = []
     /// Files it wrote or edited, in the order first touched.
-    var changed: [String] = []
+    public var changed: [String] = []
     /// Commands it ran, each once, the latest run last.
-    var commands: [String] = []
+    public var commands: [String] = []
     /// Its last plan or to-do list, as "[x] step" lines.
-    var plan: [String] = []
+    public var plan: [String] = []
 
-    init() {}
+    public init() {}
 
     /// Nil when the file can't be read or holds nothing anyone said.
-    init?(file url: URL) {
+    public init?(file url: URL) {
         guard let data = Data(contentsIfAny: url) else { return nil }
         for line in data.split(separator: 0x0A) {
             if let entry = Self.json(Data(line)) { read(entry) }
@@ -109,7 +114,7 @@ struct Conversation {
 
     /// The first turn (the task, up to a quarter of `limit`) and as many of the newest as fit in `limit` characters;
     /// the newest one that doesn't fit whole keeps its end.
-    func kept(limit: Int) -> [Turn] {
+    public func kept(limit: Int) -> [Turn] {
         guard var first = turns.first else { return [] }
         if first.text.count > limit / 4 { first.text = String(first.text.prefix(limit / 4)) + "…" }
         var budget = limit - first.text.count, tail: [Turn] = []
@@ -121,7 +126,7 @@ struct Conversation {
     }
 
     /// The plan, the files, the last 15 commands and what git says is uncommitted: what the turns don't say.
-    func notes(uncommitted: String) -> String {
+    public func notes(uncommitted: String) -> String {
         var parts: [String] = []
         if !plan.isEmpty { parts.append("## Its plan\n\n" + plan.joined(separator: "\n")) }
         if !changed.isEmpty {
@@ -137,7 +142,7 @@ struct Conversation {
     }
 
     /// "## You / ## Agent" turns after the notes; "…" where turns were left out.
-    func markdown(limit: Int, uncommitted: String = "") -> String {
+    public func markdown(limit: Int, uncommitted: String = "") -> String {
         let kept = kept(limit: limit)
         var parts = kept.map { "## \($0.user ? "You" : "Agent")\n\n\($0.text)" }
         if kept.count < turns.count { parts.insert("…", at: 1) }
@@ -148,7 +153,9 @@ struct Conversation {
     /// The turns as a pi session (pi's docs/session-format.md, version 3) that `pi --session` and `omp --resume` open as
     /// their own: one message per turn, each the child of the one before, and the notes as a message the model reads
     /// (`custom_message`). The answers are marked as another program's (`api`), so pi sends them as plain text.
-    func piSession(cwd: String, agent: String, limit: Int, uncommitted: String, now: Date = Date()) throws -> String {
+    public func piSession(
+        cwd: String, agent: String, limit: Int, uncommitted: String, now: Date = Date()
+    ) throws -> String {
         let time = ISO8601DateFormatter.string(
             from: now, timeZone: .gmt, formatOptions: [.withInternetDateTime, .withFractionalSeconds])
         let ms = Int(now.timeIntervalSince1970 * 1000)

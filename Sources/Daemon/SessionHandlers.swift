@@ -296,7 +296,7 @@ extension SessionContinueAt: Handled {
 
 extension SessionLastReply: Handled {
     func handle(_ sessions: Sessions) throws -> String? {
-        sessions.existing(id).flatMap(sessions.agentUsage.lastReply(of:))
+        sessions.existing(id).flatMap(sessions.agentUsage.conversations.lastReply(of:))
     }
 }
 

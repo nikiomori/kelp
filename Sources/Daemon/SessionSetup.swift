@@ -143,7 +143,7 @@ final class SessionSetup: Sendable {
         rec.profile.flatMap { profile($0, agent: "claude") }.map {
             URL(fileURLWithPath: $0.dir).appendingPathComponent("projects")
         }
-            ?? agentUsage.agentHomes.withLock { $0 }.claude
+            ?? agentUsage.conversations.homes.withLock { $0 }.claude
     }
 
     /// Account profiles keep each agent login in its own config dir: switching needs no re-login.

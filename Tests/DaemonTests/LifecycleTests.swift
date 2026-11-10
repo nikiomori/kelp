@@ -67,7 +67,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
 @Test func outOfRangeNumbersAreClamped() async throws {
     let (d, c, w, _) = try await project()
     defer { d.stop() }
-    d.agentUsage.agentHomes.withLock { $0 = (tmp(), tmp()) }
+    d.agentUsage.conversations.homes.withLock { $0 = (tmp(), tmp()) }
     let s: Session = try await c.call(
         "session.create",
         .obj(["worktreeId": .string(w.id), "command": "echo hi; sleep 30", "cols": -3, "rows": 70000]),

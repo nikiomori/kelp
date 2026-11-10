@@ -130,7 +130,7 @@ extension SessionFork: Handled {
                 sessions.setup.resumeArgv(old, manifest), flag: manifest.sessionIdFlag)
             if let argv = manifest.forking(resumed) { return argv }
         case "codex":
-            let file = sessions.agentUsage.conversationFile(of: old, live: sessions.existing(old.id))
+            let file = sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
             if let id = file.map({ String($0.deletingPathExtension().lastPathComponent.suffix(36)) }),
                 UUID(uuidString: id) != nil
             {
@@ -151,7 +151,7 @@ extension SessionHandoff: Handled {
         }
         let target = agent ?? old.agent
         var manifest = try sessions.setup.manifest(target, command: nil)
-        let file = sessions.agentUsage.conversationFile(of: old, live: sessions.existing(old.id))
+        let file = sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
         let conversation = file.flatMap(Conversation.init(file:))
         let uncommitted = Self.uncommitted(old.cwd, sessions)
         let ask = prompt ?? "Continue the task where the previous agent left off."
@@ -177,7 +177,8 @@ extension SessionHandoff: Handled {
     ) throws -> [String]? {
         switch agent ?? old.agent {
         case "codex" where old.agent == "claude" && profile == nil:
-            return file.flatMap { sessions.agentUsage.codexThread(importing: $0, cwd: old.cwd) }.map { ["resume", $0] }
+            let conversations = sessions.agentUsage.conversations
+            return file.flatMap { conversations.codexThread(importing: $0, cwd: old.cwd) }.map { ["resume", $0] }
         case let target? where target == "pi" || target == "omp":
             guard let conversation else { return nil }
             let session = try conversation.piSession(

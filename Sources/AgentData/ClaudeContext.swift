@@ -19,6 +19,40 @@ public enum ClaudeContext {
         return at.addingTimeInterval(wrote("ephemeral_1h_input_tokens") ? 3600 : 300)
     }
 
+    /// Tokens in the context of a Claude Code conversation: the last reply's input with cache, as Claude Code's own
+    /// statusline counts it (the reply's output isn't in it until it's sent back), or what a newer compaction left. `peak` is the most it held (a compaction's starting size counts), for telling the window.
+    public static func usage(transcript url: URL) -> (used: Int, peak: Int, model: String, cacheUntil: Date?)? {
+        guard let data = Data(tail: 1 << 20, of: url) else { return nil }   // a turn's tool results can be hundreds of KB
+        var compacted: (pre: Int, post: Int)?
+        for line in data.split(separator: 0x0A).reversed() {
+            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                entry["isSidechain"] as? Bool != true
+            else { continue }
+            if compacted == nil, entry["subtype"] as? String == "compact_boundary" {
+                // Without postTokens (older Claude Code) what's left is unknown until the next reply.
+                guard let metadata = entry["compactMetadata"] as? [String: Any],
+                    let post = metadata["postTokens"] as? Int
+                else {
+                    return nil
+                }
+                compacted = (metadata["preTokens"] as? Int ?? 0, post)
+                continue
+            }
+            guard entry["type"] as? String == "assistant", let message = entry["message"] as? [String: Any],
+                let usage = message["usage"] as? [String: Any]
+            else { continue }
+            let used = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].reduce(0) {
+                $0 + ((usage[$1] as? Int) ?? 0)
+            }
+            guard used > 0 else { continue }   // API errors and other synthetic replies carry no usage
+            let cacheUntil = compacted == nil ? ClaudeContext.cacheUntil(entry, usage) : nil
+            return (
+                compacted?.post ?? used, max(used, compacted?.pre ?? 0), message["model"] as? String ?? "", cacheUntil
+            )
+        }
+        return compacted.map { ($0.post, $0.pre, "", nil) }
+    }
+
     public static func parts(_ data: Data, used: Int) -> Parts? {
         let lines = JSONL.lines(data)
         guard used > 0, let first = base(lines) else { return nil }

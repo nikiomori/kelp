@@ -168,7 +168,7 @@ extension Sessions {
     private func finalReply(_ session: Session) -> String? {
         var reply: String?
         for _ in 0..<8 {
-            reply = existing(session.id).flatMap(agentUsage.lastReply(of:))
+            reply = existing(session.id).flatMap(agentUsage.conversations.lastReply(of:))
             if let reply, reports.isNewReply(reply, of: session.id) { return reply }
             Thread.sleep(forTimeInterval: 0.5)
         }

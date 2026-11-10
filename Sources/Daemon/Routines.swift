@@ -222,7 +222,7 @@ final class Routines: Sendable {
 
     /// The first line of the agent's last reply, else what its row says.
     private func reply(_ session: Session) -> String {
-        let text = sessions.existing(session.id).flatMap(sessions.agentUsage.lastReply(of:))
+        let text = sessions.existing(session.id).flatMap(sessions.agentUsage.conversations.lastReply(of:))
         let line = text?.split(whereSeparator: \.isNewline).first.map {
             $0.replacingOccurrences(of: "`", with: "").trimmingCharacters(in: .whitespaces)
         }

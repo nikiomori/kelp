@@ -30,7 +30,7 @@ import Testing
     let (d, c, _) = try daemon()
     defer { d.stop() }
     let home = tmp(), work = tmp(), day = work.appendingPathComponent("sessions/2026/10/20")
-    d.agentUsage.agentHomes.withLock {
+    d.agentUsage.conversations.homes.withLock {
         $0 = (home.appendingPathComponent("projects"), home.appendingPathComponent("sessions"))
     }
     try FileManager.default.createDirectory(at: day, withIntermediateDirectories: true)

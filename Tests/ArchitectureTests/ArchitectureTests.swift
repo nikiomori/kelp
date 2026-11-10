@@ -536,7 +536,7 @@ func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 61, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
+        "Daemon": 58, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 8, "Agents": 13, "kelp": 10,
         "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 1, "DesignKit": 0

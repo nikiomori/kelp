@@ -86,8 +86,8 @@ extension PaneReportAgent: Handled {
 
 extension SessionContextWindow: Handled {
     func handle(_ sessions: Sessions) throws -> Usage? {
-        guard let transcript = sessions.existing(id).flatMap(sessions.agentUsage.transcript(of:)),
-            let context = AgentUsage.contextUsage(transcript: transcript)
+        guard let transcript = sessions.existing(id).flatMap(sessions.agentUsage.conversations.transcript(of:)),
+            let context = ClaudeContext.usage(transcript: transcript)
         else { return nil }
         return Usage(
             used: context.used, window: sessions.agentUsage.contextWindow(model: context.model, peak: context.peak),
@@ -120,8 +120,8 @@ extension RoutineRun: Handled {
 
 extension SessionContextParts: Handled {
     func handle(_ sessions: Sessions) throws -> Parts? {
-        guard let ls = sessions.existing(id), let transcript = sessions.agentUsage.transcript(of: ls),
-            let context = AgentUsage.contextUsage(transcript: transcript),
+        guard let ls = sessions.existing(id), let transcript = sessions.agentUsage.conversations.transcript(of: ls),
+            let context = ClaudeContext.usage(transcript: transcript),
             var parts = ClaudeContext.parts(
                 try Data(contentsOf: transcript, options: .mappedIfSafe), used: context.used)
         else { return nil }
@@ -132,7 +132,9 @@ extension SessionContextParts: Handled {
 
 extension SessionSubagentSteps: Handled {
     func handle(_ sessions: Sessions) throws -> Result {
-        guard let ls = sessions.existing(id), let parent = sessions.agentUsage.transcript(of: ls) else { return [:] }
+        guard let ls = sessions.existing(id), let parent = sessions.agentUsage.conversations.transcript(of: ls) else {
+            return [:]
+        }
         var last: Result = [:]
         for run in ls.snapshot.runningSubagents {
             guard let file = SubagentTranscript.file(parent: parent, id: run.id),
@@ -148,7 +150,7 @@ extension SessionSubagentSteps: Handled {
 
 extension SessionSubagentJournal: Handled {
     func handle(_ sessions: Sessions) throws -> Result {
-        let usage = sessions.agentUsage
+        let usage = sessions.agentUsage.conversations
         guard
             let parent = try sessions.existing(id).flatMap(usage.transcript(of:))
                 ?? sessions.store.session(id).flatMap(usage.transcript(of:)),

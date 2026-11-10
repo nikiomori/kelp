@@ -182,7 +182,7 @@ import Testing
 /// History and usage answer from the agents' folders (empty, then one conversation), now off the cooperative pool.
 @Test func historyAndUsageFromAgentFolders() async throws {
     let d = try Daemon(root: tmp()), home = tmp()
-    d.agentUsage.agentHomes.withLock {
+    d.agentUsage.conversations.homes.withLock {
         $0 = (home.appendingPathComponent("projects"), home.appendingPathComponent("sessions"))
     }
     #expect(try await d.handle("history.list", .null, conn: -1) == .array([]))
