@@ -90,7 +90,7 @@ extension EditorArea {
                 id: tab.id, title: table.map { "\($0) · \(name)" } ?? name, icon: .symbol("cylinder.split.1x2"),
                 status: nil, toolTip: nil)
         default:
-            let info = DeclarativeExtension.viewInfo(tab.uri)
+            let info = app.extensions.viewInfo(tab.uri)
             return .init(
                 id: tab.id, title: info?.title ?? body, icon: .symbol(info?.icon ?? "puzzlepiece.extension"),
                 status: nil,

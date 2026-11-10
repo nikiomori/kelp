@@ -76,16 +76,10 @@ struct VSCodePackage: Decodable {
     }
 }
 
+/// A folder's extension.json (or a VS Code package.json) made into contributions. What it keeps between reloads, the
+/// views `ext:` tabs open and each folder's last manifest that worked, is `app`'s registry's.
 @MainActor
 enum DeclarativeExtension {
-    /// View definitions by "extension/view", for `ext:` tabs: only enabled extensions' (see `forget`).
-    private static var views: [String: (ExtManifest, ExtManifest.ViewDef, URL)] = [:]
-    /// The last manifest of each folder that loaded: a mistake while it's edited keeps this one working, the error beside it.
-    private static var lastGood: [String: ExtManifest] = [:]
-
-    /// A reload starts over (nil: every extension; uninstalled ones go); an extension turned off takes its views along.
-    static func forget(_ id: String? = nil) { views = id.map { id in views.filter { $0.value.0.id != id } } ?? [:] }
-
     /// `tools`: required tools known to be there or not (`ExtensionRegistry.tools`); one not in it counts as there.
     static func load(_ folder: URL, tools: [String: Bool] = [:], app: AppModel) -> (
         info: ExtensionInfo, contributions: Contributions
@@ -101,10 +95,11 @@ enum DeclarativeExtension {
                         && FileManager.default.fileExists(atPath: vscode.path)
                     ? try JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: vscode)).manifest
                     : try JSONDecoder().decode(ExtManifest.self, from: Data(contentsOf: own))
-                lastGood[folder.path] = manifest
+                app.extensions.lastGood[folder.path] = manifest
                 problem = nil
             } catch {
-                guard let kept = lastGood[folder.path] else { throw error }   // nothing worked before: the error alone
+                // nothing worked before: the error alone
+                guard let kept = app.extensions.lastGood[folder.path] else { throw error }
                 manifest = kept
                 problem = (error as? DecodingError).map(describe) ?? error.localizedDescription
             }
@@ -140,7 +135,7 @@ enum DeclarativeExtension {
         var result = Contributions()
         let contributes = m.contributes
         for v in contributes?.panels ?? [] {
-            views["\(m.id)/\(v.id)"] = (m, v, folder)
+            app.extensions.views["\(m.id)/\(v.id)"] = (m, v, folder)
             let badge = ExtBadge()
             var poll: (@MainActor () async -> Void)?
             if let def = v.badge { poll = { await badge.poll(def, folder: folder, app: app) } }
@@ -154,7 +149,7 @@ enum DeclarativeExtension {
                 })
         }
         for v in contributes?.editors ?? [] {
-            views["\(m.id)/\(v.id)"] = (m, v, folder)
+            app.extensions.views["\(m.id)/\(v.id)"] = (m, v, folder)
             result.editors.append(
                 EditorSpec(
                     id: "\(m.id).\(v.id)", title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
@@ -180,17 +175,11 @@ enum DeclarativeExtension {
         return result
     }
 
-    static func viewInfo(_ uri: String) -> (title: String, icon: String)? {
-        views[ExtBridge.split(TabURI.body(uri)).view].map {
-            ($0.1.title, $0.1.icon ?? $0.0.icon ?? "puzzlepiece.extension")
-        }
-    }
-
     /// Opens `ext:<extension>/<view>` tabs.
     static func tabProvider(_ app: AppModel) -> TabProvider {
         TabProvider(schemes: ["ext"]) { uri in
             let (view, props) = ExtBridge.split(TabURI.body(uri))   // ext:my.ext/view?file=a.txt: kelp.props
-            guard let (m, v, folder) = views[view] else { return nil }
+            guard let (m, v, folder) = app.extensions.views[view] else { return nil }
             return ExtViewTab(
                 uri: uri, title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
                 controller: viewController(m, v, folder, app, props: props))

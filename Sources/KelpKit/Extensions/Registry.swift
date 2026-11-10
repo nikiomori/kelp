@@ -41,11 +41,15 @@ package final class ExtensionRegistry {
     /// Required tools (`requires`) the daemon found on its login-shell PATH, or didn't: command → found. One not asked yet
     /// counts as there (the daemon may still be reading that PATH, which takes seconds); each reload asks again, so a
     /// tool installed meanwhile counts, and an answer that changes anything reloads.
-    static var tools: [String: Bool] = [:]
+    @ObservationIgnored private(set) var tools: [String: Bool] = [:]
     @ObservationIgnored private var askingTools = false
     /// The versions asked about this run (`extensionDigest`), and the wait before asking.
     @ObservationIgnored private var asked: Set<String> = []
     @ObservationIgnored private let trustAsk = Debounce()
+    /// View definitions by "extension/view", for `ext:` tabs: only enabled extensions' (a reload starts over).
+    @ObservationIgnored var views: [String: (ExtManifest, ExtManifest.ViewDef, URL)] = [:]
+    /// The last manifest of each folder that loaded: a mistake while it's edited keeps this one working, the error beside it.
+    @ObservationIgnored var lastGood: [String: ExtManifest] = [:]
 
     /// Built-ins a clean install starts with switched off (`Builtin.offByDefault`); once settings.json has its own list,
     /// that list decides.
@@ -63,13 +67,13 @@ package final class ExtensionRegistry {
         var merged = Contributions()
         let off = disabled
         disabledLoaded = off
-        DeclarativeExtension.forget()
+        views = [:]   // uninstalled ones go
         func take(_ info: ExtensionInfo, _ c: Contributions) {
             var info = info
             info.enabled = info.essential || !off.contains(info.id)
             infos.append(info)
             guard info.enabled else {
-                DeclarativeExtension.forget(info.id)
+                views = views.filter { $0.value.0.id != info.id }   // an extension turned off takes its views along
                 return
             }
             merged.add(c)
@@ -78,7 +82,7 @@ package final class ExtensionRegistry {
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))
             ?? [] where Self.isFolder(folder)
         {
-            var loaded = DeclarativeExtension.load(folder, tools: Self.tools, app: app)
+            var loaded = DeclarativeExtension.load(folder, tools: tools, app: app)
             loaded.contributions.commands.removeAll(where: Self.isAgentsOwn)
             take(loaded.info, loaded.contributions)
         }
@@ -135,8 +139,8 @@ package final class ExtensionRegistry {
             defer { askingTools = false }
             guard let found = await app.quiet(ProcessWhich(commands: commands.sorted())) else { return }
             let now = Dictionary(uniqueKeysWithValues: commands.map { ($0, found[$0] != nil) })
-            guard now.contains(where: { Self.tools[$0.key] != $0.value }) else { return }
-            Self.tools.merge(now) { _, new in new }
+            guard now.contains(where: { tools[$0.key] != $0.value }) else { return }
+            tools.merge(now) { _, new in new }
             reload()
         }
     }
@@ -157,85 +161,28 @@ package final class ExtensionRegistry {
         return FileManager.default.fileExists(atPath: u.path, isDirectory: &dir) && dir.boolValue
     }
 
-    /// Like VS Code's "Install from VSIX…": a .vsix (a zip with the extension in `extension/`) or an extension folder,
-    /// copied into ~/.kelp/extensions. A version already there goes to the Trash. One with a Kelp manifest (it can run
-    /// commands) is installed once the user has seen what it runs, as one from GitHub.
-    func install(_ src: URL) async throws {
-        let app = self.app, dir = Self.userDir, fm = FileManager.default
-        let tmp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? fm.removeItem(at: tmp) }
-        let (folder, name) = try await Task.detached { @Sendable () async throws -> (URL, String) in
-            let fm = FileManager.default
-            guard src.pathExtension.lowercased() == "vsix" else { return (src, src.lastPathComponent) }
-            let unzip = await Shell.exec(app, ["/usr/bin/ditto", "-x", "-k", src.path, tmp.path])
-            let folder = tmp.appendingPathComponent("extension")
-            guard unzip.code == 0, fm.fileExists(atPath: folder.appendingPathComponent("package.json").path) else {
-                throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: src.path])
-            }
-            let package = folder.appendingPathComponent("package.json")
-            let name = (try? JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: package)))?.manifest.id
-            return (folder, name ?? src.deletingPathExtension().lastPathComponent)
-        }.value
-        let shown = ExtensionFiles.extensionFiles(folder)
-        if shown["/extension.json"] != nil {
-            guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else { return }
-        }
-        let installed = try await Task.detached { try ExtensionFiles.installExtension(folder, as: name, in: dir) }.value
-        _ = await ExtensionTrust.allow(installed.lastPathComponent, shown: shown, app)   // what the user just looked at
-        reload()
-    }
-
-    /// From GitHub (the library's `source`, or any GitHub folder): downloaded, then installed once the user has seen what
-    /// it runs. False when they said no or it failed (a banner says why).
-    /// `files`: the library's SHA-256 of each, which the download must match.
-    func install(source: String, files: [String: String]? = nil) async -> Bool {
-        guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
-        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir,
-            shown = ExtensionFiles.extensionFiles(folder)
-        guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else {
-            try? FileManager.default.removeItem(at: folder)
-            return false
-        }
-        let installed: URL
-        do {
-            installed = try await Task.detached {
-                try ExtensionFiles.installExtension(folder, as: folder.lastPathComponent, in: dir, move: true)
-            }.value
-        } catch {
-            Banner.show(
-                String(localized: "Couldn't install \(folder.lastPathComponent): \(AppModel.message(error))"),
-                style: .error)
-            return false
-        }
-        _ = await ExtensionTrust.allow(installed.lastPathComponent, shown: shown, app)
-        reload()
-        return true
-    }
-
     func setEnabled(_ id: String, _ on: Bool) {
         var off = disabled
         if on { off.remove(id) } else { off.insert(id) }
         app.settings.set(SettingKeys.disabledExtensions, off.sorted())
     }
 
-    func uninstall(_ id: String) {
-        guard let ext = extensions.first(where: { $0.id == id }), let path = ext.path, !ext.builtin else { return }
-        do { try FileManager.default.trashItem(at: path, resultingItemURL: nil) } catch {
-            let why = error.localizedDescription
-            Banner.show(String(localized: "Couldn't move \(ext.name) to the Trash: \(why)"), style: .error)
-        }
-        reload()
-    }
-
     func tabProvider(for uri: String) -> TabProvider? {
         let scheme = TabURI.scheme(uri)
-        if scheme == "ext", DeclarativeExtension.viewInfo(uri) == nil { return nil }   // its extension is off or gone
+        if scheme == "ext", viewInfo(uri) == nil { return nil }   // its extension is off or gone
         return all.tabs.first { $0.schemes.contains(scheme) }
     }
 
     /// Built-ins come first, so their ids win (`command`). An id agents may run (`UICommand.forAgents`) is never an
     /// extension's, even with the built-in that has it turned off: it would hand agents whatever that command runs.
     static func isAgentsOwn(_ command: CommandSpec) -> Bool { UICommand.forAgents.contains(command.id) }
+
+    /// An `ext:` tab's view: its title and icon; nil when its extension is off or gone.
+    func viewInfo(_ uri: String) -> (title: String, icon: String)? {
+        views[ExtBridge.split(TabURI.body(uri)).view].map {
+            ($0.1.title, $0.1.icon ?? $0.0.icon ?? "puzzlepiece.extension")
+        }
+    }
 
     func command(_ id: String) -> CommandSpec? { all.commands.first { $0.id == id } }
     /// The key command `id` has: settings.json's `keys` over its own (`""`: none), `fallback` for one that isn't a
