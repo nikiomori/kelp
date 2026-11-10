@@ -301,3 +301,17 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.flung(from: .bottomLeft, edge: .left, StripWay(x: 1, y: 1)) == .corner(.topLeft))
     #expect(StripModel.flung(from: .bottomLeft, edge: .left, left) == nil)
 }
+
+/// A tile shows its branch's CI in a corner of its own and says it; with none, there's no mark.
+@MainActor @Test func aTileShowsItsBranchesCI() async throws {
+    let rig = try await AppRig()
+    var item = StripItem(workspace: "w", name: "kelp", cell: .working, session: "s", since: Date())
+    item.ci = StripCI(state: .failed, line: "CI: Failed · Tests", folder: "w")
+    let tile = StripButton()
+    tile.update(item, open: false, app: rig.app)
+    #expect(tile.subviews.contains { $0 is CIMark })
+    #expect(tile.accessibilityLabel()?.contains("CI: Failed · Tests") == true)
+    item.ci = nil
+    tile.update(item, open: false, app: rig.app)
+    #expect(!tile.subviews.contains { $0 is CIMark })
+}

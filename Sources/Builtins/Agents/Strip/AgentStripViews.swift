@@ -132,6 +132,8 @@ final class StripButton: PointerControl {
     var onMenu: (() -> NSMenu)?
     var onHover: ((Bool) -> Void)?
     private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
+    /// Its branch's CI, in a bite out of the tile's other right corner.
+    private var ciMark: NSView?, ciState: CIRuns.State?
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
     private var anyApp: NSTrackingArea?
@@ -150,7 +152,7 @@ final class StripButton: PointerControl {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
-        notch()
+        notch(ci: false)
         let closed = trailingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 4)
         trailing = closed
         NSLayoutConstraint.activate([
@@ -169,8 +171,9 @@ final class StripButton: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// The mark sits in a bite out of the tile's corner, so it reads on the strip's own glass in any theme, with no disc of its own.
-    private func notch() {
+    /// The mark sits in a bite out of the tile's corner, so it reads on the strip's own glass in any theme, with no disc of its own;
+    /// with CI, its mark has one out of the corner above.
+    private func notch(ci: Bool) {
         icon.wantsLayer = true
         icon.imageScaling = .scaleProportionallyUpOrDown   // a project's own icon can be a 16-pt favicon
         let side = Self.tile, around = Self.markInset + 6
@@ -179,7 +182,8 @@ final class StripButton: PointerControl {
         let round = CGRect(
             x: side - Self.markInset - around, y: Self.markInset - around, width: 2 * around, height: 2 * around)
         let hole = CGPath(ellipseIn: round, transform: nil)
-        bite.path = tile.subtracting(hole)
+        let above = CGPath(ellipseIn: round.offsetBy(dx: 0, dy: side - 2 * Self.markInset), transform: nil)
+        bite.path = ci ? tile.subtracting(hole).subtracting(above) : tile.subtracting(hole)
         icon.layer?.mask = bite
     }
 
@@ -189,6 +193,7 @@ final class StripButton: PointerControl {
         // Every state has its mark in the tile's bite; working's is the spinning arc, so a strip of agents at work reads as
         // work going on, not as a row of Dock icons.
         mark.status = status
+        if ciState != item.ci?.state { show(ci: item.ci?.state) }
         // A clear icon keeps the tile's shape.
         effectiveAppearance.performAsCurrentDrawingAppearance {
             icon.layer?.backgroundColor = NSColor.fillHover.cgColor
@@ -206,7 +211,20 @@ final class StripButton: PointerControl {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(
-            [item.name, status.words, open ? item.words : nil].compactMap { $0 }.joined(separator: ", "))
+            [item.name, status.words, open ? item.words : nil, item.ci?.line].compactMap { $0 }.joined(separator: ", "))
+    }
+
+    private func show(ci state: CIRuns.State?) {
+        ciState = state
+        ciMark?.removeFromSuperview()
+        ciMark = state.map(CIRunLook.mark)
+        notch(ci: state != nil)
+        guard let ciMark else { return }
+        addSubview(ciMark)
+        NSLayoutConstraint.activate([
+            ciMark.centerXAnchor.constraint(equalTo: mark.centerXAnchor),
+            ciMark.centerYAnchor.constraint(equalTo: icon.topAnchor, constant: Self.markInset)
+        ])
     }
 
     private func words(_ item: StripItem) -> NSAttributedString {
@@ -305,7 +323,7 @@ final class StripTip {
 
     func show(_ item: StripItem, over tile: NSRect, below: Bool) {
         name.stringValue = item.name
-        agents.stringValue = Self.lines(item.agents)
+        agents.stringValue = ([Self.lines(item.agents)] + [item.ci?.line].compactMap { $0 }).joined(separator: "\n")
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = content?.fittingSize ?? .zero

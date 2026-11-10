@@ -114,9 +114,20 @@ final class AgentStrip {
         }
         let loud = app.sessions.filter { !Mutes.isMuted($0, in: app) && !putOff.contains(StripModel.key($0)) }
         return State(
-            items: StripModel.items(loud, workspaces: shown), mode: app.settings[SettingKeys.dockStrip],
+            items: StripModel.items(loud, workspaces: shown).map { ci($0, app) },
+            mode: app.settings[SettingKeys.dockStrip],
             comesFor: app.settings[SettingKeys.dockStripComesFor],
             fullScreen: app.settings[SettingKeys.dockStripFullScreen])
+    }
+
+    /// The item with its workspace's CI, read as the sidebar's rows read it (under observation: no work).
+    private static func ci(_ item: StripItem, _ app: AppModel) -> StripItem {
+        guard let ci = app.extensions.all.ci, let folder = app.gitFolder(of: item.workspace)?.id,
+            let state = ci.row(folder)
+        else { return item }
+        var with = item
+        with.ci = StripCI(state: state, line: ci.line(folder) ?? String(localized: "CI"), folder: folder)
+        return with
     }
 
     var isShowing: Bool { panel?.isVisible == true }
@@ -336,7 +347,7 @@ final class AgentStrip {
     private func hover(_ item: StripItem, on: Bool, over button: NSView, open: Bool) {
         tipTimer?.invalidate()
         // The open pill says its own; it has a tip for what its words leave out: the other agents, or what one at work does.
-        guard on, !open || item.agents.count > 1 || item.cell == .working else {
+        guard on, !open || item.agents.count > 1 || item.cell == .working || item.ci != nil else {
             tipTimer = Timer.scheduledTimer(withTimeInterval: Motion.hoverClose, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated { self?.tip?.hide() }   // the main run loop's timer
             }

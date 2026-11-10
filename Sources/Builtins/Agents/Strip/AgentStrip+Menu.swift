@@ -26,6 +26,12 @@ extension AgentStrip {
             NSApp.activate()
             app.workbench.focus(session: id)
         }
+        if let ci = item.ci, let open = app.extensions.all.ci?.open {
+            menu.add(ci.line) {
+                NSApp.activate()
+                open(ci.folder)
+            }
+        }
         if let session = app.session(id), QuickReply.fits(session) {
             menu.add(QuickReply.goOn.title) {
                 Task { _ = await app.call(SessionSend(id: id, text: QuickReply.goOn.text)) }

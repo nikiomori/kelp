@@ -30,6 +30,13 @@ package enum CIRunLook {
         return view
     }
 
+    /// A branch's CI as the sidebar marks it, 12 pt (`CIMark`), for a place outside the window: the Dock strip's tiles.
+    package static func mark(_ state: CIRuns.State) -> NSView {
+        let mark = CIMark()
+        mark.state = state
+        return mark
+    }
+
     package static func words(_ status: String, _ conclusion: String?) -> String {
         switch (status, conclusion) {
         case ("completed", "success"?): String(localized: "Succeeded")

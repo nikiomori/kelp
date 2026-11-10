@@ -73,12 +73,12 @@ package struct BranchActions {
 package struct FolderCI {
     /// Every folder's CI mark beside its row: the rows follow this, not each CI read.
     let rows: @MainActor () -> [String: CIRuns.State]
-    let row: @MainActor (_ folder: String) -> CIRuns.State?
+    package let row: @MainActor (_ folder: String) -> CIRuns.State?
     /// On the branch chip: the mark, and whether it sits at the title's end (else in the branch glyph's place).
     let chip: @MainActor (_ folder: String) -> (state: CIRuns.State, atEnd: Bool)?
     /// "CI: Failed · Tests, Deploy", for tooltips and VoiceOver.
-    let line: @MainActor (_ folder: String) -> String?
-    let open: @MainActor (_ folder: String) -> Void
+    package let line: @MainActor (_ folder: String) -> String?
+    package let open: @MainActor (_ folder: String) -> Void
     /// The branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, the CI items.
     let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
     /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, and its page.

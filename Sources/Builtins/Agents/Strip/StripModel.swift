@@ -17,6 +17,13 @@ struct StripItem: Equatable {
     /// titles are in the tip), so a pill that says what to do and one that says nothing to do don't read alike.
     var words: String?
     var since: Date
+    /// Its branch's CI, as its sidebar row shows it.
+    var ci: StripCI?
+}
+
+/// A workspace's CI on its tile: the mark, what it says ("CI: Failed · Tests"), and the folder whose runs it is.
+struct StripCI: Equatable {
+    var state: CIRuns.State, line: String, folder: String
 }
 
 /// Where the strip stands: a corner of a screen, or the middle of its foot or head. It snaps to the nearest after a drag, as a
