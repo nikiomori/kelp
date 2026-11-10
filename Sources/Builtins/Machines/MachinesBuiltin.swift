@@ -30,7 +30,8 @@ extension Builtins {
                                 symbol: "shippingbox", tip: String(localized: "Runs a command in \($0.machine.name)"))
                         }
                 }
-            ]
+            ],
+            skills: [machinesSkill]
         )
     }
 }

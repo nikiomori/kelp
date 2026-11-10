@@ -131,8 +131,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1 so a discard and its Undo are one flow for the diff and Source Control (Git) and a file's change bars
     // (Files): `discardWithUndo`.
     // +1 so Open over SSH and Add Database's SSH field offer the same hosts, read once: `RemoteHost.configHosts`.
-    #expect(declared <= 301, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 301, "fewer now (\(declared)): lower the ceiling")
+    // +2 so a built-in's skill for agents is its own (`SkillSpec`): the guides to machines, databases, the browser,
+    // artifacts, terminals and child agents left the shell.
+    #expect(declared <= 303, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 303, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -722,7 +724,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/DeclarativeExtension.swift": (4, "an extension's manifest"),
         "KelpKit/Extensions/ExtensionReview.swift": (1, "an extension's manifest, before it's installed"),
         "KelpKit/Extensions/ExtPages.swift": (1, "an extension's own page, served to its web view"),
-        "KelpKit/Extensions/AgentSkills.swift": (4, "the skills Kelp gives agents, in Kelp's home"),
+        "KelpKit/Extensions/AgentSkills.swift": (5, "the skills Kelp gives agents, and which are there"),
         "KelpKit/Shell/Help.swift": (1, "the guide, written to Kelp's home"),
         "KelpKit/Shell/WorkbenchActions.swift": (1, "a dropped path: a file, a folder, or nothing"),
         "KelpKit/Shell/KelpLinks.swift": (2, "a linked path: a file, a folder, or nothing"),

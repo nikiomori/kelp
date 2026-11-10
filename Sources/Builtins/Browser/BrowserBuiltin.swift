@@ -29,7 +29,8 @@ extension Builtins {
                         }
                         return try await page.browse(action, args)
                     })
-            ]
+            ],
+            skills: [browserSkill]
         )
     }
 }

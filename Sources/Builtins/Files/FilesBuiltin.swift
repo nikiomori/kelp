@@ -284,7 +284,8 @@ extension Builtins {
                     id: "rust", extensions: ["rs"],
                     server: .init(command: "rust-analyzer", install: "rustup component add rust-analyzer"),
                     test: "cargo test ${symbol}", format: "rustfmt --edition 2021")
-            ]
+            ],
+            skills: [artifactsSkill]
         )
     }
 }

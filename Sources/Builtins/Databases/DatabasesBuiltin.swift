@@ -73,7 +73,8 @@ extension Builtins {
             tabs: [TabProvider(schemes: [TabURI.databaseScheme]) { DatabaseTab(uri: $0, app: app) }],
             // "+" and the empty workspace offer Database where the workspace has one: its databases are followed while it's
             // on screen (the daemon reads them again only when a file that names one changes).
-            launched: [{ DatabaseFollow.start(app) }]
+            launched: [{ DatabaseFollow.start(app) }],
+            skills: [databasesSkill]
         )
     }
 }

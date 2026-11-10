@@ -229,6 +229,25 @@ package struct SettingsSection: Identifiable {
     var names: [String: @MainActor (_ option: String) -> String]
 }
 
+/// A skill Kelp gives agents, from the built-in whose feature it explains: written as a Claude Code plugin in Kelp's
+/// home (`AgentSkills`), which the daemon hands each session it fits.
+package struct SkillSpec {
+    package init(name: String, description: String, setting: Setting<Bool>? = nil, body: String) {
+        self.name = name
+        self.description = description
+        self.setting = setting
+        self.body = body
+    }
+    /// The plugin's and the skill's name ("kelp-vm"): the daemon picks skills by it.
+    let name: String
+    /// When an agent should use it: what Claude Code reads to choose it.
+    let description: String
+    /// Its switch in Settings › Agents; nil: always written (which sessions get it is the daemon's choice).
+    let setting: Setting<Bool>?
+    /// The skill itself, Markdown.
+    let body: String
+}
+
 /// A file icon theme in VS Code's format (see IconTheme).
 struct IconThemeSpec {
     let id: String, label: String, file: URL

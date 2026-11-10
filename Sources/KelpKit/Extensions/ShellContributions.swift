@@ -173,7 +173,8 @@ package struct Contributions {
         sessionMarks: [@MainActor (Session) -> SessionMark?] = [], branch: BranchActions? = nil, ci: FolderCI? = nil,
         pushed: [@MainActor (any Pushed) -> Void] = [], plans: PlanWords? = nil, servers: ServerCards? = nil,
         launched: [@MainActor () -> Void] = [], dockMenu: [@MainActor (NSMenu) -> Void] = [],
-        dockUsage: (@MainActor () -> DockFace?)? = nil, runs: ProjectRuns? = nil, languages: [LanguageSpec] = []
+        dockUsage: (@MainActor () -> DockFace?)? = nil, runs: ProjectRuns? = nil, languages: [LanguageSpec] = [],
+        skills: [SkillSpec] = []
     ) {
         self.panels = panels
         self.editors = editors
@@ -192,6 +193,7 @@ package struct Contributions {
         self.dockUsage = dockUsage
         self.runs = runs
         self.languages = languages
+        self.skills = skills
     }
     package var panels: [PanelSpec] = []
     var editors: [EditorSpec] = []
@@ -228,6 +230,8 @@ package struct Contributions {
     var runs: ProjectRuns?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
+    /// What it teaches agents (`AgentSkills`).
+    var skills: [SkillSpec] = []
 
     /// Another extension's, after this one's (the registry merges them in load order): a list takes its items after
     /// these, a single hook stays the first one's. A new field gets its line here, beside the fields.
@@ -252,5 +256,6 @@ package struct Contributions {
         dockMenu += c.dockMenu
         dockUsage = dockUsage ?? c.dockUsage
         runs = runs ?? c.runs
+        skills += c.skills
     }
 }

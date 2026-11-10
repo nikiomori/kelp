@@ -287,7 +287,8 @@ extension Builtins {
             // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu.
             launched: [{ AgentStrip.of(app).start() }],
             dockMenu: [{ AgentStrip.of(app).dockItems($0) }],
-            dockUsage: { LimitWatch.dockFace(app) }
+            dockUsage: { LimitWatch.dockFace(app) },
+            skills: [terminalsSkill, agentsSkill]
         )
     }
 }
