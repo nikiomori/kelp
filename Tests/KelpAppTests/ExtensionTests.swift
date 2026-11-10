@@ -71,6 +71,19 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(c.panels.map(\.id) == ["t.one.p"])
 }
 
+/// A row of a kind Kelp doesn't have, or of one of Kelp's own (the theme gallery), shows as text, and the extension
+/// says why; a look it doesn't have is a menu.
+@MainActor @Test func aSettingKindKelpLacksIsTextAndSaysSo() throws {
+    let d = try folder([
+        "extension.json":
+            #"{"id":"t.kinds","name":"Kinds","contributes":{"settings":[{"key":"t.a","title":"A","type":"theme"},{"key":"t.b","title":"B","type":"enum","look":"wheel","options":["x"]}]}}"#
+    ])
+    let (info, c) = DeclarativeExtension.load(d, app: AppModel(builtins: Builtins.all))
+    let rows = c.settings.flatMap(\.specs)
+    #expect(rows.map(\.type) == [.unknown("theme"), .enum] && rows.last?.look == .unknown("wheel"))
+    #expect(info.error?.contains("“t.a”") == true && info.error?.contains("text field") == true)
+}
+
 @MainActor @Test func aBrokenManifestIsReportedNotThrown() throws {
     let d = try folder(["extension.json": #"{"name":"no id"}"#])
     let (info, c) = DeclarativeExtension.load(d, app: AppModel(builtins: Builtins.all))

@@ -66,7 +66,7 @@ extension OneAtATime {
 
         let editorSection = m.extensions.all.settings.first { $0.id == "editor" }
         let spec = editorSection?.specs.first { $0.key == "markdown.defaultMode" }
-        #expect(spec?.type == "enum")
+        #expect(spec?.type == .enum)
         #expect(spec?.default == "preview")
         #expect(spec?.options == ["preview", "edit", "split"])
         #expect(s.string("markdown.defaultMode") == "preview")

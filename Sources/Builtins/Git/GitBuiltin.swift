@@ -61,17 +61,17 @@ extension Builtins {
                     id: "git", title: "Source Control", icon: "arrow.triangle.branch",
                     specs: [
                         s(
-                            SettingKeys.branchPrefix, "Branch prefix", "string", "Added to branches Kelp names.",
+                            SettingKeys.branchPrefix, "Branch prefix", .string, "Added to branches Kelp names.",
                             placeholder: "you/"),
                         s(
-                            SettingKeys.worktreesFolder, "Folder for worktrees", "string",
+                            SettingKeys.worktreesFolder, "Folder for worktrees", .string,
                             "Empty: inside Kelp's own folder.",
                             help:
                                 "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.",
                             placeholder: "~/worktrees"),
                         // Where a branch's CI shows (RowMarks keeps it; gh / glab are asked only for what one of these shows).
                         s(
-                            SettingKeys.ciBranchChip, "CI on the branch chip", "enum",
+                            SettingKeys.ciBranchChip, "CI on the branch chip", .enum,
                             "A ring while it runs, a red dot when it fails.",
                             help:
                                 "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.",
@@ -81,13 +81,13 @@ extension Builtins {
                                 "end": String(localized: "After the Counts"), "off": String(localized: "Off")
                             ], group: "CI"),
                         s(
-                            SettingKeys.ciSidebar, "CI beside folders", "boolean",
+                            SettingKeys.ciSidebar, "CI beside folders", .boolean,
                             "In the sidebar and the ⌃Tab switcher.",
                             help:
                                 "In the sidebar and the ⌃Tab switcher; ✓ until you open the folder. Off also stops checking CI for the others.",
                             group: "CI"),
                         s(
-                            SettingKeys.ciPopover, "CI in the branch popover", "boolean",
+                            SettingKeys.ciPopover, "CI in the branch popover", .boolean,
                             "The newest run of each workflow; a click opens CI Runs.", group: "CI")
                     ], order: 80, tint: NSColor(hex: 0xFF9500))
             ],

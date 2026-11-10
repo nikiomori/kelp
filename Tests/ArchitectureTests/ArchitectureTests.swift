@@ -135,8 +135,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // artifacts, terminals and child agents left the shell.
     // +6 so the settings window names no built-in's section: a setting's choices are its own (`SettingChoices`), and the
     // terminal's and the editor's samples are the built-ins' to show (`SettingSamples`: the terminal, the editor, a cursor).
-    #expect(declared <= 309, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 309, "fewer now (\(declared)): lower the ceiling")
+    // +6 so a row's kind and look are enums a built-in names (`SettingType`, `SettingLook`, with the decoding and encoding
+    // that read a manifest's unknown one as `unknown`).
+    #expect(declared <= 315, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 315, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

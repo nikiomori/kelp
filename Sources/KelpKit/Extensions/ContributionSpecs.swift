@@ -135,7 +135,7 @@ package struct CommandSpec: Identifiable {
 package struct SettingSpec: Codable, Identifiable {
     var key: String
     var title: String
-    var type: String   // boolean · number · string · enum · color · font
+    var type: SettingType
     var `default`: JSONValue?
     /// One line under the title: what the name doesn't say.
     var description: String?
@@ -145,9 +145,8 @@ package struct SettingSpec: Codable, Identifiable {
     /// What each option is called where it's chosen ("needed" → "When Needed"), said where the setting is declared; an
     /// option not named here shows as its value, capitalized.
     var labels: [String: String]?
-    /// How its options show: "segments", side by side (two or three short ones); "pictures", a drawing each (the
-    /// shell's, or its section's `pictures`). Nil: a menu.
-    var look: String?
+    /// How its options show (`SettingLook`); nil: a menu.
+    var look: SettingLook?
     /// `[lowest, highest]` a number can be: the stepper stops there, and a value out of it in settings.json counts as the nearest end.
     var range: [Double]?
     /// A heading over this row and the ones after it that share it ("Sidebar"); nil: the section's first, untitled group.
@@ -176,6 +175,77 @@ package struct SettingSpec: Codable, Identifiable {
         return range[0]...range[1]
     }
     func clamped(_ v: Double) -> Double { bounds.map { min(max(v, $0.lowerBound), $0.upperBound) } ?? v }
+}
+
+/// What a row is. An extension.json names one of the first six; `panels` and `theme` are Kelp's own rows (the
+/// inspector's panels, the theme gallery). A name a manifest gives that isn't one of the six reads as `unknown` and shows
+/// as a text field, its extension saying why (`problem`).
+package enum SettingType: Codable, Equatable {
+    case boolean, number, string, `enum`, color, font
+    case panels, theme
+    case unknown(String)
+
+    private static let named: [String: SettingType] = [
+        "boolean": .boolean, "number": .number, "string": .string, "enum": .enum, "color": .color, "font": .font
+    ]
+    /// As settings.json's schema and the settings guide call it.
+    var name: String {
+        switch self {
+        case .boolean: "boolean"
+        case .number: "number"
+        case .string: "string"
+        case .enum: "enum"
+        case .color: "color"
+        case .font: "font"
+        case .panels: "panels"
+        case .theme: "theme"
+        case .unknown(let name): name
+        }
+    }
+    package init(from decoder: Decoder) throws {
+        let name = try decoder.singleValueContainer().decode(String.self)
+        self = Self.named[name] ?? .unknown(name)
+    }
+    package func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(name)
+    }
+}
+
+/// How an `enum` row's options show: side by side (two or three short ones), or a drawing each (the shell's, or the
+/// setting's own: `SettingChoices.picture`). One a manifest names that Kelp doesn't have reads as `unknown`: a menu.
+package enum SettingLook: Codable, Equatable {
+    case segments, pictures
+    case unknown(String)
+
+    var name: String {
+        switch self {
+        case .segments: "segments"
+        case .pictures: "pictures"
+        case .unknown(let name): name
+        }
+    }
+    package init(from decoder: Decoder) throws {
+        let name = try decoder.singleValueContainer().decode(String.self)
+        self = ["segments": .segments, "pictures": .pictures][name] ?? .unknown(name)
+    }
+    package func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(name)
+    }
+}
+
+extension SettingSpec {
+    /// What a manifest's row asked for that Kelp doesn't have, said as its extension's error; nil when nothing.
+    var problem: String? {
+        if case .unknown(let name) = type {
+            return String(localized: "Setting “\(key)”: Kelp has no type “\(name)”, so it shows as a text field.")
+        }
+        if case .unknown(let name)? = look {
+            return String(localized: "Setting “\(key)”: Kelp has no look “\(name)”, so it shows as a menu.")
+        }
+        return nil
+    }
 }
 
 /// A setting's choices as only the code that declares it knows them: those there are now (the agents installed), what

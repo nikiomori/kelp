@@ -58,9 +58,9 @@ struct SettingRow: View {
 
     @ViewBuilder private var control: some View {
         switch spec.type {
-        case "boolean":
+        case .boolean:
             Toggle(isOn: Binding(get: { bool() ?? false }, set: { put(.bool($0)) })) { label }
-        case "number" where spec.options?.isEmpty == false:
+        case .number where spec.options?.isEmpty == false:
             // A number with options is a choice (minutes…): a picker of those values, plus a hand-set one from settings.json.
             let current = number() ?? 0
             let values: [Double] = (spec.options ?? []).compactMap { Double($0) }
@@ -73,7 +73,7 @@ struct SettingRow: View {
             } label: {
                 label
             }
-        case "number":
+        case .number:
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
             let value = Binding<Double>(get: { number() ?? 0 }, set: { put(number: spec.clamped($0)) })
             // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
@@ -95,7 +95,7 @@ struct SettingRow: View {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
                 if let summary = spec.description { Text(loc(summary)) }
             }
-        case "enum" where spec.look == "pictures":
+        case .enum where spec.look == .pictures:
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
                 TileHeading(title: { title }, about: spec.description.map(loc))
                 PictureGrid(
@@ -104,7 +104,7 @@ struct SettingRow: View {
                     label: { Self.label(spec.key, $0, app) })
             }
             .padding(.vertical, Metrics.lineGap)
-        case "enum" where spec.look == "segments":
+        case .enum where spec.look == .segments:
             // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
             let options = Self.shown(Self.options(spec, app), string() ?? "")
             LabeledContent {
@@ -116,7 +116,7 @@ struct SettingRow: View {
             } label: {
                 label
             }
-        case "enum":
+        case .enum:
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) {
                     Text(Self.label(spec.key, $0, app)).tag($0)
@@ -124,19 +124,19 @@ struct SettingRow: View {
             } label: {
                 label
             }
-        case "panels":
+        case .panels:
             InspectorPanelsRow(title: AnyView(title), about: spec.description.map(loc))
-        case "theme":
+        case .theme:
             ThemeGallery(
                 selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
                 heading: AnyView(TileHeading(title: { title }, about: spec.description.map(loc))))
-        case "color":
+        case .color:
             ColorPicker(
                 selection: Binding(
                     get: { Color(hex: string() ?? "") ?? .accentColor },
                     set: { put(.string(NSColor($0).hexString)) })
             ) { label }
-        case "font":
+        case .font:
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 Text("Default").tag("")
@@ -144,7 +144,7 @@ struct SettingRow: View {
             } label: {
                 label
             }
-        default:
+        case .string, .unknown:
             LabeledContent {
                 SettingTextField(key: spec.key, language: language, placeholder: spec.placeholder.map(loc)).frame(
                     width: 220)

@@ -44,8 +44,8 @@ package enum Builtins {
 
     /// A row in Settings for a declared setting: its key and default are the declaration's.
     package static func s<Value>(
-        _ setting: Setting<Value>, _ title: String, _ type: String, _ desc: String? = nil, help: String? = nil,
-        options: [String]? = nil, labels: [String: String]? = nil, look: String? = nil, range: [Double]? = nil,
+        _ setting: Setting<Value>, _ title: String, _ type: SettingType, _ desc: String? = nil, help: String? = nil,
+        options: [String]? = nil, labels: [String: String]? = nil, look: SettingLook? = nil, range: [Double]? = nil,
         group: String? = nil, hidden: Bool? = nil, requires: String? = nil, placeholder: String? = nil,
         perLanguage: Bool? = nil, choices: SettingChoices? = nil
     ) -> SettingSpec {

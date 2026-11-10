@@ -13,15 +13,15 @@ import Testing
 }
 
 @Test func aNumberWithARangeStaysInIt() {
-    let size = SettingSpec(key: "k", title: "T", type: "number", range: [8, 40])
+    let size = SettingSpec(key: "k", title: "T", type: .number, range: [8, 40])
     #expect(size.clamped(-3) == 8 && size.clamped(13) == 13 && size.clamped(200) == 40)
-    #expect(SettingSpec(key: "k", title: "T", type: "number").clamped(-3) == -3)
-    #expect(SettingSpec(key: "k", title: "T", type: "number", range: [8]).bounds == nil)   // from an extension.json: ignored
+    #expect(SettingSpec(key: "k", title: "T", type: .number).clamped(-3) == -3)
+    #expect(SettingSpec(key: "k", title: "T", type: .number, range: [8]).bounds == nil)   // from an extension.json: ignored
 }
 
 @MainActor @Test func searchFindsGroupsSectionsAndWhatAPageDeclares() {
     func row(_ key: String, _ title: String, group: String? = nil) -> SettingSpec {
-        SettingSpec(key: key, title: title, type: "boolean", group: group)
+        SettingSpec(key: key, title: title, type: .boolean, group: group)
     }
     let sections = [
         SettingsSection(
@@ -60,8 +60,8 @@ import Testing
     #expect(Set(keys).count == keys.count)
     // A drawn choice is an enum row, and every one has its drawings, the shell's or its own (`choices`): a renamed key
     // would leave the shell's drawing nothing.
-    let pictured = sections.flatMap(\.specs).filter { $0.look == "pictures" }
-    #expect(pictured.allSatisfy { $0.type == "enum" })
+    let pictured = sections.flatMap(\.specs).filter { $0.look == .pictures }
+    #expect(pictured.allSatisfy { $0.type == .enum })
     #expect(Set(pictured.filter { $0.choices?.picture == nil }.map(\.key)) == SettingPictures.keys)
     // What an option is called comes from where its setting is declared, the window naming no built-in's key.
     #expect(SettingRow.label(SettingKeys.dockStrip.key, "needed", m) == "When Needed")

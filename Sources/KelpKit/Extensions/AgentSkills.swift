@@ -118,7 +118,7 @@ enum AgentSkills {
             """
         for section in app.extensions.all.settings {
             for spec in section.specs {
-                var type = spec.type
+                var type = spec.type.name
                 if let options = spec.options, !options.isEmpty { type += ": " + options.joined(separator: " / ") }
                 let def =
                     spec.default.map { v -> String in

@@ -6,8 +6,8 @@ extension QuickOpen {
     /// What a setting can be set to: the values and their names.
     func choices(_ spec: SettingSpec) -> [(JSONValue, String)] {
         switch spec.type {
-        case "boolean": return [(.bool(true), String(localized: "On")), (.bool(false), String(localized: "Off"))]
-        case "number":
+        case .boolean: return [(.bool(true), String(localized: "On")), (.bool(false), String(localized: "Off"))]
+        case .number:
             return (spec.options ?? []).compactMap(Double.init).map { v -> (JSONValue, String) in
                 let whole = v == v.rounded()
                 return (

@@ -109,7 +109,9 @@ enum DeclarativeExtension {
                 icon: manifest.icon ?? "puzzlepiece.extension",
                 builtin: false, path: folder, enabled: true)
             info.source = ExtensionFiles.extensionSource(folder)
-            info.error = problem.map { String(localized: "\($0) Still running the version from before the change.") }
+            info.error =
+                problem.map { String(localized: "\($0) Still running the version from before the change.") }
+                ?? manifest.contributes?.settings?.lazy.compactMap(\.problem).first
             info.requires = manifest.requires ?? []
             if let missing = info.requires.first(where: { tools[$0] == false }) {
                 info.unavailable = String(localized: "Needs `\(missing)` — not found on this Mac.")

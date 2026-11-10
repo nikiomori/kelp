@@ -51,22 +51,22 @@ extension Builtins {
                     id: "databases", title: "Databases", icon: DatabaseLook.symbol,
                     specs: [
                         s(
-                            SettingKeys.databaseAccess, "Agents may", "enum",
+                            SettingKeys.databaseAccess, "Agents may", .enum,
                             "With a database Kelp finds in a project, until its menu says otherwise. "
                                 + "Production: read only.",
                             options: ["read", "ask", "free"],
                             labels: ["read": "Read", "ask": "Read, ask to change", "free": "Read and change"]),
                         s(
-                            SettingKeys.databaseRows, "Rows an agent gets", "number",
+                            SettingKeys.databaseRows, "Rows an agent gets", .number,
                             "A statement's rows an agent reads unless it asks for more; the tab shows up to 1000.",
                             range: [10, 1000]),
                         s(
-                            SettingKeys.databaseDensity, "Rows", "enum",
+                            SettingKeys.databaseDensity, "Rows", .enum,
                             "How tall a table's rows are: Compact fits the most, as TablePlus does.",
                             options: ["compact", "normal", "comfortable"],
                             labels: ["compact": "Compact", "normal": "Normal", "comfortable": "Comfortable"]),
                         s(
-                            SettingKeys.databaseTimeout, "Seconds a read may take", "number",
+                            SettingKeys.databaseTimeout, "Seconds a read may take", .number,
                             "Postgres and MySQL stop a read past it.", range: [1, 300])
                     ], keywords: ["SQL", "Postgres", "MySQL", "SQLite"], order: 75, tint: NSColor(hex: 0x5856D6))
             ],
