@@ -312,7 +312,11 @@ struct InspectorPanelsRow: View {
                             settings.set(SettingKeys.hiddenPanels, kept.isEmpty ? nil : kept)
                         })
                 ) {
-                    Label(loc(panel.title), systemImage: panel.icon)
+                    Label {
+                        Text(loc(panel.title))
+                    } icon: {
+                        SymbolIcon(panel.icon)
+                    }
                 }
             }
         }

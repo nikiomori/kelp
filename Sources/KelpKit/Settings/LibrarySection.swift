@@ -116,7 +116,7 @@ struct LibrarySection: View {
     private func row(_ entry: ExtensionLibrary.Entry) -> some View {
         let have = registry.extensions.first { $0.id == entry.id && !$0.builtin }
         return HStack(alignment: .top, spacing: Metrics.gapWide) {
-            Image(systemName: entry.icon ?? "puzzlepiece.extension").font(.symbol(Metrics.iconLarge)).foregroundStyle(
+            SymbolIcon(entry.icon ?? "puzzlepiece.extension", size: Metrics.iconLarge).foregroundStyle(
                 .secondary
             ).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {

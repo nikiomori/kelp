@@ -107,9 +107,7 @@ struct ExtensionsSettings: View {
                     Text("New or changed since it was allowed: it runs no commands until you allow it.")
                 }
             } icon: {
-                Image(systemName: info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textOrange)
-                    .frame(
-                        width: Metrics.iconMenu)
+                SymbolIcon(info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textOrange)
             }
         }
     }

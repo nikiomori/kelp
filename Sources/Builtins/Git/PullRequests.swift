@@ -66,8 +66,8 @@ struct PRLine: View {
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                Image(systemName: state == "Merged" ? "arrow.triangle.merge" : "arrow.triangle.pull").foregroundStyle(
-                    color)
+                SymbolIcon(state == "Merged" ? "arrow.triangle.merge" : "arrow.triangle.pull", size: Metrics.iconSmall)
+                    .foregroundStyle(color)
                 Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())
                 Text(pr.title).font(.ui(TextSize.row)).lineLimit(1)
             }
