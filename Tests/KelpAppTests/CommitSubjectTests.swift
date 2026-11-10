@@ -1,5 +1,6 @@
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinGit
 
 @Test func aConventionalSubjectSplitsIntoTypeScopeAndASentence() {
     let s = CommitSubject("fix(daemon): start no agent while the daemon stops")

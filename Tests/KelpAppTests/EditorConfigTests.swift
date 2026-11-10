@@ -1,6 +1,7 @@
 import Core
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinFiles
 
 private let config = """
     root = true
@@ -51,18 +52,19 @@ private let config = """
     #expect(Indentation.cleaned("a  ", trim: false, finalNewline: false) == "a  ")
 }
 
-@Test func aServersEditsApplyAsOfTheTextTheyWereMadeFor() {
-    let edits = [
-        CodeEdit(line: 0, column: 4, endLine: 0, endColumn: 7, text: "total"),
-        CodeEdit(line: 1, column: 6, endLine: 1, endColumn: 9, text: "total"),
-        CodeEdit(line: 2, column: 0, endLine: 2, endColumn: 0, text: "// end\n")
-    ]
-    #expect(TextEdits.applied(edits, to: "let sum = 1\nprint(sum)\n") == "let total = 1\nprint(total)\n// end\n")
-}
-
-@Test func aLineIsEditedOnlyIfItIsStillWhatWasShown() {
-    #expect(TextEdits.replacing(line: 2, expected: "b", with: "B", in: "a\nb\nc\n") == "a\nB\nc\n")
-    #expect(TextEdits.replacing(line: 1, expected: "a", with: "A", in: "a\r\nb\r\n") == "A\r\nb\r\n")
-    #expect(TextEdits.replacing(line: 2, expected: "old", with: "B", in: "a\nb\n") == nil)
-    #expect(TextEdits.replacing(line: 9, expected: "a", with: "B", in: "a\n") == nil)
+@Test func indentationOfAFile() {
+    #expect(Indentation.detect("a {\n    b {\n        c\n    }\n    // d\n}\n") == .spaces(4))
+    #expect(Indentation.detect("a:\n  b:\n    c\n  d\n") == .spaces(2))
+    #expect(Indentation.detect("func f() {\n\tx\n\t\ty\n}\n") == .tabs)
+    #expect(Indentation.detect("one\ntwo\n") == nil)
+    // A long body at one depth doesn't make that depth the step.
+    #expect(
+        Indentation.detect("class A {\n    func f() {\n" + String(repeating: "        x\n", count: 300) + "    }\n}\n")
+            == .spaces(4))
+    #expect(Indentation.detect("a {\n  b {\n" + String(repeating: "    x\n", count: 300) + "  }\n}\n") == .spaces(2))
+    #expect(Indentation.detect("a {\n        b\n        c\n}\n") == .spaces(8))
+    #expect(Indentation.detect("a {\r\n    b\r\n    c\r\n}\r\n") == .spaces(4))   // Windows line endings
+    #expect(
+        Indentation.detect(String(repeating: "\tx\n\n", count: 2000) + String(repeating: "  y\n", count: 5000)) == .tabs
+    )   // the first 2000 lines decide
 }

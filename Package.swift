@@ -83,7 +83,7 @@ let package = Package(
         .target(name: "TestSupportC", path: "Tests/TestSupportC"),
         .target(name: "TestSupport", dependencies: ["TestSupportC"], path: "Tests/TestSupport"),
         .testTarget(name: "CoreTests", dependencies: ["Core", "TestSupport"]),
-        .testTarget(name: "GitKitTests", dependencies: ["GitKit", "WorkbenchKit", "TestSupport"]),   // diffs as parsed, then as rows
+        .testTarget(name: "GitKitTests", dependencies: ["GitKit", "TestSupport"]),
         .testTarget(name: "KelpVMTests", dependencies: ["KelpVM", "TestSupport"]),   // kelp-vm's decisions, apart from Virtualization
         .testTarget(name: "KelpGuestTests", dependencies: ["KelpGuest"]),   // its socket's requests and answers
         .testTarget(name: "AgentsTests", dependencies: ["Agents", "TestSupport"]),

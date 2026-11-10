@@ -1,24 +1,18 @@
 import Core
 
 /// A run of lines that differ from HEAD, as an editor's gutter marks it.
-public struct LineChange: Equatable, Sendable {
-    public enum Kind: Sendable { case added, changed, removed }
-    public let kind: Kind
+struct LineChange: Equatable, Sendable {
+    enum Kind: Sendable { case added, changed, removed }
+    let kind: Kind
     /// 0-based, in the file as it is now; of `removed`, the line under the gap.
-    public let line: Int
+    let line: Int
     /// 0 for `removed`: no line is left of it.
-    public let count: Int
+    let count: Int
     /// Index of the hunk it came from.
-    public let hunk: Int
-    public init(kind: Kind, line: Int, count: Int, hunk: Int) {
-        self.kind = kind
-        self.line = line
-        self.count = count
-        self.hunk = hunk
-    }
+    let hunk: Int
 
     /// Reads the hunks of one file, top to bottom.
-    public static func of(_ hunks: [Hunk]) -> [LineChange] {
+    static func of(_ hunks: [Hunk]) -> [LineChange] {
         var out: [LineChange] = []
         for (h, hunk) in hunks.enumerated() {
             var next = max(hunk.newStart, 1) - 1, removed = 0, added = 0

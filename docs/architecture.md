@@ -50,6 +50,8 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
   `session:<id>`, `file:<path>#L12`, `diff:<path>`, `https://…`, `ext:<extension>/<view>`.
   Groups of tabs split right/down; drag tabs between groups or onto an edge to split.
   The model (`WorkspaceLayout`, `TabURI`) is in WorkbenchKit, a library with tests and no AppKit, like VS Code's `common/`.
+  WorkbenchKit holds the shell's model and what two built-ins share; a built-in's own pure logic sits in its folder
+  (`DiffRows` in Git, `FileSync` in Files), tested in KelpAppTests.
 - **tmux session**: a terminal tab running `tmux new-session -A -s <name>` (`terminal:?tmux=<name>`, `session.create`'s
   `tmux`), picked from the sessions tmux has on the workspace's machine (`tmux.list`; a remote project's host) in
   File › Attach to tmux Session or "+". tmux keeps the session: after the daemon restarts the tab comes back paused and

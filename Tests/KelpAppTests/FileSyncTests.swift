@@ -1,5 +1,6 @@
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinFiles
 
 @Test func savingNeverClobbersOrResurrects() {
     #expect(FileSync.save(buffer: "a", saved: "a", disk: .missing) == .none)

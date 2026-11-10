@@ -1,12 +1,12 @@
 import Foundation
 
 /// What an `.editorconfig` asks of a file (editorconfig.org): nil what it leaves alone.
-public struct EditorRules: Equatable, Sendable {
-    public var tabSize: Int?, insertSpaces: Bool?, trimTrailingWhitespace: Bool?, insertFinalNewline: Bool?
-    public init() {}
+struct EditorRules: Equatable, Sendable {
+    var tabSize: Int?, insertSpaces: Bool?, trimTrailingWhitespace: Bool?, insertFinalNewline: Bool?
+    init() {}
 
     /// `self` from a nearer file, `other` from one further up: the nearer one's say stands.
-    public func over(_ other: EditorRules) -> EditorRules {
+    func over(_ other: EditorRules) -> EditorRules {
         var merged = self
         merged.tabSize = tabSize ?? other.tabSize
         merged.insertSpaces = insertSpaces ?? other.insertSpaces
@@ -16,9 +16,9 @@ public struct EditorRules: Equatable, Sendable {
     }
 }
 
-public enum EditorConfig {
+enum EditorConfig {
     /// `file`, relative to the config's folder. `root`: `root = true`, no need to look further up.
-    public static func read(_ text: String, file: String) -> (rules: EditorRules, root: Bool) {
+    static func read(_ text: String, file: String) -> (rules: EditorRules, root: Bool) {
         var rules = EditorRules(), root = false, inSection = false, section = false
         for raw in text.split(whereSeparator: \.isNewline) {
             let line = raw.trimmingCharacters(in: .whitespaces)

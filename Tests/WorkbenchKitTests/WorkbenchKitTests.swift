@@ -219,24 +219,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(LanguageSpec.word(in: text, line: 2, column: 1) == "")
     #expect(LanguageSpec.word(in: text, line: 9, column: 1) == "")
     #expect(LanguageSpec.word(in: "é_1 b", line: 1, column: 2) == "é_1")
-}
-
-@Test func indentationOfAFile() {
-    #expect(Indentation.detect("a {\n    b {\n        c\n    }\n    // d\n}\n") == .spaces(4))
-    #expect(Indentation.detect("a:\n  b:\n    c\n  d\n") == .spaces(2))
-    #expect(Indentation.detect("func f() {\n\tx\n\t\ty\n}\n") == .tabs)
-    #expect(Indentation.detect("one\ntwo\n") == nil)
-    // A long body at one depth doesn't make that depth the step.
-    #expect(
-        Indentation.detect("class A {\n    func f() {\n" + String(repeating: "        x\n", count: 300) + "    }\n}\n")
-            == .spaces(4))
-    #expect(Indentation.detect("a {\n  b {\n" + String(repeating: "    x\n", count: 300) + "  }\n}\n") == .spaces(2))
-    #expect(Indentation.detect("a {\n        b\n        c\n}\n") == .spaces(8))
-    #expect(Indentation.detect("a {\r\n    b\r\n    c\r\n}\r\n") == .spaces(4))   // Windows line endings
-    #expect(
-        Indentation.detect(String(repeating: "\tx\n\n", count: 2000) + String(repeating: "  y\n", count: 5000)) == .tabs
-    )   // the first 2000 lines decide
-    #expect(LanguageSpec.word(in: "x\r\ndef test_a():\r\n", line: 2, column: 6) == "test_a")
+    #expect(LanguageSpec.word(in: "x\r\ndef test_a():\r\n", line: 2, column: 6) == "test_a")   // Windows line endings
 }
 
 @Test func reorderingInsideAGroupDropsWhereTheBarShows() throws {

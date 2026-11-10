@@ -1,6 +1,7 @@
 import Core
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinFiles
 
 private func hunk(_ newStart: Int, _ s: String) -> Hunk {
     let lines = s.map { c -> DiffLine in DiffLine(kind: c == "+" ? .add : c == "-" ? .del : .context, text: "") }

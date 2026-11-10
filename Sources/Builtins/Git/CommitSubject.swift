@@ -3,16 +3,16 @@ import Foundation
 /// A commit subject read as a Conventional Commit ("fix(daemon): stop …"): the type and scope apart from the words, so
 /// the graph shows a mark and the change instead of the prefix. A subject without one, or with a type not in `types`,
 /// stays as written.
-public struct CommitSubject: Equatable, Sendable {
-    public static let types: Set<String> = [
+struct CommitSubject: Equatable, Sendable {
+    static let types: Set<String> = [
         "feat", "fix", "refactor", "perf", "docs", "test", "build", "ci", "chore", "style", "revert"
     ]
-    public var type: String?
-    public var scope: String?
-    public var breaking = false
-    public var text: String
+    var type: String?
+    var scope: String?
+    var breaking = false
+    var text: String
 
-    public init(_ subject: String) {
+    init(_ subject: String) {
         text = subject
         guard let match = subject.wholeMatch(of: /(\w+)(?:\(([^()]+)\))?(!)?:\s+(.+)/),
             Self.types.contains(match.1.lowercased())
@@ -25,7 +25,7 @@ public struct CommitSubject: Equatable, Sendable {
 
     /// A message body as a card shows it: git's hard wraps (at about 72 columns) joined back into paragraphs. Blank
     /// lines, list items and indented lines (code) keep their breaks.
-    public static func reflow(_ body: String) -> String {
+    static func reflow(_ body: String) -> String {
         body.components(separatedBy: "\n\n").map { para in
             para.split(separator: "\n").reduce(into: "") { out, line in
                 let own = line.first?.isWhitespace == true || line.prefixMatch(of: #/[-*•] |\d+[.)] /#) != nil

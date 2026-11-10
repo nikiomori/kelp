@@ -1,13 +1,13 @@
 import Foundation
 
 /// How a file is indented, as the editor's status bar says it: tabs, or spaces in steps of `n`.
-public enum Indentation: Equatable, Sendable {
+enum Indentation: Equatable, Sendable {
     case tabs, spaces(Int)
 
     /// Read from the file's first lines: tabs if most indented lines start with one; else the step the indent most often
     /// moves by from one line to the next, the smaller of two as common, not how deep most lines are (a long function's body
     /// all at 8 is still indented by 4). Nil when nothing is indented.
-    public static func detect(_ text: String) -> Indentation? {
+    static func detect(_ text: String) -> Indentation? {
         var tabs = 0, indented = 0, lines = 0, last = 0, steps: [Int: Int] = [:]
         // Bytes, stopping at the 2000th line: splitting all of a 5 MB file into Characters took 80 ms of main thread.
         let bytes = text.utf8
@@ -36,7 +36,7 @@ public enum Indentation: Equatable, Sendable {
     }
 
     /// `text` with each line's leading whitespace in this indentation, the same depth with `tabSize` columns to a level.
-    public func applied(to text: String, tabSize: Int) -> String {
+    func applied(to text: String, tabSize: Int) -> String {
         text.components(separatedBy: "\n").map { line -> String in   // not split(): "\r\n" is one Character to it
             let lead = line.prefix { $0 == " " || $0 == "\t" }
             let columns = lead.reduce(0) { $1 == "\t" ? $0 + tabSize - $0 % tabSize : $0 + 1 }
@@ -52,7 +52,7 @@ public enum Indentation: Equatable, Sendable {
     }
 
     /// What Save tidies: spaces and tabs at line ends, and a last line without a newline.
-    public static func cleaned(_ text: String, trim: Bool, finalNewline: Bool) -> String {
+    static func cleaned(_ text: String, trim: Bool, finalNewline: Bool) -> String {
         var out =
             !trim
             ? text

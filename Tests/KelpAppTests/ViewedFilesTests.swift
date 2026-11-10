@@ -1,6 +1,7 @@
 import Core
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinGit
 
 private func file(_ path: String, _ text: String) -> FileDiff {
     FileDiff(

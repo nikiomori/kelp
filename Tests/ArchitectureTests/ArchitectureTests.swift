@@ -553,9 +553,9 @@ func codeOnly(_ s: String) -> String {
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
         "Daemon": 58, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 8, "Agents": 13, "kelp": 10,
-        "Builtins": 9,
+        "Builtins": 10,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
-        "WorkbenchKit": 1, "DesignKit": 0
+        "WorkbenchKit": 0, "DesignKit": 0
     ]
     // Every module is in it: a new one gets its count here, not none.
     let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)

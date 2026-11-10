@@ -1,6 +1,7 @@
 import Core
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinGit
 
 private func line(_ k: DiffLine.Kind, _ t: String, o: Int? = nil, n: Int? = nil) -> DiffLine {
     DiffLine(kind: k, text: t, oldLine: o, newLine: n)
