@@ -2,7 +2,8 @@ import Core
 import Foundation
 import GRDB
 
-/// What an agent's program may reach, beside `Daemon.allow`, which asks these.
+/// What an agent's program may reach: the methods it may call, and the rules every call is held to (`allow`, which
+/// `Daemon.allow` asks for every call).
 enum AgentRules {
     /// The methods an agent's program, or one kelpd runs (an extension's, a git hook), may call at all; each still has its
     /// own rules (`actsOn`, `inWorkspace`, …). What agents use (their skills, hooks and `kelp` commands) and what reads.
@@ -54,7 +55,142 @@ enum AgentRules {
     ]
 }
 
-/// What the fence reads of a call (`Daemon.allow`): the sessions and workspaces it names, where an agent works, what a
+extension AgentRules {
+    /// What `caller` may reach with this call (`Daemon.allow`, which every path asks).
+    /// A report comes from inside a session for that session only, by its process tree. A program an agent runs, or runs in
+    /// a terminal it started (`parent`, `startedBy`, `origin`: all the daemon's, from the caller's process), reads, types
+    /// into, stops and answers for only the sessions that agent started: any session a call names, in any of its fields,
+    /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook), one gone
+    /// before it was looked at and one Kelp can't tell for the user's (`Caller.detached`) are held to the same with no
+    /// session of their own; one under an agent the user typed into a terminal (`Caller.typedAgent`) as that terminal's
+    /// agent. The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md): a program that
+    /// has an app start one for the user to watch (`open -a Terminal`), and files left for the user to run.
+    static func allow(_ method: any Answered, caller: Caller, store: Store, live: SessionTable) throws {
+        try Fence(store: store, live: live).allow(method, caller)
+    }
+}
+
+/// `AgentRules.allow`'s reads: the records, and the sessions running now (one that asks a question).
+private struct Fence {
+    let store: Store, live: SessionTable
+
+    func allow(_ method: any Answered, _ caller: Caller) throws {
+        switch caller {
+        case .user: return
+        case .session(let own):
+            if let id = method.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
+            guard try store.forAnAgent(own) else { return }
+            try allowAgent(method, own: own)
+        case .typedAgent(let own):
+            if let id = method.reportsFor, own != id { throw RPCError.refused("A session speaks only for itself.") }
+            try allowAgent(method, own: own, typed: true)
+        case .unknown:
+            // Looked up as it connects, a hook waiting for its answer is always found: one gone by then handed its
+            // connection on, which is how a program would speak for a session not its own.
+            try allowAgent(
+                method, own: Callers.unknown,
+                or: "Kelp couldn't tell which program sent this (it ended as it connected), so it may not do that.")
+        case .kelpd:
+            try allowAgent(
+                method, own: Callers.ownProgram,
+                or:
+                    "A program Kelp runs (an extension's command or event, a repo's git hook) may not do that: it has no session to act for."
+            )
+        case .detached:
+            try allowAgent(
+                method, own: Callers.detached,
+                or: "Kelp can't tell this program is yours (it runs outside every terminal and app: in the background, "
+                    + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours."
+            )
+        }
+    }
+
+    /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules. Refused in `why`'s
+    /// words, then the rule's own (`SessionCreate`'s tmux…); anything else (the store) as it is.
+    func allowAgent(_ method: any Answered, own: String, or why: String) throws {
+        if method.reportsFor != nil { throw RPCError.refused(why) }
+        do { try allowAgent(method, own: own) } catch let error as RPCError where error.isRefusal {
+            throw RPCError.refused(why + " " + error.message)
+        }
+    }
+
+    /// What a program of an agent's (or of the daemon's, `own` = `Callers.ownProgram`) may not do.
+    /// `typed`: an agent the user typed into `own`, a terminal of theirs: what it reaches is what it started there
+    /// (`typed:` on its line), not everything the user started from that terminal.
+    func allowAgent(_ method: any Answered, own: String, typed: Bool = false) throws {
+        if method.signs, method.reportsFor == nil {
+            throw RPCError.refused(
+                "What an agent writes for others says it's an agent's: run it from the agent's terminal, which names its session."
+            )
+        }
+        func reaches(_ id: String) throws -> Bool {
+            try store.lineage(id).contains {
+                typed ? Caller.started($0.origin, byAgentTypedInto: own) : $0.id == own
+            }
+        }
+        if let refusal = method.notForAgents { throw RPCError.refused(refusal) }
+        if method.answersQuestion {
+            throw RPCError.refused(
+                "An agent's question is the user's to answer: in Kelp's window, or `kelp agents` in a terminal of theirs."
+            )
+        }
+        let name = type(of: method).name
+        guard AgentRules.methods.contains(name) else {
+            throw RPCError.refused(
+                "“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
+        }
+        if let id = method.typesInto, live[id]?.asksSomething == true {
+            throw RPCError.refused(
+                "That session asks a question, the user's to answer; send again once it's answered, or tell the user "
+                    + "what you'd answer.")
+        }
+        // The user's accounts (`accounts.*`) are theirs to pick: what an agent starts runs under its own.
+        if let launch = method as? any LaunchOptions, let profile = launch.profile,
+            try profile != store.session(own)?.profile
+        {
+            throw RPCError.refused(
+                "An agent starts sessions under its own account, not another of the user's: leave out `profile`, or "
+                    + "ask the user to start it from Kelp's window.")
+        }
+        // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
+        // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
+        func itsOwn(_ id: String) -> Bool { id == own && !(typed && (id == method.typesInto || id == method.actsOn)) }
+        for id in Set([method.actsOn, method.shows].compactMap { $0 } + (try store.named(by: method)))
+        where !itsOwn(id) {
+            guard try reaches(id) else {
+                throw RPCError.refused(
+                    "An agent acts only on its own session and the sessions it started: start one with `kelp session "
+                        + "new`, or ask the user to do this one.")
+            }
+        }
+        // Every workspace a call that acts names, whatever the field: not each method remembering to say. `inWorkspace` is
+        // for what the walk can't see (the workspace on screen, `""`) and for a read held to the agent's own (a fetch).
+        let workspaces = Set(
+            [method.inWorkspace].compactMap { $0 }
+                + (AgentRules.reads.contains(name) ? [] : try store.workspaces(namedBy: method)))
+        for workspace in workspaces where try !store.works(own, in: workspace, typed: typed) {
+            throw RPCError.refused(
+                "An agent works only in its own workspace: make one with `kelp worktree create <branch>`, or ask the "
+                    + "user to do this there.")
+        }
+        if let repo = method.makesInProject,
+            try !store.worktrees(repo: repo).contains(where: {
+                try store.works(own, in: $0.id, typed: typed)
+            })
+        {
+            throw RPCError.refused("An agent makes workspaces only in the project it works in.")
+        }
+        if let ending = method.ends,
+            try store.ending(ending).contains(where: { session in
+                try (typed || session != own) && !reaches(session)
+            })
+        {
+            throw RPCError.refused("An agent ends only its own sessions and the ones it started.")
+        }
+    }
+}
+
+/// What the fence reads of a call (`AgentRules.allow`): the sessions and workspaces it names, where an agent works, what a
 /// removal ends. From the records, as `lineage` is.
 extension Store {
     /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them, a struct's or an
