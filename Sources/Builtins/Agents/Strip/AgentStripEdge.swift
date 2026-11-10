@@ -15,7 +15,7 @@ extension StripModel {
     /// The handle's room in the strip, on the side away from the edge.
     static let handle: CGFloat = 20
     /// How long a question's line stays out beside the sliver; a failure's is shorter, as it waits for nothing.
-    static let questionStays: TimeInterval = 6, failureStays: TimeInterval = 4
+    static let questionStays: TimeInterval = 6, failureStays: TimeInterval = 4, doneStays: TimeInterval = 3
 
     /// Let go more than a third past a side: it hides there.
     static func edge(dropped frame: NSRect, in area: NSRect) -> StripEdge? {
@@ -56,12 +56,17 @@ extension StripModel {
         return withinX && p.y >= strip.minY && p.y <= strip.maxY
     }
 
-    /// What comes out of the edge as a line: a question or a failure not told yet, the oldest question first. Finished work
-    /// is only the sliver's dot, and work going on says nothing.
-    static func news(_ items: [StripItem], told: Set<String>) -> StripItem? {
-        items.filter { $0.cell <= .failed && !told.contains(newsKey($0)) }.min {
+    /// What comes out of the edge as a line, or flashes its tile: what wasn't told yet, as loud as `upTo` (questions,
+    /// failures, finished work: what brings the strip up, `loudest`), the oldest question first. Work going on says nothing.
+    static func news(_ items: [StripItem], told: Set<String>, upTo: DockFace.Cell = .failed) -> [StripItem] {
+        items.filter { $0.cell != .working && $0.cell <= upTo && !told.contains(newsKey($0)) }.sorted {
             ($0.cell, $0.since) < ($1.cell, $1.since)
         }
+    }
+
+    /// How long a line stays out: a question longest, a failure less, finished work a moment, as it waits for nothing.
+    static func stays(_ cell: DockFace.Cell) -> TimeInterval {
+        cell == .asks ? questionStays : cell == .failed ? failureStays : doneStays
     }
 
     static func newsKey(_ item: StripItem) -> String { "\(item.session)|\(item.since.timeIntervalSince1970)" }
@@ -152,15 +157,23 @@ final class StripLine {
     private let button = LineButton()
     private lazy var panel: StripPanel = StripPanel.floating(button, radius: Self.height / 2, fullScreen: true)
     private var ends: Timer?
+    private var stays: TimeInterval = 0
+    /// Went by itself, its time up: the next news can come out.
+    var onGone: (() -> Void)?
 
     var onClick: (() -> Void)? {
         get { button.onClick }
         set { button.onClick = newValue }
     }
 
-    /// Out of `edge` beside the sliver of a strip at `strip`, for `stays` seconds.
-    func show(_ item: StripItem, app: AppModel, by strip: NSRect, edge: StripEdge, stays: TimeInterval) {
-        button.show(item, app: app)
+    var frame: NSRect { panel.frame }
+
+    /// Out of `edge` beside the sliver of a strip at `strip`, for as long as its news stays (`StripModel.stays`) or the
+    /// pointer is on it. `more`: how much news waits behind it.
+    func show(_ item: StripItem, more: Int, app: AppModel, by strip: NSRect, edge: StripEdge) {
+        button.show(item, more: more, app: app)
+        button.onHover = { [weak self] on in self?.hold(on) }
+        stays = StripModel.stays(item.cell)
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = NSSize(width: content?.fittingSize.width ?? 0, height: Self.height)
@@ -176,10 +189,20 @@ final class StripLine {
             panel.animator().setFrame(frame, display: true)
             panel.animator().alphaValue = 1
         }
+        hold(false)
+    }
+
+    /// Under the pointer it stays; off it, it goes after its time, or a moment if that's up.
+    private func hold(_ on: Bool) {
         ends?.invalidate()
-        ends = Timer.scheduledTimer(withTimeInterval: stays, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.hide() }   // the main run loop's timer
+        guard !on else { return }
+        ends = Timer.scheduledTimer(withTimeInterval: max(stays, Motion.linger), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {   // the main run loop's timer
+                self?.hide()
+                self?.onGone?()
+            }
         }
+        stays = 0
     }
 
     var isShowing: Bool { panel.isVisible }
@@ -201,6 +224,8 @@ final class StripLine {
     /// The whole line is the button, and takes the click that reaches it with Kelp behind.
     private final class LineButton: PointerControl {
         var onClick: (() -> Void)?
+        var onHover: ((Bool) -> Void)?
+        private var anyApp: NSTrackingArea?
         private let icon = NSImageView(), words = NSTextField(labelWithString: "")
 
         override init(frame: NSRect) {
@@ -228,7 +253,7 @@ final class StripLine {
         }
         required init?(coder: NSCoder) { fatalError() }
 
-        func show(_ item: StripItem, app: AppModel) {
+        func show(_ item: StripItem, more: Int, app: AppModel) {
             if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
             effectiveAppearance.performAsCurrentDrawingAppearance {
                 icon.layer?.backgroundColor = NSColor.fillHover.cgColor
@@ -236,11 +261,20 @@ final class StripLine {
             let line = NSMutableAttributedString(
                 string: item.name,
                 attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.labelColor])
-            let color: NSColor = item.cell == .asks ? .textOrange : .textRed
+            let color: NSColor =
+                item.cell == .asks ? .textOrange : item.cell == .failed ? .textRed : .secondaryLabelColor
             line.append(
                 NSAttributedString(
                     string: "  " + StripModel.brief(item.words ?? ""),
                     attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: color]))
+            if more > 0 {
+                line.append(
+                    NSAttributedString(
+                        string: "  +\(more)",
+                        attributes: [
+                            .font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor
+                        ]))
+            }
             words.attributedStringValue = line
             let says = [item.name, item.words].compactMap { $0 }.joined(separator: ", ")
             setAccessibilityElement(true)
@@ -250,6 +284,19 @@ final class StripLine {
 
         override func clicked() { onClick?() }
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        /// With Kelp behind too: a line under the pointer stays out.
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            anyApp = retracked(anyApp, .activeAlways)
+        }
+        override func mouseEntered(with event: NSEvent) {
+            super.mouseEntered(with: event)
+            onHover?(true)
+        }
+        override func mouseExited(with event: NSEvent) {
+            super.mouseExited(with: event)
+            onHover?(false)
+        }
         override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
     }
 }

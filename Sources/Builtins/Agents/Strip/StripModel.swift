@@ -128,13 +128,17 @@ enum StripModel {
     static func shows(_ items: [StripItem], mode: String?, comesFor: String?, front: Bool) -> Bool {
         guard !front, mode != "off" else { return false }
         guard mode == "needed" else { return !items.isEmpty }   // Always, the default: it's where you see them working
-        let loudest: DockFace.Cell =
-            switch comesFor {
-            case "questions": .asks
-            case "all": .done
-            default: .failed
-            }
+        let loudest = loudest(comesFor)
         return items.contains { $0.cell != .working && $0.cell <= loudest }
+    }
+
+    /// The quietest news that calls (Comes Up For): questions, failures too (the default), or finished work as well.
+    static func loudest(_ comesFor: String?) -> DockFace.Cell {
+        switch comesFor {
+        case "questions": .asks
+        case "all": .done
+        default: .failed
+        }
     }
 
     /// The pill's words: what a command is, without the variables set before it. Only here, for a glance: the card beside Allow

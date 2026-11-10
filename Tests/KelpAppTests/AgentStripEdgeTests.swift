@@ -50,14 +50,19 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     #expect(StripModel.inGap(NSPoint(x: 0, y: 320), beside: left, edge: .left))
 }
 
-@MainActor @Test func aQuestionComesOutOfTheEdgeOnceAndFinishedWorkNever() {
+/// News comes out once each, a question first; finished work only when Comes Up For takes it in, work going on never.
+@MainActor @Test func newsComesOutOnceAsLoudAsWhatBringsTheStripUp() {
     let ask = item(.asks, "a", at: 5), fail = item(.failed, "b", at: 1), done = item(.done, "c")
-    #expect(StripModel.news([fail, ask, done], told: [])?.session == "a")   // a question before a failure
-    #expect(StripModel.news([fail, ask], told: [StripModel.newsKey(ask)])?.session == "b")
-    #expect(StripModel.news([done, item(.working, "d")], told: []) == nil)
+    #expect(StripModel.news([fail, ask, done], told: []).map(\.session) == ["a", "b"])   // a question before a failure
+    #expect(StripModel.news([fail, ask], told: [StripModel.newsKey(ask)]).map(\.session) == ["b"])
+    #expect(StripModel.news([done, item(.working, "d")], told: []).isEmpty)
+    #expect(
+        StripModel.news([done, item(.working, "d")], told: [], upTo: StripModel.loudest("all")).map(\.session) == ["c"])
+    #expect(StripModel.news([fail], told: [], upTo: StripModel.loudest("questions")).isEmpty)
     var again = ask
     again.since = Date(timeIntervalSince1970: 9)   // the agent asks something else
-    #expect(StripModel.news([again], told: [StripModel.newsKey(ask)])?.session == "a")
+    #expect(StripModel.news([again], told: [StripModel.newsKey(ask)]).map(\.session) == ["a"])
+    #expect(StripModel.stays(.done) < StripModel.stays(.failed) && StripModel.stays(.failed) < StripModel.stays(.asks))
 }
 
 /// Where the strip stands is one value on this Mac: the tests that save it go one at a time.

@@ -37,8 +37,10 @@ final class AgentStrip {
     var peeking = false
     private var peekTimer: Timer?
     let line = StripLine()
-    /// The questions and failures a line has told of, so each comes out of the edge once.
+    /// The news told already, by a line or a tile's flash, so each is told once.
     private var told: Set<String> = []
+    /// News waiting for the line out of the edge, one after another.
+    private var pending: [StripItem] = []
     private let glint = StripGlint()
     private var glintSide: [NSLayoutConstraint] = []
     var panel: StripPanel?
@@ -196,7 +198,7 @@ final class AgentStrip {
         if !frozen { put(appearing: !wasUp) }
         follow(opened)
         expireDone()
-        tell(hidden: hidden)
+        tell(hidden: hidden, appeared: !wasUp)
         // Up for the first time in a call: it goes behind the edge as it would have when the call began.
         if calls.inCall, !placedInCall, beforeCall == nil, place?.edge == nil, isShowing { call(true) }
     }
@@ -225,14 +227,41 @@ final class AgentStrip {
         NSLayoutConstraint.activate(glintSide)
     }
 
-    /// A question or a failure that came while it hides comes out of the edge as a line; each once.
-    private func tell(hidden: Bool) {
-        defer { told = Set(state.items.filter { $0.cell <= .failed }.map(StripModel.newsKey)) }
-        guard hidden, let edge = place?.edge, let panel, isShowing, let news = StripModel.news(state.items, told: told)
-        else { return }
-        line.onClick = { [weak self] in self?.peekFromLine() }
-        let stays = news.cell == .asks ? StripModel.questionStays : StripModel.failureStays
-        line.show(news, app: app, by: panel.frame, edge: edge, stays: stays)
+    /// News, each once, as loud as what brings the strip up (Comes Up For): out of the edge as a line, one after another,
+    /// while it hides; a flash of its tile while it's out. The strip just coming up is news enough: nothing flashes then.
+    private func tell(hidden: Bool, appeared: Bool) {
+        let upTo = StripModel.loudest(state.comesFor)
+        let news = StripModel.news(state.items, told: told, upTo: upTo)
+        told = Set(state.items.filter { $0.cell != .working && $0.cell <= upTo }.map(StripModel.newsKey))
+        guard hidden else {
+            pending = []
+            if !appeared { for item in news { buttons[item.workspace]?.flash(item.cell) } }
+            return
+        }
+        let waiting = Set(pending.map(StripModel.newsKey))
+        pending += news.filter { !waiting.contains(StripModel.newsKey($0)) }
+        if !line.isShowing { tellNext() }
+    }
+
+    /// The next news still standing comes out of the edge; a click on it opens its card there.
+    private func tellNext() {
+        let standing = Set(state.items.map(StripModel.newsKey))
+        pending = pending.filter { standing.contains(StripModel.newsKey($0)) }
+        guard let edge = place?.edge, let panel, isShowing, !peeking, !pending.isEmpty else { return }
+        let news = pending.removeFirst()
+        line.onClick = { [weak self] in self?.openFromLine(news) }
+        line.onGone = { [weak self] in self?.tellNext() }
+        line.show(news, more: pending.count, app: app, by: panel.frame, edge: edge)
+    }
+
+    /// Its card, beside the line it came out as, with the strip left behind the edge; a card for work going on there isn't.
+    private func openFromLine(_ item: StripItem) {
+        guard let now = state.items.first(where: { $0.session == item.session }), now.cell != .working else {
+            return peekFromLine()
+        }
+        let by = line.frame
+        line.hide()
+        open(now, by: by, at: place?.edge == .right ? .bottomRight : .bottomLeft)
     }
 
     /// The pointer on a hidden strip brings it all out at once; off it, it goes back after a moment.
@@ -337,7 +366,8 @@ final class AgentStrip {
         open(item)
     }
 
-    private func open(_ item: StripItem) {
+    /// `by`, `at`: where its card stands, if not over the strip (the line out of the edge).
+    private func open(_ item: StripItem, by anchor: NSRect? = nil, at side: StripCorner? = nil) {
         closeCard()
         guard let session = app.session(item.session), let panel else { return }
         let asking = state.items.filter { $0.cell == .asks }.sorted { $0.since < $1.since }
@@ -353,7 +383,9 @@ final class AgentStrip {
             case .left: self?.closeCard()
             }
         }
-        newCard.show(by: panel.frame, in: panel.screen?.visibleFrame, at: corner)
+        let by = anchor ?? panel.frame
+        newCard.show(
+            by: by, in: NSScreen.screens.first { $0.frame.intersects(by) }?.visibleFrame, at: side ?? corner)
         card = newCard
     }
 

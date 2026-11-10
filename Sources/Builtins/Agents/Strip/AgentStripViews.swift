@@ -129,6 +129,9 @@ final class StripButton: PointerControl {
     private var trailing: NSLayoutConstraint?
     private var anyApp: NSTrackingArea?
     private let bite = CAShapeLayer()
+    /// The glow its state wants, kept while a flash shows another for a moment.
+    private var calls: (color: NSColor?, breathing: Bool) = (nil, false)
+    private var flashing: Timer?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -189,10 +192,10 @@ final class StripButton: PointerControl {
             equalTo: open ? label.trailingAnchor : icon.trailingAnchor, constant: open ? 12 : 4)
         trailing?.isActive = true
         label.attributedStringValue = open ? words(item) : NSAttributedString()
-        let calls = open && item.cell <= .failed
-        glow.show(
-            calls ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, breathing: calls && item.cell == .asks)
-        restFill = calls ? .fillHover : nil
+        let calling = open && item.cell <= .failed
+        calls = (calling ? (item.cell == .asks ? .systemOrange : .systemRed) : nil, calling && item.cell == .asks)
+        if flashing == nil { glow.show(calls.color, breathing: calls.breathing) }
+        restFill = calling ? .fillHover : nil
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(
@@ -216,6 +219,21 @@ final class StripButton: PointerControl {
             }
         title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(TextSize.row), color))
         return title
+    }
+
+    /// News on this tile: its glow lights up in the news's colour for a moment, as Needs You does, then shows its state
+    /// again. Finished work lights in the text's colour, faintly.
+    func flash(_ cell: DockFace.Cell) {
+        let color: NSColor = cell == .asks ? .systemOrange : cell == .failed ? .systemRed : .labelColor
+        flashing?.invalidate()
+        glow.show(color, breathing: false, faint: cell == .done)
+        flashing = Timer.scheduledTimer(withTimeInterval: Motion.flash, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {   // the main run loop's timer
+                guard let self else { return }
+                self.flashing = nil
+                self.glow.show(self.calls.color, breathing: self.calls.breathing)
+            }
+        }
     }
 
     override func clicked() { onClick?() }
