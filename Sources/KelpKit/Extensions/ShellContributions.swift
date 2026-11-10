@@ -228,4 +228,29 @@ package struct Contributions {
     var runs: ProjectRuns?
     /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
+
+    /// Another extension's, after this one's (the registry merges them in load order): a list takes its items after
+    /// these, a single hook stays the first one's. A new field gets its line here, beside the fields.
+    mutating func add(_ c: Contributions) {
+        panels += c.panels
+        editors += c.editors
+        commands += c.commands
+        settings += c.settings
+        themes += c.themes
+        iconThemes += c.iconThemes
+        agents += c.agents
+        tabs += c.tabs
+        languages += c.languages
+        sidebarSections += c.sidebarSections
+        sessionMarks += c.sessionMarks
+        branch = branch ?? c.branch
+        ci = ci ?? c.ci
+        pushed += c.pushed
+        plans = plans ?? c.plans
+        servers = servers ?? c.servers
+        launched += c.launched
+        dockMenu += c.dockMenu
+        dockUsage = dockUsage ?? c.dockUsage
+        runs = runs ?? c.runs
+    }
 }

@@ -72,26 +72,7 @@ package final class ExtensionRegistry {
                 DeclarativeExtension.forget(info.id)
                 return
             }
-            merged.panels += c.panels
-            merged.editors += c.editors
-            merged.commands += c.commands
-            merged.settings += c.settings
-            merged.themes += c.themes
-            merged.iconThemes += c.iconThemes
-            merged.agents += c.agents
-            merged.tabs += c.tabs
-            merged.languages += c.languages
-            merged.sidebarSections += c.sidebarSections
-            merged.sessionMarks += c.sessionMarks
-            merged.branch = merged.branch ?? c.branch
-            merged.ci = merged.ci ?? c.ci
-            merged.pushed += c.pushed
-            merged.plans = merged.plans ?? c.plans
-            merged.servers = merged.servers ?? c.servers
-            merged.launched += c.launched
-            merged.dockMenu += c.dockMenu
-            merged.dockUsage = merged.dockUsage ?? c.dockUsage
-            merged.runs = merged.runs ?? c.runs
+            merged.add(c)
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))
