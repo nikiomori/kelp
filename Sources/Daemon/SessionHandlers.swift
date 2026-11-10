@@ -26,6 +26,53 @@ extension SessionAttach: Handled {
         guard let history = try sessions.liveSession(id).attach(conn) else { throw Sessions.pausedAsAttached }
         return Result(history: history.base64EncodedString())
     }
+
+    /// A running or paused one: the reply with the history is queued in the same step that subscribes, so no live output
+    /// can reach this connection ahead of it (the screen would show the newest bytes before the history they follow).
+    /// The rest (an ended one, from its log) as any other call, by `handle`.
+    static func respond(
+        _ checked: () throws -> Self, _ sessions: Sessions, conn: Int,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) async -> Bool {
+        guard let method = try? checked(),
+            sessions.existing(method.id) != nil
+                || sessions.store.look("session \(method.id)", { try $0.session(method.id) }).map(sessions.isPaused)
+                    == true
+        else { return false }
+        let sid = method.id
+        // A wake that fails says why, once: falling through would wake it a second time, in the slow lane.
+        let ls: LiveSession
+        do { ls = try await sessions.offloads.runNow({ try sessions.liveSession(sid) }) } catch {
+            reply(.failure(error))
+            return true
+        }
+        // Subscribed, then looked at: one that closed while the session woke is detached again (it would count as
+        // watching for good, and the session would never pause). Its end removes it from `clients` before it detaches
+        // from every session, so one of the two always detaches it. The history (up to 1 MiB) is built under the
+        // session's lock only, not the one every event goes through.
+        let attached =
+            ls.attach(conn) { history in
+                if let result = try? JSONEncoder().encode(Result(history: history.base64EncodedString())) {
+                    reply(.success(result))
+                }
+            } != nil
+        if attached, !sessions.clients.isConnected(conn) {
+            ls.detach(conn)
+            return true
+        }
+        if !attached { reply(.failure(Sessions.pausedAsAttached)) }
+        return true
+    }
+}
+
+/// Answered by the connection itself (`Daemon.serve`), which it makes a terminal's byte pipe: never a call's reply.
+extension SessionStream: Handled {
+    var actsOn: String? { id }   // what comes after is typing, so it's held to session.write's rules
+    var typesInto: String? { id }
+    func handle(_: NoService) throws -> Done {
+        throw RPCError.invalidParams(
+            "session.stream is a terminal's first line on a connection of its own, not a call.")
+    }
 }
 
 extension SessionDetach: Handled {
@@ -316,9 +363,9 @@ extension SessionLastReply: Handled {
 
 extension Methods {
     static let sessionMethods: [any Handled.Type] = [
-        SessionList.self, SessionAttach.self, SessionDetach.self, SessionWrite.self, SessionSend.self,
-        SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, AgentSave.self, PortsList.self,
-        PortsStop.self,
+        SessionList.self, SessionAttach.self, SessionStream.self, SessionDetach.self, SessionWrite.self,
+        SessionSend.self, SessionResize.self, SessionKill.self, SessionChoose.self, AgentSetSecret.self, AgentSave.self,
+        PortsList.self, PortsStop.self,
         PortsForward.self,
         PortsUnforward.self, SessionUsage.self, HostStatsRead.self, HostDisconnect.self,
         SessionBusy.self, SessionRead.self, SessionContext.self, SessionMarkRead.self, SessionMarkUnread.self,

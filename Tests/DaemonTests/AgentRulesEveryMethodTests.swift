@@ -34,7 +34,8 @@ private func rows() async throws -> Rows {
     let r = try await rows()
     defer { r.w.d.stop() }
     let calls: [(String) -> any Answered] = [
-        { SessionAttach(id: $0) }, { SessionDetach(id: $0) }, { SessionBusy(id: $0) }, { SessionCommands(id: $0) },
+        { SessionAttach(id: $0) }, { SessionStream(id: $0) }, { SessionDetach(id: $0) }, { SessionBusy(id: $0) },
+        { SessionCommands(id: $0) },
         { SessionContext(id: $0) }, { SessionContextParts(id: $0) }, { SessionContextWindow(id: $0) },
         { SessionContinueAt(id: $0, at: nil) }, { SessionHandoff(id: $0) }, { SessionLastReply(id: $0) },
         { SessionMarkUnread(id: $0) }, { SessionRecap(id: $0) }, { SessionRestart(id: $0) },

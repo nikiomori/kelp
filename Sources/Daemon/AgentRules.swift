@@ -34,7 +34,8 @@ enum AgentRules {
     private static let acting: [any RPCMethod.Type] = [
         // its own sessions and those it started (`actsOn`, named ids), its hooks and reports
         SessionAttach.self, SessionDetach.self, SessionResize.self, SessionCreate.self, SessionSend.self,
-        SessionWrite.self, SessionKill.self, SessionRestart.self, SessionRename.self, SessionMarkRead.self,
+        SessionWrite.self, SessionStream.self, SessionKill.self, SessionRestart.self, SessionRename.self,
+        SessionMarkRead.self,
         SessionMarkUnread.self, SessionRecap.self, SessionHandoff.self, SessionContinueAt.self, SessionTurn.self,
         SessionHook.self, SessionReport.self, SessionPermissionWait.self,
         // the pages it makes for the user (`kelp artifact new|add`, its hook after a tool published one)

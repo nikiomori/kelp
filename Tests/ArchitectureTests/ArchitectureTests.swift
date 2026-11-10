@@ -483,18 +483,21 @@ func codeOnly(_ s: String) -> String {
     // 36 since `handle(_:conn:)` counts too (Sessions' two were missed: 34 then, really 36).
     #expect(most <= 36, "the busiest service's handlers: \(most)")
     #expect(most >= 36, "fewer now: lower the ceiling")
-    #expect(extensions.count <= 2, "extensions of Daemon: \(extensions)")
-    #expect(extensions.count >= 2, "fewer now: lower the ceiling")
+    // 3: the connections' side (Server.swift) is the daemon's own, beside its dispatch (Handlers.swift).
+    #expect(extensions.count <= 3, "extensions of Daemon: \(extensions)")
+    #expect(extensions.count >= 3, "fewer now: lower the ceiling")
     #expect(shared.count <= 0, "state outside an instance: \(shared)")
 }
 
 /// A method's handler is handed one service (`Handled.Service`), never the daemon, so it reaches only what that service
 /// holds; and a service gets what it uses at init instead of reaching back. So only the daemon's own files name it: the
-/// class, the dispatch with each service's projection (Handlers.swift), and the watch reader, which answers methods as a
-/// client would (WatchHandlers.swift). Everything else (handlers, services, their helpers) doesn't.
+/// class, its connections (Server.swift), the dispatch with each service's projection (Handlers.swift), and the watch
+/// reader, which answers methods as a client would (WatchHandlers.swift). Everything else (handlers, services, their
+/// helpers) doesn't.
 @Test func handlersAreHandedAServiceNotTheDaemon() throws {
     let own: Set<String> = [
-        "Sources/Daemon/Daemon.swift", "Sources/Daemon/Handlers.swift", "Sources/Daemon/WatchHandlers.swift"
+        "Sources/Daemon/Daemon.swift", "Sources/Daemon/Handlers.swift", "Sources/Daemon/Server.swift",
+        "Sources/Daemon/WatchHandlers.swift"
     ]
     let naming = sources(["Sources/Daemon"]).filter { f in
         !own.contains(f.path) && codeOnly(f.text).range(of: #"\bDaemon\b"#, options: .regularExpression) != nil

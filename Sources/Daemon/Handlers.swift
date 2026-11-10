@@ -113,6 +113,15 @@ extension UIStore: DaemonService {
 extension ForgeWork: DaemonService {
     static func of(_ daemon: Daemon) -> ForgeWork { ForgeWork(forges: daemon.forges, workspaces: daemon.workspaces) }
 }
+extension Shutdown: DaemonService {
+    static func of(_ daemon: Daemon) -> Shutdown {
+        Shutdown { [weak daemon] in
+            daemon?.drainReplies()
+            daemon?.stop()
+            exit(0)
+        }
+    }
+}
 extension Upgrade: DaemonService {
     static func of(_ daemon: Daemon) -> Upgrade {
         let root = daemon.root, offloads = daemon.offloads
@@ -133,6 +142,22 @@ protocol Handled: Answered {
     static var quick: Bool { get }
     func handle(_ service: Service) throws -> Result
     func handle(_ service: Service, conn: Int) throws -> Result
+    /// An in-order method that answers later, off the reader thread (`SessionInput`'s, from its session's lane): true when
+    /// it took the call, `reply` then given its result. `allowed` is `Daemon.allow` for the caller it came from.
+    static func answerLater(
+        _ params: JSONValue, _ service: Service, allowed: @escaping @Sendable (any Answered) throws -> Void,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) -> Bool
+    /// Once an in-order method's reply is queued: what must wait until it's on its way out (daemon.upgrade's hand-over,
+    /// daemon.shutdown's stop).
+    static func replied(_ service: Service)
+    /// A call that sends its reply itself, where a result returned can't go (`session.attach`'s, queued inside the
+    /// session's lock): true when it did, false to be answered as any other. `checked`: the call, from a caller allowed
+    /// to make it (`Answered.checked`).
+    static func respond(
+        _ checked: () throws -> Self, _ service: Service, conn: Int,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) async -> Bool
 }
 
 extension Handled {
@@ -140,6 +165,30 @@ extension Handled {
     static var quick: Bool { false }
     func handle(_ service: Service) throws -> Result { throw RPCError.internalError("needs its connection") }
     func handle(_ service: Service, conn: Int) throws -> Result { try handle(service) }
+    static func answerLater(
+        _ params: JSONValue, _ service: Service, allowed: @escaping @Sendable (any Answered) throws -> Void,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) -> Bool { false }
+    static func replied(_ service: Service) {}
+    static func respond(
+        _ checked: () throws -> Self, _ service: Service, conn: Int,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) async -> Bool { false }
+
+    /// The three above with this method's service, for the daemon's dispatch (`Daemon.serve`).
+    static func answerLater(
+        _ params: JSONValue, in daemon: Daemon, conn: Int,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) -> Bool {
+        answerLater(params, Service.of(daemon), allowed: daemon.allowing(conn), reply: reply)
+    }
+    static func replied(in daemon: Daemon) { replied(Service.of(daemon)) }
+    static func respond(
+        _ params: JSONValue, in daemon: Daemon, conn: Int,
+        reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) async -> Bool {
+        await respond({ try checked(params, daemon, conn: conn) }, Service.of(daemon), conn: conn, reply: reply)
+    }
 
     /// On the calling thread: an in-order method's, on the reader thread.
     static func answerNow(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Data {
@@ -228,6 +277,13 @@ extension Daemon {
                     + "a launchd job, a tmux pane out of sight), so it's held to an agent's rules: run it from a terminal of yours."
             )
         }
+    }
+
+    /// `allow` for `conn`'s caller as it is now, asked again later as that caller: input queued for a session that wakes
+    /// is asked from the lane, when its connection may be gone, and a gone one can't be told apart (`Callers.caller`).
+    func allowing(_ conn: Int) -> @Sendable (any Answered) throws -> Void {
+        let caller = sessions.callers.caller(conn)
+        return { [self] in try allow($0, conn: conn, caller: caller) }
     }
 
     /// One with no session of its own (`Caller.kelpd` and the like): no report, and an agent's rules. Refused in `why`'s

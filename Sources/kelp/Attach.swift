@@ -13,15 +13,12 @@ enum Attach {
             fail("kelp attach: daemon not reachable at \(socket): \(error)")
         }
         var ws = winsize()   // a paused agent wakes at this size, so its first screen isn't drawn for another width
-        let size: [String: JSONValue] =
-            ioctl(1, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0
-            ? ["cols": .int(Int(ws.ws_col)), "rows": .int(Int(ws.ws_row))] : [:]
+        let hasSize = ioctl(1, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0
+        let stream = SessionStream(
+            id: sessionId, cols: hasSize ? Int(ws.ws_col) : nil, rows: hasSize ? Int(ws.ws_row) : nil)
         let req: Data
         do {
-            req = try Wire.line(
-                RPCRequest(
-                    id: nil, method: "session.stream",
-                    params: .object(["id": .string(sessionId)].merging(size) { a, _ in a })))
+            req = try Wire.line(RPCRequest(id: nil, method: SessionStream.name, params: stream.params()))
         } catch { fail("kelp attach: \(error)") }
         Unix.writeAll(fd, req)
 

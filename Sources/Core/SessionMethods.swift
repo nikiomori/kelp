@@ -59,6 +59,19 @@ public struct SessionResize: RPCMethod {
         self.rows = rows
     }
 }
+/// `kelp attach`'s first line: from here on the connection is the session's terminal, raw bytes both ways (its history
+/// and output out, the user's typing in), and no JSON-RPC. A paused session wakes at `cols` × `rows`; an ended one shows
+/// what it last printed, then the connection ends.
+public struct SessionStream: InternalMethod {
+    public static let name = "session.stream"
+    public typealias Result = Done
+    public var id: String, cols: Int?, rows: Int?
+    public init(id: String, cols: Int? = nil, rows: Int? = nil) {
+        self.id = id
+        self.cols = cols
+        self.rows = rows
+    }
+}
 /// Ends the session.
 public struct SessionKill: RPCMethod {
     public static let name = "session.kill"

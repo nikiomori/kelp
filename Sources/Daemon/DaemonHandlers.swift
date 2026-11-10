@@ -12,7 +12,13 @@ extension DaemonShutdown: Handled {
     /// In order, as daemon.upgrade: the stop starts once its reply is queued, and the replies queued go out before
     /// anyone is hung up (`Daemon.answerInOrder`), not on a timer a busy machine could outrun.
     static var inOrder: Bool { true }
-    func handle(_: NoService) throws -> Done { Done() }
+    func handle(_: Shutdown) throws -> Done { Done() }
+    static func replied(_ shutdown: Shutdown) { Thread.detachNewThread(shutdown.run) }
+}
+
+/// daemon.shutdown's: the daemon's stop, once what's queued for every client went out, and the process's end.
+struct Shutdown {
+    let run: @Sendable () -> Void
 }
 
 extension DaemonUpgrade: Handled {
@@ -37,6 +43,8 @@ extension DaemonUpgrade: Handled {
         upgrade.waitIdle()   // a clone or a worktree being made finishes instead of losing its git mid-way
         return Done()
     }
+    /// Its reply is queued now, and the hand-over sends it before hanging up.
+    static func replied(_ upgrade: Upgrade) { Thread.detachNewThread(upgrade.run) }
 }
 
 /// daemon.upgrade's: the binary the daemon runs and its exec in place, nothing else of it.

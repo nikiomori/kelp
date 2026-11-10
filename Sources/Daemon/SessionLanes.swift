@@ -72,12 +72,13 @@ extension SessionInput {
         return try sessions.lanes.runHere(id) { try sessions.withInput(id) { try apply(to: $0) } }
     }
 
-    /// On the connection's reader thread: `done` with the reply's result, now or from the lane. `allowed` refuses a caller
-    /// the method doesn't take (`Daemon.allow`), as for every other method, and again in the lane, once the session woke.
-    static func answerInOrder(
+    /// On the connection's reader thread: `done` with the reply's result, now or from the lane (always taken: true).
+    /// `allowed` refuses a caller the method doesn't take (`Daemon.allow`), as for every other method, and again in the
+    /// lane, once the session woke.
+    static func answerLater(
         _ params: JSONValue, _ sessions: Sessions, allowed: @escaping @Sendable (any Answered) throws -> Void,
-        done: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
-    ) {
+        reply done: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
+    ) -> Bool {
         do {
             let method = try decoded(params)
             try allowed(method)
@@ -85,7 +86,7 @@ extension SessionInput {
                 let result = try ls.input({ try method.apply(to: ls) })
             {
                 done(.success(try JSONEncoder().encode(result)))
-                return
+                return true
             }
             try sessions.mustWake(method.id)
             guard !sessions.lanes.isFull(method.id) else {
@@ -100,5 +101,6 @@ extension SessionInput {
                     })
             }
         } catch { done(.failure(error)) }
+        return true
     }
 }

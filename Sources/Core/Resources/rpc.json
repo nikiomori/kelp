@@ -10780,6 +10780,41 @@
       }
     },
     {
+      "description" : "`kelp attach`'s first line: from here on the connection is the session's terminal, raw bytes both ways (its history and output out, the user's typing in), and no JSON-RPC. A paused session wakes at `cols` × `rows`; an ended one shows what it last printed, then the connection ends.",
+      "name" : "session.stream",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cols",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "rows",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "All a subagent did and what it reported, read from its transcript; nil when there is none.",
       "name" : "session.subagentJournal",
       "paramStructure" : "by-name",
