@@ -45,7 +45,7 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
 /// (decorations, which say so). `try?` around a call turned a failure into an empty list; the raw client skipped all of it.
 /// AppModel.swift itself is the way, and DaemonLink.swift manages the connection, so they aren't counted.
 @Test func daemonErrorsAreNotSwallowed() throws {
-    let way = ["Sources/KelpKit/AppModel.swift:", "Sources/KelpKit/DaemonLink.swift:"]
+    let way = ["Sources/KelpKit/Model/AppModel.swift:", "Sources/KelpKit/Model/DaemonLink.swift:"]
     func outside(_ found: [String]) -> [String] { found.filter { f in !way.contains { f.hasPrefix($0) } } }
     let swallowed = outside(try matches(#"try\? await (?:[^=\n]*\.)?(call|get|tryCall)\("#, in: appDirs))
     let raw = outside(try matches(#"\bclient\??\.(?:call|notify)\(|\bc\??\.call\("#, in: appDirs))
@@ -206,14 +206,14 @@ func codeOnly(_ s: String) -> String {
 @Test func theMainThreadNeverWaitsInALoopOfItsOwn() throws {
     #expect(try matches(#"runAsSheet|NSApp\.runModal\(for"#, in: appDirs) == [])
     #expect(
-        try matches(#"DispatchSemaphore"#, in: appDirs).filter { !$0.hasPrefix("Sources/KelpKit/DevAids.swift") } == [])
+        try matches(#"DispatchSemaphore"#, in: appDirs).filter { !$0.hasPrefix("Sources/KelpKit/DevAids/DevAids.swift") } == [])
     // Until a `.terminateLater` reply AppKit runs a modal mode in which the main actor's tasks don't run: an async
     // question asked from there never shows (quitting with an unsaved file closed nothing and asked nothing).
     #expect(try matches(#"\.terminateLater"#, in: appDirs) == [])
     // One loop of its own, on purpose: a logout's quit needs its answer before applicationShouldTerminate returns.
     #expect(
         try matches(#"nextEvent\(matching: \.any"#, in: appDirs).map { $0.split(separator: ":")[0] } == [
-            "Sources/KelpKit/AppDelegate.swift"
+            "Sources/KelpKit/App/AppDelegate.swift"
         ])
 }
 
@@ -303,7 +303,7 @@ func codeOnly(_ s: String) -> String {
 /// start one count too: LoginPath runs the login shell (the app asks the daemon: `process.which`), the library's index and
 /// download run curl and tar.
 @Test func theAppStartsNoPrograms() throws {
-    let allowed = ["Sources/KelpKit/DaemonLink.swift", "Sources/KelpKit/DevAids.swift"]
+    let allowed = ["Sources/KelpKit/Model/DaemonLink.swift", "Sources/KelpKit/DevAids/DevAids.swift"]
     let found = try matches(
         #"\bProcess\(\)|\bSubprocess\.|posix_spawn|\bNSTask\b|\bLoginPath\.|\bfetchExtension\(|\blibrary\(index"#,
         in: appDirs
@@ -325,9 +325,9 @@ func codeOnly(_ s: String) -> String {
     let callers = Set(try matches(#"\.runURI\("#, in: appDirs).map { String($0.split(separator: ":")[0]) })
     #expect(
         callers == [
-            "Sources/KelpKit/DevAids.swift", "Sources/KelpKit/Editor/EditorArea.swift",
+            "Sources/KelpKit/DevAids/DevAids.swift", "Sources/KelpKit/Editor/EditorArea.swift",
             "Sources/KelpKit/Extensions/ExtActions.swift",
-            "Sources/KelpKit/QuickOpenTmux.swift", "Sources/KelpKit/Shell/EditorHost.swift",
+            "Sources/KelpKit/QuickOpen/QuickOpenTmux.swift", "Sources/KelpKit/Shell/EditorHost.swift",
             "Sources/KelpKit/Shell/KelpLinks.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"
         ])
 }
@@ -381,24 +381,24 @@ func codeOnly(_ s: String) -> String {
 /// Limit: a one-shot `asyncAfter` isn't counted (the app has dozens, for motion); one that schedules itself again polls.
 @Test func theAppDoesntPollTheDaemon() throws {
     let clocks: [String: (Int, String)] = [
-        "KelpKit/AppDelegate.swift": (
+        "KelpKit/App/AppDelegate.swift": (
             2, "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch"
         ),
         "KelpKit/Sidebar/SidebarController.swift": (1, "relative times on the rows (\"now\" becomes \"1m\")"),
-        "KelpKit/AppModel.swift": (1, "things asked for at launch wait for the first connection, up to 5 s"),
-        "KelpKit/DaemonLink.swift": (6, "connecting: the socket, retries, backoff; a look every 30 s for a hung kelpd"),
-        "KelpKit/Notifier.swift": (
+        "KelpKit/Model/AppModel.swift": (1, "things asked for at launch wait for the first connection, up to 5 s"),
+        "KelpKit/Model/DaemonLink.swift": (6, "connecting: the socket, retries, backoff; a look every 30 s for a hung kelpd"),
+        "KelpKit/Notifications/Notifier.swift": (
             3,
             "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later"
         ),
-        "KelpKit/DevAids.swift": (1, "a snapshot waits for the window to draw (debug builds only)"),
+        "KelpKit/DevAids/DevAids.swift": (1, "a snapshot waits for the window to draw (debug builds only)"),
         "Builtins/Agents/Usage/LimitStrip.swift": (
             1, "\"in 38 min\" counts down to a limit's reset, which nothing announces"
         ),
         "Builtins/Agents/Usage/LimitWatch.swift": (
             1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
         ),
-        "KelpKit/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
+        "KelpKit/Sidebar/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
         "Builtins/Agents/Strip/StripCard.swift": (
             1,
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"
@@ -426,7 +426,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/DeclarativeExtension.swift": (
             1, "an extension's own refresh interval for its panel's badge command"
         ),
-        "KelpKit/UIState.swift": (
+        "KelpKit/Model/UIState.swift": (
             1,
             "the daemon's state read again, three times at most, after a read that failed, while that daemon is still there"
         ),
@@ -698,13 +698,13 @@ func codeOnly(_ s: String) -> String {
 /// why and how often (a ceiling per file): its own folders, a viewer's bytes, whether a path is there. Nothing else does.
 @Test func theAppDoesntTouchProjectFiles() throws {
     let own: [String: (Int, String)] = [
-        "KelpKit/AgentCatalog.swift": (1, "an agent CLI's date: it isn't asked its version again until it changes"),
-        "KelpKit/AgentIcons.swift": (4, "agents' icons, cached in Kelp's home"),
-        "KelpKit/AppModel.swift": (1, "whether the projects' folders are there, off the main thread"),
-        "KelpKit/DaemonLink.swift": (2, "why kelpd didn't start, in Kelp's home; the bundled kelpd's date"),
-        "KelpKit/DevAids.swift": (3, "snapshots for tests"),
-        "KelpKit/RemoteSheet.swift": (1, "the hosts in ~/.ssh/config"),
-        "KelpKit/CloneSheet.swift": (2, "whether the folder new projects go in is there"),
+        "KelpKit/Model/AgentCatalog.swift": (1, "an agent CLI's date: it isn't asked its version again until it changes"),
+        "KelpKit/Model/AgentIcons.swift": (4, "agents' icons, cached in Kelp's home"),
+        "KelpKit/Model/AppModel.swift": (1, "whether the projects' folders are there, off the main thread"),
+        "KelpKit/Model/DaemonLink.swift": (2, "why kelpd didn't start, in Kelp's home; the bundled kelpd's date"),
+        "KelpKit/DevAids/DevAids.swift": (3, "snapshots for tests"),
+        "KelpKit/Sheets/RemoteSheet.swift": (1, "the hosts in ~/.ssh/config"),
+        "KelpKit/Sheets/CloneSheet.swift": (2, "whether the folder new projects go in is there"),
         "KelpKit/Settings/IconTheme.swift": (2, "an icon theme an extension brings"),
         "KelpKit/Settings/ExtensionsSettings.swift": (1, "an extension's own folder"),
         "KelpKit/Extensions/Registry.swift": (4, "extensions' folders, Kelp's own"),
@@ -751,7 +751,7 @@ func codeOnly(_ s: String) -> String {
 @Test func theAppIsHandedItsModel() throws {
     let made = try matches(#"^\s*(?:@\w+\s+)*(?:private\s+|fileprivate\s+)?static (?:let|var) shared\b"#, in: appDirs)
     #expect(made == [], "a singleton of the app's own: make it the app's (`AppModel`) and hand it down")
-    let starts = ["Sources/KelpApp/main.swift", "Sources/KelpKit/AppDelegate.swift"]
+    let starts = ["Sources/KelpApp/main.swift", "Sources/KelpKit/App/AppDelegate.swift"]
     let reach = try NSRegularExpression(
         pattern: #"\bWorkbench\.(?!files\b)[a-z]\w*|\bIDEContext\.current\b|\bNSApp(?:lication\.shared)?\.delegate\b"#)
     let found = sources(appDirs).filter { !starts.contains($0.path) }.flatMap { f in
@@ -780,7 +780,7 @@ func codeOnly(_ s: String) -> String {
 
 @Test func pushedStateLandsInOneStore() throws {
     let watching = try String(
-        contentsOf: root.appendingPathComponent("Sources/KelpKit/Watching.swift"), encoding: .utf8)
+        contentsOf: root.appendingPathComponent("Sources/KelpKit/Model/Watching.swift"), encoding: .utf8)
     // Any kind named (`RPCEvent`, the protocol, and `RemovedEvent`, the records' own, aside).
     let kinds = try NSRegularExpression(pattern: #"\b(?!RPCEvent\b|RemovedEvent\b)[A-Z]\w*Event\b|case let \w+ as"#)
     let code = codeOnly(watching)
@@ -788,7 +788,7 @@ func codeOnly(_ s: String) -> String {
     #expect(named == 0, "event kinds named one by one in Watching.swift: \(named)")
     // AppModel's stored, observed properties: every `var` at its top level that isn't computed, nor marked
     // @ObservationIgnored (on its line, or on an attribute line of its own just above).
-    let model = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/AppModel.swift"), encoding: .utf8)
+    let model = try String(contentsOf: root.appendingPathComponent("Sources/KelpKit/Model/AppModel.swift"), encoding: .utf8)
     let lines = codeOnly(model).components(separatedBy: "\n")
     let stored = try NSRegularExpression(
         pattern: #"^    (?:(?:package|private|fileprivate|private\(set\)|package\(set\))\s+)*(?:lazy\s+)?var\s+\w+"#)
@@ -826,7 +826,7 @@ func codeOnly(_ s: String) -> String {
         }
     }
     #expect(names.count > 50, "the built-ins' names weren't found: \(names.count)")
-    let layout: Set<String> = ["Sources/KelpKit/MainMenu.swift", "Sources/KelpKit/AppDelegate.swift"]
+    let layout: Set<String> = ["Sources/KelpKit/App/MainMenu.swift", "Sources/KelpKit/App/AppDelegate.swift"]
     var named: [String] = []
     for f in sources(["Sources/KelpKit"]) where !layout.contains(f.path) {
         // Strings kept (they're what's looked for), comments not.
