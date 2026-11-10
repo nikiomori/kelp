@@ -94,6 +94,7 @@ let package = Package(
         .testTarget(name: "MarkdownTests", dependencies: ["Markdown"]),
         .testTarget(name: "WorkbenchKitTests", dependencies: ["WorkbenchKit", "Core", "TestSupport"]),
         .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "TestSupport"]),
+        .testTarget(name: "KelpCLITests", dependencies: ["kelp", "Core"]),   // the CLI's parsing and what it prints
         .testTarget(name: "ArchitectureTests"),   // reads the sources: the rules in docs/architecture.md
         .testTarget(name: "KelpAppTests", dependencies: ["KelpApp", "KelpKit", "BuiltinAgents", "BuiltinFiles", "BuiltinGit", "BuiltinBrowser", "BuiltinIssues",
                                                   "BuiltinActivity", "BuiltinRoutines", "BuiltinRun", "BuiltinMachines", "BuiltinServers", "BuiltinDatabases", "Core", "Daemon", "GitKit", "WorkbenchKit", "TestSupport"]),
