@@ -175,3 +175,25 @@ public enum Prompts {
         path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
     }
 }
+
+/// What the app restores (`UIState`): `key` → its value or null; `prefix` → {key: value} for every key that starts with it.
+public struct StateGet: InternalMethod {
+    public static let name = "state.get"
+    public typealias Result = JSONValue
+    public var key: String?, prefix: String?
+    public init(key: String? = nil, prefix: String? = nil) {
+        self.key = key
+        self.prefix = prefix
+    }
+}
+
+/// A nil (or null) value deletes the key.
+public struct StateSet: InternalMethod {
+    public static let name = "state.set"
+    public typealias Result = Done
+    public var key: String, value: JSONValue?
+    public init(key: String, value: JSONValue?) {
+        self.key = key
+        self.value = value
+    }
+}

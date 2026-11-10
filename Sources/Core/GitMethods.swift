@@ -378,3 +378,25 @@ public struct CommentSend: RPCMethod {
         self.only = only
     }
 }
+
+/// Throws away one hunk of a file's unstaged changes in workspace `id`: the one with `fingerprint`, else the one whose
+/// "@@ … @@" line is `header`, as the caller saw it (as `git.hunk` finds it; `hunk`, its number, isn't read). If
+/// the file changed since and that hunk isn't there, nothing is thrown away.
+public struct GitDiscardHunk: RPCMethod {
+    public static let name = "git.discardHunk"
+    public typealias Result = Done
+    public var id: String, file: String, hunk: Int, header: String
+    /// The hunk's full text as shown (GitKit's `Hunk.fingerprint`): with it, a hunk whose lines changed since is refused
+    /// even when its header didn't. Optional, so older callers keep working.
+    public var fingerprint: String?
+    /// A name the caller picks, for `git.undoDiscard` to put back this hunk and no other.
+    public var undo: String?
+    public init(id: String, file: String, hunk: Int, header: String, fingerprint: String? = nil, undo: String? = nil) {
+        self.id = id
+        self.file = file
+        self.hunk = hunk
+        self.header = header
+        self.fingerprint = fingerprint
+        self.undo = undo
+    }
+}

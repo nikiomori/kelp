@@ -108,3 +108,30 @@ public struct HostStats: Codable, Sendable, Equatable {
         return Int((Double(used) / Double(total) * 100).rounded())
     }
 }
+
+/// The folders in `path` on `host` (~ is the host's home), over the host's shared SSH connection: the folder's full
+/// path there, whether it's in a git repository, and its subfolders, hidden ones left out, each marked when it's a
+/// repository. A host Kelp can't reach fails here, with ssh's reason.
+public struct RemoteListFolders: InternalMethod {
+    public static let name = "remote.listFolders"
+    public struct Folder: Codable, Sendable, Equatable {
+        public var name: String, git: Bool
+        public init(name: String, git: Bool) {
+            self.name = name
+            self.git = git
+        }
+    }
+    public struct Result: Codable, Sendable {
+        public var path: String, repo: Bool, folders: [Folder]
+        public init(path: String, repo: Bool, folders: [Folder]) {
+            self.path = path
+            self.repo = repo
+            self.folders = folders
+        }
+    }
+    public var host: String, path: String
+    public init(host: String, path: String) {
+        self.host = host
+        self.path = path
+    }
+}

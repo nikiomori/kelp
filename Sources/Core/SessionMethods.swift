@@ -327,3 +327,147 @@ public struct SessionTrail: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
+
+/// To another screen of the same folder: the agent goes on as it was, its tab goes there.
+public struct SessionMove: RPCMethod {
+    public static let name = "session.move"
+    public typealias Result = Done
+    public var id: String, worktreeId: String
+    public init(id: String, worktreeId: String) {
+        self.id = id
+        self.worktreeId = worktreeId
+    }
+}
+
+/// Sets its title; an empty one names the session from its task again.
+public struct SessionRename: RPCMethod {
+    public static let name = "session.rename"
+    public typealias Result = Done
+    public var id: String, title: String
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
+    }
+}
+
+/// How full the agent's conversation is (Claude Code transcripts); nil when that isn't known.
+public struct SessionContextWindow: RPCMethod {
+    public static let name = "session.contextWindow"
+    public struct Usage: Codable, Sendable, Equatable {
+        public var used: Int, window: Int
+        /// When the prompt cache goes cold, by what the last reply wrote to it; nil when that isn't known.
+        public var cacheUntil: Date?
+        public init(used: Int, window: Int, cacheUntil: Date? = nil) {
+            self.used = used
+            self.window = window
+            self.cacheUntil = cacheUntil
+        }
+    }
+    public typealias Result = Usage?
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
+/// What fills a Claude Code conversation's context since its last compaction: the base it starts with (system prompt,
+/// tools, CLAUDE.md, skills: the first request) and the parts after it, estimated from the transcript and scaled so that
+/// base + parts make the tokens the last reply counted. nil when that isn't known (other agents, no reply yet).
+public struct SessionContextParts: InternalMethod {
+    public static let name = "session.contextParts"
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        /// What Read returned, by file.
+        case files
+        /// What Bash and the other tools printed, by command or tool.
+        case commands
+        /// The agent's replies (and what it wrote with Edit / Write), your messages, Claude Code's notes to it.
+        case conversation
+        /// What /compact kept of the conversation before it.
+        case summary
+    }
+    public struct Item: Codable, Sendable, Equatable {
+        /// "payment.ts", "npm test", "its replies"; `count` times ("npm test ×38", "your 9 messages").
+        public var label: String, tokens: Int, count: Int
+        public init(label: String, tokens: Int, count: Int = 1) {
+            self.label = label
+            self.tokens = tokens
+            self.count = count
+        }
+    }
+    public struct Part: Codable, Sendable, Equatable {
+        public var kind: Kind, tokens: Int
+        /// The biggest three, biggest first; `more` items besides them.
+        public var top: [Item], more: Int
+        public init(kind: Kind, tokens: Int, top: [Item], more: Int) {
+            self.kind = kind
+            self.tokens = tokens
+            self.top = top
+            self.more = more
+        }
+    }
+    public struct Parts: Codable, Sendable, Equatable {
+        /// In Kind's order, the empty ones left out.
+        public var base: Int, parts: [Part]
+        /// The base as the agent itself splits it, when it says (Claude Code's /context).
+        public var setup: Setup?
+        public init(base: Int, parts: [Part], setup: Setup? = nil) {
+            self.base = base
+            self.parts = parts
+            self.setup = setup
+        }
+    }
+    /// What every request starts with, as Claude Code's /context counts it: system prompt, tools, MCP, memory files,
+    /// skills… (`parts`, in its order, summing to the base), with the biggest items of some ("CLAUDE.md 4k").
+    public struct Setup: Codable, Sendable, Equatable {
+        public struct Group: Codable, Sendable, Equatable {
+            /// As Claude Code names it: "System prompt", "Memory files".
+            public var label: String, tokens: Int
+            public var top: [Item], more: Int
+            public init(label: String, tokens: Int, top: [Item] = [], more: Int = 0) {
+                self.label = label
+                self.tokens = tokens
+                self.top = top
+                self.more = more
+            }
+        }
+        public var parts: [Group]
+        /// Tools it loads only when one is used ("MCP tools (deferred)"): not in the context.
+        public var deferred: [Item]
+        /// Kept free for compacting: the conversation compacts by itself before it reaches this.
+        public var buffer: Int
+        public init(parts: [Group], deferred: [Item] = [], buffer: Int = 0) {
+            self.parts = parts
+            self.deferred = deferred
+            self.buffer = buffer
+        }
+    }
+    public typealias Result = Parts?
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
+/// What a program in the session says it's doing (`kelp report`; the same as writing OSC 7501 itself): `state` is idle,
+/// working, blocked, done, error or clear; `message` shows on its row's card, `progress` (0–100) on its mark while it works.
+public struct SessionReport: RPCMethod {
+    public static let name = "session.report"
+    public typealias Result = Done
+    public var id: String, state: String, message: String?, progress: Int?, kind: String?
+    public init(id: String, state: String, message: String? = nil, progress: Int? = nil, kind: String? = nil) {
+        self.id = id
+        self.state = state
+        self.message = message
+        self.progress = progress
+        self.kind = kind
+    }
+}
+
+/// herdr's agent report, which fx sends to `HERDR_SOCKET_PATH` (kelpd's socket for it): `pane_id` is the session, `state`
+/// idle, working or blocked. herdr's other calls (`pane.rename`…) aren't Kelp's: refused.
+public struct PaneReportAgent: InternalMethod {
+    public static let name = "pane.report_agent"
+    public typealias Result = Done
+    public var paneId: String, state: String
+    enum CodingKeys: String, CodingKey { case paneId = "pane_id", state }
+    public init(paneId: String, state: String) {
+        self.paneId = paneId
+        self.state = state
+    }
+}

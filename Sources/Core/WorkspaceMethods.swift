@@ -192,3 +192,51 @@ public struct RepoCloneCancel: RPCMethod {
     public var id: String
     public init(id: String) { self.id = id }
 }
+
+/// The project's other git worktrees (agents' `.claude/worktrees/…`, older Kelp workspaces) and the disk each takes,
+/// biggest first: they grow with every build and nothing in the folder itself shows it.
+public struct RepoWorktreeSizes: InternalMethod {
+    public static let name = "repo.worktreeSizes"
+    public struct Item: Codable, Sendable, Equatable {
+        public var path: String, bytes: Int
+        /// Nothing uncommitted or untracked, not locked, not one of Kelp's workspaces (those go with Delete Workspace).
+        public var removable: Bool
+        public init(path: String, bytes: Int, removable: Bool) {
+            self.path = path
+            self.bytes = bytes
+            self.removable = removable
+        }
+    }
+    public typealias Result = [Item]
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+
+/// Removes those of `paths` that are still clean, as `git worktree remove` without --force does (one with changes,
+/// untracked files or a lock stays), each with its branch when that branch's commits are on another one too.
+public struct RepoRemoveWorktrees: InternalMethod {
+    public static let name = "repo.removeWorktrees"
+    public struct Result: Codable, Sendable {
+        public var removed: [String], kept: [String: String]   // kept: path → why
+        public init(removed: [String], kept: [String: String]) {
+            self.removed = removed
+            self.kept = kept
+        }
+    }
+    public var id: String, paths: [String]
+    public init(id: String, paths: [String]) {
+        self.id = id
+        self.paths = paths
+    }
+}
+
+/// The workspace's name.
+public struct WorktreeNote: RPCMethod {
+    public static let name = "worktree.note"
+    public typealias Result = Done
+    public var id: String, note: String
+    public init(id: String, note: String) {
+        self.id = id
+        self.note = note
+    }
+}
