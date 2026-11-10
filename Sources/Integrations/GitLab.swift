@@ -25,28 +25,17 @@ public enum GitLab {
         return who.isEmpty ? nil : who.joined(separator: ", ")
     }
 
-    /// The checkout's origin is a GitLab (gitlab.com or a host with "gitlab" in its name).
-    public static func isGitLab(cwd: String) -> Bool {
-        isGitLab(remote: (try? Git.origin(cwd, remotes: .none)) ?? "")
-    }
-
-    /// By the host only: github.com/someone/gitlab-ci-local is a GitHub repository.
-    public static func isGitLab(remote: String) -> Bool {
-        guard let host = Git.webRepo(remote)?.0.lowercased() else { return false }
-        return host.split(separator: ".").contains { $0.hasPrefix("gitlab") }
-    }
-
     /// `glab api` with `:id` standing for this project (glab fills it in from the remote).
     static func api(_ path: String, cwd: String, method: String = "GET", fields: [(String, String)] = []) throws -> Data
     {
         guard let exe = glabPath else {
-            throw GitHubError(args: ["glab"], status: -1, stderr: "glab CLI not found (brew install glab)")
+            throw ForgeError.notInstalled("glab", [path])
         }
         // raw: a title is text, never read as a number or a file
         let rawFields = fields.flatMap { ["--raw-field", "\($0.0)=\($0.1)"] }
         let args = ["api", "-X", method, path] + rawFields
         do { return try Subprocess.output([exe] + args, cwd: cwd, env: Git.toolEnv) } catch let error as ProgramError {
-            throw GitHubError(args: args, status: error.status, stderr: error.stderr)
+            throw ForgeError(tool: "glab", args: args, status: error.status, stderr: error.stderr)
         }
     }
 

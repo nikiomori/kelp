@@ -60,7 +60,7 @@ public struct JiraClient: Sendable {
 
     // MARK: parsing
 
-    public static func parseSearch(_ data: Data, site: String) throws -> [JiraIssue] {
+    static func parseSearch(_ data: Data, site: String) throws -> [JiraIssue] {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
             let issues = object["issues"] as? [[String: Any]]
         else {
@@ -79,7 +79,7 @@ public struct JiraClient: Sendable {
         }
     }
 
-    public static func parseTransitions(_ data: Data) throws -> [JiraTransition] {
+    static func parseTransitions(_ data: Data) throws -> [JiraTransition] {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
             let ts = object["transitions"] as? [[String: Any]]
         else {
@@ -96,7 +96,7 @@ public struct JiraClient: Sendable {
     }
 
     /// Atlassian Document Format → plain text (paragraph breaks kept); plain strings pass through (API v2).
-    public static func adfText(_ value: Any?) -> String {
+    static func adfText(_ value: Any?) -> String {
         if let text = value as? String { return text }
         guard let node = value as? [String: Any] else { return "" }
         if let text = node["text"] as? String { return text }

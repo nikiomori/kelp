@@ -11,9 +11,10 @@ public struct BitbucketClient: Sendable {
     }
 
     /// "git@bitbucket.org:team/repo.git" / "https://bitbucket.org/team/repo" → ("team", "repo")
-    /// Only when bitbucket.org is the remote's host: "https://example.com/bitbucket.org/x" or a fork named so isn't one.
+    /// Only when the remote's host is a Bitbucket (`Forge.of`): "https://example.com/bitbucket.org/x" or a fork named
+    /// so isn't one.
     public static func slug(remote: String) -> (workspace: String, repo: String)? {
-        guard let (host, path) = Git.webRepo(remote), host.lowercased() == "bitbucket.org" else { return nil }
+        guard Forge.of(remote: remote) == .bitbucket, let (_, path) = Git.webRepo(remote) else { return nil }
         let parts = path.split(separator: "/")
         return parts.count >= 2 ? (String(parts[0]), String(parts[1])) : nil
     }
@@ -55,7 +56,7 @@ public struct BitbucketClient: Sendable {
         return try await basicAuthRequest("Bitbucket", method, url, login: "\(user):\(token)", body: body)
     }
 
-    public static func parsePullRequests(_ data: Data) throws -> [GitHub.PullRequest] {
+    static func parsePullRequests(_ data: Data) throws -> [GitHub.PullRequest] {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
             let vals = object["values"] as? [[String: Any]]
         else {

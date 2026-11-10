@@ -90,7 +90,7 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     @discardableResult
     public func run(_ script: String, stdin: Data? = nil, timeLimit: TimeInterval = 300) throws -> Data {
         try Subprocess.output(
-            [ssh] + sshArgs(tty: false) + ["sh -c " + IDE.shellWord(script)], cwd: NSHomeDirectory(), stdin: stdin,
+            [ssh] + sshArgs(tty: false) + ["sh -c " + ShellQuote.word(script)], cwd: NSHomeDirectory(), stdin: stdin,
             timeLimit: timeLimit)
     }
 }

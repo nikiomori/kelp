@@ -27,34 +27,10 @@ extension Store {
     }
 }
 
-/// Runs gh or glab in the project's folder (`Daemon.refuseRemoteForge`): every GitHub, GitLab and CI method. (GitHub goes
-/// through `gh`, with its auth; the trackers' clients: `Forges`.)
-protocol LocalForge {
+extension Methods {
+    /// The methods that run gh or glab in the project's folder (`Daemon.refuseRemoteForge`): every GitHub, GitLab and CI
+    /// method. (GitHub goes through `gh`, with its auth; the trackers' clients: `Forges`.)
+    static var localForge: Set<String> { Set(integrationMethods.map { $0.name } + forgeAsyncMethods.map { $0.name }) }
     /// Asked by the sidebar on its own: null for a remote project instead of an error.
-    static var quietOnRemote: Bool { get }
+    static let quietOnRemote: Set = [GitHubBranchPR.name, GitHubForge.name]
 }
-extension LocalForge { static var quietOnRemote: Bool { false } }
-
-extension GitHubBranchPR: LocalForge { static var quietOnRemote: Bool { true } }
-extension GitHubForge: LocalForge { static var quietOnRemote: Bool { true } }
-extension GitHubStatus: LocalForge {}
-extension GitLabStatus: LocalForge {}
-extension GitHubIssues: LocalForge {}
-extension GitHubChecks: LocalForge {}
-extension GitHubFailedLog: LocalForge {}
-extension GitHubReviewComments: LocalForge {}
-extension GitHubProjects: LocalForge {}
-extension GitHubProjectItems: LocalForge {}
-extension GitHubPRs: LocalForge {}
-extension GitHubPRCreate: LocalForge {}
-extension GitHubPRMerge: LocalForge {}
-extension CIRunsList: LocalForge {}
-extension CIJobs: LocalForge {}
-extension CILog: LocalForge {}
-extension CIFailures: LocalForge {}
-extension CIFullLog: LocalForge {}
-extension CIRerun: LocalForge {}
-extension CIRerunAll: LocalForge {}
-extension CIRerunJob: LocalForge {}
-extension CIRunCancel: LocalForge {}
-extension CIDispatch: LocalForge {}

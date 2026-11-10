@@ -21,11 +21,11 @@ import Testing
 }
 
 /// gh and glab run in the project's folder, which for a remote project is only a marker here: every GitHub, GitLab and CI
-/// method is a `LocalForge`, so it's refused for one by its type, not by a name prefix a new method could slip past.
+/// method is in `Methods.localForge` (the lists it's registered in), so it's refused for one.
 @Test func everyForgeMethodIsRefusedForARemoteProject() {
     let forge = Daemon.methods.filter { $0.key.hasPrefix("github.") || $0.key.hasPrefix("ci.") }
     #expect(forge.count > 10)
-    #expect(forge.filter { ($0.value as? any LocalForge.Type) == nil }.keys.sorted() == [])
+    #expect(forge.keys.filter { !Methods.localForge.contains($0) }.sorted() == [])
 }
 
 /// A typed reply goes out as its result's JSON with the id around it, and reads back as the same value.

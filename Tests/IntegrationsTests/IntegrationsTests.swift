@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GitKit
 import Testing
 
 @testable import Integrations
@@ -191,13 +192,13 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 
 @Test func ghErrorsSayWhatToDo() {
     #expect(
-        GitHubError(args: ["pr", "list"], status: 1, stderr: "no git remotes found").description
+        ForgeError(tool: "gh", args: ["pr", "list"], status: 1, stderr: "no git remotes found").description
             == "This project has no GitHub remote.")
     #expect(
-        GitHubError(args: [], status: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login")
+        ForgeError(tool: "gh", args: [], status: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login")
             .description.contains("gh auth login"))
     #expect(
-        !GitHubError(args: ["pr", "list", "--json", "number"], status: 1, stderr: "boom\nmore").description.contains(
+        !ForgeError(tool: "gh", args: ["pr", "list", "--json", "number"], status: 1, stderr: "boom\nmore").description.contains(
             "--json"))
 }
 
@@ -276,11 +277,15 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
 }
 
 @Test func gitlabIsRecognisedByTheHostNotAWordInThePath() {
-    #expect(GitLab.isGitLab(remote: "git@gitlab.com:g/r.git"))
-    #expect(GitLab.isGitLab(remote: "https://gitlab.example.org/g/r"))
-    #expect(!GitLab.isGitLab(remote: "https://github.com/firecow/gitlab-ci-local.git"))   // a GitHub repo named after GitLab
-    #expect(!GitLab.isGitLab(remote: "git@github.com:me/gitlab-mirror.git"))
-    #expect(!GitLab.isGitLab(remote: ""))
+    #expect(Forge.of(remote: "git@gitlab.com:g/r.git") == .gitlab)
+    #expect(Forge.of(remote: "https://gitlab.example.org/g/r") == .gitlab)
+    #expect(Forge.of(remote: "https://github.com/firecow/gitlab-ci-local.git") == .github)   // a GitHub repo named after GitLab
+    #expect(Forge.of(remote: "git@github.com:me/gitlab-mirror.git") == .github)
+    // One rule for links and calls alike: a host that only has "gitlab" inside a label is no GitLab.
+    #expect(Forge.of(remote: "https://mygitlab.example.com/g/r") == .github)
+    #expect(Git.webPages(remote: "https://mygitlab.example.com/g/r")?.forge == "github")
+    #expect(Forge.of(remote: "git@bitbucket.org:team/repo.git") == .bitbucket)
+    #expect(Forge.of(remote: "") == .github)
 }
 
 @Test func glabAuthStatusNamesWhoIsSignedInOnEachHost() {

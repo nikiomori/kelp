@@ -68,7 +68,7 @@ public struct LinearClient: Sendable {
     }
 
     /// Decode `data.<path...>` from a GraphQL response, throwing on `errors`.
-    public static func parse<T: Decodable>(_: T.Type, from data: Data, at path: String...) throws -> T {
+    static func parse<T: Decodable>(_: T.Type, from data: Data, at path: String...) throws -> T {
         let root = try JSONDecoder().decode(JSONValue.self, from: data)
         if let errs = root["errors"]?.array, !errs.isEmpty {
             throw IntegrationError(

@@ -2,11 +2,19 @@ import Core
 import Foundation
 import GitKit
 
-public struct GitHubError: Error, CustomStringConvertible, Sendable {
+/// gh or glab (`tool`) failed or isn't installed, or what it answered stops Kelp: for people, `description`; the
+/// command line (`args`) is there for logs.
+public struct ForgeError: Error, CustomStringConvertible, Sendable {
+    public var tool: String
     public var args: [String]
     public var status: Int32
     public var stderr: String
-    /// What the user can act on, not the command line (`args` is there for logs).
+
+    static func notInstalled(_ tool: String, _ args: [String]) -> ForgeError {
+        ForgeError(tool: tool, args: args, status: -1, stderr: "\(tool) CLI not found (brew install \(tool))")
+    }
+
+    /// What the user can act on, not the command line.
     public var description: String {
         let message = stderr.lowercased()
         if message.contains("not found (brew install gh)") {
@@ -16,7 +24,7 @@ public struct GitHubError: Error, CustomStringConvertible, Sendable {
         if message.contains("gh auth login") || message.contains("not logged in") {
             return "GitHub CLI isn't signed in — run gh auth login."
         }
-        return stderr.split(whereSeparator: \.isNewline).first.map(String.init) ?? "gh failed (\(status))"
+        return stderr.split(whereSeparator: \.isNewline).first.map(String.init) ?? "\(tool) failed (\(status))"
     }
 }
 
@@ -37,10 +45,10 @@ extension GitHub {
     @discardableResult
     static func gh(_ args: [String], cwd: String) throws -> Data {
         guard let exe = ghPath else {
-            throw GitHubError(args: args, status: -1, stderr: "gh CLI not found (brew install gh)")
+            throw ForgeError.notInstalled("gh", args)
         }
         do { return try Subprocess.output([exe] + args, cwd: cwd, env: Git.toolEnv) } catch let error as ProgramError {
-            throw GitHubError(args: args, status: error.status, stderr: error.stderr)
+            throw ForgeError(tool: "gh", args: args, status: error.status, stderr: error.stderr)
         }
     }
 
@@ -108,7 +116,7 @@ extension GitHub {
         do {
             return try parseChecks(
                 gh(["pr", "checks", String(pr), "--json", "name,state,link,bucket,workflow"], cwd: cwd))
-        } catch let error as GitHubError where error.stderr.contains("no checks reported") { return [] }
+        } catch let error as ForgeError where error.stderr.contains("no checks reported") { return [] }
     }
 
     /// Inline review comments plus non-empty top-level review bodies.
@@ -134,11 +142,11 @@ extension GitHub {
                 ["pr", "merge", String(number), "--\(method.rawValue)"]
                     + (head.map { ["--match-head-commit", $0] } ?? []), cwd: cwd)
         } catch {
-            guard head != nil, (error as? GitHubError)?.stderr.contains("Head branch was modified") == true else {
-                throw error
-            }
-            throw RPCError.invalidParams(
-                String(localized: "#\(number) has new commits since you looked. Reload and read them before merging."))
+            guard head != nil, let refused = error as? ForgeError, refused.stderr.contains("Head branch was modified")
+            else { throw error }
+            throw ForgeError(
+                tool: "gh", args: refused.args, status: refused.status,
+                stderr: "#\(number) has new commits since you looked. Reload and read them before merging.")
         }
     }
 
@@ -168,7 +176,7 @@ extension GitHub {
             mergeStateStatus: String?
     }
 
-    public static func parsePullRequests(_ data: Data) throws -> [PullRequest] {
+    static func parsePullRequests(_ data: Data) throws -> [PullRequest] {
         try JSONDecoder().decode([RawPR].self, from: data).map {
             var pr = PullRequest(
                 number: $0.number, title: $0.title, url: $0.url, author: $0.author.login, headRefName: $0.headRefName,
@@ -205,7 +213,7 @@ extension GitHub {
         var number: Int, title: String, body: String?, url: String, labels: [Name], assignees: [Login], state: String
     }
 
-    public static func parseIssues(_ data: Data) throws -> [Issue] {
+    static func parseIssues(_ data: Data) throws -> [Issue] {
         try JSONDecoder().decode([RawIssue].self, from: data).map {
             Issue(
                 number: $0.number, title: $0.title, body: $0.body ?? "", url: $0.url,
@@ -213,7 +221,7 @@ extension GitHub {
         }
     }
 
-    public static func parseChecks(_ data: Data) throws -> [Check] {
+    static func parseChecks(_ data: Data) throws -> [Check] {
         try JSONDecoder().decode([Check].self, from: data).map {
             var check = $0
             check.runId = runId(fromLink: check.link)
@@ -231,7 +239,7 @@ extension GitHub {
     }
 
     /// Input is `gh api --paginate --slurp` output: an array of pages.
-    public static func parseReviewComments(_ data: Data) throws -> [ReviewComment] {
+    static func parseReviewComments(_ data: Data) throws -> [ReviewComment] {
         try JSONDecoder().decode([[RawComment]].self, from: data).joined().map {
             ReviewComment(
                 path: $0.path, line: $0.line ?? $0.original_line, body: $0.body, author: $0.user.login, url: $0.html_url
@@ -247,19 +255,19 @@ extension GitHub {
         var reviews: [Review]
     }
 
-    public static func parseReviews(_ data: Data) throws -> [ReviewComment] {
+    static func parseReviews(_ data: Data) throws -> [ReviewComment] {
         try JSONDecoder().decode(RawReviews.self, from: data).reviews.filter { !$0.body.isEmpty }.map {
             ReviewComment(path: nil, line: nil, body: $0.body, author: $0.author?.login ?? "ghost", url: nil)
         }
     }
 
     private struct RawOwner: Decodable { var owner: Login }
-    public static func parseOwner(_ data: Data) throws -> String {
+    static func parseOwner(_ data: Data) throws -> String {
         try JSONDecoder().decode(RawOwner.self, from: data).owner.login
     }
 
     private struct RawProjects: Decodable { var projects: [Project] }
-    public static func parseProjects(_ data: Data) throws -> [Project] {
+    static func parseProjects(_ data: Data) throws -> [Project] {
         try JSONDecoder().decode(RawProjects.self, from: data).projects
     }
 
@@ -269,7 +277,7 @@ extension GitHub {
         var items: [Item]
     }
 
-    public static func parseProjectItems(_ data: Data) throws -> [ProjectItem] {
+    static func parseProjectItems(_ data: Data) throws -> [ProjectItem] {
         try JSONDecoder().decode(RawItems.self, from: data).items.map {
             ProjectItem(title: $0.title ?? "", type: $0.content?.type ?? "", status: $0.status, url: $0.content?.url)
         }

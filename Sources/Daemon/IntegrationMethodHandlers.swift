@@ -9,8 +9,64 @@ extension Forges {
         (try? Git.currentBranch(workspace.path, remotes: remotes)) ?? workspace.branch
     }
 
+    /// The forge the folder's origin is on: what its PRs, issues and CI go through.
+    func forge(_ path: String) -> Forge { Forge.of(cwd: path, remotes: remotes) }
+
     static let bitbucketNeedsCredentials = RPCError.invalidParams(
         "This repo is on Bitbucket — add credentials in Settings › Integrations")
+
+    /// Pushes the workspace's branch and opens its pull (or merge) request against its base, titled and described from
+    /// its commits unless given; the workspace keeps the link, and its Linear and Jira issues move to review.
+    func createPR(_ workspace: Worktree, in repo: Repo, title: String?, body: String?, draft: Bool) async throws
+        -> (url: String, title: String)
+    {
+        let path = workspace.path
+        try await offloads.run { try Git.remote(path, .push, remotes: self.remotes) }   // the branch checked out now
+        let branch = try await offloads.run { self.checkedOut(workspace) }   // and the PR's source (the record can be stale after a switch)
+        var title = title ?? "", body = body ?? ""
+        let link =
+            workspace.issue.isEmpty
+            ? nil : (workspace.issue.hasPrefix("#") ? "Fixes \(workspace.issue)" : "Refs \(workspace.issue)")
+        // Stacked: a worktree cut from another feature branch opens its PR against that branch.
+        let base = workspace.base.isEmpty ? repo.baseBranch : workspace.base
+        if title.isEmpty || body.isEmpty {
+            let commits = try await offloads.run {
+                try Git.log(path, base: base, remotes: self.remotes).map(\.subject)
+            }
+            if title.isEmpty { title = commits.last ?? branch }
+            if body.isEmpty {
+                body = commits.map { "- \($0)" }.joined(separator: "\n") + (link.map { "\n\n\($0)" } ?? "")
+            }
+        } else if let link, !body.contains(workspace.issue) {
+            body += "\n\n\(link)"
+        }
+        if base != repo.baseBranch, !body.contains("Stacked on") { body = "Stacked on `\(base)`.\n\n" + body }
+        let url: String
+        switch try await offloads.run({ self.forge(path) }) {
+        case .bitbucket:
+            guard let slug = try await offloads.run({ BitbucketClient.slug(cwd: path) }),
+                let client = await bitbucketClient()
+            else { throw Self.bitbucketNeedsCredentials }
+            url = try await client.createPR(
+                workspace: slug.workspace, repo: slug.repo, title: title, body: body, source: branch, destination: base)
+        case .gitlab:
+            url = try await offloads.run { [title, body] in
+                try GitLab.createMR(cwd: path, title: title, body: body, base: base, draft: draft)
+            }
+        case .github:
+            url = try await offloads.run { [title, body] in
+                try GitHub.createPR(cwd: path, title: title, body: body, base: base, draft: draft)
+            }
+        }
+        try store.update(Worktree.self, workspace.id) {
+            $0.prURL = url
+            $0.prNumber = Int(url.split(separator: "/").last ?? "")
+        }
+        notify(ChangedEvent.worktree)
+        await moveLinear(workspace, to: .inReview)
+        await moveJira(workspace, toName: "review", category: "indeterminate")
+        return (url, title)
+    }
 }
 
 /// For a method that brings work in from a forge into a project: a clone added as one, an issue made a workspace with
@@ -27,10 +83,11 @@ extension GitHubBranchPR: Handled {
             key = workspace.path + "@" + branch
         if let hit = forges.prCache.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 120 { return hit.value }
         // nil: no PR, or gh couldn't tell (try? flattens to one optional)
-        let request =
-            GitLab.isGitLab(cwd: workspace.path)
-            ? try? GitLab.mergeRequest(cwd: workspace.path, branch: branch)
-            : try? GitHub.pullRequest(cwd: workspace.path, branch: branch)
+        let request: GitHub.PullRequest? =
+            switch forges.forge(workspace.path) {
+            case .gitlab: try? GitLab.mergeRequest(cwd: workspace.path, branch: branch)
+            case .github, .bitbucket: try? GitHub.pullRequest(cwd: workspace.path, branch: branch)
+            }
         forges.prCache.withLock { cache in
             // what's past its 2 min goes, not kept for the daemon's life
             if cache.count >= 500 { cache = cache.filter { Date().timeIntervalSince($0.value.at) < 120 } }
@@ -43,7 +100,7 @@ extension GitHubBranchPR: Handled {
 extension GitHubForge: Handled {
     func handle(_ forges: Forges) throws -> String {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
-        return GitLab.isGitLab(cwd: path) ? "gitlab" : BitbucketClient.slug(cwd: path) != nil ? "bitbucket" : "github"
+        return forges.forge(path).rawValue
     }
 }
 
@@ -52,7 +109,7 @@ extension CIRunsList: Handled {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace)
         return Result(
             branch: branch, runs: try CIRuns.runs(cwd: workspace.path, branch: branch),
-            workflows: GitLab.isGitLab(cwd: workspace.path) ? [] : CIRuns.dispatchable(repo: workspace.path))
+            workflows: forges.forge(workspace.path) == .gitlab ? [] : CIRuns.dispatchable(repo: workspace.path))
     }
 }
 extension CIJobs: Handled {
@@ -125,8 +182,10 @@ extension GitLabStatus: Handled {
 extension GitHubIssues: Handled {
     func handle(_ forges: Forges) throws -> [GitHub.Issue] {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
-        if GitLab.isGitLab(cwd: path) { return try GitLab.issues(cwd: path, mine: filter == "mine") }
-        return try GitHub.issues(cwd: path, mine: filter == "mine")
+        switch forges.forge(path) {
+        case .gitlab: return try GitLab.issues(cwd: path, mine: filter == "mine")
+        case .github, .bitbucket: return try GitHub.issues(cwd: path, mine: filter == "mine")
+        }
     }
 }
 extension GitHubChecks: Handled {
@@ -169,11 +228,11 @@ extension GitAuthorAvatar: AsyncHandled {
         // The forge the project's origin is on; elsewhere only a GitHub noreply address tells its account.
         let url = try? await forges.offloads.run { () throws -> URL? in
             let origin = (try? Git.origin(path, remotes: forges.remotes)) ?? ""
-            if GitLab.isGitLab(remote: origin) { return try GitLab.avatarURL(email: email, cwd: path) }
-            if Git.webRepo(origin)?.0.lowercased().contains("github") == true {
-                return try GitHub.avatarURL(email: email, cwd: path)
+            switch Forge.of(remote: origin) {
+            case .gitlab: return try GitLab.avatarURL(email: email, cwd: path)
+            case .github where !origin.isEmpty: return try GitHub.avatarURL(email: email, cwd: path)
+            case .github, .bitbucket: return GitHub.noreplyAvatar(email)
             }
-            return GitHub.noreplyAvatar(email)
         }
         var data: Data?
         if let url = url ?? nil {
@@ -191,16 +250,18 @@ extension GitAuthorAvatar: AsyncHandled {
 
 extension GitHubPRs: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [GitHub.PullRequest] {
-        let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
-        if let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: path) }) {
-            guard let bb = await forges.bitbucketClient() else { throw Forges.bitbucketNeedsCredentials }
+        let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId), filter = filter
+        switch try await forges.offloads.run({ forges.forge(path) }) {
+        case .bitbucket:
+            guard let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: path) }),
+                let bb = await forges.bitbucketClient()
+            else { throw Forges.bitbucketNeedsCredentials }
             return try await bb.pullRequests(workspace: slug.workspace, repo: slug.repo)
-        }
-        let filter = filter
-        return try await forges.offloads.run {
-            if GitLab.isGitLab(cwd: path) { return try GitLab.mergeRequests(cwd: path, mine: filter == "mine") }
+        case .gitlab:
+            return try await forges.offloads.run { try GitLab.mergeRequests(cwd: path, mine: filter == "mine") }
+        case .github:
             let prFilter: GitHub.PRFilter = filter == "mine" ? .mine : filter == "review" ? .reviewRequested : .open
-            return try GitHub.pullRequests(cwd: path, filter: prFilter)
+            return try await forges.offloads.run { try GitHub.pullRequests(cwd: path, filter: prFilter) }
         }
     }
 }
@@ -211,51 +272,8 @@ extension GitHubPRCreate: AsyncHandled {
         else {
             throw RPCError.invalidParams("no worktree")
         }
-        let path = workspace.path, draft = draft == true
-        try await forges.offloads.run { try Git.remote(path, .push, remotes: forges.remotes) }   // the branch checked out now
-        let branch = try await forges.offloads.run { forges.checkedOut(workspace) }   // and the PR's source (the record can be stale after a switch)
-        var title = title ?? "", body = body ?? ""
-        let link =
-            workspace.issue.isEmpty
-            ? nil : (workspace.issue.hasPrefix("#") ? "Fixes \(workspace.issue)" : "Refs \(workspace.issue)")
-        if title.isEmpty || body.isEmpty {
-            let cmpBase = workspace.base.isEmpty ? repo.baseBranch : workspace.base
-            let commits = try await forges.offloads.run {
-                try Git.log(path, base: cmpBase, remotes: forges.remotes).map(\.subject)
-            }
-            if title.isEmpty { title = commits.last ?? branch }
-            if body.isEmpty {
-                body = commits.map { "- \($0)" }.joined(separator: "\n") + (link.map { "\n\n\($0)" } ?? "")
-            }
-        } else if let link, !body.contains(workspace.issue) {
-            body += "\n\n\(link)"
-        }
-        // Stacked: a worktree cut from another feature branch opens its PR against that branch.
-        let prBase = workspace.base.isEmpty ? repo.baseBranch : workspace.base
-        if prBase != repo.baseBranch, !body.contains("Stacked on") { body = "Stacked on `\(prBase)`.\n\n" + body }
-        let url: String
-        if let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: path) }) {
-            guard let bb = await forges.bitbucketClient() else { throw Forges.bitbucketNeedsCredentials }
-            url = try await bb.createPR(
-                workspace: slug.workspace, repo: slug.repo, title: title, body: body, source: branch,
-                destination: prBase)
-        } else if try await forges.offloads.run({ GitLab.isGitLab(cwd: path) }) {
-            url = try await forges.offloads.run { [title, body] in
-                try GitLab.createMR(cwd: path, title: title, body: body, base: prBase, draft: draft)
-            }
-        } else {
-            url = try await forges.offloads.run { [title, body] in
-                try GitHub.createPR(cwd: path, title: title, body: body, base: prBase, draft: draft)
-            }
-        }
-        try forges.store.update(Worktree.self, workspace.id) {
-            $0.prURL = url
-            $0.prNumber = Int(url.split(separator: "/").last ?? "")
-        }
-        forges.notify(ChangedEvent.worktree)
-        await forges.moveLinear(workspace, to: .inReview)
-        await forges.moveJira(workspace, toName: "review", category: "indeterminate")
-        return Result(url: url, title: title)
+        let made = try await forges.createPR(workspace, in: repo, title: title, body: body, draft: draft == true)
+        return Result(url: made.url, title: made.title)
     }
 }
 
@@ -265,15 +283,18 @@ extension GitHubPRMerge: AsyncHandled {
             throw RPCError.invalidParams("no PR linked")
         }
         let how = method ?? "squash"
-        if let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: workspace.path) }) {
+        switch try await forges.offloads.run({ forges.forge(workspace.path) }) {
+        case .bitbucket:
             // Bitbucket's API or nothing: gh would look for the number on whatever GitHub repository it found.
-            guard let bb = await forges.bitbucketClient() else { throw Forges.bitbucketNeedsCredentials }
+            guard let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: workspace.path) }),
+                let bb = await forges.bitbucketClient()
+            else { throw Forges.bitbucketNeedsCredentials }
             try await bb.merge(workspace: slug.workspace, repo: slug.repo, id: number)
-        } else if try await forges.offloads.run({ GitLab.isGitLab(cwd: workspace.path) }) {
+        case .gitlab:
             try await forges.offloads.run {
                 try GitLab.mergeMR(cwd: workspace.path, number: number, squash: how == "squash")
             }
-        } else {
+        case .github:
             let mergeMethod = GitHub.MergeMethod(rawValue: how) ?? .squash
             try await forges.offloads.run {
                 try GitHub.mergePR(cwd: workspace.path, number: number, method: mergeMethod, head: head)
@@ -307,8 +328,10 @@ extension Methods {
         GitHubStatus.self, GitLabStatus.self, GitHubIssues.self, GitHubChecks.self, GitHubFailedLog.self,
         GitHubReviewComments.self, GitHubProjects.self, GitHubProjectItems.self
     ]
+    /// gh / glab / git too, through an API for Bitbucket.
+    static let forgeAsyncMethods: [any AsyncHandled.Type] = [GitHubPRs.self, GitHubPRCreate.self, GitHubPRMerge.self]
     static let asyncMethods: [any AsyncHandled.Type] = [
-        GitHubPRs.self, GitHubPRCreate.self, GitHubPRMerge.self, LinearSetKey.self,
+        LinearSetKey.self,
         LinearStatus.self, LinearIssues.self, LinearTeams.self, LinearStates.self, LinearSetState.self,
         JiraSetCredentials.self, JiraStatus.self,
         JiraIssues.self, JiraTransitions.self, JiraTransitionIssue.self, BitbucketSetCredentials.self,

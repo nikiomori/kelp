@@ -261,7 +261,8 @@ extension Daemon {
             + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
             + Methods.vmMethods + Methods.databaseMethods + Methods.artifactMethods
         let async =
-            Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods + Methods.databaseAsyncMethods
+            Methods.forgeAsyncMethods + Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods
+            + Methods.databaseAsyncMethods
         let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }()
@@ -299,7 +300,7 @@ extension Daemon {
     private static func rpc(_ error: Error) -> Error {
         switch error {
         case let error as GitError: RPCError.internalError(error.message)
-        case let error as GitHubError: RPCError.internalError(error.description)
+        case let error as ForgeError: RPCError.internalError(error.description)
         case let error as IntegrationError: RPCError.internalError(error.description)
         default: error
         }
@@ -309,10 +310,10 @@ extension Daemon {
     /// whatever repository holds it (a dotfiles home). Until they run on the host, they don't run at all: a `LocalForge`
     /// method is refused for one, or answers null when the sidebar asked by itself.
     private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) throws -> Data? {
-        guard let forge = methodType as? any LocalForge.Type,
+        guard Methods.localForge.contains(methodType.name),
             (try? store.repoPath(params)).map({ remotes.of($0.1) != nil }) == true
         else { return nil }
-        if forge.quietOnRemote { return Data("null".utf8) }
+        if Methods.quietOnRemote.contains(methodType.name) { return Data("null".utf8) }
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")
     }
 

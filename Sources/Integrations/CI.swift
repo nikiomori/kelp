@@ -2,12 +2,19 @@ import Core
 import Foundation
 import GitKit
 
+extension Forge {
+    /// The forge of the checkout's origin; GitHub when it has none.
+    public static func of(cwd: String, remotes: Remotes) -> Forge {
+        of(remote: (try? Git.origin(cwd, remotes: remotes)) ?? "")
+    }
+}
+
 /// CI runs of one branch: GitHub Actions (`gh run`) and GitLab pipelines (`glab api`), the values in Core.
 extension CIRuns {
     // MARK: GitHub
 
     public static func runs(cwd: String, branch: String) throws -> [Run] {
-        if GitLab.isGitLab(cwd: cwd) { return try gitlabRuns(cwd: cwd, branch: branch) }
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab { return try gitlabRuns(cwd: cwd, branch: branch) }
         struct RawRun: Decodable {
             var databaseId: Int, displayTitle: String, workflowName: String?, name: String?, status: String,
                 conclusion: String?
@@ -29,7 +36,7 @@ extension CIRuns {
     }
 
     public static func jobs(cwd: String, run: Int) throws -> [Job] {
-        if GitLab.isGitLab(cwd: cwd) { return try gitlabJobs(cwd: cwd, pipeline: run) }
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab { return try gitlabJobs(cwd: cwd, pipeline: run) }
         struct RawStep: Decodable {
             var name: String, status: String, conclusion: String?, number: Int?, startedAt: String?,
                 completedAt: String?
@@ -62,7 +69,7 @@ extension CIRuns {
 
     /// Every step of a job.
     public static func fullLog(cwd: String, job: Int) throws -> String {
-        if GitLab.isGitLab(cwd: cwd) {
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab {
             return readable(
                 String(bytes: try GitLab.api("projects/:id/jobs/\(job)/trace", cwd: cwd), encoding: .utf8) ?? "")
         }
@@ -82,7 +89,7 @@ extension CIRuns {
     }
 
     private static func failedText(cwd: String, job: Int) throws -> String {
-        if !GitLab.isGitLab(cwd: cwd),
+        if Forge.of(cwd: cwd, remotes: .none) != .gitlab,
             let failed = (try? GitHub.gh(["run", "view", "--job", String(job), "--log-failed"], cwd: cwd)).flatMap({
                 String(bytes: $0, encoding: .utf8)
             }), !failed.isEmpty
@@ -116,7 +123,7 @@ extension CIRuns {
     }
 
     public static func rerunFailed(cwd: String, run: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) {
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab {
             _ = try GitLab.api("projects/:id/pipelines/\(run)/retry", cwd: cwd, method: "POST")
             return
         }
@@ -125,12 +132,12 @@ extension CIRuns {
 
     /// Limit: GitLab's retry takes the failed jobs only.
     public static func rerunAll(cwd: String, run: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) { return try rerunFailed(cwd: cwd, run: run) }
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab { return try rerunFailed(cwd: cwd, run: run) }
         try GitHub.gh(["run", "rerun", String(run)], cwd: cwd)
     }
 
     public static func rerunJob(cwd: String, job: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) {
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab {
             _ = try GitLab.api("projects/:id/jobs/\(job)/retry", cwd: cwd, method: "POST")
             return
         }
@@ -138,7 +145,7 @@ extension CIRuns {
     }
 
     public static func cancel(cwd: String, run: Int) throws {
-        if GitLab.isGitLab(cwd: cwd) {
+        if Forge.of(cwd: cwd, remotes: .none) == .gitlab {
             _ = try GitLab.api("projects/:id/pipelines/\(run)/cancel", cwd: cwd, method: "POST")
             return
         }

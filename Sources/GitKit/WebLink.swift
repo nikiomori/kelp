@@ -1,6 +1,22 @@
 import Core
 import Foundation
 
+/// Where a repository lives, by its origin's host: whose links, pull requests, issues and CI it has.
+public enum Forge: String, Sendable {
+    case github, gitlab, bitbucket
+
+    /// By the host's own labels: gitlab.com and gitlab.example.com are GitLab, bitbucket.org Bitbucket; anything else
+    /// is GitHub (github.com, a GitHub Enterprise host). A path (github.com/someone/gitlab-ci-local) or a host like
+    /// mygitlab.example.com doesn't count.
+    public static func of(remote: String) -> Forge {
+        guard let host = Git.webRepo(remote)?.0.lowercased() else { return .github }
+        let labels = host.split(separator: ".")
+        if labels.contains(where: { $0.hasPrefix("gitlab") }) { return .gitlab }
+        if labels.contains(where: { $0.hasPrefix("bitbucket") }) { return .bitbucket }
+        return .github
+    }
+}
+
 /// Links to a file on the repository's website (GitHub, GitLab, Bitbucket) at the commit checked out now.
 extension Git {
     /// The address of the checkout's `origin` remote.
@@ -30,35 +46,38 @@ extension Git {
             $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0)
         }.joined(separator: "/")
         let base = "https://\(host)/\(repo)"
-        if host.contains("gitlab") {
+        switch Forge.of(remote: remote) {
+        case .gitlab:
             return "\(base)/-/blob/\(sha)/\(encoded)"
                 + (lines.map { $0.count == 1 ? "#L\($0.lowerBound)" : "#L\($0.lowerBound)-\($0.upperBound)" } ?? "")
-        }
-        if host.contains("bitbucket") {
+        case .bitbucket:
             return "\(base)/src/\(sha)/\(encoded)"
                 + (lines.map { $0.count == 1 ? "#lines-\($0.lowerBound)" : "#lines-\($0.lowerBound):\($0.upperBound)" }
                     ?? "")
+        case .github:
+            return "\(base)/blob/\(sha)/\(encoded)"
+                + (lines.map { $0.count == 1 ? "#L\($0.lowerBound)" : "#L\($0.lowerBound)-L\($0.upperBound)" } ?? "")
         }
-        return "\(base)/blob/\(sha)/\(encoded)"
-            + (lines.map { $0.count == 1 ? "#L\($0.lowerBound)" : "#L\($0.lowerBound)-L\($0.upperBound)" } ?? "")
     }
 
     /// The repository's home, CI, pull/merge requests and issues on its site.
     public static func webPages(remote: String) -> GitWebPages.Pages? {
         guard let (host, repo) = webRepo(remote) else { return nil }
-        let base = "https://\(host)/\(repo)"
-        if host.contains("gitlab") {
+        let base = "https://\(host)/\(repo)", forge = Forge.of(remote: remote)
+        switch forge {
+        case .gitlab:
             return .init(
-                forge: "gitlab", repo: base, ci: base + "/-/pipelines", pulls: base + "/-/merge_requests",
+                forge: forge.rawValue, repo: base, ci: base + "/-/pipelines", pulls: base + "/-/merge_requests",
                 issues: base + "/-/issues")
-        }
-        if host.contains("bitbucket") {
+        case .bitbucket:
             return .init(
-                forge: "bitbucket", repo: base, ci: base + "/pipelines", pulls: base + "/pull-requests",
+                forge: forge.rawValue, repo: base, ci: base + "/pipelines", pulls: base + "/pull-requests",
+                issues: base + "/issues")
+        case .github:
+            return .init(
+                forge: forge.rawValue, repo: base, ci: base + "/actions", pulls: base + "/pulls",
                 issues: base + "/issues")
         }
-        return .init(
-            forge: "github", repo: base, ci: base + "/actions", pulls: base + "/pulls", issues: base + "/issues")
     }
 
     /// `git@github.com:o/r.git`, `ssh://git@host:22/o/r`, `https://user@host/o/r.git` → (host, "o/r").
