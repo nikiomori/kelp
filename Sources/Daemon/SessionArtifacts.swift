@@ -33,10 +33,6 @@ extension ArtifactAdd: Handled {
     }
 }
 
-extension Methods {
-    static let artifactMethods: [any Handled.Type] = [ArtifactNew.self, ArtifactAdd.self]
-}
-
 /// The folder whose artifacts a command run in `cwd` means: the workspace that holds it (`session`'s own first, as
 /// `IDE.workspace` picks), else `cwd` itself: a chat outside any project.
 private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws -> String {
@@ -45,4 +41,8 @@ private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws
     else { throw RPCError.invalidParams("not a folder: \(cwd)") }
     let own = try session.flatMap { try store.session($0) }?.worktreeId
     return IDE.workspace(cwd: cwd, among: try store.worktrees().filter { !$0.archived }, own: own)?.path ?? cwd
+}
+
+extension Methods {
+    static let artifactMethods: [any Answered.Type] = [ArtifactNew.self, ArtifactAdd.self]
 }

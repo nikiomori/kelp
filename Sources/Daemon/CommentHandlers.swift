@@ -121,3 +121,9 @@ extension CommentSend: Handled {
         return body
     }
 }
+
+extension Methods {
+    static let commentMethods: [any Answered.Type] = [
+        CommentAdd.self, CommentList.self, CommentSetState.self, CommentSend.self
+    ]
+}

@@ -92,3 +92,7 @@ extension SessionSetup {
         return state[name]?.string == now
     }
 }
+
+extension Methods {
+    static let processMethods: [any Answered.Type] = [ProcessRefreshPath.self, ProcessWhich.self, ProcessRun.self]
+}

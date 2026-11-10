@@ -289,8 +289,8 @@ extension FilesCreate: Handled {
 }
 
 extension Methods {
-    static let fileMethods: [any Handled.Type] = [
-        FilesRead.self, FilesWrite.self, FilesMove.self, FilesTrash.self, FilesCopy.self, FilesCreate.self,
-        FilesFetch.self, RepoIcon.self
+    static let fileMethods: [any Answered.Type] = [
+        FilesRead.self, FilesWrite.self, FilesMove.self, FilesTrash.self, FilesCopy.self, FilesFetch.self,
+        RepoIcon.self, FilesCreate.self
     ]
 }

@@ -388,11 +388,8 @@ extension TaskFromIssue: AsyncHandled {
 }
 
 extension Methods {
-    static let launchMethods: [any Handled.Type] = [
-        SessionCreate.self, TmuxList.self, SessionRestart.self, SessionHandoff.self, SessionFork.self,
-        HistoryResume.self,
-        SessionHook.self, SessionAnnotate.self, RecipeRender.self, Ping.self, DaemonShutdown.self, DaemonUpgrade.self,
-        ProcessRun.self, ProcessWhich.self,
-        ProcessRefreshPath.self, SkillsBrowser.self
+    static let launchMethods: [any Answered.Type] = [
+        SessionCreate.self, SessionRestart.self, SessionFork.self, SessionHandoff.self, HistoryResume.self,
+        RecipeRender.self, AgentsVersions.self, TaskFromIssue.self
     ]
 }

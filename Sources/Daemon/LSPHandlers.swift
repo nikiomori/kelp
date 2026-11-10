@@ -13,14 +13,6 @@ extension LSPHost {
     }
 }
 
-extension Methods {
-    static let lspMethods: [any Handled.Type] = [LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self]
-    static let lspAsyncMethods: [any AsyncHandled.Type] = [
-        LSPDefinition.self, LSPCompletion.self, LSPSymbol.self, LSPSymbols.self, LSPHover.self, LSPSignature.self,
-        LSPReferences.self, LSPRename.self, LSPActions.self, LSPWorkspaceSymbols.self
-    ]
-}
-
 extension LSPOpen: Handled {
     /// Before the changes typed after it. Quick: a server starts on a task of its own.
     static var inOrder: Bool { true }
@@ -157,4 +149,12 @@ extension LSPActions: AsyncHandled {
         guard let client = await lsp.client(root, path) else { return [] }
         return try await client.actions(path, line: line, column: column)
     }
+}
+
+extension Methods {
+    static let lspMethods: [any Answered.Type] = [
+        LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self, LSPDefinition.self, LSPCompletion.self,
+        LSPSymbol.self, LSPSymbols.self, LSPWorkspaceSymbols.self, LSPHover.self, LSPSignature.self, LSPReferences.self,
+        LSPRename.self, LSPActions.self
+    ]
 }

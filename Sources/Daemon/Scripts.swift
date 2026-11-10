@@ -119,10 +119,5 @@ extension ScriptsRun: Handled {
 }
 
 extension Methods {
-    static let projectMethods: [any Handled.Type] =
-        [
-            ScriptsList.self, ScriptsTrust.self, ScriptsRun.self, RunDetect.self, RunStart.self, RepoAddRemote.self,
-            FilesReadRemote.self, FilesWriteRemote.self,
-            SettingsGet.self, SettingsSet.self, UsageGet.self, UsageReport.self, UsageAgents.self, HistoryList.self
-        ] + fileMethods
+    static let scriptMethods: [any Answered.Type] = [ScriptsList.self, ScriptsTrust.self, ScriptsRun.self]
 }

@@ -102,3 +102,16 @@ final class SessionProcesses: Sendable {
         return by.values.filter { $0.memory > 0 }.sorted { ($0.cpu, $0.memory) > ($1.cpu, $1.memory) }   // 0: already gone
     }
 }
+
+extension Subprocess {
+    /// What a short command prints (stdout, then stderr), or nil if it fails or takes longer than `timeout`.
+    static func printed(_ argv: [String], path: String, timeout: Double) -> String? {
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = path
+        env["NO_COLOR"] = "1"
+        guard let result = try? Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, timeLimit: timeout),
+            result.status == 0, !result.timedOut, !result.truncated
+        else { return nil }
+        return String(decoding: result.stdout + result.stderr, as: UTF8.self)
+    }
+}

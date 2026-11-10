@@ -58,3 +58,7 @@ extension TmuxList: Handled {
                 ? "tmux didn't answer." : why.isEmpty ? "tmux list-sessions failed (exit code \(output.status))." : why)
     }
 }
+
+extension Methods {
+    static let tmuxMethods: [any Answered.Type] = [TmuxList.self]
+}

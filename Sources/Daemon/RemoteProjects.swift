@@ -146,3 +146,9 @@ extension FilesWriteRemote: Handled {
         return nil
     }
 }
+
+extension Methods {
+    static let remoteMethods: [any Answered.Type] = [
+        RemoteListFolders.self, RepoAddRemote.self, FilesReadRemote.self, FilesWriteRemote.self
+    ]
+}

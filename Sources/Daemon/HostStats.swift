@@ -217,3 +217,7 @@ extension HostDisconnect: Handled {
         return Done()
     }
 }
+
+extension Methods {
+    static let hostStatsMethods: [any Answered.Type] = [HostStatsRead.self, HostDisconnect.self]
+}

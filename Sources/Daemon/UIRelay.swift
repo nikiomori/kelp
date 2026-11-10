@@ -70,15 +70,6 @@ extension UIBrowserReply: Handled {
     }
 }
 
-extension Methods {
-    static let uiMethods: [any Handled.Type] = [
-        UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self, UIBrowserReply.self
-    ]
-    static let uiAsyncMethods: [any AsyncHandled.Type] = [
-        UIBrowser.self, SessionPermissionWait.self, SessionRecap.self
-    ]
-}
-
 extension Clients {
     /// To every Kelp window as `event.ui`.
     fileprivate func relay(_ event: UIEvent) throws -> Delivered {
@@ -137,4 +128,11 @@ extension ClientEvents: Handled {
         clients.setMuted(conn, !events)
         return Done()
     }
+}
+
+extension Methods {
+    static let uiMethods: [any Answered.Type] = [
+        UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self, UIBrowser.self, UIBrowserReply.self,
+        StateGet.self, StateSet.self, ClientEvents.self
+    ]
 }

@@ -185,3 +185,7 @@ extension SettingsSet: Handled {
         return all
     }
 }
+
+extension Methods {
+    static let settingsMethods: [any Answered.Type] = [SettingsGet.self, SettingsSet.self]
+}

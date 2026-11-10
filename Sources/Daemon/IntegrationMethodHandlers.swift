@@ -321,21 +321,11 @@ extension BitbucketStatus: AsyncHandled {
 }
 
 extension Methods {
-    static let integrationMethods: [any Handled.Type] = [
-        GitHubBranchPR.self, GitHubForge.self, CIRunsList.self, CIJobs.self, CILog.self,
-        CIFullLog.self, CIFailures.self, CIRerun.self, CIRerunAll.self, CIRerunJob.self, CIRunCancel.self,
-        CIDispatch.self,
+    static let integrationMethods: [any Answered.Type] = [
+        GitHubBranchPR.self, GitHubForge.self, CIRunsList.self, CIJobs.self, CILog.self, CIFullLog.self,
+        CIFailures.self, CIRerun.self, CIRerunAll.self, CIRerunJob.self, CIRunCancel.self, CIDispatch.self,
         GitHubStatus.self, GitLabStatus.self, GitHubIssues.self, GitHubChecks.self, GitHubFailedLog.self,
-        GitHubReviewComments.self, GitHubProjects.self, GitHubProjectItems.self
-    ]
-    /// gh / glab / git too, through an API for Bitbucket.
-    static let forgeAsyncMethods: [any AsyncHandled.Type] = [GitHubPRs.self, GitHubPRCreate.self, GitHubPRMerge.self]
-    static let asyncMethods: [any AsyncHandled.Type] = [
-        LinearSetKey.self,
-        LinearStatus.self, LinearIssues.self, LinearTeams.self, LinearStates.self, LinearSetState.self,
-        JiraSetCredentials.self, JiraStatus.self,
-        JiraIssues.self, JiraTransitions.self, JiraTransitionIssue.self, BitbucketSetCredentials.self,
-        BitbucketStatus.self,
-        AgentsVersions.self, TaskFromIssue.self, RepoClone.self, RepoCloneCancel.self, GitAuthorAvatar.self
+        GitHubReviewComments.self, GitHubProjects.self, GitHubProjectItems.self, GitAuthorAvatar.self, GitHubPRs.self,
+        GitHubPRCreate.self, GitHubPRMerge.self, BitbucketSetCredentials.self, BitbucketStatus.self
     ]
 }

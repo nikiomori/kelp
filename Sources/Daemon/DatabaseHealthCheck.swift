@@ -139,3 +139,7 @@ extension DatabaseStart: AsyncHandled {
         return Done()
     }
 }
+
+extension Methods {
+    static let databaseHealthMethods: [any Answered.Type] = [DatabaseStatus.self, DatabaseStart.self]
+}

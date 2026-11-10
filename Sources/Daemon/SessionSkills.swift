@@ -256,3 +256,7 @@ extension UIStore {
         }
     }
 }
+
+extension Methods {
+    static let skillMethods: [any Answered.Type] = [SkillsBrowser.self]
+}

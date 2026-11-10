@@ -234,7 +234,8 @@ extension RPCMethod {
     }
 }
 
-/// The methods the daemon answers, listed by domain beside their handlers; `Daemon.methods` is the one table of them.
+/// The methods the daemon answers: each handler file ends with the list of those it answers, and `Daemon.methods` is
+/// the one table of them.
 enum Methods {}
 
 extension Daemon {
@@ -255,15 +256,17 @@ extension Daemon {
 
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
-        let sync: [any Handled.Type] =
-            Methods.miscMethods + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods
-            + Methods.integrationMethods + Methods.projectMethods
-            + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
-            + Methods.vmMethods + Methods.databaseMethods + Methods.artifactMethods
-        let async =
-            Methods.forgeAsyncMethods + Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods
-            + Methods.databaseAsyncMethods
-        let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }
+        let all: [any Answered.Type] =
+            [DaemonInfo.self] + Methods.commentMethods + Methods.daemonMethods + Methods.databaseApplyMethods
+            + Methods.databaseMethods + Methods.databaseHealthMethods + Methods.databaseImportMethods
+            + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
+            + Methods.hostStatsMethods + Methods.integrationMethods + Methods.lspMethods + Methods.launchMethods
+            + Methods.cloneMethods + Methods.portMethods + Methods.processMethods + Methods.recapMethods
+            + Methods.remoteMethods + Methods.routineMethods + Methods.runMethods + Methods.scriptMethods
+            + Methods.artifactMethods + Methods.sessionEditMethods + Methods.sessionMethods + Methods.hookMethods
+            + Methods.skillMethods + Methods.settingsMethods + Methods.tmuxMethods + Methods.trackerMethods
+            + Methods.transcriptMethods + Methods.turnMethods + Methods.uiMethods + Methods.usageMethods
+            + Methods.vmConfigureMethods + Methods.vmMethods + Methods.watchMethods + Methods.workspaceMethods
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }()
 

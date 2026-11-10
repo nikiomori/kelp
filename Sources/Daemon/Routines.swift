@@ -229,3 +229,35 @@ final class Routines: Sendable {
         return String((line ?? session.summary).prefix(200))
     }
 }
+
+extension RoutineList: Handled {
+    func handle(_ workspaces: Workspaces) throws -> RoutinesEvent { try workspaces.routines.list() }
+}
+
+extension RoutineSet: Handled {
+    /// A routine starts agents later, from nobody's session: what an agent set up would run as the user's own.
+    static let theUsers =
+        "A routine is the user's to set up: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
+    var notForAgents: String? { Self.theUsers }
+    func handle(_ workspaces: Workspaces) throws -> Routine { try workspaces.routines.set(routine) }
+}
+
+extension RoutineDelete: Handled {
+    var notForAgents: String? { RoutineSet.theUsers }
+    func handle(_ workspaces: Workspaces) throws -> Done {
+        try workspaces.routines.delete(id)
+        return Done()
+    }
+}
+
+extension RoutineRun: Handled {
+    func handle(_ workspaces: Workspaces) throws -> Routine.Run {
+        try workspaces.routines.runNow(id, workspaces: workspaces)
+    }
+}
+
+extension Methods {
+    static let routineMethods: [any Answered.Type] = [
+        RoutineList.self, RoutineSet.self, RoutineDelete.self, RoutineRun.self
+    ]
+}

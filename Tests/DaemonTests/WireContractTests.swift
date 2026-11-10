@@ -21,7 +21,7 @@ import Testing
 }
 
 /// gh and glab run in the project's folder, which for a remote project is only a marker here: every GitHub, GitLab and CI
-/// method is in `Methods.localForge` (the lists it's registered in), so it's refused for one.
+/// method is in `Methods.localForge`, so it's refused for one.
 @Test func everyForgeMethodIsRefusedForARemoteProject() {
     let forge = Daemon.methods.filter { $0.key.hasPrefix("github.") || $0.key.hasPrefix("ci.") }
     #expect(forge.count > 10)

@@ -46,3 +46,9 @@ extension PortsUnforward: Handled {
         return Done()
     }
 }
+
+extension Methods {
+    static let portMethods: [any Answered.Type] = [
+        PortsList.self, SessionUsage.self, PortsStop.self, PortsForward.self, PortsUnforward.self
+    ]
+}

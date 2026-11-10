@@ -83,3 +83,9 @@ extension DaemonBackgroundAllowed: Handled {
         return SMAppService.agent(plistName: "dev.kelp.kelpd\(suffix).plist").status != .requiresApproval
     }
 }
+
+extension Methods {
+    static let daemonMethods: [any Answered.Type] = [
+        Ping.self, DaemonShutdown.self, DaemonUpgrade.self, DaemonBackgroundAllowed.self
+    ]
+}

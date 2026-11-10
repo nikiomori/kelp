@@ -118,3 +118,9 @@ extension ImportReaders {
         do { return try String(contentsOf: url, encoding: .utf8) } catch { return nil }
     }
 }
+
+extension Methods {
+    static let databaseImportMethods: [any Answered.Type] = [
+        DatabaseImportSources.self, DatabaseImportRead.self, DatabaseImport.self
+    ]
+}

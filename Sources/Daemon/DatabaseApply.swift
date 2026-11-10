@@ -36,3 +36,7 @@ extension Databases {
 extension DatabaseApply: AsyncHandled {
     func handle(_ dbs: Databases) async throws -> QueryResult { try await dbs.apply(self) }
 }
+
+extension Methods {
+    static let databaseApplyMethods: [any Answered.Type] = [DatabaseApply.self]
+}

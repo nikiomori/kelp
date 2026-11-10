@@ -168,3 +168,9 @@ extension SessionTurn: Handled {
         return Info(turn: turn, hasBase: ls.turnBase != nil)
     }
 }
+
+extension Methods {
+    static let turnMethods: [any Answered.Type] = [
+        SessionTurnUndo.self, SessionTurnRedo.self, SessionTurns.self, SessionTurn.self
+    ]
+}

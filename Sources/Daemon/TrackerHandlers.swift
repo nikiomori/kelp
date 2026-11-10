@@ -92,3 +92,11 @@ extension JiraTransitionIssue: AsyncHandled {
         return Done()
     }
 }
+
+extension Methods {
+    static let trackerMethods: [any Answered.Type] = [
+        LinearSetKey.self, LinearStatus.self, LinearIssues.self, LinearTeams.self, LinearStates.self,
+        LinearSetState.self, JiraSetCredentials.self, JiraStatus.self, JiraIssues.self, JiraTransitions.self,
+        JiraTransitionIssue.self
+    ]
+}

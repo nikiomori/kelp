@@ -194,11 +194,61 @@ extension WorktreeDirty: Handled {
     }
 }
 
+extension WorktreeNote: Handled {
+    func handle(_ workspaces: Workspaces) throws -> Done {
+        guard try workspaces.store.update(Worktree.self, id, { $0.note = note }) != nil else {
+            throw RPCError.invalidParams("no worktree")
+        }
+        workspaces.notify(ChangedEvent.worktree)
+        return Done()
+    }
+}
+
+extension RepoWorktreeSizes: Handled {
+    func handle(_ workspaces: Workspaces) throws -> [Item] {
+        guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard workspaces.remotes.of(repo.path) == nil else { return [] }   // their disk is on the host
+        let ours = try Self.ours(workspaces.store, repo)
+        return try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes).filter {
+            FileManager.default.fileExists(atPath: $0.path)
+        }.map { worktree in
+            Item(
+                path: worktree.path, bytes: Self.du(worktree.path),
+                removable: !worktree.locked && !ours.contains(Self.real(worktree.path))
+                    && (try? Git.isDirty(worktree.path, remotes: workspaces.remotes)) == false
+                    && Git.commitsOnNoBranch(worktree.path, remotes: workspaces.remotes) == 0)
+        }.sorted { $0.bytes > $1.bytes }
+    }
+
+    /// Kelp's own worktree workspaces (from older versions): git prints real paths, the store keeps them as created.
+    static func ours(_ store: Store, _ repo: Repo) throws -> Set<String> {
+        Set(try store.worktrees(repo: repo.id).map { real($0.path) })
+    }
+    static func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
+
+    /// Blocks on disk as `du` counts them (16 GB of build products: about a second); unreadable files leave out only themselves.
+    static func du(_ path: String) -> Int {
+        let out =
+            (try? Subprocess.output(["/usr/bin/du", "-sk", path], cwd: path, ok: [0, 1])).map {
+                String(decoding: $0, as: UTF8.self)
+            } ?? ""
+        return (Int(out.prefix { $0.isNumber }) ?? 0) * 1024
+    }
+}
+
+extension RepoRemoveWorktrees: Handled {
+    var notForAgents: String? { "Only the user clears a project's worktrees." }
+    func handle(_ workspaces: Workspaces) throws -> Result {
+        guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        return try workspaces.removeWorktrees(paths, of: repo)
+    }
+}
+
 extension Methods {
-    static let workspaceMethods: [any Handled.Type] = [
+    static let workspaceMethods: [any Answered.Type] = [
         RepoAdd.self, RepoList.self, ScratchEnsure.self, RepoRelocate.self, RepoRename.self, RepoRemove.self,
         WorkspaceCreate.self, WorktreeCreate.self, WorktreeList.self, WorktreeArchive.self, WorktreeRemove.self,
-        WorktreeUnarchive.self,
-        WorktreeUnmerged.self, WorktreeDirty.self
+        WorktreeUnarchive.self, WorktreeUnmerged.self, WorktreeDirty.self, WorktreeNote.self, RepoWorktreeSizes.self,
+        RepoRemoveWorktrees.self
     ]
 }

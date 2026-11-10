@@ -140,3 +140,7 @@ extension RepoCloneCancel: AsyncHandled {
         return Done()
     }
 }
+
+extension Methods {
+    static let cloneMethods: [any Answered.Type] = [RepoClone.self, RepoCloneCancel.self]
+}

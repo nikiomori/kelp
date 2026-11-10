@@ -133,3 +133,39 @@ extension SessionAnnotate: Handled {
         return Done()
     }
 }
+
+extension SessionReport: Handled {
+    var reportsFor: String? { id }
+    static var quick: Bool { true }   // `kelp report`: the agent waits for it
+    func handle(_ sessions: Sessions) throws -> Done {
+        guard ProgramStatus.states.contains(state) else {
+            throw RPCError.invalidParams("state is one of idle, working, blocked, done, error, clear")
+        }
+        guard let ls = sessions.existing(id) else { return Done() }   // ended or paused: there's nothing to show it on
+        let report = ProgramStatus.Report(
+            state: state, kind: state == "blocked" ? kind : nil, msg: message,
+            progress: state == "working" ? progress.map { min(100, max(0, $0)) } : nil)
+        if ls.report(report) != nil { sessions.publish(ls) }
+        return Done()
+    }
+}
+
+/// herdr has no "done": idle after work is a finished turn (`StatusDetector.program`).
+extension PaneReportAgent: Handled {
+    var reportsFor: String? { paneId }
+    static var quick: Bool { true }   // fx waits for the reply
+    func handle(_ sessions: Sessions) throws -> Done {
+        guard ["idle", "working", "blocked"].contains(state) else {
+            throw RPCError.invalidParams("state is one of idle, working, blocked")
+        }
+        guard let ls = sessions.existing(paneId) else { return Done() }
+        if ls.report(ProgramStatus.Report(state: state)) != nil { sessions.publish(ls) }
+        return Done()
+    }
+}
+
+extension Methods {
+    static let hookMethods: [any Answered.Type] = [
+        SessionHook.self, SessionAnnotate.self, SessionReport.self, PaneReportAgent.self
+    ]
+}

@@ -59,8 +59,8 @@ extension VMConnect: Handled {
 }
 
 extension Methods {
-    static let vmMethods: [any Handled.Type] = [
-        VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self,
-        VMScreen.self, VMUI.self, VMConfigure.self
+    static let vmMethods: [any Answered.Type] = [
+        VMList.self, VMType.self, VMScreen.self, VMUI.self, VMDetailRead.self, VMCreate.self, VMControl.self,
+        VMConnect.self
     ]
 }

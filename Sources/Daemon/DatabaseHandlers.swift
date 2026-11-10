@@ -49,14 +49,8 @@ extension DatabaseResultRead: Handled {
 }
 
 extension Methods {
-    static let databaseMethods: [any Handled.Type] = [
-        DatabaseList.self, DatabaseSave.self, DatabaseRemove.self, DatabaseActivity.self, DatabaseResultRead.self,
-        DatabaseUse.self
-    ]
-    /// What talks to a server: off the handlers' threads, over its own connection.
-    static let databaseAsyncMethods: [any AsyncHandled.Type] = [
-        DatabaseQuery.self, DatabaseSchemaRead.self, DatabaseCopy.self, DatabaseCheck.self, DatabaseContainers.self,
-        DatabaseImportSources.self, DatabaseImportRead.self, DatabaseImport.self, DatabaseStatus.self,
-        DatabaseStart.self, DatabaseApply.self
+    static let databaseMethods: [any Answered.Type] = [
+        DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self, DatabaseSave.self, DatabaseRemove.self,
+        DatabaseCopy.self, DatabaseActivity.self, DatabaseResultRead.self
     ]
 }

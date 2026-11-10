@@ -48,3 +48,7 @@ extension RunStart: Handled {
             cwd: worktree.path, manifest: .custom(command), worktreeId: worktree.id, launch)
     }
 }
+
+extension Methods {
+    static let runMethods: [any Answered.Type] = [RunDetect.self, RunStart.self]
+}

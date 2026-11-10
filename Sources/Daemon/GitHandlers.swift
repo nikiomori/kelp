@@ -253,13 +253,11 @@ extension FilesSearch: Handled {
 }
 
 extension Methods {
-    static let gitMethods: [any Handled.Type] = [
-        GitStatus.self, GitBranches.self, GitLineStats.self, GitPush.self, GitDiff.self, GitLog.self,
-        GitUnsynced.self, GitStage.self, GitUnstage.self, GitHunk.self, GitCommit.self, GitMerge.self, GitSwitch.self,
-        GitGraph.self,
-        GitCommitFiles.self, GitCommitDetails.self, GitDiscard.self, GitUndoDiscard.self, GitRemoteOp.self,
-        GitDiscardHunk.self, GitStash.self, GitWebURL.self, GitWebPages.self,
-        FilesList.self, FilesIgnored.self, FilesSearch.self, CommentAdd.self, CommentList.self, CommentSetState.self,
-        CommentSend.self
+    static let gitMethods: [any Answered.Type] = [
+        GitStatus.self, GitBranches.self, GitLineStats.self, GitPush.self, GitDiff.self, GitLog.self, GitUnsynced.self,
+        GitStage.self, GitUnstage.self, GitHunk.self, GitCommit.self, GitMerge.self, GitSwitch.self, GitGraph.self,
+        GitCommitFiles.self, GitCommitDetails.self, GitDiscard.self, GitDiscardHunk.self, GitUndoDiscard.self,
+        GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self, FilesIgnored.self,
+        FilesSearch.self
     ]
 }

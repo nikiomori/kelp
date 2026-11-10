@@ -141,3 +141,7 @@ extension HistoryList: Handled {
         return Array(all.prefix(max(0, limit ?? 400)))
     }
 }
+
+extension Methods {
+    static let usageMethods: [any Answered.Type] = [UsageGet.self, UsageReport.self, UsageAgents.self, HistoryList.self]
+}

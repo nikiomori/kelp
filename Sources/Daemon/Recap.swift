@@ -68,3 +68,7 @@ extension SessionRecap: AsyncHandled {
         return short
     }
 }
+
+extension Methods {
+    static let recapMethods: [any Answered.Type] = [SessionRecap.self]
+}

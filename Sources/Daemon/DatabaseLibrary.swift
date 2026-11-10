@@ -104,3 +104,9 @@ extension DatabaseContainers: AsyncHandled {
 extension DatabaseUse: Handled {
     func handle(_ dbs: Databases) throws -> DatabaseInfo { try dbs.use(worktreeId, name, access: access) }
 }
+
+extension Methods {
+    static let databaseLibraryMethods: [any Answered.Type] = [
+        DatabaseCheck.self, DatabaseContainers.self, DatabaseUse.self
+    ]
+}

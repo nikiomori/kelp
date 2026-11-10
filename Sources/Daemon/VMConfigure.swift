@@ -112,3 +112,7 @@ extension VMConfigure: Handled {
     var notForAgents: String? { "A machine's size is the user's: every chat's machine, and the Mac's memory." }
     func handle(_ vms: VMService) throws -> VMInfo { try vms.configure(self) }
 }
+
+extension Methods {
+    static let vmConfigureMethods: [any Answered.Type] = [VMConfigure.self]
+}

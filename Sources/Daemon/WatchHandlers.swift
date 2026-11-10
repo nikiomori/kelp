@@ -276,3 +276,7 @@ extension WatchStop: Handled {
         return Done()
     }
 }
+
+extension Methods {
+    static let watchMethods: [any Answered.Type] = [WatchStart.self, WatchStop.self]
+}
