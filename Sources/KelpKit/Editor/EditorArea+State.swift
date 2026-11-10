@@ -24,7 +24,7 @@ extension EditorArea {
     /// The focused tab tells the inspector which agent / file the user is looking at. Only the main window's workspace
     /// on screen says so: a background workspace opening a tab must not redirect "send to agent".
     func publishFocus() {
-        guard app.workbench.window?.editors.current === self else { return }
+        guard app.workbench.editors?.current === self else { return }
         let uri = layout.focusedGroup?.selectedTab?.uri ?? ""
         let wb = app.workbench
         if wb.focusedTab != uri { wb.focusedTab = uri }

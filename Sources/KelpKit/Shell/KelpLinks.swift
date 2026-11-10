@@ -94,7 +94,7 @@ struct UIRequests {
             let split = event.split.flatMap(SplitDirection.init(rawValue:))
             let focus = event.focus == true
             if let wid = event.worktreeId, wid != app.workbench.workspaceId, !focus, app.workbench.workspaceId != nil {
-                app.workbench.window?.editors.openInBackground(uri, workspace: wid)
+                app.workbench.openInBackground(uri, workspace: wid)
                 return
             }
             // `kelp open`: the user's or their agent's own
@@ -112,7 +112,7 @@ struct UIRequests {
                 app.extensions.reload()
                 return
             }
-            if id == "window.shot", let shotWindow = app.workbench.window?.window,
+            if id == "window.shot", let shotWindow = app.workbench.mainWindow,
                 let path = event.args?["path"]?.string
             {
                 // A picture, by its name: `kelp shot` (an agent's too) writes a .png, never over a source file it was told.

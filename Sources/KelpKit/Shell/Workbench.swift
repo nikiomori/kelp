@@ -9,8 +9,13 @@ import WorkbenchKit
 @Observable
 package final class Workbench {
     @ObservationIgnored let app: AppModel
-    /// The main window, once it's made (it hands itself over).
+    /// The main window, once it's made (it hands itself over). Reached only in Workbench*.swift: the rest of the shell goes
+    /// through the ways below (ArchitectureTests).
     @ObservationIgnored weak var window: MainWindowController?
+    /// The main window's editor areas, one per recent workspace.
+    var editors: EditorHost? { window?.editors }
+    /// The main window itself: what sheets and menus hang off.
+    var mainWindow: NSWindow? { window?.window }
     /// Focus Mode: the side panels away, and what a tab adds over its content (breadcrumbs) too.
     package internal(set) var inFocusMode = false
 

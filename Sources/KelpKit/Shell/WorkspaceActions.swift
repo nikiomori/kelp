@@ -244,7 +244,7 @@ package struct WorkspaceActions {
         let from = Set(chats.compactMap { app.session($0)?.worktreeId }).subtracting([id])
         for sid in chats { await app.call(SessionMove(id: sid, worktreeId: id)) }
         if let sid = chats.first { app.workbench.focus(session: sid) }
-        for wid in from { app.workbench.window?.editors.chatsLeft(wid) }
+        for wid in from { app.workbench.editors?.chatsLeft(wid) }
     }
 
     /// Its last tab was closed: its row goes too, with nothing to ask. One on a branch with work of its own stays, and says

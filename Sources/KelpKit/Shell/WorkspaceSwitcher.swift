@@ -70,7 +70,7 @@ final class WorkspaceSwitcher {
             current: current, recent: wb.recentWorkspaces, stirred: stirred,
             live: Set(workspaces.map(\.id) + servers))
         let first = items.first == current ? 1 : 0
-        guard items.count > first, let window = app.workbench.window?.window else { return first }
+        guard items.count > first, let window = app.workbench.mainWindow else { return first }
         pointerFrom = NSEvent.mouseLocation
         rows = items.enumerated().map { offset, id in row(id, number: offset, here: offset == 0 && first == 1) }
         let card = SwitcherCard(rows: rows, hint: Self.hint(), maxHeight: max(window.frame.height - 80, 160))

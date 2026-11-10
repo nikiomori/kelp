@@ -20,7 +20,7 @@ extension UIRequests {
         guard let wid = event.worktreeId ?? app.workbench.workspaceId else {
             throw RPCError.invalidParams("No workspace to open a page in.")
         }
-        guard let area = app.workbench.window?.editors.area(wid) else {
+        guard let area = app.workbench.editors?.area(wid) else {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
         guard let action = BrowserAction(rawValue: event.action) else {
@@ -56,7 +56,7 @@ extension EditorArea {
                 "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
         }
         let uri = shared ? url : TabURI.agentPage(url)
-        if app.workbench.window?.editors.current === self {
+        if app.workbench.editors?.current === self {
             showAside(uri, split: .right)
         } else {
             open(uri, split: .right, focus: false)

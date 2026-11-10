@@ -36,7 +36,7 @@ enum UnsavedChanges {
 
     /// Before workspaces close, archive or leave with their project: true to go on.
     static func confirm(closing ids: [String], in app: AppModel) async -> Bool {
-        let edited = app.workbench.window?.editors.editedFiles(in: ids) ?? []
+        let edited = app.workbench.editors?.editedFiles(in: ids) ?? []
         guard !edited.isEmpty else { return true }
         guard await settle(edited, await runSheet(alert(edited, quitting: false))) else { return false }
         return await written(edited)

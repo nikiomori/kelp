@@ -15,7 +15,7 @@ class SheetController: NSWindowController {
 
     /// False when there's no window to put it on. `ended` runs once it's gone.
     func begin(ended: @escaping () -> Void) -> Bool {
-        guard let parent = app.workbench.window?.window ?? NSApp.mainWindow, let sheet = window else { return false }
+        guard let parent = app.workbench.mainWindow ?? NSApp.mainWindow, let sheet = window else { return false }
         parent.beginSheet(sheet) { _ in ended() }
         return true
     }

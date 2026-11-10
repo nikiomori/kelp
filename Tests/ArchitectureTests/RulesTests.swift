@@ -94,3 +94,17 @@ import Testing
     }
     #expect(found == [], "use Paths.inside")
 }
+
+/// The main window is Workbench's to reach (`Shell/Workbench*.swift`): the rest of the shell asks it (`editors`,
+/// `mainWindow`, `showPanel`…), as the built-ins do, so what acts on the window has one way in. The window hands itself
+/// over (MainWindow.swift), the one place outside that names it.
+@Test func theWindowIsReachedThroughTheWorkbench() throws {
+    let reach = try NSRegularExpression(pattern: #"\bworkbench\.window\b(?!\s*=\s*self\b)"#)
+    let found = sources(["Sources/KelpKit", "Sources/Builtins"]).filter {
+        !(($0.path as NSString).lastPathComponent.hasPrefix("Workbench") && $0.path.contains("/Shell/"))
+    }.flatMap { f in
+        let code = codeOnly(f.text)
+        return reach.matches(in: code, range: NSRange(code.startIndex..., in: code)).map { _ in f.path }
+    }
+    #expect(found == [], "the window reached around Workbench: \(found)")
+}
