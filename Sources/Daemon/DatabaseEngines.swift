@@ -11,6 +11,11 @@ struct DatabaseConnection: Sendable {
     var container: ComposeService?
     /// Kelp's keychain account for its password ("db:<project>/<name>"): where one read from `passwordIn` goes.
     var account: String?
+    /// Where Kelp has it from: a project's files, added by hand to the project, or All My Projects (the user's own,
+    /// reached from this Mac whatever project it's used in).
+    var origin: Origin = .found
+
+    enum Origin: Sendable { case found, project, library }
 }
 
 struct ComposeService: Sendable, Equatable {

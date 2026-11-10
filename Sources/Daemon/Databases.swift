@@ -101,7 +101,8 @@ final class Databases: Sendable {
         for entry in saved where entry.byHand {
             guard let db = entry.database, !all.contains(where: { $0.database.name == db.name }) else { continue }
             let account = Self.account(entry.id)
-            all.append(DatabaseConnection(database: db, password: Keychain.get(account), account: account))
+            all.append(
+                DatabaseConnection(database: db, password: Keychain.get(account), account: account, origin: .project))
         }
         return all
     }
@@ -146,8 +147,7 @@ final class Databases: Sendable {
             return remotes.host(ssh, path: "/")
         }
         // One of All My Projects is the user's, not the remote project's host's.
-        let mine = borrowed.account?.hasPrefix(Self.account(Self.libraryRepo + "/")) == true
-        let project = mine ? nil : try store.worktree(worktreeId).flatMap { remotes.of($0.path) }
+        let project = borrowed.origin == .library ? nil : try store.worktree(worktreeId).flatMap { remotes.of($0.path) }
         guard let remote = through ?? project else { return borrowed }
         let here = try sessions.processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
         var near = borrowed
@@ -240,12 +240,15 @@ final class Databases: Sendable {
     }
 
     func remove(_ worktreeId: String, _ name: String, library: Bool = false) throws {
-        guard let repo = library ? Self.libraryRepo : try store.worktree(worktreeId)?.repoId else { return }
-        let id = repo + "/" + name
-        _ = try store.db.write {
-            try library ? LibraryDatabase.deleteOne($0, key: name) : SavedDatabase.deleteOne($0, key: id)
+        if library {
+            _ = try store.db.write { try LibraryDatabase.deleteOne($0, key: name) }
+            Keychain.delete(Self.libraryAccount(name))
+        } else {
+            guard let repo = try store.worktree(worktreeId)?.repoId else { return }
+            let id = repo + "/" + name
+            _ = try store.db.write { try SavedDatabase.deleteOne($0, key: id) }
+            Keychain.delete(Self.account(id))
         }
-        Keychain.delete(Self.account(id))
         touch(worktreeId)
     }
 

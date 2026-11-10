@@ -87,7 +87,7 @@ extension Databases {
 
     /// Its password is in Kelp's keychain, or Kelp knows which app's to read it from.
     func hasPassword(_ db: DatabaseInfo) -> Bool {
-        db.engine.isFile || db.passwordIn != nil || Keychain.get(Self.account(Self.libraryRepo + "/" + db.name)) != nil
+        db.engine.isFile || db.passwordIn != nil || Keychain.get(Self.libraryAccount(db.name)) != nil
     }
 
     /// The same server and database, or the same file.

@@ -24,7 +24,8 @@ struct LibraryDatabase: Codable, FetchableRecord, PersistableRecord {
 /// "db:/<name>". And what the Add Database sheet asks of the daemon: a check of what's typed, the servers running in
 /// Docker.
 extension Databases {
-    static let libraryRepo = ""
+    /// Its password's keychain account: "db:/<name>", a project's with no project.
+    static func libraryAccount(_ name: String) -> String { account("/" + name) }
 
     func library() throws -> [DatabaseInfo] {
         try store.db.read { try LibraryDatabase.fetchAll($0) }.compactMap(\.database)
@@ -34,8 +35,8 @@ extension Databases {
     func libraryConnection(_ name: String) throws -> DatabaseConnection? {
         guard let entry = try store.db.read({ try LibraryDatabase.fetchOne($0, key: name) }), let db = entry.database
         else { return nil }
-        let account = Self.account(Self.libraryRepo + "/" + name)
-        return DatabaseConnection(database: db, password: Keychain.get(account), account: account)
+        let account = Self.libraryAccount(name)
+        return DatabaseConnection(database: db, password: Keychain.get(account), account: account, origin: .library)
     }
 
     func saveInLibrary(_ worktreeId: String, _ database: DatabaseInfo, password: String?) throws -> DatabaseInfo {
@@ -47,7 +48,7 @@ extension Databases {
         }
         let entry = try LibraryDatabase(db)
         try store.db.write { try entry.save($0) }
-        let account = Self.account(Self.libraryRepo + "/" + db.name)
+        let account = Self.libraryAccount(db.name)
         if let password {
             if password.isEmpty { Keychain.delete(account) } else { try Keychain.set(password, account: account) }
         }
