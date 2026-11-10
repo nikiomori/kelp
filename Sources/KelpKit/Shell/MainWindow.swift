@@ -305,13 +305,49 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if moves.contains(where: { $0.item === sidebarItem && $0.collapsed }) { sidebar.card.close() }   // its row is going, and with it the pointer's way out
         guard !Motion.reduced else { return moves.forEach { $0.item.isCollapsed = $0.collapsed } }
         GhosttyTerminalView.holdSize(true)
+        moves.forEach { holdWidth($0.item, closing: $0.collapsed) }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.base
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             moves.forEach { $0.item.animator().isCollapsed = $0.collapsed }
-        } completionHandler: {
-            MainActor.assumeIsolated { GhosttyTerminalView.holdSize(false) }   // AppKit runs it on the main thread
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                GhosttyTerminalView.holdSize(false)
+                self?.letWidthsGo()
+            }
         }
+    }
+
+    /// Panels whose columns are sliding: each keeps the width it has open, its column uncovering or covering it. Laid
+    /// out for every width on the way, a sidebar's rows dropped and took back their badges and a panel's lines
+    /// rewrapped, frame after frame.
+    private var heldWidths: [(panel: NSView, column: NSView, inner: NSLayoutConstraint, width: NSLayoutConstraint)] = []
+    private var openWidth: [ObjectIdentifier: CGFloat] = [:]
+    private func holdWidth(_ item: NSSplitViewItem, closing: Bool) {
+        let panel = item === sidebarItem ? sidebar.view : inspector.view, column = item.viewController.view
+        guard panel.superview === column, !heldWidths.contains(where: { $0.panel === panel }) else { return }
+        if closing { openWidth[ObjectIdentifier(item)] = panel.frame.width }
+        // The edge beside the editor area lets go; the window's side keeps the panel in place.
+        let edge: NSLayoutConstraint.Attribute = item === sidebarItem ? .trailing : .leading
+        guard let wide = openWidth[ObjectIdentifier(item)], wide > 0,
+            let inner = column.constraints.first(where: {
+                $0.firstItem === panel && $0.secondItem === column && $0.firstAttribute == edge
+            })
+        else { return }
+        let width = panel.widthAnchor.constraint(equalToConstant: wide)
+        inner.isActive = false
+        width.isActive = true
+        column.clipsToBounds = true
+        heldWidths.append((panel, column, inner, width))
+    }
+    private func letWidthsGo() {
+        for held in heldWidths {
+            held.width.isActive = false
+            held.column.clipsToBounds = false
+            // Unless it went to its floater meanwhile.
+            if held.panel.superview === held.column { held.inner.isActive = true }
+        }
+        heldWidths = []
     }
     private func hides(_ item: NSSplitViewItem) -> Bool {
         focusMode != nil

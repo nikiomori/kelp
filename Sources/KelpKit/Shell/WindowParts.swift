@@ -44,8 +44,10 @@ final class Floater: NSView {
     private let material = NSVisualEffectView()
     private var glass: NSView?
     private var glassy: Bool?
-    private var edge: NSLayoutConstraint?, widthC: NSLayoutConstraint?
+    private var widthC: NSLayoutConstraint?
+    private var leading = true
     private var shown = false
+    private var slides = 0
     var width: CGFloat { didSet { widthC?.constant = width } }
 
     init(width: CGFloat, inset: CGFloat) {
@@ -98,35 +100,55 @@ final class Floater: NSView {
     /// Against the window's leading or trailing edge, its full height; out of sight until it slides in.
     func attach(leading: Bool) {
         guard let parent = superview else { return }
+        self.leading = leading
         let pinned =
             leading
-            ? leadingAnchor.constraint(equalTo: parent.leadingAnchor)
-            : parent.trailingAnchor.constraint(equalTo: trailingAnchor)
+            ? leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: inset)
+            : parent.trailingAnchor.constraint(equalTo: trailingAnchor, constant: inset)
         let sized = widthAnchor.constraint(equalToConstant: width)
         NSLayoutConstraint.activate([
             pinned, sized, topAnchor.constraint(equalTo: parent.topAnchor, constant: inset),
             bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: -inset)
         ])
-        edge = pinned
         widthC = sized
     }
 
+    /// It stands where it shows and only its layer travels, from past the window's edge and back: moved by its
+    /// constraint, the window was laid out again for every frame of the way. It goes in two thirds of the time it
+    /// took to come in.
     func slide(in on: Bool, animated: Bool = true) {
-        guard let edge, on != shown else { return }
+        guard let layer, widthC != nil, on != shown else { return }
         shown = on
-        let away = -width - 2 * inset - 20   // the shadow out of sight too
-        if on, isHidden {
-            edge.constant = away
-            isHidden = false
-            superview?.layoutSubtreeIfNeeded()
+        slides += 1
+        let turn = slides   // a slide cut short ends too, later: only the last one hides the panel
+        let away = (leading ? -1 : 1) * (width + 2 * inset + 20)   // the shadow out of sight too
+        let key = "transform.translation.x"
+        let now = isHidden ? away : layer.presentation()?.value(forKeyPath: key) as? CGFloat ?? (on ? away : 0)
+        layer.removeAnimation(forKey: "slide")
+        guard animated, !Motion.reduced else {
+            isHidden = !on
+            return
         }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = animated ? Motion.duration(Motion.base) : 0
-            ctx.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
-            edge.animator().constant = on ? inset : away
-        } completionHandler: { [weak self] in   // on main
-            MainActor.assumeIsolated { if let self, !self.shown { self.isHidden = true } }
+        isHidden = false
+        let move = CABasicAnimation(keyPath: key)
+        move.fromValue = now
+        move.toValue = on ? 0 : away
+        move.duration = on ? Motion.base : Motion.fast
+        move.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
+        if !on {   // it stays out of sight until it's hidden
+            move.fillMode = .forwards
+            move.isRemovedOnCompletion = false
         }
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            MainActor.assumeIsolated {   // Core Animation runs it on the main thread
+                guard let self, !self.shown, turn == self.slides else { return }
+                self.isHidden = true
+                self.layer?.removeAnimation(forKey: "slide")
+            }
+        }
+        layer.add(move, forKey: "slide")
+        CATransaction.commit()
     }
 
     override var wantsUpdateLayer: Bool { true }
