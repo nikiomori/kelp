@@ -37,7 +37,8 @@ extension ExtensionRegistry {
     /// `files`: the library's SHA-256 of each, which the download must match.
     func install(source: String, files: [String: String]? = nil) async -> Bool {
         guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
-        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir, shown = ExtensionFiles.extensionFiles(folder)
+        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir,
+            shown = ExtensionFiles.extensionFiles(folder)
         guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else {
             try? FileManager.default.removeItem(at: folder)
             return false

@@ -177,7 +177,9 @@ extension SessionHandoff: Handled {
     ) throws -> [String]? {
         switch manifest.transcript {
         case .codex? where sessions.setup.transcript(of: old.agent) == .claude && profile == nil:
-            return file.flatMap { sessions.agentUsage.conversations.codexThread(importing: $0, cwd: old.cwd) }.map { ["resume", $0] }
+            return file.flatMap { sessions.agentUsage.conversations.codexThread(importing: $0, cwd: old.cwd) }.map {
+                ["resume", $0]
+            }
         case .pi?:
             guard let conversation = file.flatMap(Conversation.init(file:)), let flag = manifest.resumeIdFlag else {
                 return nil

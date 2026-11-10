@@ -82,7 +82,8 @@ extension SessionSetup {
     func trustsExtension(_ name: String, read: [String: Data]? = nil) -> Bool {
         guard
             let state = Log.store.attempt(
-                "reading the allowed extensions", { try store.daemonState(ExtensionFiles.extensionTrustKey, as: JSONValue.self) })
+                "reading the allowed extensions",
+                { try store.daemonState(ExtensionFiles.extensionTrustKey, as: JSONValue.self) })
                 ?? nil
         else { return false }
         let now =

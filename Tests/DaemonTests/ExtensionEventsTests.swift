@@ -23,7 +23,8 @@ private func install(_ w: World, id: String = "hears", out: URL, allowed: Bool =
 /// Allowed as it is now, as Kelp's window records it.
 private func allow(_ w: World, _ id: String) throws {
     var record: [String: JSONValue] = [:]
-    if case .object(let was)? = try w.d.sessions.store.daemonState(ExtensionFiles.extensionTrustKey, as: JSONValue.self) {
+    if case .object(let was)? = try w.d.sessions.store.daemonState(ExtensionFiles.extensionTrustKey, as: JSONValue.self)
+    {
         record = was
     }
     record[id] = .string(ExtensionFiles.extensionDigest(w.root.appendingPathComponent("extensions/\(id)")))
@@ -122,7 +123,8 @@ private func temporary() -> URL {
     let dir = w.root.appendingPathComponent("extensions"), workspace = try await firstWorkspace(w).id
     let allowed = ExtensionFiles.extensionDigest(dir.appendingPathComponent("other"))
     try w.d.sessions.store.setDaemonState(
-        ExtensionFiles.extensionTrustKey, JSONValue.obj(["hears": .string("what was there before"), "other": .string(allowed)]))
+        ExtensionFiles.extensionTrustKey,
+        JSONValue.obj(["hears": .string("what was there before"), "other": .string(allowed)]))
     let before = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "before"))
     _ = try await w.c.call(SessionReport(id: before.id, state: "blocked"))
     await #expect(throws: RPCError.self) {

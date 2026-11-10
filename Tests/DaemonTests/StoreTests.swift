@@ -141,7 +141,8 @@ import os
     do {
         let old = try DatabaseQueue(path: path)
         try Store.migrator.migrate(old, upTo: "database.productionByHand")
-        let forwards = #"[{"host":"box","target":"localhost:1","here":1,"worktree":"w","manual":true,"seen":false,"misses":0}]"#
+        let forwards =
+            #"[{"host":"box","target":"localhost:1","here":1,"worktree":"w","manual":true,"seen":false,"misses":0}]"#
         let rows = [
             ("lsp.trusted", #"["/p"]"#), ("extensions.trusted", #"{"x":"d"}"#),
             ("ports.forwards", String(decoding: try JSONEncoder().encode(forwards), as: UTF8.self)),
@@ -157,7 +158,10 @@ import os
     #expect(try s.daemonState(LSPOpen.trustKey, as: [String].self) == ["/p"])
     #expect(try s.daemonState(ExtensionFiles.extensionTrustKey, as: [String: String].self) == ["x": "d"])
     #expect(try s.daemonState("ports.forwards", as: [Forwards.Record].self)?.map(\.here) == [1])
-    #expect(try s.uiState(prefix: "").keys.sorted() == ["extensions.trusted", "lsp.trusted", "ports.forwards", "sidebar.order"])
+    #expect(
+        try s.uiState(prefix: "").keys.sorted() == [
+            "extensions.trusted", "lsp.trusted", "ports.forwards", "sidebar.order"
+        ])
     // An older daemon's write after the copy: stale; and trust taken back since leaves none, not the old row.
     try s.setUIState(LSPOpen.trustKey, .array([.string("/stale")]))
     try s.setDaemonState(ExtensionFiles.extensionTrustKey, nil as JSONValue?)
