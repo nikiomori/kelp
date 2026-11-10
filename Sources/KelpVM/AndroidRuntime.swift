@@ -30,7 +30,7 @@ final class AndroidRuntime {
     private var sources: [DispatchSourceProtocol] = []
 
     private var serial: String { "emulator-\(port)" }
-    private var avd: URL { folder.appendingPathComponent("avd") }
+    private var avd: URL { VMFolder(folder).avd }
     private var snapshot: URL { avd.appendingPathComponent("\(machine.name).avd/snapshots/default_boot") }
 
     init(folder: URL, machine: VMMachine) {
@@ -43,7 +43,7 @@ final class AndroidRuntime {
     func listen() {
         // Its lock is held already (main.swift).
         sources.append(
-            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] fd in
+            Control.listen(VMFolder(folder).control.path) { [weak self] fd in
                 guard let self else { return }
                 Control.serve(fd, handle: handle, reply: reply)
             })
@@ -206,12 +206,12 @@ final class AndroidRuntime {
 
     /// Ready once Android says it finished booting.
     private func awaitBoot(since: Date) async {
-        let first = !FileManager.default.fileExists(atPath: folder.appendingPathComponent("booted").path)
+        let first = !FileManager.default.fileExists(atPath: VMFolder(folder).booted.path)
         while state == .starting, emulator != nil {
             if (try? await adb(["shell", "getprop", "sys.boot_completed"]))?.trimmingCharacters(
                 in: .whitespacesAndNewlines) == "1"
             {
-                FileManager.default.createFile(atPath: folder.appendingPathComponent("booted").path, contents: nil)
+                FileManager.default.createFile(atPath: VMFolder(folder).booted.path, contents: nil)
                 return started(nil)
             }
             if now().timeIntervalSince(since) > (first ? 600 : 180) {

@@ -36,7 +36,7 @@ extension VMService {
         let machine = VMMachine(
             name: request.name, os: image.os, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk,
             user: VMs.user(NSUserName()), rosetta: kind == .linux)
-        let machineFolder = folder(machine.name)
+        let machineFolder = folder(machine.name).url
         // an earlier try's remains, its simulator and password with it
         if failure(machine.name) != nil { try discard(machine.name) }
         try Paths.ensure(root)
@@ -50,8 +50,8 @@ extension VMService {
         chmod(machineFolder.path, 0o700)
         step(machine, kind == .macos && given == nil ? .asking : .starting)
         // to go on after a restart
-        if let given { try given.path.write(to: file(machine.name, "source"), atomically: true, encoding: .utf8) }
-        try JSONEncoder().encode(machine).write(to: file(machine.name, "machine.json"))
+        if let given { try given.path.write(to: folder(machine.name).source, atomically: true, encoding: .utf8) }
+        try JSONEncoder().encode(machine).write(to: folder(machine.name).machine)
         Task.detached {
             switch kind {
             case .macos: await self.makeMac(machine, ipsw: given)
@@ -66,7 +66,7 @@ extension VMService {
     func step(_ machine: VMMachine, _ step: VMStep, _ detail: String? = nil, progress: Double? = nil) {
         let at = VMMaking(step: step, progress: progress, detail: detail)
         Log.vm.attempt("noting \(machine.name)'s progress") {
-            try at.data.write(to: file(machine.name, "creating"), options: .atomic)
+            try at.data.write(to: folder(machine.name).creating, options: .atomic)
         }
     }
 
@@ -118,10 +118,10 @@ extension VMService {
             }
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             Log.vm.attempt("noting why \(machine.name) failed") {
-                try Data(why.utf8).write(to: file(machine.name, "failed"))
+                try Data(why.utf8).write(to: folder(machine.name).failed)
             }
         }
-        remove(file(machine.name, "creating"))
+        remove(folder(machine.name).creating)
     }
 
     /// The image's raw disk, downloaded and checked the first time.
@@ -170,16 +170,16 @@ extension VMService {
 
     /// The machine's folder: its disk (an APFS clone of the image, grown), key, cloud-init seed, ssh_config.
     private func makeFolder(_ machine: VMMachine, from raw: URL) throws {
-        let disk = file(machine.name, "disk.img")
+        let disk = folder(machine.name).disk
         try FileManager.default.copyItem(at: raw, to: disk)   // clonefile on APFS: no space taken until it differs
         guard truncate(disk.path, off_t(machine.diskGiB) << 30) == 0 else {
             throw RPCError.internalError("can't size the disk: \(String(cString: strerror(errno)))")
         }
-        let key = file(machine.name, "id_ed25519")
+        let key = folder(machine.name).key
         try run([
             "/usr/bin/ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "kelp-vm-" + machine.name, "-f", key.path
         ])
-        let seed = file(machine.name, ".seed")
+        let seed = folder(machine.name).file(".seed")
         try Paths.ensure(seed)
         defer { remove(seed) }
         let pub = try String(contentsOf: key.appendingPathExtension("pub"), encoding: .utf8)
@@ -189,10 +189,10 @@ extension VMService {
             .write(to: seed.appendingPathComponent("meta-data"), atomically: true, encoding: .utf8)
         try run([
             "/usr/bin/hdiutil", "makehybrid", "-quiet", "-iso", "-joliet", "-default-volume-name", "cidata",
-            "-o", file(machine.name, "seed.iso").path, seed.path
+            "-o", folder(machine.name).seed.path, seed.path
         ])
         try VMs.sshConfig(machine, folder: folder(machine.name)).write(
-            to: file(machine.name, "ssh_config"), atomically: true, encoding: .utf8)
+            to: folder(machine.name).sshConfig, atomically: true, encoding: .utf8)
     }
 
     /// A program's output; its error when it fails.

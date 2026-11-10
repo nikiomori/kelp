@@ -47,16 +47,18 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     var now: () -> Date = { Date() }
 
     nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
-    private var saved: URL { folder.appendingPathComponent("state.vzsave") }
+    private var saved: URL { paths.savedState }
+    /// Its files kelpd reads and writes too.
+    private var paths: VMFolder { VMFolder(folder) }
     private func file(_ name: String) -> URL { folder.appendingPathComponent(name) }
 
     init(folder: URL) throws {
         self.folder = folder
         machine = try JSONDecoder().decode(
-            VMMachine.self, from: Data(contentsOf: folder.appendingPathComponent("machine.json")))
+            VMMachine.self, from: Data(contentsOf: VMFolder(folder).machine))
         shares =
             (try? JSONDecoder().decode(
-                [Int: String].self, from: Data(contentsOf: folder.appendingPathComponent("shares.json")))) ?? [:]
+                [Int: String].self, from: Data(contentsOf: VMFolder(folder).shares))) ?? [:]
         state =
             FileManager.default.fileExists(atPath: folder.appendingPathComponent("state.vzsave").path)
             ? .sleeping : .off
@@ -68,9 +70,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     func listen() {
         // Its lock is held already (main.swift): two starts at once would both launch one, and the second would take the sockets over.
-        listeners.append(Control.listen(file("ssh.sock").path) { [weak self] fd in self?.connect(fd, counted: true) })
-        listeners.append(Control.listen(file("own.sock").path) { [weak self] fd in self?.connect(fd, counted: false) })
-        listeners.append(Control.listen(file("ctl.sock").path) { [weak self] fd in self?.control(fd) })
+        listeners.append(Control.listen(paths.ssh.path) { [weak self] fd in self?.connect(fd, counted: true) })
+        listeners.append(Control.listen(paths.own.path) { [weak self] fd in self?.connect(fd, counted: false) })
+        listeners.append(Control.listen(paths.control.path) { [weak self] fd in self?.control(fd) })
         // A signal: saved (what runs inside goes on at the next wake), then gone.
         signals = Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })
         log("ready: \(machine.name), \(state.rawValue)")
@@ -240,7 +242,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             shareUse[slot] = Date()
             guard shares[slot] != path else { return done(nil, slot) }
             shares[slot] = path
-            do { try JSONEncoder().encode(shares).write(to: file("shares.json")) } catch {
+            do { try JSONEncoder().encode(shares).write(to: paths.shares) } catch {
                 return done("\(error)", nil)
             }
             if let dev = vm?.directorySharingDevices.first(where: {
@@ -300,10 +302,10 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         (window?.contentView as? VZVirtualMachineView)?.virtualMachine = vm
         guard FileManager.default.fileExists(atPath: saved.path) else {
             #if arch(arm64)   // a macOS machine's configuration doesn't build on Intel (`MacGuest.needsAppleSilicon`)
-                if machine.kind == .macos, !FileManager.default.fileExists(atPath: file("booted").path) {
+                if machine.kind == .macos, !FileManager.default.fileExists(atPath: paths.booted.path) {
                     // The first boot: macOS sets the account up, signs in and turns Remote Login on by itself.
                     do {
-                        let password = try String(contentsOf: file("password"), encoding: .utf8).trimmingCharacters(
+                        let password = try String(contentsOf: paths.password, encoding: .utf8).trimmingCharacters(
                             in: .whitespacesAndNewlines)
                         let options = try MacGuest.firstStart(machine, password: password)
                         return vm.start(options: options) { error in
@@ -355,7 +357,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             ready = []
             return waiting.forEach { $0("\(machine.name) was shut down while it started.") }
         }
-        let firstBoot = !FileManager.default.fileExists(atPath: file("booted").path)
+        let firstBoot = !FileManager.default.fileExists(atPath: paths.booted.path)
         guard Date().timeIntervalSince(since) < (firstBoot ? 1800 : 180) else {
             return started(VMError("sshd didn't answer"))
         }
@@ -384,7 +386,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     /// sshd answered (or not yet): ready once its one command ran (a clock make and friends compare times by, ~/Kelp).
     private func answered(_ ok: Bool, _ restored: Bool, _ since: Date) {
         guard ok else { return retry(restored, since) }
-        FileManager.default.createFile(atPath: file("booted").path, contents: nil)
+        FileManager.default.createFile(atPath: paths.booted.path, contents: nil)
         // Restored: its clock set to now. Booted: its exchange folder made ~/Kelp (a restore keeps that).
         let command = restored ? setClock() : VMs.filesSetup(os: machine.kind)
         Task {
@@ -489,7 +491,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     func own(_ command: String, stdin: Data? = nil) async throws -> String {
         let out = try await Subprocess.run(
             [
-                "/usr/bin/ssh", "-F", file("ssh_config").path, "-T", "-o", "BatchMode=yes", machine.name + "-own",
+                "/usr/bin/ssh", "-F", paths.sshConfig.path, "-T", "-o", "BatchMode=yes", machine.name + "-own",
                 command
             ],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: stdin, timeLimit: 20)
@@ -580,7 +582,7 @@ extension Runtime {
                 waiting.forEach { $0(error) }
                 done(error)
             }
-            let tmp = file("state.vzsave.part")
+            let tmp = saved.appendingPathExtension("part")
             let save = {
                 vm.saveMachineStateTo(url: tmp) { error in
                     MainActor.assumeIsolated {

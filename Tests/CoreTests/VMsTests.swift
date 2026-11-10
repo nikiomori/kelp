@@ -31,7 +31,7 @@ import Testing
 
 @Test func sshConfigReachesTheMachineOnlyThroughItsSockets() {
     let m = VMMachine(name: "debian", image: "debian-13", cpus: 2, memoryMiB: 2048, diskGiB: 32, user: "niko")
-    let s = VMs.sshConfig(m, folder: URL(fileURLWithPath: "/Users/n/.kelp/vms/debian"))
+    let s = VMs.sshConfig(m, folder: VMFolder(URL(fileURLWithPath: "/Users/n/.kelp/vms/debian")))
     #expect(s.contains("Host debian\n") && s.contains("Host debian-own\n"))
     #expect(s.contains("ProxyCommand /usr/bin/nc -U '/Users/n/.kelp/vms/debian/ssh.sock'"))
     #expect(s.contains("ProxyCommand /usr/bin/nc -U '/Users/n/.kelp/vms/debian/own.sock'"))

@@ -68,7 +68,7 @@ extension VMService {
             "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789".randomElement().map(String.init) ?? "x"
         }.joined()
         try Keychain.set(password, account: "vm." + machine.name)
-        let pw = file(machine.name, "password")
+        let pw = folder(machine.name).password
         guard
             FileManager.default.createFile(
                 atPath: pw.path, contents: Data(password.utf8), attributes: [.posixPermissions: 0o600])
@@ -77,17 +77,17 @@ extension VMService {
         }
         try run([
             "/usr/bin/ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "kelp-vm-" + machine.name, "-f",
-            file(machine.name, "id_ed25519").path
+            folder(machine.name).key.path
         ])
         try VMs.sshConfig(machine, folder: folder(machine.name)).write(
-            to: file(machine.name, "ssh_config"), atomically: true, encoding: .utf8)
+            to: folder(machine.name).sshConfig, atomically: true, encoding: .utf8)
     }
 
     /// Over SSH with the password once (ssh's SSH_ASKPASS reads the file): Kelp's key, then sudo without a password, a
     /// display and a Mac that never sleep (an agent's screenshot of a black screen says nothing). The file goes then.
     private func letKelpIn(_ machine: VMMachine) throws {
-        let askpass = file(machine.name, "askpass")
-        try "#!/bin/sh\ncat \(ShellQuote.word(file(machine.name, "password").path))\n".write(
+        let askpass = folder(machine.name).file("askpass")
+        try "#!/bin/sh\ncat \(ShellQuote.word(folder(machine.name).password.path))\n".write(
             to: askpass, atomically: true, encoding: .utf8)
         chmod(askpass.path, 0o700)
         defer { remove(askpass) }
@@ -95,24 +95,24 @@ extension VMService {
         env["SSH_ASKPASS"] = askpass.path
         env["SSH_ASKPASS_REQUIRE"] = "force"
         let ssh = [
-            "/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", "-o", "PubkeyAuthentication=no", "-o",
+            "/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", "-o", "PubkeyAuthentication=no", "-o",
             "NumberOfPasswordPrompts=1", machine.name
         ]
-        let key = try String(contentsOf: file(machine.name, "id_ed25519.pub"), encoding: .utf8)
+        let key = try String(contentsOf: folder(machine.name).key.appendingPathExtension("pub"), encoding: .utf8)
         let line =
             "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
         let keyed = try Subprocess.run(ssh + [line], cwd: "/", env: env, stdin: Data(key.utf8), timeLimit: 60)
         guard keyed.status == 0 else {
             throw RPCError.internalError("ssh with the password: " + String(decoding: keyed.stderr, as: UTF8.self))
         }
-        let password = try String(contentsOf: file(machine.name, "password"), encoding: .utf8)
+        let password = try String(contentsOf: folder(machine.name).password, encoding: .utf8)
         let rule = "\(machine.user) ALL=(ALL) NOPASSWD: ALL"
         let root =
             "echo \(ShellQuote.word(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
             + " && systemsetup -settimezone \(ShellQuote.word(TimeZone.current.identifier)) >/dev/null"   // the Mac's: times read the same
         let sudo = try Subprocess.run(
             [
-                "/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name,
+                "/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name,
                 "sudo -S -p '' sh -c \(ShellQuote.word(root))"
             ],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
@@ -125,19 +125,19 @@ extension VMService {
             "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0"
             + " && { \(VMs.filesSetup(os: .macos)); } && sync"   // ~/Kelp: its first boot had no key for kelp-vm to make it
         let unlocked = try Subprocess.run(
-            ["/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name, unlock],
+            ["/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name, unlock],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
         guard unlocked.status == 0 else {
             throw RPCError.internalError("screen lock: " + String(decoding: unlocked.stderr, as: UTF8.self))
         }
-        remove(file(machine.name, "password"))
+        remove(folder(machine.name).password)
     }
 
     /// Kelp Guest, as an app in the machine's ~/Applications, started at login (a LaunchAgent in its GUI session): its
     /// apps' controls by name (`kelp vm ui`), with Accessibility, asked for the first time that runs. The screen needs it not.
     private func installGuest(_ machine: VMMachine) throws {
         let bin = URL(fileURLWithPath: helper).deletingLastPathComponent().appendingPathComponent("KelpGuest")
-        let work = file(machine.name, ".guest"), app = work.appendingPathComponent("KelpGuest.app/Contents")
+        let work = folder(machine.name).file(".guest"), app = work.appendingPathComponent("KelpGuest.app/Contents")
         remove(work)
         defer { remove(work) }
         try Paths.ensure(app.appendingPathComponent("MacOS"))
@@ -165,7 +165,7 @@ extension VMService {
             "RunAtLoad": true, "KeepAlive": true, "LimitLoadToSessionType": "Aqua", "ProcessType": "Interactive"
         ]
         let plist = try PropertyListSerialization.data(fromPropertyList: agent, format: .xml, options: 0)
-        let ssh = ["/usr/bin/ssh", "-F", file(machine.name, "ssh_config").path, "-T", machine.name]
+        let ssh = ["/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name]
         let env = ProcessInfo.processInfo.environment
         let unpack =
             "rm -rf ~/Applications/KelpGuest.app && mkdir -p ~/Applications ~/Library/LaunchAgents && tar -C ~/Applications -xf - && sync"

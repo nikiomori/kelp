@@ -15,9 +15,9 @@ extension VMService {
                 try run(["/usr/bin/xcrun", "simctl", "create", "Kelp \(machine.name)", device, runtime], limit: 120)
             }
             try made.trimmingCharacters(in: .whitespacesAndNewlines).write(
-                to: file(machine.name, "udid"), atomically: true, encoding: .utf8)
+                to: folder(machine.name).udid, atomically: true, encoding: .utf8)
             step(machine, .building)
-            let project = file(machine.name, "runner")
+            let project = folder(machine.name).file("runner")
             guard let files = IOSRunner.files else {
                 throw RPCError.internalError("This build of Kelp lacks the iOS runner's files.")
             }
@@ -32,7 +32,7 @@ extension VMService {
                         "/usr/bin/xcrun", "xcodebuild", "build-for-testing", "-project",
                         project.appendingPathComponent("KelpRunner.xcodeproj").path,
                         "-scheme", "KelpRunner", "-destination", "generic/platform=iOS Simulator", "-derivedDataPath",
-                        file(machine.name, "dd").path,
+                        folder(machine.name).runnerBuild.path,
                         "CODE_SIGNING_ALLOWED=NO", "-quiet"
                     ], limit: 1200)
             }

@@ -17,12 +17,11 @@ struct VMService: Sendable {
         self.helper = helper
     }
 
-    func folder(_ name: String) -> URL { root.appendingPathComponent(name) }
-    func file(_ name: String, _ file: String) -> URL { folder(name).appendingPathComponent(file) }
+    func folder(_ name: String) -> VMFolder { VMFolder(root.appendingPathComponent(name)) }
     var images: URL { root.appendingPathComponent(".images") }
 
     func machine(_ name: String) throws -> VMMachine {
-        guard VMs.isName(name), let data = FileManager.default.contents(atPath: file(name, "machine.json").path) else {
+        guard VMs.isName(name), let data = FileManager.default.contents(atPath: folder(name).machine.path) else {
             throw RPCError.invalidParams(
                 "No machine called \(name). `kelp vm list` shows them; `kelp vm create \(name)` makes one.")
         }
@@ -54,13 +53,13 @@ struct VMService: Sendable {
     func detail(_ name: String, status known: VMHelper.Reply?? = nil) -> VMDetail? {
         let st = known ?? status(name)
         // Android and iOS: none (no SSH inside them).
-        let device = ["avd", "udid"].contains { FileManager.default.fileExists(atPath: file(name, $0).path) }
+        let device = [folder(name).avd, folder(name).udid].contains { FileManager.default.fileExists(atPath: $0.path) }
         guard st?.state == .running, !device else { return nil }
         let out: Subprocess.Output
         do {
             out = try Subprocess.run(
                 [
-                    "/usr/bin/ssh", "-F", file(name, "ssh_config").path, "-T", "-o", "BatchMode=yes", name + "-own",
+                    "/usr/bin/ssh", "-F", folder(name).sshConfig.path, "-T", "-o", "BatchMode=yes", name + "-own",
                     "sh"
                 ],
                 cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data(VMs.detailScript.utf8), timeLimit: 10)
@@ -71,7 +70,7 @@ struct VMService: Sendable {
         guard out.status == 0 else { return nil }
         var parsed = VMs.parseDetail(String(decoding: out.stdout, as: UTF8.self))
         parsed.guest?.screen = st?.screen   // whose turn the screen is: kelp-vm's to say now, not Kelp Guest's
-        if let json = FileManager.default.contents(atPath: file(name, "shares.json").path) {
+        if let json = FileManager.default.contents(atPath: folder(name).shares.path) {
             do { parsed.folders = try JSONDecoder().decode([Int: String].self, from: json).values.sorted() } catch {
                 Log.vm.error("\(name)'s shares: \(error)")
             }
@@ -88,9 +87,9 @@ struct VMService: Sendable {
             return result
         }
         var st = stat()
-        let disk = stat(file(machine.name, "disk.img").path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
+        let disk = stat(folder(machine.name).disk.path, &st) == 0 ? (Int(st.st_blocks) * 512) >> 20 : nil
         guard let reply = known ?? status(machine.name) else {
-            let asleep = FileManager.default.fileExists(atPath: file(machine.name, "state.vzsave").path)
+            let asleep = FileManager.default.fileExists(atPath: folder(machine.name).savedState.path)
             var result = VMInfo(machine: machine, state: asleep ? .sleeping : .off, diskMiB: disk)
             result.files = filesFolder(machine)
             return result
@@ -104,14 +103,14 @@ struct VMService: Sendable {
         return result
     }
 
-    func text(_ name: String, _ fileName: String) -> String? {
-        FileManager.default.contents(atPath: file(name, fileName).path).map { String(decoding: $0, as: UTF8.self) }
+    func text(_ file: URL) -> String? {
+        FileManager.default.contents(atPath: file.path).map { String(decoding: $0, as: UTF8.self) }
     }
 
     /// Why it wasn't made: what failed, or that making it stopped midway (kelpd ended: its `creating` went stale).
     func failure(_ name: String) -> String? {
-        if let failed = text(name, "failed") { return failed }
-        guard text(name, "creating") != nil, making(name) == nil else { return nil }
+        if let failed = text(folder(name).failed) { return failed }
+        guard text(folder(name).creating) != nil, making(name) == nil else { return nil }
         return String(localized: "Making it stopped midway (Kelp restarted). Delete it and make it again.")
     }
 
@@ -119,8 +118,8 @@ struct VMService: Sendable {
     /// longest quiet step; a kelpd that started meanwhile goes on with it: `resumeMaking`).
     func making(_ name: String) -> VMMaking? {
         var st = stat()
-        guard let data = FileManager.default.contents(atPath: file(name, "creating").path),
-            stat(file(name, "creating").path, &st) == 0,
+        guard let data = FileManager.default.contents(atPath: folder(name).creating.path),
+            stat(folder(name).creating.path, &st) == 0,
             Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 2700
         else { return nil }
         do { return try JSONDecoder().decode(VMMaking.self, from: data) } catch {   // a kelpd before 2026-11-06 wrote words
@@ -156,7 +155,7 @@ struct VMService: Sendable {
             if alive(name) {
                 try check(ask(name, .init(op: .stop), wait: 60))
             } else {
-                remove(file(name, "state.vzsave"))
+                remove(folder(name).savedState)
             }
         }
         return info(machine)
@@ -184,7 +183,7 @@ struct VMService: Sendable {
             }
             return VMConnection(ssh: [adb, "-s", serial], prefix: "")
         }
-        let ssh = ["/usr/bin/ssh", "-F", file(name, "ssh_config").path, name]
+        let ssh = ["/usr/bin/ssh", "-F", folder(name).sshConfig.path, name]
         guard let cwd else {
             try wake(machine)
             return VMConnection(ssh: ssh, prefix: "cd || exit 1; ")
@@ -281,7 +280,7 @@ struct VMService: Sendable {
     func startHelper(_ machine: VMMachine) throws {
         // not "it answered": a busy one may not within 2 s, and a second would only end
         if alive(machine.name) { return }
-        let log = file(machine.name, "helper.log").path
+        let log = folder(machine.name).log.path
         guard FileManager.default.isExecutableFile(atPath: helper) else {
             throw RPCError.internalError("This build of Kelp has no kelp-vm beside kelpd (\(helper)).")
         }
@@ -294,7 +293,7 @@ struct VMService: Sendable {
             if status(machine.name) != nil { return }
             usleep(100_000)
         }
-        let tail = text(machine.name, "helper.log")?.split(separator: "\n").suffix(3).joined(separator: "\n") ?? ""
+        let tail = text(folder(machine.name).log)?.split(separator: "\n").suffix(3).joined(separator: "\n") ?? ""
         try check(
             VMHelper.Reply(state: .error, connections: 0, error: "\(machine.name)'s kelp-vm didn't start: \(tail)"))
     }
@@ -310,7 +309,7 @@ struct VMService: Sendable {
         var fd: Int32 = -1
         for tries in 0... {
             do {
-                fd = try Unix.connect(file(name, "ctl.sock").path)
+                fd = try Unix.connect(folder(name).control.path)
                 break
             } catch {
                 guard tries < 10, alive(name) else { throw error }
@@ -352,19 +351,19 @@ struct VMService: Sendable {
         guard !alive(name) else {
             throw RPCError.internalError("\(name) didn't stop: try again in a moment, or restart the Mac.")
         }
-        if let udid = text(name, "udid") {
+        if let udid = text(folder(name).udid) {
             do {
                 try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)])
             } catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
         }
-        if trash { try Trash.move(folder(name)) } else { try FileManager.default.removeItem(at: folder(name)) }
+        if trash { try Trash.move(folder(name).url) } else { try FileManager.default.removeItem(at: folder(name).url) }
         Keychain.delete("vm." + name)
     }
 
     /// Whether the machine's kelp-vm runs: it holds `kelp-vm.lock` while it does. Not "it answered", which a busy one
     /// (its control socket is served on its main queue) may not do within a status's 2 s.
     func alive(_ name: String) -> Bool {
-        let fd = open(file(name, "kelp-vm.lock").path, O_RDWR | O_CLOEXEC)
+        let fd = open(folder(name).lock.path, O_RDWR | O_CLOEXEC)
         guard fd >= 0 else { return false }
         defer { close(fd) }
         // Shared: two of kelpd's looks at once (a poll, a delete) don't take each other for a kelp-vm, which holds it whole.

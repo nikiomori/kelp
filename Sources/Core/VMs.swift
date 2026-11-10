@@ -265,17 +265,17 @@ public enum VMs {
 
     /// The machine's ssh_config (`ssh -F` it, so the user's own config plays no part): `<name>` for agents and people, a
     /// connection each, counted as use; `<name>-own` for kelp-vm's own reads (the clock, memory), not counted.
-    public static func sshConfig(_ machine: VMMachine, folder: URL) -> String {
-        func host(_ alias: String, _ socket: String) -> String {
+    public static func sshConfig(_ machine: VMMachine, folder: VMFolder) -> String {
+        func host(_ alias: String, _ socket: URL) -> String {
             """
             Host \(alias)
               HostName \(machine.name)
               User \(machine.user)
-              IdentityFile "\(folder.appendingPathComponent("id_ed25519").path)"
+              IdentityFile "\(folder.key.path)"
               IdentitiesOnly yes
-              UserKnownHostsFile "\(folder.appendingPathComponent("known_hosts").path)"
+              UserKnownHostsFile "\(folder.knownHosts.path)"
               StrictHostKeyChecking accept-new
-              ProxyCommand /usr/bin/nc -U \(ShellQuote.word(folder.appendingPathComponent(socket).path))
+              ProxyCommand /usr/bin/nc -U \(ShellQuote.word(socket.path))
               ServerAliveInterval 15
               LogLevel ERROR
 
@@ -284,11 +284,11 @@ public enum VMs {
         // Kelp's own reads come every few seconds while it's watched: over one connection kept a minute, not a handshake each.
         let reuse = """
               ControlMaster auto
-              ControlPath "\(folder.appendingPathComponent("own.cm").path)"
+              ControlPath "\(folder.file("own.cm").path)"
               ControlPersist 60
 
             """
-        return host(machine.name, "ssh.sock") + host(machine.name + "-own", "own.sock") + reuse
+        return host(machine.name, folder.ssh) + host(machine.name + "-own", folder.own) + reuse
     }
 
     /// Folders shared at once: a virtio-fs device each (tag `kelp<n>`), since giving one device a new set of folders

@@ -64,7 +64,7 @@ enum MacGuest {
             try VZMacMachineIdentifier().dataRepresentation.write(to: file("machine.id"))
             _ = try VZMacAuxiliaryStorage(
                 creatingStorageAt: file("aux.bin"), hardwareModel: needs.hardwareModel, options: [.allowOverwrite])
-            let disk = file("disk.img")
+            let disk = VMFolder(folder).disk
             guard FileManager.default.createFile(atPath: disk.path, contents: nil),
                 truncate(disk.path, off_t(machine.diskGiB) << 30) == 0
             else {

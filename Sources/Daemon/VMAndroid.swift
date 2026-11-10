@@ -13,7 +13,7 @@ extension VMService {
                         + "command-line tools and an arm64 system image (Android Studio › Settings › Android SDK).")
             }
             step(machine, .device, image.split(separator: ";").dropFirst().prefix(2).joined(separator: " "))
-            let avd = file(machine.name, "avd")
+            let avd = folder(machine.name).avd
             try Paths.ensure(avd)
             var env = ProcessInfo.processInfo.environment
             env["ANDROID_AVD_HOME"] = avd.path

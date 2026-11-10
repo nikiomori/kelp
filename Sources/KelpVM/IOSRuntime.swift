@@ -22,7 +22,7 @@ final class IOSRuntime {
     var xcrun = "/usr/bin/xcrun"
 
     private var udid: String {
-        String(contentsIfAny: folder.appendingPathComponent("udid"))?.trimmingCharacters(
+        String(contentsIfAny: VMFolder(folder).udid)?.trimmingCharacters(
             in: .whitespacesAndNewlines) ?? ""
     }
 
@@ -34,7 +34,7 @@ final class IOSRuntime {
     func listen() {
         // Its lock is held already (main.swift).
         sources.append(
-            Control.listen(folder.appendingPathComponent("ctl.sock").path) { [weak self] fd in
+            Control.listen(VMFolder(folder).control.path) { [weak self] fd in
                 guard let self else { return }
                 Control.serve(fd, handle: handle, reply: reply)
             })
@@ -110,7 +110,7 @@ final class IOSRuntime {
             _ = try await simctl(["boot", udid], allowFailure: true)
             _ = try await simctl(["bootstatus", udid, "-b"])
             // No build folder at all (a making cut short) is told as a runner not built, not as a missing folder.
-            let products = folder.appendingPathComponent("dd/Build/Products")
+            let products = VMFolder(folder).runnerBuild.appendingPathComponent("Build/Products")
             let built =
                 FileManager.default.fileExists(atPath: products.path)
                 ? try FileManager.default.contentsOfDirectory(at: products, includingPropertiesForKeys: nil) : []

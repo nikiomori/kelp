@@ -38,7 +38,7 @@ extension VMService {
     /// Made here if it isn't yet (kelp-vm makes it too, as it starts the machine).
     func filesFolder(_ machine: VMMachine) -> String? {
         guard machine.kind.sharesFolders else { return nil }
-        let files = file(machine.name, "files")
+        let files = folder(machine.name).files
         if !FileManager.default.fileExists(atPath: files.path) {
             do { try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true) } catch {
                 Log.vm.error("\(machine.name)'s files: \(error)")
@@ -81,7 +81,7 @@ extension VMService {
         }
         // Held while the size changes: a kelp-vm a command starts meanwhile waits for it, then gives up, rather than boot
         // with the old size on a disk that grows under it.
-        let lock = open(file(machine.name, "kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        let lock = open(folder(machine.name).lock.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         defer { if lock >= 0 { close(lock) } }
         // Tried for half a second: kelpd's own look at it (`alive`, shared) holds it a moment.
         var held = lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0
@@ -96,14 +96,14 @@ extension VMService {
             guard machine.kind == .linux else {
                 throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.")
             }
-            guard truncate(file(machine.name, "disk.img").path, off_t(disk) << 30) == 0 else {
+            guard truncate(folder(machine.name).disk.path, off_t(disk) << 30) == 0 else {
                 throw RPCError.internalError("Growing the disk: \(String(cString: strerror(errno)))")
             }
         }
         machine.cpus = cpus
         machine.memoryMiB = memory << 10
         machine.diskGiB = disk
-        try JSONEncoder().encode(machine).write(to: file(machine.name, "machine.json"), options: .atomic)
+        try JSONEncoder().encode(machine).write(to: folder(machine.name).machine, options: .atomic)
         return info(machine)
     }
 }

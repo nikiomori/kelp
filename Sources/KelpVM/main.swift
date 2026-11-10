@@ -37,13 +37,13 @@ case "--install" where args.count == 3:
     let folder = URL(fileURLWithPath: args[1]), ipsw = URL(fileURLWithPath: args[2])
     oneShot {
         let machine = try JSONDecoder().decode(
-            VMMachine.self, from: Data(contentsOf: folder.appendingPathComponent("machine.json")))
+            VMMachine.self, from: Data(contentsOf: VMFolder(folder).machine))
         try await MacGuest.install(machine, folder: folder, ipsw: ipsw) { fraction in
             let at = VMMaking(
                 step: .installing, progress: fraction,
-                detail: Data(contentsIfAny: folder.appendingPathComponent("creating"))
+                detail: Data(contentsIfAny: VMFolder(folder).creating)
                     .flatMap { try? JSONDecoder().decode(VMMaking.self, from: $0) }?.detail)
-            do { try at.data.write(to: folder.appendingPathComponent("creating"), options: .atomic) } catch {
+            do { try at.data.write(to: VMFolder(folder).creating, options: .atomic) } catch {
                 log("can't say how far the install is: \(error)")
             }
         }
@@ -60,7 +60,7 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
     let machine: VMMachine
     do {
         machine = try JSONDecoder().decode(
-            VMMachine.self, from: Data(contentsOf: folder.appendingPathComponent("machine.json")))
+            VMMachine.self, from: Data(contentsOf: VMFolder(folder).machine))
     } catch {
         log("can't read the machine: \(error)")
         exit(1)

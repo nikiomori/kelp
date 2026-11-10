@@ -57,7 +57,7 @@ enum Lifecycle {
     /// The machine's folder held for this kelp-vm (`kelp-vm.lock`, `VMService.alive`): tried for half a second, as a size
     /// being written or kelpd's look holds it a moment. The fd stays open while kelp-vm runs; nil: another one has it.
     static func hold(_ folder: URL, tries: Int = 10) -> Int32? {
-        let fd = open(folder.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        let fd = open(VMFolder(folder).lock.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { return nil }
         for attempt in 0...tries {
             if flock(fd, LOCK_EX | LOCK_NB) == 0 { return fd }

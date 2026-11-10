@@ -1,6 +1,56 @@
 import Foundation
 
-// Between the daemon and a machine's kelp-vm: the requests and replies on its ctl.sock.
+// Between the daemon and a machine's kelp-vm: the requests and replies on its ctl.sock, and the folder they share.
+
+/// A machine's folder, `<home>/vms/<name>`: the files kelpd and the machine's kelp-vm read and write, named here once.
+public struct VMFolder: Sendable, Equatable {
+    public let url: URL
+    public init(_ url: URL) { self.url = url }
+    public var path: String { url.path }
+    /// One of its files this doesn't name: a process's own (a log, a work folder).
+    public func file(_ name: String) -> URL { url.appendingPathComponent(name) }
+
+    /// The machine (`VMMachine`): kelpd writes it as it's made and resized, kelp-vm reads it as it starts.
+    public var machine: URL { file("machine.json") }
+    /// While it's being made, how far (`VMMaking`): kelpd's steps, and `kelp-vm --install`'s progress.
+    public var creating: URL { file("creating") }
+    /// Why making it failed (kelpd's).
+    public var failed: URL { file("failed") }
+    /// The user's own file it's made from, to make it again after kelpd restarts (kelpd's).
+    public var source: URL { file("source") }
+    /// Held by its kelp-vm while that runs (`Lifecycle.hold`, `VMService.alive`), and by kelpd while it changes its size.
+    public var lock: URL { file("kelp-vm.lock") }
+    /// kelp-vm's sockets: kelpd's requests (`VMHelper`); SSH for agents and people, counted as use; Kelp's own reads.
+    public var control: URL { file("ctl.sock") }
+    public var ssh: URL { file("ssh.sock") }
+    public var own: URL { file("own.sock") }
+    /// The folder in each share slot (kelp-vm writes it, kelpd lists it).
+    public var shares: URL { file("shares.json") }
+    /// A Linux or macOS machine's disk: kelpd makes and grows it, kelp-vm runs it.
+    public var disk: URL { file("disk.img") }
+    /// A Linux machine's cloud-init seed: kelpd makes it, kelp-vm attaches it.
+    public var seed: URL { file("seed.iso") }
+    /// A Linux or macOS machine's state while it sleeps (kelp-vm's; kelpd forgets it on Shut Down).
+    public var savedState: URL { file("state.vzsave") }
+    /// How to reach it over SSH (`VMs.sshConfig`), with its key and the guest's host key.
+    public var sshConfig: URL { file("ssh_config") }
+    public var key: URL { file("id_ed25519") }
+    public var knownHosts: URL { file("known_hosts") }
+    /// Its exchange folder, `~/Kelp` inside (`VMInfo.files`): whichever of the two looks first makes it.
+    public var files: URL { file("files") }
+    /// A macOS machine's password until Kelp let itself in: kelpd writes it, its first boot reads it.
+    public var password: URL { file("password") }
+    /// There once its first boot finished (kelp-vm's).
+    public var booted: URL { file("booted") }
+    /// An Android machine's AVD home (ANDROID_AVD_HOME): kelpd makes its device there, kelp-vm runs it.
+    public var avd: URL { file("avd") }
+    /// An iOS machine's simulator, by its UDID: kelpd makes it, kelp-vm boots it.
+    public var udid: URL { file("udid") }
+    /// An iOS machine's runner as Xcode built it (its derived data): kelpd builds it, kelp-vm runs it.
+    public var runnerBuild: URL { file("dd") }
+    /// What its kelp-vm prints (kelpd starts it so).
+    public var log: URL { file("helper.log") }
+}
 
 /// Between the daemon and a machine's `kelp-vm`: one JSON line each way on its ctl.sock.
 public enum VMHelper {

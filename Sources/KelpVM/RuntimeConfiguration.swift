@@ -14,7 +14,7 @@ extension Runtime {
         config.memorySize = UInt64(machine.memoryMiB) << 20
         let disk = VZVirtioBlockDeviceConfiguration(
             attachment: try VZDiskImageStorageDeviceAttachment(
-                url: file("disk.img"), readOnly: false,
+                url: VMFolder(folder).disk, readOnly: false,
                 cachingMode: .automatic, synchronizationMode: .fsync))
         if machine.kind == .macos {
             try MacGuest.configure(config, folder: folder)
@@ -35,7 +35,7 @@ extension Runtime {
                 try platform.machineIdentifier.dataRepresentation.write(to: file("machine.id"))
             }
             config.platform = platform
-            let seed = try VZDiskImageStorageDeviceAttachment(url: file("seed.iso"), readOnly: true)
+            let seed = try VZDiskImageStorageDeviceAttachment(url: VMFolder(folder).seed, readOnly: true)
             config.storageDevices = [disk, VZVirtioBlockDeviceConfiguration(attachment: seed)]
             config.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
             let console = VZVirtioConsoleDeviceSerialPortConfiguration()
@@ -64,7 +64,7 @@ extension Runtime {
             return fs
         }
         // The exchange folder, beside the machine on the Mac: one device after the slots, so their numbers stay.
-        let files = folder.appendingPathComponent("files")
+        let files = VMFolder(folder).files
         try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
         let shared = VZSharedDirectory(url: files, readOnly: false)
         let exchange = VZVirtioFileSystemDeviceConfiguration(
