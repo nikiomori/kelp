@@ -19,8 +19,8 @@ struct RoutineDetail: View {
                         .font(.ui(11)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(String(localized: "Run Now")) { Task { await app.call(RoutineRun(id: routine.id)) } }
-                    .disabled(runs.contains { [.running, .asked].contains($0.outcome) })
+                Button(String(localized: "Run Now")) { Task { await RoutineActions(app: app).runNow(routine) } }
+                    .disabled(runs.contains(where: \.isOpen))
                 Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
                 Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
             }
@@ -60,10 +60,21 @@ struct RoutineDetail: View {
     private func save(_ routine: Routine) { Task { await app.call(RoutineSet(routine: routine)) } }
 }
 
-/// Edit and Delete, from a routine's page and from its row's right-click.
+/// Run Now, on and off, Edit and Delete, from a routine's page, its row and its row's right-click.
 @MainActor
 struct RoutineActions {
     let app: AppModel
+
+    /// The run it started; nil when it didn't (the error is a banner).
+    @discardableResult func runNow(_ routine: Routine) async -> Routine.Run? {
+        await app.call(RoutineRun(id: routine.id))
+    }
+
+    func turn(_ routine: Routine, on: Bool) {
+        var changed = routine
+        changed.enabled = on
+        Task { await app.call(RoutineSet(routine: changed)) }
+    }
 
     func edit(_ routine: Routine) {
         let app = self.app
@@ -140,4 +151,9 @@ struct RunResult: View {
         let took = run.ended.map { " · " + Duration.seconds($0.timeIntervalSince(run.started)).formatted(units) } ?? ""
         return "\(state) · \(when)\(took)"
     }
+}
+
+extension Routine.Run {
+    /// Still going: running, or waiting on a question.
+    var isOpen: Bool { [.running, .asked].contains(outcome) }
 }

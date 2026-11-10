@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 /// What can be done on the machines remote projects are on, from the sidebar's headings, the hover card and the server
@@ -54,4 +55,27 @@ func serverDuration(_ seconds: Double) -> String {
     if days > 0 { return hours > 0 ? "\(days) d \(hours) h" : "\(days) d" }
     if hours > 0 { return minutes > 0 ? "\(hours) h \(minutes) m" : "\(hours) h" }
     return minutes > 0 ? "\(minutes) m" : "\(total) s"
+}
+
+/// A server's readings as the header, the hover card and the server's tab all say them.
+enum ServerReading {
+    /// From 90 % a reading is strained: its number, bar or line turns orange.
+    static func strained(_ share: Double) -> Bool { share >= 0.9 }
+    static let strainedColor = Color(nsColor: .textOrange)
+    /// "1.2 GB / 4 GB"; nil without both.
+    static func used(_ used: Int?, _ total: Int?) -> String? {
+        guard let used, let total, total > 0 else { return nil }
+        return "\(bytes(used)) / \(bytes(total))"
+    }
+    /// The load averages, "0.52 0.40 0.31" (`separator` between them).
+    static func load(_ stats: HostStats, separator: String = " ") -> String? {
+        stats.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: separator) }
+    }
+}
+
+/// Ports forwarded from each server this run of Kelp, host → its port → the port on this Mac: the server's tab, closed
+/// and opened again, still says where each one is.
+@MainActor @Observable
+final class ServerForwards {
+    var ports: [String: [Int: Int]] = [:]
 }

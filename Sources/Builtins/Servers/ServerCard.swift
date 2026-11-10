@@ -66,8 +66,8 @@ struct ServerMeters: View {
     private var load: String { stats.load?.first.map { String(format: "%.2f", $0) } ?? "–" }
 
     @ViewBuilder private func meter(_ label: LocalizedStringKey, _ used: Int?, _ total: Int?) -> some View {
-        if let used, let total, total > 0 {
-            row(label, Double(used) / Double(total), "\(bytes(used)) / \(bytes(total))")
+        if let used, let total, let value = ServerReading.used(used, total) {
+            row(label, Double(used) / Double(total), value)
         }
     }
 
@@ -87,7 +87,7 @@ struct ServerBar: View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color(nsColor: .quaternaryLabelColor))
-                Capsule().fill(share >= 0.9 ? Color.orange : Color.secondary)
+                Capsule().fill(ServerReading.strained(share) ? ServerReading.strainedColor : Color.secondary)
                     .frame(width: max(2, geometry.size.width * min(1, max(0, share))))
             }
         }

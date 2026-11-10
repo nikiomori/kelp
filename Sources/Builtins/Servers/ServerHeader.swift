@@ -156,10 +156,12 @@ final class ServerHeader: NSTableCellView, SidebarRow {
             return stats.error ?? String(localized: "Not connected. Click to open the server, which connects.")
         }
         func of(_ used: Int?, _ total: Int?) -> String? {
-            guard let used, let total, let percent = HostStats.percent(used, total) else { return nil }
-            return "\(bytes(used)) / \(bytes(total)) · \(percent)%"
+            guard let value = ServerReading.used(used, total), let percent = HostStats.percent(used, total) else {
+                return nil
+            }
+            return "\(value) · \(percent)%"
         }
-        let load = stats.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: " ") }
+        let load = ServerReading.load(stats)
         return [
             serverLine(stats),
             stats.cpu.map { String(localized: "CPU \(Int($0.rounded()))%") + (load.map { " · load " + $0 } ?? "") },
@@ -192,7 +194,7 @@ private final class Meter: NSStackView {
         guard let percent else { return }
         value.stringValue = "\(percent)"
         value.setAccessibilityLabel("\(percent)%")
-        value.textColor = percent >= 90 ? .textOrange : .secondaryLabelColor
+        value.textColor = ServerReading.strained(Double(percent) / 100) ? .textOrange : .secondaryLabelColor
     }
 }
 

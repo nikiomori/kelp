@@ -9,8 +9,8 @@ import WorkbenchKit
 /// shows it, the ports something listens on (forwarded here in a click), and its projects.
 struct ServerSide: View {
     let app: AppModel, host: String, stats: HostStats
-    /// Port on the host → port on this Mac, once forwarded.
-    @State private var forwarded: [Int: Int] = [:]
+    /// Port on the host → port on this Mac, once forwarded (this run of Kelp).
+    private var forwarded: [Int: Int] { app.part { ServerForwards() }.ports[host] ?? [:] }
 
     private var projects: [Repo] { app.repos.filter { RemoteHost.of($0.path)?.host == host } }
     private var screens: Set<String> {
@@ -140,9 +140,10 @@ struct ServerSide: View {
 
     private func forward(_ port: Int) {
         guard let wid = ServerActions.serverWorkspace(app, host) else { return }
+        let app = app, host = host
         Task {
             if let forwarding = await app.call(PortsForward(worktreeId: wid, port: port)) {
-                forwarded[port] = forwarding.port
+                app.part { ServerForwards() }.ports[host, default: [:]][port] = forwarding.port
             }
         }
     }

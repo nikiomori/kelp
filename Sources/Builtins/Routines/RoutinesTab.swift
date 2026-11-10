@@ -120,9 +120,8 @@ struct WeekGrid: View {
                         run(routine)
                     } label: {
                         Image(
-                            systemName: runs.contains {
-                                $0.routineId == routine.id && [.running, .asked].contains($0.outcome)
-                            } ? "stop.fill" : "play.fill")
+                            systemName: runs.contains { $0.routineId == routine.id && $0.isOpen }
+                                ? "stop.fill" : "play.fill")
                     }
                     .buttonStyle(.borderless).help(String(localized: "Run Now")).frame(
                         width: Metrics.iconButton + Metrics.inset)
@@ -143,13 +142,7 @@ struct WeekGrid: View {
         HStack(spacing: Metrics.gapWide) {
             Toggle(
                 "",
-                isOn: Binding(
-                    get: { routine.enabled },
-                    set: { on in
-                        var changed = routine
-                        changed.enabled = on
-                        Task { await app.call(RoutineSet(routine: changed)) }
-                    })
+                isOn: Binding(get: { routine.enabled }, set: { RoutineActions(app: app).turn(routine, on: $0) })
             )
             .toggleStyle(.switch).controlSize(.small).labelsHidden()
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
@@ -164,9 +157,7 @@ struct WeekGrid: View {
             Button(String(localized: "Run Now")) { run(routine) }
             Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
             Button(routine.enabled ? String(localized: "Turn Off") : String(localized: "Turn On")) {
-                var changed = routine
-                changed.enabled.toggle()
-                Task { await app.call(RoutineSet(routine: changed)) }
+                RoutineActions(app: app).turn(routine, on: !routine.enabled)
             }
             Divider()
             Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
@@ -192,13 +183,13 @@ struct WeekGrid: View {
 
     private func run(_ routine: Routine) {
         let app = self.app
-        if let open = runs.first(where: { $0.routineId == routine.id && [.running, .asked].contains($0.outcome) }),
+        if let open = runs.first(where: { $0.routineId == routine.id && $0.isOpen }),
             let sessionId = open.sessionId
         {
             Task { await app.call(SessionKill(id: sessionId)) }
         } else {
             Task {
-                if let run = await app.call(RoutineRun(id: routine.id)) {
+                if let run = await RoutineActions(app: app).runNow(routine) {
                     picked = run.id
                     chosen = routine.id
                 }

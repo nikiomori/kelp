@@ -41,9 +41,7 @@ struct ServerDetail: View {
             GridRow {
                 Tile(
                     label: "CPU", value: stats.cpu.map { "\(Int($0.rounded()))%" } ?? "–",
-                    detail: stats.load.map {
-                        String(localized: "load \($0.map { String(format: "%.2f", $0) }.joined(separator: " · "))")
-                    } ?? "",
+                    detail: ServerReading.load(stats, separator: " · ").map { String(localized: "load \($0)") } ?? "",
                     share: stats.cpu.map { $0 / 100 }, trend: history.map(\.cpu))
                 Tile(
                     label: "Memory", value: stats.memory.map(bytes) ?? "–",
@@ -79,14 +77,14 @@ private struct Tile: View {
             Text(label).font(.ui(11, weight: .semibold)).foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(value).font(.ui(20, weight: .semibold).monospacedDigit())
-                    .foregroundStyle((share ?? 0) >= 0.9 ? Color(nsColor: .textOrange) : .primary)
+                    .foregroundStyle(ServerReading.strained(share ?? 0) ? ServerReading.strainedColor : .primary)
                 Text(detail).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             }
             if let trend, trend.count > 1 {
                 Sparkline(values: trend).frame(height: 32)
             } else if let share {
                 ProgressView(value: min(1, share)).progressViewStyle(.linear).controlSize(.small)
-                    .tint(share >= 0.9 ? .orange : .secondary).padding(.top, 10)
+                    .tint(ServerReading.strained(share) ? ServerReading.strainedColor : .secondary).padding(.top, 10)
             }
         }
         .padding(12)
@@ -106,7 +104,7 @@ private struct Sparkline: View {
                     y: geometry.size.height * (1 - CGFloat(min(1, max(0, value)))))
             }
             let line = Path { path in path.addLines(pts) }
-            let color = (values.last ?? 0) >= 0.9 ? Color.orange : Color.secondary
+            let color = ServerReading.strained(values.last ?? 0) ? ServerReading.strainedColor : Color.secondary
             ZStack {
                 Path { path in
                     path.addLines(pts)
