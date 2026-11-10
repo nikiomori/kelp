@@ -169,22 +169,12 @@ extension DatabaseTab {
         detailsChanged()
     }
 
-    /// The chat a run came from, else the one in focus, else the workspace's last agent still there.
+    /// The chat a run came from, else the one every "send to agent" picks (`FileActions.targetAgent`).
     var agentToAsk: Session? {
         if case .run(let id) = mode, let sid = record(id)?.session, let ran = app.session(sid), ran.status != .exited {
             return ran
         }
-        return Self.agent(app, worktree: address.worktree)
-    }
-
-    /// The agent in focus in the workspace, else its last one still there: who "Ask Agent" hands things to.
-    static func agent(_ app: AppModel, worktree: String) -> Session? {
-        if let sid = app.workbench.focusedSession, let focused = app.session(sid), focused.worktreeId == worktree,
-            focused.agent != nil
-        {
-            return focused
-        }
-        return app.sessions.last { $0.worktreeId == worktree && $0.agent != nil && $0.status != .exited }
+        return FileActions(app).targetAgent
     }
 
     @objc func askAgent() {
