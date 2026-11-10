@@ -236,8 +236,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 451, "lines over 120: \(over120)")
-    #expect(over120 >= 451, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 450, "lines over 120: \(over120)")
+    #expect(over120 >= 450, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -467,8 +467,8 @@ func codeOnly(_ s: String) -> String {
         pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines]
     )
     .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
-    #expect(held <= 24, "Sessions' stored properties: \(held)")
-    #expect(held >= 24, "fewer now: lower the ceiling")
+    #expect(held <= 22, "Sessions' stored properties: \(held)")
+    #expect(held >= 22, "fewer now: lower the ceiling")
     // Nor its methods: a feature gets a type of its own that's handed what it uses, not one more `extension Sessions`.
     let grown = try matches(#"^extension Sessions\b"#, in: ["Sources/Daemon"])
     #expect(grown.count <= 6, "extensions of Sessions: \(grown.count)")

@@ -55,13 +55,12 @@ extension Sessions {
 
     /// Under its wake lock, as a wake is: one that comes meanwhile waits until this program is gone, so two never write one
     /// log. Taken out of `live` only if nobody attached and no input came since the check (`seen`): input never goes to a
-    /// program that's about to be stopped. Input that comes once it's out waits for the pause and wakes it (`pausing`).
+    /// program that's about to be stopped. Input that comes once it's out waits for the pause and wakes it (`lettingGo`).
     func pauseIdle(_ ls: LiveSession, inputs seen: Int) {
         let id = ls.snapshot.id
-        pausing.withLock { _ = $0.insert(id) }
-        defer { pausing.withLock { _ = $0.remove(id) } }
         wakeLocks.withLock(id) {
-            guard live.remove(ls, if: { $0.letGoIdle(seen: seen) }) else { return }
+            guard live.letGo(ls, if: { $0.letGoIdle(seen: seen) }) else { return }
+            defer { live.letGone(id) }
             hangUpStreams(ls)   // none by the check; one that came just after it ends too
             ls.markHibernated()
             Self.waitGone(ls.pty.terminate())   // SIGKILL after 2 s for what ignores the hangup: a wake must not start a second copy
@@ -69,9 +68,10 @@ extension Sessions {
         }
     }
 
-    /// Paused, by its record or, when that couldn't be saved (a full disk), by what's known here.
+    /// Paused, by its record or, when that couldn't be saved (a full disk), by what's known here (`SessionTable.Phase`).
     func isPaused(_ session: Session) -> Bool {
-        session.status == .paused || pausedUnsaved.withLock { $0.contains(session.id) }
+        if case .paused = live.phase(session.id, record: { session }) { return true }
+        return false
     }
 
     /// Bring a paused session back under the same id (layout and links stay), resuming its conversation.
@@ -173,13 +173,11 @@ extension Sessions {
             guard !(error is RecordError) else { return }
             Log.store.error("couldn't save session \(ls.snapshot.id, privacy: .public): \(error)")
             let unsaved = ls.snapshot
-            pausedUnsaved.withLock {
-                if unsaved.status == .paused { $0.insert(unsaved.id) } else { $0.remove(unsaved.id) }
-            }
+            live.saved(unsaved.id, paused: unsaved.status == .paused, written: false)
             said(unsaved)
             return
         }
-        if saved.status != .paused { pausedUnsaved.withLock { _ = $0.remove(saved.id) } }
+        live.saved(saved.id, paused: saved.status == .paused, written: true)
         let revision = saved.revision
         _ = ls.update { $0.revision = revision }
         said(saved)

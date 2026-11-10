@@ -14,7 +14,6 @@ final class Sessions: Sendable {
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
     let permissions = PermissionWaits()   // a permission question's hook, waiting for Allow or Deny
-    let pausing = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions an idle pause is stopping: input waits, then wakes them
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
     let updates: AgentUpdates   // Claude Code restarted into the update it installed (AgentUpdates.swift)
@@ -33,8 +32,6 @@ final class Sessions: Sendable {
     let processes: SessionProcesses
     let turns: Turns   // the snapshot each agent's turn began with, kept for its diff and its undo
     let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
-    /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
-    let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
 
     init(
@@ -81,12 +78,11 @@ final class Sessions: Sendable {
         }
     }
 
-    /// Not running: it has to be paused, to be woken for input.
+    /// Not running: it has to be paused (or being paused), to be woken for input.
     func mustWake(_ id: String) throws {
-        guard
-            try existing(id) != nil || pausing.withLock({ $0.contains(id) }) || store.session(id).map(isPaused) == true
-        else {
-            throw RPCError.invalidParams("no live session \(id)")
+        switch try live.phase(id, record: { try store.session(id) }) {
+        case .running, .lettingGo, .paused: return
+        case .ended, .deleted: throw RPCError.invalidParams("no live session \(id)")
         }
     }
 
@@ -264,6 +260,7 @@ final class Sessions: Sendable {
             }
             Self.waitGone(pids)   // gone before their project or folder goes (SIGKILL after 2 s)
             for session in all {
+                live.forget(session.id)
                 // Its turns as the delete took them: a turn kept meanwhile (`Turns.keep`) is either among them or refused.
                 do { turns.dropRefs(try store.deleteSession(session), of: session.id) } catch {
                     Log.store.error("couldn't delete session \(session.id, privacy: .public): \(error)")
