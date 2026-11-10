@@ -97,196 +97,29 @@ extension Main {
         }
     }
 
-    /// A machine's screen. macOS: read and driven from the Mac's side (`vm.screen`), a screenshot to a file (its path
-    /// printed); its controls by name through Kelp Guest inside.
+    /// A machine's screen, read and driven by the daemon (`vm.screen`, `vm.ui`): macOS's from the Mac's side and through
+    /// Kelp Guest inside, Android's through adb, iOS's through Kelp's runner. A screenshot goes to a file, its path printed.
     private static func screen(_ action: String, _ c: RPCClient) async throws {
         guard let name = args.first else { fail("vm \(action) <name> …") }
         args.removeFirst()
-        guard let info = try await c.call(VMList()).first(where: { $0.machine.name == name }) else {
-            fail("No machine called \(name).")
-        }
-        guard info.machine.kind.hasScreen else {
-            fail("\(name) is Linux: it has no screen. kelp vm run \(name) -- <command> runs commands in it.")
-        }
-        if info.machine.kind == .android {
-            return try await android(action, adb: try await c.call(VMConnect(name: name, cwd: nil)).ssh)
-        }
-        if info.machine.kind == .ios { return try await ios(action, try await c.call(VMConnect(name: name, cwd: nil))) }
-        guard !["install", "launch", "open"].contains(action) else {
-            fail("\(action) is for Android and iOS machines: kelp vm run \(name) -- … does it on macOS.")
-        }
+        if action == "ui" { return print(try await c.call(VMUI(name: name, app: flag("--app")))) }
+        // Files as the daemon finds them, from its own folder.
+        func file(_ path: String) -> String { URL(fileURLWithPath: path).standardizedFileURL.path }
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
-        if action == "ui" || action == "press" {   // the app's controls, through Kelp Guest's Accessibility inside
-            let to = try await c.call(VMConnect(name: name, cwd: nil))
-            let remote =
-                VMs.guestProgram + " "
-                + ([action] + args).map(ShellQuote.word).joined(separator: " ")
-            exec(to.ssh + ["-T", "--", to.prefix + remote])
-        }
-        if action == "screenshot" {
-            let out = URL(
-                fileURLWithPath: args.first ?? NSTemporaryDirectory()
-                    + "kelp-\(name)-\(Int(Date().timeIntervalSince1970)).png"
-            ).standardizedFileURL
-            _ = try await c.call(VMScreen(name: name, args: ["screenshot", out.path], session: session))
-            return print(out.path)
-        }
-        let text = args.joined(separator: " ")
-        if action == "type", text.contains(where: { VMs.usKey($0) == nil }) {   // no key for it: pasted instead
-            let to = try await c.call(VMConnect(name: name, cwd: nil))
-            let copied = Process()
-            copied.executableURL = URL(fileURLWithPath: to.ssh[0])
-            copied.arguments = Array(to.ssh.dropFirst()) + ["-T", "--", to.prefix + "LANG=en_US.UTF-8 pbcopy"]   // without it, read as Mac Roman
-            let input = Pipe()
-            copied.standardInput = input
-            try copied.run()
-            input.fileHandleForWriting.write(Data(text.utf8))
-            try input.fileHandleForWriting.close()
-            copied.waitUntilExit()
-            guard copied.terminationStatus == 0 else { fail("couldn't put the text on \(name)'s clipboard") }
-            _ = try await c.call(VMScreen(name: name, args: ["key", "cmd+v"], session: session))
-            return
-        }
-        _ = try await c.call(
-            VMScreen(name: name, args: action == "type" ? ["type", text] : [action] + args, session: session))
-    }
-
-    /// An Android machine's screen through adb: pixels of its screen for screenshots and taps alike.
-    private static func android(_ action: String, adb: [String]) async throws {
-        func run(_ a: [String]) -> Data {
-            let process = Process(), out = Pipe()
-            process.executableURL = URL(fileURLWithPath: adb[0])
-            process.arguments = Array(adb.dropFirst()) + a
-            process.standardOutput = out
-            do { try process.run() } catch { fail("adb: \(error)") }
-            let data = out.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            if process.terminationStatus != 0 { exit(process.terminationStatus) }
-            return data
-        }
-        func int(_ i: Int) -> String {
-            guard args.count > i, Int(args[i]) != nil else { fail("vm \(action): a number at \(i + 1)") }
-            return args[i]
-        }
-        func ui() -> (text: String, centers: [String: (x: Int, y: Int)]) {
-            let xml = String(decoding: run(["exec-out", "uiautomator", "dump", "/dev/tty"]), as: UTF8.self)
-            return AndroidSDK.ui(String(xml[..<(xml.range(of: "</hierarchy>")?.upperBound ?? xml.endIndex)]))
-        }
         switch action {
         case "screenshot":
-            let out = URL(
-                fileURLWithPath: args.first ?? NSTemporaryDirectory()
-                    + "kelp-android-\(Int(Date().timeIntervalSince1970)).png"
-            ).standardizedFileURL
-            try run(["exec-out", "screencap", "-p"]).write(to: out)
-            print(out.path)
-        case "click":
-            let tap = ["shell", "input", "tap", int(0), int(1)]
-            _ = run(has("--right") ? ["shell", "input", "swipe", args[0], args[1], args[0], args[1], "800"] : tap)   // a long press
-            if has("--double") { _ = run(tap) }
-        case "drag": _ = run(["shell", "input", "swipe", int(0), int(1), int(2), int(3), "400"])
-        case "scroll":
-            let dy = Int(int(0)) ?? 0, x = args.count > 2 ? int(1) : "540",
-                y = Int(args.count > 2 ? int(2) : "1200") ?? 1200
-            _ = run(["shell", "input", "swipe", x, "\(y)", x, "\(y + dy)", "300"])
-        case "type": _ = run(["shell", "input", "text", AndroidSDK.inputText(args.joined(separator: " "))])
-        case "key":
-            let name = (args.first ?? "").lowercased()
-            guard
-                let code = AndroidSDK.keys[name].map(String.init)
-                    ?? (name.hasPrefix("keycode_") ? name.uppercased() : nil)
-            else {
-                fail(
-                    "key: \(name)? home, back, enter, tab, delete, escape, up/down/left/right, appswitch, or KEYCODE_…")
-            }
-            _ = run(["shell", "input", "keyevent", code])
-        case "ui": print(ui().text)
-        case "press":
-            let target = args.joined(separator: " "), screen = ui()
-            let named = screen.text.split(separator: "\n").first { $0.contains("\"\(target)\"") }   // by its text: the first such line's ref
-            let ref =
-                screen.centers[target] != nil
-                ? target
-                : named.flatMap { l in l.range(of: "[ref=").map { String(l[$0.upperBound...].prefix { $0 != "]" }) } }
-            guard let ref, let center = screen.centers[ref] else {
-                fail("No \(target) on its screen: kelp vm ui shows what's there.")
-            }
-            _ = run(["shell", "input", "tap", "\(center.x)", "\(center.y)"])
-            print("pressed")
-        case "launch":
-            guard let id = args.first else { fail("vm launch <name> PACKAGE") }
-            _ = run(["shell", "monkey", "-p", id, "-c", "android.intent.category.LAUNCHER", "1"])
-        case "open":
-            guard let url = args.first else { fail("vm open <name> URL") }
-            _ = run(["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url])
+            let out = file(
+                args.first ?? NSTemporaryDirectory() + "kelp-\(name)-\(Int(Date().timeIntervalSince1970)).png")
+            _ = try await c.call(VMScreen(name: name, args: ["screenshot", out], session: session))
+            print(out)
+        case "type":
+            _ = try await c.call(VMScreen(name: name, args: ["type", args.joined(separator: " ")], session: session))
         case "install":
-            guard let apk = args.first else { fail("vm install <name> APP.apk") }
-            FileHandle.standardOutput.write(run(["install", "-r", URL(fileURLWithPath: apk).standardizedFileURL.path]))
+            guard let app = args.first else { fail("vm install <name> APP.apk|App.app") }
+            _ = try await c.call(VMScreen(name: name, args: ["install", file(app)], session: session))
         default:
-            fail(
-                "\(action) isn't for Android machines: screenshot, click, drag, scroll, type, key, ui, press, install, launch, open"
-            )
-        }
-    }
-
-    /// An iOS machine: simctl for apps and links, Kelp's runner in the simulator for its screen (in points: 393 × 852 on an
-    /// iPhone 16, screenshots and taps alike).
-    private static func ios(_ action: String, _ to: VMConnection) async throws {
-        guard let udid = to.device, let port = to.port else { fail("its simulator isn't up") }
-        func simctl(_ a: [String]) -> Never { exec(to.ssh + a) }
-        func runner(_ op: String, _ a: [String] = []) -> [String: Any] {
-            var request: [String: Any] = ["op": op, "args": a]
-            if let app = flag("--app") { request["app"] = app }
-            guard let reply = IOSRunnerClient.ask(port: port, request) else {
-                fail("Kelp's runner didn't answer: kelp vm stop and start the machine.")
-            }
-            if let message = reply["error"] as? String { fail(message) }
-            return reply
-        }
-        func text(_ op: String, _ a: [String] = []) { print(runner(op, a)["text"] as? String ?? "") }
-        switch action {
-        case "install":
-            guard let app = args.first else { fail("vm install <name> App.app") }
-            simctl(["install", udid, URL(fileURLWithPath: app).standardizedFileURL.path])
-        case "launch":
-            guard let id = args.first else { fail("vm launch <name> BUNDLE-ID") }
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: to.ssh[0])
-            process.arguments = Array(to.ssh.dropFirst()) + ["launch", udid, id]
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { exit(process.terminationStatus) }
-            _ = IOSRunnerClient.ask(port: port, ["op": "app", "app": id])   // ui, type and press act on it from now on
-        case "open":
-            guard let url = args.first else { fail("vm open <name> URL") }
-            simctl(["openurl", udid, url])
-        case "screenshot":
-            let out = URL(
-                fileURLWithPath: args.first ?? NSTemporaryDirectory()
-                    + "kelp-ios-\(Int(Date().timeIntervalSince1970)).png"
-            ).standardizedFileURL
-            guard let png = (runner("screenshot")["png"] as? String).flatMap({ Data(base64Encoded: $0) }) else {
-                fail("no screenshot")
-            }
-            try png.write(to: out)
-            print(out.path)
-        case "click":
-            let tapArgs =
-                Array(args.prefix(2)) + (has("--double") ? ["--double"] : []) + (has("--right") ? ["--long"] : [])
-            text("tap", tapArgs)
-        case "drag": text("swipe", Array(args.prefix(4)))
-        case "scroll":
-            let dy = Double(args.first ?? "") ?? 0, x = args.count > 2 ? args[1] : "196",
-                y = Double(args.count > 2 ? args[2] : "426") ?? 426
-            text("swipe", [x, String(y), x, String(y + dy)])
-        case "type": text("type", [args.joined(separator: " ")])
-        case "key": text("key", Array(args.prefix(1)))
-        case "ui": text("ui")
-        case "press": text("press", [args.joined(separator: " ")])
-        default:
-            fail(
-                "\(action) isn't for iOS machines: screenshot, click, drag, scroll, type, key, ui, press, install, launch, open"
-            )
+            _ = try await c.call(VMScreen(name: name, args: [action] + args, session: session))
+            if action == "press" { print("pressed") }
         }
     }
 

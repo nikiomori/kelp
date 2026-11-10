@@ -190,6 +190,52 @@ import os
         #expect(screens.count == 2 && screens.allSatisfy { $0.contains(#""session":"AGENT""#) })
     }
 
+    /// An Android machine's screen is the daemon's to drive, as a macOS one's is: taps and its controls go through adb
+    /// to the emulator its kelp-vm names, not from the CLI's process.
+    @Test func anAndroidMachinesScreenGoesThroughAdbFromTheDaemon() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        let phone = VMMachine(
+            name: "phone", os: "android", image: "android", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "niko")
+        let f = vms.folder("phone"), sdk = home.appendingPathComponent("sdk")
+        try FileManager.default.createDirectory(at: f.url, withIntermediateDirectories: true)
+        try JSONEncoder().encode(phone).write(to: f.machine)
+        let asked = sdk.appendingPathComponent("adb.log").path
+        let screen = #"<hierarchy><node text="OK" clickable="true" bounds="[0,0][100,50]"/></hierarchy>"#
+        try script(sdk.appendingPathComponent("emulator/emulator"), "exit 0")
+        try script(
+            sdk.appendingPathComponent("platform-tools/adb"),
+            "echo \"$*\" >> '\(asked)'; case \"$*\" in *uiautomator*) echo '\(screen)' ;; esac")
+        let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
+        setenv("ANDROID_HOME", sdk.path, 1)
+        defer { if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") } }
+        let server = try Unix.listen(f.control.path)
+        let lock = open(f.lock.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)   // as a kelp-vm holds it while it runs
+        defer {
+            close(server)
+            close(lock)
+        }
+        Thread.detachNewThread {   // kelp-vm: running, its emulator's serial
+            while case let fd = accept(server, nil, nil), fd >= 0 {
+                var b = [UInt8](repeating: 0, count: 4096)
+                _ = read(fd, &b, b.count)
+                _ = Unix.writeAll(
+                    fd, Data(#"{"state":"running","connections":0,"serial":"emulator-5600"}"#.utf8 + [10]))
+                close(fd)
+            }
+        }
+        _ = try VMScreen(name: "phone", args: ["click", "10", "20"]).handle(vms)
+        #expect(try VMUI(name: "phone").handle(vms).contains(#""OK" [ref=e1]"#))
+        #expect(try String(contentsOfFile: asked, encoding: .utf8).contains("-s emulator-5600 shell input tap 10 20"))
+        #expect(throws: RPCError.self) { try VMScreen(name: "phone", args: ["click", "ten", "20"]).handle(vms) }
+    }
+
+    private func script(_ url: URL, _ body: String) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+
     /// A kelp-vm runs while it holds its machine's lock, answering or not: a busy one isn't taken for gone (a delete
     /// would take the folder from under it).
     @Test func aKelpVMIsAliveByItsLockNotItsAnswer() throws {

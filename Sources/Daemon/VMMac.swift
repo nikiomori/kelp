@@ -44,25 +44,6 @@ extension VMService {
         }
     }
 
-    /// A macOS machine's screen, read or driven from the Mac's side by its kelp-vm (`VMScreen`), waking it first.
-    func screen(_ name: String, _ args: [String], session: String?) throws {
-        let machine = try ready(name)
-        guard machine.kind == .macos else {
-            throw RPCError.invalidParams("\(name) isn't a macOS machine: its screen goes through adb or the simulator.")
-        }
-        try wake(machine)
-        try check(ask(name, .init(op: .screen, args: args, session: session), wait: 110))
-    }
-
-    /// Types into a macOS machine's screen; nil: its password, from the Keychain.
-    func type(_ name: String, _ given: String?, session: String? = nil) throws {
-        let text: String
-        do { text = try given ?? Keychain.read("vm." + name) } catch {
-            throw RPCError.internalError("\(name)'s password in the Keychain: \(error.localizedDescription)")
-        }
-        try screen(name, ["type", text], session: session)   // nil: the user's (Type Password), no turn to wait for
-    }
-
     private func makeMacFolder(_ machine: VMMachine) throws {
         let password = (0..<24).map { _ in
             "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789".randomElement().map(String.init) ?? "x"

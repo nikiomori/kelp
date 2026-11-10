@@ -11711,7 +11711,7 @@
       }
     },
     {
-      "description" : "A macOS machine's screen, read and driven from the Mac's side (no permission inside it): `args` as `kelp vm` takes them, [\"screenshot\", \"/abs/file.png\"], [\"click\", \"X\", \"Y\", \"--right\"?, \"--double\"?], [\"move\", \"X\", \"Y\"], [\"drag\", \"X\", \"Y\", \"X2\", \"Y2\"], [\"scroll\", \"DY\", \"X\"?, \"Y\"?], [\"type\", \"TEXT\"], [\"key\", \"cmd+space\"]. Points of its 1280 × 800 screen. Clicks, keys and scrolls take turns by `session`.",
+      "description" : "A machine's screen, read and driven by the daemon: `args` as `kelp vm` takes them, [\"screenshot\", \"/abs/file.png\"], [\"click\", \"X\", \"Y\", \"--right\"?, \"--double\"?], [\"move\", \"X\", \"Y\"], [\"drag\", \"X\", \"Y\", \"X2\", \"Y2\"], [\"scroll\", \"DY\", \"X\"?, \"Y\"?], [\"type\", \"TEXT\"], [\"key\", \"cmd+space\"], [\"press\", \"REF|TITLE\"]; an Android or iOS one's also [\"install\", \"/abs/app\"], [\"launch\", \"ID\"], [\"open\", \"URL\"]. A macOS machine's from the Mac's side (no permission inside it), points of its 1280 × 800 screen, clicks, keys and scrolls taking turns by `session`; an Android one's through adb, in its screen's pixels; an iOS one's through Kelp's runner, in points.",
       "name" : "vm.screen",
       "paramStructure" : "by-name",
       "params" : [
@@ -11771,6 +11771,33 @@
         "name" : "result",
         "schema" : {
           "type" : "null"
+        }
+      }
+    },
+    {
+      "description" : "The controls on a machine's screen, a line each, indented, with a ref to press (`kelp vm ui`): a macOS machine's front app (or `app`'s) through Kelp Guest inside it, an Android one's through uiautomator, an iOS one's through Kelp's runner (`app`: a bundle id).",
+      "name" : "vm.ui",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "app",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
         }
       }
     },

@@ -24,8 +24,14 @@ extension VMType: Handled {
 
 extension VMScreen: Handled {
     func handle(_ vms: VMService) throws -> Done {
-        try vms.screen(name, args, session: Sessions.asker ?? session)
+        _ = try vms.screen(name, args, session: Sessions.asker ?? session)
         return Done()
+    }
+}
+
+extension VMUI: Handled {
+    func handle(_ vms: VMService) throws -> String {
+        try vms.screen(name, ["ui"] + (app.map { ["--app", $0] } ?? []), session: Sessions.asker)
     }
 }
 
@@ -55,6 +61,6 @@ extension VMConnect: Handled {
 extension Methods {
     static let vmMethods: [any Handled.Type] = [
         VMList.self, VMCreate.self, VMControl.self, VMConnect.self, VMDetailRead.self, VMType.self,
-        VMScreen.self, VMConfigure.self
+        VMScreen.self, VMUI.self, VMConfigure.self
     ]
 }

@@ -116,6 +116,7 @@ private func rows() async throws -> Rows {
             (agent, ExtensionFetch(source: "https://example.com/x"), true, "an extension's files, to read"),
             (agent, VMConnect(name: "m", cwd: r.wt.path), true, "a machine to run in"),
             (agent, VMScreen(name: "m", args: ["screenshot"]), true, "its screen"),
+            (agent, VMUI(name: "m"), true, "the controls on its screen"),
             (agent, VMType(name: "m", text: "hi"), true, "text typed into it"),
             (agent, VMType(name: "m"), false, "not its password"),
             (agent, VMControl(name: "m", action: .sleep), true, "a sleep: the next command wakes it"),

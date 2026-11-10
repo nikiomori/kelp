@@ -100,19 +100,37 @@ public struct VMType: RPCMethod {
     }
 }
 
-/// A macOS machine's screen, read and driven from the Mac's side (no permission inside it): `args` as `kelp vm` takes
-/// them, ["screenshot", "/abs/file.png"], ["click", "X", "Y", "--right"?, "--double"?], ["move", "X", "Y"],
-/// ["drag", "X", "Y", "X2", "Y2"], ["scroll", "DY", "X"?, "Y"?], ["type", "TEXT"], ["key", "cmd+space"]. Points of its
-/// 1280 × 800 screen. Clicks, keys and scrolls take turns by `session`.
+/// A machine's screen, read and driven by the daemon: `args` as `kelp vm` takes them, ["screenshot", "/abs/file.png"],
+/// ["click", "X", "Y", "--right"?, "--double"?], ["move", "X", "Y"], ["drag", "X", "Y", "X2", "Y2"],
+/// ["scroll", "DY", "X"?, "Y"?], ["type", "TEXT"], ["key", "cmd+space"], ["press", "REF|TITLE"]; an Android or iOS
+/// one's also ["install", "/abs/app"], ["launch", "ID"], ["open", "URL"]. A macOS machine's from the Mac's side (no
+/// permission inside it), points of its 1280 × 800 screen, clicks, keys and scrolls taking turns by `session`; an
+/// Android one's through adb, in its screen's pixels; an iOS one's through Kelp's runner, in points.
 public struct VMScreen: RPCMethod {
     public static let name = "vm.screen"
     public typealias Result = Done
-    public static var timeout: TimeInterval? { 120 }   // a sleeping machine wakes first; another session's turn is waited for
+    /// A sleeping machine wakes first, an Android or iOS one may boot (`VMConnect.timeout`); another session's turn is
+    /// waited for.
+    public static var timeout: TimeInterval? { VMConnect.timeout }
     public var name: String, args: [String], session: String?
     public init(name: String, args: [String], session: String? = nil) {
         self.name = name
         self.args = args
         self.session = session
+    }
+}
+
+/// The controls on a machine's screen, a line each, indented, with a ref to press (`kelp vm ui`): a macOS machine's
+/// front app (or `app`'s) through Kelp Guest inside it, an Android one's through uiautomator, an iOS one's through
+/// Kelp's runner (`app`: a bundle id).
+public struct VMUI: RPCMethod {
+    public static let name = "vm.ui"
+    public typealias Result = String
+    public static var timeout: TimeInterval? { VMConnect.timeout }
+    public var name: String, app: String?
+    public init(name: String, app: String? = nil) {
+        self.name = name
+        self.app = app
     }
 }
 
