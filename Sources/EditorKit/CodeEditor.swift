@@ -13,7 +13,7 @@ public final class CodeEditor: NSObject {
     /// second, for every key): such a file is shown, not edited.
     static let longestEditableLine = 100_000
 
-    public let textView = EditorTextView(usingTextLayoutManager: false)
+    let textView = EditorTextView(usingTextLayoutManager: false)
     let scroll: NSScrollView = EditorScrollView()
     public var view: NSView { scroll }
     public var onChange: ((String) -> Void)?

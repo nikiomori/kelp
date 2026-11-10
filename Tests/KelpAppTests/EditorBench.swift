@@ -8,6 +8,7 @@ import WorkbenchKit
 @testable import BuiltinActivity
 @testable import BuiltinAgents
 @testable import BuiltinBrowser
+@testable import EditorKit
 @testable import BuiltinFiles
 @testable import BuiltinGit
 @testable import BuiltinIssues

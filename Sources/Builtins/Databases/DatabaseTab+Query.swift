@@ -60,7 +60,7 @@ extension DatabaseTab {
     /// The statement the cursor is in: between the semicolons around it, quotes respected.
     func statementAtCursor() -> String {
         let text = editor.text as NSString
-        let at = editor.textView.selectedRange()
+        let at = editor.selectedRange
         if at.length > 0 { return text.substring(with: at) }
         var start = 0, quote: unichar?
         var bounds: [(Int, Int)] = []

@@ -1,5 +1,5 @@
 import AppKit
-import EditorKit
+@testable import EditorKit
 import Foundation
 import Testing
 
