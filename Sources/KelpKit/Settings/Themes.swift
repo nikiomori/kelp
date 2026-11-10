@@ -177,12 +177,8 @@ package final class ThemeManager {
         let opacity = Double(settings[SettingKeys.terminalOpacity]).map { $0 / 100 }
         terminal.opacity = opacity ?? theme?.terminal?.opacity
         terminal.shader = theme?.terminal?.shader
-        GhosttyRuntime.cleanCopy = settings[SettingKeys.cleanCopy]
-        if terminal != lastTerminal {
-            lastTerminal = terminal
-            GhosttyRuntime.appearance = terminal
-            if GhosttyTerminalView.isLoaded { GhosttyRuntime.shared.configure(terminal) }
-        }
+        lastTerminal = terminal
+        GhosttyRuntime.apply(terminal, cleanCopy: settings[SettingKeys.cleanCopy])
 
         let editor = theme?.editor
         let palette = editor.map {

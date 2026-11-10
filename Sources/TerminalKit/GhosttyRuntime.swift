@@ -50,20 +50,27 @@ final class SurfaceLink {
 @MainActor
 public final class GhosttyRuntime {
     public static let shared = GhosttyRuntime()
-    public private(set) var app: ghostty_app_t?
+    private(set) var app: ghostty_app_t?
     private let surfaces = NSHashTable<GhosttyTerminalView>.weakObjects()
     /// Set before the first terminal opens; `configure` changes it later.
-    public static var appearance = TerminalAppearance()
+    static var appearance = TerminalAppearance()
     public private(set) static var started = false
     /// Copying from a terminal drops what TUIs draw around text: borders, the agent's gutter, trailing spaces.
-    public static var cleanCopy = true
+    static var cleanCopy = true
     /// The pasteboard's `changeCount` after a program in a terminal last wrote it (OSC 52), while nothing else has.
     static var programCopy: Int?
     /// The clipboard terminals copy to and paste from: tests give their own, so they leave the user's alone.
     static var pasteboard = NSPasteboard.general
 
+    /// Settings' look and copying for terminals: those to come start with them, the open ones change now.
+    public static func apply(_ appearance: TerminalAppearance, cleanCopy: Bool) {
+        Self.cleanCopy = cleanCopy
+        guard appearance != Self.appearance else { return }
+        if started { shared.configure(appearance) } else { Self.appearance = appearance }
+    }
+
     /// Applies a new appearance to every open terminal.
-    public func configure(_ appearance: TerminalAppearance) {
+    func configure(_ appearance: TerminalAppearance) {
         Self.appearance = appearance
         guard let app else { return }
         let cfg = Self.makeConfig()

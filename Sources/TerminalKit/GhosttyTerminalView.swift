@@ -3,7 +3,7 @@ import GhosttyKit
 
 @MainActor
 public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClient {
-    public private(set) var surface: ghostty_surface_t?
+    private(set) var surface: ghostty_surface_t?
     private let link = SurfaceLink()
     public var onTitle: ((String) -> Void)?
     public var onOpenURL: ((URL) -> Void)?
