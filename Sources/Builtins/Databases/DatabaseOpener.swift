@@ -119,7 +119,7 @@ final class DatabaseOpener: NSObject, NSTableViewDataSource, NSTableViewDelegate
         case .database(let db):
             name = NSTextField(labelWithString: db.name)
             name.font = .ui(13)
-            detail = NSTextField(labelWithString: DatabasePanelRows.place(db) ?? DatabaseLook.engine(db.engine))
+            detail = NSTextField(labelWithString: DatabasePanelRows.place(db) ?? db.engine.displayName)
             views = [NSImageView(image: DatabaseLook.badge(db.engine, size: 18))]
             views.append(stacked([name, detail]))
             views += [NSView()] + [DatabaseLook.stageChip(db)].compactMap { $0 }

@@ -7,7 +7,9 @@ import KelpKit
 /// Postgres with SSL on 5432 or its pooler's 6543…). Each fills the form's port, SSL and a word on where its address is.
 struct EnginePreset {
     var name: String, letters: String, color: String, dark = false
-    var engine: DatabaseInfo.Engine, port: Int?
+    var engine: DatabaseInfo.Engine
+    /// Its own port, where it isn't the engine's (`DatabaseInfo.Engine.defaultPort`).
+    var port: Int?
     var ssl: String?
     /// Where its address is, said under the form's fields.
     var hint: String?
@@ -15,13 +17,13 @@ struct EnginePreset {
     var speaks: String?
 
     static let all: [EnginePreset] = [
-        .init(name: "PostgreSQL", letters: "Pg", color: "336791", engine: .postgres, port: 5432),
-        .init(name: "MySQL", letters: "My", color: "00758F", engine: .mysql, port: 3306),
-        .init(name: "MariaDB", letters: "Ma", color: "4A8A9C", engine: .mysql, port: 3306),
-        .init(name: "SQLite", letters: "Sl", color: "4A7BAB", engine: .sqlite, port: nil),
-        .init(name: "DuckDB", letters: "Du", color: "1C1C1E", engine: .duckdb, port: nil),
+        .init(name: "Postgres", letters: "Pg", color: "336791", engine: .postgres),
+        .init(name: "MySQL", letters: "My", color: "00758F", engine: .mysql),
+        .init(name: "MariaDB", letters: "Ma", color: "4A8A9C", engine: .mysql),
+        .init(name: "SQLite", letters: "Sl", color: "4A7BAB", engine: .sqlite),
+        .init(name: "DuckDB", letters: "Du", color: "1C1C1E", engine: .duckdb),
         .init(
-            name: "Appwrite", letters: "Aw", color: "FD366E", engine: .appwrite, port: nil,
+            name: "Appwrite", letters: "Aw", color: "FD366E", engine: .appwrite,
             hint:
                 "Endpoint: your Appwrite's address. Project ID: the project's Settings. API key: Overview › API keys, "
                 + "with databases.read, tables.read, rows.read and rows.write. No SQL there: Kelp turns its pages, "
@@ -47,7 +49,7 @@ struct EnginePreset {
             name: "PlanetScale", letters: "Ps", color: "2C2C2E", engine: .mysql, port: 3306, ssl: "require",
             hint: "Connect › General: host, user and password of a branch.", speaks: "MySQL"),
         .init(
-            name: "libSQL file", letters: "Ls", color: "4FF8D2", dark: true, engine: .sqlite, port: nil,
+            name: "libSQL file", letters: "Ls", color: "4FF8D2", dark: true, engine: .sqlite,
             hint: "A local Turso/libSQL database file: Kelp opens it as SQLite.", speaks: "SQLite")
     ]
 

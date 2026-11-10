@@ -13,7 +13,8 @@ enum ImportFiles {
             guard parts.count == 5, parts[0] != "*" else { return nil }
             let database = parts[2] == "*" ? nil : parts[2], user = parts[3] == "*" ? nil : parts[3]
             var db = DatabaseInfo(
-                name: database ?? parts[0], engine: .postgres, host: parts[0], port: Int(parts[1]) ?? 5432,
+                name: database ?? parts[0], engine: .postgres, host: parts[0],
+                port: Int(parts[1]) ?? DatabaseInfo.Engine.postgres.defaultPort,
                 database: database,
                 user: user)
             let note = ImportReaders.production(&db, tag: nil, app: "~/.pgpass")
@@ -32,7 +33,8 @@ enum ImportFiles {
         return ini(text).compactMap { name, v in
             guard let host = v["host"] ?? v["hostaddr"] else { return nil }
             var db = DatabaseInfo(
-                name: name, engine: .postgres, host: host, port: v["port"].flatMap { Int($0) } ?? 5432,
+                name: name, engine: .postgres, host: host,
+                port: v["port"].flatMap { Int($0) } ?? DatabaseInfo.Engine.postgres.defaultPort,
                 database: v["dbname"], user: v["user"])
             db.ssl = DatabaseAddress.ssl(v["sslmode"])
             let note = ImportReaders.production(&db, tag: nil, app: "pg_service.conf")
@@ -52,7 +54,7 @@ enum ImportFiles {
         let host = values["host"] ?? "localhost"
         var db = DatabaseInfo(
             name: values["database"] ?? "my.cnf", engine: .mysql, host: host,
-            port: values["port"].flatMap { Int($0) } ?? 3306,
+            port: values["port"].flatMap { Int($0) } ?? DatabaseInfo.Engine.mysql.defaultPort,
             database: values["database"], user: values["user"])
         let note = ImportReaders.production(&db, tag: nil, app: "~/.my.cnf")
         let password = values["password"]
@@ -70,7 +72,8 @@ enum ImportFiles {
             guard let host = ImportReaders.nonEmpty(s["Host"]) else { return nil }
             var db = DatabaseInfo(
                 name: ImportReaders.string(s["Name"]), engine: .postgres, host: host,
-                port: ImportReaders.int(s["Port"]) ?? 5432, database: ImportReaders.nonEmpty(s["MaintenanceDB"]),
+                port: ImportReaders.int(s["Port"]) ?? DatabaseInfo.Engine.postgres.defaultPort,
+                database: ImportReaders.nonEmpty(s["MaintenanceDB"]),
                 user: ImportReaders.nonEmpty(s["Username"]))
             db.group = ImportReaders.nonEmpty(s["Group"])
             let params = s["ConnectionParameters"] as? [String: Any] ?? [:]

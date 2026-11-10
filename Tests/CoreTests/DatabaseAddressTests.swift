@@ -35,12 +35,12 @@ private func parsed(_ text: String) throws -> DatabaseAddress { try DatabaseAddr
 }
 
 /// What can't be read says why, in words the sheet shows under the field.
-@Test func whatIsntAnAddressSaysWhy() {
+@Test func whatIsntAnAddressSaysWhy() throws {
     #expect(
         throws: DatabaseAddress.Problem(message: "Kelp doesn't speak redis:// yet: Postgres, MySQL, SQLite and DuckDB.")
     ) {
         try parsed("redis://localhost:6379")
     }
-    #expect(throws: DatabaseAddress.Problem(message: "The address names no host.")) { try parsed("postgres:///db") }
+    #expect(try parsed("postgres:///db").database.host == "localhost")   // no host: libpq's default, this Mac
     #expect(throws: DatabaseAddress.Problem.self) { try parsed("hello") }
 }

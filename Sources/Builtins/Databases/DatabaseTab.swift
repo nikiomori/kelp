@@ -335,7 +335,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             case .query: String(localized: "Query")
             }
         let parts = [
-            version ?? db.map { DatabaseLook.engine($0.engine) },
+            version ?? db.map { $0.engine.displayName },
             db?.database ?? db?.path.map { ($0 as NSString).lastPathComponent } ?? address.name,
             db?.ssh.map { String(localized: "via \($0)") }, place
         ]

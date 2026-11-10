@@ -81,7 +81,7 @@ final class Databases: Sendable {
             // What the user said of it holds while it's the same place: a pulled .env that aims `app` at another host
             // is a new database, read only for agents again if it isn't this Mac.
             if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database,
-                Self.samePlace(mine, db)
+                mine.place == db.place
             {
                 db.access = mine.access
                 db.production = mine.production
@@ -107,12 +107,6 @@ final class Databases: Sendable {
     }
 
     static func account(_ id: String) -> String { "db:" + id }
-
-    /// The same server and database, or the same file.
-    static func samePlace(_ a: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
-        a.engine == b.engine && a.host?.lowercased() == b.host?.lowercased() && a.port == b.port
-            && a.database == b.database && a.path == b.path && a.ssh == b.ssh
-    }
 
     /// The keychain items of a project's saved databases: forgotten with the project (its rows go by cascade).
     func accounts(ofRepo repoId: String) throws -> [String] {
@@ -183,7 +177,7 @@ final class Databases: Sendable {
         let all = try connections(worktreeId).filter { !agent || $0.database.agentAccess != .hidden }
         if let one = all.first(where: { $0.database.name == name }) {
             guard try fromTheFiles(one.database, worktreeId) else { return one }
-            let place = Self.place(one.database)
+            let place = one.database.place
             if !agent {
                 opened.withLock { _ = $0.insert(place) }
             } else if !opened.withLock({ $0.contains(place) }) {
@@ -203,14 +197,9 @@ final class Databases: Sendable {
     /// An address a project's files name that isn't this Mac, a server behind the user's SSH host or the remote
     /// project's own host: one the user hasn't been asked about.
     private func fromTheFiles(_ db: DatabaseInfo, _ worktreeId: String) throws -> Bool {
-        guard db.source != nil, db.ssh == nil, !db.engine.isFile, let host = db.host, !DatabaseFind.isLocal(host)
+        guard db.source != nil, db.ssh == nil, !db.engine.isFile, let host = db.host, !DatabaseInfo.isLocal(host)
         else { return false }
         return try store.worktree(worktreeId).flatMap { remotes.of($0.path) } == nil
-    }
-
-    private static func place(_ db: DatabaseInfo) -> String {
-        [db.engine.rawValue, db.host?.lowercased() ?? "", db.port.map(String.init) ?? "", db.database ?? ""]
-            .joined(separator: "\u{1F}")
     }
 
     func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?) throws -> DatabaseInfo {

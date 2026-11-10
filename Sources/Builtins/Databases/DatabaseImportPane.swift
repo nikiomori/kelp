@@ -126,7 +126,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         name.font = .ui(13)
         name.lineBreakMode = .byTruncatingTail
         let place = db.engine.isFile ? db.path ?? "" : "\(db.host ?? ""):\(db.port.map(String.init) ?? "")"
-        let parts = [DatabaseLook.engine(db.engine), place, db.group].compactMap { $0 }
+        let parts = [db.engine.displayName, place, db.group].compactMap { $0 }
         let detail = DatabaseSheet.small(
             item.known
                 ? String(localized: "Kelp has it already")

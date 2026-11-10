@@ -22,7 +22,7 @@ extension Databases {
             return try await offloads.run { [self] in try copyFile(source, worktree, suffix: suffix) }
         case .postgres:
             // Behind an SSH host, "localhost" is that host's: not this Mac's
-            guard let host = source.database.host, DatabaseFind.isLocal(host), source.database.ssh == nil,
+            guard let host = source.database.host, DatabaseInfo.isLocal(host), source.database.ssh == nil,
                 let database = source.database.database
             else {
                 throw RPCError.invalidParams(
@@ -30,13 +30,12 @@ extension Databases {
             }
             // Its password as a query would have it: one still in another app's keychain is read now
             let near = try await offloads.run { [self] in try reach(source, worktreeId) }
-            let copied = database + "_" + suffix
+            let copied = database + "_" + suffix, pg = DatabaseInfo.Engine.postgres
             var maintenance = near   // a template can't have anyone connected, this connection included
             maintenance.database.database = "postgres"
             do {
                 _ = try await DatabaseEngines.write(
-                    maintenance, "CREATE DATABASE \(Self.quoted(copied)) TEMPLATE \(Self.quoted(database))",
-                    off: offloads)
+                    maintenance, "CREATE DATABASE \(pg.quoted(copied)) TEMPLATE \(pg.quoted(database))", off: offloads)
             } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
             var db = source.database
             db.name = name + "_" + suffix
@@ -47,7 +46,7 @@ extension Databases {
                 // Not kept, so not left behind: the next copy would find it "already exists"
                 do {
                     _ = try await DatabaseEngines.write(
-                        maintenance, "DROP DATABASE \(Self.quoted(copied))", off: offloads)
+                        maintenance, "DROP DATABASE \(pg.quoted(copied))", off: offloads)
                 } catch { Log.store.error("dropping \(copied) after its save failed: \(error)") }
                 throw error
             }
@@ -127,6 +126,4 @@ extension Databases {
         let slug = String(words.joined(separator: "_").prefix(30))
         return slug.isEmpty ? "copy" : slug
     }
-
-    static func quoted(_ name: String) -> String { "\"" + name.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
 }

@@ -148,7 +148,7 @@ extension DatabaseTab {
     /// The plan, as the engine says it.
     @objc func explainQuery() {
         let sql = statementAtCursor()
-        execute((engine == .sqlite ? "EXPLAIN QUERY PLAN " : "EXPLAIN ") + sql)
+        execute(engine.explain + sql)
     }
 
     private func execute(_ sql: String) {

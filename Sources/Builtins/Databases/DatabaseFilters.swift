@@ -80,20 +80,20 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         guard columns.contains(r.column) else { return nil }
         let name = DatabaseEdits.name(r.column, engine), v = r.value
         if r.op.takesValue, v.isEmpty { return nil }
-        let like = engine == .postgres ? "ILIKE" : "LIKE"
+        let like = engine.likeAnyCase
         switch r.op {
-        case .equal: return "\(name) = " + DatabaseEdits.literal(v, engine)
-        case .notEqual: return "\(name) <> " + DatabaseEdits.literal(v, engine)
-        case .contains: return "\(name) \(like) " + DatabaseEdits.literal("%\(v)%", engine)
-        case .notContains: return "\(name) NOT \(like) " + DatabaseEdits.literal("%\(v)%", engine)
-        case .startsWith: return "\(name) \(like) " + DatabaseEdits.literal("\(v)%", engine)
-        case .greater: return "\(name) > " + DatabaseEdits.literal(v, engine)
-        case .less: return "\(name) < " + DatabaseEdits.literal(v, engine)
+        case .equal: return "\(name) = " + engine.literal(v)
+        case .notEqual: return "\(name) <> " + engine.literal(v)
+        case .contains: return "\(name) \(like) " + engine.literal("%\(v)%")
+        case .notContains: return "\(name) NOT \(like) " + engine.literal("%\(v)%")
+        case .startsWith: return "\(name) \(like) " + engine.literal("\(v)%")
+        case .greater: return "\(name) > " + engine.literal(v)
+        case .less: return "\(name) < " + engine.literal(v)
         case .isNull: return "\(name) IS NULL"
         case .isNotNull: return "\(name) IS NOT NULL"
         case .isIn:
             let items = v.split(separator: ",").map {
-                DatabaseEdits.literal($0.trimmingCharacters(in: .whitespaces), engine)
+                engine.literal($0.trimmingCharacters(in: .whitespaces))
             }
             return "\(name) IN (" + items.joined(separator: ", ") + ")"
         }

@@ -73,7 +73,7 @@ struct DatabasePanelRows {
         if let chip = DatabaseLook.stageChip(db) { first.append(chip) }
         let top = NSStackView(views: first)
         top.spacing = Metrics.gap
-        let detail = label(Self.place(db) ?? DatabaseLook.engine(db.engine), font: .ui(11), color: .secondaryLabelColor)
+        let detail = label(Self.place(db) ?? db.engine.displayName, font: .ui(11), color: .secondaryLabelColor)
         detail.lineBreakMode = .byTruncatingMiddle   // "psqldbread…agrohistory.local : webdb": both ends tell
         detail.toolTip = DatabaseLook.detail(db)
         let words = stack([top, detail])

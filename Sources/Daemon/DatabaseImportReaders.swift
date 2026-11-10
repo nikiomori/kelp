@@ -280,7 +280,8 @@ enum ImportReaders {
             let id = string(node["id"]), name = string(node["name"])
             guard !name.isEmpty, let host = nonEmpty(node["host"]) else { return }
             var db = DatabaseInfo(
-                name: name, engine: .mysql, host: host, port: int(node["port"]) ?? 3306,
+                name: name, engine: .mysql, host: host,
+                port: int(node["port"]) ?? DatabaseInfo.Engine.mysql.defaultPort,
                 database: nonEmpty(node["database"]), user: nonEmpty(node["user"]))
             db.group = group == "Favorites" ? nil : group
             var note: String?

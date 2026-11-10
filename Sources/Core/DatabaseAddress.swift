@@ -70,14 +70,14 @@ public struct DatabaseAddress: Equatable, Sendable {
                 message: "Kelp doesn't speak \(scheme):// yet: Postgres, MySQL, SQLite and DuckDB.")
         }
         guard let parts = URLComponents(string: text) else { throw Problem(message: "The address can't be read.") }
-        guard let host = parts.host, !host.isEmpty else { throw Problem(message: "The address names no host.") }
+        let host = parts.host.flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"   // postgres:///app: libpq's default
         let query = Dictionary(
             (parts.queryItems ?? []).map { ($0.name.lowercased(), $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
         let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).removingPercentEncoding
         let user = (parts.user ?? query["user"])?.removingPercentEncoding
         var db = DatabaseInfo(
             name: database.flatMap { $0.isEmpty ? nil : $0 } ?? host, engine: engine, host: host,
-            port: parts.port ?? (engine == .postgres ? 5432 : 3306),
+            port: parts.port ?? engine.defaultPort,
             database: database?.isEmpty == false ? database : nil,
             user: user)
         db.ssl = ssl(query["sslmode"] ?? query["ssl-mode"] ?? query["ssl"])
@@ -99,7 +99,7 @@ public struct DatabaseAddress: Equatable, Sendable {
         }
         var db = DatabaseInfo(
             name: values["dbname"] ?? host, engine: .postgres, host: host,
-            port: values["port"].flatMap { Int($0) } ?? 5432,
+            port: values["port"].flatMap { Int($0) } ?? DatabaseInfo.Engine.postgres.defaultPort,
             database: values["dbname"], user: values["user"])
         db.ssl = ssl(values["sslmode"])
         return DatabaseAddress(database: db, password: values["password"])
@@ -131,13 +131,14 @@ public struct DatabaseAddress: Equatable, Sendable {
             }
         }
         let host = flags["h"] ?? flags["host"] ?? "localhost"
-        let port = (flags[mysql ? "P" : "p"] ?? flags["port"]).flatMap { Int($0) } ?? (mysql ? 3306 : 5432)
+        let engine: DatabaseInfo.Engine = mysql ? .mysql : .postgres
+        let port = (flags[mysql ? "P" : "p"] ?? flags["port"]).flatMap { Int($0) } ?? engine.defaultPort
         let user =
             flags[mysql ? "u" : "U"] ?? flags["user"] ?? flags["username"]
             ?? (mysql ? nil : positional.dropFirst().first)
         let database = flags[mysql ? "D" : "d"] ?? flags["database"] ?? flags["dbname"] ?? positional.first
         let db = DatabaseInfo(
-            name: database ?? host, engine: mysql ? .mysql : .postgres, host: host, port: port, database: database,
+            name: database ?? host, engine: engine, host: host, port: port, database: database,
             user: user)
         let password = flags["password"].flatMap { $0.isEmpty ? nil : $0 }
         return DatabaseAddress(database: db, password: password)

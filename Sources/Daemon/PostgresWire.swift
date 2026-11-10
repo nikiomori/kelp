@@ -107,14 +107,14 @@ enum PostgresWire {
     ) async throws -> T {
         let db = c.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
-        let user = db.user ?? NSUserName()
+        let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
         let password =
             c.password
             ?? (PgPass.mayUse(for: db, host: host)
-                ? PgPass.password(host: host, port: db.port ?? 5432, database: db.database, user: user) : nil)
+                ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
         let context = try NIOSSLContext(configuration: DatabaseWire.tls)
         var config = PostgresConnection.Configuration(
-            host: host, port: db.port ?? 5432, username: user, password: password, database: db.database,
+            host: host, port: port, username: user, password: password, database: db.database,
             tls: db.ssl == "disable" ? .disable : db.ssl == "require" ? .require(context) : .prefer(context))
         config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
         // UTC: timestamptz as `PostgresText` writes it, so a row found by its values (`::text`) compares the same
@@ -184,7 +184,8 @@ enum PostgresWire {
         case .serverClosedConnection where psql.underlying == nil, .connectionError where psql.underlying == nil:
             // PostgresNIO's word for a connection that never got an answer (its connect timed out)
             return DatabaseFailure.failed(
-                "\(db.name) didn't answer at \(db.host ?? "?"):\(db.port ?? 5432): it's off, or a VPN or SSH is needed."
+                "\(db.name) didn't answer at \(db.host ?? "?"):\(db.port ?? db.engine.defaultPort ?? 0): it's off, "
+                    + "or a VPN or SSH is needed."
             )
         default:
             let said = psql.underlying.map { "\($0)" } ?? "\(psql.code)"

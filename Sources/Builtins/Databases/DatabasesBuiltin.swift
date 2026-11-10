@@ -135,16 +135,6 @@ struct DatabaseURI: Equatable {
 enum DatabaseLook {
     static let symbol = "cylinder.split.1x2"
 
-    static func engine(_ e: DatabaseInfo.Engine) -> String {
-        switch e {
-        case .sqlite: "SQLite"
-        case .postgres: "Postgres"
-        case .mysql: "MySQL"
-        case .duckdb: "DuckDB"
-        case .appwrite: "Appwrite"
-        }
-    }
-
     /// The engine's mark: its colour (as its project draws it) with two letters, the size of a row's icon.
     @MainActor static func badge(_ e: DatabaseInfo.Engine, size: CGFloat = 12) -> NSImage {
         let (hex, letters, dark): (String, String, Bool) =
@@ -166,7 +156,7 @@ enum DatabaseLook {
             text.draw(at: NSPoint(x: rect.midX - fit.width / 2, y: rect.midY - fit.height / 2))
             return true
         }
-        image.accessibilityDescription = engine(e)
+        image.accessibilityDescription = e.displayName
         return image
     }
 
@@ -229,7 +219,7 @@ enum DatabaseLook {
     static func shownStage(_ db: DatabaseInfo) -> DatabaseInfo.Stage? {
         if db.production { return .production }
         if let said = db.environment { return said }
-        guard !db.engine.isFile, db.ssh != nil || db.host.map({ !DatabaseForm.onThisMac($0) }) == true else {
+        guard !db.engine.isFile, db.ssh != nil || db.host.map({ !DatabaseInfo.isLocal($0) }) == true else {
             return .local
         }
         return nil
@@ -299,7 +289,7 @@ enum DatabaseLook {
     /// "Postgres · compose.yaml · :5432", "SQLite · db/test.sqlite3".
     static func detail(_ db: DatabaseInfo) -> String {
         let place = db.engine.isFile ? nil : db.host.map { ($0 == "localhost" ? "" : $0) + ":\(db.port ?? 0)" }
-        return [engine(db.engine), db.source ?? String(localized: "added by hand"), place].compactMap { $0 }
+        return [db.engine.displayName, db.source ?? String(localized: "added by hand"), place].compactMap { $0 }
             .joined(separator: " · ")
     }
 }

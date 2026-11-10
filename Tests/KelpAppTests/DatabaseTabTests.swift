@@ -27,7 +27,7 @@ import Testing
         ])
     #expect(DatabaseEdits.name("public.my`t", .mysql) == "`public.my``t`")   // a "." of MySQL's is the name's
     #expect(DatabaseEdits.name("audit.my\"t", .postgres) == #""audit"."my""t""#)
-    #expect(DatabaseEdits.literal(#"a\b"#, .mysql) == #"'a\\b'"#)
+    #expect(DatabaseInfo.Engine.mysql.literal(#"a\b"#) == #"'a\\b'"#)
 }
 
 @Test func aDatabaseTabsAddressNamesItsWorkspaceDatabaseAndRun() {

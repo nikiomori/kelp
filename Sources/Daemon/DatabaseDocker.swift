@@ -15,9 +15,8 @@ extension Databases {
             else { return [] }
             return listed.split(whereSeparator: \.isNewline).compactMap { line in
                 let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-                guard fields.count == 4, let engine = Self.engine(image: fields[2]) else { return nil }
-                let inside = engine == .postgres ? 5432 : 3306
-                guard let port = Self.published(fields[3], inside) else { return nil }
+                guard fields.count == 4, let engine = DatabaseInfo.Engine(image: fields[2]) else { return nil }
+                guard let inside = engine.defaultPort, let port = Self.published(fields[3], inside) else { return nil }
                 let env = Self.environment(docker, fields[0])
                 var db = DatabaseInfo(name: fields[1], engine: engine, host: "localhost", port: port)
                 if engine == .postgres {
@@ -61,13 +60,6 @@ extension Databases {
         return id.flatMap { $0.isEmpty ? nil : $0 }
     }
 
-    static func engine(image: String) -> DatabaseInfo.Engine? {
-        let name = image.split(separator: ":").first.map { $0.split(separator: "/").last.map(String.init) ?? "" } ?? ""
-        if ["postgres", "postgis", "timescaledb", "timescaledb-ha", "pgvector"].contains(name) { return .postgres }
-        if ["mysql", "mariadb", "percona-server"].contains(name) { return .mysql }
-        return nil
-    }
-
     /// "0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp": the port on this Mac for `inside`.
     static func published(_ ports: String, _ inside: Int) -> Int? {
         for part in ports.split(separator: ",") where part.hasSuffix("->\(inside)/tcp") {
@@ -88,18 +80,5 @@ extension Databases {
             env[String(line[..<eq])] = String(line[line.index(after: eq)...])
         }
         return env
-    }
-}
-
-/// An engine's name as the sheet's check says it.
-enum DatabaseLook {
-    static func engine(_ e: DatabaseInfo.Engine) -> String {
-        switch e {
-        case .sqlite: "SQLite"
-        case .postgres: "Postgres"
-        case .mysql: "MySQL"
-        case .duckdb: "DuckDB"
-        case .appwrite: "Appwrite"
-        }
     }
 }

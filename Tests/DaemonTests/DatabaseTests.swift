@@ -652,8 +652,9 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     #expect(running.allSatisfy { $0.database.host == "localhost" && $0.database.port != nil })
     #expect(Databases.published("0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp", 5432) == 55432)
     #expect(Databases.published("5432/tcp", 5432) == nil)
-    #expect(Databases.engine(image: "postgis/postgis:16-3.4") == .postgres)
-    #expect(Databases.engine(image: "mariadb:10.11") == .mysql && Databases.engine(image: "redis:7") == nil)
+    #expect(DatabaseInfo.Engine(image: "postgis/postgis:16-3.4") == .postgres)
+    #expect(DatabaseInfo.Engine(image: "mariadb:10.11") == .mysql && DatabaseInfo.Engine(image: "redis:7") == nil)
+    #expect(DatabaseInfo.Engine(image: "localhost:5000/bitnami/postgresql:16") == .postgres)
 }
 
 /// An IDE's connections in the project are found as compose's are: DataGrip's .idea, VS Code's SQLTools.

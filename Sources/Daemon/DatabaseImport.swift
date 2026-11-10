@@ -92,12 +92,8 @@ extension Databases {
 
     /// The same server and database, or the same file.
     static func sameAddress(_ a: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
-        guard a.engine == b.engine else { return false }
-        if a.engine.isFile { return a.path == b.path }
-        let local = { (host: String?) in host.map { DatabaseFind.isLocal($0) ? "localhost" : $0.lowercased() } ?? "" }
-        let sameUser = a.user == nil || b.user == nil || a.user == b.user   // DBeaver keeps its user with the password
-        return local(a.host) == local(b.host) && a.port == b.port && a.database == b.database && sameUser
-            && a.ssh == b.ssh
+        // DBeaver keeps its user with the password: one without a user can be either
+        a.place == b.place && (a.engine.isFile || a.user == nil || b.user == nil || a.user == b.user)
     }
 }
 

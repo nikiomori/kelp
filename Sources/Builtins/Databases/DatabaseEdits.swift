@@ -62,7 +62,7 @@ struct DatabaseEdits: Equatable {
                 let old = rows[row][key]
                 // Without a key every column is compared, as text in Postgres (json has no "=")
                 let column = Self.name(columns[key], engine) + (!keyed && engine == .postgres ? "::text" : "")
-                return column + (old == nil ? " IS NULL" : " = \(Self.literal(old, engine))")
+                return column + (old == nil ? " IS NULL" : " = \(engine.literal(old))")
             }.joined(separator: " AND ")
         }
         // ponytail: rows told apart by their values; two identical rows are one (either goes). CockroachDB has no ctid.
@@ -80,7 +80,7 @@ struct DatabaseEdits: Equatable {
         let updates = cells.keys.sorted().compactMap { row -> String? in
             guard rows.indices.contains(row), let changed = cells[row], !deleted.contains(row) else { return nil }
             let set = changed.keys.sorted().map { column in
-                "\(Self.name(columns[column], engine)) = \(Self.literal(changed[column] ?? nil, engine))"
+                "\(Self.name(columns[column], engine)) = \(engine.literal(changed[column] ?? nil))"
             }
             return "UPDATE \(name) SET \(set.joined(separator: ", "))" + one(row)
         }
@@ -88,7 +88,7 @@ struct DatabaseEdits: Equatable {
             let given = row.indices.filter { row[$0] != nil && columns.indices.contains($0) }
             guard !given.isEmpty else { return nil }
             return "INSERT INTO \(name) (" + given.map { Self.name(columns[$0], engine) }.joined(separator: ", ")
-                + ") VALUES (" + given.map { Self.literal(row[$0], engine) }.joined(separator: ", ") + ")"
+                + ") VALUES (" + given.map { engine.literal(row[$0]) }.joined(separator: ", ") + ")"
         }
         return deletes + updates + inserts
     }
@@ -96,19 +96,7 @@ struct DatabaseEdits: Equatable {
     /// A table or column name, quoted for the engine: "orders", `orders` in MySQL. Postgres names a table outside
     /// public by its schema ("audit.orders", as its schema lists it): two parts; elsewhere a "." is the name's own.
     static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String {
-        let quote: Character = engine == .mysql ? "`" : "\""
         let parts = engine == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
-        return parts.map { part in
-            String(quote) + part.replacingOccurrences(of: String(quote), with: String(quote) + String(quote))
-                + String(quote)
-        }.joined(separator: ".")
-    }
-
-    /// A value as SQL text: NULL, or quoted ('it''s'), which every engine casts to the column's type. MySQL also reads
-    /// a backslash in a string as an escape.
-    static func literal(_ value: String?, _ engine: DatabaseInfo.Engine) -> String {
-        guard var value else { return "NULL" }
-        if engine == .mysql { value = value.replacingOccurrences(of: "\\", with: "\\\\") }
-        return "'" + value.replacingOccurrences(of: "'", with: "''") + "'"
+        return parts.map(engine.quoted).joined(separator: ".")
     }
 }

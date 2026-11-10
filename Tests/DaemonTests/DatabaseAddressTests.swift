@@ -30,10 +30,10 @@ import Testing
 /// are someone else's: no ~/.pgpass for them, and agents only read them until the user says otherwise.
 @Test func onlyLoopbackAndThisMacsNameAreThisMac() {
     for host in ["localhost", "127.0.0.1", "127.0.1.1", "::1", "[::1]", "host.docker.internal", "app.localhost"] {
-        #expect(DatabaseFind.isLocal(host), "\(host)")
+        #expect(DatabaseInfo.isLocal(host), "\(host)")
     }
     for host in ["pg.local", "db", "2001:db8::bad", "fe80::1%en0", "db.example.com"] {
-        #expect(!DatabaseFind.isLocal(host), "\(host)")
+        #expect(!DatabaseInfo.isLocal(host), "\(host)")
         #expect(!PgPass.mayUse(for: DatabaseInfo(name: "app", engine: .postgres, source: ".env"), host: host))
     }
     let found = DatabaseInfo(name: "app", engine: .postgres, source: ".env", host: "pg.local", database: "app")
@@ -103,4 +103,14 @@ import Testing
     #expect(after.allSatisfy { !$0.production && $0.environment == nil })
     #expect(after[0].access == .free && after[1].access == .read)
     #expect(after[2].access == .ask)   // not marked before: left as it was
+}
+
+/// An .env's URL is read as the same line pasted into Add Database is: its schemes, its sslmode.
+@Test func anEnvURLReadsAsAPastedOne() {
+    let text = "DATABASE_URL=pg://app@db.example.com/app_dev?sslmode=require\nPG_URL=postgres:///local"
+    let found = DatabaseFind.env(text, source: ".env", root: "/p")
+    #expect(found.count == 2)
+    #expect(found.first?.database.engine == .postgres && found.first?.database.ssl == "require")
+    #expect(found.first?.database.source == ".env" && found.first?.database.name == "app_dev")
+    #expect(found.last?.database.host == "localhost" && found.last?.database.database == "local")
 }

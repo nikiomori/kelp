@@ -126,7 +126,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private func fillFound() async {
         let sources = await app.quiet(DatabaseImportSources()) ?? []
         for source in sources where source.count > 0 {
-            let engines = source.engines.map(DatabaseLook.engine).joined(separator: ", ")
+            let engines = source.engines.map(\.displayName).joined(separator: ", ")
             add(
                 FoundRow(
                     icon: DatabaseLook.appIcon(source.id), title: source.name,
@@ -197,7 +197,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                 ? String(localized: "The password goes to the keychain.")
                 : String(localized: "No password in it: the next step asks.")
         let text = NSMutableAttributedString(
-            string: "\(DatabaseLook.engine(db.engine)) · \(db.database ?? db.name)\n",
+            string: "\(db.engine.displayName) · \(db.database ?? db.name)\n",
             attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.labelColor])
         text.append(
             NSAttributedString(
@@ -222,7 +222,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     func newOne(_ preset: EnginePreset) {
         var db = DatabaseInfo(
-            name: "", engine: preset.engine, host: preset.engine.isFile ? nil : "localhost", port: preset.port)
+            name: "", engine: preset.engine, host: preset.engine.isFile ? nil : "localhost",
+            port: preset.port ?? preset.engine.defaultPort)
         db.ssl = preset.ssl
         if preset.speaks != nil || preset.engine == .appwrite, !preset.engine.isFile { db.host = "" }   // its own host
         openForm(DatabaseAddress(database: db), preset: preset)

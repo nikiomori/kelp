@@ -61,7 +61,7 @@ extension Databases {
             throw RPCError.invalidParams("No \(name) in All my projects.")
         }
         var db = mine.database
-        db.access = access ?? (db.host.map(DatabaseFind.isLocal) == false ? .read : db.access)
+        db.access = access ?? (db.host.map(DatabaseInfo.isLocal) == false ? .read : db.access)
         db.group = nil
         return try save(worktreeId, db, password: mine.password)
     }
@@ -82,7 +82,7 @@ extension Databases {
         do {
             let all = q.versionOnly != true
             let tables = all ? try await DatabaseEngines.schema(near, table: nil, off: offloads).tables.count : 0
-            var version = DatabaseLook.engine(near.database.engine), databases: [String] = []
+            var version = near.database.engine.displayName, databases: [String] = []
             switch near.database.engine {
             case .postgres where near.database.host != nil:
                 version = try await PostgresWire.version(near)

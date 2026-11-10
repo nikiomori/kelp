@@ -56,7 +56,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
 
     private func build(_ address: DatabaseAddress) {
         let db = address.database
-        let title = NSTextField(labelWithString: editing?.name ?? preset?.name ?? DatabaseLook.engine(engine))
+        let title = NSTextField(labelWithString: editing?.name ?? preset?.name ?? engine.displayName)
         title.font = .ui(13, weight: .semibold)
         let mark = preset?.badge(22) ?? DatabaseLook.badge(engine, size: 18)
         let heading = NSStackView(views: [NSImageView(image: mark), title])
@@ -69,7 +69,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         host.stringValue = db.host ?? ""
         port.stringValue = db.port.map(String.init) ?? ""
         let appwrite = engine == .appwrite
-        port.placeholderString = appwrite ? "" : engine == .postgres ? "5432" : "3306"
+        port.placeholderString = engine.defaultPort.map(String.init) ?? ""
         if appwrite { host.placeholderString = "https://appwrite.example.com" }
         port.widthAnchor.constraint(equalToConstant: 64).isActive = true
         user.stringValue = db.user ?? ""
@@ -217,7 +217,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             let server = host.stringValue.trimmingCharacters(in: .whitespaces)
             guard !server.isEmpty else { return nil }
             db.host = server
-            db.port = Int(port.stringValue) ?? (engine == .appwrite ? nil : engine == .postgres ? 5432 : 3306)
+            db.port = Int(port.stringValue) ?? engine.defaultPort
             db.user = user.stringValue.isEmpty ? nil : user.stringValue
             db.database = database.stringValue.isEmpty ? nil : database.stringValue
             db.ssh = sshOn.state == .on && !ssh.stringValue.isEmpty ? ssh.stringValue : nil
@@ -255,7 +255,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     /// The environment is only what the user picks (never guessed from the host); the line beside it says what it means.
     @objc private func changed() {
         let db = typed
-        let elsewhere = db.map { $0.ssh != nil || $0.host.map { !Self.onThisMac($0) } ?? false } ?? false
+        let elsewhere = db.map { $0.ssh != nil || $0.host.map { !DatabaseInfo.isLocal($0) } ?? false } ?? false
         let picked = DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)]
         why.stringValue = Self.why(picked, elsewhere: elsewhere)
         whyRow?.isHidden = why.stringValue.isEmpty   // the grid's row, or its gap stays
@@ -281,12 +281,6 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         let meaning = DatabaseLook.meaning(stage)
         guard stage == .local || stage == .development, elsewhere else { return meaning }
         return String(localized: "Not on this Mac: pick Production if it is one.")
-    }
-
-    nonisolated static func onThisMac(_ host: String) -> Bool {
-        let host = host.lowercased()
-        return ["localhost", "::1", "0.0.0.0", "host.docker.internal"].contains(host) || host.hasPrefix("127.")
-            || host.hasSuffix(".localhost")
     }
 
     // MARK: Checking

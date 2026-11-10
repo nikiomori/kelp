@@ -151,20 +151,15 @@ enum DatabaseFind {
                     name: name ?? base, engine: .sqlite, source: source,
                     path: URL(fileURLWithPath: full).standardized.path))
         }
-        guard let parts = URLComponents(string: text), let scheme = parts.scheme?.lowercased() else { return nil }
-        let engine: DatabaseInfo.Engine
-        switch scheme {
-        case "postgres", "postgresql": engine = .postgres
-        case "mysql", "mysql2", "mariadb": engine = .mysql
-        default: return nil
-        }
-        let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let db = DatabaseInfo(
-            name: name ?? (database.isEmpty ? engine.rawValue : database), engine: engine, source: source,
-            host: parts.host.flatMap { $0.isEmpty ? nil : $0 } ?? "localhost",
-            port: parts.port ?? (engine == .postgres ? 5432 : 3306), database: database.isEmpty ? nil : database,
-            user: parts.user?.removingPercentEncoding ?? parts.user)
-        return FoundDatabase(database: db, password: parts.password?.removingPercentEncoding ?? parts.password)
+        // A server's URL is read as one pasted into Add Database is: the same schemes, ssl and all.
+        guard text.contains("://") else { return nil }
+        let found: DatabaseAddress
+        do { found = try DatabaseAddress.parse(text) } catch { return nil }
+        guard !found.database.engine.isFile else { return nil }
+        var db = found.database
+        db.name = name ?? db.name
+        db.source = source
+        return FoundDatabase(database: db, password: found.password)
     }
 
     // MARK: .env
@@ -226,7 +221,7 @@ enum DatabaseFind {
             guard engine != .sqlite else { return nil }
             let db = DatabaseInfo(
                 name: name, engine: engine, source: source, host: block["host"] ?? "localhost",
-                port: block["port"].flatMap(Int.init) ?? (engine == .postgres ? 5432 : 3306), database: name,
+                port: block["port"].flatMap(Int.init) ?? engine.defaultPort, database: name,
                 user: block["username"])
             return FoundDatabase(database: db, password: block["password"])
         }
@@ -300,22 +295,8 @@ enum DatabaseFind {
     /// user's word (Environment), never guessed from a host, a name or an `.env.production`.
     static func isRemote(_ db: DatabaseInfo) -> Bool {
         guard !db.engine.isFile else { return false }
-        return db.ssh != nil || db.host.map { !isLocal($0) } ?? false
+        return db.ssh != nil || db.host.map { !DatabaseInfo.isLocal($0) } ?? false
     }
-
-    /// A host that is this Mac (or its Docker's): a loopback address, or this Mac's own name. Not any `.local` name
-    /// (whoever answers for it on the network) nor a name without a dot (a compose service's, a search domain's host).
-    static func isLocal(_ host: String) -> Bool {
-        let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
-            || host.hasPrefix("127.") || host.hasSuffix(".localhost")
-    }
-    /// gethostname, not ProcessInfo.hostName: no DNS lookup.
-    private static let thisMac: String = {
-        var name = [CChar](repeating: 0, count: 256)
-        guard gethostname(&name, name.count) == 0 else { return "localhost" }
-        return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self).lowercased()
-    }()
 
     /// One entry per place: the same server, port and database found twice (compose and .env) is kept once, the first;
     /// two places under one name get "-2", "-3".
@@ -323,11 +304,7 @@ enum DatabaseFind {
         var kept: [FoundDatabase] = [], names: Set<String> = []
         for var item in found {
             let db = item.database
-            let same = kept.contains {
-                $0.database.engine == db.engine && $0.database.path == db.path && $0.database.port == db.port
-                    && $0.database.database == db.database && ($0.database.host ?? "") == (db.host ?? "")
-            }
-            if same { continue }
+            if kept.contains(where: { $0.database.place == db.place }) { continue }
             var name = db.name, n = 2
             while names.contains(name) {
                 name = "\(db.name)-\(n)"

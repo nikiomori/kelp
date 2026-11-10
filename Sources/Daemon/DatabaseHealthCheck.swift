@@ -64,7 +64,7 @@ extension Databases {
             return DatabaseHealth(name: name, state: there ? .ok : .down, reason: there ? nil : "The file isn't there.")
         }
         if c.database.source != nil, remote == nil, c.database.ssh == nil, let host = c.database.host,
-            !DatabaseFind.isLocal(host)
+            !DatabaseInfo.isLocal(host)
         {
             // An address from the project's files (a cloned repo's .env): dialled when the user opens it, not on its
             // own.

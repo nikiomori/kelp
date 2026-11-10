@@ -29,16 +29,9 @@ extension DatabaseFind {
     static func compose(_ text: String, source: String, env vars: [String: String] = [:]) -> [FoundDatabase] {
         var found: [FoundDatabase] = []
         for service in services(text) {
-            guard let image = service.values["image"]?.lowercased() else { continue }
-            let engine: DatabaseInfo.Engine
-            if ["postgres", "postgis", "timescale", "pgvector"].contains(where: image.contains) {
-                engine = .postgres
-            } else if image.contains("mysql") || image.contains("mariadb") {
-                engine = .mysql
-            } else {
-                continue
-            }
-            let env = service.env.mapValues { interpolated($0, vars) }, inner = engine == .postgres ? 5432 : 3306
+            guard let engine = service.values["image"].flatMap(DatabaseInfo.Engine.init(image:)) else { continue }
+            guard let inner = engine.defaultPort else { continue }
+            let env = service.env.mapValues { interpolated($0, vars) }
             let port = service.ports.compactMap { published(interpolated($0, vars), inner: inner) }.first
             var user: String?, password: String?, database: String?
             if engine == .postgres {

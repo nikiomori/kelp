@@ -156,7 +156,7 @@ enum MySQLWire {
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
         // localhost means the Unix socket to MySQL's own client: here it's the server's port, by address
         let address = host == "localhost" ? "127.0.0.1" : host
-        let port = db.port ?? 3306
+        let port = db.port ?? db.engine.defaultPort ?? 0
         let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
         let connecting = MySQLConnection.connect(
             to: socket, username: db.user ?? "root", database: db.database ?? "", password: c.password,

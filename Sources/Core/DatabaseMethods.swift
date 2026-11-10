@@ -26,6 +26,66 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
 
         /// A file on disk rather than a server.
         public var isFile: Bool { self == .sqlite || self == .duckdb }
+
+        /// The port its server takes unless told another: nil for a file, and for Appwrite's endpoint (a URL's).
+        public var defaultPort: Int? {
+            switch self {
+            case .postgres: 5432
+            case .mysql: 3306
+            case .sqlite, .duckdb, .appwrite: nil
+            }
+        }
+
+        /// Its name wherever Kelp says it: "Postgres · compose.yaml", a check's "SQLite".
+        public var displayName: String {
+            switch self {
+            case .sqlite: "SQLite"
+            case .postgres: "Postgres"
+            case .mysql: "MySQL"
+            case .duckdb: "DuckDB"
+            case .appwrite: "Appwrite"
+            }
+        }
+
+        /// What its SQL quotes a name in: "orders", `orders` in MySQL.
+        public var identifierQuote: Character { self == .mysql ? "`" : "\"" }
+
+        /// The engine a container image runs, by its name (not its registry's or owner's): postgres:16,
+        /// bitnami/postgresql, timescale/timescaledb-ha, mariadb, percona-server; nil for others.
+        public init?(image: String) {
+            let last = image.lowercased().split(separator: "/").last ?? ""
+            let name = last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? ""
+            if ["postgres", "postgis", "timescale", "pgvector"].contains(where: name.contains) {
+                self = .postgres
+            } else if ["mysql", "mariadb", "percona"].contains(where: name.contains) {
+                self = .mysql
+            } else {
+                return nil
+            }
+        }
+    }
+
+    /// A host that is this Mac (or its Docker's): a loopback address, or this Mac's own name. Not any `.local` name
+    /// (whoever answers for it on the network) nor a name without a dot (a compose service's, a search domain's host).
+    public static func isLocal(_ host: String) -> Bool {
+        let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
+            || host.hasPrefix("127.") || host.hasSuffix(".localhost")
+    }
+
+    /// gethostname, not ProcessInfo.hostName: no DNS lookup.
+    private static let thisMac: String = {
+        var name = [CChar](repeating: 0, count: 256)
+        guard gethostname(&name, name.count) == 0 else { return "localhost" }
+        return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self).lowercased()
+    }()
+
+    /// Where it is, as one key: the same file, or the same server (this Mac's under any of its names), port, database
+    /// and SSH host. Two entries with one place are one database: what the user said of one holds for the other.
+    public var place: String {
+        if engine.isFile { return [engine.rawValue, path ?? ""].joined(separator: "\u{1F}") }
+        let at = host.map { Self.isLocal($0) ? "localhost" : $0.lowercased() } ?? ""
+        return [engine.rawValue, at, port.map(String.init) ?? "", database ?? "", ssh ?? ""].joined(separator: "\u{1F}")
     }
     /// What agents may do with it: not see it, read it, change it once the user allows each change, change it freely.
     public enum Access: String, Codable, Sendable, CaseIterable {

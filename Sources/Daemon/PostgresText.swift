@@ -236,7 +236,7 @@ enum PostgresText {
 enum PgPass {
     /// ~/.pgpass is the user's: for a server they added, or one on this Mac; not for a host a project's files name (a
     /// cloned repo's .env), which its `*` lines would hand the password to.
-    static func mayUse(for db: DatabaseInfo, host: String) -> Bool { db.source == nil || DatabaseFind.isLocal(host) }
+    static func mayUse(for db: DatabaseInfo, host: String) -> Bool { db.source == nil || DatabaseInfo.isLocal(host) }
 
     static func password(host: String, port: Int, database: String?, user: String) -> String? {
         let path =
@@ -249,7 +249,7 @@ enum PgPass {
     }
 
     static func match(_ text: String, host: String, port: Int, database: String, user: String) -> String? {
-        let hosts = DatabaseFind.isLocal(host) ? [host, "localhost", "127.0.0.1"] : [host]
+        let hosts = DatabaseInfo.isLocal(host) ? [host, "localhost", "127.0.0.1"] : [host]
         for line in text.split(whereSeparator: \.isNewline) where !line.hasPrefix("#") {
             let entry = fields(String(line))
             guard entry.count == 5 else { continue }
