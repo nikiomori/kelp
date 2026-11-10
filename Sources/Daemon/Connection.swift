@@ -17,7 +17,8 @@ final class Connection: Sendable {
     /// A write that makes no progress this long (then `writeAll`'s own 5 s): nobody reads, the client is hung up on.
     static let stall = timeval(tv_sec: 25, tv_usec: 0)
 
-    /// The program that connected (`Unix.peerExecutable`), for what only Kelp's window may do.
+    /// The program that connected (`Unix.peerExecutable`), read once as it's accepted: an exec after that changes
+    /// nothing. For what only Kelp's window may do.
     let peer: String?
     /// Its process, to tell which session a report comes from (`Answered.reportsFor`).
     let peerPID: pid_t?

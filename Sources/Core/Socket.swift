@@ -102,13 +102,14 @@ public enum Unix {
         return uid == getuid() || uid == 0
     }
 
-    /// The program on the other end of an accepted connection (its pid as of connecting), resolved: who is asking.
+    /// The program on the other end of a connection (`peerPID`'s, as it is now), resolved: who is asking.
     public static func peerExecutable(_ fd: Int32) -> String? {
         guard let pid = peerPID(fd) else { return nil }
         return executable(pid)
     }
 
-    /// The pid of the process on the other end, as of connecting.
+    /// The pid of the process on the other end: the last one that sent on it (the one that connected, until another
+    /// sharing the socket writes), as of this call. A program it exec'd since reads as that program.
     public static func peerPID(_ fd: Int32) -> pid_t? {
         var pid: pid_t = 0, len = socklen_t(MemoryLayout<pid_t>.size)
         return getsockopt(fd, SOL_LOCAL, LOCAL_PEERPID, &pid, &len) == 0 && pid > 0 ? pid : nil

@@ -70,9 +70,12 @@ extension ScriptsList: Handled {
 
 extension ScriptsTrust: Handled {
     /// Only from Kelp's window: the program on the other end of the socket must be the KelpApp next to this daemon.
-    /// Agents and scripts reach this socket too (KELP_SOCKET) and could read the digest; they can't become that
-    /// program. What this guards against is a cloned repository's .kelp.yaml running unseen, not a hostile agent: a
-    /// process of this user can drive the app (synthetic key events) or write trusted-configs.json itself.
+    /// Agents and scripts reach this socket too (KELP_SOCKET) and could read the digest; a call of theirs is refused, as
+    /// the program is read once, when the daemon accepts the connection (`Connection.peer`).
+    /// Limit: a process of this user that stops kelpd (SIGSTOP), connects, then execs KelpApp with the socket handed to a
+    /// child reads as the window: what it is at accept is what counts, and the audit token is read then too. What this
+    /// guards against is a cloned repository's .kelp.yaml running unseen, not a hostile agent: a process of this user
+    /// can also drive the app (synthetic key events) or write trusted-configs.json itself.
     var onlyFromKelp: String? {
         "Only Kelp's window can trust a project's commands: open the project there and run one."
     }
