@@ -55,6 +55,28 @@ final class PaletteField: NSSearchField {
             rect.size.width -= leading
             return rect
         }
+        // The editor goes where the search field's text is, after the magnifier. A field without a bezel was handed its
+        // whole frame, so what's typed sat over the magnifier until a resize put it right.
+        private func textRect(in controlView: NSView) -> NSRect {
+            var rect = searchTextRect(forBounds: controlView.bounds)
+            rect.origin.x += leading
+            rect.size.width -= leading
+            return rect
+        }
+        override func select(
+            withFrame rect: NSRect, in controlView: NSView, editor: NSText, delegate: Any?, start: Int, length: Int
+        ) {
+            super.select(
+                withFrame: textRect(in: controlView), in: controlView, editor: editor,
+                delegate: delegate, start: start, length: length)
+        }
+        override func edit(
+            withFrame rect: NSRect, in controlView: NSView, editor: NSText, delegate: Any?, event: NSEvent?
+        ) {
+            super.edit(
+                withFrame: textRect(in: controlView), in: controlView, editor: editor,
+                delegate: delegate, event: event)
+        }
     }
 
     /// A word on a faint purple capsule: the one colour in the palette, for the palette you're in.
