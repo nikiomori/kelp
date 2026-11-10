@@ -21252,6 +21252,50 @@
           }
         }
       }
+    },
+    "Setting “%@”: Kelp has no type “%@”, so it shows as a text field.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройка «%@»: в Kelp нет типа «%@», поэтому она показана текстовым полем."
+          }
+        }
+      }
+    },
+    "Setting “%@”: Kelp has no look “%@”, so it shows as a menu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройка «%@»: в Kelp нет вида «%@», поэтому она показана меню."
+          }
+        }
+      }
+    },
+    "A pull or push is already running on this branch.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этой ветке уже идёт pull или push."
+          }
+        }
+      }
+    },
+    "Retired by Google in June 2026: Antigravity takes its place": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google закрыл его в июне 2026: на смену пришёл Antigravity"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
