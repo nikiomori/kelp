@@ -21296,6 +21296,83 @@
           }
         }
       }
+    },
+    "Allow editing?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить правку?"
+          }
+        }
+      }
+    },
+    "Allow writing?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить запись?"
+          }
+        }
+      }
+    },
+    "Allow reading?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить чтение?"
+          }
+        }
+      }
+    },
+    "Allow fetching?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить загрузку?"
+          }
+        }
+      }
+    },
+    "Allow a web search?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить поиск в сети?"
+          }
+        }
+      }
+    },
+    "Allow this command?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить эту команду?"
+          }
+        }
+      }
+    },
+    "Hide Strip": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрятать полоску"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
