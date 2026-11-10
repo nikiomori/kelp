@@ -247,8 +247,9 @@ enum GitCommit {
             return (false, false)
         }
         guard push else { return (true, false) }
-        let pushResult = await app.tryCall(GitPush(id: wid))
-        if let error = pushResult.error { GitFix(app).offer(error, recipe: "fixPush", worktree: wid) }
-        return (true, pushResult.error == nil)
+        // The app's one push: the branch chip says "Pushing…", and CI is looked for.
+        let refused = await GitSync.run(app, wid, ["push"])
+        if let refused { GitFix(app).offer(refused, recipe: "fixPush", worktree: wid) }
+        return (true, refused == nil)
     }
 }

@@ -20,11 +20,12 @@ extension GitLineStats: Handled {
         try Git.lineStats(scm.folder(id), remotes: scm.remotes)
     }
 }
+/// `git.remote`'s push under its older name (the CLI's `kelp git push`, scripts): the same rules, the same code.
 extension GitPush: Handled {
-    func handle(_ scm: SourceControl) throws -> Done {
-        try Git.remote(scm.folder(id), .push, remotes: scm.remotes)
-        return Done()
-    }
+    private var op: GitRemoteOp { GitRemoteOp(id: id, op: "push") }
+    var inWorkspace: String? { op.inWorkspace }
+    var notForAgents: String? { op.notForAgents }
+    func handle(_ scm: SourceControl) throws -> Done { try op.handle(scm) }
 }
 
 extension GitDiff: Handled {
