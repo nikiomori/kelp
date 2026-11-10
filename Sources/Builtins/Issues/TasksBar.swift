@@ -46,6 +46,7 @@ extension TasksViewController {
     func showEmpty(
         _ text: String?, symbol: String = "tray", error: String? = nil, title: String? = nil, retry: Bool = false
     ) {
+        loadingView.show(nil)
         split.isHidden = text != nil
         placeDivider()
         let buttons = [showAll, setupButton].filter { !$0.isHidden } + (retry ? [checkAgain] : [])
@@ -56,6 +57,15 @@ extension TasksViewController {
         } else {
             emptyView.show(text, symbol: symbol, buttons: buttons)
         }
+    }
+}
+
+extension TasksViewController {
+    /// The list is on its way and there are no rows to keep showing: the spinner every panel waits with, as CI Runs.
+    func showLoading() {
+        showEmpty(nil)
+        split.isHidden = true
+        loadingView.show(String(localized: "Loading…"))
     }
 }
 

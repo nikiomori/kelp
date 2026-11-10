@@ -22,6 +22,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     let status = StatusLine(labelWithString: "")
     /// No rows: the list gives way to this, in the middle, with the button that helps (show all, sign in).
     let emptyView = EmptyStateView()
+    let loadingView = LoadingView()
     let table = NSTableView()
     let detail = NSStackView()
     /// What the selected source lists.
@@ -76,8 +77,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         /// Empty with no filter; nil: "Nothing here", and no filter narrows it to say so.
         var none: String? {
             switch self {
-            case .pulls: String(localized: "No open pull requests")
-            case .issues: String(localized: "No open issues")
+            case .pulls: String(localized: "No Open Pull Requests")
+            case .issues: String(localized: "No Open Issues")
             case .linear, .jira, .projects: nil
             }
         }
@@ -125,6 +126,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         split.setHoldingPriority(.defaultLow + 1, forSubviewAt: 1)
         let root = stacked(bar, split)
         emptyView.place(in: root, under: bar)
+        loadingView.place(in: root, under: bar)
         showAll.isHidden = true
         setupButton.isHidden = true   // until a list is empty because of them
         view = root
@@ -225,7 +227,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let slow = whileSlow { [weak self] in
             guard let self else { return }
             if rows.isEmpty {
-                showEmpty(String(localized: "Loading…"), symbol: "ellipsis")
+                showLoading()
             } else {
                 status.stringValue = String(localized: "Loading…")
             }
