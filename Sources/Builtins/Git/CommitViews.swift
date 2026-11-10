@@ -49,7 +49,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         // A breaking change ("feat!:"): a red "!" before the words.
         let bang = parsedSubject.breaking ? NSTextField(labelWithString: "!") : nil
-        bang?.font = .ui(TextSize.row, weight: .bold)
+        bang?.font = .ui(TextSize.row, weight: .semibold)
         bang?.textColor = .textRed
         bang?.setAccessibilityLabel(String(localized: "Breaking change"))
         let mark = Self.mark(parsedSubject, merge: c.parents.count > 1).map { typeMark in

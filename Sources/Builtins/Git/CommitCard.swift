@@ -109,7 +109,7 @@ final class CommitCardView: NSView {
         if subject.breaking {   // a breaking change: a red "!" before the words, as in the row
             let breakingTitle = NSMutableAttributedString(
                 string: "! ",
-                attributes: [.font: NSFont.ui(TextSize.body, weight: .bold), .foregroundColor: NSColor.textRed])
+                attributes: [.font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.textRed])
             breakingTitle.append(
                 NSAttributedString(
                     string: subject.text,

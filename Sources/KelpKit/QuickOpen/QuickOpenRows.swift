@@ -78,7 +78,7 @@ extension QuickOpen {
         for word in query.split(separator: " ") where !word.isEmpty {
             let range = (title as NSString).range(of: String(word), options: .caseInsensitive)
             if range.location != NSNotFound {
-                text.addAttribute(.font, value: NSFont.ui(TextSize.body, weight: .bold), range: range)
+                text.addAttribute(.font, value: NSFont.ui(TextSize.body, weight: .semibold), range: range)
             }
         }
         return text

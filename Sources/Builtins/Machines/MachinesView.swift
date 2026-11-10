@@ -73,7 +73,7 @@ struct MachinesView: View {
                 case .macos: Image(systemName: "apple.logo").font(.ui(TextSize.row, weight: .semibold))
                 case .android: Image(systemName: "smartphone").font(.ui(TextSize.row, weight: .semibold))
                 case .ios: Image(systemName: "iphone").font(.ui(TextSize.row, weight: .semibold))
-                case .linux: Text(mark.letter).font(.ui(TextSize.caption, weight: .bold))
+                case .linux: Text(mark.letter).font(.ui(TextSize.caption, weight: .semibold))
                 }
             }
             .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)
