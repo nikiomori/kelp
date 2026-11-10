@@ -53,7 +53,12 @@ struct EnginePreset {
             hint: "A local Turso/libSQL database file: Kelp opens it as SQLite.", speaks: "SQLite")
     ]
 
-    /// The round mark: its colour with two letters, as TablePlus draws them.
+    /// The engine's own: the first of its presets that is no service.
+    static func of(_ engine: DatabaseInfo.Engine) -> EnginePreset {
+        all.first { $0.engine == engine && $0.speaks == nil } ?? all[0]
+    }
+
+    /// The round mark: its colour with two letters, as TablePlus draws them (too small to read under 16 pt: none).
     @MainActor func badge(_ size: CGFloat) -> NSImage {
         nonisolated(unsafe) let text = NSAttributedString(
             string: letters,
@@ -66,6 +71,7 @@ struct EnginePreset {
             NSBezierPath(ovalIn: rect).fill()
             NSColor.white.withAlphaComponent(0.12).setStroke()
             NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5)).stroke()
+            guard size >= 16 else { return true }
             let fit = text.size()
             text.draw(at: NSPoint(x: rect.midX - fit.width / 2, y: rect.midY - fit.height / 2))
             return true

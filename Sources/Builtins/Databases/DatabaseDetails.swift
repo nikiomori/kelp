@@ -259,8 +259,3 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         } catch { return value }
     }
 }
-
-/// Top-down, as a list reads.
-final class FlippedView: NSView {
-    override var isFlipped: Bool { true }
-}

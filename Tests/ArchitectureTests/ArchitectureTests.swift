@@ -129,8 +129,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `stacked`, `track`, the menu item helpers, `NSImage.symbol` with its glyphs, awaited sheets, `shortAgo` / `bytes`).
     // +1 so a discard and its Undo are one flow for the diff and Source Control (Git) and a file's change bars
     // (Files): `discardWithUndo`.
-    #expect(declared <= 300, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 300, "fewer now (\(declared)): lower the ceiling")
+    // +1 so Open over SSH and Add Database's SSH field offer the same hosts, read once: `RemoteHost.configHosts`.
+    #expect(declared <= 301, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 301, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -535,7 +536,7 @@ func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 61, "KelpKit": 51, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
+        "Daemon": 61, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
         "Builtins": 9,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 1, "DesignKit": 0
@@ -739,7 +740,6 @@ func codeOnly(_ s: String) -> String {
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
         "Builtins/Files/Preview.swift": (2, "an image's bytes, shown"),
-        "Builtins/Databases/DatabaseForm.swift": (1, "the Host names of ~/.ssh/config, offered for SSH"),
         "Builtins/Databases/DatabaseTab+Table.swift": (1, "rows exported to a file the user picked in a save panel")
     ]
     let all = try matches(

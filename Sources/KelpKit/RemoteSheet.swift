@@ -8,6 +8,19 @@ extension RemoteHost {
     package static func of(_ dir: String) -> RemoteHost? {
         dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil
     }
+
+    /// The `Host` names in ~/.ssh/config (patterns left out): what a host field offers.
+    package nonisolated static func configHosts() -> [String] {
+        let text: String
+        do { text = try String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8) } catch {
+            return []
+        }
+        return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
+            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard words.first?.lowercased() == "host" else { return [] }
+            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
+        }
+    }
 }
 
 /// Open a project over SSH in two steps: connect to the host (ssh's own reason if Kelp can't), then pick the folder
@@ -52,7 +65,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH"))
         title.font = .ui(13, weight: .semibold)
         Task { [host] in   // ~/.ssh/config read off the main thread
-            host.addItems(withObjectValues: await Task.detached { Self.sshHosts() }.value)
+            host.addItems(withObjectValues: await Task.detached { RemoteHost.configHosts() }.value)
         }
         host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
         host.completes = true
@@ -211,16 +224,6 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private func busy(_ on: Bool) {
         for c in [host, path, table, go] as [NSControl] { c.isEnabled = !on }
         if on { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
-    }
-
-    /// The `Host` names in ~/.ssh/config (patterns left out).
-    nonisolated static func sshHosts() -> [String] {
-        let text = (try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? ""
-        return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
-            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
-            guard words.first?.lowercased() == "host" else { return [] }
-            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
-        }
     }
 
     // MARK: list

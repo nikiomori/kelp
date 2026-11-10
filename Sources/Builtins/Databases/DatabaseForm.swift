@@ -172,7 +172,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         sshOn.target = self
         sshOn.action = #selector(foldsChanged)
         Task { [ssh] in   // ~/.ssh/config read off the main thread
-            ssh.addItems(withObjectValues: await Task.detached { DatabaseForm.sshHosts() }.value)
+            ssh.addItems(withObjectValues: await Task.detached { RemoteHost.configHosts() }.value)
         }
         ssh.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
         ssh.stringValue = db.ssh ?? ""
@@ -356,17 +356,4 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
 
     @objc private func backed() { sheet.showStart() }
     @objc private func cancelled() { sheet.window.sheetParent?.endSheet(sheet.window, returnCode: .cancel) }
-
-    /// The `Host` names in ~/.ssh/config (patterns left out).
-    nonisolated static func sshHosts() -> [String] {
-        let text: String
-        do { text = try String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8) } catch {
-            return []
-        }
-        return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
-            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
-            guard words.first?.lowercased() == "host" else { return [] }
-            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
-        }
-    }
 }
