@@ -7,32 +7,33 @@ import KelpKit
 extension SourceControlController {
     // MARK: actions
 
-    /// `make`: the method, given the workspace's id.
+    /// `make`: the method, given the workspace's id. Pull, push and fetch go through `remote` instead.
     func run<M: RPCMethod>(done: String? = nil, _ make: (String) -> M) {
         guard let wid = worktreeId else { return }
-        let method = make(wid), op = (method as? GitRemoteOp)?.op
-        if op != nil, busy {   // the menu's Pull and Push too: a second one would race the first
+        let method = make(wid)
+        begin(wid)
+        Task {
+            let result = await app.tryCall(method)
+            end(wid)
+            if let error = result.error { Banner.show(error, style: .error) } else if let done { Banner.show(done) }
+            reloadAll()
+        }
+    }
+
+    /// Pull, push or fetch (`ops` one after another), through `GitSync` like the window bar's: the branch chip shows it,
+    /// and one runs at a time. `done`: what the button says after; nil, nothing unless it failed.
+    func remote(_ ops: [String], done: String?, title: String? = nil) {
+        guard let wid = worktreeId, !busy else {   // the menu's Pull and Push too: a second one would race the first
             NSSound.beep()
             return
         }
-        begin(
-            wid,
-            syncing: op.map { op in
-                (
-                    op == "push"
-                        ? String(localized: "Pushing…")
-                        : op == "pull" ? String(localized: "Pulling…") : String(localized: "Fetching…"),
-                    op == "push", op == "pull"
-                )
-            })
         Task {
-            let result = await app.tryCall(method)
-            end(wid, syncing: op != nil)
-            if let error = result.error {
+            let error = await GitSync.run(app, wid, ops, title: title)
+            if let error {
                 // A rejected push or a pull that stopped on conflicts is work for the agent; other failures just say why.
-                if op == "push" {
+                if ops == ["push"] {
                     GitFix(app).offer(error, recipe: "fixPush", worktree: wid)
-                } else if op == "pull", error.lowercased().contains("conflict") {
+                } else if ops.contains("pull"), error.lowercased().contains("conflict") {
                     GitFix(app).offer(
                         error, recipe: "resolveConflicts", worktree: wid,
                         vars: [
@@ -43,11 +44,7 @@ extension SourceControlController {
                     Banner.show(error, style: .error)
                 }
             }
-            if op != nil {
-                finish(done ?? String(localized: "Fetched"), ok: result.error == nil, quiet: done == nil, in: wid)
-            } else if result.error == nil, let done {
-                Banner.show(done)
-            }
+            finish(done ?? String(localized: "Fetched"), ok: error == nil, quiet: done == nil, in: wid)
             reloadAll()
         }
     }
@@ -131,27 +128,16 @@ extension SourceControlController {
         return actions
     }
 
-    /// An action of `wid` started: one that talks to the remote says so (`syncing`), one that stages only holds the buttons.
-    func begin(_ wid: String, syncing: GitWork.Sync? = nil) {
-        var state = work[wid] ?? GitWork()
-        state.running += 1
-        state.syncing = syncing ?? state.syncing
-        work[wid] = state
+    /// An action of `wid` that stays here (stage, commit) started: it holds the buttons until it ends. What talks to the
+    /// remote is `GitSync`'s, and shows from `SyncState`.
+    func begin(_ wid: String) {
+        work[wid, default: 0] += 1
         if wid == worktreeId { showWork() }
     }
 
-    /// A step of `wid`'s sync.
-    func nowSyncing(_ wid: String, _ syncing: GitWork.Sync) {
-        work[wid]?.syncing = syncing
-        if wid == worktreeId { showWork() }
-    }
-
-    /// One action ended, and with it what `syncing` said if it was the one saying it: a stage ending doesn't end a push.
-    func end(_ wid: String, syncing ended: Bool) {
-        guard var state = work[wid] else { return }
-        state.running -= 1
-        if ended { state.syncing = nil }
-        work[wid] = state.running > 0 ? state : nil
+    func end(_ wid: String) {
+        guard let running = work[wid] else { return }
+        work[wid] = running > 1 ? running - 1 : nil
         if wid == worktreeId { showWork() }
     }
 
@@ -180,11 +166,11 @@ extension SourceControlController {
             app.workbench.open(CommitMessageTab.uri(wid, push: push, amend: amend, message: last))
             return
         }
-        begin(wid, syncing: push ? (String(localized: "Pushing…"), true, false) : nil)
+        begin(wid)
         Task {
             let result = await GitCommit.run(app, wid, message: text, push: push, amend: amend)
             if result.committed { sent(wid) }
-            end(wid, syncing: push)
+            end(wid)
             finish(
                 push ? String(localized: "Pushed") : String(localized: "Committed"),
                 ok: push ? result.pushed : result.committed,
@@ -196,33 +182,28 @@ extension SourceControlController {
     @objc func sync() {
         guard let info, !busy else { return }
         if info.upstream == nil {
-            run(done: String(localized: "Published \(info.current ?? "HEAD")")) { GitRemoteOp(id: $0, op: "push") }
+            remote(["push"], done: String(localized: "Published \(info.current ?? "HEAD")"))
             return
         }
         guard let wid = worktreeId else { return }
-        let ahead = (info.ahead ?? 0) > 0, title = String(localized: "Syncing…")
-        begin(wid, syncing: (title, false, true))
+        let ops = (info.ahead ?? 0) > 0 ? ["pull", "push"] : ["pull"]
         Task {
-            var ok = await app.call(GitRemoteOp(id: wid, op: "pull")) != nil
-            if ok, ahead {
-                nowSyncing(wid, (title, true, false))
-                ok = await app.call(GitRemoteOp(id: wid, op: "push")) != nil
-            }
-            end(wid, syncing: true)
-            finish(String(localized: "Synced"), ok: ok, quiet: true, in: wid)
+            let error = await GitSync.run(app, wid, ops, title: String(localized: "Syncing…"))
+            if let error { Banner.show(error, style: .error) }
+            finish(String(localized: "Synced"), ok: error == nil, quiet: true, in: wid)
             reloadAll()
         }
     }
 
-    func pullPressed() { run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") } }
-    func fetchPressed() { run { GitRemoteOp(id: $0, op: "fetch") } }
+    func pullPressed() { remote(["pull"], done: String(localized: "Pulled")) }
+    func fetchPressed() { remote(["fetch"], done: nil) }
     /// Push, or publish a branch with no upstream.
     func pushPressed() {
         if info?.upstream == nil {
             sync()
             return
         }
-        run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") }
+        remote(["push"], done: String(localized: "Pushed"))
     }
 
     @objc func branchMenu() {
@@ -262,12 +243,12 @@ extension SourceControlController {
         guard let wid = worktreeId else { return }
         let menu = NSMenu()
         menu.add(String(localized: "Pull")) { [weak self] in
-            self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") }
+            self?.pullPressed()
         }
         menu.add(String(localized: "Push")) { [weak self] in
-            self?.run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") }
+            self?.remote(["push"], done: String(localized: "Pushed"))
         }
-        menu.add(String(localized: "Fetch")) { [weak self] in self?.run { GitRemoteOp(id: $0, op: "fetch") } }
+        menu.add(String(localized: "Fetch")) { [weak self] in self?.fetchPressed() }
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reloadAll() }
         menu.addItem(.separator())
         menu.add(String(localized: "Stash Changes")) { [weak self] in

@@ -111,7 +111,7 @@ extension Builtins {
             ],
             // The window bar's branch chip: what runs, its popover.
             branch: BranchActions(
-                running: { GitSync.state(app).running[$0] },
+                running: { GitSync.state(app).running[$0]?.title },
                 popover: { worktree, popover in
                     let controller = SyncPopover(app: app, worktree: worktree)
                     controller.popover = popover
@@ -145,7 +145,13 @@ private func remote(
         viaPanel(controller)
         return
     }
-    Task { if await app.call(GitRemoteOp(id: workspace, op: op)) != nil { Banner.show(done) } }
+    Task {
+        if let error = await GitSync.run(app, workspace, [op]) {
+            Banner.show(error, style: .error)
+        } else {
+            Banner.show(done)
+        }
+    }
 }
 
 /// Where a branch's CI shows, read only here (the branch chip's is in Core, for its labels in Settings).

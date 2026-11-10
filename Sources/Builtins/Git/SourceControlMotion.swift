@@ -4,13 +4,6 @@ import DesignKit
 import KelpKit
 
 /// What runs for one workspace.
-struct GitWork {
-    /// While a push, pull or sync runs: what the button says, and whether the ↑ and ↓ arrows pulse.
-    typealias Sync = (title: String, push: Bool, pull: Bool)
-    var running = 0
-    var syncing: Sync?
-}
-
 /// How git's work shows while it happens and when it's done: light on the panel's button, a shade running through the
 /// arrows, a word on the button, and commits and files travelling to where they now belong.
 extension SourceControlController {

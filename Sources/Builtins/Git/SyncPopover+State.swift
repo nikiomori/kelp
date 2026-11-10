@@ -8,7 +8,7 @@ extension SyncPopover {
     // MARK: state
 
     func update() {
-        let info = app.latest(GitEvent.self, wid)?.branches, running = GitSync.state(app).running[wid]
+        let info = app.latest(GitEvent.self, wid)?.branches, running = GitSync.state(app).running[wid]?.title
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
         name.attributedTitle = NSAttributedString(

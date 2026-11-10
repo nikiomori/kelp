@@ -69,12 +69,17 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var clearing = false
     /// Files were staged, unstaged or discarded: the rows travel to their places when the status shows it (the shape then).
     var staging: Set<String>?
-    /// What runs, by workspace: an action outlives a switch to another one, and ends on its own.
-    var work: [String: GitWork] = [:]
+    /// How many actions that stay here (stage, commit) run, by workspace: one outlives a switch to another one, and ends
+    /// on its own. A pull, push or fetch is `SyncState`'s.
+    var work: [String: Int] = [:]
     /// Commit messages being written in the workspaces not on screen.
     var drafts: [String: String] = [:]
-    var syncing: GitWork.Sync? { worktreeId.flatMap { work[$0]?.syncing } }
-    var busy: Bool { worktreeId.flatMap { work[$0] } != nil }
+    /// The pull, push or fetch running on the branch, whoever started it: what the button says, and whether the ↑ and ↓
+    /// arrows pulse.
+    var syncing: (title: String, push: Bool, pull: Bool)? {
+        worktreeId.flatMap { GitSync.state(app).running[$0] }.map { ($0.title, $0.op == "push", $0.op == "pull") }
+    }
+    var busy: Bool { worktreeId.flatMap { work[$0] } != nil || syncing != nil }
     var more = false, limit = 200, loadingMore = false
     var commitFiles: [String: [FileChange]] = [:]
     var openCommits = Set<String>()
@@ -197,6 +202,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         } changed: { [weak self] in
             self?.applyCI($0)
         }
+        track(owner: self, now: false) { [weak self, app] in
+            self?.worktreeId.flatMap { GitSync.state(app).running[$0] }
+        } changed: { [weak self] _ in
+            self?.showWork()
+        }
         track(owner: self) {
             app.fileIcons.revision
         } changed: { [weak self] _ in
@@ -250,11 +260,9 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         commitMenu.add(String(localized: "Commit & Push")) { [weak self] in self?.commit(push: true, amend: false) }
         commitMenu.add(String(localized: "Commit (Amend)")) { [weak self] in self?.commit(push: false, amend: true) }
         syncMenu.add(String(localized: "Push")) { [weak self] in
-            self?.run(done: String(localized: "Pushed")) { GitRemoteOp(id: $0, op: "push") }
+            self?.remote(["push"], done: String(localized: "Pushed"))
         }
-        pullItem = syncMenu.add(String(localized: "Pull")) { [weak self] in
-            self?.run(done: String(localized: "Pulled")) { GitRemoteOp(id: $0, op: "pull") }
-        }
+        pullItem = syncMenu.add(String(localized: "Pull")) { [weak self] in self?.pullPressed() }
         // The panel's main action: the accent colour while there's something to commit (macOS 26's primary tint).
         // Words alone, as macOS's push buttons: a ✓ or an arrow before them only crowded the title.
         let cb = SplitPushButton(

@@ -63,28 +63,34 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app), here = rig.workspace.id
         rig.show(vc, 320, 700)
         vc.message.string = "half a message"
-        vc.begin(here, syncing: ("Pushing…", true, false))
+        GitSync.state(rig.app).running[here] = .init(title: "Pushing…", op: "push")
+        vc.begin(here)
         vc.bind("another")
         #expect(vc.message.string.isEmpty && !vc.busy && vc.syncing == nil)
-        vc.end(here, syncing: true)
-        #expect(!vc.busy)
+        vc.end(here)
+        GitSync.state(rig.app).running[here] = nil
         vc.bind(here)
         #expect(vc.message.string == "half a message" && !vc.busy)
     }
 
-    /// Staging while a push runs: the push still shows, and a second one isn't started.
-    @Test func sourceControlActionsDontEndEachOther() async throws {
+    /// A push started anywhere (the window bar's popover, a command) is the panel's too: it shows, and no second one
+    /// starts beside it, from the panel or from anywhere else. Staging meanwhile doesn't end it.
+    @Test func oneSyncRunsPerBranchWhoeverStartedIt() async throws {
         let rig = try await AppRig(files: ["kept.txt": "a\n"])
         defer { rig.done() }
         let vc = SourceControlController(app: rig.app), here = rig.workspace.id
         rig.show(vc, 320, 700)
-        vc.begin(here, syncing: ("Pushing…", true, false))
+        let sync = GitSync.state(rig.app)
+        sync.running[here] = .init(title: "Pushing…", op: "push")   // as the popover's push leaves it while it runs
+        #expect(vc.busy && vc.syncing?.title == "Pushing…" && vc.syncing?.push == true)
         vc.begin(here)
-        vc.end(here, syncing: false)
+        vc.end(here)
         #expect(vc.busy && vc.syncing?.title == "Pushing…")
-        vc.run { GitRemoteOp(id: $0, op: "push") }
-        #expect(vc.work[here]?.running == 1)
-        vc.end(here, syncing: true)
+        vc.pushPressed()   // refused here: nothing else runs
+        #expect(vc.work[here] == nil && sync.running[here]?.op == "push")
+        #expect(await GitSync.run(rig.app, here, ["pull"]) != nil)   // and through GitSync itself
+        #expect(sync.running[here]?.op == "push")
+        sync.running[here] = nil
         #expect(!vc.busy && vc.syncing == nil)
     }
 
