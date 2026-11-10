@@ -71,8 +71,15 @@ def builtin_modules():
 
 
 def tested_builtins():
-    tests = "\n".join(p.read_text(errors="replace") for p in swift_files("Tests"))
-    return {m: bool(re.search(rf"\bBuiltin{m}\b", tests)) for m in builtin_modules()}
+    """A built-in has tests when a test names a type it declares (its `…Builtin` aside): an import alone tests nothing."""
+    tests = "\n".join(l for p in swift_files("Tests") for l in lines(p) if not re.match(r"\s*(@testable )?import ", l))
+    declared = re.compile(r"^\s*(?:@\w+\s+)*(?:(?:private|fileprivate|package|public|final)\s+)*"
+                          r"(?:class|struct|enum|actor|protocol)\s+([A-Z]\w*)", re.M)
+
+    def types(m):
+        found = {t for p in swift_files(f"Sources/Builtins/{m}") for t in declared.findall(p.read_text(errors="replace"))}
+        return {t for t in found if not t.endswith("Builtin")}
+    return {m: any(re.search(rf"\b{t}\b", tests) for t in types(m)) for m in builtin_modules()}
 
 
 def fix_share(days=14):
@@ -93,7 +100,9 @@ def main():
     daemon = "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))
     handlers = re.findall(r"func handle\(_ \w+: (\w+)(?:, conn: Int)?\)", daemon)
     workspaces_handlers, sessions_handlers = handlers.count("Workspaces"), handlers.count("Sessions")
-    settings_literals = grep_count(r"""settings(?:\[|\.(?:string|bool|int|double|value)\()\s*"[a-z]+\.[\w.]+""", sources)
+    # A key typed as text: read from the settings, or named as what another setting `requires:`.
+    settings_literals = grep_count(
+        r"""settings(?:\[|\.(?:string|bool|int|double|value)\()\s*"[a-z]+\.[\w.]+|requires: *"[a-z]+\.[\w.]+""", sources)
     # As ArchitectureTests' `linesStayShort` counts them: a line that is one long string (UI text, a script) aside.
     long_string = re.compile(r'"[^"]{100,}"|#".{100,}"#|\'[^\']{100,}\'')
     long120 = sum(1 for p in sources for l in code_lines(p) if len(l) > 120 and not long_string.search(l))

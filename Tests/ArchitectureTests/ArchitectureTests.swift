@@ -224,8 +224,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 469, "lines over 120: \(over120)")
-    #expect(over120 >= 469, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 468, "lines over 120: \(over120)")
+    #expect(over120 >= 468, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -364,50 +364,75 @@ func codeOnly(_ s: String) -> String {
 }
 
 /// The app doesn't ask the daemon again and again: views watch (`watch.start`) and the daemon pushes what changed.
-/// A clock left in the app is the app's own, each listed with why; a new one that polls the daemon belongs in a watch.
+/// A clock left in the app is the app's own, each listed with why and how many; a new one that polls the daemon belongs
+/// in a watch. Counted per file: a second clock in a listed file is a new one, not the one it was listed for.
+/// Limit: a one-shot `asyncAfter` isn't counted (the app has dozens, for motion); one that schedules itself again polls.
 @Test func theAppDoesntPollTheDaemon() throws {
-    let clocks: [String: String] = [
-        "KelpKit/AppDelegate.swift":
-            "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch",
-        "KelpKit/Sidebar/SidebarController.swift": "relative times on the rows (\"now\" becomes \"1m\")",
-        "KelpKit/AppModel.swift":
-            "connecting: waiting for the socket, retries and backoff; a look every 30 s for a daemon that hung, which can't push that",
-        "KelpKit/Notifier.swift":
-            "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later",
-        "Builtins/Agents/LimitStrip.swift": "\"in 38 min\" counts down to a limit's reset, which nothing announces",
-        "Builtins/Agents/LimitWatch.swift":
-            "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset",
-        "KelpKit/Parking.swift": "a park for an hour ends when its hour is up, which nothing announces",
-        "Builtins/Agents/StripCard.swift":
-            "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else",
-        "KelpKit/Shell/WorkspaceSwitcher.swift":
-            "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it",
-        "Builtins/Git/RowMarks.swift": "a passed CI's ✓ leaves the branch chip after a minute on screen",
-        "Builtins/Agents/PaneView.swift": "a terminal out of sight lets go of its agent once it could pause idle",
-        "Builtins/Agents/CommandsBar.swift": "a running command's time goes on (\"12s\" becomes \"13s\")",
-        "Builtins/Issues/CIRunRow.swift": "a running job's time goes on, counted from when it began",
-        "Builtins/Files/FileTab+Saving.swift": "typing settles before the language server hears it",
-        "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
-        "Builtins/Databases/DatabaseForm.swift": "typing settles before Add Database connects to check it",
-        "Builtins/Databases/DatabaseTab+Table.swift":
-            "a read says Reading… only past half a second: a quick one doesn't flicker",
-        "Builtins/Databases/DatabaseTab+Opening.swift":
-            "Connecting to … shows past half a second: a quick open doesn't flicker",
-        "Builtins/Git/CommitCard.swift":
-            "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
-        "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",
-        "KelpKit/Extensions/DeclarativeExtension.swift":
-            "an extension's own refresh interval for its panel's badge command",
-        "KelpKit/UIState.swift":
-            "the daemon's state read again, three times at most, after a read that failed, while that daemon is still there",
-        "Builtins/Browser/BrowserAutomation.swift":
-            "kelp browser waits for a page to load, or to show what it was told to wait for: WebKit says neither"
+    let clocks: [String: (Int, String)] = [
+        "KelpKit/AppDelegate.swift": (
+            2, "a finished agent counts as read after a second on screen; a 30 ms wait for the window at launch"
+        ),
+        "KelpKit/Sidebar/SidebarController.swift": (1, "relative times on the rows (\"now\" becomes \"1m\")"),
+        "KelpKit/AppModel.swift": (
+            7,
+            "connecting: waiting for the socket, retries and backoff; a look every 30 s for a daemon that hung, which can't push that"
+        ),
+        "KelpKit/Notifier.swift": (
+            3,
+            "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later"
+        ),
+        "KelpKit/DevAids.swift": (1, "a snapshot waits for the window to draw (debug builds only)"),
+        "Builtins/Agents/LimitStrip.swift": (
+            1, "\"in 38 min\" counts down to a limit's reset, which nothing announces"
+        ),
+        "Builtins/Agents/LimitWatch.swift": (
+            1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
+        ),
+        "KelpKit/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
+        "Builtins/Agents/StripCard.swift": (
+            1,
+            "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"
+        ),
+        "KelpKit/Shell/WorkspaceSwitcher.swift": (
+            1, "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it"
+        ),
+        "Builtins/Git/RowMarks.swift": (1, "a passed CI's ✓ leaves the branch chip after a minute on screen"),
+        "Builtins/Agents/PaneView.swift": (1, "a terminal out of sight lets go of its agent once it could pause idle"),
+        "Builtins/Agents/CommandsBar.swift": (1, "a running command's time goes on (\"12s\" becomes \"13s\")"),
+        "Builtins/Issues/CIRunRow.swift": (1, "a running job's time goes on, counted from when it began"),
+        "Builtins/Files/FileTab+Saving.swift": (1, "typing settles before the language server hears it"),
+        "Builtins/Files/MarkdownTab.swift": (1, "typing settles before the preview renders again"),
+        "Builtins/Databases/DatabaseForm.swift": (1, "typing settles before Add Database connects to check it"),
+        "Builtins/Databases/DatabaseTab+Table.swift": (
+            1, "a read says Reading… only past half a second: a quick one doesn't flicker"
+        ),
+        "Builtins/Databases/DatabaseTab+Opening.swift": (
+            1, "Connecting to … shows past half a second: a quick open doesn't flicker"
+        ),
+        "Builtins/Git/CommitCard.swift": (
+            2, "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves"
+        ),
+        "KelpKit/Extensions/ExtListView.swift": (1, "an extension's own refresh interval for its command's list"),
+        "KelpKit/Extensions/DeclarativeExtension.swift": (
+            1, "an extension's own refresh interval for its panel's badge command"
+        ),
+        "KelpKit/UIState.swift": (
+            1,
+            "the daemon's state read again, three times at most, after a read that failed, while that daemon is still there"
+        ),
+        "Builtins/Browser/BrowserAutomation.swift": (
+            3, "kelp browser waits for a page to load, or to show what it was told to wait for: WebKit says neither"
+        )
     ]
-    let all = try matches(#"repeats: true|Task\.sleep\("#, in: appDirs)
-    let found = all.filter { m in !clocks.keys.contains { m.hasPrefix("Sources/" + $0 + ":") } }
-    #expect(found == [], "a clock asking the daemon: watch a topic instead (WatchTopic)")
-    let gone = clocks.keys.filter { k in !all.contains { $0.hasPrefix("Sources/" + k + ":") } }
-    #expect(gone == [], "listed, but its clock is gone: take it off the list")
+    let all = try matches(
+        #"repeats: true|Task\.sleep\(|makeTimerSource|publish\(every:|[Cc]lock\(\)?\.sleep\(|Thread\.sleep|usleep\("#,
+        in: appDirs)
+    var found: [String: Int] = [:]
+    for m in all { found[String(m.dropFirst("Sources/".count).split(separator: ":")[0]), default: 0] += 1 }
+    let new = found.filter { f, n in n > clocks[f]?.0 ?? 0 }
+    #expect(new == [:], "a clock asking the daemon: watch a topic instead (WatchTopic)")
+    let gone = clocks.filter { found[$0.key, default: 0] < $0.value.0 }.keys.sorted()
+    #expect(gone == [], "a count above its file's clocks now: lower it (to 0: take it off the list) \(found)")
 }
 
 /// The daemon is its connections and the services it puts together; what each service keeps is its own, under its own
@@ -494,6 +519,10 @@ func codeOnly(_ s: String) -> String {
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 1)
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 1)
+    // Drawn by hand too: a system font at a size of its own (a tile's letters, scaled to the tile), a rounded path's
+    // radius typed in (icon tiles). The debt as it is: each ceiling is today's count.
+    #expect(try matches(#"systemFont\(ofSize"#, in: chrome).count <= 4)
+    #expect(try matches(#"xRadius: *[0-9]"#, in: chrome).count <= 5)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
@@ -508,7 +537,7 @@ func codeOnly(_ s: String) -> String {
     let ceilings = [
         "Daemon": 61, "KelpKit": 51, "Core": 27, "GitKit": 15, "AgentData": 5, "Agents": 13, "kelp": 10,
         "Builtins": 9,
-        "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 12, "KelpGuest": 4, "EditorKit": 3,
+        "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 1, "DesignKit": 0
     ]
     // Every module is in it: a new one gets its count here, not none.
