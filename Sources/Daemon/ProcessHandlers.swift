@@ -77,13 +77,16 @@ extension SessionSetup {
 
     /// Whether the user allowed the extension in folder `name` to run commands as its files are now (`IDE.extensionTrustKey`,
     /// which only Kelp's window writes). Without a record, none is: the window records what was installed before it asked
-    /// (`ExtensionTrust.adopt`) and asks about the rest.
-    func trustsExtension(_ name: String) -> Bool {
+    /// (`ExtensionTrust.adopt`) and asks about the rest. `read`: the folder's files as just read, whose manifest the caller
+    /// runs from (`IDE.extensionFiles`), so what was checked is what runs.
+    func trustsExtension(_ name: String, read: [String: Data]? = nil) -> Bool {
         guard
             let state = Log.store.attempt(
                 "reading the allowed extensions", { try store.uiState(prefix: IDE.extensionTrustKey) })
         else { return false }
-        return state[IDE.extensionTrustKey]?[name]?.string
-            == IDE.extensionDigest(root.appendingPathComponent("extensions").appendingPathComponent(name))
+        let now =
+            read.map { IDE.extensionDigest($0) }
+            ?? IDE.extensionDigest(root.appendingPathComponent("extensions").appendingPathComponent(name))
+        return state[IDE.extensionTrustKey]?[name]?.string == now
     }
 }

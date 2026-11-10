@@ -46,8 +46,17 @@ enum ExtensionReview {
 @MainActor
 enum ExtensionTrust {
     static func manifest(_ folder: URL) -> JSONValue {
-        (try? JSONDecoder().decode(
-            JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))) ?? .null
+        manifest(["/extension.json": FileManager.default.contents(atPath: folder.path + "/extension.json") ?? Data()])
+    }
+    /// The manifest of one read of a folder (`IDE.extensionFiles`).
+    static func manifest(_ files: [String: Data]) -> JSONValue {
+        (try? JSONDecoder().decode(JSONValue.self, from: files["/extension.json"] ?? Data())) ?? .null
+    }
+
+    /// The folder installed as `name`, allowed as `shown` (the read its look listed): a file swapped between the look and
+    /// the install makes it ask again, not run.
+    static func allow(_ name: String, shown: [String: Data], _ app: AppModel) async -> Bool {
+        await record([name: IDE.extensionDigest(shown)], app)
     }
 
     /// Whether `folder`'s extension waits to be allowed: it runs something, and what was allowed isn't what's there, or

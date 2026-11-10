@@ -102,17 +102,26 @@ final class ExtensionEvents: Sendable {
         let found = FileManager.default.enumerator(
             at: dir, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants])
         let folders = found?.allObjects as? [URL] ?? []
+        func manifest(_ data: Data?, _ folder: URL) -> Manifest? {
+            guard let data else { return nil }
+            return Log.session.attempt("reading \(folder.path)/extension.json") {
+                try JSONDecoder().decode(Manifest.self, from: data)
+            }
+        }
         return folders.sorted { $0.path < $1.path }.flatMap { folder -> [(id: String, run: String)] in
+            // A first look, for whether it handles the event at all; then what runs comes from the same read as the
+            // digest checked against what the user allowed, so a manifest swapped in between runs nothing unseen.
+            // Limit: a script of the folder that the command runs is read again as it runs.
             let file = folder.appendingPathComponent("extension.json")
-            guard FileManager.default.fileExists(atPath: file.path),
-                let manifest = Log.session.attempt(
-                    "reading \(file.path)",
-                    {
-                        try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: file))
-                    }), !off.contains(manifest.id)
+            guard let first = manifest(FileManager.default.contents(atPath: file.path), folder),
+                first.contributes?.events?.contains(where: { $0.on == event }) == true
             else { return [] }
+            let read = IDE.extensionFiles(folder)
+            guard let manifest = manifest(read["/extension.json"], folder), !off.contains(manifest.id) else {
+                return []
+            }
             let mine = (manifest.contributes?.events ?? []).filter { $0.on == event }
-            guard mine.isEmpty || setup.trustsExtension(folder.lastPathComponent) else {
+            guard mine.isEmpty || setup.trustsExtension(folder.lastPathComponent, read: read) else {
                 Log.session.info(
                     "\(manifest.id, privacy: .public)'s \(event, privacy: .public) waits to be allowed in Settings › Extensions"
                 )

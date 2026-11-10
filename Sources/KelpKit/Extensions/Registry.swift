@@ -97,7 +97,8 @@ package final class ExtensionRegistry {
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))
             ?? [] where Self.isFolder(folder)
         {
-            let loaded = DeclarativeExtension.load(folder, tools: Self.tools, app: app)
+            var loaded = DeclarativeExtension.load(folder, tools: Self.tools, app: app)
+            loaded.contributions.commands.removeAll(where: Self.isAgentsOwn)
             take(loaded.info, loaded.contributions)
         }
         merged.tabs.append(DeclarativeExtension.tabProvider(app))
@@ -194,11 +195,12 @@ package final class ExtensionRegistry {
             let name = (try? JSONDecoder().decode(VSCodePackage.self, from: Data(contentsOf: package)))?.manifest.id
             return (folder, name ?? src.deletingPathExtension().lastPathComponent)
         }.value
-        if fm.fileExists(atPath: folder.appendingPathComponent("extension.json").path) {
-            guard await ExtensionReview.approve(folder) else { return }
+        let shown = IDE.extensionFiles(folder)
+        if shown["/extension.json"] != nil {
+            guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else { return }
         }
         let installed = try await Task.detached { try IDE.installExtension(folder, as: name, in: dir) }.value
-        _ = await ExtensionTrust.allow([installed], app)   // what the user just looked at
+        _ = await ExtensionTrust.allow(installed.lastPathComponent, shown: shown, app)   // what the user just looked at
         reload()
     }
 
@@ -207,8 +209,8 @@ package final class ExtensionRegistry {
     /// `files`: the library's SHA-256 of each, which the download must match.
     func install(source: String, files: [String: String]? = nil) async -> Bool {
         guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
-        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir
-        guard await ExtensionReview.approve(folder) else {
+        let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir, shown = IDE.extensionFiles(folder)
+        guard await ExtensionReview.approve(folder, manifest: ExtensionTrust.manifest(shown)) else {
             try? FileManager.default.removeItem(at: folder)
             return false
         }
@@ -223,7 +225,7 @@ package final class ExtensionRegistry {
                 style: .error)
             return false
         }
-        _ = await ExtensionTrust.allow([installed], app)
+        _ = await ExtensionTrust.allow(installed.lastPathComponent, shown: shown, app)
         reload()
         return true
     }
@@ -248,6 +250,10 @@ package final class ExtensionRegistry {
         if scheme == "ext", DeclarativeExtension.viewInfo(uri) == nil { return nil }   // its extension is off or gone
         return all.tabs.first { $0.schemes.contains(scheme) }
     }
+
+    /// Built-ins come first, so their ids win (`command`). An id agents may run (`UICommand.forAgents`) is never an
+    /// extension's, even with the built-in that has it turned off: it would hand agents whatever that command runs.
+    static func isAgentsOwn(_ command: CommandSpec) -> Bool { UICommand.forAgents.contains(command.id) }
 
     func command(_ id: String) -> CommandSpec? { all.commands.first { $0.id == id } }
     /// The key command `id` has: settings.json's `keys` over its own (`""`: none), `fallback` for one that isn't a

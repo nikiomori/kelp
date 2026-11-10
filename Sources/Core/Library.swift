@@ -238,17 +238,19 @@ extension IDE {
     private static let digests = OSAllocatedUnfairLock<[String: (mark: String, digest: String)]>(initialState: [:])
 
     private static func extensionEntries(_ folder: URL) -> [(name: String, url: URL, link: Bool)] {
-        let root = folder.resolvingSymlinksInPath(),
-            all = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+        // Paths relative to the folder, as the enumerator gives them: a URL's path would be standardized ("/private/var"
+        // read as "/var"), and the folder's length cut from it would leave names like "son" for "/extension.json".
+        let root = folder.resolvingSymlinksInPath(), all = FileManager.default.enumerator(atPath: root.path)
         var out: [(name: String, url: URL, link: Bool)] = []
-        while let url = all?.nextObject() as? URL {
+        while let relative = all?.nextObject() as? String {
+            let url = root.appendingPathComponent(relative)
             if url.lastPathComponent == ".git" {
                 all?.skipDescendants()
                 continue
             }
             var st = stat()
             guard lstat(url.path, &st) == 0, [S_IFREG, S_IFLNK].contains(st.st_mode & S_IFMT) else { continue }
-            out.append((String(url.path.dropFirst(root.path.count)), url, st.st_mode & S_IFMT == S_IFLNK))
+            out.append(("/" + relative, url, st.st_mode & S_IFMT == S_IFLNK))
         }
         return out.sorted { $0.name < $1.name }
     }
