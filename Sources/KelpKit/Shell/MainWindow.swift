@@ -263,8 +263,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         stopPeek()
         if let was = focusMode {
             focusMode = nil
-            place()
-            slide([(sidebarItem, was.sidebar), (inspectorItem, was.inspector)])
+            land([(sidebarItem, was.sidebar), (inspectorItem, was.inspector)])
         } else {
             focusMode = (
                 sidebarItem.isCollapsed || hides(sidebarItem), inspectorItem.isCollapsed || hides(inspectorItem)
@@ -298,8 +297,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             floatWidths()
             slide([(item, true)]) { [weak self] in self?.place() }   // as focus mode: the column closes over it first
         } else {
-            place()
-            slide([(item, false)])
+            land([(item, false)])
         }
         if !sidebar { UserDefaults.standard.set(on, forKey: "inspector.collapsed") }
     }
@@ -458,22 +456,33 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func togglePin(_ item: NSSplitViewItem) {
         let pin = item === sidebarItem ? !pinned.sidebar : !pinned.inspector
         if item === sidebarItem { pinned.sidebar = pin } else { pinned.inspector = pin }
-        if pin, peeking === item {
-            // It stays where it stands, in its floater, while its column opens under it, and then is in the column.
-            if let monitor = peekMoves { NSEvent.removeMonitor(monitor) }
-            peekMoves = nil
-            return slide([(item, false)]) { [weak self] in
-                self?.stopPeek()
-                self?.place()
+        if pin { return land([(item, false)]) }
+        if peeking === item { stopPeek() }
+        floatWidths()
+        slide([(item, true)]) { [weak self] in self?.place() }
+    }
+
+    /// Columns open for panels that no longer hide. A panel in its floater comes in there (or stays, peeking) over its
+    /// opening column and is put in the column once that stands: moving a panel takes the main thread some 40 ms, and
+    /// moved first, that was a wait between the key and anything happening.
+    private func land(_ columns: [(item: NSSplitViewItem, collapsed: Bool)]) {
+        for (item, collapsed) in columns where !collapsed && !hides(item) {
+            let panel = item === sidebarItem ? sidebar.view : inspector.view
+            guard panel.superview === floater(item).box else { continue }
+            if peeking === item {   // it stays where it stands; nothing watches the pointer for it any more
+                if let monitor = peekMoves { NSEvent.removeMonitor(monitor) }
+                peekMoves = nil
+                peeking = nil
+            } else {
+                floater(item).slide(in: true)
             }
         }
-        if peeking === item { stopPeek() }
-        if pin {
+        slide(columns) { [weak self] in
+            guard let self else { return }
+            for item in [sidebarItem, inspectorItem] where !hides(item) {
+                floater(item).slide(in: false, animated: false)
+            }
             place()
-            slide([(item, false)])
-        } else {
-            floatWidths()
-            slide([(item, true)]) { [weak self] in self?.place() }
         }
     }
 
