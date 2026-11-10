@@ -17,7 +17,7 @@ extension DatabaseTab {
     /// Tables, then the columns of the tables the statement names, then SQL's own words: what starts with the word
     /// being typed.
     func completions(line: Int, column: Int) -> [CodeEditor.Completion] {
-        let text = editor.textView.string
+        let text = editor.text
         let lines = text.components(separatedBy: "\n")
         guard lines.indices.contains(line - 1) else { return [] }
         let before = String(lines[line - 1].prefix(max(0, column - 1)))
@@ -44,8 +44,8 @@ extension DatabaseTab {
 
     func startedQuery() {
         arrange()
-        if editor.textView.string.isEmpty, let first = tables.first {
-            editor.textView.string = "SELECT * FROM " + DatabaseEdits.name(first.name, engine) + " LIMIT 100;"
+        if editor.text.isEmpty, let first = tables.first {
+            editor.setText("SELECT * FROM " + DatabaseEdits.name(first.name, engine) + " LIMIT 100;")
         }
         grid.editable = false
         grid.source = nil
@@ -54,12 +54,12 @@ extension DatabaseTab {
             String(localized: "Run a Statement"), symbol: "play",
             text: String(localized: "⌘↩ runs the statement the cursor is in. Words from the tables come as you type."))
         status.stringValue = ""
-        view.window?.makeFirstResponder(editor.textView)
+        editor.focus()
     }
 
     /// The statement the cursor is in: between the semicolons around it, quotes respected.
     func statementAtCursor() -> String {
-        let text = editor.textView.string as NSString
+        let text = editor.text as NSString
         let at = editor.textView.selectedRange()
         if at.length > 0 { return text.substring(with: at) }
         var start = 0, quote: unichar?
@@ -121,7 +121,7 @@ extension DatabaseTab {
 
     /// Save Query…: the statement under a name, in the list's Queries.
     @objc func keepQuery() {
-        let sql = editor.textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sql = editor.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !sql.isEmpty else { return NSSound.beep() }
         let alert = NSAlert()
         alert.messageText = String(localized: "Save the query as")
@@ -139,7 +139,7 @@ extension DatabaseTab {
     }
 
     func openSaved(_ q: DatabaseSidebar.SavedQuery) {
-        editor.textView.string = q.sql
+        editor.setText(q.sql)
         Task { await leave(to: .query) }
     }
 

@@ -140,7 +140,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         if case .run(let id) = mode { Task { await showRun(id) } }
     }
 
-    func focus() { view.window?.makeFirstResponder(mode == .query ? editor.textView : grid.table) }
+    func focus() {
+        guard mode != .query else { return editor.focus() }
+        view.window?.makeFirstResponder(grid.table)
+    }
 
     func close() async -> Bool {
         guard isEdited else { return true }

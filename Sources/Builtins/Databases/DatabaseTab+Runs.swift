@@ -108,7 +108,7 @@ extension DatabaseTab {
             Task { await leave(to: .run(run.id)) }
             return
         }
-        editor.textView.string = run.sql
+        editor.setText(run.sql)
         Task { await leave(to: .query) }
     }
 
