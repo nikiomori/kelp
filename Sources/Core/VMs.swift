@@ -360,12 +360,11 @@ public enum VMs {
         detail.ports = lines(1).compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
         detail.runs = lines(2).compactMap(run)
         if parts.count > 3 {
+            // Kelp Guest says only whether it may read controls; whose turn the screen is, kelp-vm says (`VMService.detail`).
             let guest = lines(3)
-            func on(_ key: String) -> Bool { guest.contains("\(key): on") }
-            let screen = guest.first { $0.hasPrefix("screen: ") }.map { String($0.dropFirst("screen: ".count)) }
             detail.guest = .init(
-                running: !guest.contains("not running") && !guest.isEmpty, screenRecording: on("screen recording"),
-                accessibility: on("accessibility"), screen: screen == "free" ? nil : screen)
+                running: !guest.contains("not running") && !guest.isEmpty,
+                accessibility: guest.contains("accessibility: on"))
         }
         return detail
     }

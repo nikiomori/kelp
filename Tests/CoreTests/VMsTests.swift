@@ -96,8 +96,10 @@ import Testing
         ])
     #expect(VMs.parseDetail("\n@\n@\n") == VMDetail())
     #expect(VMs.parseDetail("10.0.0.2\n@\n@\n  5 00:03 kelp-vm-run:x -l\n").runs.count == 1)   // no ports: two "@" in a row
-    let mac = VMs.parseDetail("192.168.64.8\n@\n@\n@\nscreen recording: on\naccessibility: off\nscreen: abc\n")
-    #expect(mac.guest == .init(running: true, screenRecording: true, accessibility: false, screen: "abc"))
+    #expect(
+        VMs.parseDetail("192.168.64.8\n@\n@\n@\naccessibility: on\n").guest == .init(running: true, accessibility: true)
+    )
+    #expect(VMs.parseDetail("192.168.64.8\n@\n@\n@\naccessibility: off\n").guest == .init(running: true))
     #expect(
         VMs.parseDetail("x\n@\n@\n@\nKelp Guest isn't running: open the machine's window and sign in.\nnot running\n")
             .guest?.running == false)

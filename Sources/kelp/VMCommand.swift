@@ -120,7 +120,7 @@ extension Main {
             let to = try await c.call(VMConnect(name: name, cwd: nil))
             let remote =
                 VMs.guestProgram + " "
-                + ([action] + args + ["--session", session ?? "-"]).map(ShellQuote.word).joined(separator: " ")
+                + ([action] + args).map(ShellQuote.word).joined(separator: " ")
             exec(to.ssh + ["-T", "--", to.prefix + remote])
         }
         if action == "screenshot" {

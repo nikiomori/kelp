@@ -3,12 +3,7 @@ import ApplicationServices
 
 /// The CLI side: one request line to the running app, its answer out.
 enum Client {
-    static func ask(_ argv: [String], socket path: String) -> Int32 {
-        var args = argv, session = "-"
-        if let index = args.firstIndex(of: "--session"), index + 1 < args.count {
-            session = args[index + 1]
-            args.removeSubrange(index...index + 1)
-        }
+    static func ask(_ args: [String], socket path: String) -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         var address = unixAddress(path)
         let ok = withUnsafePointer(to: &address) {
@@ -21,7 +16,7 @@ enum Client {
                 Data("Kelp Guest isn't running: open the machine's window and sign in.\n".utf8))
             return 3
         }
-        let request = (try? JSONSerialization.data(withJSONObject: ["args": args, "session": session])) ?? Data()
+        let request = (try? JSONSerialization.data(withJSONObject: ["args": args])) ?? Data()
         _ = request.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
         _ = write(fd, "\n", 1)
         var reply = Data(), buf = [UInt8](repeating: 0, count: 1 << 16)
