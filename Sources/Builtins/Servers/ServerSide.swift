@@ -142,8 +142,8 @@ struct ServerSide: View {
         guard let wid = ServerActions.serverWorkspace(app, host) else { return }
         let app = app, host = host
         Task {
-            if let forwarding = await app.call(PortsForward(worktreeId: wid, port: port)) {
-                app.part { ServerForwards() }.ports[host, default: [:]][port] = forwarding.port
+            if let here = await PageActions(app).forward(port, in: wid) {
+                app.part { ServerForwards() }.ports[host, default: [:]][port] = here
             }
         }
     }

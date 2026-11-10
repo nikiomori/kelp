@@ -191,7 +191,8 @@ extension Runs {
             open.subtitle = "\(agent?.name ?? String(localized: "Terminal")) · \(page.place)"
         }
         let stop = menu.add(String(localized: "Stop \(what)")) { [weak self] in
-            Task { await self?.app.call(PortsStop(worktreeId: wid, pid: Int(port.pid))) }
+            guard let app = self?.app else { return }
+            Task { await PageActions(app).stop(pid: port.pid, in: wid) }
         }
         stop.show(.symbol("stop.circle"))
         stop.isAlternate = true

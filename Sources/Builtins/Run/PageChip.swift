@@ -84,22 +84,17 @@ final class PageChip: ChipCapsule, WindowBarItem {
 
     /// What a click doesn't do. A page that came from a run's printed address may have no process here: a host's.
     private func menu(_ look: Look) -> NSMenu {
-        let actions = NSMenu(), app = app, runs = runs
+        let actions = NSMenu(), app = app, page = PageActions(app)
         if look.page.isWeb {
             actions.add(String(localized: "Open in Browser")) {
                 Task {
-                    if let url = await runs.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) })
-                    {
+                    if let url = await page.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) }) {
                         PreviewLinks.openOutside(url)
                     }
                 }
             }
         }
-        actions.add(String(localized: "Copy Address")) {
-            Task {
-                if let reached = await runs.reach(look.page, in: look.workspace) { runs.copy(reached) }
-            }
-        }
+        actions.add(String(localized: "Copy Address")) { Task { await page.copy(look.page, in: look.workspace) } }
         if look.page.host != nil, look.page.forwarded {
             actions.add(String(localized: "Stop Forwarding")) {
                 Task {
@@ -110,13 +105,7 @@ final class PageChip: ChipCapsule, WindowBarItem {
             }
         }
         if let pid = look.page.pid {
-            actions.add(String(localized: "Stop")) {
-                Task {
-                    if await app.call(PortsStop(worktreeId: look.workspace, pid: Int(pid))) != nil {
-                        app.watchAgain(.ports, look.workspace)
-                    }
-                }
-            }
+            actions.add(String(localized: "Stop")) { Task { await page.stop(pid: pid, in: look.workspace) } }
         }
         return actions
     }

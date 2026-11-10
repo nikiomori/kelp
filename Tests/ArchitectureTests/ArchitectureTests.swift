@@ -137,8 +137,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // terminal's and the editor's samples are the built-ins' to show (`SettingSamples`: the terminal, the editor, a cursor).
     // +6 so a row's kind and look are enums a built-in names (`SettingType`, `SettingLook`, with the decoding and encoding
     // that read a manifest's unknown one as `unknown`).
-    #expect(declared <= 315, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 315, "fewer now (\(declared)): lower the ceiling")
+    // +8 for what several built-ins did each their own way: a tab's SwiftUI view (`HostedTab`), and a served page's
+    // reach, copy, stop and forward (`PageActions`: Run, Browser and Servers).
+    #expect(declared <= 323, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 323, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -232,8 +234,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 465, "lines over 120: \(over120)")
-    #expect(over120 >= 465, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 458, "lines over 120: \(over120)")
+    #expect(over120 >= 458, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out

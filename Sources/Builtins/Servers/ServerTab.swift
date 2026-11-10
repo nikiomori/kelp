@@ -22,12 +22,7 @@ final class ServerTab: KelpKit.TabContent {   // not SwiftUI's
         host = TabURI.body(uri)
         watched = Watched(.hostDetail, in: app)
         watched.key = host
-        let hosting = NSHostingView(
-            rootView: ServerView(app: app, host: host).frame(
-                maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
-        // A tab fills the space it's given; it must never resize the window to its ideal size.
-        hosting.sizingOptions = []
-        view = hosting
+        view = HostedTab(ServerView(app: app, host: host))
     }
     func focus() {}
 }
@@ -58,7 +53,7 @@ struct ServerView: View {
     }
 
     private var header: some View {
-        HStack(spacing: Metrics.gapWide) {
+        ContentBar {
             Text(host).font(.ui(13, weight: .semibold))
             Text(serverLine(stats)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
@@ -79,9 +74,6 @@ struct ServerView: View {
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .accessibilityLabel(String(localized: "More"))
         }
-        .controlSize(.small)
-        .padding(.leading, Metrics.inset).padding(.trailing, Metrics.gap)
-        .frame(height: Metrics.contentBar)
     }
 
     /// Not connected, or it couldn't be: why, in ssh's words, and the way back.

@@ -1,4 +1,4 @@
-// Runs a tab doesn't show, and the pages runs serve: open, copy, a busy port.
+// Runs a tab doesn't show, and the pages runs serve: open, a busy port.
 import AppKit
 import Core
 import DesignKit
@@ -56,28 +56,14 @@ extension Runs {
             .first { $0.session == session.id && ServedPages.listed($0) }.map { $0.here ?? $0.port }
     }
 
-    /// The page as this Mac reaches it, the ports read again when that moved it; nil and a banner when it can't be.
-    func reach(_ page: ServedPage, in wid: String) async -> ServedPage? {
-        let here = await page.reached(in: wid) { await app.call($0) }
-        if here != page { app.watchAgain(.ports, wid) }
-        return here
-    }
-
     /// A page beside what you're doing, or the tab that shows it; what isn't one (a database) gets its address copied.
     func open(_ page: ServedPage, in wid: String) {
+        let actions = PageActions(app)
         Task {
-            guard let page = await reach(page, in: wid) else { return }
-            guard page.isWeb else {
-                copy(page)
-                return
-            }
+            guard page.isWeb else { return await actions.copy(page, in: wid) }
+            guard let page = await actions.reach(page, in: wid) else { return }
             app.workbench.open(page.url, split: .right, workspace: wid, focus: false)
         }
-    }
-
-    func copy(_ page: ServedPage) {
-        copyText(page.address)
-        Banner.show(String(localized: "Copied \(page.address)"))
     }
 
     /// A run that couldn't start: who holds its port, when that's one of Kelp's own screens on this Mac.

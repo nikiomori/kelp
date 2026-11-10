@@ -24,11 +24,7 @@ final class MachineTab: KelpKit.TabContent {   // not SwiftUI's
         list.key = ""
         detail = Watched(.machineDetail, in: app)
         detail.key = name
-        let hosting = NSHostingView(
-            rootView: MachineView(app: app, name: name).frame(
-                maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
-        hosting.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
-        view = hosting
+        view = HostedTab(MachineView(app: app, name: name))
     }
     func focus() {}
 }
@@ -47,7 +43,7 @@ struct MachineView: View {
     }
 
     private var header: some View {
-        HStack(spacing: Metrics.gapWide) {
+        ContentBar {
             Text(name).font(.ui(13, weight: .semibold))
             if let info {
                 let word = Machines.machineWord(info)
@@ -83,9 +79,6 @@ struct MachineView: View {
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .accessibilityLabel(String(localized: "More"))
         }
-        .controlSize(.small)
-        .padding(.leading, Metrics.inset).padding(.trailing, Metrics.gap)
-        .frame(height: Metrics.contentBar)
     }
 
     /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · disk 3.1 GB".

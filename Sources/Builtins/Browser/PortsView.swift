@@ -85,11 +85,11 @@ final class PortsView: NSView {
     }
 
     private func row(_ page: ServedPage, workspace wid: String) -> NSView {
-        let app = app
+        let actions = PageActions(app)
         let link = PointerButton(title: page.host == nil ? page.address : page.place) { [weak self] in
             Task {
-                guard let here = await page.reached(in: wid, call: { await app.call($0) }) else { return }
-                if page.isWeb { self?.onOpen?(here.url) } else { copyText(here.address) }
+                guard page.isWeb else { return await actions.copy(page, in: wid) }
+                if let here = await actions.reach(page, in: wid) { self?.onOpen?(here.url) }
             }
         }
         link.contentTintColor = .linkColor
@@ -98,15 +98,10 @@ final class PortsView: NSView {
         let what = NSTextField(labelWithString: page.command)
         what.textColor = .secondaryLabelColor
         what.font = .ui(12)
-        let copy = ClosureButton(title: String(localized: "Copy")) {
-            Task { if let here = await page.reached(in: wid, call: { await app.call($0) }) { copyText(here.address) } }
-        }
+        let copy = ClosureButton(title: String(localized: "Copy")) { Task { await actions.copy(page, in: wid) } }
         let stop = ClosureButton(title: String(localized: "Stop")) {
-            Task {
-                if await app.call(PortsStop(worktreeId: wid, pid: page.pid.map(Int.init))) != nil {
-                    app.watchAgain(.ports, wid)
-                }
-            }
+            guard let pid = page.pid else { return }
+            Task { await actions.stop(pid: pid, in: wid) }
         }
         stop.isHidden = page.pid == nil
         for button in [copy, stop] {

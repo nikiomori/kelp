@@ -16,11 +16,7 @@ final class RoutinesTab: KelpKit.TabContent {   // not SwiftUI's
     var icon: NSImage? { .symbol("clock.arrow.circlepath") }
     init(uri: String, app: AppModel) {
         self.uri = uri
-        let routines = RoutinesView(app: app, repoId: TabURI.body(uri))
-        let host = NSHostingView(
-            rootView: routines.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
-        host.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
-        view = host
+        view = HostedTab(RoutinesView(app: app, repoId: TabURI.body(uri)))
     }
     func focus() {}
 }
@@ -66,17 +62,15 @@ struct RoutinesView: View {
     }
 
     private func header(_ week: RoutineWeek, _ list: [Routine]) -> some View {
-        HStack(spacing: Metrics.gapWide) {
+        ContentBar {
             let on = list.filter(\.enabled).count
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(12)).foregroundStyle(
                 .secondary)
             Spacer()
-            if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() }.controlSize(.small) }   // else it's under No Routines
+            if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() } }   // else it's under No Routines
         }
-        .padding(.horizontal, Metrics.inset)
-        .frame(height: Metrics.contentBar)
     }
 
     private func newRoutine() {
