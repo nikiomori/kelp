@@ -312,9 +312,10 @@ what it does keep is an agent's reach through Kelp itself to its own work (below
 
 What only Kelp's window may do — publish what's on screen (`ui.publish`), trust a project's commands (`scripts.trust`) or
 its language servers (`state.set` of `lsp.*`) — each method says itself (`Answered.onlyFromKelp`), and the dispatcher
-checks it for every call, by the program at the other end of the socket. A status report (hooks, `kelp report`, herdr's)
-from a program running inside a session is for that session only (`Answered.reportsFor`), so one agent can't mark another
-done or asking.
+checks it for every call, by the program at the other end of the socket as the daemon accepted it (Limit: a process
+of the user's that stops kelpd, connects and execs KelpApp, its socket kept by a child, passes for the window). A
+status report (hooks, `kelp report`, herdr's) from a program running inside a session is for that session only
+(`Answered.reportsFor`), so one agent can't mark another done or asking.
 
 **An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Callers.caller`, a
 `Caller`, looked up as it connects, in Daemon/CallerLookup.swift): the session it runs in, by its process tree or a
@@ -343,10 +344,12 @@ reading, their own sessions and hooks, the IDE in their workspaces, what their s
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
 `Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, `AgentRules.reads` aside,
 and one named another way, by the window or a path, says so with `inWorkspace`), make workspaces only in the project
-they work in (`makesInProject`), run only the app's commands that show something (`UICommand.forAgents`), set no setting of the
-user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, or "trust this
-folder?" or a numbered menu on screen: `LiveSession.asksSomething`; a question Kelp can't read on screen it can't keep
-an agent's keys from); only a session speaks for itself.
+they work in (`makesInProject`), run only the app's commands that show something (`UICommand.forAgents`, ids no extension may take), start
+sessions only under their own account (`profile`), set no setting of the
+user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, until what
+answers it comes, not a "working" the session says itself; or "trust this folder?" or a numbered menu on screen:
+`LiveSession.asksSomething`; a question Kelp can't read on screen and no hook said it can't keep an agent's keys from,
+and a program that sends a dialog's answering hooks by hand still un-says it); only a session speaks for itself.
 
 What this is for: an agent's mistakes, and an agent steered by words it read (a page, an issue, a file) into asking Kelp
 for what's the user's. It isn't a boundary against an agent set on getting around it: agents run as the user's account,

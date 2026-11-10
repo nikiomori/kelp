@@ -26,7 +26,8 @@ extension LSPOpen: Handled {
     static var inOrder: Bool { true }
     func handle(_ lsp: LSPHost, conn: Int) throws -> Done {
         guard lsp.remotes.of(root) == nil else {
-            throw RPCError.invalidParams("No language servers for a project on another machine.")
+            throw RPCError.invalidParams(
+                "No language servers for a project on another machine yet: clone it to this Mac to have them.")
         }
         // A project's language servers run its own code: the daemon checks, whoever asks.
         guard lsp.trusted(root) else { throw LSPRefusal.untrusted.error }

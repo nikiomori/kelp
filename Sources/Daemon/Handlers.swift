@@ -265,7 +265,17 @@ extension Daemon {
                 "“\(name)” is the user's: an agent's program may call only what agents use (AgentRules.methods).")
         }
         if let id = method.typesInto, sessions.existing(id)?.asksSomething == true {
-            throw RPCError.refused("That session asks a question, the user's to answer; send again once it's answered.")
+            throw RPCError.refused(
+                "That session asks a question, the user's to answer; send again once it's answered, or tell the user "
+                    + "what you'd answer.")
+        }
+        // The user's accounts (`accounts.*`) are theirs to pick: what an agent starts runs under its own.
+        if let launch = method as? any LaunchOptions, let profile = launch.profile,
+            try profile != sessions.store.session(own)?.profile
+        {
+            throw RPCError.refused(
+                "An agent starts sessions under its own account, not another of the user's: leave out `profile`, or "
+                    + "ask the user to start it from Kelp's window.")
         }
         // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
         // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
@@ -273,7 +283,9 @@ extension Daemon {
         for id in Set([method.actsOn, method.shows].compactMap { $0 } + (try sessions.store.named(by: method)))
         where !itsOwn(id) {
             guard try reaches(id) else {
-                throw RPCError.refused("An agent acts only on its own session and the sessions it started.")
+                throw RPCError.refused(
+                    "An agent acts only on its own session and the sessions it started: start one with `kelp session "
+                        + "new`, or ask the user to do this one.")
             }
         }
         // Every workspace a call that acts names, whatever the field: not each method remembering to say. `inWorkspace` is
@@ -282,7 +294,9 @@ extension Daemon {
             [method.inWorkspace].compactMap { $0 }
                 + (AgentRules.reads.contains(name) ? [] : try sessions.store.workspaces(namedBy: method)))
         for workspace in workspaces where try !sessions.store.works(own, in: workspace, typed: typed) {
-            throw RPCError.refused("An agent works only in its own workspace.")
+            throw RPCError.refused(
+                "An agent works only in its own workspace: make one with `kelp worktree create <branch>`, or ask the "
+                    + "user to do this there.")
         }
         if let repo = method.makesInProject,
             try !sessions.store.worktrees(repo: repo).contains(where: {
