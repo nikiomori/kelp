@@ -16,10 +16,17 @@ final class NoProject: NSObject {
     private var hotKey: EventHotKeyRef?
 
     /// Its project's path, so lists of projects can tell it apart.
-    static var path: String { URL(fileURLWithPath: Paths.scratch.path).resolvingSymlinksInPath().path }
+    static var path: String { resolved(Paths.scratch.path) }
     static func holds(_ repo: Repo?) -> Bool { repo.map { holds(path: $0.path) } ?? false }
-    static func holds(path candidate: String) -> Bool {
-        URL(fileURLWithPath: candidate).resolvingSymlinksInPath().path == path
+    static func holds(path candidate: String) -> Bool { resolved(candidate) == path }
+    /// A path without its symlinks, asked of the disk once: every project's name asks whether it's this one, for every
+    /// row and tile drawn, and two walks of the disk each time held the main thread through a sidebar's pass.
+    private static var resolvedPaths: [String: String] = [:]
+    private static func resolved(_ path: String) -> String {
+        if let known = resolvedPaths[path] { return known }
+        let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        resolvedPaths[path] = real
+        return real
     }
 
     /// Made the first time (the daemon's), so the row is there before anyone asks.

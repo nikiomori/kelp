@@ -321,14 +321,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         GhosttyTerminalView.holdSize(true)
         moves.forEach { holdWidth($0.item, closing: $0.collapsed) }
+        // The side that stays is the one whose panel isn't moving; with both moving, what's shown travels with the left.
+        editors.holdWidth(trailing: !moves.contains { $0.item === inspectorItem })
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.base
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             moves.forEach { $0.item.animator().isCollapsed = $0.collapsed }
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs it on the main thread
-                GhosttyTerminalView.holdSize(false)
+                self?.editors.letWidthGo()
                 self?.letWidthsGo()
+                // Laid out before the terminals take their size: they take the final one, once.
+                self?.window?.contentView?.layoutSubtreeIfNeeded()
+                GhosttyTerminalView.holdSize(false)
                 then?()
             }
         }

@@ -44,6 +44,10 @@ final class AgentStrip {
     private let glint = StripGlint()
     private var glintSide: [NSLayoutConstraint] = []
     var panel: StripPanel?
+    /// Each move it's sent on, so a spring's way back knows it's still the last.
+    var moves = 0
+    /// Moved to a new place: the next `put` swings a little past it and settles back, as a thrown thing does.
+    var springs = false
     let row = StripRow()
     private var buttons: [String: StripButton] = [:]
     private var card: StripCard?
