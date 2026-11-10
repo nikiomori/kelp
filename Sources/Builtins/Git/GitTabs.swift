@@ -12,19 +12,19 @@ import WorkbenchKit
 final class DiffTab: TabContent {
     let worktreeId: String, app: AppModel
     private let controller: DiffViewController
-    private let file: String?, source: String?, commit: String?
+    private let file: String?, source: DiffSource?, commit: String?
     private(set) var uri: String
     var view: NSView { controller.view }
     var title: String {
         guard let file else {
             return commit.map { String($0.prefix(7)) }
-                ?? (source == "turn" ? String(localized: "Last Turn") : String(localized: "Changes"))
+                ?? (source == .turn ? String(localized: "Last Turn") : String(localized: "Changes"))
         }
         let what =
             commit.map { String($0.prefix(7)) }
-            ?? (source == "staged"
+            ?? (source == .staged
                 ? String(localized: "Index")
-                : source == "branch" ? String(localized: "Branch vs base") : String(localized: "Working Tree"))
+                : source == .branch ? DiffSource.branch.title : String(localized: "Working Tree"))
         return "\((file as NSString).lastPathComponent) (\(what))"
     }
     var icon: NSImage? { .symbol("plus.forwardslash.minus") }
@@ -39,14 +39,14 @@ final class DiffTab: TabContent {
         worktreeId = components?.path ?? ""
         func item(_ n: String) -> String? { components?.queryItems?.first { $0.name == n }?.value }
         file = item("file")
-        source = item("source")
+        source = item("source").flatMap(DiffSource.init(wire:))
         commit = item("commit")
         _ = controller.view
         if let file {
-            controller.showFile(file, source: source ?? "unstaged", commit: commit)
+            controller.showFile(file, source: source ?? .unstaged, commit: commit)
         } else if let commit {
             controller.showCommit(commit)
-        } else if source == "turn" {
+        } else if source == .turn {
             controller.showLastTurn()
         }
         controller.show(worktree: worktreeId)
@@ -69,8 +69,10 @@ final class DiffTab: TabContent {
 
     func focus() { controller.view.window?.makeFirstResponder(controller.view) }
 
-    static func uri(_ worktree: String, file: String? = nil, source: String? = nil, commit: String? = nil) -> String {
-        TabURI.diff(worktree, file: file, source: source, commit: commit)
+    static func uri(
+        _ worktree: String, file: String? = nil, source: DiffSource? = nil, commit: String? = nil
+    ) -> String {
+        TabURI.diff(worktree, file: file, source: source?.wire, commit: commit)
     }
 }
 

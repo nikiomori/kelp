@@ -21,11 +21,11 @@ extension DiffViewController {
     }
 
     func rebuildRows() {
-        builds += 1
-        let generation = builds, currentDiffs = diffs, cm = comments, layout = sideBySide
+        loads.builds += 1
+        let generation = loads.builds, currentDiffs = diffs, cm = notes.saved, layout = sideBySide
         Task {
             let built = await buildRows(currentDiffs, cm, sideBySide: layout)
-            guard generation == builds else { return }
+            guard generation == loads.builds else { return }
             if fadesNextLoad { table.crossfade(Motion.base) }
             fadesNextLoad = false
             (rows, words) = built
@@ -51,13 +51,13 @@ extension DiffViewController {
     func hunksStaged(_ f: Int) -> Bool? {
         if hidesSpace { return nil }
         if let single {
-            return single.commit == nil && (single.source == "unstaged" || single.source == "staged")
-                ? single.source == "staged" : nil
+            return single.commit == nil && (single.source == .unstaged || single.source == .staged)
+                ? single.source == .staged : nil
         }
-        switch source.indexOfSelectedItem {
-        case 1: return false
-        case 2: return true
-        case 0:
+        switch sourcePicked {
+        case .unstaged: return false
+        case .staged: return true
+        case .uncommitted:
             guard diffs.indices.contains(f) else { return nil }
             guard let change = changes.first(where: { $0.path == diffs[f].path }), change.staged else { return false }
             return change.unstaged ? nil : true
@@ -68,13 +68,10 @@ extension DiffViewController {
     /// One file of the review in a tab of its own, which has room for a whole file's changes; nil for the agent's last turn.
     private func alone(_ path: String) -> String? {
         guard single == nil, let wid = worktreeId else { return nil }
-        switch source.indexOfSelectedItem {
-        case 1: return DiffTab.uri(wid, file: path, source: "unstaged")
-        case 2: return DiffTab.uri(wid, file: path, source: "staged")
-        case 3: return DiffTab.uri(wid, file: path, source: "branch")
-        case 4: return DiffTab.uri(wid, file: path, commit: commitHash ?? "HEAD")
-        case 5: return nil
-        default: return DiffTab.uri(wid, file: path, source: "all")
+        switch sourcePicked {
+        case .commit: return DiffTab.uri(wid, file: path, commit: commitHash ?? "HEAD")
+        case .turn: return nil
+        default: return DiffTab.uri(wid, file: path, source: sourcePicked)
         }
     }
 }

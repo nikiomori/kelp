@@ -13,6 +13,15 @@ struct CommentDraft {
     var card: NSView?
 }
 
+/// The review's comments: those saved (on this diff's commit), the one being written, and the open ones left out of Send
+/// to Agent (`DiffFindings`).
+@MainActor
+struct ReviewNotes {
+    var saved: [DiffComment] = []
+    var draft: CommentDraft?
+    var skipped: Set<String> = []
+}
+
 /// A comment is written in a card right under its line, as on GitHub: the Comment button, or the "+" beside a line under
 /// the pointer, opens it; ⌘↩ saves, Esc puts it away.
 extension DiffViewController {
@@ -20,8 +29,8 @@ extension DiffViewController {
     static let codeIndent: CGFloat = 88
     /// The commit on screen when it's a past one's diff: a comment there is on that commit, not the folder's HEAD.
     var shownCommit: String? {
-        if let single { return single.source == "commit" ? single.commit : nil }
-        return source.indexOfSelectedItem == 4 ? commitHash : nil
+        if let single { return single.source == .commit ? single.commit : nil }
+        return sourcePicked == .commit ? commitHash : nil
     }
 
     /// The card's field: two lines and more as they wrap; its row holds it and the buttons.
@@ -54,7 +63,7 @@ extension DiffViewController {
         newDraft.field.font = .ui(12)
         newDraft.field.placeholderString = String(
             localized: "Comment for the agent on \(file):\(first)\(first == last ? "" : "-\(last)")")
-        draft = newDraft
+        notes.draft = newDraft
         placeDraft()
         view.window?.makeFirstResponder(newDraft.field)
     }
@@ -62,7 +71,7 @@ extension DiffViewController {
     /// The card's row goes under its line (and the comments already there), wherever a new read of the diff put it.
     func placeDraft() {
         rows.removeAll { $0 == .draft }
-        guard let draft else { return }
+        guard let draft = notes.draft else { return }
         guard
             let at = rows.indices.last(where: { row in
                 guard let (path, l) = shownLine(row) else { return false }
@@ -76,7 +85,7 @@ extension DiffViewController {
     }
 
     func draftCard() -> NSView {
-        guard let draft else { return NSView() }
+        guard let draft = notes.draft else { return NSView() }
         if let existing = draft.card { return existing }
         let cancel = ClosureButton(title: String(localized: "Cancel")) { [weak self] in self?.closeDraft() }
         cancel.keyEquivalent = "\u{1b}"
@@ -101,29 +110,29 @@ extension DiffViewController {
             draft.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
             draft.field.heightAnchor.constraint(equalToConstant: Self.draftField)
         ])
-        self.draft?.card = card
+        notes.draft?.card = card
         return card
     }
 
     /// The table read again, the comment being typed keeping the keys (Space there is a space, not a comment's box).
     func reloadKeepingDraft() {
-        let typing = draft.map { d in view.window?.firstResponder === d.field.currentEditor() } ?? false
+        let typing = notes.draft.map { d in view.window?.firstResponder === d.field.currentEditor() } ?? false
         table.reloadData()
-        guard typing, let field = draft?.field else { return }
+        guard typing, let field = notes.draft?.field else { return }
         view.window?.makeFirstResponder(field)
         field.currentEditor()?.selectedRange = NSRange(location: field.stringValue.utf16.count, length: 0)
     }
 
     func closeDraft() {
-        guard draft != nil else { return }
-        draft = nil
+        guard notes.draft != nil else { return }
+        notes.draft = nil
         placeDraft()
         table.reloadData()
         view.window?.makeFirstResponder(table)
     }
 
     private func saveDraft() {
-        guard let wid = worktreeId, let draft else { return }
+        guard let wid = worktreeId, let draft = notes.draft else { return }
         let text = draft.field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             NSSound.beep()

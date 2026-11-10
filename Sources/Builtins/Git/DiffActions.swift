@@ -53,7 +53,7 @@ extension DiffViewController {
     /// Stage or Unstage as the file stands; a commit's or a turn's diff has nothing to stage.
     func fileMenu(_ m: NSMenu, row: Int) {
         m.removeAllItems()
-        let live = single?.commit == nil && (0...2).contains(source.indexOfSelectedItem)
+        let live = single?.commit == nil && sourcePicked.isLive
         guard live, let wid = worktreeId, diffs.indices.contains(row) else { return }
         let path = diffs[row].path
         guard let change = changes.first(where: { $0.path == path }) else { return }
@@ -127,7 +127,8 @@ extension DiffViewController {
         }
     }
 
-    /// The focused session if it is in this worktree, else ask.
+    /// The focused agent if it is in this worktree, the only one, else ask: not `FileActions.targetAgent`'s last chat,
+    /// since findings sent to the wrong one of several agents would have it change code it didn't write.
     func pickAgentSession(_ wid: String) async -> String? {
         // Not a reviewer: findings go to the agent that wrote the code.
         let reviewers = Set(app.catalog.all.map { Self.reviewTitle($0.name) })

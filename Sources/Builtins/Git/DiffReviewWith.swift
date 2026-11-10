@@ -63,31 +63,33 @@ extension DiffViewController {
                 )
             }
             let base = ShellQuote.word((app.worktree(wid)?.base ?? "main") + "...HEAD")
-            let how = ["unstaged": "git diff", "staged": "git diff --cached", "branch": "git diff " + base]
+            let how: [DiffSource: String] = [
+                .unstaged: "git diff", .staged: "git diff --cached", .branch: "git diff " + base
+            ]
             return (
                 String(localized: "the changes to \(single.file)"),
                 (how[single.source] ?? "git diff HEAD") + " -- " + file
             )
         }
-        switch source.indexOfSelectedItem {
-        case 1: return (String(localized: "the unstaged changes"), "git diff")
-        case 2: return (String(localized: "the staged changes"), "git diff --cached")
-        case 3:
+        switch sourcePicked {
+        case .unstaged: return (String(localized: "the unstaged changes"), "git diff")
+        case .staged: return (String(localized: "the staged changes"), "git diff --cached")
+        case .branch:
             let base = app.worktree(wid)?.base ?? "main"
             return (
                 String(localized: "this branch's changes since \(base)"),
                 "git diff " + ShellQuote.word(base + "...HEAD")
             )
-        case 4:
+        case .commit:
             let hash = commitHash ?? "HEAD"
             return (String(localized: "commit \(hash)"), "git show " + ShellQuote.word(hash))
-        case 5:   // since the turn began: its snapshot against the files now, new ones listed too
+        case .turn:   // since the turn began: its snapshot against the files now, new ones listed too
             let tree = (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.tree ?? "HEAD"
             return (
                 String(localized: "the agent's turn: the files changed since it began"),
                 "git diff " + ShellQuote.word(tree) + "; git status --short"
             )
-        default:
+        case .uncommitted:
             return (
                 String(localized: "the uncommitted changes, new files included"), "git diff HEAD; git status --short"
             )

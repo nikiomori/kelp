@@ -235,7 +235,7 @@ extension SourceControlController {
         }
         // the review beside it scrolls there instead
         if DiffViewController.reveal(file.path, worktree: worktree) { return }
-        app.workbench.open(DiffTab.uri(worktree, file: file.path, source: section == .staged ? "staged" : "unstaged"))
+        app.workbench.open(DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged))
     }
     func openFile(_ file: FileChange) {
         if let worktree = app.worktree(worktreeId) { app.workbench.open(TabURI.file(worktree.path + "/" + file.path)) }

@@ -50,7 +50,7 @@ extension AppOfItsOwn {
         try rig.write("f.txt", "one\ntpyo\n")
         let vc = DiffViewController(app: rig.app)
         rig.show(vc, 900, 700)
-        vc.showFile("f.txt", source: "unstaged", commit: nil)
+        vc.showFile("f.txt", source: .unstaged, commit: nil)
         vc.show(worktree: rig.workspace.id)
         await vc.load()
         await vc.write("typo", over: "tpyo", path: "f.txt", line: 2)
@@ -70,7 +70,7 @@ extension AppOfItsOwn {
         try rig.write("f.txt", changed.joined(separator: "\n") + "\n")
         let vc = DiffViewController(app: rig.app)
         rig.show(vc, 900, 700)
-        vc.showFile("f.txt", source: "unstaged", commit: nil)
+        vc.showFile("f.txt", source: .unstaged, commit: nil)
         vc.show(worktree: rig.workspace.id)
         await vc.load()
         let typed = vc.search("CHANGE")   // any case, looked for off the main thread
@@ -153,7 +153,7 @@ extension AppOfItsOwn {
             b = try #require(vc.rows.firstIndex { shown($0)?.text == "ONE" })
         vc.table.selectRowIndexes([a, b], byExtendingSelection: false)
         vc.openDraft()
-        #expect(vc.draft?.file == "a.txt" && vc.draft?.start == 5 && vc.draft?.end == 5 && vc.draft?.quote == "FIVE")
+        #expect(vc.notes.draft?.file == "a.txt" && vc.notes.draft?.start == 5 && vc.notes.draft?.end == 5 && vc.notes.draft?.quote == "FIVE")
     }
 
     /// A comment is written in a card under its line, which a new read of the diff keeps, and ⌘↩'s button saves.
@@ -168,15 +168,15 @@ extension AppOfItsOwn {
         let at = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })
         vc.openDraft(at: at)
         #expect(vc.rows[at + 1] == .draft)
-        vc.draft?.field.stringValue = "why upper case?"
+        vc.notes.draft?.field.stringValue = "why upper case?"
         await vc.load()   // an agent's change read again: the card and its text stay under the line
-        #expect(vc.rows[at + 1] == .draft && vc.draft?.field.stringValue == "why upper case?")
+        #expect(vc.rows[at + 1] == .draft && vc.notes.draft?.field.stringValue == "why upper case?")
         let save = try #require(buttons(in: vc.draftCard()).first { $0.keyEquivalent == "\r" })
         save.performClick(nil)
         #expect(try await waitFor(5) { vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) })
-        #expect(vc.draft == nil && !vc.rows.contains(.draft))
+        #expect(vc.notes.draft == nil && !vc.rows.contains(.draft))
         let line = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })   // read again: found again
-        #expect(vc.rows[line + 1] == .comment(vc.comments[0]) && vc.comments[0].text == "why upper case?")
+        #expect(vc.rows[line + 1] == .comment(vc.notes.saved[0]) && vc.notes.saved[0].text == "why upper case?")
     }
 
     /// Findings are picked: Space on a selected comment leaves it out of Send to Agent, and its box says so.
@@ -213,9 +213,9 @@ extension AppOfItsOwn {
         vc.show(worktree: rig.workspace.id)
         await vc.load()
         #expect(vc.reviewScope(rig.workspace.id).1 == "git diff HEAD; git status --short")
-        vc.source.selectItem(at: 2)
+        vc.sourcePicked = .staged
         #expect(vc.reviewScope(rig.workspace.id).1 == "git diff --cached")
-        vc.source.selectItem(at: 3)
+        vc.sourcePicked = .branch
         #expect(vc.reviewScope(rig.workspace.id).1 == "git diff '\(rig.workspace.base)...HEAD'")
         let menu = try #require(vc.reviewPop.menu)
         vc.reviewItems(menu)
@@ -233,7 +233,7 @@ extension AppOfItsOwn {
         let wt = rig.workspace, repo = rig.repo
         let vc = DiffViewController(app: rig.app)
         rig.show(vc, 900, 700)
-        vc.showFile("f.txt", source: "unstaged", commit: nil)
+        vc.showFile("f.txt", source: .unstaged, commit: nil)
         vc.show(worktree: wt.id)
         await vc.load()
         vc.view.layoutSubtreeIfNeeded()
@@ -294,24 +294,24 @@ extension AppOfItsOwn {
         rig.app.land(e)
         vc.show(worktree: wid)
         await vc.load()
-        var reads = vc.reads
+        var reads = vc.loads.reads
         for _ in 0..<10 { vc.reload() }
         await vc.load()
-        #expect((1...2).contains(vc.reads - reads), "\(vc.reads - reads) reads")   // eleven asked: one read, or one more after it
+        #expect((1...2).contains(vc.loads.reads - reads), "\(vc.loads.reads - reads) reads")   // eleven asked: one read, or one more after it
 
-        reads = vc.reads
+        reads = vc.loads.reads
         var fetched = e
         fetched.branches?.behind = 3
         rig.app.land(fetched)
         vc.gitChanged(fetched)
         await mainActorTurns()   // a read the event began (reload's task, then load's) would have counted by now
-        #expect(vc.reads == reads)
+        #expect(vc.loads.reads == reads)
         var edited = fetched
         edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])
         rig.app.land(edited)
         vc.gitChanged(edited)
-        #expect(try await waitFor(5) { !(vc.reads == reads) })   // a busy runner took over 300 ms
-        #expect(vc.reads == reads + 1)
+        #expect(try await waitFor(5) { !(vc.loads.reads == reads) })   // a busy runner took over 300 ms
+        #expect(vc.loads.reads == reads + 1)
     }
 
     /// A file past one file's share of a review is listed, says it's too large, and opens on its own.

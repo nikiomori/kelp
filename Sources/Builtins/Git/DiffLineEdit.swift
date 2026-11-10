@@ -8,7 +8,7 @@ import WorkbenchKit
 /// Fixing a typo seen in a review: double-click a line of the working tree's diff, type, ↩. It's written over the file as
 /// shown, so nothing an agent changed since is lost. Anything else in a diff (a commit's, a branch's) opens the file.
 extension DiffViewController: NSTextFieldDelegate {
-    private var showsWorkingTree: Bool { source.indexOfSelectedItem <= 1 }
+    private var showsWorkingTree: Bool { sourcePicked == .uncommitted || sourcePicked == .unstaged }
 
     @objc func rowDoubleClicked() {
         let row = table.clickedRow

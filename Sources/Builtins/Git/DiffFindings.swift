@@ -18,7 +18,7 @@ extension DiffViewController {
         if c.state == .open {
             let box = ClosureButton(title: "") { [weak self] in self?.flip(c.id) }
             box.setButtonType(.switch)
-            box.state = skipped.contains(c.id) ? .off : .on
+            box.state = notes.skipped.contains(c.id) ? .off : .on
             box.toolTip = String(localized: "Send to Agent with the others")
             views.insert(box, at: 0)
             for (title, run) in [
@@ -51,7 +51,7 @@ extension DiffViewController {
     }
 
     private func flip(_ id: String) {
-        if skipped.contains(id) { skipped.remove(id) } else { skipped.insert(id) }
+        if notes.skipped.contains(id) { notes.skipped.remove(id) } else { notes.skipped.insert(id) }
         if let index = rows.firstIndex(where: { if case .comment(let comment) = $0 { comment.id == id } else { false } }
         ) {
             table.reloadData(forRowIndexes: [index], columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
@@ -59,7 +59,7 @@ extension DiffViewController {
     }
 
     /// The open comments still ticked.
-    var picked: [String] { comments.filter { $0.state == .open && !skipped.contains($0.id) }.map(\.id) }
+    var picked: [String] { notes.saved.filter { $0.state == .open && !notes.skipped.contains($0.id) }.map(\.id) }
 
     @objc func sendComments() { send(picked) }
 

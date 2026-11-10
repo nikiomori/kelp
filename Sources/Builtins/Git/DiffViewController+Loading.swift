@@ -6,6 +6,23 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
+/// The order a diff's reads and row builds come in: one read at a time, and an answer or rows for what's no longer asked
+/// are dropped. Only `load` and the builds change it.
+struct DiffLoads {
+    /// One read at a time: what asks meanwhile (git events, a click) makes one more read after it (`again`), not one
+    /// each. A caller gets a diff read after it asked.
+    var reading: Task<Void, Never>?
+    var again = false
+    /// Counts changes to what's asked (another source or workspace): a read of the old one drops its answer.
+    var asking = 0
+    /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
+    var builds = 0
+    /// What the diff on screen was read from: a git event that leaves it as it was reads nothing.
+    var basis: GitDiff.Basis?
+    /// Reads so far: tests see a burst of events make one more, not one each.
+    var reads = 0
+}
+
 extension DiffViewController {
     func diffRequest() -> GitDiff {
         var query = request()
@@ -16,51 +33,48 @@ extension DiffViewController {
         let id = worktreeId ?? ""
         if let single {
             return single.commit.map { GitDiff(id: id, source: "commit", file: single.file, commit: $0) }
-                ?? GitDiff(id: id, source: single.source, file: single.file)
+                ?? GitDiff(id: id, source: single.source.wire, file: single.file)
         }
-        switch source.indexOfSelectedItem {
-        case 1: return GitDiff(id: id, source: "unstaged")
-        case 2: return GitDiff(id: id, source: "staged")
-        case 3: return GitDiff(id: id, source: "branch")
-        case 4: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
-        case 5:
+        switch sourcePicked {
+        case .uncommitted, .unstaged, .staged, .branch: return GitDiff(id: id, source: sourcePicked.wire)
+        case .commit: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
+        case .turn:
             // The agent whose turns the picker lists, not whichever has the focus by now.
             let listed = (turnPop.itemArray.first?.representedObject as? SessionTurns.Mark)?.session
             var turn = GitDiff(id: id, source: "turn", session: listed ?? FileActions(app).targetAgent?.id ?? "")
             turn.turn = chosenTurn
             return turn
-        default: return GitDiff(id: id, source: "all")
         }
     }
 
     func load() async {
-        if let running = reading {
-            readAgain = true
+        if let running = loads.reading {
+            loads.again = true
             await running.value
             return
         }
         let task = Task {
             repeat {
-                readAgain = false
+                loads.again = false
                 await loadOnce()
-            } while readAgain
-            reading = nil   // with the last check: no await between, so a later caller starts a new one
+            } while loads.again
+            loads.reading = nil   // with the last check: no await between, so a later caller starts a new one
         }
-        reading = task
+        loads.reading = task
         await task.value
     }
 
     private func loadOnce() async {
-        reads += 1
+        loads.reads += 1
         guard let wid = worktreeId else {
-            builds += 1
+            loads.builds += 1
             diffs = []
             rows = []
             table.reloadData()
             files.reloadData()
             return
         }
-        if single == nil, source.indexOfSelectedItem == 4, askCommit {
+        if single == nil, sourcePicked == .commit, askCommit {
             askCommit = false   // before asking: a load that starts while the question is up doesn't ask again
             let log = await app.call(GitLog(id: wid, all: true)) ?? []   // the user picked "a commit": a banner if git can't list them
             let menu = NSMenu()
@@ -78,14 +92,14 @@ extension DiffViewController {
             if await runSheet(alert) == .alertFirstButtonReturn {
                 commitHash = pop.selectedItem?.representedObject as? String
             } else {
-                source.selectItem(at: 0)
+                sourcePicked = .uncommitted
                 commitHash = nil
             }
         }
         askCommit = false
         let agent = FileActions(app).targetAgent?.id   // read once: the focus can move during the reads below
-        if single == nil, source.indexOfSelectedItem == 5, agent == nil {
-            builds += 1
+        if single == nil, sourcePicked == .turn, agent == nil {
+            loads.builds += 1
             diffs = []
             rows = []
             words = [:]
@@ -94,9 +108,9 @@ extension DiffViewController {
             status.stringValue = String(localized: "No agent on this screen")
             return
         }
-        if single == nil { await readTurns(source.indexOfSelectedItem == 5 ? agent : nil) }
-        let asked = asking, request = diffRequest()
-        basis = request.basis(app.latest(GitEvent.self, wid))
+        if single == nil { await readTurns(sourcePicked == .turn ? agent : nil) }
+        let asked = loads.asking, request = diffRequest()
+        loads.basis = request.basis(app.latest(GitEvent.self, wid))
         let result = await app.tryCall(request)
         let newDiffs = result.value ?? []
         var ch: [FileChange] = [], cm: [DiffComment] = []
@@ -118,16 +132,16 @@ extension DiffViewController {
         }.value
         let spans = await parsed
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
-        guard asked == asking, wid == worktreeId else { return }
-        builds += 1   // rows a layout change is still building are the old diff's
+        guard asked == loads.asking, wid == worktreeId else { return }
+        loads.builds += 1   // rows a layout change is still building are the old diff's
         if newDiffs != diffs {
             position.stringValue = ""
             syntax = spans
         }   // "Change 3 of 17" counted another diff
         diffs = newDiffs
-        prints = printed
+        viewed.prints = printed
         changes = ch
-        comments = cm
+        notes.saved = cm
         readViewed()
         (rows, words) = built
         placeDraft()

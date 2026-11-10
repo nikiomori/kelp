@@ -33,18 +33,10 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// Whitespace-only changes left out: what's shown is then no patch git can stage or discard as it is.
     var hidesSpace: Bool { spaceToggle.isSelected(forSegment: 0) }
     var find = DiffFinding()
-    /// Files marked as read, with their diff's print then (`DiffViewed`).
-    var viewed: [String: String] = [:]
-    /// Each file's print (`ViewedFiles.print`), made with its rows off the main thread: a big diff hashes slowly.
-    var prints: [String: String] = [:]
-    /// The last write of `viewed`: each waits for the one before, so quick clicks land in order.
-    var viewedWrite: Task<Void, Never>?
+    /// The files marked as read (`DiffViewed`).
+    var viewed = ViewedMarks()
     /// Unchanged lines the user opened between changes, by `DiffRows.gapKey` (`DiffGaps`).
     var opened: [String: [DiffLine]] = [:]
-    /// The comment being written, if any (`DiffDraft`).
-    var draft: CommentDraft?
-    /// Open comments left out of Send to Agent (`DiffFindings`).
-    var skipped: Set<String> = []
     /// The session reviewing this diff, if one was started here (`DiffReviewWith`).
     var reviewer: String?
     let reviewPop = NSPopUpButton(frame: .zero, pullsDown: true)
@@ -67,7 +59,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// A hunk was discarded: what's left fades in rather than the lines jumping up.
     var fadesNextLoad = false
     var rows: [ReviewRow] = []
-    var comments: [DiffComment] = []
+    var notes = ReviewNotes()
     var changes: [FileChange] = []
     /// Changed character range of a line that has a counterpart on the other side, by "file:kind:line".
     var words: [String: NSRange] = [:]
@@ -76,8 +68,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var syntaxColors = CodeEditor.syntaxColors
     var worktreeId: String?
     var commitHash: String?
-    /// One-file mode: (path, "unstaged" | "staged", commit).
-    var single: (file: String, source: String, commit: String?)?
+    /// One-file mode: (path, what it's read from, commit).
+    var single: (file: String, source: DiffSource, commit: String?)?
+    /// What the source menu has picked.
+    var sourcePicked: DiffSource {
+        get { DiffSource(rawValue: source.indexOfSelectedItem) ?? .uncommitted }
+        set { source.selectItem(at: newValue.rawValue) }
+    }
     /// The editor's font and size, as the code it shows is the editor's; a row is a line of it and 4 pt.
     var font: NSFont { CodeEditor.font }
     static var lineHeight: CGFloat {
@@ -111,10 +108,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         spaceToggle.setToolTip(String(localized: "Hide Whitespace Changes"), forSegment: 0)
         spaceToggle.target = self
         spaceToggle.action = #selector(spaceChanged)
-        source.addItems(withTitles: [
-            String(localized: "Uncommitted"), String(localized: "Unstaged"), String(localized: "Staged"),
-            String(localized: "Branch vs base"), String(localized: "Commit…"), String(localized: "Agent's Last Turn")
-        ])
+        source.addItems(withTitles: DiffSource.allCases.map(\.title))
         source.lastItem?.toolTip = String(
             localized: "What changed since the agent's last prompt, even with other agents in the same folder")
         source.target = self
@@ -269,18 +263,18 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 
     func show(worktree id: String?) {
         worktreeId = id
-        asking += 1
+        loads.asking += 1
         Task { await load() }
     }
 
     /// Every file of a commit, the same as picking it under Commit…
     func showCommit(_ hash: String) {
         commitHash = hash
-        source.selectItem(at: 4)
+        sourcePicked = .commit
     }
 
     /// One file, VS Code's diff editor: no file list, just this file's changes.
-    func showFile(_ path: String, source: String, commit: String?) {
+    func showFile(_ path: String, source: DiffSource, commit: String?) {
         single = (path, source, commit)
         placeFileList()
         let dir = (path as NSString).deletingLastPathComponent
@@ -308,13 +302,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
     /// Its workspace's git as pushed: the diff is read again only when what it's read from changed (`GitDiff.basis`).
     func gitChanged(_ e: GitEvent?) {
-        guard diffRequest().basis(e) != basis else { return }
+        guard diffRequest().basis(e) != loads.basis else { return }
         if view.window == nil { stale = true } else { reload() }
     }
-    func showLastTurn() { source.selectItem(at: 5) }
+    func showLastTurn() { sourcePicked = .turn }
     @objc private func sourceChanged() {
-        askCommit = source.indexOfSelectedItem == 4
-        asking += 1
+        askCommit = sourcePicked == .commit
+        loads.asking += 1
         reload()
     }
     var askCommit = false
@@ -326,23 +320,47 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 
     @objc private func spaceChanged() {
         UserDefaults.standard.set(hidesSpace, forKey: "diff.ignoreSpace")
-        asking += 1
+        loads.asking += 1
         reload()
     }
 
-    /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
-    var builds = 0
+    /// The order reads and row builds come in (`DiffLoads`).
+    var loads = DiffLoads()
 
-    /// One read at a time: what asks meanwhile (git events, a click) makes one more read after it, not one each. A caller
-    /// gets a diff read after it asked.
-    var reading: Task<Void, Never>?
-    var readAgain = false
-    /// Counts changes to what's asked (another source or workspace): a read of the old one drops its answer.
-    var asking = 0
-    /// What the diff on screen was read from: a git event that leaves it as it was reads nothing.
-    var basis: GitDiff.Basis?
+}
 
-    /// Reads so far: tests see a burst of events make one more, not one each.
-    var reads = 0
+/// What a review's diff is read from: the source menu's items in their order, each with the name the daemon knows it by
+/// (`GitDiff.source`, a diff tab's `source=`).
+enum DiffSource: Int, CaseIterable {
+    case uncommitted, unstaged, staged, branch, commit, turn
 
+    var wire: String {
+        switch self {
+        case .uncommitted: "all"
+        case .unstaged: "unstaged"
+        case .staged: "staged"
+        case .branch: "branch"
+        case .commit: "commit"
+        case .turn: "turn"
+        }
+    }
+
+    init?(wire: String) {
+        guard let found = Self.allCases.first(where: { $0.wire == wire }) else { return nil }
+        self = found
+    }
+
+    var title: String {
+        switch self {
+        case .uncommitted: String(localized: "Uncommitted")
+        case .unstaged: String(localized: "Unstaged")
+        case .staged: String(localized: "Staged")
+        case .branch: String(localized: "Branch vs base")
+        case .commit: String(localized: "Commit…")
+        case .turn: String(localized: "Agent's Last Turn")
+        }
+    }
+
+    /// The working tree's own changes, against the index or HEAD: what can be staged, unstaged or discarded.
+    var isLive: Bool { self == .uncommitted || self == .unstaged || self == .staged }
 }

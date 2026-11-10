@@ -215,7 +215,7 @@ extension DiffViewController {
             labelWithAttributedString: GitFolders.changes(added: diff.additions, removed: diff.deletions))
         counts.setContentHuggingPriority(.required, for: .horizontal)
         counts.setContentCompressionResistancePriority(.required, for: .horizontal)
-        if ViewedFiles.viewed(diff, in: viewed, printed: prints[diff.path]) { nameLabel.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
+        if viewed.has(diff) { nameLabel.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
         let row = NSStackView(views: [nameLabel, counts])
         row.distribution = .fill   // the room goes to the name: the counts stand in a column at the end
         row.spacing = 6
@@ -322,7 +322,7 @@ extension DiffViewController {
             stack.addArrangedSubview(NSView())
             // Only where the hunks shown are the unstaged diff's, the one Discard works on.
             let unstaged =
-                single.map { $0.source == "unstaged" && $0.commit == nil } ?? (source.indexOfSelectedItem == 1)
+                single.map { $0.source == .unstaged && $0.commit == nil } ?? (sourcePicked == .unstaged)
             if unstaged { stack.addArrangedSubview(button(String(localized: "Discard"), #selector(discardHunk(_:)))) }
             stack.addArrangedSubview(
                 button(staged ? String(localized: "Unstage") : String(localized: "Stage"), #selector(hunkAction(_:))))
