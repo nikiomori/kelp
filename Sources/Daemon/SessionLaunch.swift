@@ -346,12 +346,12 @@ extension Sessions {
         case .cursor: callbacks.limits = { [weak self] r in self?.agentUsage.recordPlanHit(rec.agent ?? "", r) }
         case .codex, nil: break   // Codex's usage comes from its app-server: its screen only says the plan ran out
         }
-        callbacks.turnEnded = { [weak self] prompt in
-            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
-        }
         // Naming follows the session however it started (created, or woken from a pause).
         callbacks.firstPrompt = { [weak self] text in self?.autoTitle(session: sid, prompt: text) }
         callbacks.turnStarted = { [weak self] t in self?.turns.keep(t) }
+        callbacks.turnEnded = { [weak self] prompt in
+            self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
+        }
         if !["shell", "custom"].contains(rec.agent ?? "custom") {
             callbacks.topic = { [weak self] topic in
                 guard let self else { return }

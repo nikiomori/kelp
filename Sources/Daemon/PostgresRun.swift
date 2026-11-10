@@ -94,6 +94,7 @@ struct PostgresRun: Sendable {
         LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
         WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
         """
+    /// The database's own functions: not an extension's (PostGIS alone puts hundreds in public).
     static let schemaFunctions = """
         SELECT DISTINCT CASE WHEN n.nspname = 'public' THEN p.proname ELSE n.nspname || '.' || p.proname END
         FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -101,7 +102,6 @@ struct PostgresRun: Sendable {
           AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
         ORDER BY 1
         """
-    /// The database's own functions: not an extension's (PostGIS alone puts hundreds in public).
     static let schemaIndexes = """
         SELECT CASE WHEN schemaname = 'public' THEN tablename ELSE schemaname || '.' || tablename END,
           indexname || ' ' || substring(indexdef from '\\((.*)\\)$')

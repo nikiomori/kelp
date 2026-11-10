@@ -66,7 +66,7 @@ struct ExtListView: View {
             } else {
                 List(selection: $selection) {
                     ForEach(Array(items.enumerated()), id: \.offset) { i, item in
-                        row(item).tag(i)
+                        draggable(row(item), item).tag(i)
                             .contextMenu {
                                 ForEach(Array((def.actions ?? []).enumerated()), id: \.offset) { _, a in
                                     Button {
@@ -111,8 +111,13 @@ struct ExtListView: View {
         return HStack(spacing: 8) {
             // An icon that's the same on every row is the panel's own (its tab shows it): only one that names a field tells rows apart.
             if let icon = def.icon, icon.contains("${") {
-                Image(systemName: actions.expand(icon, item: item, quote: false)).foregroundStyle(.secondary).frame(
-                    width: 16)
+                let name = actions.expand(icon, item: item, quote: false)
+                if let image = Self.image(name) {
+                    Image(nsImage: image).resizable().frame(width: 22, height: 22)
+                } else {
+                    Image(systemName: name.hasPrefix("app:") ? "app.dashed" : name).foregroundStyle(.secondary).frame(
+                        width: 16)
+                }
             }
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(actions.expand(def.title ?? "${name}", item: item, quote: false)).lineLimit(1)
@@ -123,6 +128,29 @@ struct ExtListView: View {
             Spacer(minLength: 4)
             if let st = status(item) { StatusIcon(status: st) }
         }
+    }
+
+    /// `drag`: the row drags that file (into Finder, a terminal, an agent's prompt).
+    @ViewBuilder private func draggable(_ view: some View, _ item: JSONValue) -> some View {
+        let path = def.drag.map { ExtActions(app).expand($0, item: item, quote: false) } ?? ""
+        if !path.isEmpty {
+            view.onDrag { NSItemProvider(contentsOf: URL(fileURLWithPath: path)) ?? NSItemProvider() }
+        } else {
+            view
+        }
+    }
+
+    @MainActor private static var images: [String: NSImage?] = [:]
+    /// A row icon that isn't an SF Symbol: `app:<bundle id>` (that app's icon) or a file's path (its Finder icon).
+    @MainActor private static func image(_ name: String) -> NSImage? {
+        guard name.hasPrefix("app:") || name.hasPrefix("/") else { return nil }
+        if let cached = images[name] { return cached }
+        let path =
+            name.hasPrefix("/")
+            ? name : NSWorkspace.shared.urlForApplication(withBundleIdentifier: String(name.dropFirst(4)))?.path
+        let image = path.map { NSWorkspace.shared.icon(forFile: $0) }
+        images[name] = image
+        return image
     }
 
     private func status(_ item: JSONValue) -> AgentStatus? {

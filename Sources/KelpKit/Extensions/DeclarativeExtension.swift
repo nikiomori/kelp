@@ -39,6 +39,8 @@ struct ExtManifest: Decodable {
         var command: String
         var refresh: Double?
         var title: String?, subtitle: String?, icon: String?
+        /// A file path: dragging the row drags that file.
+        var drag: String?
         var status: StatusMap?
         var empty: String?
         var actions: [ActionDef]?, toolbar: [ActionDef]?

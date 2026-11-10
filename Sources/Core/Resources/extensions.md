@@ -76,6 +76,8 @@ Both take the same view definitions; `editors` also appear in the editor area's 
   environment in any program, and nothing has to be quoted. Over `ssh` the host doesn't get them: use `${Field}` there.
 - A row shows `icon` only when it reads a field (`"${kind}"`): a fixed icon is the panel's, already on its tab.
   A `subtitle` that comes out empty takes no line.
+  The icon may also be an app's, `app:<bundle id>`, or a file's, its path (`/…`); an app not on this Mac shows an empty frame.
+- `drag`: a file's path (`"${path}/notes.txt"`): the row drags that file, into Finder, a terminal or an agent's prompt.
 - `status` maps a field to a status dot: `working`, `waiting`, `done`, `idle`, `ended`.
 - The first action is the default (double-click / Return); all of them are in the row's context menu.
 - `toolbar`: the panel's bar shows the first one in words and the rest as icons (their `title` is the tooltip).
