@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Foundation
 import Testing
+import WorkbenchKit
 
 @testable import KelpKit
 
@@ -78,8 +79,8 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
     vc.view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
     rig.show(vc, 200, 200)
     let card = HoverCard(app: rig.app)
-    card.open("p:" + rig.project.id, rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
-    #expect(card.shownKey == "p:" + rig.project.id)
+    card.open(.project(rig.project.id), rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
+    #expect(card.shownKind == .project(rig.project.id))
     card.close()
-    #expect(card.shownKey == nil)
+    #expect(card.shownKind == nil)
 }

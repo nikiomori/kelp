@@ -15,7 +15,7 @@ final class HoverCard {
     private var keys: Any?
     private let popover = NSPopover()
     private let pending = Debounce()
-    private(set) var shownKey: String?
+    private(set) var shownKind: SidebarItem.Kind?
     private var shown: CardModel?
     private var warmUntil = Date.distantPast
     private weak var anchor: NSWindow?
@@ -38,16 +38,16 @@ final class HoverCard {
     private var resignWatch: NSObjectProtocol?
     isolated deinit { resignWatch.map(NotificationCenter.default.removeObserver) }
 
-    /// The pointer is over a row (`key` "w:…" / "a:…"), or over nothing.
-    func hover(_ key: String?, rect: NSRect, in view: NSView) {
-        guard key != shownKey || !popover.isShown else { return }
-        guard let key else {
+    /// The pointer is over a row (a workspace's, an agent's…), or over nothing.
+    func hover(_ kind: SidebarItem.Kind?, rect: NSRect, in view: NSView) {
+        guard kind != shownKind || !popover.isShown else { return }
+        guard let kind else {
             pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
             return
         }
         let warm = popover.isShown || Date() < warmUntil
         pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak view] in
-            if let view { self?.show(key, rect: rect, in: view) }
+            if let view { self?.show(kind, rect: rect, in: view) }
         }
     }
 
@@ -67,7 +67,7 @@ final class HoverCard {
             warmUntil = Date().addingTimeInterval(0.8)
             popover.close()
         }
-        shownKey = nil
+        shownKind = nil
         if let keys {
             NSEvent.removeMonitor(keys)
             self.keys = nil
@@ -75,20 +75,20 @@ final class HoverCard {
     }
 
     /// A row's card without the wait: a click asked for it.
-    func open(_ key: String, rect: NSRect, in view: NSView) {
+    func open(_ kind: SidebarItem.Kind, rect: NSRect, in view: NSView) {
         pending.cancel()
-        if key != shownKey || !popover.isShown { show(key, rect: rect, in: view) }
+        if kind != shownKind || !popover.isShown { show(kind, rect: rect, in: view) }
     }
 
-    private func show(_ key: String, rect: NSRect, in view: NSView) {
+    private func show(_ kind: SidebarItem.Kind, rect: NSRect, in view: NSView) {
         // Events come only while the window is key.
-        guard view.window != nil, let model = CardModel(key, app: app, placed: !underTabs) else {
+        guard view.window != nil, let model = CardModel(kind, app: app, placed: !underTabs) else {
             close()
             return
         }
         shown?.stop()
         shown = model
-        shownKey = key
+        shownKind = kind
         anchor = view.window
         model.closeCard = { [weak self] in self?.close() }
         let host = NSHostingController(rootView: CardView(model: model))
@@ -139,9 +139,11 @@ final class CardModel {
     private var watches: [Watched] = []
 
     /// `placed`: the subtitle says where the agent is (group · project); a tab's card leaves it out.
-    init?(_ key: String, app: AppModel, placed: Bool = true) {
+    init?(_ kind: SidebarItem.Kind, app: AppModel, placed: Bool = true) {
         self.app = app
-        if key.hasPrefix("a:"), let session = app.session(String(key.dropFirst(2))) {
+        switch kind {
+        case .agent(let id):
+            guard let session = app.session(id) else { return nil }
             title = app.catalog.displayName(session)
             let worktree = app.worktree(session.worktreeId)
             subtitle =
@@ -155,7 +157,8 @@ final class CardModel {
             muteIds = [session.id]
             server = nil
             folder = nil
-        } else if key.hasPrefix("p:"), let project = app.repo(String(key.dropFirst(2))) {
+        case .project(let id):
+            guard let project = app.repo(id) else { return nil }
             title = app.projectName(project.id) ?? project.name
             subtitle = app.projectPlace(project)
             agents = []
@@ -165,7 +168,8 @@ final class CardModel {
             muteIds = [project.id]
             server = RemoteHost.of(project.path)?.host
             folder = nil
-        } else if key.hasPrefix("w:"), let worktree = app.worktree(String(key.dropFirst(2))) {
+        case .workspace(let id):
+            guard let worktree = app.worktree(id) else { return nil }
             let project = app.repo(worktree.repoId)
             // A project's own screen has no name of its own: the row stands for the project.
             let group = app.groupName(worktree)
@@ -183,7 +187,7 @@ final class CardModel {
             muteIds = [worktree.id] + (alone ? [worktree.repoId] : [])
             server = project.flatMap { RemoteHost.of($0.path)?.host }
             folder = app.gitFolder(of: worktree.id)?.id
-        } else {
+        case .host, .parked:
             return nil
         }
     }

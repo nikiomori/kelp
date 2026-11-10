@@ -31,6 +31,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             case .parked: "parked"
             }
         }
+        /// Whose card the row shows: a project with its own screen stands for that screen.
+        var cardKind: SidebarItem.Kind { workspace.map(SidebarItem.Kind.workspace) ?? kind }
         /// What a dragged row reorders: a project's or a workspace's id.
         var id: String? {
             switch kind {
@@ -315,7 +317,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             card.hover(nil, rect: .zero, in: outline)
             return
         }
-        card.hover(node.workspace.map { "w:" + $0 } ?? node.key, rect: outline.rect(ofRow: row), in: outline)
+        card.hover(node.cardKind, rect: outline.rect(ofRow: row), in: outline)
     }
     override func mouseExited(with event: NSEvent) {
         card.hover(nil, rect: .zero, in: outline)
@@ -325,7 +327,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     func openCard(_ node: Node) {
         let row = outline.row(forItem: node)
         if row >= 0 {
-            card.open(node.workspace.map { "w:" + $0 } ?? node.key, rect: outline.rect(ofRow: row), in: outline)
+            card.open(node.cardKind, rect: outline.rect(ofRow: row), in: outline)
         }
     }
 

@@ -137,7 +137,7 @@ extension SidebarController {
 /// Finding rows.
 extension SidebarController {
     /// The row for a workspace: its own, or its project's when that stands for it.
-    func workspaceNode(_ id: String) -> Node? { find { $0.key == "w:" + id || $0.workspace == id } }
+    func workspaceNode(_ id: String) -> Node? { find { $0.kind == .workspace(id) || $0.workspace == id } }
 
     func node(_ key: String) -> Node? { find { $0.key == key } }
 

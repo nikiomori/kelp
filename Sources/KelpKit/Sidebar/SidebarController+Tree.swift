@@ -101,7 +101,7 @@ extension SidebarController {
         let on = TabURI.body(tab), parent = app.session(on)?.parent ?? ""
         let agent =
             TabURI.scheme(tab) == "session"
-            ? workspace.children.first { $0.key == "a:" + on || $0.key == "a:" + parent } : nil
+            ? workspace.children.first { $0.kind == .agent(on) || $0.kind == .agent(parent) } : nil
         let row =
             agent.map { outline.row(forItem: $0) }.flatMap { $0 >= 0 ? $0 : nil } ?? outline.row(forItem: workspace)
         guard row >= 0 else { return }
