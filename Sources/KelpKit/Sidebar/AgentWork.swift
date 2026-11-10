@@ -1,3 +1,4 @@
+import Agents
 import Core
 import DesignKit
 import SwiftUI
@@ -111,7 +112,7 @@ struct AgentWork: View {
 
     /// A subagent's journal, where its agent keeps one.
     private func opener(_ run: Subagent, in session: Session) -> (@MainActor () -> Void)? {
-        guard session.agent == "claude" else { return nil }
+        guard model.app.catalog.manifest(session.agent)?.transcript == .claude else { return nil }
         let app = model.app, uri = TabURI.subagent(session: session.id, id: run.id), workspace = session.worktreeId
         return { app.workbench.open(uri, workspace: workspace) }
     }

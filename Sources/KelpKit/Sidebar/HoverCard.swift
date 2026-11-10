@@ -1,3 +1,4 @@
+import Agents
 import AppKit
 import Core
 import DesignKit
@@ -193,7 +194,7 @@ final class CardModel {
     }
 
     func load() {
-        watches = agents.filter { $0.session.agent == "claude" }.map { agent in
+        watches = agents.filter { app.catalog.manifest($0.session.agent)?.transcript == .claude }.map { agent in
             let watched = Watched(.subagents, in: app)
             watched.key = agent.id
             return watched

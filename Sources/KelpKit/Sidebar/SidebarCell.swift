@@ -277,7 +277,7 @@ final class SidebarCell: NSTableCellView {
             mark.status = Self.shownStatus(session)
             mark.unread = session.unread
             mark.limited = session.limitHit != nil
-            mark.compacting = session.summary.hasPrefix("Compacting")
+            mark.compacting = session.compacting
             mark.waitsForCommand = session.waitsForCommand
             mark.guessed = session.guessed == true
             mark.progress = session.progress.map { Double($0) / 100 }

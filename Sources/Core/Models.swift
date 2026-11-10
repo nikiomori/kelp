@@ -233,6 +233,8 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// Its turn is over and it stays only to see that command end. Not while it asks, and not for a server: `awaiting`
     /// comes from a Stop.
     public var waitsForCommand: Bool { status == .working && awaiting != nil }
+    /// It compacts its conversation now: its row says "Compacting the conversation…" until that's done.
+    public var compacting: Bool { summary.hasPrefix("Compacting") }
     /// What runs in the background beside it, each in a line: not the command it waits for, which is what it's doing. Empty
     /// once its program is gone.
     public var aside: [String] {
