@@ -15,6 +15,7 @@ enum AgentRules {
     static let reads: Set<String> = Set(reading.map { $0.name })
     private static let reading: [any RPCMethod.Type] = [
         AgentsVersions.self, CIFailures.self, CIFullLog.self, CIJobs.self, CILog.self, CIRunsList.self,
+        AddonsList.self,
         CommentList.self, DaemonInfo.self, Ping.self, ExtensionLibrary.self, FilesFetch.self, FilesIgnored.self,
         FilesList.self, FilesRead.self, FilesReadRemote.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
         GitCommitDetails.self, GitCommitFiles.self, GitDiff.self, GitGraph.self, GitLineStats.self,

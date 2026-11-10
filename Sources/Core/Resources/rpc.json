@@ -18,6 +18,106 @@
         ],
         "type" : "object"
       },
+      "Addon" : {
+        "description" : "A skill, an MCP server or an instruction file an agent gets.",
+        "properties" : {
+          "about" : {
+            "description" : "Its own line about itself (a skill's description).",
+            "type" : "string"
+          },
+          "agents" : {
+            "description" : "The ids of the agents that get it.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "copies" : {
+            "description" : "Other places the same one sits in (a second copy of a skill's folder).",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/Addon.Kind"
+          },
+          "loaded" : {
+            "description" : "In the chat asked about: true when it loaded there; nil when no chat's own record says.",
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "origin" : {
+            "description" : "Where it comes from, as the person would name it: a folder (\"~/.agents/skills\"), a file, a plugin, \"claude.ai\".",
+            "type" : "string"
+          },
+          "problem" : {
+            "description" : "Why it doesn't work, in a few words (\"Doesn't start: no such file\").",
+            "type" : "string"
+          },
+          "signIn" : {
+            "description" : "A server that waits for a sign-in: it offers nothing else until then.",
+            "type" : "boolean"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/Addon.Source"
+          },
+          "tokens" : {
+            "description" : "What it adds to every request of the chat, estimated from the chat's own record; nil when unknown.",
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "agents",
+          "copies",
+          "kind",
+          "name",
+          "signIn",
+          "source"
+        ],
+        "type" : "object"
+      },
+      "Addon.Kind" : {
+        "enum" : [
+          "skill",
+          "server",
+          "instructions"
+        ],
+        "type" : "string"
+      },
+      "Addon.Source" : {
+        "description" : "Who brought it: Kelp (its own skills), the person (their folders and settings), the project (its files), a plugin of the agent's, the agent's account (claude.ai's skills and connectors), or the agent itself (built in).",
+        "enum" : [
+          "kelp",
+          "yours",
+          "project",
+          "plugin",
+          "account",
+          "agent"
+        ],
+        "type" : "string"
+      },
+      "Addons" : {
+        "description" : "What `addons.list` answers. `chat`: the list is what that chat reported at its start (Claude Code writes it down); false when it's only what the files say a new chat would get.",
+        "properties" : {
+          "chat" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Addon"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "chat",
+          "items"
+        ],
+        "type" : "object"
+      },
       "AgentCommand" : {
         "description" : "A command an agent ran with its shell tool (Claude Code's Bash, Droid's Execute), as its hooks tell it (`kelp hook command`): what it ran, how that went and the end of what it printed. The session's tab lists them (`session.commands`), its row shows the one running.",
         "properties" : {
@@ -4958,6 +5058,33 @@
     "version" : "1.0.0"
   },
   "methods" : [
+    {
+      "description" : "The skills, MCP servers and instruction files of the workspace's agents; with `session`, what that chat loaded.",
+      "name" : "addons.list",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/Addons"
+        }
+      }
+    },
     {
       "description" : "Settings › Agent Catalog: how an agent starts, kept as its file in the agents folder. `manifest` is the whole file (secrets in it as `agent.setSecret` left them); nil removes it, and the agent starts as Kelp's preset says again.",
       "name" : "agent.save",

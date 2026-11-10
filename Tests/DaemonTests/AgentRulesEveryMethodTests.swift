@@ -68,6 +68,7 @@ private func rows() async throws -> Rows {
         { GitHubIssues(worktreeId: $0) }, { GitHubPRs(worktreeId: $0) }, { GitHubProjects(worktreeId: $0) },
         { GitHubReviewComments(worktreeId: $0, pr: nil) }, { GitWebPages(worktreeId: $0) },
         { RunDetect(worktreeId: $0) }, { ScriptsList(worktreeId: $0) }, { SkillsBrowser(worktreeId: $0) },
+        { AddonsList(worktreeId: $0) },
         { TmuxList(worktreeId: $0) }, { PortsList(worktreeId: $0) }, { SessionList(worktreeId: $0) },
         { RecipeRender(id: $0, name: "x") }
     ]

@@ -91,6 +91,9 @@ extension AgentUsage: DaemonService { static func of(_ daemon: Daemon) -> AgentU
 extension SettingsStore: DaemonService { static func of(_ daemon: Daemon) -> SettingsStore { daemon.settings } }
 extension Remotes: DaemonService { static func of(_ daemon: Daemon) -> Remotes { daemon.remotes } }
 extension Sessions: DaemonService { static func of(_ daemon: Daemon) -> Sessions { daemon.sessions } }
+extension AgentAddons: DaemonService {
+    static func of(_ daemon: Daemon) -> AgentAddons { AgentAddons(sessions: daemon.sessions) }
+}
 extension SessionSetup: DaemonService { static func of(_ daemon: Daemon) -> SessionSetup { daemon.sessions.setup } }
 extension SessionProcesses: DaemonService {
     static func of(_ daemon: Daemon) -> SessionProcesses { daemon.sessions.processes }
@@ -257,7 +260,8 @@ extension Daemon {
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
         let all: [any Answered.Type] =
-            [DaemonInfo.self] + Methods.commentMethods + Methods.daemonMethods + Methods.databaseApplyMethods
+            [DaemonInfo.self] + Methods.addonMethods + Methods.commentMethods + Methods.daemonMethods
+            + Methods.databaseApplyMethods
             + Methods.databaseMethods + Methods.databaseHealthMethods + Methods.databaseImportMethods
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
             + Methods.hostStatsMethods + Methods.integrationMethods + Methods.lspMethods + Methods.launchMethods
