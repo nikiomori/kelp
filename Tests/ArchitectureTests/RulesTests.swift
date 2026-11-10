@@ -61,6 +61,24 @@ import Testing
     #expect(untested.subtracting(uncalled).sorted() == [], "called by a test now, or gone: take them off the list")
 }
 
+/// Every `RPCEvent` is in `rpcEvents`: one left out is sent by the daemon, dropped by every client and missing from
+/// rpc.json, and nothing says so.
+@Test func everyEventIsListed() throws {
+    let declaration = try NSRegularExpression(pattern: #"\b(?:struct|enum|extension) (\w+):[^{\n]*\bRPCEvent\b"#)
+    var declared: Set<String> = []
+    for f in sources(["Sources/Core"]) {
+        for m in declaration.matches(in: f.text, range: NSRange(f.text.startIndex..., in: f.text)) {
+            if let type = Range(m.range(at: 1), in: f.text) { declared.insert(String(f.text[type])) }
+        }
+    }
+    let events = try #require(sources(["Sources/Core"]).first { $0.path.hasSuffix("/Events.swift") }?.text)
+    let list = try #require(events.firstMatch(of: /rpcEvents: \[any RPCEvent\.Type\] = \[([^\]]*)\]/)?.1)
+    let listed = Set(list.matches(of: /(\w+)\.self/).map { String($0.1) })
+    #expect(declared.count > 20, "the events weren't found: \(declared.count)")
+    #expect(declared.subtracting(listed).sorted() == [], "add these to rpcEvents (Core/Events.swift)")
+    #expect(listed.subtracting(declared).sorted() == [], "listed but not an RPCEvent")
+}
+
 /// "Is this path in that folder" is `IDE.inside`, which follows links and `..`: by hand (`a == b || a.hasPrefix(b +
 /// "/")`, a workspace found by `hasPrefix($0.path + "/")`) a path spelled another way (/tmp for /private/tmp, a link)
 /// isn't in its own project. (A `hasPrefix(root + "/")` that then drops the root to show the rest is a string's, not
