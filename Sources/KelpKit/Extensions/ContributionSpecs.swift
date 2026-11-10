@@ -182,7 +182,9 @@ package struct SettingsSection: Identifiable {
         fillsPane: Bool = false,
         order: Int = 100,
         previews: [String: @MainActor () -> AnyView] = [:],
-        pictures: [String: @MainActor (_ option: String) -> AnyView] = [:]
+        pictures: [String: @MainActor (_ option: String) -> AnyView] = [:],
+        options: [String: @MainActor () -> [String]] = [:],
+        names: [String: @MainActor (_ option: String) -> String] = [:]
     ) {
         self.id = id
         self.title = title
@@ -194,6 +196,8 @@ package struct SettingsSection: Identifiable {
         self.order = order
         self.previews = previews
         self.pictures = pictures
+        self.options = options
+        self.names = names
     }
     package let id: String, title: String, icon: String
     var specs: [SettingSpec]
@@ -219,6 +223,10 @@ package struct SettingsSection: Identifiable {
     var previews: [String: @MainActor () -> AnyView]
     /// A pictured setting's option drawn (`look` "pictures"), by its key: a built-in's own setting, drawn by it.
     var pictures: [String: @MainActor (_ option: String) -> AnyView]
+    /// A setting's choices when they depend on what's there now (the agents installed), by its key, asked when shown;
+    /// and what each is called, when that isn't known where the setting is declared (`SettingSpec.labels` otherwise).
+    var options: [String: @MainActor () -> [String]]
+    var names: [String: @MainActor (_ option: String) -> String]
 }
 
 /// A file icon theme in VS Code's format (see IconTheme).

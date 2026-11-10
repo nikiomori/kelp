@@ -9,7 +9,7 @@ enum SettingPictures {
     static let keys: Set<String> = [
         SettingKeys.textSize.key, SettingKeys.tabWidth.key, SettingKeys.tabHeight.key,
         SettingKeys.rowHeight.key, SettingKeys.agentDetail.key,
-        SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.dockIcon.key, SettingKeys.cursorStyle.key
+        SettingKeys.projectColor.key, SettingKeys.serverLook.key, SettingKeys.cursorStyle.key
     ]
 }
 
@@ -20,6 +20,8 @@ struct PictureGrid: View {
     let options: [String]
     @Binding var selection: String
     let label: (String) -> String
+    /// An option drawn by whoever shows the grid (the welcome's agents); nil: the setting's own drawing.
+    var art: ((String) -> AnyView)?
     @Environment(AppModel.self) private var app
     /// The theme gallery's too: Kelp's five themes are one row.
     static let columns = 5
@@ -28,8 +30,10 @@ struct PictureGrid: View {
         TileGrid {
             ForEach(options, id: \.self) { choice in
                 PictureTile(name: label(choice), on: choice == selection, pick: { selection = choice }) {
-                    PictureArt(key: key, option: choice).frame(maxWidth: .infinity, maxHeight: .infinity).background(
-                        Color(nsColor: .fillHover))
+                    Group {
+                        if let art { art(choice) } else { PictureArt(key: key, option: choice) }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .fillHover))
                 }
             }
         }
@@ -101,9 +105,7 @@ private struct PictureArt: View {
         case SettingKeys.agentDetail.key: agentRow
         case SettingKeys.projectColor.key: projectRow
         case SettingKeys.serverLook.key: serverRow
-        case SettingKeys.dockIcon.key: dockIcon
         case SettingKeys.cursorStyle.key: cursor
-        case SettingKeys.defaultAgent.key: agent
         default: app.extensions.all.settings.lazy.compactMap { $0.pictures[key] }.first?(option)
         }
     }
@@ -252,31 +254,6 @@ private struct PictureArt: View {
         .padding(.horizontal, 12)
     }
 
-    /// Kelp's icon as the Dock shows it: plain, with its agents as pills at its foot, or with the plan's ring.
-    private var dockIcon: some View {
-        Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 38, height: 38)
-            .overlay(alignment: .bottom) {
-                if option == "agents" {
-                    HStack(spacing: 2) {
-                        ForEach([Color.textGreen, .textOrange, .textGreen], id: \.self) {
-                            Capsule().fill($0).frame(width: 7, height: 4)
-                        }
-                    }
-                    .offset(y: 4)
-                }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if option == "usage" {
-                    Circle().trim(from: 0, to: 0.62).stroke(
-                        Color.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90)).frame(width: 13, height: 13)
-                    .background(Circle().fill(Color(nsColor: .windowBackgroundColor)).frame(width: 17, height: 17))
-                    .offset(x: 3, y: 3)
-                }
-            }
-    }
-
     /// In the terminal's own colors, as the sample above it.
     private var cursor: some View {
         let ink = app.themes.shown?.terminal.flatMap { NSColor(hex: $0.foreground) }.map(Color.init) ?? .white
@@ -293,14 +270,6 @@ private struct PictureArt: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: app.themes.terminalBackground))
-    }
-
-    private var agent: some View {
-        Group {
-            if let img = app.catalog.icon(option, size: 30) {
-                Image(nsImage: img).resizable().frame(width: 30, height: 30)
-            }
-        }
     }
 }
 

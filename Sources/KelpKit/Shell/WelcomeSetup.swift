@@ -23,7 +23,15 @@ struct WelcomeSetup: View {
                     PictureGrid(
                         key: SettingKeys.defaultAgent.key, options: agents,
                         selection: binding(SettingKeys.defaultAgent),
-                        label: { SettingRow.label(SettingKeys.defaultAgent.key, $0, app) })
+                        label: { app.catalog.name($0) },
+                        art: { id in
+                            AnyView(
+                                Group {
+                                    if let img = app.catalog.icon(id, size: 30) {
+                                        Image(nsImage: img).resizable().frame(width: 30, height: 30)
+                                    }
+                                })
+                        })
                 }
             }
         }

@@ -188,11 +188,11 @@ extension Builtins {
                         s(
                             SettingKeys.wordWrapColumn, "Wrap at column", "number",
                             "Wrapping stops here on a wide screen. 0: at the window's edge.",
-                            group: "Display", requires: "editor.wordWrap", perLanguage: true),
+                            group: "Display", requires: SettingKeys.wordWrap.key, perLanguage: true),
                         s(
                             SettingKeys.wrappingIndent, "Wrapped lines continue", "enum",
                             "At the left edge, at their line's indentation, or one level past it.",
-                            options: ["none", "same", "indent"], group: "Display", requires: "editor.wordWrap"),
+                            options: ["none", "same", "indent"], group: "Display", requires: SettingKeys.wordWrap.key),
                         s(
                             SettingKeys.rulers, "Rulers at columns", "string", "Thin lines at these columns.",
                             group: "Display", placeholder: "80, 120", perLanguage: true),
@@ -249,7 +249,7 @@ extension Builtins {
                             SettingKeys.hover, "Show what the language server knows on hover", "boolean",
                             "A symbol's signature and documentation, and the arguments of a call as you type it.",
                             group: "Language servers",
-                            requires: "editor.lsp"),
+                            requires: SettingKeys.lsp.key),
                         s(
                             SettingKeys.markdownMode, "Default Markdown mode", "enum",
                             options: ["preview", "edit", "split"], look: "segments", group: "Markdown")

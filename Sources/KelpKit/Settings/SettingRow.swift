@@ -160,21 +160,20 @@ struct SettingRow: View {
         current.isEmpty || options.contains(current) ? options : options + [current]
     }
 
-    /// Choices that depend on what's installed are computed when shown.
+    /// Choices that depend on what's installed are computed when shown (a built-in's by its section: `options`).
     static func options(_ spec: SettingSpec, _ app: AppModel) -> [String] {
         switch spec.key {
         case SettingKeys.theme.key: return ["auto", "ghostty"] + app.themes.themes.map(\.id)
         case SettingKeys.iconTheme.key: return app.fileIcons.themes.map(\.id)
-        case SettingKeys.defaultAgent.key: return app.catalog.installed(app.catalog.all).map(\.id)
-        default: return spec.options ?? []
+        default:
+            return app.extensions.all.settings.lazy.compactMap { $0.options[spec.key] }.first?() ?? spec.options ?? []
         }
     }
 
-    /// Option values made readable: what's installed by its name (agents, themes, icon themes), the rest as the
-    /// setting's declaration calls them (`SettingSpec.labels`).
+    /// Option values made readable: what's installed by its name (themes, icon themes; a built-in's, as its section
+    /// names them: `SettingsSection.names`), the rest as the setting's declaration calls them (`SettingSpec.labels`).
     static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
         switch key {
-        case SettingKeys.defaultAgent.key: return app.catalog.name(value)
         case SettingKeys.theme.key:
             return value == "auto"
                 ? String(localized: "Match System")
@@ -183,7 +182,9 @@ struct SettingRow: View {
                     : app.themes.themes.first { $0.id == value }?.name ?? value
         case SettingKeys.iconTheme.key: return app.fileIcons.themes.first { $0.id == value }?.label ?? value
         default:
-            return app.extensions.all.settings.lazy.flatMap(\.specs).first { $0.key == key }?.labels?[value]
+            let sections = app.extensions.all.settings
+            if let name = sections.lazy.compactMap({ $0.names[key] }).first { return name(value) }
+            return sections.lazy.flatMap(\.specs).first { $0.key == key }?.labels?[value]
                 ?? loc(value.prefix(1).uppercased() + value.dropFirst())
         }
     }

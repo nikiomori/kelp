@@ -35,3 +35,33 @@ struct DockStripPicture: View {
                 endPoint: .bottom))
     }
 }
+
+/// Settings' picture of each "Dock icon" choice: Kelp's icon as the Dock shows it, plain, with its agents as pills at its
+/// foot, or with the plan's ring.
+struct DockIconPicture: View {
+    let option: String
+
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 38, height: 38)
+            .overlay(alignment: .bottom) {
+                if option == "agents" {
+                    HStack(spacing: 2) {
+                        ForEach([Color.textGreen, .textOrange, .textGreen], id: \.self) {
+                            Capsule().fill($0).frame(width: 7, height: 4)
+                        }
+                    }
+                    .offset(y: 4)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if option == "usage" {
+                    Circle().trim(from: 0, to: 0.62).stroke(
+                        Color.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90)).frame(width: 13, height: 13)
+                    .background(Circle().fill(Color(nsColor: .windowBackgroundColor)).frame(width: 17, height: 17))
+                    .offset(x: 3, y: 3)
+                }
+            }
+    }
+}

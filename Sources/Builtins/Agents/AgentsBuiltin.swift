@@ -71,16 +71,16 @@ extension Builtins {
                         labels: [
                             "fullest": String(localized: "Fullest Limit"), "all": String(localized: "All Agents")
                         ],
-                        look: "segments", group: "Plan limits", requires: "usage.readPlans"),
+                        look: "segments", group: "Plan limits", requires: SettingKeys.readPlans.key),
                     s(
                         SettingKeys.usageResets, "Reset time beside a limit", "boolean",
                         "Only when it resets within 12 hours.",
-                        group: "Plan limits", requires: "usage.readPlans"),
+                        group: "Plan limits", requires: SettingKeys.readPlans.key),
                     s(
                         SettingKeys.usagePace, "Even pace mark", "boolean",
                         "A tick where an even pace would be by now.",
                         help: "A tick on the bar: how much would be used by now, spending evenly until the reset.",
-                        group: "Plan limits", requires: "usage.readPlans"),
+                        group: "Plan limits", requires: SettingKeys.readPlans.key),
                     s(
                         SettingKeys.alertAt, "Warn about limits at", "enum",
                         "A notification at this level, and again at 95%.",
@@ -88,7 +88,7 @@ extension Builtins {
                         labels: labels(["off", "70", "80", "90"]) {
                             $0 == "off" ? String(localized: "Off") : "\($0)%"
                         },
-                        group: "Plan limits", requires: "usage.readPlans"),
+                        group: "Plan limits", requires: SettingKeys.readPlans.key),
                     s(
                         SettingKeys.artifactsWhere, "Where agents make pages", "enum",
                         "Docs, slides and designs; reviews stay in the project.",
@@ -139,7 +139,10 @@ extension Builtins {
                             "off": String(localized: "Never")
                         ], group: "Claude Code skills")
                 ], custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30,
-                previews: ["Plan limits": { AnyView(LimitsSample()) }]),
+                previews: ["Plan limits": { AnyView(LimitsSample()) }],
+                // The agents installed now, by their names: asked when the row shows, not when this is declared.
+                options: [SettingKeys.defaultAgent.key: { app.catalog.installed(app.catalog.all).map(\.id) }],
+                names: [SettingKeys.defaultAgent.key: { app.catalog.name($0) }]),
             SettingsSection(
                 id: "notifications", title: "Notifications", icon: "bell",
                 specs: [
@@ -153,7 +156,7 @@ extension Builtins {
                         options: ["off", "5", "10", "30"],
                         labels: labels(["off", "5", "10", "30"]) {
                             $0 == "off" ? String(localized: "Off") : String(localized: "After \($0) Minutes")
-                        }, requires: "agents.onWaiting"),
+                        }, requires: SettingKeys.onWaiting.key),
                     s(
                         SettingKeys.onFinish, "When an agent finishes", "enum",
                         "Turns shorter than the time below stay quiet.",
@@ -164,7 +167,7 @@ extension Builtins {
                         options: ["0", "10", "20", "30", "60"],
                         labels: labels(["0", "10", "20", "30", "60"]) {
                             $0 == "0" ? String(localized: "Off") : String(localized: "\($0) Seconds")
-                        }, requires: "agents.onFinish"),
+                        }, requires: SettingKeys.onFinish.key),
                     s(
                         SettingKeys.onError, "When an agent fails", "enum", options: ["off", "banner", "sound"],
                         labels: alerts, look: "segments"),
@@ -190,11 +193,11 @@ extension Builtins {
                             "questions": String(localized: "Questions"),
                             "failures": String(localized: "Questions and Failures"),
                             "all": String(localized: "Anything New")
-                        ], group: "Dock", requires: "agents.dockStrip=needed"),
+                        ], group: "Dock", requires: SettingKeys.dockStrip.key + "=needed"),
                     s(
                         SettingKeys.dockStripFullScreen, "Over full-screen apps", "boolean",
                         "Off: a film or a talk stays clear of it; a banner still tells you.",
-                        group: "Dock", requires: "agents.dockStrip"),
+                        group: "Dock", requires: SettingKeys.dockStrip.key),
                     s(
                         SettingKeys.dockIcon, "Dock icon", "enum",
                         "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.",
@@ -212,9 +215,12 @@ extension Builtins {
                     s(
                         SettingKeys.phoneDetails, "Show what the agent says on the phone", "boolean",
                         "Off: the agent's and the workspace's names only.",
-                        group: "Phone", requires: "phone.url")
+                        group: "Phone", requires: SettingKeys.phoneURL.key)
                 ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50,
-                pictures: [SettingKeys.dockStrip.key: { AnyView(DockStripPicture(option: $0)) }]),
+                pictures: [
+                    SettingKeys.dockStrip.key: { AnyView(DockStripPicture(option: $0)) },
+                    SettingKeys.dockIcon.key: { AnyView(DockIconPicture(option: $0)) }
+                ]),
             SettingsSection(
                 id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
                 custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name),
