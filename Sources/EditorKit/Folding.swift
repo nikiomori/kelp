@@ -74,18 +74,6 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
         return end > start ? NSRange(location: start, length: end - start) : nil
     }
 
-    /// Whether `line` could fold: the next non-blank line is further in (cheap: the gutter asks for every line shown).
-    static func canFold(_ line: NSRange, in string: NSString) -> Bool {
-        guard let own = indent(line, in: string) else { return false }
-        var at = NSMaxRange(line)
-        while at < string.length {
-            let next = string.lineRange(for: NSRange(location: at, length: 0))
-            if let level = indent(next, in: string) { return level > own }
-            at = NSMaxRange(next)
-        }
-        return false
-    }
-
     /// A line's indent in columns (a tab is 4); nil for a blank line.
     static func indent(_ line: NSRange, in string: NSString) -> Int? {
         var columns = 0

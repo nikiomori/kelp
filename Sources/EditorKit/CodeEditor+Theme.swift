@@ -69,12 +69,6 @@ extension CodeEditor {
             function: hex(palette.function) ?? base.function)
     }
 
-    /// The theme's token colors, for code drawn outside the editor (diffs), so both read alike.
-    public static var tokenColors: (keyword: NSColor, string: NSColor, number: NSColor, comment: NSColor) {
-        let look = Self.look
-        return (look.keyword, look.string, look.number, look.comment)
-    }
-
     /// The editor's font: code shown outside it (a diff) uses it too.
     public static var font: NSFont {
         fontName.flatMap { NSFont(name: $0, size: fontSize) }

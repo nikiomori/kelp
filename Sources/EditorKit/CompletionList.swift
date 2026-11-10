@@ -14,7 +14,6 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     private(set) var items: [CodeEditor.Completion] = []
     var onAccept: ((CodeEditor.Completion) -> Void)?
     var isOpen: Bool { panel.isVisible }
-    private var docWidthOn: NSLayoutConstraint?
 
     override init() {
         super.init()
