@@ -45,6 +45,11 @@ func hooklessCodex() throws -> AgentManifest {
     try Data("{bad".utf8).write(to: dir.appendingPathComponent("bad.json"))
     let all = AgentManifest.load(dir: dir)
     #expect(all.contains { $0.id == "mine" } && all.contains { $0.id == "claude" })
+    // An override that says nothing of how the agent installs keeps the preset's way.
+    try Data(#"{"id":"codex","name":"Codex","command":"/opt/codex"}"#.utf8).write(
+        to: dir.appendingPathComponent("codex.json"))
+    let codex = try #require(AgentManifest.load(dir: dir).first { $0.id == "codex" })
+    #expect(codex.command == "/opt/codex" && codex.npm == "@openai/codex")
 }
 
 @Test func hermesPresetUsesSupportedInstallAndModelFlow() throws {
@@ -52,9 +57,8 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(hermes.command == "hermes")
     #expect(hermes.modelFlag == nil)
     #expect(hermes.autoAnswers.isEmpty)
-    let installed = AgentManifest.withInstall(hermes)
-    #expect(installed.install == "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
-    #expect(installed.update == "hermes update")
+    #expect(hermes.install == "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
+    #expect(hermes.update == "hermes update")
 }
 
 @Test func kimiCodeUsesDocumentedModelAndContinueFlags() throws {
@@ -63,7 +67,7 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(kimi.argv(resume: true) == ["kimi", "--continue"])
     #expect(kimi.autoAnswers.contains(AgentManifest.trust))
     #expect(kimi.sessionIdFlag == nil && kimi.resumeIdFlag == nil)   // --session resumes only; no create-under-id
-    #expect(AgentManifest.withInstall(kimi).install?.contains("code.kimi.com") == true)
+    #expect(kimi.install?.contains("code.kimi.com") == true)
 }
 
 @Test func installedAgentsKeepTheirModelAndContinueFlags() throws {
@@ -676,7 +680,7 @@ func hooklessCodex() throws -> AgentManifest {
 /// Every preset an installer exists for offers it; the ones that need npm or Homebrew say so, so the app can check first.
 @Test func presetsWithAnInstallerOfferIt() throws {
     func installed(_ id: String) throws -> AgentManifest {
-        AgentManifest.withInstall(try #require(AgentManifest.presets.first { $0.id == id }))
+        try #require(AgentManifest.presets.first { $0.id == id })
     }
     for id in ["pi", "grok", "antigravity", "kilo", "goose", "kiro"] {
         #expect(try installed(id).install != nil, "\(id) installs")

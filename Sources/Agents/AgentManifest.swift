@@ -68,7 +68,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         modelFlag: String? = nil, models: [String] = [], effortArgs: [String: [String]] = [:],
         autoAnswers: [AutoAnswer] = [], resumeArgs: [String] = [], pluginDirFlag: String? = nil,
         contextFlag: String? = nil,
-        sessionIdFlag: String? = nil, resumeIdFlag: String? = nil
+        sessionIdFlag: String? = nil, resumeIdFlag: String? = nil,
+        install: String? = nil, update: String? = nil, npm: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -87,12 +88,19 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         self.contextFlag = contextFlag
         self.sessionIdFlag = sessionIdFlag
         self.resumeIdFlag = resumeIdFlag
+        self.install = install
+        self.update = update
+        self.npm = npm
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = AgentManifest(id: "", name: "", command: "")
-        id = try container.decode(String.self, forKey: .id)
+        let id = try container.decode(String.self, forKey: .id)
+        self.id = id
+        // A file for a preset's agent (an override Settings saved, or one written by hand) keeps what Kelp knows of that
+        // agent where the file says nothing: an override written before a fact was added still has it.
+        let preset = Self.presets.first { $0.id == id }
         name = try container.decode(String.self, forKey: .name)
         command = try container.decode(String.self, forKey: .command)
         args = try container.decodeIfPresent([String].self, forKey: .args) ?? defaults.args
@@ -110,14 +118,14 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         contextFlag = try container.decodeIfPresent(String.self, forKey: .contextFlag)
         sessionIdFlag = try container.decodeIfPresent(String.self, forKey: .sessionIdFlag)
         resumeIdFlag = try container.decodeIfPresent(String.self, forKey: .resumeIdFlag)
-        install = try container.decodeIfPresent(String.self, forKey: .install)
-        update = try container.decodeIfPresent(String.self, forKey: .update)
-        npm = try container.decodeIfPresent(String.self, forKey: .npm)
+        install = try container.decodeIfPresent(String.self, forKey: .install) ?? preset?.install
+        update = try container.decodeIfPresent(String.self, forKey: .update) ?? preset?.update
+        npm = try container.decodeIfPresent(String.self, forKey: .npm) ?? preset?.npm
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, command, args, env, waitingPatterns, quietSeconds, modelFlag, models, effortArgs, autoAnswers,
-            resumeArgs
+        case id, name, command, args, env, waitingPatterns, quietSeconds, modelFlag, models, effortArgs,
+            autoAnswers, resumeArgs
         case sessionIdFlag, resumeIdFlag, pluginDirFlag, contextFlag, install, update, npm
         // `hooks`, as agent files have it
         case hooksSettingsFlag, hooksConfigDirEnv, hooksSettingsEnv, hooksHerdr, hooksCodexConfig
@@ -161,57 +169,6 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
                 kv.value == Self.keychainValue
                 ? Keychain.get(Self.secretAccount(agent: id, key: kv.key)) ?? "" : kv.value
         }
-    }
-
-    /// Installs and updates of the agents people use most, as their own docs give them; the npm package says what's newest.
-    static func withInstall(_ manifest: AgentManifest) -> AgentManifest {
-        let known: [String: (install: String, update: String?, npm: String?)] = [
-            "claude": ("curl -fsSL https://claude.ai/install.sh | bash", "claude update", "@anthropic-ai/claude-code"),
-            "codex": ("npm install -g @openai/codex", "npm install -g @openai/codex@latest", "@openai/codex"),
-            "gemini": (
-                "npm install -g @google/gemini-cli", "npm install -g @google/gemini-cli@latest", "@google/gemini-cli"
-            ),
-            "opencode": ("curl -fsSL https://opencode.ai/install | bash", "opencode upgrade", "opencode-ai"),
-            "cursor": ("curl https://cursor.com/install -fsS | bash", "cursor-agent update", nil),
-            "qwen": (
-                "npm install -g @qwen-code/qwen-code", "npm install -g @qwen-code/qwen-code@latest",
-                "@qwen-code/qwen-code"
-            ),
-            "amp": ("npm install -g @sourcegraph/amp", "npm install -g @sourcegraph/amp@latest", "@sourcegraph/amp"),
-            "copilot": ("npm install -g @github/copilot", "npm install -g @github/copilot@latest", "@github/copilot"),
-            "auggie": (
-                "npm install -g @augmentcode/auggie", "npm install -g @augmentcode/auggie@latest", "@augmentcode/auggie"
-            ),
-            "crush": ("brew install charmbracelet/tap/crush", "brew upgrade crush", nil),
-            "aider": ("python3 -m pip install aider-install && aider-install", nil, nil),
-            "droid": ("curl -fsSL https://app.factory.ai/cli | sh", nil, nil),
-            "hermes": ("curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash", "hermes update", nil),
-            "kimi": ("curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash", "kimi upgrade", nil),
-            "omp": ("curl -fsSL https://omp.sh/install | sh", "omp update", "@oh-my-pi/pi-coding-agent"),
-            "fx": ("curl -fsSL https://fx.sh/setup.sh | bash", "fx upgrade", nil),
-            // Pi's and Grok's installers run again as the update; Pi's fetches Node when it's missing, which npm wouldn't.
-            "pi": (
-                "curl -fsSL https://pi.dev/install.sh | sh", "curl -fsSL https://pi.dev/install.sh | sh",
-                "@earendil-works/pi-coding-agent"
-            ),
-            "grok": (
-                "curl -fsSL https://x.ai/cli/install.sh | bash", "curl -fsSL https://x.ai/cli/install.sh | bash", nil
-            ),
-            "antigravity": ("curl -fsSL https://antigravity.google/cli/install.sh | bash", nil, nil),   // updates itself while it runs
-            "kilo": ("npm install -g @kilocode/cli", "kilo upgrade", "@kilocode/cli"),
-            // CONFIGURE=false: no provider questions in the installer's tab; goose asks on its first run.
-            "goose": (
-                "curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash",
-                "goose update", nil
-            ),
-            "kiro": ("curl -fsSL https://cli.kiro.dev/install | bash", "kiro-cli update", nil)
-        ]
-        guard let entry = known[manifest.id] else { return manifest }
-        var manifest = manifest
-        if manifest.install == nil { manifest.install = entry.install }
-        if manifest.update == nil { manifest.update = entry.update }
-        if manifest.npm == nil { manifest.npm = entry.npm }
-        return manifest
     }
 
     /// The package manager its install command needs, when that's not something every Mac has (npm, Homebrew).
@@ -286,88 +243,16 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         input: "\r",
         choose: #"(?i)(yes|trust|allow|proceed)"#)
 
-    public static let presets: [AgentManifest] = [
-        .init(
-            id: "claude", name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings"),
-            modelFlag: "--model", models: ["opus", "sonnet", "haiku"],
-            autoAnswers: [trust], resumeArgs: ["--continue"], pluginDirFlag: "--plugin-dir",
-            contextFlag: "--append-system-prompt",
-            sessionIdFlag: "--session-id", resumeIdFlag: "--resume"),
-        // Its conversation in its own process, which ends with the tab: in Codex's shared background server (0.157 on) it
-        // would run on after the tab closed, and a Codex started with -c (not on that server) couldn't open it again.
-        // No update question: it stands before the prompt, which waits behind it, and Kelp offers updates itself.
-        .init(
-            id: "codex", name: "Codex", command: "codex",
-            args: ["--no-daemon", "-c", "check_for_update_on_startup=false"], hooks: .codexConfig,
-            modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
-            effortArgs: [
-                "low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
-                "high": ["-c", "model_reasoning_effort=high"]
-            ],
-            autoAnswers: [trust], resumeArgs: ["resume", "--last"]),
-        .init(
-            id: "opencode", name: "OpenCode", command: "opencode", hooks: .pluginDir(env: "OPENCODE_CONFIG_DIR"),
-            modelFlag: "-m",
-            resumeArgs: ["--continue"]),
-        .init(
-            id: "gemini", name: "Gemini CLI", command: "gemini", modelFlag: "-m",
-            models: ["gemini-2.5-pro", "gemini-2.5-flash"], autoAnswers: [trust]),
-        .init(
-            id: "cursor", name: "Cursor Agent", command: "cursor-agent", modelFlag: "--model", autoAnswers: [trust],
-            resumeArgs: ["resume"]),
-        // Pi and Antigravity report through OSC 7501 only if Kelp's reply to their probe beats the terminal's DA reply;
-        // their variables make them report anyway.
-        .init(
-            id: "pi", name: "Pi", command: "pi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
-            resumeArgs: ["--continue"], resumeIdFlag: "--session"),
-        .init(id: "amp", name: "Amp", command: "amp"),
-        // A hand-off opens a session file (`--session` / `--resume <file>`): a wake goes on in it, not in "latest here".
-        .init(
-            id: "omp", name: "oh-my-pi", command: "omp", modelFlag: "--model", resumeArgs: ["--continue"],
-            resumeIdFlag: "--resume"),
-        .init(id: "fx", name: "fx", command: "fx", hooks: .herdr, modelFlag: "--model", resumeArgs: ["--continue"]),
-        // Others people run; Kelp offers whichever of these actually work on this Mac (AgentAvailability).
-        .init(id: "grok", name: "Grok", command: "grok", modelFlag: "--model", resumeArgs: ["--continue"]),
-        .init(
-            id: "antigravity", name: "Antigravity", command: "agy", env: ["AGY_CLI_OSC7501": "on"],
-            modelFlag: "--model",
-            effortArgs: Dictionary(uniqueKeysWithValues: ["low", "medium", "high"].map { ($0, ["--effort", $0]) }),
-            resumeArgs: ["--continue"]),
-        .init(
-            id: "qwen", name: "Qwen Code", command: "qwen",
-            hooks: .settingsFile(
-                env: "QWEN_CODE_SYSTEM_SETTINGS_PATH", replaces: "/Library/Application Support/QwenCode/settings.json"),
-            modelFlag: "--model", resumeArgs: ["--continue"]),
-        .init(
-            id: "kimi", name: "Kimi", command: "kimi", modelFlag: "--model",
-            autoAnswers: [trust], resumeArgs: ["--continue"]),
-        .init(
-            id: "kilo", name: "Kilo Code", command: "kilo", hooks: .pluginDir(env: "KILO_CONFIG_DIR"),
-            modelFlag: "--model",
-            resumeArgs: ["--continue"]),
-        .init(id: "crush", name: "Crush", command: "crush", resumeArgs: ["--continue"]),
-        .init(
-            id: "droid", name: "Droid", command: "droid", hooks: .settingsFlag("--settings"),
-            resumeArgs: ["--resume", "--last"]),
-        .init(id: "hermes", name: "Hermes", command: "hermes"),
-        .init(
-            id: "copilot", name: "GitHub Copilot", command: "copilot", modelFlag: "--model", resumeArgs: ["--continue"]),
-        .init(id: "aider", name: "Aider", command: "aider"),
-        .init(id: "goose", name: "Goose", command: "goose"),
-        .init(id: "auggie", name: "Augment", command: "auggie"),
-        .init(id: "kiro", name: "Kiro", command: "kiro-cli")
-    ]
-
     /// Presets overridden/extended by `*.json` files in `dir`. Bad files are skipped, never fatal.
     public static func load(dir: URL) -> [AgentManifest] {
-        var all = Dictionary(uniqueKeysWithValues: presets.map { ($0.id, withInstall($0)) })
+        var all = Dictionary(uniqueKeysWithValues: presets.map { ($0.id, $0) })
         for file in FileManager.default.items(in: dir) where file.pathExtension == "json" {
             let manifest = Data(contentsIfAny: file).flatMap { data in
                 Logger.kelp("agents").attempt("skipping \(file.lastPathComponent), which doesn't read as an agent") {
                     try JSONDecoder().decode(AgentManifest.self, from: data)
                 }
             }
-            if let manifest { all[manifest.id] = withInstall(manifest) }
+            if let manifest { all[manifest.id] = manifest }
         }
         return all.values.sorted { $0.name < $1.name }
     }
