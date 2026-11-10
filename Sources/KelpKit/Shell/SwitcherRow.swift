@@ -17,11 +17,7 @@ struct SwitcherRow {
     /// A workspace: its agent that matters most (what it asks, does or did), with the folder's changes and pull
     /// request.
     static func workspace(_ worktree: Worktree, app: AppModel) -> SwitcherRow {
-        let agents = app.liveChats(in: worktree.id)
-        let top = AgentStatus.mostUrgent(agents.map(SidebarCell.shownStatus))
-        let lead = agents.filter { SidebarCell.shownStatus($0) == top }.max {
-            ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)
-        }
+        let lead = app.lead(in: worktree.id)
         // A chat with no project goes by the chat's name, as its sidebar row does; its folder has no branch worth
         // saying.
         let loose = NoProject.holds(app.repo(worktree.repoId))
@@ -44,8 +40,8 @@ struct SwitcherRow {
         var row = SwitcherRow(name: Self.name(title, place: place, badges: said == nil ? badges : []))
         if let lead {
             let mark = StatusMark(size: Metrics.iconLarge)
-            mark.status = top
-            mark.unread = agents.contains { SidebarCell.shownStatus($0) == top && $0.unread }
+            mark.status = lead.shownStatus
+            mark.unread = app.liveChats(in: worktree.id).contains { $0.shownStatus == lead.shownStatus && $0.unread }
             mark.waitsForCommand = lead.waitsForCommand
             mark.announces = false   // the row's label says the state
             row.mark = mark

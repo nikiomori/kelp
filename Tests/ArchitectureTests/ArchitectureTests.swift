@@ -366,7 +366,7 @@ func codeOnly(_ s: String) -> String {
 /// (TerminalKit's fallback is unused: Kelp's terminals hand their links to `PaneView.openLink`.)
 @Test func urlsLeaveKelpThroughOneDoor() throws {
     let opens = try matches(#"NSWorkspace\.shared\.open\((?!\s*\[)|\.open\(\s*\w+, configuration:"#, in: appDirs)
-    #expect(opens.map { String($0.split(separator: ":")[0]) } == ["Sources/KelpKit/Shell/PreviewLinks.swift"])
+    #expect(opens.map { String($0.split(separator: ":")[0]) } == ["Sources/KelpKit/Shared/PreviewLinks.swift"])
 }
 
 /// Outside text reaches an agent in one frame (`Untrusted.frame`): a second hand-made one would differ in what it escapes.

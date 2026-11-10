@@ -249,7 +249,6 @@ final class SidebarCell: NSTableCellView {
             showFold()
         case .workspace(let id):
             guard let worktree = app.worktree(id) else { return }
-            let agents = app.liveChats(in: id)
             title.stringValue = worktree.displayName
             title.textColor = .labelColor
             // A branch splits the code, a group the screen: the slot tells them apart, always.
@@ -260,10 +259,7 @@ final class SidebarCell: NSTableCellView {
             showFold()
             // Expanded, its agents show their own state; collapsed, the workspace sums them up.
             let collapsed = owner?.isCollapsed(node) ?? false
-            let top = AgentStatus.mostUrgent(agents.map(Self.shownStatus))
-            let lead = agents.filter { Self.shownStatus($0) == top }.max {
-                ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)
-            }
+            let lead = app.lead(in: id)
             trailing.stringValue =
                 collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
             stack.show(collapsed ? AgentStack.chats(under: node, app) : [], app)

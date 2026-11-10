@@ -435,6 +435,16 @@ package final class AppModel {
         return (sessionsIn?[worktreeId] ?? []).filter { $0.status != .exited && $0.isChat }
     }
 
+    /// The agent that stands for a workspace in its sidebar row and its ⌃Tab row: of its live chats, those whose state
+    /// matters most (asks before works before done), the one that changed last.
+    func lead(in worktreeId: String) -> Session? {
+        let agents = liveChats(in: worktreeId)
+        let top = AgentStatus.mostUrgent(agents.map(\.shownStatus))
+        return agents.filter { $0.shownStatus == top }.max {
+            ($0.statusAt ?? $0.createdAt) < ($1.statusAt ?? $1.createdAt)
+        }
+    }
+
     /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same
     /// name ("infra · beet"), so the two tell apart; the one on this Mac and every unique name stay as they are.
     /// A group's name; nil for a project's own screen, which goes by its project's.
