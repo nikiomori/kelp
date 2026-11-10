@@ -6,6 +6,39 @@ extension Git {
     /// later diff shows exactly what changed since. A copy of the index is updated, never the real one; files whose
     /// stat didn't change aren't hashed again.
     public static func snapshotTree(_ cwd: String, remotes: Remotes = .none) throws -> String {
+        try onIndexCopy(cwd, remotes: remotes) { env, quiet in
+            // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good,
+            // and `git push --mirror` send them.
+            let secrets = try run(
+                ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
+            )
+            .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
+            try run(
+                quiet + ["add", "-A"]
+                    + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 }),
+                cwd: cwd, env: env, remotes: remotes)
+            return try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
+        }
+    }
+
+    /// What is staged now, written as a tree object: kept beside a turn's snapshot, so undoing the turn puts the index
+    /// back as well as the files. From a copy of the index too (`write-tree` on the real one rewrites it, under its
+    /// lock, which an agent's `git add` then finds taken). nil when there is none to write: unresolved conflicts (git
+    /// writes no tree of those), a remote project. A file added with `git add -N` isn't in it.
+    public static func indexTree(_ cwd: String, remotes: Remotes = .none) throws -> String? {
+        guard remotes.of(cwd) == nil, try run(["ls-files", "-u"], cwd: cwd, remotes: remotes).isEmpty else {
+            return nil
+        }
+        return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
+            try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
+        }
+    }
+
+    /// `body` with the environment that points git at a copy of the index, never the real one, and the arguments that
+    /// keep the repository's hooks out of it.
+    private static func onIndexCopy<T>(
+        _ cwd: String, remotes: Remotes, _ body: (_ env: [String: String], _ quiet: [String]) throws -> T
+    ) throws -> T {
         // On a remote project git runs on the host, where neither GIT_INDEX_FILE nor this Mac's copy of the index reach:
         // `add -A` would stage everything in the host's real index.
         if remotes.of(cwd) != nil {
@@ -20,18 +53,7 @@ extension Git {
         // writing it can read a racily clean file through its filter again.
         var env = ["GIT_INDEX_FILE": copy]
         env.merge(configEnv(RepoFilters.off(cwd), after: ProcessInfo.processInfo.environment)) { $1 }
-        let quiet = ["-c", "core.hooksPath=/dev/null"]
-        // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good, and
-        // `git push --mirror` send them.
-        let secrets = try run(
-            ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
-        )
-        .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
-        try run(
-            quiet + ["add", "-A"]
-                + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 }),
-            cwd: cwd, env: env, remotes: remotes)
-        return try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
+        return try body(env, ["-c", "core.hooksPath=/dev/null"])
     }
 
     /// Files changed since a snapshot, with line counts ("Changed 3 files +40 −5" after an agent's turn).
@@ -86,25 +108,33 @@ extension Git {
     }
 
     /// `files` (paths from the repository's top, `cwd`) as they were in `tree`, content and mode; a file the tree hasn't
-    /// goes to the Trash. Whatever of them is staged is unstaged first (back to HEAD, which is the turn's), so the next
-    /// commit can't take the undone work. Refused when the folder isn't the snapshot `now` any more; afterwards none of
-    /// them may still differ.
-    public static func restore(_ files: [String], from tree: String, now: String, cwd: String, remotes: Remotes = .none)
-        throws
-    {
+    /// goes to the Trash. In the index they go back to what `index` (an `indexTree` taken with `tree`) had staged: what
+    /// the user staged before the turn stays staged, what was staged since (the undone work) goes, so the next commit
+    /// can't take it. Without one (a turn kept before these were, or begun amid conflicts) whatever of them is staged
+    /// is unstaged, back to HEAD, which is the turn's. Refused when the folder isn't the snapshot `now` any more;
+    /// afterwards none of them may still differ.
+    public static func restore(
+        _ files: [String], from tree: String, now: String, index: String? = nil, cwd: String, remotes: Remotes = .none
+    ) throws {
+        func names(_ args: [String]) throws -> Set<String> {
+            Set(try run(args, cwd: cwd, remotes: remotes).split(separator: "\0").map(String.init))
+        }
+        let inTree = { (tree: String) in try names(["ls-tree", "-r", "-z", "--full-tree", "--name-only", rev(tree)]) }
+        // Read first, so that nothing slow stands between the check below and the writes after it.
+        var staged = files.isEmpty ? [] : try names(["ls-files", "-z", "--"] + literal(files))
+        // git takes only paths the index or the source has.
+        if let index { staged.formUnion(try inTree(index).intersection(files)) }
+        let had = try inTree(tree)
+        // Limit: an edit saved after this check and before the restores below (two git runs later, milliseconds) is
+        // written over; it isn't in `now`, so Redo doesn't bring it back.
         guard try snapshotTree(cwd, remotes: remotes) == now else {
             throw GitError(
                 args: ["restore"], status: 1, stderr: "The files changed since you looked; nothing was put back.")
         }
-        let staged =
-            files.isEmpty
-            ? []
-            : try run(["ls-files", "-z", "--"] + literal(files), cwd: cwd, remotes: remotes)
-                .split(separator: "\0").map(String.init)
-        if !staged.isEmpty { try run(["restore", "--staged", "--"] + literal(staged), cwd: cwd, remotes: remotes) }
-        let had = Set(
-            try run(["ls-tree", "-r", "-z", "--full-tree", "--name-only", rev(tree)], cwd: cwd, remotes: remotes)
-                .split(separator: "\0").map(String.init))
+        if !staged.isEmpty {
+            let source = try index.map { ["--source=" + (try rev($0))] } ?? []
+            try run(["restore", "--staged"] + source + ["--"] + literal(staged.sorted()), cwd: cwd, remotes: remotes)
+        }
         let back = files.filter(had.contains)
         if !back.isEmpty {
             try run(

@@ -18,13 +18,21 @@ extension SessionTurnUndo: Handled {
         try Git.run(
             ["update-ref", "--create-reflog", "-m", "undo turn " + turn, Turns.undoneRef(id), before], cwd: dir,
             remotes: remotes)
-        do { try Git.restore(plan.files, from: mark.tree, now: before, cwd: dir, remotes: remotes) } catch {
+        // And what was staged before it, so Redo is the undo taken back whole; none (conflicts) drops an older one's.
+        let staged = try Git.indexTree(dir, remotes: remotes)
+        try Git.run(
+            ["update-ref"] + (staged.map { [Turns.undoneStagedRef(id), $0] } ?? ["-d", Turns.undoneStagedRef(id)]),
+            cwd: dir, remotes: remotes)
+        let index = try turns.kept(Turns.stagedRef(mark.id), in: dir)
+        do {
+            try Git.restore(plan.files, from: mark.tree, now: before, index: index, cwd: dir, remotes: remotes)
+        } catch {
             // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
             let back: Void? = Log.session.attempt("putting a stopped undo back") {
                 let changed = try Git.changed(since: before, cwd: dir, remotes: remotes)
                 try Git.restore(
-                    changed.files.filter(plan.files.contains), from: before, now: changed.now, cwd: dir,
-                    remotes: remotes)
+                    changed.files.filter(plan.files.contains), from: before, now: changed.now, index: staged,
+                    cwd: dir, remotes: remotes)
             }
             let why = (error as? GitError)?.stderr ?? "\(error)"
             let now = back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."
@@ -38,12 +46,14 @@ extension SessionTurnRedo: Handled {
     var actsOn: String? { id }
     func handle(_ turns: Turns) throws -> Done {
         let (_, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes, ref = Turns.undoneRef(id)
-        let before = try Git.run(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: remotes)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !before.isEmpty else { throw RPCError.invalidParams("There's no undo to take back here.") }
-        let plan = try Git.changed(since: before, cwd: dir, remotes: remotes)
-        try Git.restore(plan.files, from: before, now: state, cwd: dir, remotes: remotes)
+        guard let before = try turns.kept(ref, in: dir) else {
+            throw RPCError.invalidParams("There's no undo to take back here.")
+        }
+        let plan = try Git.changed(since: before, cwd: dir, remotes: remotes), staged = Turns.undoneStagedRef(id)
+        try Git.restore(
+            plan.files, from: before, now: state, index: try turns.kept(staged, in: dir), cwd: dir, remotes: remotes)
         try Git.run(["update-ref", "-d", ref], cwd: dir, remotes: remotes)
+        try Git.run(["update-ref", "-d", staged], cwd: dir, remotes: remotes)
         return Done()
     }
 }
@@ -55,6 +65,19 @@ struct Turns: Sendable {
 
     /// The folder before the session's last undone turn.
     static func undoneRef(_ session: String) -> String { "refs/kelp/undone/" + session }
+    /// What was staged before it, and what was when a turn began (`Git.indexTree`), each kept as long as the snapshot
+    /// it was taken with.
+    static func undoneStagedRef(_ session: String) -> String { "refs/kelp/undone-staged/" + session }
+    static func stagedRef(_ turn: String) -> String { "refs/kelp/staged/" + turn }
+    private static func refs(_ mark: SessionTurns.Mark) -> [String] {
+        ["refs/kelp/turns/" + mark.id, stagedRef(mark.id)]
+    }
+
+    /// The tree a ref of these keeps, nil when there is none: nothing was undone, or nothing staged could be kept.
+    func kept(_ ref: String, in dir: String) throws -> String? {
+        let tree = try Git.line(["rev-parse", "--verify", "-q", ref], cwd: dir, ok: [0, 1], remotes: remotes)
+        return tree.isEmpty ? nil : tree
+    }
 
     /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
     /// turn began, no other agent in the checkout, and its snapshot still there.
@@ -96,12 +119,21 @@ struct Turns: Sendable {
     /// `dropRefs` may have run before the ref was made: it's dropped here.
     func keep(_ mark: SessionTurns.Mark) {
         Log.store.attempt("keeping a turn") {
+            // What the user had staged, for the turn's undo to leave staged. Limit: read here, a moment after the
+            // snapshot (one git run): what an agent stages in that moment counts as the user's.
+            let staged =
+                Log.store.attempt("reading what's staged") {
+                    try Git.indexTree(mark.folder, remotes: remotes)
+                } ?? nil
             guard let dropped = try store.addTurn(mark), remotes.of(mark.folder) == nil else { return }   // no snapshots on a host
-            let ref = "refs/kelp/turns/" + mark.id
-            try Git.run(["update-ref", ref, mark.tree], cwd: mark.folder, remotes: remotes)
+            try Git.run(["update-ref", "refs/kelp/turns/" + mark.id, mark.tree], cwd: mark.folder, remotes: remotes)
+            if let staged {
+                try Git.run(["update-ref", Self.stagedRef(mark.id), staged], cwd: mark.folder, remotes: remotes)
+            }
             delete(
-                dropped.map { ("refs/kelp/turns/" + $0.id, $0.folder) }
-                    + (try store.session(mark.session) == nil ? [(ref, mark.folder)] : []))
+                (dropped + (try store.session(mark.session) == nil ? [mark] : [])).flatMap { old in
+                    Self.refs(old).map { ($0, old.folder) }
+                })
         }
     }
 
@@ -114,8 +146,10 @@ struct Turns: Sendable {
     }
     func dropRefs(_ marks: [SessionTurns.Mark], of session: String, in repo: String? = nil) {
         delete(
-            marks.map { ("refs/kelp/turns/" + $0.id, repo ?? $0.folder) }
-                + marks.prefix(1).map { (Self.undoneRef(session), repo ?? $0.folder) })
+            marks.flatMap { mark in Self.refs(mark).map { ($0, repo ?? mark.folder) } }
+                + marks.prefix(1).flatMap { mark in
+                    [Self.undoneRef(session), Self.undoneStagedRef(session)].map { ($0, repo ?? mark.folder) }
+                })
     }
 
     /// Deletes each ref in its folder's repository, one git run per repository; one already gone, or a folder that is,
