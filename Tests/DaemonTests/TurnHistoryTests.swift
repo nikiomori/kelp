@@ -243,9 +243,9 @@ import Testing
     #expect(w.d.sessions.permissions.waits.withLock { $0[id] != nil })
     #expect(try await c.call(SessionChoose(id: id, answer: "deny", question: "Allow git push --force?")))
     #expect(try await third.value == "deny")
-    #expect(
-        Hooks.settingsJSON().contains(
-            #""PermissionRequest":[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#))
+    let settings = try JSONDecoder().decode(JSONValue.self, from: Data(Hooks.settingsJSON().utf8))
+    let permission = settings["hooks"]?["PermissionRequest"]?.array?.first?["hooks"]?.array?.first
+    #expect(permission?["command"]?.string == "kelp hook waiting" && permission?["timeout"]?.int == 610)
 }
 
 /// A question that doesn't show all it would allow (a command of more lines) isn't answered from a banner, even its own.

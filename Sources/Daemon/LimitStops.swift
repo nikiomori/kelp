@@ -6,7 +6,7 @@ import Foundation
 /// told it goes on by itself. Here in the daemon, on the ticker: Kelp's window can be closed by then.
 extension LiveSession {
     /// A hook said so; the Stop that ended the turn comes right after.
-    func hitLimit(_ reading: ClaudeLimits.Reading) {
+    func hitLimit(_ reading: LimitScreens.Reading) {
         state.withLock { state in
             state.record.limitHit = LimitHit(kind: reading.kind, resets: reading.resets)
             emit(state.record)

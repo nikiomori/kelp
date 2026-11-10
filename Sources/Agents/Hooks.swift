@@ -4,25 +4,70 @@ import Foundation
 // Hooks: the settings and plugin that make an agent report its status to Kelp, and reading what a hook sends.
 
 public enum Hooks {
-    /// Claude-style settings file: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing),
-    /// AskUserQuestion, an MCP server's question and a permission dialog → waiting until answered; each tool as it starts
-    /// and ends and each batch of them (`command`: a Bash one for the list, `AgentCommand`, any for what it says of the turn,
-    /// `State.tool`); each subagent as it starts and ends. `kelp` must be on PATH in the session.
-    public static func settingsJSON() -> String {
-        func entry(_ ev: String, _ matcher: String?) -> String {
-            #"{\#(matcher.map { #""matcher":"\#($0)","# } ?? "")"hooks":[{"type":"command","command":"kelp hook \#(ev)"}]}"#
+    /// One of Claude Code's hooks Kelp listens to: what `kelp hook` reports for it in a session here (`here`), and the
+    /// command it runs in tmux on a remote project's host (`host`); nil where that side doesn't listen. `wait`: how long
+    /// the agent waits for it here.
+    struct Listen {
+        let hook: String, matcher: String?, here: String?, host: String?, wait: Int?
+        init(hook: String, matcher: String? = nil, here: String?, host: String? = nil, wait: Int? = nil) {
+            self.hook = hook
+            self.matcher = matcher
+            self.here = here
+            self.host = host
+            self.wait = wait
         }
-        func hook(_ ev: String, _ matcher: String? = nil) -> String { "[\(entry(ev, matcher))]" }
-        // It waits for Kelp's Allow or Deny (`session.permissionWait`), up to ten minutes; Claude's menu shows meanwhile.
-        let permission = #"[{"hooks":[{"type":"command","command":"kelp hook waiting","timeout":610}]}]"#
-        let command = entry("command", nil)
-        return
-            #"{"hooks":{"Stop":\#(hook("done")),"Notification":\#(hook("waiting")),"UserPromptSubmit":\#(hook("working")),"StopFailure":\#(hook("done")),"#
-            + #""PreToolUse":[\#(entry("waiting", "AskUserQuestion")),\#(command)],"PostToolUse":[\#(entry("working", "AskUserQuestion")),\#(command)],"#
-            + #""PostToolUseFailure":[\#(command)],"PostToolBatch":[\#(command)],"PermissionRequest":\#(permission),"#
-            + #""Elicitation":\#(hook("waiting")),"ElicitationResult":\#(hook("working")),"#
-            + #""SubagentStart":\#(hook("subagent")),"SubagentStop":\#(hook("subagent")),"#
-            + #""PreCompact":\#(hook("compacting")),"SessionStart":\#(hook("compacted", "compact"))}}"#
+    }
+
+    /// Here: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing), AskUserQuestion, an MCP
+    /// server's question and a permission dialog → waiting until answered (Kelp's Allow or Deny, `session.permissionWait`,
+    /// up to ten minutes); each tool as it starts and ends and each batch of them (`command`: a Bash one for the list,
+    /// `AgentCommand`, any for what it says of the turn, `State.tool`); each subagent as it starts and ends; a compaction.
+    /// On a host each writes its own report (`hostSettingsJSON`). In this order: within a hook the first that matches
+    /// comes first.
+    static let listens: [Listen] = [
+        .init(hook: "Stop", here: "done", host: hostReport("state=done", unless: hostStopUnless)),
+        .init(hook: "Notification", here: "waiting"),
+        .init(hook: "UserPromptSubmit", here: "working", host: hostReport("state=working")),
+        .init(hook: "StopFailure", here: "done", host: hostReport("state=error")),
+        .init(
+            hook: "PreToolUse", matcher: "AskUserQuestion", here: "waiting",
+            host: hostReport("state=blocked:kind=question")),
+        .init(hook: "PreToolUse", here: "command"),
+        .init(hook: "PostToolUse", matcher: "AskUserQuestion", here: "working"),
+        .init(hook: "PostToolUse", here: "command", host: hostReport("state=working")),
+        .init(hook: "PostToolUseFailure", here: "command"),
+        .init(hook: "PostToolBatch", here: "command"),
+        .init(
+            hook: "PermissionRequest", here: "waiting", host: hostReport("state=blocked:kind=permission"), wait: 610),
+        .init(hook: "Elicitation", here: "waiting", host: hostReport("state=blocked:kind=question")),
+        .init(hook: "ElicitationResult", here: "working", host: hostReport("state=working")),
+        .init(
+            hook: "SubagentStart", here: "subagent",
+            host: hostSubagent(
+                #""state=working:id=$(f agent_id):title=$(printf %s "$(f agent_type)"|base64|tr -d '\n')""#)),
+        .init(hook: "SubagentStop", here: "subagent", host: hostSubagent(#""state=clear:id=$(f agent_id)""#)),
+        .init(hook: "PreCompact", here: "compacting"),
+        .init(hook: "SessionStart", matcher: "compact", here: "compacted")
+    ]
+
+    /// Claude-style settings file of `listens` here. `kelp` must be on PATH in the session.
+    public static func settingsJSON() throws -> String {
+        try settings(listens.compactMap { l in l.here.map { (l, "kelp hook \($0)", l.wait) } })
+    }
+
+    /// `{"hooks": {<hook>: [{"matcher", "hooks": [{"type": "command", "command", "timeout"}]}]}}`, in `listens`' order.
+    private static func settings(_ commands: [(Listen, String, Int?)]) throws -> String {
+        var hooks: [String: JSONValue] = [:]
+        for (listen, command, wait) in commands {
+            var run: [String: JSONValue] = ["type": "command", "command": .string(command)]
+            if let wait { run["timeout"] = .int(wait) }
+            var entry: [String: JSONValue] = ["hooks": .array([.object(run)])]
+            if let matcher = listen.matcher { entry["matcher"] = .string(matcher) }
+            hooks[listen.hook] = .array((hooks[listen.hook]?.array ?? []) + [.object(entry)])
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return String(decoding: try encoder.encode(JSONValue.object(["hooks": .object(hooks)])), as: UTF8.self)
     }
 
     /// A hook's command on a host (`hostSettingsJSON`, `CodexHooks.hostEvents`): the report into the tmux session's
@@ -32,47 +77,23 @@ public enum Hooks {
     }
     static let hostStart = #"[ -n "$TMUX" ]||exit 0;"#
     static let hostSend = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
+    /// A Stop with work that wakes the agent still going isn't the end of the turn (`TurnEnd`); JSON escapes a reply's
+    /// own quotes, so one quoting these can't pass for it.
+    static let hostStopUnless =
+        #"p=$(tr -d ' ');case "$p" in *'"type":"subagent"'*|*'"type":"workflow"'*|*'"type":"teammate"'*)exit;;esac;"#
+    /// A subagent's report goes on a line of its own: `agent_type` as its title, the one thing the hook knows of it.
+    static func hostSubagent(_ report: String) -> String {
+        hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"#
+            + hostSend
+    }
 
-    /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line. There's no `kelp`
-    /// there, and tmux swallows the OSC 7501 an agent writes, so each hook writes the report itself, wrapped so that tmux
-    /// lets it through, to the tty of the agent that ran it (a hook has none of its own). A report also stays in a tmux
-    /// option, for whichever connection comes next (`RemoteHost.command(_:inTmux:)`). A subagent's goes on a line of its
-    /// own: `agent_type` as its title, the one thing the hook knows of it. A Stop with work that wakes the agent still going
-    /// isn't the end of the turn (`TurnEnd`), and JSON escapes a reply's own quotes, so one quoting these can't pass for it.
-    /// Out of tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
+    /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line: `listens` on
+    /// the host. There's no `kelp` there, and tmux swallows the OSC 7501 an agent writes, so each hook writes the report
+    /// itself, wrapped so that tmux lets it through, to the tty of the agent that ran it (a hook has none of its own). A
+    /// report also stays in a tmux option, for whichever connection comes next (`RemoteHost.command(_:inTmux:)`). Out of
+    /// tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
     public static func hostSettingsJSON() throws -> String {
-        func agent(_ report: String, unless: String = "") -> JSONValue { hook(hostReport(report, unless: unless)) }
-        func subagent(_ report: String) -> JSONValue {
-            hook(
-                hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"#
-                    + hostSend)
-        }
-        func hook(_ command: String) -> JSONValue {
-            .array([.object(["hooks": .array([.object(["type": "command", "command": .string(command)])])])])
-        }
-        func only(_ tool: String, _ entry: JSONValue) -> JSONValue {
-            guard case .object(var first)? = entry.array?.first else { return entry }
-            first["matcher"] = .string(tool)
-            return .array([.object(first)])
-        }
-        let hooks: [String: JSONValue] = [
-            "UserPromptSubmit": agent("state=working"), "PostToolUse": agent("state=working"),
-            "ElicitationResult": agent("state=working"),
-            "Stop": agent(
-                "state=done",
-                unless:
-                    #"p=$(tr -d ' ');case "$p" in *'"type":"subagent"'*|*'"type":"workflow"'*|*'"type":"teammate"'*)exit;;esac;"#
-            ),
-            "StopFailure": agent("state=error"), "PermissionRequest": agent("state=blocked:kind=permission"),
-            "PreToolUse": only("AskUserQuestion", agent("state=blocked:kind=question")),
-            "Elicitation": agent("state=blocked:kind=question"),
-            "SubagentStart": subagent(
-                #""state=working:id=$(f agent_id):title=$(printf %s "$(f agent_type)"|base64|tr -d '\n')""#),
-            "SubagentStop": subagent(#""state=clear:id=$(f agent_id)""#)
-        ]
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return String(decoding: try encoder.encode(JSONValue.object(["hooks": .object(hooks)])), as: UTF8.self)
+        try settings(listens.compactMap { l in l.host.map { (l, $0, nil) } })
     }
 
     /// Notifications that ask the user nothing, by Claude Code's `notification_type`: the "waiting for your input" it repeats a
@@ -115,11 +136,11 @@ public enum Hooks {
     }
 
     /// The plan limit a StopFailure says ended the turn. Only there: the same words in a reply or a file stop nothing.
-    public static func limitHit(_ payload: JSONValue) -> ClaudeLimits.Reading? {
+    public static func limitHit(_ payload: JSONValue) -> LimitScreens.Reading? {
         guard payload["notification_type"]?.string == "stop_failure", let text = payload["message"]?.string else {
             return nil
         }
-        return ClaudeLimits.parse(text).first { $0.percent >= 100 }
+        return LimitScreens.parse(text).first { $0.percent >= 100 }
     }
 
     /// Kilo Code / OpenCode plugin (`HookTransport.pluginDir`): busy → working, a permission or question → waiting, idle → done.

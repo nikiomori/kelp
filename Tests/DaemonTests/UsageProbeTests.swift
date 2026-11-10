@@ -58,12 +58,12 @@ import Testing
 /// Cursor's Free plan reads "Included 0% used" after its last request: a session's "hit your usage limit" holds 100% until the cycle moves on.
 @Test func aPlanHitHoldsOverTheProbeUntilItsCycleEnds() throws {
     let usage = { (resets: String) in
-        ClaudeLimits.parseCursorUsage("Usage • Free   Resets \(resets)\nIncluded   0% used\nAuto   0% used")
+        LimitScreens.parseCursorUsage("Usage • Free   Resets \(resets)\nIncluded   0% used\nAuto   0% used")
     }
     var s = AgentUsage.PlanState()
     s.hits = [
         try #require(
-            ClaudeLimits.parseCursorLimitHit("You've hit your usage limit … your monthly cycle ends on 11/23/2026."))
+            LimitScreens.parseCursorLimitHit("You've hit your usage limit … your monthly cycle ends on 11/23/2026."))
     ]
     s.read(usage("Nov 23"))
     #expect(s.readings.map(\.percent) == [100, 0])

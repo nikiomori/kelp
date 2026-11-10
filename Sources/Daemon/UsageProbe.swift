@@ -11,24 +11,24 @@ extension AgentUsage {
         let agent: String, command: String, every: TimeInterval
         var ready: @Sendable (String) -> Bool = { _ in true }   // its prompt is drawn
         var shown: @Sendable (String) -> Bool = { _ in true }   // the usage screen has loaded
-        let parse: @Sendable (String) -> [ClaudeLimits.Reading]
+        let parse: @Sendable (String) -> [LimitScreens.Reading]
         var env: [String: String] = [:]   // extra launch env (e.g. Kimi's trust-this-run)
         var answersTrust = false   // its "trust this folder?" has a default that trusts for this run only (Copilot)
         /// With these it prints the usage and exits, no terminal: nothing opens, so no session or prompt history is left (Claude's `-p`).
         var printArgs: [String] = []
     }
     struct PlanState {
-        var readings: [ClaudeLimits.Reading] = []
+        var readings: [LimitScreens.Reading] = []
         var at: Date?, readAt: Date?
         var running = false
         /// Probes in a row that read nothing: each waits twice as long.
         var fails = 0
         /// Limits a session saw run out that `/usage` doesn't show (Cursor's Free plan reads 0% after its last request): held
         /// over the probe's readings until the probe's reset date for that limit moves on.
-        var hits: [ClaudeLimits.Reading] = []
+        var hits: [LimitScreens.Reading] = []
 
         /// The probe's `readings`, with each hit still in its cycle over the reading of its kind.
-        mutating func read(_ fresh: [ClaudeLimits.Reading]) {
+        mutating func read(_ fresh: [LimitScreens.Reading]) {
             hits.removeAll { h in fresh.contains { $0.kind == h.kind && $0.resets != h.resets } }
             readings = fresh
             for index in readings.indices {
@@ -41,7 +41,7 @@ extension AgentUsage {
     }
 
     /// A session printed that `agent`'s plan ran out.
-    func recordPlanHit(_ agent: String, _ readings: [ClaudeLimits.Reading]) {
+    func recordPlanHit(_ agent: String, _ readings: [LimitScreens.Reading]) {
         plans.withLock { plans in
             var plan = plans[agent] ?? PlanState()
             // No date in what it printed: the cycle /usage last showed.
@@ -58,32 +58,32 @@ extension AgentUsage {
     static let planProbes = [
         // Opened in a terminal, every reading was a session of its own in Claude's /resume and a "/usage" in its prompt history.
         PlanProbe(
-            agent: "claude", command: "claude", every: 600, parse: ClaudeLimits.parseUsage,
+            agent: "claude", command: "claude", every: 600, parse: LimitScreens.parseUsage,
             printArgs: ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config"]),   // no MCP server starts for it
         // With any hook of the user's own, Grok asks "Do you trust the contents of this directory?" in every folder; this
         // run alone does without the question, and nothing is written to its trusted_folders.toml.
         PlanProbe(
             agent: "grok", command: "grok", every: 1800, ready: { $0.contains("Ctrl+x:shortcuts") },
-            shown: { $0.contains("Weekly limit") && $0.contains("Resets") }, parse: ClaudeLimits.parseGrokUsage,
+            shown: { $0.contains("Weekly limit") && $0.contains("Resets") }, parse: LimitScreens.parseGrokUsage,
             env: ["GROK_FOLDER_TRUST": "0"]),
         // Its /usage typed in a terminal went into its prompt history every time.
         PlanProbe(
-            agent: "antigravity", command: "agy", every: 1800, parse: { ClaudeLimits.parseAntigravityUsage($0) },
+            agent: "antigravity", command: "agy", every: 1800, parse: { LimitScreens.parseAntigravityUsage($0) },
             printArgs: ["-p", "/usage"]),
         // Trust for this process only: the probe has no one to answer "Trust this folder?".
         PlanProbe(
             agent: "kimi", command: "kimi", every: 1800,
             ready: { $0.contains("│ >") || $0.contains("context:") },
-            shown: { $0.contains("Plan usage") }, parse: ClaudeLimits.parseKimiUsage,
+            shown: { $0.contains("Plan usage") }, parse: LimitScreens.parseKimiUsage,
             env: ["KIMI_CODE_TRUST_WORKSPACE": "1"]),
         // "Plan ■■■■ 2% used 5 / 200 AIC". Its folder question is answered with Enter: "1. Yes", for this session only.
         PlanProbe(
             agent: "copilot", command: "copilot", every: 1800, ready: { $0.contains("/ commands") },
-            shown: { $0.contains("Plan") && $0.contains("% used") }, parse: ClaudeLimits.parseCopilotUsage,
+            shown: { $0.contains("Plan") && $0.contains("% used") }, parse: LimitScreens.parseCopilotUsage,
             answersTrust: true),
         PlanProbe(
             agent: "cursor", command: "cursor-agent", every: 1800, ready: { $0.contains("build anything") },
-            shown: { $0.contains("Included") && $0.contains("% used") }, parse: ClaudeLimits.parseCursorUsage)
+            shown: { $0.contains("Included") && $0.contains("% used") }, parse: LimitScreens.parseCursorUsage)
     ]
 
     /// Settings › Show plan limits.
@@ -135,7 +135,7 @@ extension AgentUsage {
             guard start else { continue }
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 guard let self else { return }
-                var readings: [ClaudeLimits.Reading] = []
+                var readings: [LimitScreens.Reading] = []
                 if let path = LoginPath.find(probe.command) {
                     var screen = ""
                     if !probe.printArgs.isEmpty {
@@ -219,7 +219,7 @@ extension AgentUsage {
     }
 
     static func probe(_ probe: PlanProbe, argv: [String], cwd: String, open: OpenProbes? = nil) -> (
-        [ClaudeLimits.Reading], String
+        [LimitScreens.Reading], String
     ) {
         let screen = ScreenBuffer()
         let pty: PTY

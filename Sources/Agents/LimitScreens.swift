@@ -1,9 +1,11 @@
 import Core
 import Foundation
 
-/// Claude Code prints plan usage in its UI ("You've used 80% of your weekly limit · resets Oct 20 at 5am (Europe/…)").
-/// There's no other local source for those percentages, so sessions read them from their own output.
-public enum ClaudeLimits {
+/// What the agents' screens say of their plans: Claude Code prints plan usage in its UI ("You've used 80% of your weekly
+/// limit · resets Oct 20 at 5am (Europe/…)"), and there's no other local source for those percentages, so sessions read
+/// them from their own output; the other agents' /usage screens (Grok, Antigravity, Kimi, Copilot, Cursor) and the limits
+/// Cursor and Codex print when one runs out are read here too.
+public enum LimitScreens {
     /// `kind`: "weekly", "session", "5-hour", "Opus weekly"…; `observedAt` is nil from a parse.
     public typealias Reading = UsageGet.Limit
 
@@ -203,3 +205,6 @@ public enum ClaudeLimits {
 
     private static func bounded(_ percent: Double) -> Double { min(max(percent, 0), 100) }
 }
+
+/// Its old name, which the session core and AgentUsage still use. Limit: goes once they say LimitScreens.
+public typealias ClaudeLimits = LimitScreens

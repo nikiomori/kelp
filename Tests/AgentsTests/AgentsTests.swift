@@ -182,14 +182,14 @@ func hooklessCodex() throws -> AgentManifest {
 }
 
 @Test func claudeLimitMessagesParse() {
-    let a = ClaudeLimits.parse(
+    let a = LimitScreens.parse(
         "⏵⏵ auto mode on · You've used 80% of your weekly limit · resets Oct 20 at 5am (Europe/Helsinki)")
     #expect(a == [.init(kind: "weekly", percent: 80, resets: "Oct 20 at 5am")])
-    let b = ClaudeLimits.parse("You've used 93% of your session limit · resets 3pm")
+    let b = LimitScreens.parse("You've used 93% of your session limit · resets 3pm")
     #expect(b.first?.kind == "session" && b.first?.percent == 93 && b.first?.resets == "3pm")
-    #expect(ClaudeLimits.parse("5-hour limit reached ∙ resets 11pm").first?.percent == 100)
-    #expect(ClaudeLimits.parse("You've used 82.5% of your weekly limit").first?.percent == 82.5)
-    #expect(ClaudeLimits.parse("nothing to see").isEmpty)
+    #expect(LimitScreens.parse("5-hour limit reached ∙ resets 11pm").first?.percent == 100)
+    #expect(LimitScreens.parse("You've used 82.5% of your weekly limit").first?.percent == 82.5)
+    #expect(LimitScreens.parse("nothing to see").isEmpty)
 }
 
 @Test func claudeUsageParses() {
@@ -203,7 +203,7 @@ func hooklessCodex() throws -> AgentManifest {
         Last 24h · 3793 requests · 55 sessions
           81%  Start fresh when you switch tasks · run /clear
         """
-    let r = ClaudeLimits.parseUsage(printed)
+    let r = LimitScreens.parseUsage(printed)
     #expect(r.map(\.kind) == ["session", "week", "week · Fable"])
     #expect(r[1].percent == 82.5 && r[1].resets == "Oct 20 at 5am")
     #expect(r[0].resets == "7:40am" && r[2].resets == nil)
@@ -319,14 +319,14 @@ func hooklessCodex() throws -> AgentManifest {
 @Test func grokAndAntigravityUsageScreensParse() {
     let grok =
         "Context usage │ Usage limit │ Session info\n Weekly limit (X Premium)\n ██████░░░░ 45.5%\n Resets: October 24, 19:36\n Loading session usage…"
-    #expect(ClaudeLimits.parseGrokUsage(grok) == [.init(kind: "week", percent: 45.5, resets: "October 24, 19:36")])
+    #expect(LimitScreens.parseGrokUsage(grok) == [.init(kind: "week", percent: 45.5, resets: "October 24, 19:36")])
     let framed =
         "│ Weekly limit (X Premium)          │\n│ ██████░░░░ 45%                    │\n│ Resets: October 24, 19:36         │"
-    #expect(ClaudeLimits.parseGrokUsage(framed).first?.percent == 45)
+    #expect(LimitScreens.parseGrokUsage(framed).first?.percent == 45)
     let agy =
         "Gemini Models\tWeekly Limit Remaining\t88.25%\t2026-10-30T21:42:00Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\n"
     #expect(
-        ClaudeLimits.parseAntigravityUsage(agy, timeZone: .gmt)
+        LimitScreens.parseAntigravityUsage(agy, timeZone: .gmt)
             == [
                 .init(kind: "Gemini week", percent: 11.75, resets: "Oct 30 at 9:42pm"),
                 .init(kind: "Claude week", percent: 0, resets: nil)
@@ -345,13 +345,13 @@ func hooklessCodex() throws -> AgentManifest {
           Monthly limit  ████████░░░░░░░░░░░░  40% used
                          kimi 15% · code 25%
         """
-    let r = ClaudeLimits.parseKimiUsage(screen)
+    let r = LimitScreens.parseKimiUsage(screen)
     #expect(r.map(\.kind) == ["session", "week", "month"])
     #expect(r[0].percent == 20 && r[0].resets == "in 1h")
     #expect(r[1].percent == 60 && r[2].percent == 40)
-    let precise = ClaudeLimits.parseKimiUsage("Plan usage\n  Weekly limit  ███░░  42.5% used  resets in 1h 30m")
+    let precise = LimitScreens.parseKimiUsage("Plan usage\n  Weekly limit  ███░░  42.5% used  resets in 1h 30m")
     #expect(precise == [.init(kind: "week", percent: 42.5, resets: "in 1h 30m")])
-    #expect(ClaudeLimits.parseKimiUsage("Plan usage\n  No usage data available.").isEmpty)
+    #expect(LimitScreens.parseKimiUsage("Plan usage\n  No usage data available.").isEmpty)
 }
 
 @Test func programStatusReports() {
@@ -592,11 +592,11 @@ func hooklessCodex() throws -> AgentManifest {
         Plan ■■■■■■■■■■■■■■■■■■■■ 2% used 5 / 200 AIC ─╮╭╮
         ─╯╰╯
         """
-    #expect(ClaudeLimits.parseCopilotUsage(screen) == [.init(kind: "plan", percent: 2, resets: nil)])
-    let two = ClaudeLimits.parseCopilotUsage(
+    #expect(LimitScreens.parseCopilotUsage(screen) == [.init(kind: "plan", percent: 2, resets: nil)])
+    let two = LimitScreens.parseCopilotUsage(
         "│ Plan ███░░ 40.5% used resets in 3d │\n│ Plan ███░░ 41% used resets in 3d │")
     #expect(two == [.init(kind: "plan", percent: 41, resets: "in 3d")])   // the last redraw wins
-    #expect(ClaudeLimits.parseCopilotUsage("Session: 0 AIC used").isEmpty)
+    #expect(LimitScreens.parseCopilotUsage("Session: 0 AIC used").isEmpty)
 }
 
 @Test func cursorUsageScreenParses() {
@@ -609,10 +609,10 @@ func hooklessCodex() throws -> AgentManifest {
         API 0% used ░░░░░░░░░░
         On-Demand Disabled ————————
         """
-    let r = ClaudeLimits.parseCursorUsage(screen)
+    let r = LimitScreens.parseCursorUsage(screen)
     #expect(r.map(\.kind) == ["month", "Auto", "API"])
     #expect(r[1].percent == 12.5 && r[1].resets == "Nov 23")
-    #expect(ClaudeLimits.parseCursorUsage("Loading usage data...").isEmpty)
+    #expect(LimitScreens.parseCursorUsage("Loading usage data...").isEmpty)
 }
 
 @Test func cursorLimitHitParses() {
@@ -621,30 +621,30 @@ func hooklessCodex() throws -> AgentManifest {
           chatMessage: *You've hit your free requests limit. [Upgrade to
           Pro](https://www.cursor.com/api/auth/checkoutDeepControl?tier=pro) for more usage. Your usage limits will reset when your monthly cycle ends on 11/23/2026.*
         """
-    #expect(ClaudeLimits.parseCursorLimitHit(screen) == .init(kind: "month", percent: 100, resets: "Nov 23"))
-    #expect(ClaudeLimits.parseCursorLimitHit("Error: You've hit your usage limit")?.resets == nil)
-    #expect(ClaudeLimits.parseCursorLimitHit("→ Plan, search, build anything") == nil)
+    #expect(LimitScreens.parseCursorLimitHit(screen) == .init(kind: "month", percent: 100, resets: "Nov 23"))
+    #expect(LimitScreens.parseCursorLimitHit("Error: You've hit your usage limit")?.resets == nil)
+    #expect(LimitScreens.parseCursorLimitHit("→ Plan, search, build anything") == nil)
 }
 
 /// What an agent prints when its plan stopped it: today's Claude Code, an older one, Codex with and without a date.
 @Test func limitHitsAreRead() throws {
     let five = try #require(
-        ClaudeLimits.parse("⎿  You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki) · progress saved").first)
+        LimitScreens.parse("⎿  You've hit your 5-hour limit · resets 3:40pm (Europe/Helsinki) · progress saved").first)
     #expect(five == .init(kind: "5-hour", percent: 100, resets: "3:40pm"))
     #expect(
-        ClaudeLimits.parse("You've hit your limit · resets Oct 20 at 5am").first
+        LimitScreens.parse("You've hit your limit · resets Oct 20 at 5am").first
             == .init(kind: "usage", percent: 100, resets: "Oct 20 at 5am"))
     #expect(
-        ClaudeLimits.parse("You've hit your weekly limit").first == .init(kind: "weekly", percent: 100, resets: nil))
-    #expect(ClaudeLimits.parse("5-hour limit reached · resets 3pm").first?.percent == 100)
-    #expect(ClaudeLimits.parse("You've used 80% of your weekly limit").first?.percent == 80)
+        LimitScreens.parse("You've hit your weekly limit").first == .init(kind: "weekly", percent: 100, resets: nil))
+    #expect(LimitScreens.parse("5-hour limit reached · resets 3pm").first?.percent == 100)
+    #expect(LimitScreens.parse("You've used 80% of your weekly limit").first?.percent == 80)
 
     let codex =
         "■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus),\n  or try again at Oct 30,\n  2026 3:40 PM."
     #expect(
-        ClaudeLimits.parseCodexLimitHit(codex) == .init(kind: "usage", percent: 100, resets: "Oct 30, 2026 3:40 PM"))
-    #expect(ClaudeLimits.parseCodexLimitHit("You've hit your usage limit.")?.resets == nil)
-    #expect(ClaudeLimits.parseCodexLimitHit("Working (12s • esc to interrupt)") == nil)
+        LimitScreens.parseCodexLimitHit(codex) == .init(kind: "usage", percent: 100, resets: "Oct 30, 2026 3:40 PM"))
+    #expect(LimitScreens.parseCodexLimitHit("You've hit your usage limit.")?.resets == nil)
+    #expect(LimitScreens.parseCodexLimitHit("Working (12s • esc to interrupt)") == nil)
 
     // Only a StopFailure says so: the same words in a notification or a reply are words.
     let failure: JSONValue = .obj([
