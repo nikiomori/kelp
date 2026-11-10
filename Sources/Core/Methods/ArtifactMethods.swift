@@ -38,3 +38,17 @@ public struct ArtifactAdd: RPCMethod {
         self.page = page
     }
 }
+
+/// `kelp artifact check`: what Kelp's window finds wrong on a design's canvas (`path`, its canvas.json) once it has
+/// drawn it again from the files: text cut off, low contrast, a board wider than its frame, a missing file. Empty:
+/// nothing.
+/// The window must have the canvas open (the CLI opens it first); this waits for its answer.
+public struct ArtifactCheck: RPCMethod {
+    public static let name = "artifact.check"
+    public typealias Result = [String]
+    /// How long the daemon waits for the window; the call itself a little longer.
+    public static let wait: TimeInterval = 30
+    public static var timeout: TimeInterval? { wait + 5 }
+    public var path: String
+    public init(path: String) { self.path = path }
+}

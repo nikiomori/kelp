@@ -266,6 +266,22 @@
         ],
         "type" : "object"
       },
+      "ArtifactCheckEvent" : {
+        "description" : "`artifact.check` to the window: draw the canvas at `path` again and answer `request` with `ui.browser.reply`.",
+        "properties" : {
+          "path" : {
+            "type" : "string"
+          },
+          "request" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "path",
+          "request"
+        ],
+        "type" : "object"
+      },
       "ArtifactItem" : {
         "description" : "An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.",
         "properties" : {
@@ -5382,6 +5398,29 @@
         "name" : "result",
         "schema" : {
           "type" : "boolean"
+        }
+      }
+    },
+    {
+      "description" : "`kelp artifact check`: what Kelp's window finds wrong on a design's canvas (`path`, its canvas.json) once it has drawn it again from the files: text cut off, low contrast, a board wider than its frame, a missing file. Empty: nothing. The window must have the canvas open (the CLI opens it first); this waits for its answer.",
+      "name" : "artifact.check",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
         }
       }
     },
@@ -11690,7 +11729,7 @@
       "x-internal" : true
     },
     {
-      "description" : "The app's answer to `event.ui.browser` (its `request`): the result, or what went wrong. Only Kelp's window.",
+      "description" : "The app's answer to a request the daemon relayed to it (`event.ui.browser`, `event.artifact.check`): the result, or what went wrong. Only Kelp's window.",
       "name" : "ui.browser.reply",
       "paramStructure" : "by-name",
       "params" : [
@@ -12499,6 +12538,13 @@
       "name" : "event.activity",
       "params" : {
         "$ref" : "#/components/schemas/ActivityEvent"
+      }
+    },
+    {
+      "description" : "`artifact.check` to the window: draw the canvas at `path` again and answer `request` with `ui.browser.reply`.",
+      "name" : "event.artifact.check",
+      "params" : {
+        "$ref" : "#/components/schemas/ArtifactCheckEvent"
       }
     },
     {

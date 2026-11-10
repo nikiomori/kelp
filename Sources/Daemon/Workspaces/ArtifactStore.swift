@@ -23,7 +23,12 @@ extension Artifacts {
     {
         let folder = try newFolder(title, root: root)
         let page = folder.appendingPathComponent(kind.file)
-        try (kind.isHTML ? htmlStart(title) : "# \(title)\n\n").write(to: page, atomically: true, encoding: .utf8)
+        if kind == .design {   // a canvas: its boards go in boards/, each a file of its own
+            try FileManager.default.createDirectory(
+                at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
+        }
+        let start = kind == .design ? ArtifactCanvas.empty : kind.isHTML ? htmlStart(title) : "# \(title)\n\n"
+        try start.write(to: page, atomically: true, encoding: .utf8)
         try save(
             ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file),
             in: folder)
@@ -72,7 +77,8 @@ extension Artifacts {
         }
         item.preview = target
         let page = fileStat(target)
-        item.modified = page.map { Double($0.mtime.tv_sec) }
+        item.modified =
+            r.file == Kind.design.file ? canvasTime(target, root: root) : page.map { Double($0.mtime.tv_sec) }
         item.versions = r.versions
         // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
         let last = r.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
@@ -88,6 +94,20 @@ extension Artifacts {
         }
         item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
         return item
+    }
+
+    /// A canvas changes with its boards and with the project's design system: its time is the latest of all of theirs,
+    /// to the nanosecond (an agent saves boards within one second), so the tab draws it again.
+    static func canvasTime(_ target: String, root: String) -> Double? {
+        let boards = (target as NSString).deletingLastPathComponent + "/boards"
+        let paths =
+            [target]
+            + [boards, DesignSystem.dir(root: root).path].flatMap { folder in
+                (FileManager.default.enumerator(atPath: folder)?.allObjects as? [String] ?? []).map {
+                    folder + "/" + $0
+                }
+            }
+        return paths.compactMap(fileStat).map { Double($0.mtime.tv_sec) + Double($0.mtime.tv_nsec) / 1e9 }.max()
     }
 
     static func save(_ record: ArtifactRecord, in folder: URL) throws {

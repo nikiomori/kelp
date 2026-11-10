@@ -72,9 +72,12 @@ public enum Artifacts {
     /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.
     public enum Kind: String, Codable, CaseIterable, Sendable {
         case doc, review, slides, design, dashboard
-        public var file: String { "\(rawValue).\(isHTML ? "html" : "md")" }
-        public var isHTML: Bool { self == .design || self == .dashboard }
+        public var file: String { self == .design ? "canvas.json" : "\(rawValue).\(isHTML ? "html" : "md")" }
+        public var isHTML: Bool { self == .dashboard }
     }
+
+    /// Files pages were once made as, which still open as pages: a design was one page of HTML before its canvas.
+    public static let olderFiles = ["design.html"]
 
     /// Every kind a guide speaks of.
     public static let guides = Kind.allCases.map(\.rawValue)
@@ -203,9 +206,11 @@ public enum Artifacts {
 
     // MARK: the guide an agent reads
 
-    /// What `kelp artifact guide <kind>` prints. `whereTo`: the `artifacts.where` setting ("agent" or "local").
-    public static func guide(_ kind: String, whereTo: String) -> String? {
-        guard let rules = rules[kind] else { return nil }
+    /// What `kelp artifact guide <kind> [part]` prints. `whereTo`: the `artifacts.where` setting ("agent" or "local");
+    /// `system`: whether the project has its design system (a design's guide says to make it first if not).
+    public static func guide(_ kind: String, whereTo: String, part: String? = nil, system: Bool = false) -> String? {
+        if let part { return kind == Kind.design.rawValue ? designPart(part) : nil }
+        guard let rules = kind == Kind.design.rawValue ? designCore(system: system) : rules[kind] else { return nil }
         var out = "# Making \(article(kind)) in Kelp\n\n"
         if kind == Kind.review.rawValue {
             out +=
@@ -218,6 +223,7 @@ public enum Artifacts {
                 + "give the user its link: it opens in their own browser, where they're signed in, and Kelp lists it. "
                 + "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
         }
+        if kind == Kind.design.rawValue { return out + "\n" + rules }
         out +=
             "\nRun `kelp artifact new \(kind) \"<title>\"`: it prints the file to write, and Kelp shows it beside you as you save.\n"
         return out + "\nRules for \(article(kind)):\n" + rules
@@ -247,14 +253,6 @@ public enum Artifacts {
         - Markdown. A line `---` with an empty line above and below starts the next slide; the first slide is the title.
         - One idea a slide, at most four bullets; a number that matters on a slide of its own.
         - Kelp shows them as 16:9 slides, one under the next (← → step through them, Print gives a page each).
-
-        """,
-        "design": """
-        - One HTML file with its CSS inline, no scripts or files from the web; icons as inline SVG.
-        - A `<section>` per variant, headed `<h2>A. What it is</h2>`, its screens at their real size, side by side.
-        - Each screen in light and dark, side by side, in the project's own colours, type and spacing when it has them.
-        - Set a background and its text colour together: the page opens in the app's light or dark.
-        - Mark one variant recommended in its heading.
 
         """,
         "dashboard": """

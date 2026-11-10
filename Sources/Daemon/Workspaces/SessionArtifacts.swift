@@ -43,6 +43,24 @@ private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws
     return IDE.workspace(cwd: cwd, among: try store.worktrees().filter { !$0.archived }, own: own)?.path ?? cwd
 }
 
+/// To the window, which draws the canvas again and answers with `ui.browser.reply`; this waits for that answer.
+extension ArtifactCheck: AsyncHandled {
+    func handle(_ ui: UIStore) async throws -> [String] {
+        guard path.hasPrefix("/"), path.hasSuffix("/" + Artifacts.Kind.design.file) else {
+            throw RPCError.invalidParams("not a design's canvas.json: \(path)")
+        }
+        let clients = ui.clients, apps = clients.apps
+        guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
+        let request = UUID().uuidString, path = Paths.real(path) ?? path
+        let answer = try await clients.reply(to: request, from: apps, within: Self.wait) {
+            clients.notify(ArtifactCheckEvent(request: request, path: path), to: apps)
+        }
+        return answer.array?.compactMap(\.string) ?? []
+    }
+}
+
 extension Methods {
-    static let artifactMethods: [any Answered.Type] = [ArtifactNew.self, ArtifactAdd.self]
+    static let artifactMethods: [any Answered.Type] = [
+        ArtifactNew.self, ArtifactAdd.self, ArtifactCheck.self
+    ]
 }

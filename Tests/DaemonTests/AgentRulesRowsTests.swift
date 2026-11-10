@@ -41,6 +41,10 @@ import Testing
             ArtifactAdd(
                 url: "https://claude.ai/artifact/x", title: "Deck", type: "page", cwd: wt.path, session: mine.id),
             true, "and keeps the link to one it published"
+        ),
+        (
+            .session(mine.id), ArtifactCheck(path: wt.path + "/.kelp/artifacts/x/canvas.json"), true,
+            "and checks a canvas"
         )
     ]
     try expectRows(w.d, table)

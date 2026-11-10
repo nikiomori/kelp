@@ -49,9 +49,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         case review
         /// An agent's page of HTML: the preview is the file itself.
         case html
+        /// A design's canvas.json: the preview is its boards, drawn by Kelp (`CanvasPage`).
+        case canvas
 
         @MainActor init(_ url: URL) {
-            if ["html", "htm"].contains(url.pathExtension.lowercased()) {
+            if url.lastPathComponent == Artifacts.Kind.design.file && ArtifactBar.isPage(url.path) {
+                self = .canvas
+            } else if ["html", "htm"].contains(url.pathExtension.lowercased()) {
                 self = .html
             } else if Review.isReview(url.path) {
                 self = .review
@@ -62,13 +66,18 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             }
         }
     }
-    private let page: Page
+    let page: Page
+    /// A canvas: the `kelp artifact check` waiting for its next drawing, and what the last one found.
+    var pendingCheck: String?
+    var checkIssues: [String]?
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
 
     private var artifactBar: ArtifactBar?
     /// A page an agent made: its title, for the tab.
     var onPageTitle: ((String?) -> Void)?
+    /// A canvas: what its check found each time it's drawn (the bar shows it).
+    var onCheck: (([String]) -> Void)?
 
     /// What goes over the tab: a page an agent made has its bar (what it is, its versions, its chat) where the path would be.
     func header(else crumbs: NSView) -> NSView {
@@ -179,6 +188,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.dividerStyle = .thin
         web.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         web.navigationDelegate = links
+        web.allowsMagnification = page == .canvas   // pinch to look closer at a board
         web.configuration.userContentController.add(WeakHandler(self), contentWorld: Self.world, name: "kelpSync")
         split.addArrangedSubview(editor.view)
         split.addArrangedSubview(web)
@@ -206,6 +216,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         }
         applyMode()
         rerender()
+        if page == .canvas { followCanvas() }
     }
 
     private let formatting = NSStackView()
@@ -228,7 +239,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// Over the selection once it's made (not while the mouse is still dragging it); gone without one.
     private func placeSelectionBar() {
-        guard NSEvent.pressedMouseButtons == 0, page != .html, !editor.view.isHidden,
+        guard NSEvent.pressedMouseButtons == 0, page != .html, page != .canvas, !editor.view.isHidden,
             let selection = editor.selectionRect
         else {
             return selectionBar.isHidden = true
@@ -251,6 +262,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL != false else { return }
         if artifactBar != nil, let body = message.body as? [String: Any], body["kind"] as? String == "ask" {
             return ask(about: body["text"] as? String ?? "")
+        }
+        if page == .canvas, let body = message.body as? [String: Any], body["kind"] as? String == "check" {
+            return canvasChecked(body["issues"] as? [String] ?? [])
         }
         if page == .review, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             ["pick", "note", "send"].contains(kind)
@@ -300,7 +314,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     /// The page is built off the main thread (a long document, or mermaid's 3.5 MB script inlined), and not at all
     /// while only the source shows.
-    private func rerender(after delay: Duration = .zero) {
+    func rerender(after delay: Duration = .zero) {
         renderTask?.cancel()
         guard !web.isHidden else {
             dirty = true
@@ -318,11 +332,20 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 page = (colors.background.hexString, colors.text.hexString)
             }
             let kind = self.page, sendTo = pageAuthor?.title
+            let themes = CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
             // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
             // Kelp's do, beside it.
-            let ask = artifactBar == nil ? [] : [PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))]
+            let ask =
+                artifactBar == nil || kind == .canvas
+                ? [] : [PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))]
             let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
                 if kind == .html { return (text, []) }
+                if kind == .canvas {
+                    let built = CanvasPage.build(
+                        text, folder: base, root: Self.projectRoot(of: base.path), themes: themes ?? .both, ground: page
+                    )
+                    return (built.html, [CanvasScript.source(issues: built.issues)])
+                }
                 if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
                     return (
@@ -349,7 +372,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             let place =
                 currentMode == "split" && (kind == .markdown || kind == .slides)
                 ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(scrollY))"
-            links.load(html, baseURL: base, scripts: scripts + ask + [place], world: Self.world, in: web)
+            // A canvas is Kelp's own page: its boards sit in frames sandboxed without scripts (`CanvasPage`).
+            links.load(
+                html, baseURL: base, scripts: scripts + ask + [place], world: Self.world, pageScripts: kind == .canvas,
+                in: web)
         }
     }
 

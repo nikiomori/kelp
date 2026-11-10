@@ -103,7 +103,10 @@ extension Daemon {
             }
         case .artifacts:
             return Watches.Topic(
-                folder: workspaceFolder(key) { _ in { $0.contains { $0.contains("/\(Artifacts.folder)/") } } }
+                // A design's canvas is drawn with the project's design system: a change to it moves the canvas too.
+                folder: workspaceFolder(key) { _ in
+                    { $0.contains { $0.contains("/\(Artifacts.folder)/") || $0.contains("/\(DesignSystem.folder)/") } }
+                }
             ) {
                 [self] _ in (await artifacts(key), nil)
             }

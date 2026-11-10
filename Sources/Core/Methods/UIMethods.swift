@@ -155,7 +155,8 @@ public struct UIBrowser: InternalMethod {
         self.worktreeId = worktreeId
     }
 }
-/// The app's answer to `event.ui.browser` (its `request`): the result, or what went wrong. Only Kelp's window.
+/// The app's answer to a request the daemon relayed to it (`event.ui.browser`, `event.artifact.check`): the result, or
+/// what went wrong. Only Kelp's window.
 public struct UIBrowserReply: InternalMethod {
     public static let name = "ui.browser.reply"
     public typealias Result = Done

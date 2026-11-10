@@ -42,20 +42,26 @@ private func tempRoot() throws -> URL {
     #expect(exclude == "/.kelp/artifacts/\n")
 }
 
-/// A design and a dashboard are pages of HTML, titled; slides are Markdown. Their versions keep their file's extension.
+/// A design is a canvas (its boards in boards/), a dashboard a page of HTML, titled; slides are Markdown. Their
+/// versions keep their file's extension.
 @Test func artifactKinds() throws {
     let root = try tempRoot()
-    let design = try Artifacts.create(.design, title: "Header <A & B>", root: root.path, session: "s1")
-    #expect(design.lastPathComponent == "design.html")
-    let html = try String(contentsOf: design, encoding: .utf8)
-    #expect(html.contains("<title>Header &lt;A &amp; B&gt;</title>") && html.contains("color-scheme: light dark"))
+    let design = try Artifacts.create(.design, title: "Header", root: root.path, session: "s1")
+    #expect(design.lastPathComponent == "canvas.json")
+    #expect(try String(contentsOf: design, encoding: .utf8) == ArtifactCanvas.empty)
+    var isFolder: ObjCBool = false
     #expect(
-        try Artifacts.create(.dashboard, title: "CI", root: root.path, session: nil).lastPathComponent
-            == "dashboard.html")
+        FileManager.default.fileExists(
+            atPath: design.deletingLastPathComponent().appendingPathComponent("boards").path, isDirectory: &isFolder)
+            && isFolder.boolValue)
+    let dashboard = try Artifacts.create(.dashboard, title: "Header <A & B>", root: root.path, session: nil)
+    #expect(dashboard.lastPathComponent == "dashboard.html")
+    let html = try String(contentsOf: dashboard, encoding: .utf8)
+    #expect(html.contains("<title>Header &lt;A &amp; B&gt;</title>") && html.contains("color-scheme: light dark"))
     #expect(
         try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
-    #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.html"))
+    #expect(Artifacts.versionPath(target: dashboard.path, 1).hasSuffix("/versions/1.html"))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))
 }
 
@@ -283,4 +289,21 @@ private func tempRoot() throws -> URL {
     await #expect(throws: RPCError.self) {
         try await c.call(ArtifactNew(kind: .doc, title: "Plan", cwd: "relative/folder", session: nil))
     }
+    // A check is the window's to make: none is connected here, and only a canvas is checked.
+    let canvas = try await c.call(ArtifactNew(kind: .design, title: "Home", cwd: root.path, session: nil))
+    await #expect(throws: RPCError.self) { try await c.call(ArtifactCheck(path: canvas)) }
+    await #expect(throws: RPCError.self) { try await c.call(ArtifactCheck(path: file)) }
+}
+
+/// A canvas's time moves with its boards and the design system, which it is drawn with.
+@Test func aCanvasTimeFollowsItsBoardsAndTheSystem() throws {
+    let root = try tempRoot()
+    let canvas = try Artifacts.create(.design, title: "Home", root: root.path, session: nil)
+    let before = try #require(Artifacts.canvasTime(canvas.path, root: root.path))
+    let board = canvas.deletingLastPathComponent().appendingPathComponent("boards/A.html")
+    try "<p>hi</p>".write(to: board, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSince1970: before + 5)], ofItemAtPath: board.path)
+    #expect(Artifacts.canvasTime(canvas.path, root: root.path) == before + 5)
+    #expect(Artifacts.items(root: root.path).first?.modified == before + 5)
 }

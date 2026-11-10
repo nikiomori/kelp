@@ -9,8 +9,15 @@ extension Main {
         switch sub {
         case "guide":
             let whereTo = try await SettingKeys.artifactsWhere.read(in: c.call(SettingsGet()))
-            guard let kind = args.first, let text = Artifacts.guide(kind, whereTo: whereTo) else {
-                fail("artifact guide <\(Artifacts.guides.joined(separator: "|"))>")
+            let root = try await projectRoot(cwd, c)
+            let system = FileManager.default.fileExists(
+                atPath: DesignSystem.dir(root: root).appendingPathComponent("kit.css").path)
+            guard let kind = args.first,
+                let text = Artifacts.guide(kind, whereTo: whereTo, part: args.dropFirst().first, system: system)
+            else {
+                fail(
+                    "artifact guide <\(Artifacts.guides.joined(separator: "|"))> "
+                        + "(design parts: \(Artifacts.designParts.joined(separator: "|")))")
             }
             print(text, terminator: "")
         case "new":
@@ -32,6 +39,18 @@ extension Main {
                 }
             }
             print(file)
+            if kind == .design {
+                let folder = (file as NSString).deletingLastPathComponent
+                let system = DesignSystem.dir(root: try await projectRoot(cwd, c)).path
+                print("Boards: \(folder)/boards/ · design system: \(system)/")
+                print(opened ? "Opened beside you; it redraws as you save." : "Write the boards, then canvas.json.")
+                let name = (folder as NSString).lastPathComponent
+                print(
+                    "Rules: `kelp artifact guide design` (skip if you've read it). "
+                        + "Check: `kelp artifact check \(name)`."
+                )
+                return
+            }
             print(
                 opened
                     ? "Opened beside you. Write the page into that file; the tab updates as you save."
@@ -54,6 +73,17 @@ extension Main {
                 _ = try await IDE.open(
                     Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: c)
             }
+        case "check":
+            let root = try await projectRoot(cwd, c)
+            guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name }),
+                artifact.record.file == Artifacts.Kind.design.file
+            else {
+                fail("artifact check <name of a design> (names: kelp artifact list)")
+            }
+            let target = Artifacts.target(artifact.slug, artifact.record, root: root)
+            _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // the window checks what it draws
+            let issues = try await c.call(ArtifactCheck(path: target))
+            print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
         case "add":
             let title = flag("--title"), type = flag("--type") ?? "page"
             guard let url = args.first, url.hasPrefix("https://") else {

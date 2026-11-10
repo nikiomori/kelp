@@ -53,7 +53,7 @@ extension MarkdownTab {
     }
 
     /// A JavaScript string literal.
-    static func jsString(_ text: String) -> String {
+    nonisolated static func jsString(_ text: String) -> String {
         "\""
             + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: "\\n") + "\""

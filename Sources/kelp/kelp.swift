@@ -54,7 +54,8 @@ let usage = """
                   [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
                                            missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
       routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
-      artifact guide <doc|review|slides|design|dashboard>   how and where to make one: read it first
+      artifact guide <doc|review|slides|design|dashboard> [part]   how and where to make one: read it first
+      artifact check <design>              what the window finds wrong on a design: cut-off text, contrast, sizes
       artifact new <kind> <title> [--no-open]   a page of that kind in the project's .kelp/artifacts, opened beside you; prints its file
       artifact list | open <name> | add <url> [--title t] [--type t]   the project's pages (published ones open in the user's
                                            browser, where they're signed in); list one an agent published elsewhere

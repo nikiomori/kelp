@@ -30,6 +30,11 @@ final class ArtifactBar: NSObject {
     private let latest = PointerButton()
     private let restore = PointerButton()
     private let author = PointerButton()
+    /// A canvas's check: what Kelp found wrong where it drew the boards (`CanvasScript`).
+    private let check = PointerButton()
+    private var issues: [String] = []
+    /// A canvas's time as the list last said: its boards' and the design system's latest change.
+    private var canvasTime: Double?
     private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
         self?.showMore()
     }
@@ -66,8 +71,13 @@ final class ArtifactBar: NSObject {
         author.restFill = .fillRest
         author.imagePosition = .imageLeading
         author.onClick = { [weak self] in self?.goToChat() }
+        check.font = .ui(TextSize.row)
+        check.padding = Metrics.gap
+        check.restFill = .fillRest
+        check.isHidden = true
+        check.onClick = { [weak self] in self?.showCheck() }
         return Bar.content(
-            [kind, ring, status], [latest, restore, back, count, forward, author, more], stretching: status)
+            [kind, ring, status], [latest, restore, check, back, count, forward, author, more], stretching: status)
     }()
 
     init(app: AppModel, path: String, markdown: MarkdownTab) {
@@ -81,6 +91,7 @@ final class ArtifactBar: NSObject {
         self.real = real
         workspace = app.worktree(holding: real)?.id
         super.init()
+        markdown.onCheck = { [weak self] in self?.show(check: $0) }
         watched.key = workspace
         track(owner: self) { [app, workspace] in
             app.latest(ArtifactsEvent.self, workspace ?? "")?.items
@@ -98,7 +109,9 @@ final class ArtifactBar: NSObject {
     static func isPage(_ path: String) -> Bool {
         guard let range = path.range(of: "/\(Artifacts.folder)/") else { return false }
         let rest = path[range.upperBound...].split(separator: "/")
-        return rest.count == 2 && Artifacts.Kind.allCases.contains { $0.file == rest[1] }
+        return rest.count == 2
+            && (Artifacts.Kind.allCases.contains { $0.file == rest[1] }
+                || Artifacts.olderFiles.contains(String(rest[1])))
     }
 
     private func update() {
@@ -108,6 +121,10 @@ final class ArtifactBar: NSObject {
         let session = item?.session.flatMap(app.session)
         let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
         kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")
+        if markdown.page == .canvas, let time = item?.modified, time != canvasTime {
+            if canvasTime != nil { markdown.boardsChanged() }
+            canvasTime = time
+        }
         if let title = item?.title, !title.isEmpty { markdown.onPageTitle?(title) }
         // The file as it is goes last; a last version it hasn't changed from is the same page, named by its turn.
         let versions = item?.versions ?? []
@@ -209,6 +226,31 @@ final class ArtifactBar: NSObject {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
     }
 
+    private func show(check found: [String]) {
+        issues = found
+        _ = view
+        check.isHidden = false
+        check.title = found.isEmpty ? String(localized: "No Issues") : String(localized: "\(found.count) to Fix")
+        check.toolTip = String(localized: "What Kelp found where it drew the boards: cut-off text, contrast, sizes")
+    }
+
+    private func showCheck() {
+        let menu = NSMenu(), md = markdown
+        for issue in issues.prefix(20) {
+            menu.addItem(
+                withTitle: issue.count > 90 ? String(issue.prefix(89)) + "…" : issue, action: nil, keyEquivalent: ""
+            )
+            .isEnabled = false
+        }
+        if !issues.isEmpty { menu.addItem(.separator()) }
+        if !issues.isEmpty {
+            let who = md.pageAuthor.map { app.catalog.name($0.agent) } ?? String(localized: "the Agent")
+            menu.add(String(localized: "Ask \(who) to Fix")) { md.sendCheck() }
+        }
+        menu.add(String(localized: "Check Again")) { md.rerender() }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: check.bounds.height + 4), in: check)
+    }
+
     private func showMore() {
         let menu = NSMenu(), app = self.app, path = self.path, md = markdown
         for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
@@ -217,6 +259,21 @@ final class ArtifactBar: NSObject {
             let item = menu.add(title) { md.modeSegment = mode }
             item.state = md.modeSegment == mode ? .on : .off
             item.isEnabled = md.shownVersion == nil   // an older version is only read
+        }
+        if md.page == .canvas {
+            menu.addItem(.separator())
+            let shown = UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? CanvasPage.Themes.both.rawValue
+            let names = [
+                CanvasPage.Themes.both: String(localized: "Light and Dark"), .light: String(localized: "Light Only"),
+                .dark: String(localized: "Dark Only")
+            ]
+            for theme in CanvasPage.Themes.allCases {
+                let item = menu.add(names[theme] ?? theme.rawValue) {
+                    UserDefaults.standard.set(theme.rawValue, forKey: CanvasPage.themesKey)
+                    md.rerender()
+                }
+                item.state = shown == theme.rawValue ? .on : .off
+            }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }

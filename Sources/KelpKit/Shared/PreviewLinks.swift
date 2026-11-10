@@ -16,13 +16,18 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
     private let app: AppModel
     /// What `load` showed last: the one place the main frame may go but by a clicked link.
     private var shown = "about:blank"
+    /// Whether the page shown may run scripts: only a page Kelp made whole (a design's canvas), whose agent-written
+    /// parts sit in frames sandboxed without scripts. WebKit draws no `srcdoc` frame while the page's scripts are off.
+    private var pageScripts = false
     package init(app: AppModel) { self.app = app }
 
     /// `html` as the preview's page; Kelp's `scripts` (JavaScript) run in `world` once its document is read, in order. That
     /// world, not the page's, is where the tab's message handlers belong.
     package func load(
-        _ html: String, baseURL: URL?, scripts: [String] = [], world: WKContentWorld = .defaultClient, in web: WKWebView
+        _ html: String, baseURL: URL?, scripts: [String] = [], world: WKContentWorld = .defaultClient,
+        pageScripts: Bool = false, in web: WKWebView
     ) {
+        self.pageScripts = pageScripts
         let uc = web.configuration.userContentController
         uc.removeAllUserScripts()
         for script in scripts {
@@ -37,7 +42,7 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         _ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
-        preferences.allowsContentJavaScript = false
+        preferences.allowsContentJavaScript = pageScripts
         decisionHandler(policy(action, in: webView), preferences)
     }
 
