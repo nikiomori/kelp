@@ -142,23 +142,14 @@ final class ChangeBars {
     /// The change goes at once: the banner's Undo brings it back.
     private func revert(_ hunk: Hunk) {
         let name = (file as NSString).lastPathComponent
-        let undo = UUID().uuidString, id = worktree.id
-        let request = GitDiscardHunk(
-            id: id, file: file, hunk: 0, header: hunk.header, fingerprint: hunk.fingerprint, undo: undo)
-        Task { [app] in
-            guard await app.call(request) != nil else { return }
-            app.watchAgain(.git, id)
-            Banner.show(
-                String(localized: "Discarded a change in \(name)"),
-                action: (
-                    String(localized: "Undo"),
-                    {
-                        Task {
-                            await app.call(GitUndoDiscard(id: id, undo: undo))
-                            app.watchAgain(.git, id)
-                        }   // the daemon keeps it a minute
-                    }
-                ))
+        Task { [app, file, id = worktree.id] in
+            await discardWithUndo(
+                app,
+                {
+                    GitDiscardHunk(
+                        id: id, file: file, hunk: 0, header: hunk.header, fingerprint: hunk.fingerprint, undo: $0)
+                },
+                saying: String(localized: "Discarded a change in \(name)"), worktree: id)
         }
     }
 }

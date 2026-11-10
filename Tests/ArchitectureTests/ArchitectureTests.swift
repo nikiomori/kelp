@@ -127,8 +127,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // (`copyWebLink`, `RemoteHost.containing`), and a session's tab menu is `addSessionItems`' too.
     // 327 → 299: the generic parts with no shell state moved to DesignKit, public (closure targets, `Debounce`, `pin` /
     // `stacked`, `track`, the menu item helpers, `NSImage.symbol` with its glyphs, awaited sheets, `shortAgo` / `bytes`).
-    #expect(declared <= 299, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 299, "fewer now (\(declared)): lower the ceiling")
+    // +1 so a discard and its Undo are one flow for the diff and Source Control (Git) and a file's change bars
+    // (Files): `discardWithUndo`.
+    #expect(declared <= 300, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 300, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

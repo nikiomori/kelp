@@ -90,14 +90,12 @@ extension SourceControlController {
             guard await runSheet(alert) == .alertFirstButtonReturn, let wid else { return }
             noteChanges()
             fadeRows(Set(files.map(\.path)))
-            let undo = UUID().uuidString
-            if await app.call(GitDiscard(id: wid, files: files.map(\.path), undo: undo)) != nil {
-                let done =
-                    files.count == 1
-                    ? String(localized: "Discarded changes in \(name)")
-                    : String(localized: "Discarded \(files.count) changes")
-                UndoDiscard.offer(app, done, worktree: wid, undo: undo)
-            }
+            let done =
+                files.count == 1
+                ? String(localized: "Discarded changes in \(name)")
+                : String(localized: "Discarded \(files.count) changes")
+            await discardWithUndo(
+                app, { GitDiscard(id: wid, files: files.map(\.path), undo: $0) }, saying: done, worktree: wid)
             reloadAll()
         }
     }

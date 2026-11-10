@@ -27,23 +27,20 @@ extension DiffViewController {
     }
     /// A hunk goes at once: the banner's Undo brings it back.
     @objc func discardHunk(_ button: NSButton) {
-        guard let wid = worktreeId, let (path, h, shown) = hunk(button) else { return }
-        let file = (path as NSString).lastPathComponent
+        guard let wid = worktreeId, let (path, _, shown) = hunk(button) else { return }
         Task {
             // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
-            let undo = UUID().uuidString
-            let request = GitDiscardHunk(
-                id: wid, file: path, hunk: h, header: shown.header, fingerprint: shown.fingerprint, undo: undo)
-            if let error = await app.tryCall(request).error {
-                Banner.show(error, style: .error)
-            } else {
-                UndoDiscard.offer(app, String(localized: "Discarded a change in \(file)"), worktree: wid, undo: undo) {
-                    await self.load()
-                }
-            }
+            await discardWithUndo(
+                app,
+                {
+                    GitDiscardHunk(
+                        id: wid, file: path, hunk: 0, header: shown.header, fingerprint: shown.fingerprint, undo: $0)
+                },
+                saying: String(localized: "Discarded a change in \((path as NSString).lastPathComponent)"),
+                worktree: wid
+            ) { await self.load() }
             fadesNextLoad = true
             await load()
-            app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
         }
     }
     // MARK: menus
@@ -155,27 +152,5 @@ extension DiffViewController {
         alert.addButton(withTitle: String(localized: "Send"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         return await runSheet(alert) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
-    }
-}
-
-/// After a discard (in the diff or in Source Control): a banner whose Undo puts it back, on screen as long as the
-/// daemon keeps it (a minute).
-@MainActor
-enum UndoDiscard {
-    static func offer(
-        _ app: AppModel, _ text: String, worktree wid: String, undo: String,
-        then reload: @escaping @MainActor () async -> Void = {}
-    ) {
-        Banner.show(
-            text,
-            action: (
-                String(localized: "Undo"),
-                {
-                    Task {
-                        if await app.call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
-                        app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
-                    }
-                }
-            ), lasts: 60)
     }
 }
