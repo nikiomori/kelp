@@ -133,7 +133,7 @@ final class StartRow: PointerControl {
         key.textColor = .secondaryLabelColor
         key.font = .ui(TextSize.row)
         let row = NSStackView(views: [icon, label, NSView(), more, key])
-        row.spacing = 10
+        row.spacing = Metrics.gapWide
         row.detachesHiddenViews = true
         more.isHidden = detail == nil
         key.isHidden = shortcut == nil

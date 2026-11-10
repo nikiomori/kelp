@@ -10,7 +10,7 @@ struct RoutineDetail: View {
     let app: AppModel, routine: Routine, runs: [Routine.Run], picked: String?, week: RoutineWeek
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Metrics.inset) {
             HStack(spacing: Metrics.gapWide) {
                 if let icon = app.catalog.icon(routine.agent, size: 28) { Image(nsImage: icon) }
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {

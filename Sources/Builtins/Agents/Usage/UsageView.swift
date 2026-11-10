@@ -75,7 +75,7 @@ struct UsageView: View {
                     ViewThatFits(in: .horizontal) {
                         bars(resets: resets)
                         bars(resets: false)
-                    }.padding(.horizontal, 14).padding(.vertical, 10)
+                    }.padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gapWide)
                 }
             }
         }

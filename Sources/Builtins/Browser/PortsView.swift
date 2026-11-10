@@ -26,7 +26,7 @@ final class PortsView: NSView {
         let stack = NSStackView(views: [title, list])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
+        stack.spacing = Metrics.gapWide
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([

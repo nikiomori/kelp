@@ -84,7 +84,8 @@ private struct Tile: View {
                 Sparkline(values: trend).frame(height: 32)
             } else if let share {
                 ProgressView(value: min(1, share)).progressViewStyle(.linear).controlSize(.small)
-                    .tint(ServerReading.strained(share) ? ServerReading.strainedColor : .secondary).padding(.top, 10)
+                    .tint(ServerReading.strained(share) ? ServerReading.strainedColor : .secondary).padding(
+                        .top, Metrics.gapWide)
             }
         }
         .padding(12)

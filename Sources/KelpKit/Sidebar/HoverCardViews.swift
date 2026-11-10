@@ -9,7 +9,7 @@ struct CardView: View {
     let model: CardModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.gapWide) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.title).font(.ui(TextSize.body, weight: .semibold)).lineLimit(2)
                 if !model.subtitle.isEmpty {
@@ -130,7 +130,7 @@ struct WorktreeSizes: View {
     let items: [RepoWorktreeSizes.Item]?, root: String
     var body: some View {
         if let items, !items.isEmpty {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack {
                     Text("Worktrees")
                     Spacer(minLength: 8)

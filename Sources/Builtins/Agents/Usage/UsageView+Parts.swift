@@ -41,7 +41,7 @@ extension UsageView {
         let pace: Bool
         /// Each limit gets its own bar, so the one that's running out shows at a glance.
         var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Metrics.gapWide) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.fullName).font(.ui(TextSize.body, weight: .semibold))
                     if let at = row.readAt {

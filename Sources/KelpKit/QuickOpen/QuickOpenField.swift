@@ -122,7 +122,7 @@ final class Keycaps: NSStackView {
 
     private func rebuild() {
         arrangedSubviews.forEach { $0.removeFromSuperview() }
-        spacing = 14
+        spacing = Metrics.inset
         for segment in stringValue.components(separatedBy: "    ") where !segment.isEmpty {
             let parts = segment.split(separator: " ", maxSplits: 1).map(String.init)
             let cap = NSTextField(labelWithString: parts[0])
@@ -140,7 +140,7 @@ final class Keycaps: NSStackView {
             word.font = .ui(TextSize.caption)
             word.textColor = .secondaryLabelColor
             let pair = NSStackView(views: [capBox, word])
-            pair.spacing = 5
+            pair.spacing = Metrics.gap
             addArrangedSubview(pair)
         }
         setAccessibilityElement(true)

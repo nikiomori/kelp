@@ -86,7 +86,7 @@ struct UsageReportView: View {
 
     /// What the tab's name doesn't say already: the span, where it's from, and whether the logs are still being read.
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Metrics.gapWide) {
             Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(TextSize.caption))
                 .foregroundStyle(
                     .secondary)
@@ -122,7 +122,7 @@ struct UsageReportView: View {
     /// The last year's days as tiles, then cost or tokens a day over the span stacked by agent (the chosen one's alone).
     private func detail(_ usage: UsageAgents.Result) -> some View {
         let ids = series.map(\.id)
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: Metrics.gapWide) {
             HStack(spacing: 8) {
                 Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(
                     .ui(TextSize.body, weight: .semibold))

@@ -233,7 +233,7 @@ final class StartView: NSView {
             planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             stack.setCustomSpacing(22, after: planBar)
         }
-        planBar.spacing = 10
+        planBar.spacing = Metrics.gapWide
         planLine.font = .ui(TextSize.row)
         planLine.textColor = .secondaryLabelColor
         planSwitch.padding = Metrics.gap
@@ -264,7 +264,7 @@ final class StartView: NSView {
             planSwitch.title = String(localized: "Start in \(otherName)")
             planSwitch.onClick = { [weak self] in self?.start(other) }
         }
-        if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : 10, after: under) }
+        if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : Metrics.gapWide, after: under) }
     }
 
     /// With what was typed, if anything.
@@ -282,7 +282,7 @@ final class StartView: NSView {
         }
         let icon = NSImageView(image: app.catalog.icon(def, size: 18) ?? NSImage())
         let row = NSStackView(views: [icon, prompt])
-        row.spacing = 10
+        row.spacing = Metrics.gapWide
         row.alignment = .top
         let line = NSBox()
         line.boxType = .separator
@@ -290,8 +290,8 @@ final class StartView: NSView {
         let column = NSStackView(views: [row, line, make])
         column.orientation = .vertical
         column.alignment = .leading
-        column.spacing = 10
-        column.edgeInsets = NSEdgeInsets(top: 11, left: 12, bottom: 10, right: 12)
+        column.spacing = Metrics.gapWide
+        column.edgeInsets = NSEdgeInsets(top: 11, left: 12, bottom: Metrics.gapWide, right: 12)
         let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
         box.pin(column)
         NSLayoutConstraint.activate([

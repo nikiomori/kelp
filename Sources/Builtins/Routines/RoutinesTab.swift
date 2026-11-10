@@ -206,7 +206,7 @@ struct RunMark: View {
                     .secondary
                 ).lineLimit(1)
         }
-        .padding(.horizontal, 3).padding(.vertical, 2)
+        .padding(.horizontal, 4).padding(.vertical, 2)
         .background(
             picked ? Color(nsColor: .fillSelected) : .clear, in: RoundedRectangle(cornerRadius: Metrics.radiusXS)
         )

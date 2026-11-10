@@ -141,7 +141,7 @@ extension QuickOpen {
         t2.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         t2.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the row's width, so the shortcut sits at its end
         let stack = NSStackView(views: [lead, t1, t2, key, kind, tick])
-        stack.spacing = 10
+        stack.spacing = Metrics.gapWide
         stack.distribution = .fill
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 12)
         lead.widthAnchor.constraint(equalToConstant: 18).isActive = true

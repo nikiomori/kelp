@@ -163,17 +163,17 @@ struct MachineView: View {
                     Text(note).quietNote().padding(.horizontal, 6)
                 }
                 if let detail, !detail.ports.isEmpty, let address = detail.address {
-                    Text("Listening").sectionHeading().padding(.top, 10)
+                    Text("Listening").sectionHeading().padding(.top, Metrics.gapWide)
                     ForEach(detail.ports.filter { $0 != 22 }, id: \.self) { portRow($0, address) }
                 }
                 if let folders = detail?.folders, !folders.isEmpty {
-                    Text("Shared Folders").sectionHeading().padding(.top, 10)
+                    Text("Shared Folders").sectionHeading().padding(.top, Metrics.gapWide)
                     ForEach(folders, id: \.self) { folder in
                         Text((folder as NSString).abbreviatingWithTildeInPath).font(.ui(TextSize.row)).lineLimit(1)
                             .truncationMode(
                                 .middle
                             )
-                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .padding(.horizontal, 6).padding(.vertical, Metrics.lineGap)
                     }
                 }
                 machine(info)
@@ -203,7 +203,7 @@ struct MachineView: View {
             }
             .controlSize(.small)
         }
-        .padding(.horizontal, 6).padding(.bottom, 10)
+        .padding(.horizontal, 6).padding(.bottom, Metrics.gapWide)
     }
 
     /// A `kelp vm run`: the chat it came from (a terminal's shows as Terminal), its command, how long it has run.
@@ -254,7 +254,7 @@ struct MachineView: View {
     private func machine(_ info: VMInfo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let files = info.files { exchange(files) }
-            Text("Machine").sectionHeading().padding(.top, 10)
+            Text("Machine").sectionHeading().padding(.top, Metrics.gapWide)
             facts(info)
             if info.machine.kind.resizable, info.state != .off {
                 Text("Shut it down to change its processors, memory or disk.").quietNote().padding(.horizontal, 6)
@@ -266,7 +266,7 @@ struct MachineView: View {
     /// Its exchange folder: `~/Kelp` inside, a folder beside the machine here.
     private func exchange(_ files: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Files").sectionHeading().padding(.top, 10)
+            Text("Files").sectionHeading().padding(.top, Metrics.gapWide)
             VStack(alignment: .leading, spacing: 6) {
                 Text("~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.")
                     .font(.ui(TextSize.row)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

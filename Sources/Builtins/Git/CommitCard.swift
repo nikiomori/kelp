@@ -185,7 +185,7 @@ final class CommitCardView: NSView {
         }
         guard !views.isEmpty else { return nil }
         let row = NSStackView(views: views)
-        row.spacing = 5
+        row.spacing = Metrics.gap
         return row
     }
 

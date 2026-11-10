@@ -21,7 +21,7 @@ final class ChildrenBadge: PointerControl {
         count.font = .uiDigits(TextSize.caption, weight: .medium)
         count.textColor = .secondaryLabelColor
         let row = NSStackView(views: [pips, count])
-        row.spacing = 3
+        row.spacing = Metrics.lineGap
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         NSLayoutConstraint.activate([

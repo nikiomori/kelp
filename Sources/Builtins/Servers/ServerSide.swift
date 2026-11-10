@@ -31,14 +31,14 @@ struct ServerSide: View {
             if agents.isEmpty { Text("No agents on \(host) now.").quietNote() }
             ForEach(agents, id: \.id) { s in agentRow(s) }
             if !leftRunning.isEmpty {
-                Text("Still Running in tmux").sectionHeading().padding(.top, 10)
+                Text("Still Running in tmux").sectionHeading().padding(.top, Metrics.gapWide)
                 ForEach(leftRunning, id: \.name) { t in tmuxRow(t) }
             }
             if let ports = stats.ports, !ports.isEmpty {
-                Text("Listening").sectionHeading().padding(.top, 10)
+                Text("Listening").sectionHeading().padding(.top, Metrics.gapWide)
                 ForEach(ports, id: \.port) { p in portRow(p) }
             }
-            Text("Projects").sectionHeading().padding(.top, 10)
+            Text("Projects").sectionHeading().padding(.top, Metrics.gapWide)
             ForEach(projects, id: \.id) { r in projectRow(r) }
         }
     }

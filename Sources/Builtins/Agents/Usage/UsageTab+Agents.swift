@@ -51,7 +51,8 @@ extension UsageReportView {
     func table(_ lines: [Line]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             columns(Text("Agent"), Text("Plan"), Text("Last \(range) days"), Text("Tokens"), Text("At API prices"))
-                .font(.ui(TextSize.caption)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 4)
+                .font(.ui(TextSize.caption)).foregroundStyle(.secondary).padding(.horizontal, Metrics.inset).padding(
+                    .bottom, 4)
             Divider()
             ForEach(lines) { row($0) }
         }
@@ -74,7 +75,7 @@ extension UsageReportView {
     @ViewBuilder private func row(_ l: Line) -> some View {
         let on = sel == l.id
         let content = cells(l)
-            .padding(.horizontal, 10).padding(.vertical, 7).contentShape(Rectangle())
+            .padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gap).contentShape(Rectangle())
         if l.usage == nil {
             content
         } else {
