@@ -204,7 +204,7 @@ extension Git {
         let local = remote ? String(name.drop { $0 != "/" }.dropFirst()) : name
         // Checked as git will read it, after "origin/" is taken off: "origin/-Cmain" would be `git switch -Cmain`.
         guard !local.hasPrefix("-"), !name.hasPrefix("-") else {
-            throw GitError(args: ["switch", name], status: 1, stderr: "“\(name)” isn't a branch name.")
+            throw GitError.refused("“\(name)” isn't a branch name.")
         }
         if create {
             try run(["switch", "-c", name], cwd: path, remotes: remotes)
@@ -233,11 +233,11 @@ extension Git {
                 back += try runData(
                     ["diff"] + plain + ["--no-index", "--", "/dev/null", file], cwd: path, ok: [0, 1], remotes: remotes)
             }
-            if back.count > Subprocess.outputLimit { throw tooMuch(["diff"]) }   // all of them, held in the daemon a minute
-        } catch let error as GitError where error.status == 0 {   // `tooMuch`: any other failure says what it was
-            throw GitError(
-                args: ["diff"], status: 1,
-                stderr: "This change is too big to keep for Undo, so Kelp left it as it is: "
+            // All of them, held in the daemon a minute.
+            if back.count > Subprocess.outputLimit { throw GitError.tooMuch }
+        } catch GitError.tooMuch {   // any other failure says what it was
+            throw GitError.refused(
+                "This change is too big to keep for Undo, so Kelp left it as it is: "
                     + "discard it in a terminal (git restore) if you're sure.")
         }
         try keep(back)
@@ -246,9 +246,8 @@ extension Git {
             // right before they are written, and nothing is discarded if they changed. Limit: one saved between this
             // diff and the restore, the next git run (milliseconds; a round trip on a host), still goes.
             guard try changes() == ofTracked else {
-                throw GitError(
-                    args: ["restore"], status: 1,
-                    stderr: "The files changed while they were being discarded, so they were left as they are.")
+                throw GitError.refused(
+                    "The files changed while they were being discarded, so they were left as they are.")
             }
             try run(["restore", "--worktree", "--"] + literal(tracked), cwd: path, remotes: remotes)
         }
@@ -286,7 +285,7 @@ extension Git {
             }
             if let refused {
                 guard back > 0 else { throw refused }
-                throw PartlyPutBack(back: back, of: gone, why: (refused as? GitError)?.stderr ?? "\(refused)")
+                throw PartlyPutBack(back: back, of: gone, why: (refused as? GitError)?.message ?? "\(refused)")
             }
         }
     }

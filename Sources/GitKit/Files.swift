@@ -26,7 +26,7 @@ extension ProjectFiles {
                 return !entry.hasPrefix("S ") || remote
                     || FileManager.default.fileExists(atPath: root + "/" + entry.dropFirst(2))
             }.prefix(limit).map { String($0.dropFirst(2)) } as [String]
-        guard !output.truncated || files.count >= limit else { throw Git.tooMuch(args) }
+        guard !output.truncated || files.count >= limit else { throw GitError.tooMuch }
         return files
     }
 
@@ -48,7 +48,7 @@ extension ProjectFiles {
         }
         let dir = folder.hasSuffix("/") ? folder : folder + "/"
         guard !dir.hasPrefix("/"), !dir.split(separator: "/").contains("..") else {
-            throw GitError(args: [dir], status: 1, stderr: "“\(dir)” isn't in the workspace.")
+            throw GitError.refused("“\(dir)” isn't in the workspace.")
         }
         let names: [String]
         if let host = remotes.of(root) {
@@ -68,7 +68,7 @@ extension ProjectFiles {
 
     /// A project added without git: no repository around `root`.
     static func outsideGit(_ error: Error) -> Bool {
-        (error as? GitError)?.stderr.contains("not a git repository") == true
+        (error as? GitError)?.stderr?.contains("not a git repository") == true
     }
 
     /// A folder without git, walked here. Limit: hidden files and folders are left out, as there's no .gitignore to say
@@ -131,7 +131,7 @@ extension ProjectFiles {
             limit: limit)
         // Cut off before `limit` matches: lines that long (git grep has no column limit) are past showing anyway.
         guard !output.truncated || found.count >= limit else {
-            throw GitError(args: args, status: 0, stderr: "Too much matched to show: search for something longer.")
+            throw GitError.refused("Too much matched to show: search for something longer.")
         }
         return found
     }

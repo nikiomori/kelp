@@ -4,13 +4,31 @@ import os
 
 let gitLog = Logger.kelp("git")
 
-public struct GitError: Error, CustomStringConvertible, Sendable {
-    public var args: [String]
-    public var status: Int32
-    public var stderr: String
-    public var description: String { "git \(args.joined(separator: " ")) failed (\(status)): \(stderr)" }
-    /// For people: git's first sentence without the command line or "fatal:" ("…overwritten by checkout:" keeps its next line).
-    public var message: String { ProgramError.firstSentence(stderr) ?? description }
+/// What went wrong running git: git failed, Kelp didn't run it (and says why), or it printed more than Kelp reads.
+public enum GitError: Error, CustomStringConvertible, Sendable {
+    case failed(args: [String], status: Int32, stderr: String)
+    /// Kelp's own sentence, for people: what's in the way (a merge under way, a name that reads as an option).
+    case refused(String)
+    case tooMuch
+
+    public var description: String {
+        switch self {
+        case .failed(let args, let status, let stderr):
+            "git \(args.joined(separator: " ")) failed (\(status)): \(stderr)"
+        case .refused(let why): why
+        case .tooMuch: "It printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads."
+        }
+    }
+    /// For people: git's first sentence without the command line or "fatal:" ("…overwritten by checkout:" keeps its
+    /// next line), or Kelp's own.
+    public var message: String {
+        if case .failed(_, _, let stderr) = self, let said = ProgramError.firstSentence(stderr) { return said }
+        return description
+    }
+    /// What git said on stderr; nil when git didn't fail by itself.
+    public var stderr: String? {
+        if case .failed(_, _, let stderr) = self { stderr } else { nil }
+    }
 }
 
 /// Running the system git (the daemon's). Behaviour matches what you'd see in a terminal.
@@ -58,14 +76,8 @@ extension Git {
         let output = try runPart(
             args, cwd: cwd, stdin: stdin, ok: ok, env: extra, timeLimit: timeLimit, limit: Subprocess.outputLimit,
             remotes: remotes)
-        guard !output.truncated else { throw tooMuch(args) }
+        guard !output.truncated else { throw GitError.tooMuch }
         return output.data
-    }
-
-    static func tooMuch(_ args: [String]) -> GitError {
-        GitError(
-            args: args, status: 0,
-            stderr: "It printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads.")
     }
 
     /// `runData` keeping the first `limit` bytes of the output: `truncated` says there was more (read and dropped), for a
@@ -82,7 +94,8 @@ extension Git {
         var argv0 = "/usr/bin/git", cwd = cwd
         var off: [(String, String)] = []
         let remote = remotes.of(cwd)
-        if let sub = args.dropFirst(4).first, ["diff", "show", "log"].contains(sub) {   // a repo's diff drivers run nothing either
+        // A repo's diff drivers run nothing either.
+        if let sub = args.dropFirst(4).first, ["diff", "show", "log"].contains(sub) {
             args.insert(contentsOf: ["--no-ext-diff", "--no-textconv"], at: 5)
         }
         // Reads verify no signature either: a repo's `log.showSignature` would run its own `gpg.program` on every log.
@@ -106,7 +119,7 @@ extension Git {
                 [argv0] + args, cwd: cwd, env: env, stdin: stdin, ok: ok, timeLimit: timeLimit, limit: limit)
             return (result.stdout, result.truncated)
         } catch let error as ProgramError {
-            throw GitError(args: args, status: error.status, stderr: error.stderr)
+            throw GitError.failed(args: args, status: error.status, stderr: error.stderr)
         }
     }
 
@@ -117,10 +130,8 @@ extension Git {
     /// The environment for a program that runs git itself (gh, glab): `gitEnv`, and no fsmonitor and no signature
     /// program of a repository's own there either.
     public static var toolEnv: [String: String] {
-        gitEnv.merging(
-            configEnv(
-                [("core.fsmonitor", "false"), ("log.showSignature", "false")], after: ProcessInfo.processInfo.environment)
-        ) { $1 }
+        let off = [("core.fsmonitor", "false"), ("log.showSignature", "false")]
+        return gitEnv.merging(configEnv(off, after: ProcessInfo.processInfo.environment)) { $1 }
     }
 
     /// What Kelp runs by itself (watches, panels): these read, and never run a repository's own filters (`RepoFilters`).
@@ -168,7 +179,7 @@ extension Git {
     /// GitKit call that puts one where git reads options goes through this, so none can become an option.
     static func rev(_ name: String) throws -> String {
         guard isRevision(name) else {
-            throw GitError(args: [name], status: 1, stderr: "“\(name)” isn't a branch or commit name.")
+            throw GitError.refused("“\(name)” isn't a branch or commit name.")
         }
         return name
     }
@@ -200,8 +211,7 @@ extension Git {
             name = try line(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes)
         }
         guard isRevision(name) else {
-            throw GitError(
-                args: ["rev-parse", "HEAD"], status: 1, stderr: "the branch's name reads as an option: \(name)")
+            throw GitError.refused("The branch's name reads as an option: \(name)")
         }
         return name
     }

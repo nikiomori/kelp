@@ -219,14 +219,16 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 }
 
 @Test func gitErrorsReadAsOneSentence() {
-    let e = GitError(
+    let e = GitError.failed(
         args: ["push"], status: 128,
         stderr: "fatal: 'origin' does not appear to be a git repository\nfatal: Could not read from remote repository.")
     #expect(e.message == "'origin' does not appear to be a git repository")
-    let c = GitError(
+    let c = GitError.failed(
         args: ["switch"], status: 1,
         stderr: "error: Your local changes to the following files would be overwritten by checkout:\n\tf.txt\nAborting")
     #expect(c.message == "Your local changes to the following files would be overwritten by checkout: f.txt")
+    #expect(GitError.refused("“x” isn't a branch name.").message == "“x” isn't a branch name." && c.stderr != nil)
+    #expect(GitError.tooMuch.stderr == nil && GitError.refused("no").stderr == nil)
 }
 
 @Test func webLinks() {

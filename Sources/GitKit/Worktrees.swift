@@ -80,8 +80,7 @@ extension Git {
                 return mine
             }
             if !open.isEmpty {
-                throw GitError(
-                    args: ["worktree"], status: 1, stderr: "Pull request #\(number) is open already, in \(open).")
+                throw GitError.refused("Pull request #\(number) is open already, in \(open).")
             }
             if try now == head || line(["merge-base", now, head]) == now {
                 try run(["branch", "-f", mine, head], cwd: repo, remotes: remotes)
@@ -249,13 +248,11 @@ extension Git {
                     (local ? real($0.path) : $0.path) == here
                 })
             else {
-                throw GitError(
-                    args: ["worktree", "remove"], status: 1, stderr: "\(path) is not a worktree of this repository")
+                throw GitError.refused("\(path) is not a worktree of this repository")
             }
             // Locked (`git worktree lock`: kept on purpose): git wouldn't remove its record, so the folder stays too.
             guard !entry.locked else {
-                throw GitError(
-                    args: ["worktree", "remove"], status: 1, stderr: "\(path) is locked (git worktree unlock)")
+                throw GitError.refused("\(path) is locked (git worktree unlock)")
             }
         }
         if local, FileManager.default.fileExists(atPath: path) { try Trash.move(URL(fileURLWithPath: path)) }
@@ -279,7 +276,7 @@ extension Git {
         repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes = .none
     ) throws {
         if !force, try isDirty(path, remotes: remotes) {
-            throw GitError(args: ["worktree", "remove"], status: 1, stderr: "worktree has uncommitted changes")
+            throw GitError.refused("Worktree has uncommitted changes")
         }
         // `force` is about uncommitted changes; commits are lost only when asked for by name (dropCommits).
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
@@ -287,20 +284,16 @@ extension Git {
         if !dropCommits, remotes.of(path) != nil || FileManager.default.fileExists(atPath: path),
             case let count = commitsOnNoBranch(path, remotes: remotes), count > 0
         {
-            throw GitError(
-                args: ["worktree", "remove"], status: 1,
-                stderr:
-                    "This workspace has \(count) commit\(count == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first."
+            throw GitError.refused(
+                "This workspace has \(count) commit\(count == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first."
             )
         }
     }
 
     private static func checkBranchDeletable(repo: String, _ branch: String, remotes: Remotes) throws {
         if case let count = try onlyOnBranch(repo: repo, branch, remotes: remotes), count > 0 {
-            throw GitError(
-                args: ["branch", "-D", branch], status: 1,
-                stderr:
-                    "\(branch) has \(count) commit\(count == 1 ? "" : "s") that aren't on any other branch or remote"
+            throw GitError.refused(
+                "\(branch) has \(count) commit\(count == 1 ? "" : "s") that aren't on any other branch or remote"
             )
         }
     }

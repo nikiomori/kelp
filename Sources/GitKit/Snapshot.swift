@@ -42,7 +42,7 @@ extension Git {
         // On a remote project git runs on the host, where neither GIT_INDEX_FILE nor this Mac's copy of the index reach:
         // `add -A` would stage everything in the host's real index.
         if remotes.of(cwd) != nil {
-            throw GitError(args: ["add", "-A"], status: 1, stderr: "Snapshots aren't taken in remote projects.")
+            throw GitError.refused("Snapshots aren't taken in remote projects.")
         }
         let rel = try line(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes)
         let real = URL(fileURLWithPath: rel, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).path
@@ -128,8 +128,7 @@ extension Git {
         // Limit: an edit saved after this check and before the restores below (two git runs later, milliseconds) is
         // written over; it isn't in `now`, so Redo doesn't bring it back.
         guard try snapshotTree(cwd, remotes: remotes) == now else {
-            throw GitError(
-                args: ["restore"], status: 1, stderr: "The files changed since you looked; nothing was put back.")
+            throw GitError.refused("The files changed since you looked; nothing was put back.")
         }
         if !staged.isEmpty {
             let source = try index.map { ["--source=" + (try rev($0))] } ?? []
@@ -145,8 +144,7 @@ extension Git {
         }
         let left = Set(try changed(since: tree, cwd: cwd, remotes: remotes).files).intersection(files)
         guard left.isEmpty else {
-            throw GitError(
-                args: ["restore"], status: 1, stderr: "These didn't go back: \(left.sorted().joined(separator: ", ")).")
+            throw GitError.refused("These didn't go back: \(left.sorted().joined(separator: ", ")).")
         }
     }
 }

@@ -34,7 +34,7 @@ extension SessionTurnUndo: Handled {
                     changed.files.filter(plan.files.contains), from: before, now: changed.now, index: staged,
                     cwd: dir, remotes: remotes)
             }
-            let why = (error as? GitError)?.stderr ?? "\(error)"
+            let why = (error as? GitError)?.message ?? "\(error)"
             let now = back != nil ? "The files are as they were." : "Some went back; Redo puts them as they were."
             throw RPCError.invalidParams("The turn wasn't undone (\(why)). " + now)
         }

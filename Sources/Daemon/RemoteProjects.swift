@@ -96,7 +96,8 @@ extension RepoAddRemote: Handled {
                 Log.store.attempt("removing a remote project's marker folder") {
                     try FileManager.default.removeItem(at: folder)
                 }
-                throw RPCError.invalidParams("Couldn't run git init in \(path) on \(host): \(error.stderr)")
+                let why = error.stderr ?? error.message
+                throw RPCError.invalidParams("Couldn't run git init in \(path) on \(host): \(why)")
             }
         }
         let top: String
@@ -104,8 +105,8 @@ extension RepoAddRemote: Handled {
             Log.store.attempt("removing a remote project's marker folder") {
                 try FileManager.default.removeItem(at: folder)
             }
-            throw RPCError.invalidParams(
-                "Couldn't open \(path) on \(host): \(error.stderr.isEmpty ? "ssh failed" : error.stderr)")
+            let why = error.stderr.map { $0.isEmpty ? "ssh failed" : $0 } ?? error.message
+            throw RPCError.invalidParams("Couldn't open \(path) on \(host): \(why)")
         }
         try mark(RemoteHost(host: host, path: top))
         let repo = Repo(

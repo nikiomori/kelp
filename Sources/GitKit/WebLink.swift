@@ -14,9 +14,7 @@ extension Git {
         let file =
             real.hasPrefix(root + "/") ? String(real.dropFirst(root.count + 1)) : (path as NSString).lastPathComponent
         guard let url = webURL(remote: remote, sha: sha, file: file, lines: lines) else {
-            throw GitError(
-                args: ["remote", "get-url", "origin"], status: 1,
-                stderr: "origin (\(remote)) isn't a GitHub, GitLab or Bitbucket address")
+            throw GitError.refused("Origin (\(remote)) isn't a GitHub, GitLab or Bitbucket address")
         }
         return url
     }

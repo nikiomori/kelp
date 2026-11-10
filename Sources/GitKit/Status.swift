@@ -44,7 +44,7 @@ extension Git {
         let changes = parseStatus(
             String(decoding: output.truncated ? wholeEntries(output.data, 0) : output.data, as: UTF8.self), limit: limit
         )
-        guard !output.truncated || changes.count >= limit else { throw tooMuch(args) }
+        guard !output.truncated || changes.count >= limit else { throw GitError.tooMuch }
         return changes
     }
 }

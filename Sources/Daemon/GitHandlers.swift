@@ -186,7 +186,7 @@ extension GitUndoDiscard: Handled {
                     "\(partly.back) of \(partly.of) files were put back; the others changed since the discard "
                         + "(\(partly.why.trimmingCharacters(in: .whitespacesAndNewlines))).")
             } catch {
-                let why = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
+                let why = (error as? GitError)?.message ?? "\(error)"
                 throw RPCError.invalidParams("Nothing was put back: the files changed since the discard (\(why)).")
             }
         }

@@ -33,7 +33,7 @@ extension Git {
     ) throws -> String {
         if all {
             if try status(path, remotes: remotes).contains(where: \.conflicted) {
-                throw GitError(args: ["commit"], status: 1, stderr: "Resolve the merge conflicts before committing.")
+                throw GitError.refused("Resolve the merge conflicts before committing.")
             }
             try run(["add", "-A"], cwd: path, remotes: remotes)
         }
@@ -61,17 +61,15 @@ extension Git {
         if let onto {
             let here = try currentBranch(target, remotes: remotes)
             guard here == onto else {
-                throw GitError(
-                    args: ["merge", branch], status: 1,
-                    stderr: "the main checkout is on \(here), not \(onto): switch it back to \(onto) first")
+                throw GitError.refused("The main checkout is on \(here), not \(onto): switch it back to \(onto) first")
             }
             guard branch != onto else {
-                throw GitError(args: ["merge", branch], status: 1, stderr: "\(branch) is the branch being merged into")
+                throw GitError.refused("\(branch) is the branch being merged into")
             }
         }
         // Only a merge started here is ever aborted here: one the user had under way is refused, untouched.
         guard !isMerging(target, remotes: remotes) else {
-            throw GitError(args: ["merge", branch], status: 1, stderr: "a merge is already in progress in \(target)")
+            throw GitError.refused("A merge is already in progress in \(target)")
         }
         do {
             try run(["merge", "--no-edit", rev(branch)], cwd: target, remotes: remotes)
