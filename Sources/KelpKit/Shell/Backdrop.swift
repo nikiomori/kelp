@@ -9,20 +9,23 @@ final class Backdrop: NSView {
     private var ambient: WindowLook.Ambient?
     private let stage = CALayer()
     private var built = NSSize.zero
+    /// Kelp coming to the front and going behind: let go of with the view.
+    private var observers: [NSObjectProtocol] = []
 
     init() {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.addSublayer(stage)
-        for (name, run) in [
+        observers = [
             (NSApplication.didBecomeActiveNotification, true), (NSApplication.didResignActiveNotification, false)
-        ] {
+        ].map { name, run in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.run(run) }   // queue: .main
             }
         }
         followReduceMotion(#selector(build))
     }
+    isolated deinit { observers.forEach(NotificationCenter.default.removeObserver) }
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 

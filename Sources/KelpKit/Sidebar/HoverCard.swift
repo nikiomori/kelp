@@ -27,12 +27,16 @@ final class HoverCard {
         popover.animates = false
         // The rows' pointer events stop when the window loses focus, so the one that would close the card may never come:
         // a card left open costs a core's tenth for as long as it stays, SwiftUI laying it out over and over.
-        NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: nil, queue: .main) {
-            [weak self] notification in
+        resignWatch = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: nil, queue: .main
+        ) { [weak self] notification in
             let window = notification.object as? NSWindow
             MainActor.assumeIsolated { if window === self?.anchor { self?.closeUnlessInside() } }   // queue: .main
         }
     }
+    /// The window losing focus, watched while the card's owner (a sidebar, a tab strip) is there.
+    private var resignWatch: NSObjectProtocol?
+    isolated deinit { resignWatch.map(NotificationCenter.default.removeObserver) }
 
     /// The pointer is over a row (`key` "w:…" / "a:…"), or over nothing.
     func hover(_ key: String?, rect: NSRect, in view: NSView) {

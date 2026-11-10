@@ -43,6 +43,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     let outline = SidebarOutline()
     private let scroll = SidebarScrollView()
     private var addTrailing = NSLayoutConstraint(), sectionsTrailing = NSLayoutConstraint()
+    /// The list's frame changing (`keepOpenInView`): let go of with the sidebar.
+    private var frameWatch: NSObjectProtocol?
+    isolated deinit { frameWatch.map(NotificationCenter.default.removeObserver) }
     /// Where the built-ins' blocks go (`Contributions.sidebarSections`).
     weak var sections: NSStackView?
     /// Room at the right that is the sidebar's own: the floater's margin inside its border (8 pt); docked, 0 (the gap
@@ -124,8 +127,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         scroll.automaticallyAdjustsContentInsets = false   // it starts under the line over the projects, not under the title bar
         // When the list gets shorter (the limits below load), the selected workspace stays in view.
         scroll.postsFrameChangedNotifications = true
-        NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: scroll, queue: .main)
-        { [weak self] _ in
+        frameWatch = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification, object: scroll, queue: .main
+        ) { [weak self] _ in
             MainActor.assumeIsolated { self?.keepOpenInView() }   // queue: .main
         }
 
@@ -159,7 +163,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         addTrailing = add.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6)
         let addY = add.centerYAnchor.constraint(equalTo: root.topAnchor)
-        track(owner: self) { [app] in TabStrip.height(app.settings) } changed: { band in
+        track(owner: self) { [app] in
+            TabStrip.height(app.settings)
+        } changed: { band in
             addY.constant = WindowBar.height + band / 2
         }
         sectionsTrailing = machines.trailingAnchor.constraint(equalTo: root.trailingAnchor)
