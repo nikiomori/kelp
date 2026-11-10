@@ -174,7 +174,8 @@ struct PathPreviewView: View {
                         }
                         .padding(.vertical, 1)
                         .background(
-                            line.number == model.line && line.mark == " " ? Color.accentColor.opacity(0.18) : .clear)
+                            line.number == model.line && line.mark == " "
+                                ? Color(nsColor: .fillTint(.controlAccentColor)) : .clear)
                     }
                 }
                 .font(.uiMono(TextSize.caption))

@@ -198,9 +198,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
         rowView.backgroundColor =
             row >= rows.count
-            ? NSColor.systemGreen.withAlphaComponent(0.12)
+            ? NSColor.fillTint(.systemGreen)
             : edits.deleted.contains(row)
-                ? NSColor.systemRed.withAlphaComponent(0.12)
+                ? NSColor.fillTint(.systemRed)
                 : row % 2 == 1 ? NSColor.alternatingContentBackgroundColors.last ?? .clear : .clear
     }
 

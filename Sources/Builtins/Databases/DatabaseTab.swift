@@ -269,7 +269,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         askBar.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         askBar.heightAnchor.constraint(equalToConstant: Metrics.contentBar).isActive = true
         askBar.wantsLayer = true
-        askBar.layer?.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.12).cgColor
+        askBar.layer?.backgroundColor = NSColor.fillTint(.systemOrange).cgColor
         askBar.isHidden = true
     }
 

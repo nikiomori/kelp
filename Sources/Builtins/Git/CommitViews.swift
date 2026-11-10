@@ -237,7 +237,7 @@ final class Badge: NSView {
     required init?(coder: NSCoder) { fatalError() }
     override var intrinsicContentSize: NSSize { NSSize(width: min(ceil(text.size().width) + 10, 110), height: 16) }
     override func draw(_ r: NSRect) {
-        color.withAlphaComponent(0.15).setFill()
+        NSColor.fillTint(color).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
         let width = bounds.width - 10
         text.draw(

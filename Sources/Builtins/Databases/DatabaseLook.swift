@@ -94,7 +94,7 @@ enum DatabaseLook {
         let chip = NSView()
         chip.wantsLayer = true
         chip.layer?.cornerRadius = Metrics.radiusXS
-        chip.layer?.backgroundColor = color(stage).withAlphaComponent(0.16).cgColor
+        chip.layer?.backgroundColor = NSColor.fillTint(color(stage)).cgColor
         label.translatesAutoresizingMaskIntoConstraints = false
         chip.addSubview(label)
         NSLayoutConstraint.activate([

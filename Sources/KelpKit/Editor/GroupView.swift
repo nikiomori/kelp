@@ -92,7 +92,7 @@ final class GroupView: NSView {
         let hint = NSView()
         hint.wantsLayer = true
         hint.isHidden = true
-        hint.layer?.backgroundColor = NSColor.themeAccent.withAlphaComponent(0.18).cgColor
+        hint.layer?.backgroundColor = NSColor.fillTint(.themeAccent).cgColor
         hint.layer?.borderColor = NSColor.themeAccent.withAlphaComponent(0.6).cgColor
         hint.layer?.borderWidth = 1
         hint.layer?.cornerRadius = Metrics.radiusSM

@@ -856,3 +856,18 @@ func codeOnly(_ s: String) -> String {
     #expect(named.count <= 5, "the shell names built-ins: \(named.sorted())")
     #expect(named.count >= 5, "fewer now (\(named.count)): lower the ceiling")
 }
+
+/// The design's values come from DesignKit, not typed in where they're used: a fill's opacity is `fillRest` / `fillHover`
+/// / `fillSelected` or `fillTint(_:)`, a text size is one of `TextSize`'s. What still types one (a shadow, a stroke, a
+/// drawn icon, a grid's own densities) is counted, and the counts only go down. Settings' pictures draw mock windows and
+/// aren't chrome.
+@Test func designValuesComeFromDesignKit() throws {
+    let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
+    let chrome = { (found: [String]) in found.filter { path in !pictures.contains { path.contains($0) } } }
+    let alphas = chrome(try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs))
+    #expect(alphas.count <= 19, "opacities typed by hand: \(alphas)")
+    #expect(alphas.count >= 19, "fewer now (\(alphas.count)): lower the ceiling")
+    let sizes = chrome(try matches(#"\.ui(Digits|Mono)?\([0-9]"#, in: appDirs))
+    #expect(sizes.count <= 4, "text sizes typed by hand: \(sizes)")
+    #expect(sizes.count >= 4, "fewer now (\(sizes.count)): lower the ceiling")
+}
