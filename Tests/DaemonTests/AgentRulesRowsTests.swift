@@ -31,7 +31,17 @@ import Testing
         (.session(mine.id), GitRemoteOp(id: wt.id, op: "fetch"), true, "in its own it fetches"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: "push"), false, "but never pushes"),
         (typed, SessionMarkRead(id: theirs.id), false, "nor marks read what the user started"),
-        (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set")
+        (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set"),
+        (
+            .session(mine.id), ArtifactNew(kind: .doc, title: "Plan", cwd: wt.path, session: mine.id), true,
+            "it makes a page for the user"
+        ),
+        (
+            .session(mine.id),
+            ArtifactAdd(
+                url: "https://claude.ai/artifact/x", title: "Deck", type: "page", cwd: wt.path, session: mine.id),
+            true, "and keeps the link to one it published"
+        )
     ]
     try expectRows(w.d, table)
 }

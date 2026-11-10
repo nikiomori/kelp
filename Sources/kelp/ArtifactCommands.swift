@@ -5,7 +5,6 @@ extension Main {
     /// `artifact guide|new|list|open|add`: pages agents make for the user, kept in the project's `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
-        let root = try await projectRoot(cwd, c)
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
         switch sub {
         case "guide":
@@ -19,12 +18,12 @@ extension Main {
             guard args.count >= 2, let kind = Artifacts.Kind(rawValue: args[0]) else {
                 fail("artifact new <\(Artifacts.Kind.allCases.map(\.rawValue).joined(separator: "|"))> <title>")
             }
-            let file = try Artifacts.create(
-                kind, title: args.dropFirst().joined(separator: " "), root: root, session: session)
+            let file = try await c.call(
+                ArtifactNew(kind: kind, title: args.dropFirst().joined(separator: " "), cwd: cwd, session: session))
             var opened = false
             if !quiet {
                 do {
-                    _ = try await IDE.open(file.path, split: nil, cwd: cwd, client: c)
+                    _ = try await IDE.open(file, split: nil, cwd: cwd, client: c)
                     opened = true
                 } catch {   // the page is made all the same
                     print(
@@ -32,17 +31,18 @@ extension Main {
                     )
                 }
             }
-            print(file.path)
+            print(file)
             print(
                 opened
                     ? "Opened beside you. Write the page into that file; the tab updates as you save."
                     : "Write the page into that file.")
             print("\nRules:\n" + Artifacts.rules(kind), terminator: "")
         case "list":
-            for (slug, r) in Artifacts.list(root: root) {
+            for (slug, r) in Artifacts.list(root: try await projectRoot(cwd, c)) {
                 print([slug, r.type, r.title, r.url ?? r.file ?? ""].joined(separator: "\t"))
             }
         case "open":
+            let root = try await projectRoot(cwd, c)
             guard let name = args.first, let artifact = Artifacts.list(root: root).first(where: { $0.slug == name })
             else {
                 fail("artifact open <name> (names: kelp artifact list)")
@@ -59,7 +59,7 @@ extension Main {
             guard let url = args.first, url.hasPrefix("https://") else {
                 fail("artifact add <url> [--title t] [--type doc|slides|design|dashboard]")
             }
-            _ = try Artifacts.addNative(url: url, title: title ?? url, type: type, root: root, session: session)
+            _ = try await c.call(ArtifactAdd(url: url, title: title ?? url, type: type, cwd: cwd, session: session))
         default: print(usage)
         }
     }
@@ -76,9 +76,8 @@ extension Main {
         _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String
     ) async {
         do {
-            let root = try await projectRoot(cwd, try connect())
-            _ = try Artifacts.addNative(
-                url: p.url, title: p.title, type: p.type, root: root, session: session, page: p.page)
+            _ = try await connect().call(
+                ArtifactAdd(url: p.url, title: p.title, type: p.type, cwd: cwd, session: session, page: p.page))
         } catch {
             let why = (error as? RPCError)?.message ?? error.localizedDescription
             FileHandle.standardError.write(Data("kelp: couldn't keep \(p.url): \(why)\n".utf8))

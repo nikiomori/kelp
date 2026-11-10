@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Core
+@testable import Daemon
 
 private func tempRoot() throws -> URL {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("ka-\(UUID().uuidString.prefix(8))")
@@ -260,4 +261,26 @@ private func tempRoot() throws -> URL {
     let item = try #require(Artifacts.items(root: root.path).first)
     #expect(try String(contentsOfFile: try #require(item.preview), encoding: .utf8) == "<p>one three</p>")
     #expect(Artifacts.recoverPages(root: root.path, transcript: find) == 0 && asked == ["S1"])   // looked for once
+}
+
+/// `kelp artifact new|add` and an agent's hook ask the daemon, the one writer of the records: a page published again is
+/// the same one, with the copy of what was sent.
+@Test func theDaemonWritesTheArtifacts() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = try tempRoot()
+    let file = try await c.call(ArtifactNew(kind: .doc, title: "Plan", cwd: root.path, session: nil))
+    #expect(file.hasSuffix("/.kelp/artifacts/plan/doc.md") && FileManager.default.fileExists(atPath: file))
+    let add = ArtifactAdd(
+        url: "https://claude.ai/artifact/abc", title: "Deck", type: "page", cwd: root.path, session: nil,
+        page: .html("<p>hi</p>"))
+    #expect(try await c.call(add))
+    #expect(try await !c.call(add))
+    let page = try #require(Artifacts.list(root: root.path).first { $0.record.url != nil })
+    let copy = Artifacts.dir(root: root.path).appendingPathComponent(page.slug).appendingPathComponent(
+        Artifacts.pageCopy)
+    #expect(try String(contentsOf: copy, encoding: .utf8) == "<p>hi</p>")
+    await #expect(throws: RPCError.self) {
+        try await c.call(ArtifactNew(kind: .doc, title: "Plan", cwd: "relative/folder", session: nil))
+    }
 }

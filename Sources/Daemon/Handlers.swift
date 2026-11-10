@@ -320,7 +320,7 @@ extension Daemon {
             Methods.miscMethods + Methods.gitMethods + Methods.workspaceMethods + Methods.sessionMethods
             + Methods.integrationMethods + Methods.projectMethods
             + Methods.launchMethods + Methods.uiMethods + Methods.lspMethods + Methods.extensionMethods
-            + Methods.vmMethods + Methods.databaseMethods
+            + Methods.vmMethods + Methods.databaseMethods + Methods.artifactMethods
         let async =
             Methods.asyncMethods + Methods.lspAsyncMethods + Methods.uiAsyncMethods + Methods.databaseAsyncMethods
         let all = sync.map { $0 as any Answered.Type } + async.map { $0 as any Answered.Type }

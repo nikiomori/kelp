@@ -70,7 +70,7 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
 
 public enum Artifacts {
     /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.
-    public enum Kind: String, CaseIterable, Sendable {
+    public enum Kind: String, Codable, CaseIterable, Sendable {
         case doc, review, slides, design, dashboard
         public var file: String { "\(rawValue).\(isHTML ? "html" : "md")" }
         public var isHTML: Bool { self == .design || self == .dashboard }
@@ -86,33 +86,8 @@ public enum Artifacts {
 
     public static func dir(root: String) -> URL { URL(fileURLWithPath: root).appendingPathComponent(folder) }
 
-    /// A folder name from the title, in Latin letters ("План" → "plan"): lowercase words joined by "-", at most 48
-    /// characters; "artifact" for none.
-    public static func slug(_ title: String) -> String {
-        let latin =
-            title.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false)
-            ?? title
-        let words = latin.lowercased().split { !($0.isASCII && ($0.isLetter || $0.isNumber)) }
-        var joined = ""
-        for word in words where joined.count + word.count + 1 <= 48 { joined += (joined.isEmpty ? "" : "-") + word }
-        return joined.isEmpty ? "artifact" : joined
-    }
-
-    /// A new page of `kind` in `root`'s artifacts: its folder, its first lines and its record. Returns the page's file.
-    public static func create(_ kind: Kind, title: String, root: String, session: String?, now: Date = Date()) throws
-        -> URL
-    {
-        let folder = try newFolder(title, root: root)
-        let page = folder.appendingPathComponent(kind.file)
-        try (kind.isHTML ? htmlStart(title) : "# \(title)\n\n").write(to: page, atomically: true, encoding: .utf8)
-        try save(
-            ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file),
-            in: folder)
-        return page
-    }
-
     /// A page of HTML's first lines: its title, and the system's font in the app's light or dark.
-    static func htmlStart(_ title: String) -> String {
+    package static func htmlStart(_ title: String) -> String {
         let escaped = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
         return """
@@ -134,28 +109,6 @@ public enum Artifacts {
             """
     }
 
-    /// Keeps the link to a page the agent published on its own service, and what it sent of the page (its preview);
-    /// nil when it's known already: a later version, which moves its time and, given one, its title and kind.
-    public static func addNative(
-        url: String, title: String, type: String, root: String, session: String?, page: PublishedPage? = nil,
-        now: Date = Date()
-    ) throws -> URL? {
-        if let known = list(root: root).first(where: { $0.record.url == url }) {
-            let folder = dir(root: root).appendingPathComponent(known.slug)
-            var record = known.record
-            record.updated = now
-            if title != url { record.title = title }
-            if type != "page" { record.type = type }
-            try save(record, in: folder)
-            try keepPage(page, in: folder)
-            return nil
-        }
-        let folder = try newFolder(title, root: root)
-        try save(ArtifactRecord(type: type, title: title, created: now, session: session, url: url), in: folder)
-        try keepPage(page, in: folder)
-        return folder
-    }
-
     /// The project's artifacts, newest first (by when each was made).
     public static func list(root: String) -> [(slug: String, record: ArtifactRecord)] {
         let base = dir(root: root), fm = FileManager.default
@@ -164,44 +117,6 @@ public enum Artifacts {
             .compactMap { ($0 as? URL)?.lastPathComponent } ?? []
         return names.compactMap { name in record(in: base.appendingPathComponent(name)).map { (name, $0) } }
             .sorted { $0.record.created > $1.record.created }
-    }
-
-    /// The list as the panel shows it, latest change first: a review's answers counted from its file, each file's
-    /// last save, a service's page's last publish.
-    public static func items(root: String) -> [ArtifactItem] {
-        list(root: root).map { slug, r in item(slug, r, root: root) }
-            .sorted { ($0.modified ?? $0.created) > ($1.modified ?? $1.created) }
-    }
-
-    private static func item(_ slug: String, _ r: ArtifactRecord, root: String) -> ArtifactItem {
-        let target = target(slug, r, root: root)
-        var item = ArtifactItem(
-            slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
-            url: r.url, target: target)
-        guard r.url == nil else {
-            item.modified = r.updated?.timeIntervalSince1970
-            let copy = dir(root: root).appendingPathComponent(slug).appendingPathComponent(pageCopy).path
-            item.preview = fileStat(copy) == nil ? nil : copy
-            return item
-        }
-        item.preview = target
-        let page = fileStat(target)
-        item.modified = page.map { Double($0.mtime.tv_sec) }
-        item.versions = r.versions
-        // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
-        let last = r.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
-        if r.type != Kind.review.rawValue, let page, let last, page.size != last.size || !page.newer(than: last) {
-            item.changed = page.size != last.size
-            return item
-        }
-        let text = small(target).map { String(decoding: $0, as: UTF8.self) }
-        if r.type == Kind.review.rawValue, let text {
-            let points = Review(text).points
-            item.points = points.count
-            item.answered = points.filter { $0.pick != nil }.count
-        }
-        item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
-        return item
     }
 
     /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written). A repository can
@@ -215,21 +130,21 @@ public enum Artifacts {
         return record
     }
 
-    struct FileStat {
-        var size: off_t, mtime: timespec
-        func newer(than other: FileStat) -> Bool {
+    package struct FileStat {
+        package var size: off_t, mtime: timespec
+        package func newer(than other: FileStat) -> Bool {
             (mtime.tv_sec, mtime.tv_nsec) > (other.mtime.tv_sec, other.mtime.tv_nsec)
         }
     }
     /// A regular file's size and time of its last write; nil for anything else.
-    static func fileStat(_ path: String) -> FileStat? {
+    package static func fileStat(_ path: String) -> FileStat? {
         var st = stat()
         guard lstat(path, &st) == 0, st.st_mode & S_IFMT == S_IFREG else { return nil }
         return FileStat(size: st.st_size, mtime: st.st_mtimespec)
     }
 
     /// A regular file's bytes, up to `limit`: nil for a link, a device (`/dev/zero` never ends), a folder, or more.
-    static func small(_ path: String, limit: Int = 32 << 20) -> Data? {
+    package static func small(_ path: String, limit: Int = 32 << 20) -> Data? {
         var st = stat()
         guard lstat(path, &st) == 0, st.st_mode & S_IFMT == S_IFREG, st.st_size <= limit else { return nil }
         return FileManager.default.contents(atPath: path)
@@ -271,13 +186,13 @@ public enum Artifacts {
     }
 
     /// The tools that make or change a page: claude-artifacts' and Claude Docs'.
-    static let publishers = [
+    package static let publishers = [
         "__publish_version", "__publish_files", "__edit_version", "Claude_Docs__batch", "Claude_Docs__create",
         "Claude_Docs__update"
     ]
 
     /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
-    static func strings(in value: JSONValue) -> [String] {
+    package static func strings(in value: JSONValue) -> [String] {
         switch value {
         case .string(let text): return [text]
         case .array(let array): return array.flatMap(strings)
@@ -355,52 +270,9 @@ public enum Artifacts {
 
     // MARK: files
 
-    static let decoder: JSONDecoder = {
+    package static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }()
-
-    static func save(_ record: ArtifactRecord, in folder: URL) throws {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try encoder.encode(record).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
-    }
-
-    /// `<slug>`, or `<slug>-2`… when taken; the first one also keeps the folder out of git.
-    private static func newFolder(_ title: String, root: String) throws -> URL {
-        let base = dir(root: root), fm = FileManager.default
-        if !fm.fileExists(atPath: base.path) { try excludeFromGit(root: root) }
-        let stem = slug(title)
-        var name = stem, suffix = 2
-        while fm.fileExists(atPath: base.appendingPathComponent(name).path) {
-            name = "\(stem)-\(suffix)"
-            suffix += 1
-        }
-        let folder = base.appendingPathComponent(name)
-        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder
-    }
-
-    /// A line in the repository's own `info/exclude` (never a tracked file): git status stays clean. Removing it shares them.
-    static func excludeFromGit(root: String) throws {
-        let fm = FileManager.default, dotGit = URL(fileURLWithPath: root).appendingPathComponent(".git")
-        var isDir: ObjCBool = false
-        guard fm.fileExists(atPath: dotGit.path, isDirectory: &isDir) else { return }
-        var common = dotGit
-        if !isDir.boolValue {   // a worktree: "gitdir: <repo>/.git/worktrees/<name>"; exclude lives in <repo>/.git
-            let line = fm.contents(atPath: dotGit.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
-            guard let match = line.firstMatch(of: /gitdir:\s*(.+)/) else { return }
-            let gitdir = String(match.1).trimmingCharacters(in: .whitespacesAndNewlines)
-            common = URL(fileURLWithPath: gitdir, relativeTo: URL(fileURLWithPath: root, isDirectory: true))
-                .standardizedFileURL.deletingLastPathComponent().deletingLastPathComponent()
-        }
-        let exclude = common.appendingPathComponent("info/exclude"), entry = "/\(folder)/"
-        let text = fm.contents(atPath: exclude.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
-        guard !text.split(separator: "\n").contains(where: { $0 == entry }) else { return }
-        try fm.createDirectory(at: exclude.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try (text + (text.isEmpty || text.hasSuffix("\n") ? "" : "\n") + entry + "\n").write(
-            to: exclude, atomically: true, encoding: .utf8)
-    }
 }

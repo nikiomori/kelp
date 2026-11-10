@@ -275,7 +275,8 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     #expect(quick.count >= 10)
     let p = JSONValue.obj([
         "id": .string(s.id), "pane_id": .string(s.id), "event": "working", "state": "working", "summary": "x",
-        "key": "k", "cwd": .string(workspace.path),
+        "key": "k", "cwd": .string(workspace.path), "kind": "doc", "title": "x", "type": "page",
+        "url": "https://claude.ai/artifact/quick",
         "transcript": .string("/tmp/\(UUID().uuidString.lowercased()).jsonl")
     ])
     for t in quick {

@@ -37,6 +37,8 @@ enum AgentRules {
         SessionWrite.self, SessionKill.self, SessionRestart.self, SessionRename.self, SessionMarkRead.self,
         SessionMarkUnread.self, SessionRecap.self, SessionHandoff.self, SessionContinueAt.self, SessionTurn.self,
         SessionHook.self, SessionReport.self, SessionPermissionWait.self,
+        // the pages it makes for the user (`kelp artifact new|add`, its hook after a tool published one)
+        ArtifactNew.self, ArtifactAdd.self,
         PaneReportAgent.self, UsageReport.self, CommentAdd.self, CommentSend.self,
         // staging or unstaging a hunk writes the index: in its own workspaces only
         GitHunk.self,
