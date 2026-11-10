@@ -29,7 +29,7 @@ extension Daemon {
         Thread.detachNewThread { [self] in
             // Who it is, looked up before anything it sent is read, while its program is surely there: here, not on the
             // accept queue, as a tmux pane's asks tmux (`Callers.tmuxPane`).
-            _ = sessions.callers.caller(client.id)
+            _ = callers.caller(client.id)
             var received = LineBuffer()
             var buf = [UInt8](repeating: 0, count: 65536)
             var spoke = false
@@ -149,7 +149,7 @@ extension Daemon {
         clients.setRaw(client.id, true)
         // What it writes is typing, so it may type where session.write may: an agent's program only into its own sessions
         // (asked once, as it opens), and never while one asks a question (asked as each chunk comes: a question comes later).
-        let caller = sessions.callers.caller(client.id)
+        let caller = callers.caller(client.id)
         let held: Bool, session: String, size: (cols: UInt16, rows: UInt16)
         do {
             let method = try SessionStream.checked(params, self, conn: client.id)

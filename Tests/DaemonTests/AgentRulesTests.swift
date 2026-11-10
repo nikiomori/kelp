@@ -264,8 +264,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     p.executableURL = URL(fileURLWithPath: "/usr/bin/true")
     try p.run()
     p.waitUntilExit()
-    #expect(r.d.sessions.callers.session(running: p.processIdentifier) == .unknown)
-    #expect(r.d.sessions.callers.session(running: getpid()) == .user)
+    #expect(r.d.callers.session(running: p.processIdentifier) == .unknown)
+    #expect(r.d.callers.session(running: getpid()) == .user)
 }
 
 /// One Kelp couldn't place (gone as it connected, its connection handed on) speaks for no session: no report, no
@@ -316,7 +316,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 @Test func aProgramForkedAwayFromItsTerminalIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    r.d.sessions.callers.strict.withLock { $0 = true }   // as a kelpd leading its own process session is
+    r.d.callers.strict.withLock { $0 = true }   // as a kelpd leading its own process session is
     let out = FileManager.default.temporaryDirectory.appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: out) }
     let p = Process()
@@ -331,7 +331,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let pid = try #require(Int32(String(contentsOf: out, encoding: .utf8)))
     defer { kill(pid, SIGTERM) }
     #expect(try await waitFor(5) { Subprocess.parent(pid) == 1 })
-    #expect(r.d.sessions.callers.session(running: pid) == .detached)
+    #expect(r.d.callers.session(running: pid) == .detached)
 }
 
 /// A program in a tmux pane is whoever is attached to that tmux session: nobody, and it's no user (what `tmux new -d`
@@ -343,14 +343,14 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    r.d.sessions.callers.strict.withLock { $0 = true }
+    r.d.callers.strict.withLock { $0 = true }
     let tmux = try LoginPath.resolve("tmux"), name = "kelp-probe-\(UUID().uuidString.prefix(6))",
         env = ["PATH": "/usr/bin:/bin"]
     _ = try await Subprocess.run([tmux, "new-session", "-d", "-s", name, "sleep 30"], cwd: "/", env: env, timeLimit: 5)
     let out = try await Subprocess.run(
         [tmux, "list-panes", "-t", "=" + name, "-F", "#{pane_pid}"], cwd: "/", env: env, timeLimit: 5)
     let pid = pid_t(String(decoding: out.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
-    #expect(pid.map { r.d.sessions.callers.session(running: $0) } == .detached)
+    #expect(pid.map { r.d.callers.session(running: $0) } == .detached)
     _ = try await Subprocess.run([tmux, "kill-session", "-t", "=" + name], cwd: "/", env: env, timeLimit: 5)
 }
 
@@ -373,7 +373,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func aForkedAwayProgramInABundleIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    r.d.sessions.callers.strict.withLock { $0 = true }
+    r.d.callers.strict.withLock { $0 = true }
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
     let bin = dir.appendingPathComponent("Fake.app/Contents/MacOS")
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
@@ -401,7 +401,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let pid = try #require(Int32(String(contentsOf: out, encoding: .utf8)))
     defer { kill(pid, SIGTERM) }
     #expect(try await waitFor(5) { Unix.executable(pid)?.contains(".app/Contents/MacOS/") == true })
-    #expect(r.d.sessions.callers.session(running: pid) == .detached)
+    #expect(r.d.callers.session(running: pid) == .detached)
 }
 
 /// A tmux pane's caller from who's attached: a Kelp terminal's session outweighs the user's own client; the user's
@@ -461,7 +461,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     #expect(
         try await waitFor(10) { (try? String(contentsOf: out, encoding: .utf8))?.split(separator: "\n").count == 3 })
     let pids = try String(contentsOf: out, encoding: .utf8).split(separator: "\n").compactMap { pid_t($0) }
-    let seen = pids.map { r.d.sessions.callers.session(running: $0) }
+    let seen = pids.map { r.d.callers.session(running: $0) }
     #expect(seen.filter { $0 == .typedAgent(term.id) }.count == 2, "\(seen)")
     #expect(seen.contains(.session(term.id)), "\(seen)")   // the shell's own
 }
@@ -494,7 +494,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func aJobLeftInATerminalIsHeldToAnAgentsRules() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    r.d.sessions.callers.strict.withLock { $0 = true }
+    r.d.callers.strict.withLock { $0 = true }
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -511,7 +511,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
         pid_t(String(contentsOf: out, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)))
     defer { kill(job, SIGTERM) }
     #expect(try await waitFor(5) { Subprocess.parent(job) == 1 })
-    #expect(r.d.sessions.callers.session(running: job) == .typedAgent(term.id))
+    #expect(r.d.callers.session(running: job) == .typedAgent(term.id))
     #expect(throws: (any Error).self) {
         try r.d.allow(SessionWrite(id: term.id, text: "1\r"), conn: 0, caller: .typedAgent(term.id))
     }
@@ -555,8 +555,8 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
             == [elsewhere.id])
     #expect(AgentRules.reads.contains(GitStatus.name) && !AgentRules.reads.contains(WorktreeNote.name))
     // Who counts as an agent's in a tmux pane is who `allow` holds to an agent's rules: the same table.
-    #expect(!r.d.sessions.callers.heldAsAgent(term.id) && !r.d.sessions.callers.heldAsAgent(theirs.id))
-    #expect(r.d.sessions.callers.heldAsAgent(mine.id))
+    #expect(!r.d.callers.heldAsAgent(term.id) && !r.d.callers.heldAsAgent(theirs.id))
+    #expect(r.d.callers.heldAsAgent(mine.id))
     let table: [(Caller, any Answered, Bool, String)] = [
         (.user, SessionKill(id: term.id), true, "the user ends any"),
         (.user, phone, true, "the user sets their own settings"),

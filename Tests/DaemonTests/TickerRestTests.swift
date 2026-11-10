@@ -16,9 +16,9 @@ import Testing
         kind as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), "Kelp's tests" as CFString, &id)
     try #require(made == kIOReturnSuccess)
     let held = id
-    w.d.sessions.sleepAssertion.withLock { $0 = (held, kind) }   // what the last working agent left
+    w.d.sessions.keepAwake.held.withLock { $0 = (held, kind) }   // what the last working agent left
     #expect(!w.d.tick())
-    #expect(w.d.sessions.sleepAssertion.withLock { $0.id == 0 && $0.type == nil })
+    #expect(w.d.sessions.keepAwake.held.withLock { $0.id == 0 && $0.type == nil })
     let workspace = try #require(try await w.c.call(WorktreeList(repoId: w.repo.id)).first)
     _ = try await w.c.call(SessionCreate(worktreeId: workspace.id, command: "cat"))
     #expect(w.d.tick())

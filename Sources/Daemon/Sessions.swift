@@ -1,11 +1,10 @@
 import Agents
 import Core
 import Foundation
-import IOKit.pwr_mgt
 import os
 
 /// The sessions: which run now (`live`), starting, waking, pausing and deleting them, what they tell the clients, the
-/// Mac kept awake while agents work. Paused and ended ones are only in the store.
+/// Mac kept awake while agents work (`keepAwake`). Paused and ended ones are only in the store.
 final class Sessions: Sendable {
     let live = SessionTable()
     let reports = ChildReports()
@@ -19,8 +18,7 @@ final class Sessions: Sendable {
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
     let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
     let updates: AgentUpdates   // Claude Code restarted into the update it installed (AgentUpdates.swift)
-    /// The Mac kept awake while agents work (applyKeepAwake): the ticker and a settings change both apply it.
-    let sleepAssertion = OSAllocatedUnfairLock<(id: UInt32, type: String?)>(initialState: (0, nil))
+    let keepAwake = KeepAwake()   // the Mac kept awake while agents work (`applyKeepAwake`)
     let store: Store
     let settings: SettingsStore
     let root: URL
@@ -38,8 +36,6 @@ final class Sessions: Sendable {
     /// A pause that couldn't be saved: nothing runs, whatever the record says, and it can still wake.
     let pausedUnsaved = OSAllocatedUnfairLock(initialState: Set<String>())
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
-    /// Who calls, by the program on each connection (CallerLookup.swift).
-    let callers: Callers
 
     init(
         root: URL, socketPath: String, store: Store, remotes: Remotes, settings: SettingsStore, agentUsage: AgentUsage,
@@ -52,7 +48,6 @@ final class Sessions: Sendable {
         self.settings = settings
         self.agentUsage = agentUsage
         self.clients = clients
-        callers = Callers(live: live, clients: clients, store: store)
         self.watches = watches
         self.offloads = offloads
         setup = SessionSetup(
@@ -297,12 +292,7 @@ final class Sessions: Sendable {
     /// its last record saved. One ending right now isn't handed over: its record says what became of it. None starts or
     /// wakes from now on.
     func handOver() -> [Handover.Session] {
-        sleepAssertion.withLock {
-            if $0.id != 0 {
-                IOPMAssertionRelease($0.id)
-                $0 = (0, nil)
-            }
-        }   // the next one takes its own
+        keepAwake.release()   // the next one takes its own
         let all = live.close()
         reports.settle(within: 5)   // a child's report on its way: typed into its parent below, or owed
         // What was sent and isn't written yet goes in first (a send's Enter comes 0.3 s behind its text): the program has
@@ -344,31 +334,10 @@ final class Sessions: Sendable {
         }
     }
 
-    // MARK: keep awake
-
-    /// keepAwake: "always" | "agents" (only while an agent is working) | "off".
-    /// "always" is Caffeine: the screen stays on too. Agents only need the Mac itself, so the screen may still sleep and lock.
+    /// Settings › keepAwake, while an agent works or always (`KeepAwake.apply`).
     func applyKeepAwake() {
-        let mode = settings[SettingKeys.keepAwake]
-        let working = live.all.contains { $0.snapshot.status == .working && $0.snapshot.agent != "shell" }
-        let want =
-            mode == "always"
-            ? kIOPMAssertPreventUserIdleDisplaySleep
-            : mode == "agents" && working ? kIOPMAssertPreventUserIdleSystemSleep : nil
-        sleepAssertion.withLock { held in   // the ticker and a settings change at once: one assertion
-            guard held.type != want else { return }
-            if held.id != 0 {
-                IOPMAssertionRelease(held.id)
-                held = (0, nil)
-            }
-            guard let want else { return }
-            var id: IOPMAssertionID = 0
-            let name = mode == "always" ? "Keep Mac Awake is on in Kelp" : "Kelp agents are working"
-            if IOPMAssertionCreateWithName(
-                want as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), name as CFString, &id) == kIOReturnSuccess
-            {
-                held = (id, want)
-            }
-        }
+        keepAwake.apply(
+            settings[SettingKeys.keepAwake],
+            working: live.all.contains { $0.snapshot.status == .working && $0.snapshot.agent != "shell" })
     }
 }

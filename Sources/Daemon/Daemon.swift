@@ -29,6 +29,8 @@ public final class Daemon: Sendable {
     let lsp: LSPHost   // language servers: one per project and server command, shared by every client
     let watches: Watches   // what clients watch (watch.start), read while anyone does and pushed when it changed
     let sessions: Sessions   // which run, starting, waking, pausing and deleting them
+    /// Who calls, by the program on each connection (CallerLookup.swift): what `allow` holds a call to.
+    let callers: Callers
     let settingsEvents: SettingsEvents   // event.settings in order: the last one is the settings now
     let workspaces: Workspaces   // workspaces, the branches they follow, the .kelp.yaml files the user trusts
     var files: FileService { FileService(remotes: remotes) }   // files.*: read, written, moved here or on a remote project's host
@@ -51,7 +53,7 @@ public final class Daemon: Sendable {
 
     /// kelpd's own: a caller is the user's only when Kelp can tell (`Callers.session(running:)`); anything else, its own
     /// programs' leftovers included, is held to an agent's rules. Not in a test's daemon, whose process is the test's.
-    public func strict() { sessions.callers.strict.withLock { $0 = true } }
+    public func strict() { callers.strict.withLock { $0 = true } }
 
     /// `lspDelays`: how soon a broken language server is started again, and how long one with no open file keeps running
     /// (tests shorten them).
@@ -75,6 +77,7 @@ public final class Daemon: Sendable {
         self.sessions = Sessions(
             root: root, socketPath: root.appendingPathComponent("kelp.sock").path, store: self.store, remotes: remotes,
             settings: settings, agentUsage: agentUsage, clients: clients, watches: watches, offloads: offloads)
+        self.callers = Callers(live: sessions.live, clients: clients, store: self.store)
         self.workspaces = Workspaces(
             root: root, store: self.store, remotes: remotes, sessions: sessions, clients: clients)
         self.settingsEvents = SettingsEvents(store: settings, clients: clients, sessions: sessions)
@@ -313,7 +316,7 @@ public final class Daemon: Sendable {
         // Still here: this process takes the sessions back, as the new kelpd would have, and every agent goes on.
         do {
             let back = try Daemon(root: root, store: store)   // the same database: one writer, not two in one process
-            if sessions.callers.strict.withLock({ $0 }) { back.strict() }   // held to the same rules as this one
+            if callers.strict.withLock({ $0 }) { back.strict() }   // held to the same rules as this one
             try back.start(adopting: handover, takingBack: true)
             running.withLock { $0.successor = back }
             Log.start.notice("the update didn't run: this kelpd took its sessions back")

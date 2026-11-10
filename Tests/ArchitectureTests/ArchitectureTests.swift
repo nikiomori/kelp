@@ -457,17 +457,18 @@ func codeOnly(_ s: String) -> String {
     let shared = try matches(
         #"^(?:private |fileprivate |public )?(?:let|var) \w+|^\s+(?:private |public )?static let \w+ = (?!Logger\()[A-Z]\w*(?:<[^\n]*>)?\("#,
         in: ["Sources/Daemon"])
-    #expect(stored <= 14, "Daemon's stored properties: \(stored)")
-    #expect(stored >= 14, "fewer now: lower the ceiling")
+    // 15: who calls (`Callers`) is the connections' and the fence's, not a session's.
+    #expect(stored <= 15, "Daemon's stored properties: \(stored)")
+    #expect(stored >= 15, "fewer now: lower the ceiling")
     // Nor does it go into `Sessions` instead, the service the most comes near: what isn't a session's goes in a type of
-    // its own (`Callers`, `ChildReports`, `SessionSetup`, `SessionProcesses`, `Turns`…), which `Sessions` holds as one.
+    // its own (`ChildReports`, `SessionSetup`, `SessionProcesses`, `Turns`, `KeepAwake`…), which `Sessions` holds as one.
     let sessions = try #require(sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions.swift" })
     let held = try NSRegularExpression(
         pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines]
     )
     .numberOfMatches(in: sessions.text, range: NSRange(sessions.text.startIndex..., in: sessions.text))
-    #expect(held <= 25, "Sessions' stored properties: \(held)")
-    #expect(held >= 25, "fewer now: lower the ceiling")
+    #expect(held <= 24, "Sessions' stored properties: \(held)")
+    #expect(held >= 24, "fewer now: lower the ceiling")
     // Nor its methods: a feature gets a type of its own that's handed what it uses, not one more `extension Sessions`.
     let grown = try matches(#"^extension Sessions\b"#, in: ["Sources/Daemon"])
     #expect(grown.count <= 6, "extensions of Sessions: \(grown.count)")

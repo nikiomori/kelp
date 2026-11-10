@@ -192,7 +192,7 @@ extension Handled {
 
     /// On the calling thread: an in-order method's, on the reader thread.
     static func answerNow(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Data {
-        try Sessions.$asker.withValue(daemon.sessions.callers.caller(conn).origin) {
+        try Sessions.$asker.withValue(daemon.callers.caller(conn).origin) {
             try JSONEncoder().encode(checked(params, daemon, conn: conn).handle(Service.of(daemon), conn: conn))
         }
     }
@@ -215,7 +215,7 @@ extension AsyncHandled {
     func handle(_ service: Service, conn: Int) async throws -> Result { try await handle(service) }
 
     static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data {
-        try await Sessions.$asker.withValue(daemon.sessions.callers.caller(conn).origin) {
+        try await Sessions.$asker.withValue(daemon.callers.caller(conn).origin) {
             try JSONEncoder().encode(await checked(params, daemon, conn: conn).handle(Service.of(daemon), conn: conn))
         }
     }
@@ -248,7 +248,7 @@ extension Daemon {
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
     func allow(_ method: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = method.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        let caller = known ?? sessions.callers.caller(conn)
+        let caller = known ?? callers.caller(conn)
         switch caller {
         case .user: return
         case .session(let own):
@@ -282,7 +282,7 @@ extension Daemon {
     /// `allow` for `conn`'s caller as it is now, asked again later as that caller: input queued for a session that wakes
     /// is asked from the lane, when its connection may be gone, and a gone one can't be told apart (`Callers.caller`).
     func allowing(_ conn: Int) -> @Sendable (any Answered) throws -> Void {
-        let caller = sessions.callers.caller(conn)
+        let caller = callers.caller(conn)
         return { [self] in try allow($0, conn: conn, caller: caller) }
     }
 
