@@ -36,14 +36,14 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         plate.wantsLayer = true
         plate.layer?.cornerRadius = Metrics.radiusSM
         plate.layer?.borderWidth = 1
-        title.font = .ui(13, weight: .medium)
+        title.font = .ui(TextSize.body, weight: .medium)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.setContentHuggingPriority(.init(2), for: .horizontal)
-        word.font = .uiDigits(11)
+        word.font = .uiDigits(TextSize.caption)
         fold.symbolConfiguration = .chrome(Metrics.iconTiny)
         fold.isHidden = true
-        note.font = .ui(11)
+        note.font = .ui(TextSize.caption)
         note.textColor = .secondaryLabelColor
         note.lineBreakMode = .byTruncatingTail
         note.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the server's name
@@ -181,7 +181,7 @@ private final class Meter: NSStackView {
         let icon = NSImageView(image: .symbol(symbol, name))
         icon.symbolConfiguration = .chrome(Metrics.iconTiny)
         icon.contentTintColor = .secondaryLabelColor
-        value.font = .uiDigits(11)
+        value.font = .uiDigits(TextSize.caption)
         setViews([icon, value], in: .leading)
         spacing = Metrics.lineGap
     }

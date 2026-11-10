@@ -145,7 +145,7 @@ final class CountBadge: NSView {
         guard let count = badge?.count, count > 0 else { return nil }
         return NSAttributedString(
             string: count > 99 ? "99+" : "\(count)",
-            attributes: [.font: NSFont.uiDigits(10, weight: .semibold), .foregroundColor: NSColor.white])
+            attributes: [.font: NSFont.uiDigits(TextSize.micro, weight: .semibold), .foregroundColor: NSColor.white])
     }
     init() {
         super.init(frame: .zero)

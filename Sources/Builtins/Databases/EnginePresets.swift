@@ -94,12 +94,12 @@ final class EngineTile: NSView {
         super.init(frame: .zero)
         let mark = NSImageView(image: preset.badge(36))
         let name = NSTextField(labelWithString: preset.name)
-        name.font = .ui(11.5)
+        name.font = .ui(TextSize.caption)
         name.alignment = .center
         var views: [NSView] = [mark, name]
         if let speaks = preset.speaks {
             let under = NSTextField(labelWithString: speaks)
-            under.font = .ui(10)
+            under.font = .ui(TextSize.micro)
             under.textColor = .tertiaryLabelColor
             views.append(under)
         }

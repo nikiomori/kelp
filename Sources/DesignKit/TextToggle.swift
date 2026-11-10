@@ -7,7 +7,7 @@ public final class TextToggle: PointerButton {
     public init(_ title: String, tip: String, action: @escaping () -> Void) {
         super.init(frame: .zero)
         self.title = title
-        font = .uiMono(11)
+        font = .uiMono(TextSize.caption)
         toolTip = tip
         setAccessibilityLabel(tip)
         onClick = action

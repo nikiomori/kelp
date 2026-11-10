@@ -89,7 +89,8 @@ open class PointerButton: NSButton {
     private func showFill() {
         guard !underlinesOnHover else {
             let words = NSMutableAttributedString(
-                string: title, attributes: [.font: font ?? .ui(13), .foregroundColor: contentTintColor ?? .linkColor])
+                string: title,
+                attributes: [.font: font ?? .ui(TextSize.body), .foregroundColor: contentTintColor ?? .linkColor])
             if hovering && isEnabled {
                 words.addAttribute(
                     .underlineStyle, value: NSUnderlineStyle.single.rawValue,

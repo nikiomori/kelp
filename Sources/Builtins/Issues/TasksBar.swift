@@ -8,7 +8,7 @@ extension TasksViewController {
         let more = IconButton(
             .symbol("ellipsis.circle"), tip: String(localized: "More"), target: self, action: #selector(showMore(_:)))
         status.textColor = .secondaryLabelColor
-        status.font = .ui(11)
+        status.font = .ui(TextSize.caption)
         status.lineBreakMode = .byWordWrapping
         status.maximumNumberOfLines = 3
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -16,10 +16,10 @@ extension TasksViewController {
         for c in [source, filter] {
             c.controlSize = .small
             c.isBordered = false
-            c.font = .ui(12, weight: .semibold)
+            c.font = .ui(TextSize.row, weight: .semibold)
             c.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        filter.font = .ui(12)
+        filter.font = .ui(TextSize.row)
         // An inspector panel: its bar (what it lists, ⋯), the last action's word under it, the list over the details.
         let controls = Bar.panel([source, filter], [more])
         status.isHidden = true

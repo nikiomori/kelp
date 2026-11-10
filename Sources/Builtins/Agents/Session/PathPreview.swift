@@ -149,12 +149,15 @@ struct PathPreviewView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Text(model.name).font(.ui(13, weight: .semibold))
+                Text(model.name).font(.ui(TextSize.body, weight: .semibold))
                 if !model.folder.isEmpty {
-                    Text(model.folder).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Text(model.folder).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
-                if model.changed { Text("Changed").font(.ui(11, weight: .medium)).foregroundStyle(Color.textOrange) }
+                if model.changed {
+                    Text("Changed").font(.ui(TextSize.caption, weight: .medium)).foregroundStyle(Color.textOrange)
+                }
             }
             if let img = model.image {
                 Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: 360, maxHeight: 240)
@@ -174,9 +177,10 @@ struct PathPreviewView: View {
                             line.number == model.line && line.mark == " " ? Color.accentColor.opacity(0.18) : .clear)
                     }
                 }
-                .font(.uiMono(11))
+                .font(.uiMono(TextSize.caption))
             }
-            Text("⌘-click to open · ⌥⌘-click opens it in its app").font(.ui(11)).foregroundStyle(.tertiary)
+            Text("⌘-click to open · ⌥⌘-click opens it in its app").font(.ui(TextSize.caption)).foregroundStyle(
+                .tertiary)
         }
         .padding(12).frame(width: 520, alignment: .leading)
     }

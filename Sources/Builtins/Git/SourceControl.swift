@@ -121,7 +121,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         branchButton.toolTip = String(localized: "Switch or create a branch")
         branchButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
         moreButton = bar.more
-        stats.font = .uiDigits(10, weight: .medium)
+        stats.font = .uiDigits(TextSize.micro, weight: .medium)
         let header = bar.header(branchButton)
         headerBar = header
 
@@ -237,7 +237,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// The message field (grows to six lines) and Commit with its split menu.
     private func commitBox() -> NSView {
         message.isRichText = false
-        message.font = .ui(13)
+        message.font = .ui(TextSize.body)
         message.drawsBackground = false
         message.textContainerInset = NSSize(width: 4, height: 6)
         message.allowsUndo = true
@@ -252,7 +252,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         messageScroll.drawsBackground = false
         messageScroll.hasVerticalScroller = false
         placeholder.textColor = .placeholderTextColor
-        placeholder.font = .ui(13)
+        placeholder.font = .ui(TextSize.body)
         placeholder.lineBreakMode = .byTruncatingTail
         placeholder.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a long branch name truncates, not widens the panel
         let field = FieldBox()

@@ -24,7 +24,8 @@ enum PullRequests {
             ? .secondaryLabelColor : state == "MERGED" ? .textPurple : state == "CLOSED" ? .textRed : .textGreen
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         let label = NSAttributedString(
-            string: "#\(number)", attributes: [.font: NSFont.uiDigits(11, weight: .medium), .foregroundColor: color])
+            string: "#\(number)",
+            attributes: [.font: NSFont.uiDigits(TextSize.caption, weight: .medium), .foregroundColor: color])
         let checks =
             failed > 0
             ? String(localized: "\(failed) checks failing")
@@ -67,8 +68,8 @@ struct PRLine: View {
             HStack(spacing: 6) {
                 Image(systemName: state == "Merged" ? "arrow.triangle.merge" : "arrow.triangle.pull").foregroundStyle(
                     color)
-                Text("#\(pr.number)").font(.ui(12).monospacedDigit())
-                Text(pr.title).font(.ui(12)).lineLimit(1)
+                Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())
+                Text(pr.title).font(.ui(TextSize.row)).lineLimit(1)
             }
             HStack(spacing: 6) {
                 Text(state).foregroundStyle(color)
@@ -79,7 +80,7 @@ struct PRLine: View {
                 } else if passed > 0 {
                     Text("✓ checks passed").foregroundStyle(Color.textGreen)
                 }
-            }.font(.ui(11))
+            }.font(.ui(TextSize.caption))
         }
     }
 }

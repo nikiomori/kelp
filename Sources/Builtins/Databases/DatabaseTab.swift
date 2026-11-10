@@ -163,7 +163,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     private func build() {
         let top = capsuleBar()
         filters.view.setContentHuggingPriority(.required, for: .vertical)
-        sqlText.font = .uiMono(11)
+        sqlText.font = .uiMono(TextSize.caption)
         sqlText.textColor = .secondaryLabelColor
         sqlText.maximumNumberOfLines = 3
         sqlText.lineBreakMode = .byTruncatingTail
@@ -204,7 +204,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders"; a click, its menu.
     private func capsuleBar() -> NSView {
-        capsule.font = .ui(11.5, weight: .medium)
+        capsule.font = .ui(TextSize.caption, weight: .medium)
         capsule.textColor = .secondaryLabelColor
         capsule.lineBreakMode = .byTruncatingMiddle
         capsule.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -238,12 +238,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         save.controlSize = .small
         save.keyEquivalent = "s"
         save.keyEquivalentModifierMask = .command
-        status.font = .uiDigits(11)
+        status.font = .uiDigits(TextSize.caption)
         status.textColor = .secondaryLabelColor
         status.alignment = .center
         status.lineBreakMode = .byTruncatingTail
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        changes.font = .ui(11, weight: .medium)
+        changes.font = .ui(TextSize.caption, weight: .medium)
         changes.textColor = .textOrange
         busy.style = .spinning
         busy.controlSize = .small
@@ -254,7 +254,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     }
 
     private func buildAskBar() {
-        askText.font = .ui(12, weight: .medium)
+        askText.font = .ui(TextSize.row, weight: .medium)
         askText.textColor = .textOrange
         askText.lineBreakMode = .byTruncatingTail
         askText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

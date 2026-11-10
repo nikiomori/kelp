@@ -184,11 +184,13 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
             chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
             chevron.contentTintColor = .tertiaryLabelColor
-            return line([chevron, text(title, font: .ui(12, weight: .medium)), NSView(), digits(count)], inset: 6)
+            return line(
+                [chevron, text(title, font: .ui(TextSize.row, weight: .medium)), NSView(), digits(count)], inset: 6)
         case .table(let table):
             let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
             if table.kind == "view" { icon.contentTintColor = .systemPurple }
-            let name = text(table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(11.5))
+            let name = text(
+                table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(TextSize.caption))
             name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": names differ at their ends
             let row = line([icon, name, NSView()], inset: 20)
             row.toolTip = [table.name, table.rows.map { String(localized: "\($0) rows") }, table.comment].compactMap {
@@ -197,11 +199,12 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             .joined(separator: "\n")
             return row
         case .function(let name):
-            let label = text(name, font: .uiMono(11.5))
+            let label = text(name, font: .uiMono(TextSize.caption))
             label.lineBreakMode = .byTruncatingMiddle
             return line([symbol("function"), label, NSView()], inset: 20)
         case .newQuery:
-            return line([symbol("plus"), text(String(localized: "New Query"), font: .ui(12)), NSView()], inset: 8)
+            return line(
+                [symbol("plus"), text(String(localized: "New Query"), font: .ui(TextSize.row)), NSView()], inset: 8)
         case .saved(let query):
             return twoLines(symbol("doc.text"), query.name, query.sql)
         case .run(let run):
@@ -219,8 +222,9 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     private func twoLines(_ icon: NSImageView, _ top: String, _ under: String, mono: Bool = false) -> NSView {
-        let title = text(top, font: mono ? .uiMono(11) : .ui(12))
-        let detail = text(under, font: mono ? .ui(10.5) : .uiMono(10.5), color: .secondaryLabelColor)
+        let title = text(top, font: mono ? .uiMono(TextSize.caption) : .ui(TextSize.row))
+        let detail = text(
+            under, font: mono ? .ui(TextSize.caption) : .uiMono(TextSize.caption), color: .secondaryLabelColor)
         let words = NSStackView(views: [title, detail])
         words.orientation = .vertical
         words.alignment = .leading
@@ -251,7 +255,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         return field
     }
     private func digits(_ n: Int) -> NSTextField {
-        text(n.formatted(), font: .uiDigits(11), color: .tertiaryLabelColor)
+        text(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
     }
 
     // MARK: Clicks

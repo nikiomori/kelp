@@ -11,9 +11,9 @@ struct CardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.title).font(.ui(13, weight: .semibold)).lineLimit(2)
+                Text(model.title).font(.ui(TextSize.body, weight: .semibold)).lineLimit(2)
                 if !model.subtitle.isEmpty {
-                    Text(model.subtitle).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(model.subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             if let host = model.server, let servers = model.app.extensions.all.servers {
@@ -26,51 +26,59 @@ struct CardView: View {
                     + Text(changes.totalAdded > 0 ? "+\(changes.totalAdded)" : "").foregroundColor(.textGreen)
                     + Text(changes.totalAdded > 0 && changes.totalRemoved > 0 ? " " : "")
                     + Text(changes.totalRemoved > 0 ? "−\(changes.totalRemoved)" : "").foregroundColor(.textRed))
-                    .font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                    .font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
             ForEach(model.agents) { agent in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         StatusIcon(status: agent.session.markStatus, waitsForCommand: agent.session.waitsForCommand)
                             .font(
-                                .ui(11))
+                                .ui(TextSize.caption))
                         Text(model.agentOnly ? agent.session.statusWords : model.app.catalog.displayName(agent.session))
                             .font(
-                                .ui(12)
+                                .ui(TextSize.row)
                             ).lineLimit(1)
                         if !model.agentOnly {
-                            Text(agent.session.statusWords).font(.ui(11)).foregroundStyle(.secondary)
+                            Text(agent.session.statusWords).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
                         Text(shortAgo(agent.session.statusAt ?? agent.session.createdAt)).font(
-                            .ui(11).monospacedDigit()
+                            .ui(TextSize.caption).monospacedDigit()
                         )
                         .foregroundStyle(.tertiary)
                     }
                     if !agent.session.summary.isEmpty {
-                        Text(Self.linked(agent.session.summary)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(3)
+                        Text(Self.linked(agent.session.summary)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                            .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let goal = agent.session.goal {
-                        Text("Goal: \(goal)").font(.ui(11)).foregroundStyle(.secondary).lineLimit(3)
+                        Text("Goal: \(goal)").font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(3)
                     }
                     if let quietSince = agent.session.quietSince, agent.session.status == .working {
-                        Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(.ui(11))
-                            .foregroundStyle(
-                                .secondary)
+                        Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(
+                            .ui(TextSize.caption)
+                        )
+                        .foregroundStyle(
+                            .secondary)
                     }
                     if agent.session.guessed == true, [.working, .done].contains(agent.session.status) {
-                        Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(.ui(11))
-                            .foregroundStyle(.tertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(
+                            .ui(TextSize.caption)
+                        )
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     if let elsewhere = agent.session.workingElsewhere {
-                        Text(elsewhere).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        Text(elsewhere).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
+                            .truncationMode(.middle)
                     }
                     if model.agentOnly, let browser = agent.session.browser {
-                        Text("Browser \(BrowserSkillWords.line(browser))").font(.ui(11)).foregroundStyle(.tertiary)
-                            .lineLimit(
-                                1)
+                        Text("Browser \(BrowserSkillWords.line(browser))").font(.ui(TextSize.caption)).foregroundStyle(
+                            .tertiary
+                        )
+                        .lineLimit(
+                            1)
                     }
                 }
                 AgentWork(model: model, id: agent.id)
@@ -86,19 +94,22 @@ struct CardView: View {
                 HStack(spacing: 8) {
                     ForEach(model.pages, id: \.port) { page in
                         Button(page.address) { runs.open(page, model.workspaceId) }
-                            .buttonStyle(PointerButtonStyle()).font(.ui(11).monospacedDigit()).foregroundStyle(
+                            .buttonStyle(PointerButtonStyle()).font(.ui(TextSize.caption).monospacedDigit())
+                            .foregroundStyle(
                                 Color.accentColor)
                     }
                 }
             }
             if let until = model.app.arrangement.mutedUntil(model.muteIds) {
                 HStack(spacing: 8) {
-                    Text(Mutes.line(until: until)).font(.ui(11)).foregroundStyle(.secondary)
+                    Text(Mutes.line(until: until)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                     Spacer(minLength: 8)
                     Button("Unmute") { model.app.arrangement.mute(model.muteIds, until: nil) }.controlSize(.small)
                 }
             }
-            if let turn = model.turn { Text(turn).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary) }
+            if let turn = model.turn {
+                Text(turn).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
+            }
             if let usage = model.context { ContextBlock(model: model, used: usage.used, window: usage.window) }
         }
         .padding(12)
@@ -124,18 +135,20 @@ struct WorktreeSizes: View {
                     Text("Worktrees")
                     Spacer(minLength: 8)
                     Text(Self.size(items.reduce(0) { $0 + $1.bytes })).monospacedDigit()
-                }.font(.ui(12))
+                }.font(.ui(TextSize.row))
                 ForEach(items.prefix(8), id: \.path) { worktree in
                     HStack(spacing: 6) {
                         Text(Self.name(worktree.path, root: root)).lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 8)
                         Text(Self.size(worktree.bytes)).monospacedDigit()
-                    }.font(.ui(11)).foregroundStyle(.secondary)
+                    }.font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 }
-                if items.count > 8 { Text("\(items.count - 8) more").font(.ui(11)).foregroundStyle(.tertiary) }
+                if items.count > 8 {
+                    Text("\(items.count - 8) more").font(.ui(TextSize.caption)).foregroundStyle(.tertiary)
+                }
             }
         } else {
-            (items == nil ? Text("Measuring worktrees…") : Text("No other git worktrees")).font(.ui(11))
+            (items == nil ? Text("Measuring worktrees…") : Text("No other git worktrees")).font(.ui(TextSize.caption))
                 .foregroundStyle(.secondary)
         }
     }
@@ -167,7 +180,7 @@ struct ContextBlock: View {
                 }
             }
             .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
-            if let cold = model.coldCache { Text(cold).font(.ui(11)).foregroundStyle(.secondary) }
+            if let cold = model.coldCache { Text(cold).font(.ui(TextSize.caption)).foregroundStyle(.secondary) }
             if open, let parts = model.parts { ContextParts(parts: parts, window: window, compact: model.compact) }
         }
         .task(id: open) { if open { await model.loadParts() } }
@@ -187,7 +200,7 @@ struct ContextLine: View {
                     .rotationEffect(.degrees(-90))
             }.frame(width: 11, height: 11)
             Text("Context \(Int(share * 100))% · \(used / 1000)k of \(window / 1000)k tokens").font(
-                .ui(11).monospacedDigit()
+                .ui(TextSize.caption).monospacedDigit()
             ).foregroundStyle(color)
         }
     }

@@ -74,11 +74,11 @@ extension QuickOpen {
 extension QuickOpen {
     /// The title with what was typed in bold: each word of the query where it first occurs.
     static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
-        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(13)])
+        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(TextSize.body)])
         for word in query.split(separator: " ") where !word.isEmpty {
             let range = (title as NSString).range(of: String(word), options: .caseInsensitive)
             if range.location != NSNotFound {
-                text.addAttribute(.font, value: NSFont.ui(13, weight: .bold), range: range)
+                text.addAttribute(.font, value: NSFont.ui(TextSize.body, weight: .bold), range: range)
             }
         }
         return text

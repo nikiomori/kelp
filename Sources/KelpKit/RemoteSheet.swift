@@ -63,7 +63,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH"))
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         Task { [host] in   // ~/.ssh/config read off the main thread
             host.addItems(withObjectValues: await Task.detached { RemoteHost.configHosts() }.value)
         }
@@ -91,7 +91,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
                 + String(localized: "The agents you use must be installed on that machine. Files open read-only."))
         for t in [note, status] {
             t.textColor = .secondaryLabelColor
-            t.font = .ui(11)
+            t.font = .ui(TextSize.caption)
         }
         spinner.style = .spinning
         spinner.controlSize = .small

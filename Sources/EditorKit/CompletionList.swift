@@ -38,7 +38,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         let card = FloatingCard(scroll, radius: Metrics.radiusMD)
-        doc.font = .ui(11)
+        doc.font = .ui(TextSize.caption)
         doc.textColor = .secondaryLabelColor
         let row = NSStackView(views: [card, docCard])
         row.alignment = .top
@@ -103,11 +103,11 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
         let label = NSTextField(labelWithString: item.label)
-        label.font = .uiMono(12)
+        label.font = .uiMono(TextSize.row)
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.init(300), for: .horizontal)
         let detail = NSTextField(labelWithString: item.detail ?? "")
-        detail.font = .ui(11)
+        detail.font = .ui(TextSize.caption)
         detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingTail
         detail.setContentCompressionResistancePriority(.init(200), for: .horizontal)

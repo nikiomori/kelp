@@ -60,7 +60,7 @@ extension DiffViewController {
         newDraft.field.isEditable = true
         newDraft.field.isBordered = true
         newDraft.field.drawsBackground = true
-        newDraft.field.font = .ui(12)
+        newDraft.field.font = .ui(TextSize.row)
         newDraft.field.placeholderString = String(
             localized: "Comment for the agent on \(file):\(first)\(first == last ? "" : "-\(last)")")
         notes.draft = newDraft

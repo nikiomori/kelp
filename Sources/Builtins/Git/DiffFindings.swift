@@ -11,7 +11,8 @@ extension DiffViewController {
     func commentRow(_ c: DiffComment) -> NSView {
         let who = c.author.map { "\($0): " } ?? ""
         let text = label(
-            "💬 \(who)\(c.text)" + (c.state == .open ? "" : "  [\(c.state.rawValue)]"), font: .ui(11, weight: .medium))
+            "💬 \(who)\(c.text)" + (c.state == .open ? "" : "  [\(c.state.rawValue)]"),
+            font: .ui(TextSize.caption, weight: .medium))
         text.lineBreakMode = .byTruncatingTail
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [text]

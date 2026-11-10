@@ -74,11 +74,11 @@ private struct Tile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.ui(11, weight: .semibold)).foregroundStyle(.secondary)
+            Text(label).font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(value).font(.ui(20, weight: .semibold).monospacedDigit())
                     .foregroundStyle(ServerReading.strained(share ?? 0) ? ServerReading.strainedColor : .primary)
-                Text(detail).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                Text(detail).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             }
             if let trend, trend.count > 1 {
                 Sparkline(values: trend).frame(height: 32)

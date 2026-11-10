@@ -102,7 +102,7 @@ struct AgentsSettings: View {
                                 ? String(localized: "1 update available")
                                 : String(localized: "\(updates.count) updates available")
                         )
-                        .font(.ui(11)).foregroundStyle(Color.textOrange)
+                        .font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
                     }
                 }
             }
@@ -166,7 +166,7 @@ struct AgentsSettings: View {
                         if let note = UsageView.plans(app)[a.id]?.note {
                             Text(" · " + note.text).foregroundStyle(Color(nsColor: note.color))
                         }
-                    }.font(.ui(11))
+                    }.font(.ui(TextSize.caption))
                 }
                 Spacer(minLength: 0)
             }

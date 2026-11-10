@@ -90,7 +90,7 @@ final class ArtifactCard {
     private func content(_ shown: Shown) -> NSView {
         let item = shown.item
         let title = NSTextField(wrappingLabelWithString: shown.title)
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         title.maximumNumberOfLines = 3
         title.preferredMaxLayoutWidth = Self.size.width
         let session = item.session.flatMap(app.session)
@@ -128,7 +128,7 @@ final class ArtifactCard {
 
     private func line(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .ui(11)
+        field.font = .ui(TextSize.caption)
         field.textColor = .secondaryLabelColor
         field.lineBreakMode = .byTruncatingTail
         return field

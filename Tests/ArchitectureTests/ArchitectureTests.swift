@@ -537,6 +537,9 @@ func codeOnly(_ s: String) -> String {
     // radius typed in (icon tiles). The debt as it is: each ceiling is today's count.
     #expect(try matches(#"systemFont\(ofSize"#, in: chrome).count <= 4)
     #expect(try matches(#"xRadius: *[0-9]"#, in: chrome).count <= 5)
+    // Text sizes by name (`TextSize.caption`); what's left is a title, a big number, a tile's glyph, a grid's NULL.
+    let typed = try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chrome + ["Sources/DesignKit", "Sources/EditorKit"])
+    #expect(typed.count <= 12, "\(typed)")
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.

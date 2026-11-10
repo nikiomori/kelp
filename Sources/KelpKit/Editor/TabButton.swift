@@ -54,7 +54,7 @@ final class TabButton: NSControl, NSDraggingSource {
         wantsLayer = true
         layer?.cornerRadius = Metrics.radiusSM
         icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-        title.font = .ui(12)
+        title.font = .ui(TextSize.row)
         title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))
         close.toolTip = String(localized: "Close Tab (⌘W)")
@@ -82,7 +82,7 @@ final class TabButton: NSControl, NSDraggingSource {
         NSLayoutConstraint.activate([
             close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
         ])
-        full.font = .uiDigits(10, weight: .semibold)
+        full.font = .uiDigits(TextSize.micro, weight: .semibold)
         for part in [slot, title, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
         applyWidth()
         pin(row)
@@ -172,8 +172,9 @@ final class TabButton: NSControl, NSDraggingSource {
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
         // Finished and not looked at: told by its title's weight alone, as unread mail is.
-        title.font = .ui(12, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
-        titleMin.constant = Self.minTitle(title.stringValue, font: title.font ?? .ui(12), letters: compact ? 6 : 12)
+        title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
+        titleMin.constant = Self.minTitle(
+            title.stringValue, font: title.font ?? .ui(TextSize.row), letters: compact ? 6 : 12)
         icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
         // One plate in the window, on the tab you're in; a pane's chosen tab elsewhere is told by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
@@ -222,7 +223,7 @@ final class TabButton: NSControl, NSDraggingSource {
     /// How narrow it gets at the regular width: Automatic turns the strip compact once these no longer fit.
     var regularMinimum: CGFloat {
         let others = [chip, meter, full].filter { !$0.isHidden }.reduce(0) { $0 + $1.fittingSize.width + 6 }
-        let text = Self.minTitle(title.stringValue, font: title.font ?? .ui(12), letters: 12)
+        let text = Self.minTitle(title.stringValue, font: title.font ?? .ui(TextSize.row), letters: 12)
         return max(76, 8 + 16 + 6 + text + others + 10)
     }
 

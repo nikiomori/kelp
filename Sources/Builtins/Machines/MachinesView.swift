@@ -70,10 +70,10 @@ struct MachinesView: View {
         return HStack(spacing: Metrics.gapWide) {
             Group {
                 switch v.machine.kind {
-                case .macos: Image(systemName: "apple.logo").font(.ui(12, weight: .semibold))
-                case .android: Image(systemName: "smartphone").font(.ui(12, weight: .semibold))
-                case .ios: Image(systemName: "iphone").font(.ui(12, weight: .semibold))
-                case .linux: Text(mark.letter).font(.ui(11, weight: .bold))
+                case .macos: Image(systemName: "apple.logo").font(.ui(TextSize.row, weight: .semibold))
+                case .android: Image(systemName: "smartphone").font(.ui(TextSize.row, weight: .semibold))
+                case .ios: Image(systemName: "iphone").font(.ui(TextSize.row, weight: .semibold))
+                case .linux: Text(mark.letter).font(.ui(TextSize.caption, weight: .bold))
                 }
             }
             .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)
@@ -81,17 +81,18 @@ struct MachinesView: View {
             .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack(spacing: Metrics.gap) {
-                    Text(v.machine.name).font(.ui(12, weight: .semibold)).lineLimit(1)
+                    Text(v.machine.name).font(.ui(TextSize.row, weight: .semibold)).lineLimit(1)
                     if v.state == .starting || v.state == .creating { ProgressView().controlSize(.mini) }
-                    Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color)).lineLimit(1)
+                    Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color)).lineLimit(1)
                     Spacer(minLength: Metrics.gap)
                     faces(v)
                 }
-                Text(Machines.machineLine(app, v, short: true)).font(.ui(11).monospacedDigit()).foregroundStyle(
-                    .secondary
-                )
-                .lineLimit(1)
-                .truncationMode(.tail)
+                Text(Machines.machineLine(app, v, short: true)).font(.ui(TextSize.caption).monospacedDigit())
+                    .foregroundStyle(
+                        .secondary
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
         .padding(.horizontal, Metrics.gap).frame(height: Metrics.rowTwoLine)

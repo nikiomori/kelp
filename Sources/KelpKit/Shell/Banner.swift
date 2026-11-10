@@ -117,7 +117,7 @@ private final class BannerCard: NSView {
         if let title {
             // two lines: an agent's long name keeps the "finished" at its end
             let heading = NSTextField(wrappingLabelWithString: title)
-            heading.font = .ui(13, weight: .semibold)
+            heading.font = .ui(TextSize.body, weight: .semibold)
             heading.maximumNumberOfLines = 2
             heading.cell?.truncatesLastVisibleLine = true
             heading.preferredMaxLayoutWidth = 252
@@ -125,13 +125,13 @@ private final class BannerCard: NSView {
         }
         if let subtitle, !subtitle.isEmpty {
             let place = NSTextField(labelWithString: subtitle)
-            place.font = .ui(11)
+            place.font = .ui(TextSize.caption)
             place.textColor = .secondaryLabelColor
             place.lineBreakMode = .byTruncatingTail
             lines.append(place)
         }
         let body = NSTextField(wrappingLabelWithString: text)
-        body.font = .ui(12)
+        body.font = .ui(TextSize.row)
         body.textColor = title == nil ? .labelColor : .secondaryLabelColor
         body.isSelectable = true
         body.maximumNumberOfLines = title == nil ? 0 : 3

@@ -131,7 +131,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         let text = NSMutableAttributedString(
             string: name,
             attributes: [
-                .font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.labelColor,
+                .font: NSFont.ui(TextSize.caption, weight: .semibold), .foregroundColor: NSColor.labelColor,
                 .paragraphStyle: Self.aligned(right ? .right : .left)
             ])
         if info[name]?.primary == true {
@@ -236,7 +236,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
                 string: field.stringValue,
                 attributes: [
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue, .foregroundColor: NSColor.textRed,
-                    .font: field.font ?? .ui(12), .paragraphStyle: Self.aligned(field.alignment)
+                    .font: field.font ?? .ui(TextSize.row), .paragraphStyle: Self.aligned(field.alignment)
                 ])
         } else if editable {
             field.isEditable = true
@@ -265,12 +265,13 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         let text = NSMutableAttributedString()
         if marked.contains(row) {
             text.append(
-                NSAttributedString(string: "▍", attributes: [.foregroundColor: markColor, .font: NSFont.ui(11)]))
+                NSAttributedString(
+                    string: "▍", attributes: [.foregroundColor: markColor, .font: NSFont.ui(TextSize.caption)]))
         }
         text.append(
             NSAttributedString(
                 string: new ? "+" : String(row + 1),
-                attributes: [.font: NSFont.uiDigits(11), .foregroundColor: NSColor.tertiaryLabelColor]))
+                attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor]))
         // An attributed string keeps its own alignment: the field's `.right` doesn't reach it.
         text.addAttribute(
             .paragraphStyle, value: Self.aligned(.right), range: NSRange(location: 0, length: text.length))

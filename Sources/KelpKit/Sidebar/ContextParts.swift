@@ -62,7 +62,7 @@ struct ContextParts: View {
                         detail: "", color: nil), bold: false)
             }
             if let deferred = parts.setup?.deferred, !deferred.isEmpty {
-                Text(Self.deferred(deferred)).font(.ui(11)).foregroundStyle(.tertiary).fixedSize(
+                Text(Self.deferred(deferred)).font(.ui(TextSize.caption)).foregroundStyle(.tertiary).fixedSize(
                     horizontal: false, vertical: true)
             }
             if let compact { Button(String(localized: "Compact Now"), action: compact).controlSize(.small) }
@@ -79,12 +79,14 @@ struct ContextParts: View {
             Text(Self.share(row.tokens, of: window)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(
                 .trailing)
         }
-        .font(.ui(11))
+        .font(.ui(TextSize.caption))
         if !row.detail.isEmpty {
             GridRow {
                 Color.clear.frame(width: 0, height: 0)
-                Text(row.detail).font(.ui(11)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.tail)
-                    .gridCellColumns(3)
+                Text(row.detail).font(.ui(TextSize.caption)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(
+                    .tail
+                )
+                .gridCellColumns(3)
             }
         }
     }

@@ -63,7 +63,7 @@ final class StripCard {
     private lazy var reply: NSTextField = {
         let field = NSTextField()
         field.placeholderString = String(localized: "Message to the agent")
-        field.font = .ui(12)
+        field.font = .ui(TextSize.row)
         field.target = self
         field.action = #selector(send)
         return field
@@ -76,7 +76,7 @@ final class StripCard {
             place = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? ""
         let icon = NSImageView(image: app.catalog.icon(s.agent, size: 16) ?? NSImage())
         let name = NSTextField(labelWithString: "\(app.catalog.displayName(s)) · \(place)")
-        name.font = .ui(11)
+        name.font = .ui(TextSize.caption)
         name.textColor = .secondaryLabelColor
         name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -92,7 +92,7 @@ final class StripCard {
             ? String(localized: "Done")
             : s.status == .error ? String(localized: "Failed") : String(localized: "Needs your input")
         let text = NSTextField(wrappingLabelWithString: s.summary.isEmpty ? plain : s.summary)
-        text.font = .ui(13, weight: .semibold)
+        text.font = .ui(TextSize.body, weight: .semibold)
         text.textColor = s.status == .error ? .textRed : .labelColor
         text.maximumNumberOfLines = 4
         text.lineBreakMode = .byTruncatingTail

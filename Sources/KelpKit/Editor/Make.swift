@@ -64,7 +64,7 @@ final class MakeChips: NSStackView {
         spacing = Metrics.gap
         let chips = Make.kinds.map { kind in
             let chip = PointerButton(title: kind.title) { pick(kind) }
-            chip.font = .ui(12)
+            chip.font = .ui(TextSize.row)
             chip.padding = Metrics.gap
             chip.restFill = .fillRest
             chip.toolTip = kind.help

@@ -53,7 +53,7 @@ final class PromptTab: TabContent {
         done.onClick = { [weak self] in self?.finish() }
         let label = NSTextField(
             labelWithString: String(localized: "Closing this tab puts the text in the agent's prompt"))
-        label.font = .ui(12)
+        label.font = .ui(TextSize.row)
         label.textColor = .secondaryLabelColor
         let bar = Bar.content([label], [cancel, done])
         view.pin(stacked(bar, codeEditor.view))

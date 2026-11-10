@@ -32,11 +32,11 @@ final class AgentTile: PointerControl {
         super.init(frame: .zero)
         restFill = .fillRest
         let label = NSTextField(labelWithString: title)
-        label.font = .ui(12)
+        label.font = .ui(TextSize.row)
         label.lineBreakMode = .byTruncatingTail
         label.alignment = .center
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        amount.font = .uiDigits(11)
+        amount.font = .uiDigits(TextSize.caption)
         amount.textColor = .secondaryLabelColor
         bar.alphaValue = 0
         amount.alphaValue = 0
@@ -55,7 +55,7 @@ final class AgentTile: PointerControl {
         if icon is NSImageView { icon.widthAnchor.constraint(equalToConstant: Metrics.iconEmpty).isActive = true }
         if let key {
             let keyLabel = NSTextField(labelWithString: key)
-            keyLabel.font = .ui(10)
+            keyLabel.font = .ui(TextSize.micro)
             keyLabel.textColor = .secondaryLabelColor
             keyLabel.translatesAutoresizingMaskIntoConstraints = false
             addSubview(keyLabel)

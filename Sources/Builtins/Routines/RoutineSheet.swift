@@ -45,7 +45,7 @@ struct RoutineFormView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
             Text(editing ? String(localized: "Edit Routine") : String(localized: "New Routine")).font(
-                .ui(13, weight: .semibold))
+                .ui(TextSize.body, weight: .semibold))
             Text("An agent on a schedule: at its time it starts with this prompt, in a group of its own.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             fields
@@ -74,7 +74,7 @@ struct RoutineFormView: View {
                 text: Binding(get: { form.routine.model ?? "" }, set: { form.routine.model = $0.isEmpty ? nil : $0 }),
                 prompt: Text("The agent's default"))
             LabeledContent(String(localized: "Prompt")) {
-                TextEditor(text: $form.routine.prompt).font(.ui(13)).frame(height: 72)
+                TextEditor(text: $form.routine.prompt).font(.ui(TextSize.body)).frame(height: 72)
                     .overlay(RoundedRectangle(cornerRadius: Metrics.radiusXS).stroke(Color(nsColor: .separatorColor)))
             }
             RepeatFields(routine: $form.routine)

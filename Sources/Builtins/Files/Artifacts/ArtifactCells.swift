@@ -15,7 +15,7 @@ struct ArtifactCells {
     ]
 
     func heading(_ text: String) -> NSView {
-        let title = label(text.uppercased(), font: .ui(11, weight: .semibold), color: .tertiaryLabelColor)
+        let title = label(text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
         let row = NSStackView(views: [title, NSView()])
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
         return row
@@ -27,10 +27,10 @@ struct ArtifactCells {
         icon.contentTintColor = .secondaryLabelColor
         let project = panel.app.projectName(panel.app.worktree(panel.app.workbench.workspaceId)?.repoId)
         let name = label(
-            panel.title(item, project), font: .ui(12, weight: panel.isNew(item) ? .semibold : .regular))
+            panel.title(item, project), font: .ui(TextSize.row, weight: panel.isNew(item) ? .semibold : .regular))
         var title: [NSView] = [name]
         if earlier > 0 {
-            let more = label("\(earlier + 1)", font: .uiDigits(11), color: .secondaryLabelColor)
+            let more = label("\(earlier + 1)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
             more.toolTip = String(localized: "\(earlier + 1) pages of this title: the latest opens")
             more.setContentCompressionResistancePriority(.required, for: .horizontal)
             title.append(more)
@@ -39,7 +39,8 @@ struct ArtifactCells {
         top.spacing = Metrics.gap
         var lines: [NSView] = [top]
         if let note = panel.note(item) {
-            lines.append(label(note.text, font: .ui(11), color: note.waits ? .textOrange : .secondaryLabelColor))
+            lines.append(
+                label(note.text, font: .ui(TextSize.caption), color: note.waits ? .textOrange : .secondaryLabelColor))
         }
         let text = NSStackView(views: lines)
         text.orientation = .vertical
@@ -69,7 +70,7 @@ struct ArtifactCells {
             return [ring]
         }
         let when = label(
-            shortAgo(Date(timeIntervalSince1970: item.modified ?? item.created)), font: .uiDigits(11),
+            shortAgo(Date(timeIntervalSince1970: item.modified ?? item.created)), font: .uiDigits(TextSize.caption),
             color: .secondaryLabelColor)
         when.setContentCompressionResistancePriority(.required, for: .horizontal)
         guard item.url != nil else { return [when] }

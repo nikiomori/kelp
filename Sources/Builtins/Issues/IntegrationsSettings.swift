@@ -181,7 +181,7 @@ private struct ConnectSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
-            Text("Connect \(account.title)").font(.ui(13, weight: .semibold))
+            Text("Connect \(account.title)").font(.ui(TextSize.body, weight: .semibold))
             Form {
                 ForEach(values.indices, id: \.self) { index in
                     let field = account.fields[index]
@@ -193,7 +193,8 @@ private struct ConnectSheet: View {
                 }
             }
             .formStyle(.columns)
-            Text(account.help).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(account.help).font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)

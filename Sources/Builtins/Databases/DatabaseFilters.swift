@@ -129,7 +129,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         op.isHidden = raw
         let value = NSTextField(string: rule.value)
         value.controlSize = .small
-        value.font = .uiMono(11.5)
+        value.font = .uiMono(TextSize.caption)
         value.placeholderString =
             raw ? "status = 'paid' AND total > 10" : rule.op == .isIn ? "a, b, c" : String(localized: "Value")
         value.isHidden = !raw && !rule.op.takesValue

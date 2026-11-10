@@ -80,7 +80,8 @@ extension CIRunsController {
                 job.status == "completed" || job.steps.isEmpty
                 ? job.seconds().map(ciSpan) : "\(done)/\(job.steps.count)"
             return CIRow.line(
-                CIRunLook.mark(job.status, job.conclusion), job.name, font: .ui(12), color: .labelColor, right: right
+                CIRunLook.mark(job.status, job.conclusion), job.name, font: .ui(TextSize.row), color: .labelColor,
+                right: right
             ).cell
         case .step(let step):
             // The step running now reads like a title; done ones grey, the ones still to come quieter still.
@@ -88,7 +89,7 @@ extension CIRunsController {
                 step.status == "in_progress"
                 ? .labelColor : step.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
             let line = CIRow.line(
-                CIRunLook.mark(step.status, step.conclusion), step.shortName, font: .ui(11), color: color,
+                CIRunLook.mark(step.status, step.conclusion), step.shortName, font: .ui(TextSize.caption), color: color,
                 right: step.seconds().map(ciSpan))
             if step.status == "in_progress", let time = line.time { clock.follow(time) { step.seconds().map(ciSpan) } }
             line.cell.toolTip = step.name
@@ -101,7 +102,7 @@ extension CIRunsController {
     /// rarely fits, and the commit, which a narrow panel cuts.
     private func runRow(_ run: CIRuns.Run) -> NSView {
         let title = NSTextField(labelWithString: run.title)
-        title.font = .ui(12)
+        title.font = .ui(TextSize.row)
         title.lineBreakMode = .byTruncatingTail
         // What tells runs apart: the workflow only when there are several, the event only when it isn't a push.
         let several = Set(allRuns.map(\.workflow)).count > 1

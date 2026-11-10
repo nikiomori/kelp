@@ -58,16 +58,16 @@ struct ServerSide: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     StatusIcon(status: session.markStatus, waitsForCommand: session.waitsForCommand)
-                    Text(app.catalog.displayName(session)).font(.ui(12)).lineLimit(1)
+                    Text(app.catalog.displayName(session)).font(.ui(TextSize.row)).lineLimit(1)
                     Spacer(minLength: 6)
                     if let usage = cost(session.id) {
-                        Text(usage).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                        Text(usage).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
                     }
                 }
                 if session.status == .waiting, !session.summary.isEmpty {
                     (Text("Asks: ").foregroundColor(Color(nsColor: .textOrange))
                         + Text(session.summary).foregroundColor(.secondary))
-                        .font(.ui(11)).lineLimit(1).padding(.leading, 18)
+                        .font(.ui(TextSize.caption)).lineLimit(1).padding(.leading, 18)
                 }
             }
             .padding(.horizontal, 6).padding(.vertical, 4)
@@ -81,13 +81,13 @@ struct ServerSide: View {
         return HStack(spacing: 6) {
             Image(systemName: "moon").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(width: 14)
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.map(app.catalog.displayName) ?? tmux.name).font(.ui(12)).lineLimit(1)
+                Text(session.map(app.catalog.displayName) ?? tmux.name).font(.ui(TextSize.row)).lineLimit(1)
                 Text(
                     session == nil
                         ? String(localized: "Not started by this Kelp · \(tmux.name)")
                         : String(localized: "Closed in Kelp, still running")
                 )
-                .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 6)
             if let session {
@@ -99,9 +99,12 @@ struct ServerSide: View {
 
     private func portRow(_ port: HostStats.Port) -> some View {
         HStack(spacing: 8) {
-            Text(verbatim: "\(port.port)").font(.ui(12).monospacedDigit()).frame(width: 48, alignment: .leading)
-            Text(port.local ? String(localized: "this server only") : String(localized: "all addresses")).font(.ui(11))
-                .foregroundStyle(.secondary)
+            Text(verbatim: "\(port.port)").font(.ui(TextSize.row).monospacedDigit()).frame(
+                width: 48, alignment: .leading)
+            Text(port.local ? String(localized: "this server only") : String(localized: "all addresses")).font(
+                .ui(TextSize.caption)
+            )
+            .foregroundStyle(.secondary)
             Spacer(minLength: 6)
             if let here = forwarded[port.port] {
                 Button("localhost:\(here)") {
@@ -109,7 +112,9 @@ struct ServerSide: View {
                         app.workbench.open("http://localhost:\(here)", workspace: wid)
                     }
                 }
-                .buttonStyle(PointerButtonStyle()).font(.ui(11).monospacedDigit()).foregroundStyle(Color.accentColor)
+                .buttonStyle(PointerButtonStyle()).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
+                    Color.accentColor
+                )
                 .help(String(localized: "Open in the browser beside you"))
             } else {
                 Button(String(localized: "Forward")) { forward(port.port) }.controlSize(.small)
@@ -128,9 +133,10 @@ struct ServerSide: View {
             HStack(spacing: 6) {
                 Image(systemName: "folder").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
                     width: 14)
-                Text(repo.name).font(.ui(12))
+                Text(repo.name).font(.ui(TextSize.row))
                 Spacer(minLength: 6)
-                Text(RemoteHost.of(repo.path)?.path ?? "").font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                Text(RemoteHost.of(repo.path)?.path ?? "").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                    .lineLimit(1)
                     .truncationMode(.head)
             }
             .padding(.horizontal, 6).frame(height: Metrics.row).contentShape(Rectangle())

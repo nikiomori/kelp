@@ -83,7 +83,7 @@ struct AccountsSettings: View {
             Text(
                 "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage."
             )
-            .font(.ui(11)).foregroundStyle(.secondary)
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
         }
         .task {
             guard let read = await Accounts.load(app) else { return }

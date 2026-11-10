@@ -142,7 +142,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
             }
             link.isBordered = false
             link.contentTintColor = .linkColor
-            link.font = .uiMono(11)
+            link.font = .uiMono(TextSize.caption)
             link.lineBreakMode = .byTruncatingMiddle
             parts.append(link)
         }
@@ -152,7 +152,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         text.stringValue = DatabaseDetails.readable(value)
         text.placeholderString = value == nil ? "NULL" : nil
         if value == nil { text.stringValue = "" }
-        text.font = .uiMono(11.5)
+        text.font = .uiMono(TextSize.caption)
         text.isEditable = editable
         text.isSelectable = true
         text.isBezeled = editable
@@ -188,7 +188,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
                 [weak self] in self?.onRun(run)
             }
             sql.isBordered = false
-            sql.font = .uiMono(11)
+            sql.font = .uiMono(TextSize.caption)
             sql.lineBreakMode = .byTruncatingTail
             sql.alignment = .left
             let box = NSStackView(views: [small("\(shortAgo(run.at)) · \(DatabasePanelRows.outcome(run))"), sql])
@@ -215,7 +215,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
 
     private func field(_ title: String, _ value: String, mono: Bool = false) -> NSView {
         let text = NSTextField(wrappingLabelWithString: value)
-        text.font = mono ? .uiMono(11) : .ui(12)
+        text.font = mono ? .uiMono(TextSize.caption) : .ui(TextSize.row)
         text.isSelectable = true
         text.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset
         let box = NSStackView(views: [small(title), text])
@@ -235,14 +235,14 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
 
     private func note(_ s: String) -> NSView {
         let label = NSTextField(labelWithString: s)
-        label.font = .ui(12)
+        label.font = .ui(TextSize.row)
         label.textColor = .tertiaryLabelColor
         return padded(label)
     }
 
     private func small(_ s: String) -> NSTextField {
         let label = NSTextField(labelWithString: s)
-        label.font = .ui(10.5)
+        label.font = .ui(TextSize.caption)
         label.textColor = .tertiaryLabelColor
         label.lineBreakMode = .byTruncatingTail
         return label

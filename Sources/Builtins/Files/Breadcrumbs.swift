@@ -90,7 +90,7 @@ final class Breadcrumbs: NSView {
             let button = PointerButton(title: name, target: self, action: #selector(partClicked))
             button.tag = index
             button.isBordered = false
-            button.font = .ui(11)
+            button.font = .ui(TextSize.caption)
             button.lineBreakMode = .byTruncatingTail
             button.contentTintColor = .secondaryLabelColor
             button.setContentCompressionResistancePriority(.init(100), for: .horizontal)   // a long chain shortens, the row stays
@@ -101,7 +101,7 @@ final class Breadcrumbs: NSView {
 
     private static func separator() -> NSView {
         let label = NSTextField(labelWithString: "›")
-        label.font = .ui(11)
+        label.font = .ui(TextSize.caption)
         label.textColor = .tertiaryLabelColor
         return label
     }

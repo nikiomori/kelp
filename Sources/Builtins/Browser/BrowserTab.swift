@@ -143,7 +143,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if agentSlot.subviews.isEmpty {
             let icon = NSImageView(image: .symbol("cursorarrow.motionlines"))
             icon.contentTintColor = .themeAccent
-            agentLabel.font = .ui(12)
+            agentLabel.font = .ui(TextSize.row)
             agentLabel.textColor = .secondaryLabelColor
             agentLabel.lineBreakMode = .byTruncatingTail
             agentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

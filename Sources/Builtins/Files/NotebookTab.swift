@@ -36,7 +36,7 @@ final class NotebookTab: NSViewController {
             return button
         }
         status.textColor = .secondaryLabelColor
-        status.font = .ui(11)
+        status.font = .ui(TextSize.caption)
         let bar = Bar.content(
             [
                 actionButton(String(localized: "Run All"), "play.fill", #selector(runAll)),

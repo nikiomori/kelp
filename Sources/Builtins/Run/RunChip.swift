@@ -18,7 +18,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
         self.app = app
         self.runs = runs
         super.init()
-        hold([go, name], font: .ui(12))
+        hold([go, name], font: .ui(TextSize.row))
         go.imagePosition = .imageOnly
         go.contentTintColor = .labelColor
         go.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -78,7 +78,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
         name.attributedTitle = NSAttributedString(
             string: look.name,
             attributes: [
-                .font: NSFont.ui(12),
+                .font: NSFont.ui(TextSize.row),
                 .foregroundColor: look.guess ? NSColor.secondaryLabelColor : .labelColor
             ])
     }

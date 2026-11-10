@@ -11,7 +11,7 @@ final class Chip: NSView {
         super.init(frame: .zero)
         icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         icon.contentTintColor = .secondaryLabelColor
-        count.font = .uiDigits(11, weight: .medium)
+        count.font = .uiDigits(TextSize.caption, weight: .medium)
         count.textColor = .secondaryLabelColor
         let stack = NSStackView(views: [icon, count])
         stack.spacing = 2

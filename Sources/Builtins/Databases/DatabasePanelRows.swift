@@ -34,8 +34,8 @@ struct DatabasePanelRows {
             run.changed.map { String(localized: "Change \($0) rows in \(run.database)") }
             ?? String(localized: "Run a change in \(run.database)")
         let words = stack([
-            label(what, font: .ui(12), color: .textOrange),
-            label(oneLine(run.sql), font: .uiMono(10.5), color: .secondaryLabelColor)
+            label(what, font: .ui(TextSize.row), color: .textOrange),
+            label(oneLine(run.sql), font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
         ])
         words.toolTip = run.sql
         let deny = ClosureButton(title: String(localized: "Deny")) { [weak panel] in panel?.answer(run, allow: false) }
@@ -51,7 +51,7 @@ struct DatabasePanelRows {
     /// down the list, not a mark in each name), a key while its password waits, what agents may do; one of All My
     /// Databases offers Use Here while the pointer is over it.
     func database(_ db: DatabaseInfo, library: Bool, health: DatabaseHealth?) -> NSView {
-        var first: [NSView] = [label(Self.shownName(db), font: .ui(12, weight: .medium)), NSView()]
+        var first: [NSView] = [label(Self.shownName(db), font: .ui(TextSize.row, weight: .medium)), NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
             key.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -73,7 +73,8 @@ struct DatabasePanelRows {
         if let chip = DatabaseLook.stageChip(db) { first.append(chip) }
         let top = NSStackView(views: first)
         top.spacing = Metrics.gap
-        let detail = label(Self.place(db) ?? db.engine.displayName, font: .ui(11), color: .secondaryLabelColor)
+        let detail = label(
+            Self.place(db) ?? db.engine.displayName, font: .ui(TextSize.caption), color: .secondaryLabelColor)
         detail.lineBreakMode = .byTruncatingMiddle   // "psqldbread…agrohistory.local : webdb": both ends tell
         detail.toolTip = DatabaseLook.detail(db)
         let words = stack([top, detail])
@@ -99,7 +100,8 @@ struct DatabasePanelRows {
     /// The project's own list when it has none: agents here reach no database until one is used here.
     func hint() -> NSView {
         let said = label(
-            String(localized: "Agents in this project see no database."), font: .ui(11), color: .secondaryLabelColor)
+            String(localized: "Agents in this project see no database."), font: .ui(TextSize.caption),
+            color: .secondaryLabelColor)
         let row = line([said, NSView()], inset: Metrics.inset, trailing: Metrics.insetTrailing)
         row.toolTip = String(localized: "Point at one of All My Databases and click Use Here, or add one with +.")
         return row
@@ -150,7 +152,7 @@ struct DatabasePanelRows {
         var said = h.reason ?? String(localized: "It doesn’t answer.")
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
         let why = label(
-            said, font: .ui(11),
+            said, font: .ui(TextSize.caption),
             color: h.state == .stopped ? .textOrange : .textRed)
         why.toolTip = h.reason
         var views: [NSView] = [why, NSView()]
@@ -158,7 +160,7 @@ struct DatabasePanelRows {
             let start = ClosureButton(title: String(localized: "Start")) { [weak panel] in panel?.start(db) }
             start.isBordered = false
             start.contentTintColor = .linkColor
-            start.font = .ui(11)
+            start.font = .ui(TextSize.caption)
             views.append(start)
         }
         return line(views, inset: Metrics.inset + 19 + Metrics.gap, trailing: Metrics.inset)   // under the name
@@ -169,9 +171,9 @@ struct DatabasePanelRows {
         let icon = NSImageView(image: session.flatMap { app.catalog.icon($0.agent, size: 14) } ?? .symbol("person"))
         icon.contentTintColor = .secondaryLabelColor
         icon.widthAnchor.constraint(equalToConstant: 14).isActive = true
-        let sql = label(oneLine(run.sql), font: .uiMono(11))
+        let sql = label(oneLine(run.sql), font: .uiMono(TextSize.caption))
         sql.toolTip = [run.sql, run.error].compactMap { $0 }.joined(separator: "\n\n")
-        let end = label(Self.outcome(run), font: .uiDigits(11), color: Self.color(run.state))
+        let end = label(Self.outcome(run), font: .uiDigits(TextSize.caption), color: Self.color(run.state))
         return line([icon, sql, NSView(), end], inset: Metrics.inset, trailing: Metrics.inset)
     }
 
@@ -214,12 +216,14 @@ struct DatabasePanelRows {
     }
 
     private func title(_ text: String) -> NSTextField {
-        label(text.uppercased(), font: .ui(11, weight: .semibold), color: .tertiaryLabelColor)
+        label(text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
     }
 
-    private func small(_ text: String) -> NSTextField { label(text, font: .ui(11), color: .tertiaryLabelColor) }
+    private func small(_ text: String) -> NSTextField {
+        label(text, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
+    }
     private func digits(_ n: Int) -> NSTextField {
-        label(n.formatted(), font: .uiDigits(11), color: .tertiaryLabelColor)
+        label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
     }
 
     private func oneLine(_ sql: String) -> String {

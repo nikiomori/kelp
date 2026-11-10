@@ -32,8 +32,8 @@ final class SearchPill: PointerControl {
         track(owner: self) {
             app.themes.chromeText
         } changed: { [weak self] _ in
-            self?.label.font = .ui(12)
-            self?.key.font = .ui(11)
+            self?.label.font = .ui(TextSize.row)
+            self?.key.font = .ui(TextSize.caption)
             self?.needsLayout = true
         }
     }
@@ -44,7 +44,9 @@ final class SearchPill: PointerControl {
         layer?.cornerRadius = bounds.height / 2
         // Short of room, "Search" rather than "Files, a…". The room is the pill's, so the choice doesn't feed back on itself.
         let room = bounds.width - 19 - glass.frame.width - key.frame.width - 18
-        let text = (full as NSString).size(withAttributes: [.font: label.font ?? .ui(12)]).width <= room ? full : short
+        let text =
+            (full as NSString).size(withAttributes: [.font: label.font ?? .ui(TextSize.row)]).width <= room
+            ? full : short
         if label.stringValue != text { label.stringValue = text }
     }
     /// The whole pill takes the click; in the title bar its label would move the window instead.

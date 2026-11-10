@@ -56,14 +56,14 @@ final class StartView: NSView {
         title.alignment = .center
         // The window bar shows the folder; a remote project's host and path are said here, the bar has the local stand-in.
         let folder = NSTextField(labelWithString: RemoteHost.of(w.path).map { "\($0.host):\($0.path)" } ?? "")
-        folder.font = .ui(13)
+        folder.font = .ui(TextSize.body)
         folder.textColor = .secondaryLabelColor
         folder.lineBreakMode = .byTruncatingMiddle
         folder.isHidden = folder.stringValue.isEmpty
 
         let agents = NewTabChoices.agents(app)
         let hint = NSTextField(labelWithString: String(localized: "A file, an agent or a command: ⌘P"))
-        hint.font = .ui(12)
+        hint.font = .ui(TextSize.row)
         hint.textColor = .secondaryLabelColor
 
         var views: [NSView] = [icon, title, folder]
@@ -141,7 +141,7 @@ final class StartView: NSView {
 
     static func heading(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text)
-        label.font = .ui(11, weight: .semibold)
+        label.font = .ui(TextSize.caption, weight: .semibold)
         label.textColor = .secondaryLabelColor
         return label
     }
@@ -234,7 +234,7 @@ final class StartView: NSView {
             stack.setCustomSpacing(22, after: planBar)
         }
         planBar.spacing = Metrics.gapWide
-        planLine.font = .ui(12)
+        planLine.font = .ui(TextSize.row)
         planLine.textColor = .secondaryLabelColor
         planSwitch.padding = Metrics.gap
         planSwitch.restFill = .fillRest

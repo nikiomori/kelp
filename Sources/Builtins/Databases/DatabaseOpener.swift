@@ -40,7 +40,7 @@ final class DatabaseOpener: NSObject, NSTableViewDataSource, NSTableViewDelegate
         scroll.heightAnchor.constraint(equalToConstant: 260).isActive = true
         let hint = NSTextField(
             labelWithString: String(localized: "↩ opens · / goes into a database's tables · ⎋ closes"))
-        hint.font = .ui(11)
+        hint.font = .ui(TextSize.caption)
         hint.textColor = .tertiaryLabelColor
         window.contentView = SheetForm.stack([field, scroll, hint], wide: [field, scroll], width: 460)
         window.setContentSize(window.contentView?.fittingSize ?? .zero)
@@ -118,14 +118,14 @@ final class DatabaseOpener: NSObject, NSTableViewDataSource, NSTableViewDelegate
         switch items[row] {
         case .database(let db):
             name = NSTextField(labelWithString: db.name)
-            name.font = .ui(13)
+            name.font = .ui(TextSize.body)
             detail = NSTextField(labelWithString: DatabasePanelRows.place(db) ?? db.engine.displayName)
             views = [NSImageView(image: DatabaseLook.badge(db.engine, size: 18))]
             views.append(stacked([name, detail]))
             views += [NSView()] + [DatabaseLook.stageChip(db)].compactMap { $0 }
         case .table(let db, let table):
             name = NSTextField(labelWithString: table.name)
-            name.font = .uiMono(12)
+            name.font = .uiMono(TextSize.row)
             detail = NSTextField(
                 labelWithString: [db, table.rows.map { String(localized: "\($0) rows") }].compactMap { $0 }
                     .joined(separator: " · "))
@@ -133,7 +133,7 @@ final class DatabaseOpener: NSObject, NSTableViewDataSource, NSTableViewDelegate
             icon.contentTintColor = .secondaryLabelColor
             views = [icon, stacked([name, detail]), NSView()]
         }
-        detail.font = .ui(11)
+        detail.font = .ui(TextSize.caption)
         detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingHead
         let line = NSStackView(views: views)

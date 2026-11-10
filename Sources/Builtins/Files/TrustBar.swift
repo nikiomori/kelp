@@ -15,14 +15,14 @@ enum TrustBar {
                 localized:
                     "Language servers and formatters can run code from “\(name)” (its build scripts, plugins, toolchain). Trust this project?"
             ))
-        text.font = .ui(12)
+        text.font = .ui(TextSize.row)
         text.lineBreakMode = .byTruncatingTail
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         text.toolTip = text.stringValue
         let later = PointerButton(), yes = PointerButton()
         for (b, t) in [(later, String(localized: "Not Now")), (yes, String(localized: "Trust"))] {
             b.title = t
-            b.font = .ui(12)
+            b.font = .ui(TextSize.row)
             b.padding = Metrics.gap
             b.restFill = .fillRest
         }

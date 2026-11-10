@@ -85,7 +85,7 @@ extension FilesPanel {
 
     /// What sits under the bar: the replace field and what's wrong with a pattern.
     func setUpSearchRows() {
-        patternError.font = .ui(11)
+        patternError.font = .ui(TextSize.caption)
         patternError.textColor = .textRed
         patternError.lineBreakMode = .byTruncatingTail
         patternError.isHidden = true

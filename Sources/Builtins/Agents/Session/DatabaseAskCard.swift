@@ -22,14 +22,14 @@ final class DatabaseAskCard: NSView {
         super.init(frame: .zero)
         let mark = NSImageView(image: .symbol("cylinder.split.1x2"))
         mark.contentTintColor = .textOrange
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        sql.font = .uiMono(11)
+        sql.font = .uiMono(TextSize.caption)
         sql.textColor = .secondaryLabelColor
         sql.maximumNumberOfLines = 3
         sql.lineBreakMode = .byTruncatingTail
-        detail.font = .ui(12)
+        detail.font = .ui(TextSize.row)
         let show = NSButton(title: String(localized: "Show Rows"), target: self, action: #selector(showRows))
         let deny = NSButton(title: String(localized: "Deny"), target: self, action: #selector(denied))
         let allow = NSButton(title: String(localized: "Allow"), target: self, action: #selector(allowed))

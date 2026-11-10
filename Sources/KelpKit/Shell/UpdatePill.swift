@@ -34,7 +34,7 @@ final class UpdatePill: PointerButton {
     private func showWords() {
         attributedTitle = NSAttributedString(
             string: String(localized: "Update Kelp"),
-            attributes: [.font: NSFont.ui(12, weight: .medium), .foregroundColor: NSColor.emphasis])
+            attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.emphasis])
     }
 
     private func show(_ update: Updates.Ready?) {

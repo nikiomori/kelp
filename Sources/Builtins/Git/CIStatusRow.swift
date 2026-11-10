@@ -14,11 +14,11 @@ final class CIStatusRow: PointerControl {
     init() {
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.radiusSM
-        text.font = .ui(12)
+        text.font = .ui(TextSize.row)
         text.lineBreakMode = .byTruncatingTail
         text.maximumNumberOfLines = 1
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        time.font = .uiDigits(11)
+        time.font = .uiDigits(TextSize.caption)
         time.textColor = .secondaryLabelColor
         chevron.image = .symbol("chevron.right", "")
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
@@ -49,7 +49,7 @@ final class CIStatusRow: PointerControl {
         let job = failing ? failure?.components(separatedBy: " › ").first ?? "" : ""
         let one = NSMutableParagraphStyle()
         one.lineBreakMode = .byTruncatingTail
-        let look: [NSAttributedString.Key: Any] = [.font: NSFont.ui(12), .paragraphStyle: one]
+        let look: [NSAttributedString.Key: Any] = [.font: NSFont.ui(TextSize.row), .paragraphStyle: one]
         let headColor: NSColor = failing ? .labelColor : .secondaryLabelColor
         let headText = NSMutableAttributedString(
             string: head, attributes: look.merging([.foregroundColor: headColor]) { $1 })

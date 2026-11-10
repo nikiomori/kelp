@@ -12,7 +12,7 @@ final class SyncPopover: NSViewController {
     /// words keep to the same edge as every other line.
     static let bleed: CGFloat = 4
     static let captionAttributes: [NSAttributedString.Key: Any] =
-        [.font: NSFont.ui(11, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
+        [.font: NSFont.ui(TextSize.caption, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
 
     let app: AppModel
     let wid: String
@@ -56,7 +56,7 @@ final class SyncPopover: NSViewController {
         name.target = self
         name.action = #selector(switchMenu)
         name.toolTip = String(localized: "Switch Branch")
-        state.font = .ui(12)
+        state.font = .ui(TextSize.row)
         state.textColor = .secondaryLabelColor
         state.lineBreakMode = .byTruncatingMiddle
         state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
@@ -66,7 +66,7 @@ final class SyncPopover: NSViewController {
         fetch.imagePosition = .imageLeading
         fetch.attributedTitle = NSAttributedString(
             string: fetch.title,
-            attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor])
+            attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor])
         fetch.contentTintColor = .secondaryLabelColor
         fetch.toolTip = String(localized: "Fetch from the remote")
         let head = NSStackView()
@@ -85,7 +85,7 @@ final class SyncPopover: NSViewController {
 
         busy.style = .spinning
         busy.controlSize = .small
-        note.font = .ui(12)
+        note.font = .ui(TextSize.row)
         note.maximumNumberOfLines = 4
         note.preferredMaxLayoutWidth = Self.width - 22
         status.setViews([busy, note], in: .top)
@@ -107,9 +107,9 @@ final class SyncPopover: NSViewController {
         message.action = #selector(commitPressed)
         field.setViews([message, commit], in: .leading)
         field.spacing = 8
-        nothing.font = .ui(12)
+        nothing.font = .ui(TextSize.row)
         nothing.textColor = .secondaryLabelColor
-        hint.font = .ui(11)
+        hint.font = .ui(TextSize.caption)
         hint.textColor = .secondaryLabelColor   // shown only once there's a message: it says what the keys will do
         // Disabled, the button is its word alone (see showChanges): one box, the field's, not two. Its width stays put.
         commit.widthAnchor.constraint(equalToConstant: commit.fittingSize.width).isActive = true
@@ -223,7 +223,7 @@ final class LinkRow: PointerControl {
     private let run: () -> Void
     convenience init(_ title: String, action: @escaping () -> Void) {
         let label = NSTextField(labelWithString: title)
-        label.font = .ui(13)
+        label.font = .ui(TextSize.body)
         self.init([label, NSView()], said: title, action: action)
     }
     /// `views` along the row, then the chevron; `said` is what VoiceOver reads for it.

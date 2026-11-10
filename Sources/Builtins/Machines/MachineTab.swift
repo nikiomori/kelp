@@ -44,12 +44,14 @@ struct MachineView: View {
 
     private var header: some View {
         ContentBar {
-            Text(name).font(.ui(13, weight: .semibold))
+            Text(name).font(.ui(TextSize.body, weight: .semibold))
             if let info {
                 let word = Machines.machineWord(info)
-                Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
-                Text(summary(info)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
-                    .truncationMode(.tail)
+                Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
+                Text(summary(info)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(
+                    1
+                )
+                .truncationMode(.tail)
             }
             Spacer(minLength: 8)
             if info?.machine.kind.hasScreen == true {
@@ -103,7 +105,7 @@ struct MachineView: View {
                 ContentUnavailableView {
                     Label(String(localized: "\(name) wasn't made"), systemImage: "exclamationmark.triangle")
                 } description: {
-                    Text(info.detail ?? "").font(.ui(11).monospaced()).textSelection(.enabled)
+                    Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .sleeping, .off:
@@ -167,7 +169,7 @@ struct MachineView: View {
                 if let folders = detail?.folders, !folders.isEmpty {
                     Text("Shared Folders").sectionHeading().padding(.top, 10)
                     ForEach(folders, id: \.self) { folder in
-                        Text((folder as NSString).abbreviatingWithTildeInPath).font(.ui(12)).lineLimit(1)
+                        Text((folder as NSString).abbreviatingWithTildeInPath).font(.ui(TextSize.row)).lineLimit(1)
                             .truncationMode(
                                 .middle
                             )
@@ -191,7 +193,7 @@ struct MachineView: View {
                 holder.map { String(localized: "In use by \($0)") }
                     ?? String(localized: "Free: agents take turns on it")
             )
-            .font(.ui(12)).foregroundStyle(.secondary)
+            .font(.ui(TextSize.row)).foregroundStyle(.secondary)
             HStack {
                 Button(String(localized: "Show Screen")) { Machines.control(app, machine: name, .show) }
                 Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
@@ -217,13 +219,18 @@ struct MachineView: View {
                     Image(systemName: "terminal").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
                         width: 14)
                 }
-                Text(session.map { app.catalog.displayName($0) } ?? String(localized: "Terminal")).font(.ui(12))
-                    .lineLimit(1)
-                Text(run.command.isEmpty ? String(localized: "shell") : run.command).font(.ui(11).monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.tail)
+                Text(session.map { app.catalog.displayName($0) } ?? String(localized: "Terminal")).font(
+                    .ui(TextSize.row)
+                )
+                .lineLimit(1)
+                Text(run.command.isEmpty ? String(localized: "shell") : run.command).font(
+                    .ui(TextSize.caption).monospaced()
+                )
+                .foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
-                Text(Self.elapsed(run.seconds)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                Text(Self.elapsed(run.seconds)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
+                    .secondary)
             }
             .padding(.horizontal, 6).padding(.vertical, 4)
             .contentShape(Rectangle())
@@ -234,8 +241,9 @@ struct MachineView: View {
 
     private func portRow(_ port: Int, _ address: String) -> some View {
         HStack(spacing: Metrics.gap) {
-            Text(String(port)).font(.ui(12).monospacedDigit())
-            Text("\(address):\(String(port))").font(.ui(11).monospaced()).foregroundStyle(.secondary).lineLimit(1)
+            Text(String(port)).font(.ui(TextSize.row).monospacedDigit())
+            Text("\(address):\(String(port))").font(.ui(TextSize.caption).monospaced()).foregroundStyle(.secondary)
+                .lineLimit(1)
             Spacer(minLength: 6)
             Button(String(localized: "Open")) { app.workbench.open("http://\(address):\(port)") }.controlSize(.small)
         }
@@ -261,7 +269,7 @@ struct MachineView: View {
             Text("Files").sectionHeading().padding(.top, 10)
             VStack(alignment: .leading, spacing: 6) {
                 Text("~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.")
-                    .font(.ui(12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.ui(TextSize.row)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Button(String(localized: "Open in Finder")) {   // the daemon made it with the list
                     NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: files)
                 }
@@ -288,8 +296,8 @@ struct MachineView: View {
         let phone = machine.kind == .android
         func row(_ label: String, _ value: some View) -> some View {
             GridRow {
-                Text(label).font(.ui(12)).foregroundStyle(.secondary)
-                value.font(.ui(12))
+                Text(label).font(.ui(TextSize.row)).foregroundStyle(.secondary)
+                value.font(.ui(TextSize.row))
             }
         }
         func text(_ s: String) -> some View { Text(s).textSelection(.enabled) }

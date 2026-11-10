@@ -105,20 +105,24 @@ final class CommitCardView: NSView {
         let subject = CommitSubject(c.subject)
         var rows: [NSView] = []
         if let head = Self.header(subject, merge: c.parents.count > 1, unpushed: pushed == false) { rows.append(head) }
-        let title = Self.text(subject.text, font: .ui(13, weight: .semibold), color: .labelColor, lines: 4)
+        let title = Self.text(subject.text, font: .ui(TextSize.body, weight: .semibold), color: .labelColor, lines: 4)
         if subject.breaking {   // a breaking change: a red "!" before the words, as in the row
             let breakingTitle = NSMutableAttributedString(
-                string: "! ", attributes: [.font: NSFont.ui(13, weight: .bold), .foregroundColor: NSColor.textRed])
+                string: "! ",
+                attributes: [.font: NSFont.ui(TextSize.body, weight: .bold), .foregroundColor: NSColor.textRed])
             breakingTitle.append(
                 NSAttributedString(
                     string: subject.text,
-                    attributes: [.font: NSFont.ui(13, weight: .semibold), .foregroundColor: NSColor.labelColor]))
+                    attributes: [
+                        .font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.labelColor
+                    ]))
             title.attributedStringValue = breakingTitle
             title.setAccessibilityLabel(String(localized: "Breaking change") + ": " + subject.text)
         }
         rows.append(title)
         if let body = d?.body, !body.isEmpty {
-            rows.append(Self.text(CommitSubject.reflow(body), font: .ui(12), color: .secondaryLabelColor, lines: 12))
+            rows.append(
+                Self.text(CommitSubject.reflow(body), font: .ui(TextSize.row), color: .secondaryLabelColor, lines: 12))
         }
         let line = NSBox()
         line.boxType = .separator
@@ -170,14 +174,14 @@ final class CommitCardView: NSView {
             let kind =
                 subject.type.map { [$0, subject.scope].compactMap { $0 }.joined(separator: " · ") }
                 ?? String(localized: "Merge commit")
-            views += [icon, label(kind, font: .ui(11, weight: .medium))]
+            views += [icon, label(kind, font: .ui(TextSize.caption, weight: .medium))]
         }
         for v in views { v.setContentCompressionResistancePriority(.init(760), for: .horizontal) }   // "Not pushed yet" gives way
         if unpushed {
             let up = NSImageView(image: .symbol("arrow.up"))
             up.symbolConfiguration = .chrome(Metrics.iconTiny)
             up.contentTintColor = .secondaryLabelColor
-            views += [NSView(), up, label(String(localized: "Not pushed yet"), font: .ui(11))]
+            views += [NSView(), up, label(String(localized: "Not pushed yet"), font: .ui(TextSize.caption))]
         }
         guard !views.isEmpty else { return nil }
         let row = NSStackView(views: views)
@@ -211,10 +215,12 @@ final class CommitCardView: NSView {
             sameYear
                 ? .dateTime.month(.abbreviated).day().hour().minute()
                 : .dateTime.month(.abbreviated).day().year().hour().minute())
-        let author = label(c.author, font: .ui(11, weight: .medium))
+        let author = label(c.author, font: .ui(TextSize.caption, weight: .medium))
         author.textColor = .secondaryLabelColor
         author.setContentCompressionResistancePriority(.init(200), for: .horizontal)
-        let row = NSStackView(views: [avatar, author, label("· \(ago) · \(when)", font: .ui(11)), NSView()])
+        let row = NSStackView(views: [
+            avatar, author, label("· \(ago) · \(when)", font: .ui(TextSize.caption)), NSView()
+        ])
         row.spacing = 4
         row.setCustomSpacing(6, after: avatar)
         return row
@@ -224,7 +230,7 @@ final class CommitCardView: NSView {
     private static func footer(_ c: GraphCommit, details: CommitDetails?) -> NSView {
         var views: [NSView] = []
         if let details, details.files > 0 {
-            views.append(label(String(localized: "\(details.files) files"), font: .uiDigits(11)))
+            views.append(label(String(localized: "\(details.files) files"), font: .uiDigits(TextSize.caption)))
             if details.added + details.removed > 0 {
                 views.append(
                     NSTextField(

@@ -286,7 +286,7 @@ struct KeyboardSettings: View {
                         KeyBindings.set(entry.id, nil, in: app.settings)
                         warning[entry.id] = nil
                         later()
-                    }.buttonStyle(.link).font(.ui(11))
+                    }.buttonStyle(.link).font(.ui(TextSize.caption))
                         .help(
                             entry.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") }
                                 ?? String(localized: "Kelp's default: none"))
@@ -312,7 +312,9 @@ struct KeyboardSettings: View {
                     recording == entry.id
                         ? Color.accentColor : entry.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
-            if let message = warning[entry.id] { Text(message).font(.ui(11)).foregroundStyle(Color.textOrange) }
+            if let message = warning[entry.id] {
+                Text(message).font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
+            }
         }
     }
 

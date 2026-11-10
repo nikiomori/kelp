@@ -28,10 +28,10 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         field.placeholderString = String(localized: "Find")
         field.delegate = self
         field.controlSize = .small
-        field.font = .ui(12)
+        field.font = .ui(TextSize.row)
         field.sendsSearchStringImmediately = true
         field.focusRingType = .none
-        count.font = .uiDigits(11)
+        count.font = .uiDigits(TextSize.caption)
         count.textColor = .secondaryLabelColor
         let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(close))
         done.controlSize = .small

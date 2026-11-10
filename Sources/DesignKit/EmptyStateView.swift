@@ -16,10 +16,10 @@ public final class EmptyStateView: NSView {
         super.init(frame: .zero)
         icon.symbolConfiguration = .chrome(Metrics.iconEmpty)
         icon.contentTintColor = .tertiaryLabelColor
-        title.font = .ui(13, weight: .semibold)
-        text.font = .ui(13)
+        title.font = .ui(TextSize.body, weight: .semibold)
+        text.font = .ui(TextSize.body)
         text.textColor = .secondaryLabelColor
-        fix.font = .uiMono(11)
+        fix.font = .uiMono(TextSize.caption)
         fix.textColor = .secondaryLabelColor
         fix.isSelectable = true
         for label in [title, text, fix] { label.alignment = .center }

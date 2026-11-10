@@ -12,6 +12,16 @@ public enum TextSize {
     /// The theme's face for the chrome: the system font's own designs, so weights and sizes keep working.
     public internal(set) static var design = NSFontDescriptor.SystemDesign.default
 
+    /// The chrome's sizes, named as the design system names them; `.ui(TextSize.row)`, not a number typed in.
+    /// Text in a panel, a sheet, a popover: 13.
+    public nonisolated static let body: CGFloat = 13
+    /// A list row's title, a field: 12.
+    public nonisolated static let row: CGFloat = 12
+    /// Secondary text, a section title, a row's second line, a count: 11.
+    public nonisolated static let caption: CGFloat = 11
+    /// A badge's letters, the smallest text: 10.
+    public nonisolated static let micro: CGFloat = 10
+
     public static func apply(_ name: String?) { scale = ["large": 1.15, "larger": 1.3][name ?? ""] ?? 1 }
     public static func apply(design name: String?) {
         design = ["mono": .monospaced, "serif": .serif, "rounded": .rounded][name ?? ""] ?? .default
@@ -57,9 +67,11 @@ extension Font {
 @MainActor
 extension View {
     /// A section's title over its rows: 11 semibold, secondary. One look for every titled section.
-    public func sectionTitle() -> some View { font(.ui(11, weight: .semibold)).foregroundStyle(.secondary) }
+    public func sectionTitle() -> some View {
+        font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
+    }
     /// A section's title in a column of sections: `sectionTitle()` at the bottom of a section row's height.
     public func sectionHeading() -> some View { sectionTitle().frame(height: Metrics.rowSection, alignment: .bottom) }
     /// A line that says there's nothing here or why: 12, secondary.
-    public func quietNote() -> some View { font(.ui(12)).foregroundStyle(.secondary) }
+    public func quietNote() -> some View { font(.ui(TextSize.row)).foregroundStyle(.secondary) }
 }

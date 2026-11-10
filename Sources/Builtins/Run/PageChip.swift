@@ -24,7 +24,7 @@ final class PageChip: ChipCapsule, WindowBarItem {
         self.runs = runs
         ports = Watched(.ports, in: app)
         super.init()
-        hold([open, more], font: .uiDigits(12))
+        hold([open, more], font: .uiDigits(TextSize.row))
         open.padding = 8
         open.imagePosition = .imageLeading
         open.imageHugsTitle = true

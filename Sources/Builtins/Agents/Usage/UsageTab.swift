@@ -87,8 +87,9 @@ struct UsageReportView: View {
     /// What the tab's name doesn't say already: the span, where it's from, and whether the logs are still being read.
     private var header: some View {
         HStack(spacing: Metrics.gapWide) {
-            Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(11)).foregroundStyle(
-                .secondary)
+            Text("Last \(range) days · from each agent's own logs on this Mac").font(.ui(TextSize.caption))
+                .foregroundStyle(
+                    .secondary)
             if loading { ProgressView().controlSize(.small) }
             Spacer()
             Picker("", selection: $range) {
@@ -113,7 +114,7 @@ struct UsageReportView: View {
                 differently, and "—" is a model without one.
             """
         )
-        .font(.ui(11)).foregroundStyle(.secondary)
+        .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
     }
 
     // MARK: Under the table
@@ -124,7 +125,7 @@ struct UsageReportView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text(sel.map { app.catalog.name($0) } ?? String(localized: "All agents")).font(
-                    .ui(13, weight: .semibold))
+                    .ui(TextSize.body, weight: .semibold))
                 if sel != nil { Button("Show All") { selected = nil }.controlSize(.small) }
                 Spacer()
                 Picker("", selection: $byCost) {
@@ -139,7 +140,7 @@ struct UsageReportView: View {
                     ? String(localized: "Cost per day · last \(range) days")
                     : String(localized: "Tokens per day · last \(range) days")
             )
-            .font(.ui(11)).foregroundStyle(.secondary).padding(.top, 8)
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary).padding(.top, 8)
             Chart(usage.days.filter { ids.contains($0.agent) }, id: \.self) { record in
                 BarMark(
                     x: .value("Day", Self.date(record.day), unit: .day),
@@ -173,7 +174,8 @@ struct UsageReportView: View {
         let cost = days.values.reduce(0) { $0 + $1.cost }, tokens = days.values.reduce(0) { $0 + $1.tokens }
         let total = byCost ? money(cost, tokens) : String(localized: "\(count(tokens)) tokens")
         return VStack(alignment: .leading, spacing: 8) {
-            Text("\(total) in the last year · \(days.count) active days").font(.ui(11)).foregroundStyle(.secondary)
+            Text("\(total) in the last year · \(days.count) active days").font(.ui(TextSize.caption)).foregroundStyle(
+                .secondary)
             ScrollView(.horizontal, showsIndicators: false) {   // a year is wider than a narrow pane: this week stays in view
                 YearBoard(
                     values: days.mapValues { byCost ? $0.cost : Double($0.tokens) }, color: sel.map(color) ?? .green
@@ -199,7 +201,7 @@ struct UsageReportView: View {
     /// A model's dot is its agent's colour (the chosen agent's when there is one).
     private func groups(_ title: String, _ rows: [UsageReport.Group], model: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.ui(13, weight: .semibold))
+            Text(title).font(.ui(TextSize.body, weight: .semibold))
             ForEach(rows.prefix(8), id: \.name) { group in
                 HStack(spacing: 8) {
                     if model,
@@ -211,7 +213,7 @@ struct UsageReportView: View {
                     Spacer(minLength: 12)
                     Text(count(group.tokens)).foregroundStyle(.secondary).monospacedDigit()
                     Text(money(group.cost, group.tokens)).monospacedDigit().frame(width: 72, alignment: .trailing)
-                }.font(.ui(12))
+                }.font(.ui(TextSize.row))
                 Divider()
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -264,7 +266,7 @@ struct UsageReportView: View {
     func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value).font(.ui(17, weight: .semibold).monospacedDigit())
-            Text(label).font(.ui(11)).foregroundStyle(.secondary)
+            Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
         }
     }
 }

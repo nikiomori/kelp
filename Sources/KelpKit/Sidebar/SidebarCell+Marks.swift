@@ -158,7 +158,8 @@ extension SidebarCell {
         changes.restFill = full == nil ? nil : .fillRest
     }
     static func dot(_ color: NSColor) -> NSAttributedString {
-        NSAttributedString(string: "•", attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: color])
+        NSAttributedString(
+            string: "•", attributes: [.font: NSFont.ui(TextSize.row, weight: .semibold), .foregroundColor: color])
     }
 
     /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack

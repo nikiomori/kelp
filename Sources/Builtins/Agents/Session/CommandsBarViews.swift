@@ -23,7 +23,7 @@ final class Header: PointerControl {
         chevron.contentTintColor = .secondaryLabelColor
         for (b, title) in [(stop, String(localized: "Stop")), (toTab, String(localized: "Open in Tab"))] {
             b.title = title
-            b.font = .ui(11)
+            b.font = .ui(TextSize.caption)
             b.padding = Metrics.gap
             b.restFill = .fillHover
             b.isHidden = true
@@ -83,9 +83,9 @@ final class CommandRow: NSTableCellView {
     init() {
         super.init(frame: .zero)
         identifier = Self.id
-        command.font = .uiMono(11)
+        command.font = .uiMono(TextSize.caption)
         command.textColor = .secondaryLabelColor
-        time.font = .uiDigits(11)
+        time.font = .uiDigits(TextSize.caption)
         time.textColor = .secondaryLabelColor
         for l in [lead, command] { l.lineBreakMode = .byTruncatingTail }
         lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // short of room, the command goes first
@@ -119,7 +119,7 @@ final class CommandRow: NSTableCellView {
         mark.status = serving ? nil : status
         server.isHidden = !serving
         slot.isHidden = false
-        lead.font = .ui(11, weight: .medium)
+        lead.font = .ui(TextSize.caption, weight: .medium)
         lead.stringValue = run.displayTitle
         command.textColor = status == .error ? .textRed : .secondaryLabelColor
         command.stringValue = serving ? "localhost:\(page ?? 0)" : live ? tail ?? "" : Self.ending(run, tail: tail)
@@ -150,7 +150,10 @@ final class CommandRow: NSTableCellView {
         slot.isHidden = c == nil
         command.textColor = .secondaryLabelColor
         let words = c?.description.flatMap { $0.isEmpty ? nil : $0 }
-        lead.font = c == nil ? .ui(11, weight: .semibold) : words == nil ? .uiMono(11) : .ui(11)
+        lead.font =
+            c == nil
+            ? .ui(TextSize.caption, weight: .semibold)
+            : words == nil ? .uiMono(TextSize.caption) : .ui(TextSize.caption)
         lead.stringValue = words ?? c?.shortCommand ?? title
         command.stringValue = words == nil ? "" : c?.shortCommand ?? ""   // empty, it still pushes the time to the right
         time.stringValue = c.map { Self.time($0, now: now) } ?? ""

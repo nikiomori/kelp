@@ -19,14 +19,14 @@ final class CommandOutput: NSViewController {
     override func loadView() {
         let agentCommand = command
         let title = NSTextField(wrappingLabelWithString: agentCommand.command)
-        title.font = .uiMono(12)
+        title.font = .uiMono(TextSize.row)
         title.maximumNumberOfLines = 6
         title.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // wraps at the popover's width, and says how tall that is
         title.isSelectable = true
         let said = NSTextField(
             labelWithString: [agentCommand.description, Self.outcome(agentCommand)].compactMap { $0 }.joined(
                 separator: " · "))
-        said.font = .ui(11)
+        said.font = .ui(TextSize.caption)
         said.textColor = agentCommand.outcome == .failed ? .textRed : .secondaryLabelColor
         said.lineBreakMode = .byTruncatingTail
         said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -56,7 +56,7 @@ final class CommandOutput: NSViewController {
                 labelWithString: command.outcome == nil
                     ? String(localized: "What it prints shows when it ends.")
                     : String(localized: "It printed nothing."))
-            none.font = .ui(11)
+            none.font = .ui(TextSize.caption)
             none.textColor = .secondaryLabelColor
             let box = NSStackView(views: [none])
             box.edgeInsets = NSEdgeInsets(
@@ -68,11 +68,11 @@ final class CommandOutput: NSViewController {
         // As tall as what it printed, up to 300 pt.
         let lines = CGFloat(out.reduce(into: 1) { n, ch in if ch == "\n" { n += 1 } })
         scroll.heightAnchor.constraint(
-            equalToConstant: min(300, lines * ceil(NSFont.uiMono(11).boundingRectForFont.height) + 12)
+            equalToConstant: min(300, lines * ceil(NSFont.uiMono(TextSize.caption).boundingRectForFont.height) + 12)
         ).isActive = true
         if let log = scroll.documentView as? NSTextView {
             log.isEditable = false
-            log.font = .uiMono(11)
+            log.font = .uiMono(TextSize.caption)
             log.textColor = .labelColor
             log.textContainerInset = NSSize(width: 6, height: 6)
             log.drawsBackground = false

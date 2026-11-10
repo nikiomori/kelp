@@ -14,12 +14,12 @@ struct ServerSection: View {
             Divider()
             HStack(spacing: 6) {
                 Image(systemName: "server.rack").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
-                Text(host).font(.ui(12, weight: .semibold)).lineLimit(1)
+                Text(host).font(.ui(TextSize.row, weight: .semibold)).lineLimit(1)
                 if let word = ServerActions.serverWord(app, host) {
-                    Text(word.text).font(.ui(11)).foregroundStyle(Color(nsColor: word.color))
+                    Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
                 }
             }
-            Text(serverLine(stats)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(2)
+            Text(serverLine(stats)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(2)
             if let stats, stats.connected { ServerMeters(stats: stats) }
             HStack(spacing: Metrics.gapWide) {
                 Button(String(localized: "Open Server")) {
@@ -73,9 +73,9 @@ struct ServerMeters: View {
 
     private func row(_ label: LocalizedStringKey, _ share: Double, _ value: String) -> some View {
         GridRow {
-            Text(label).font(.ui(11)).foregroundStyle(.secondary)
+            Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             ServerBar(share: share).frame(height: 4)
-            Text(value).font(.ui(11).monospacedDigit()).lineLimit(1).gridColumnAlignment(.trailing)
+            Text(value).font(.ui(TextSize.caption).monospacedDigit()).lineLimit(1).gridColumnAlignment(.trailing)
         }
     }
 }

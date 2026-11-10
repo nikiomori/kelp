@@ -73,7 +73,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         copyB.bezelStyle = .push
         selectionChanged()
         status.textColor = .secondaryLabelColor
-        status.font = .uiDigits(11)
+        status.font = .uiDigits(TextSize.caption)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 600),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -190,7 +190,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
     private func label(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .ui(13)
+        field.font = .ui(TextSize.body)
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a narrow column truncates it
         return field
     }

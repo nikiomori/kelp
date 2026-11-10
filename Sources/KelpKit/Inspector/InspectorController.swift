@@ -126,7 +126,7 @@ final class InspectorController: NSViewController {
             app.themes.chromeText
         } changed: { [weak self] _ in
             guard let self else { return }
-            panelTitle.font = .ui(13, weight: .semibold)
+            panelTitle.font = .ui(TextSize.body, weight: .semibold)
             for (_, vc) in made {
                 vc.view.removeFromSuperview()
                 vc.removeFromParent()

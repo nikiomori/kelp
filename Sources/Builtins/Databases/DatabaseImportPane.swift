@@ -30,7 +30,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
 
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Import from \(source.name)"))
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         let icon = NSImageView(image: DatabaseLook.appIcon(source.id))
         icon.widthAnchor.constraint(equalToConstant: Metrics.iconMenu + 4).isActive = true
         icon.heightAnchor.constraint(equalToConstant: Metrics.iconMenu + 4).isActive = true
@@ -62,7 +62,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         useHere.setButtonType(.switch)
         useHere.title = String(localized: "Let \(project)’s agents use them now (others read only)")
         useHere.state = .off
-        status.font = .ui(11)
+        status.font = .ui(TextSize.caption)
         status.textColor = .secondaryLabelColor
         status.stringValue = String(localized: "Reading…")
 
@@ -123,7 +123,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         check.tag = row
         check.state = chosen.contains(item.id) ? .on : .off
         let name = NSTextField(labelWithString: db.name)
-        name.font = .ui(13)
+        name.font = .ui(TextSize.body)
         name.lineBreakMode = .byTruncatingTail
         let place = db.engine.isFile ? db.path ?? "" : "\(db.host ?? ""):\(db.port.map(String.init) ?? "")"
         let parts = [db.engine.displayName, place, db.group].compactMap { $0 }
@@ -179,7 +179,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
     private func done(_ outcome: ImportOutcome) {
         let title = NSTextField(
             labelWithString: String(localized: "Imported \(outcome.imported.count) into All My Databases"))
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         var lines: [String] = []
         if outcome.withPasswords > 0 {
             lines.append(String(localized: "\(outcome.withPasswords) with their passwords."))
@@ -208,7 +208,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         }
         lines += outcome.skipped.map { String(localized: "Not imported: \($0)") }
         let text = NSTextField(wrappingLabelWithString: lines.joined(separator: "\n"))
-        text.font = .ui(12)
+        text.font = .ui(TextSize.row)
         text.textColor = .secondaryLabelColor
         let close = NSButton(title: String(localized: "Done"), target: self, action: #selector(finished))
         close.bezelStyle = .push

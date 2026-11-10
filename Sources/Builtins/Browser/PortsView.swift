@@ -19,7 +19,7 @@ final class PortsView: NSView {
         ports = Watched(.ports, in: app)
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: String(localized: "Running on This Screen"))
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         list.orientation = .vertical
         list.alignment = .leading
         list.spacing = 6
@@ -93,11 +93,11 @@ final class PortsView: NSView {
             }
         }
         link.contentTintColor = .linkColor
-        link.font = .uiDigits(13, weight: .medium)
+        link.font = .uiDigits(TextSize.body, weight: .medium)
         link.underlinesOnHover = true
         let what = NSTextField(labelWithString: page.command)
         what.textColor = .secondaryLabelColor
-        what.font = .ui(12)
+        what.font = .ui(TextSize.row)
         let copy = ClosureButton(title: String(localized: "Copy")) { Task { await actions.copy(page, in: wid) } }
         let stop = ClosureButton(title: String(localized: "Stop")) {
             guard let pid = page.pid else { return }

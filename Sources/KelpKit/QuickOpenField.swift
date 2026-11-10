@@ -67,7 +67,8 @@ final class PaletteField: NSSearchField {
         }
         private var words: NSAttributedString {
             NSAttributedString(
-                string: text, attributes: [.font: NSFont.ui(13, weight: .medium), .foregroundColor: NSColor.textPurple])
+                string: text,
+                attributes: [.font: NSFont.ui(TextSize.body, weight: .medium), .foregroundColor: NSColor.textPurple])
         }
         override var intrinsicContentSize: NSSize { NSSize(width: ceil(words.size().width) + 20, height: 24) }
         override func draw(_ r: NSRect) {
@@ -125,7 +126,7 @@ final class Keycaps: NSStackView {
         for segment in stringValue.components(separatedBy: "    ") where !segment.isEmpty {
             let parts = segment.split(separator: " ", maxSplits: 1).map(String.init)
             let cap = NSTextField(labelWithString: parts[0])
-            cap.font = .ui(10, weight: .medium)
+            cap.font = .ui(TextSize.micro, weight: .medium)
             cap.textColor = .secondaryLabelColor
             cap.alignment = .center
             let capBox = NSStackView(views: [cap])
@@ -136,7 +137,7 @@ final class Keycaps: NSStackView {
                 capBox.layer?.backgroundColor = NSColor.fillSelected.cgColor
             }
             let word = NSTextField(labelWithString: parts.count > 1 ? parts[1] : "")
-            word.font = .ui(11)
+            word.font = .ui(TextSize.caption)
             word.textColor = .secondaryLabelColor
             let pair = NSStackView(views: [capBox, word])
             pair.spacing = 5

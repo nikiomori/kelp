@@ -19,7 +19,7 @@ public final class IconButton: PointerButton {
         setAccessibilityLabel(tip)
         contentTintColor = .secondaryLabelColor
         symbolConfiguration = .chrome()
-        font = .uiDigits(11, weight: .medium)
+        font = .uiDigits(TextSize.caption, weight: .medium)
         self.target = target
         self.action = action
         setContentHuggingPriority(.required, for: .horizontal)

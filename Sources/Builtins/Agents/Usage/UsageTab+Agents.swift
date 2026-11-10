@@ -51,7 +51,7 @@ extension UsageReportView {
     func table(_ lines: [Line]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             columns(Text("Agent"), Text("Plan"), Text("Last \(range) days"), Text("Tokens"), Text("At API prices"))
-                .font(.ui(11)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 4)
+                .font(.ui(TextSize.caption)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 4)
             Divider()
             ForEach(lines) { row($0) }
         }
@@ -103,7 +103,9 @@ extension UsageReportView {
     }
 
     /// A figure not read yet.
-    private static var reading: some View { Text(verbatim: "0000").font(.ui(11)).redacted(reason: .placeholder) }
+    private static var reading: some View {
+        Text(verbatim: "0000").font(.ui(TextSize.caption)).redacted(reason: .placeholder)
+    }
 
     private func agentCell(_ l: Line) -> some View {
         HStack(spacing: 8) {
@@ -111,9 +113,10 @@ extension UsageReportView {
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 Text(app.catalog.name(l.id)).lineLimit(1)
                 if let models = l.usage?.models.prefix(2), !models.isEmpty {
-                    Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.ui(11)).foregroundStyle(
-                        .secondary
-                    ).lineLimit(1)
+                    Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.ui(TextSize.caption))
+                        .foregroundStyle(
+                            .secondary
+                        ).lineLimit(1)
                 }
             }
         }
@@ -144,7 +147,7 @@ extension UsageReportView {
                 }
                 Text(note).foregroundStyle(.secondary).lineLimit(1)
             }
-            .font(.ui(11))
+            .font(.ui(TextSize.caption))
             .opacity(stale ? 0.55 : 1)
             .help(
                 plan.limits.map { limit in
@@ -153,7 +156,7 @@ extension UsageReportView {
                 }
                 .joined(separator: "\n"))
         } else {
-            Text("—").font(.ui(11)).foregroundStyle(.tertiary)
+            Text("—").font(.ui(TextSize.caption)).foregroundStyle(.tertiary)
         }
     }
 
@@ -176,7 +179,7 @@ extension UsageReportView {
                     ? String(localized: "Not used in this time")
                     : String(localized: "Keeps no token counts on this Mac")
             )
-            .font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
@@ -184,7 +187,7 @@ extension UsageReportView {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
             Text(agentUsage.map { count($0.tokens) } ?? "—").monospacedDigit()
             if let agentUsage, agentUsage.cacheRead > 0 {
-                Text("\(percent(agentUsage.cacheRead, of: agentUsage.tokens)) from cache").font(.ui(11))
+                Text("\(percent(agentUsage.cacheRead, of: agentUsage.tokens)) from cache").font(.ui(TextSize.caption))
                     .foregroundStyle(.secondary)
             }
         }
@@ -194,9 +197,9 @@ extension UsageReportView {
         VStack(alignment: .trailing, spacing: Metrics.lineGap) {
             Text(agentUsage.map { money($0.cost, $0.tokens) } ?? "—").monospacedDigit()
             if let agentUsage, agentUsage.cost == 0 {
-                Text("no list price").font(.ui(11)).foregroundStyle(.secondary)
+                Text("no list price").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             } else if let agentUsage, usage?.ownPrice?.contains(agentUsage.id) == true {
-                Text("as it reports").font(.ui(11)).foregroundStyle(.secondary)
+                Text("as it reports").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
         }
     }

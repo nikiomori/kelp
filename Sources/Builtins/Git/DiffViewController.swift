@@ -113,9 +113,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             localized: "What changed since the agent's last prompt, even with other agents in the same folder")
         source.target = self
         source.action = #selector(sourceChanged)
-        status.font = .ui(11)
+        status.font = .ui(TextSize.caption)
         status.textColor = .secondaryLabelColor
-        position.font = .uiDigits(11)
+        position.font = .uiDigits(TextSize.caption)
         position.textColor = .secondaryLabelColor
         position.toolTip = String(localized: "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments")
         pathLabel.lineBreakMode = .byTruncatingHead
@@ -279,12 +279,12 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         placeFileList()
         let dir = (path as NSString).deletingLastPathComponent
         let pathText = NSMutableAttributedString(
-            string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(12, weight: .medium)])
+            string: (path as NSString).lastPathComponent, attributes: [.font: NSFont.ui(TextSize.row, weight: .medium)])
         if !dir.isEmpty {
             pathText.append(
                 NSAttributedString(
                     string: "  " + dir,
-                    attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.tertiaryLabelColor]))
+                    attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor]))
         }
         pathLabel.attributedStringValue = pathText
         buildBar()

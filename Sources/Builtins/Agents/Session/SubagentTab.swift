@@ -84,16 +84,17 @@ struct SubagentJournalView: View {
     private func header(_ journal: SessionSubagentJournal.Journal) -> some View {
         HStack(spacing: Metrics.gap) {
             Text(journal.task ?? (journal.kind.isEmpty ? String(localized: "Subagent") : journal.kind)).font(
-                .ui(12, weight: .medium)
+                .ui(TextSize.row, weight: .medium)
             )
             .lineLimit(1)
-            Text(facts(journal)).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+            Text(facts(journal)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
             if working, let run {
-                Text(run.started, style: .timer).font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                Text(run.started, style: .timer).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
+                    .secondary)
             }
             Button("Go to Agent") { app.workbench.focus(session: model.session) }.buttonStyle(PointerButtonStyle())
-                .font(.ui(11))
+                .font(.ui(TextSize.caption))
                 .lineLimit(1).fixedSize()
         }
         .padding(.horizontal, Metrics.inset)
@@ -112,14 +113,16 @@ struct SubagentJournalView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(journal.steps.enumerated()), id: \.offset) { _, step in
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
-                        Text(Self.clock(step.at.timeIntervalSince(start))).font(.ui(11).monospacedDigit())
+                        Text(Self.clock(step.at.timeIntervalSince(start))).font(.ui(TextSize.caption).monospacedDigit())
                             .foregroundStyle(
                                 .secondary
                             )
                             .frame(width: 48, alignment: .trailing)
-                        Text(step.tool).font(.ui(12)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
-                            .lineLimit(1)
-                        Text(step.detail).font(.uiMono(11)).lineLimit(1).truncationMode(.middle)
+                        Text(step.tool).font(.ui(TextSize.row)).foregroundStyle(.secondary).frame(
+                            width: 72, alignment: .leading
+                        )
+                        .lineLimit(1)
+                        Text(step.detail).font(.uiMono(TextSize.caption)).lineLimit(1).truncationMode(.middle)
                     }
                     .frame(minHeight: Metrics.row, alignment: .leading)
                 }
@@ -133,8 +136,8 @@ struct SubagentJournalView: View {
 
     private func message(_ title: String, _ text: String) -> some View {
         VStack(spacing: Metrics.gap) {
-            Text(title).font(.ui(13, weight: .semibold))
-            Text(text).font(.ui(13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text(title).font(.ui(TextSize.body, weight: .semibold))
+            Text(text).font(.ui(TextSize.body)).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -152,9 +155,10 @@ struct SubagentJournalView: View {
                 ForEach(Array(text.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
                     if paragraph.hasPrefix("#") {
                         Text(paragraph.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)).font(
-                            .ui(13, weight: .semibold))
+                            .ui(TextSize.body, weight: .semibold))
                     } else {
-                        Text(LocalizedStringKey(paragraph)).font(.ui(13)).fixedSize(horizontal: false, vertical: true)
+                        Text(LocalizedStringKey(paragraph)).font(.ui(TextSize.body)).fixedSize(
+                            horizontal: false, vertical: true)
                     }
                 }
             }

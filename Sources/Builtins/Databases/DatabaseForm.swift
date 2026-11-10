@@ -57,7 +57,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private func build(_ address: DatabaseAddress) {
         let db = address.database
         let title = NSTextField(labelWithString: editing?.name ?? preset?.name ?? engine.displayName)
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         let mark = preset?.badge(22) ?? DatabaseLook.badge(engine, size: 18)
         let heading = NSStackView(views: [NSImageView(image: mark), title])
         heading.spacing = Metrics.gapWide
@@ -106,7 +106,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         var wide: [NSView] = []
         if let hint = preset?.hint {
             let note = NSTextField(wrappingLabelWithString: hint)
-            note.font = .ui(11)
+            note.font = .ui(TextSize.caption)
             note.textColor = .secondaryLabelColor
             parts.append(note)
             wide.append(note)
@@ -145,7 +145,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         whyRow = settings.row(at: 3)
         parts.append(settings)
 
-        status.font = .ui(11)
+        status.font = .ui(TextSize.caption)
         status.textColor = .secondaryLabelColor
         let back = NSButton(title: String(localized: "Back"), target: self, action: #selector(backed))
         back.isHidden = editing != nil

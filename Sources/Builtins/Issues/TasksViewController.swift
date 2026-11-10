@@ -321,10 +321,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             case .item(let item): (item.title, "\(item.status ?? String(localized: "No status")) · \(item.type)")
             }
         let t1 = NSTextField(labelWithString: title)
-        t1.font = .ui(13, weight: .medium)
+        t1.font = .ui(TextSize.body, weight: .medium)
         t1.lineBreakMode = .byTruncatingTail
         let t2 = NSTextField(labelWithString: sub)
-        t2.font = .ui(11)
+        t2.font = .ui(TextSize.caption)
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = .byTruncatingTail
         // Give way to the stack's insets: a title that doesn't fit is cut there, not pushed out past the line under it.

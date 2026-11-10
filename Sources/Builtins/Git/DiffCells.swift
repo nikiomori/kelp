@@ -34,7 +34,7 @@ extension DiffViewController {
         return field
     }
     func band(_ string: String) -> NSTextField {
-        let field = label(string, font: .ui(11), color: .tertiaryLabelColor)
+        let field = label(string, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
         field.drawsBackground = true
         field.backgroundColor = .diffGap
         return field
@@ -187,19 +187,20 @@ extension DiffViewController {
         // The same letters and colours as Source Control and Files; a long name loses its middle, not its counts.
         let (letter, color) = changes.first { $0.path == diff.path }?.badge ?? (" ", .labelColor)
         let short = NSMutableAttributedString(
-            string: letter + "  ", attributes: [.font: NSFont.ui(10, weight: .bold), .foregroundColor: color])
+            string: letter + "  ",
+            attributes: [.font: NSFont.ui(TextSize.micro, weight: .bold), .foregroundColor: color])
         // The name, then its folder in grey, shown only when all of it fits: a cut folder ("So…") says nothing.
         let dir = (diff.path as NSString).deletingLastPathComponent
         short.append(
             NSAttributedString(
                 string: (diff.path as NSString).lastPathComponent + "  ",
-                attributes: [.font: NSFont.ui(12), .foregroundColor: NSColor.labelColor]))
+                attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.labelColor]))
         let full = NSMutableAttributedString(attributedString: short)
         if !dir.isEmpty {
             full.append(
                 NSAttributedString(
                     string: "  " + dir,
-                    attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
+                    attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
         }
         let para = NSMutableParagraphStyle()
         para.lineBreakMode = .byTruncatingMiddle
@@ -229,7 +230,7 @@ extension DiffViewController {
     func fileBand(_ path: String, added a: Int, removed d: Int) -> NSView {
         let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        let name = label(path, font: .ui(12, weight: .semibold))
+        let name = label(path, font: .ui(TextSize.row, weight: .semibold))
         name.lineBreakMode = .byTruncatingHead
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let stack = NSStackView(views: [
@@ -306,7 +307,7 @@ extension DiffViewController {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         stack.wantsLayer = true
         stack.layer?.backgroundColor = NSColor.diffHunk.cgColor
-        let where_ = label(header, font: .uiMono(11), color: .secondaryLabelColor)
+        let where_ = label(header, font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
         where_.lineBreakMode = .byTruncatingTail
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(where_)

@@ -55,11 +55,11 @@ final class CIJobPane: NSObject {
         self.app = app
         super.init()
         log.isEditable = false
-        log.font = .uiMono(11)
+        log.font = .uiMono(TextSize.caption)
         log.textContainerInset = NSSize(width: 6, height: 6)
         log.drawsBackground = false
         logScroll.drawsBackground = false
-        title.font = .ui(12, weight: .semibold)
+        title.font = .ui(TextSize.row, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         mode.controlSize = .small

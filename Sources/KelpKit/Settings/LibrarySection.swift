@@ -45,10 +45,10 @@ struct LibrarySection: View {
                 Text(
                     "Extensions people shared, each reviewed before it's added. Or any repository: kelp ext install owner/repo"
                 )
-                .font(.ui(11)).foregroundStyle(.secondary)
+                .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer()
                 if let url = URL(string: "https://github.com/\(ExtensionFiles.libraryRepo)") {
-                    Link("Share Yours on GitHub", destination: url).font(.ui(11))
+                    Link("Share Yours on GitHub", destination: url).font(.ui(TextSize.caption))
                 }
             }
         }
@@ -103,10 +103,11 @@ struct LibrarySection: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("From GitHub · not reviewed").fontWeight(.semibold)
-                Text("topic kelp-extension, fastest growing first").font(.ui(11)).foregroundStyle(.secondary)
+                Text("topic kelp-extension, fastest growing first").font(.ui(TextSize.caption)).foregroundStyle(
+                    .secondary)
             }
             Text("Nobody at Kelp has looked at these. Before installing, Kelp shows every command one runs.")
-                .font(.ui(11)).foregroundStyle(Color.textOrange)
+                .font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
             ForEach(found, id: \.id) { row($0) }
         }
         .padding(.top, 8)
@@ -121,19 +122,20 @@ struct LibrarySection: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.name).fontWeight(.medium)
-                    Text(entry.version).font(.ui(11)).foregroundStyle(.secondary)
+                    Text(entry.version).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                     if let stars = entry.stars {
                         Text("★ \(stars)" + (entry.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(
-                            .ui(11).monospacedDigit()
+                            .ui(TextSize.caption).monospacedDigit()
                         )
                         .foregroundStyle(.secondary)
                     }
                 }
                 if let summary = entry.description, !summary.isEmpty {
-                    Text(summary).font(.ui(11)).foregroundStyle(.secondary)
+                    Text(summary).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 }
                 if let tool = missing[entry.id] {
-                    Text("Needs `\(tool)` — not found on this Mac.").font(.ui(11)).foregroundStyle(.secondary)
+                    Text("Needs `\(tool)` — not found on this Mac.").font(.ui(TextSize.caption)).foregroundStyle(
+                        .secondary)
                 }
             }
             Spacer()
@@ -145,7 +147,7 @@ struct LibrarySection: View {
                 // found by its topic: its branch may have moved
                 Button(entry.reviewed == false ? "Update…" : "Update") { install(entry) }
             } else {
-                Text("Already installed").font(.ui(11)).foregroundStyle(.secondary)
+                Text("Already installed").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 2)

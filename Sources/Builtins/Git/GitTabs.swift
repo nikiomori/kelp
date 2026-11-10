@@ -150,7 +150,7 @@ final class CommitMessageTab: TabContent {
         scroll.documentView = text
         scroll.hasVerticalScroller = true
         let hint = NSTextField(labelWithString: String(localized: "Lines starting with # are left out. ⌘↩ commits."))
-        hint.font = .ui(11)
+        hint.font = .ui(TextSize.caption)
         hint.textColor = .secondaryLabelColor
         hint.lineBreakMode = .byTruncatingTail
         hint.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

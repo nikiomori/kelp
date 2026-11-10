@@ -116,7 +116,7 @@ struct UsageView: View {
                         Bar(used: main.used, pace: pace ? main.pace() : nil)
                     }
                 }
-                .font(.ui(11))
+                .font(.ui(TextSize.caption))
                 .opacity(row.stale ? 0.45 : 1)
                 // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)

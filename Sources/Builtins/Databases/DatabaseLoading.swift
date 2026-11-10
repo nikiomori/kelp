@@ -14,9 +14,9 @@ final class DatabaseLoading: NSView {
         wheel.style = .spinning
         wheel.controlSize = .regular
         wheel.isDisplayedWhenStopped = false
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         title.textColor = .secondaryLabelColor
-        detail.font = .ui(11)
+        detail.font = .ui(TextSize.caption)
         detail.textColor = .tertiaryLabelColor
         detail.alignment = .center
         detail.preferredMaxLayoutWidth = 360

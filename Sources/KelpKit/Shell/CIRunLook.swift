@@ -65,7 +65,7 @@ final class CIMark: NSView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         agentLike.announces = false   // its words are an agent's; the chip or badge says the CI's
-        word.font = .ui(11, weight: .semibold)
+        word.font = .ui(TextSize.caption, weight: .semibold)
         word.textColor = .textRed
         for part in [agentLike, word] as [NSView] {
             part.translatesAutoresizingMaskIntoConstraints = false

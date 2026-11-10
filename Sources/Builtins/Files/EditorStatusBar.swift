@@ -41,7 +41,7 @@ final class EditorStatusBar: NSView {
 
     init(url: URL, text: String) {
         super.init(frame: .zero)
-        indentButton.font = .ui(11)
+        indentButton.font = .ui(TextSize.caption)
         indentButton.padding = Metrics.gap
         indentButton.onClick = { [weak self] in
             guard let self, let button = Optional(indentButton), let menu = indentMenu?() else { return }
@@ -51,29 +51,29 @@ final class EditorStatusBar: NSView {
             labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription
                 ?? url.pathExtension.uppercased())
         for label in [kind, place] {
-            label.font = .ui(11)
+            label.font = .ui(TextSize.caption)
             label.textColor = .secondaryLabelColor
             label.lineBreakMode = .byTruncatingTail
         }
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wrap.title = String(localized: "Wrap")
-        wrap.font = .ui(11)
+        wrap.font = .ui(TextSize.caption)
         wrap.padding = Metrics.gap
         wrap.isHidden = true
         wrap.toolTip = String(localized: "Long lines wrap (⌥Z)")
         restricted.title = String(localized: "Restricted")
-        restricted.font = .ui(11)
+        restricted.font = .ui(TextSize.caption)
         restricted.padding = Metrics.gap
         restricted.contentTintColor = .textOrange
         restricted.isHidden = true
         restricted.toolTip = String(
             localized: "Language servers and formatters don't run in this project until you trust it")
         restricted.onClick = { [weak self] in self?.offerTrust() }
-        problems.font = .ui(11)
+        problems.font = .ui(TextSize.caption)
         problems.padding = Metrics.gap
         problems.isHidden = true
         problems.toolTip = String(localized: "Show Problems")
-        problem.font = .ui(11)
+        problem.font = .ui(TextSize.caption)
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
@@ -103,7 +103,7 @@ final class EditorStatusBar: NSView {
     /// A Markdown file's Edit, Split, Preview, last in the bar.
     func show(modes: NSControl) {
         modes.controlSize = .mini
-        modes.font = .ui(11)   // the bar's own size, as "Markdown" beside it
+        modes.font = .ui(TextSize.caption)   // the bar's own size, as "Markdown" beside it
         row.addArrangedSubview(modes)
     }
 

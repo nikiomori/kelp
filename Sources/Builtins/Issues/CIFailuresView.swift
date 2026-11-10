@@ -69,7 +69,7 @@ final class CIFailuresView: NSView {
 
     fileprivate static func caption(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text)
-        label.font = .ui(11)
+        label.font = .ui(TextSize.caption)
         label.textColor = .secondaryLabelColor
         label.lineBreakMode = .byTruncatingMiddle
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -78,7 +78,7 @@ final class CIFailuresView: NSView {
 
     fileprivate static func mono(_ text: String, color: NSColor) -> NSTextField {
         let label = NSTextField(wrappingLabelWithString: text)
-        label.font = .uiMono(11)
+        label.font = .uiMono(TextSize.caption)
         label.textColor = color
         label.isSelectable = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -101,7 +101,7 @@ private final class FailureRow: PointerControl {
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.radiusSM
         let name = NSTextField(labelWithString: failure.test ?? failure.place ?? "")
-        name.font = .ui(12, weight: .medium)
+        name.font = .ui(TextSize.row, weight: .medium)
         name.lineBreakMode = .byTruncatingTail
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let head = NSStackView(views: [CIRunLook.mark("completed", "failure"), name])

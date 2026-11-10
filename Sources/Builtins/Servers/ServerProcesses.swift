@@ -44,7 +44,7 @@ struct ServerProcesses: View {
                 }
             }
             Text("The \(stats.processes?.count ?? 0) busiest of \(stats.processCount ?? 0). htop shows the rest.")
-                .font(.ui(11)).foregroundStyle(.secondary)
+                .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
         }
     }
 
@@ -87,7 +87,8 @@ struct ProcessRow: View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 Text(process.command).lineLimit(1)
-                Text(verbatim: "\(process.pid)").font(.ui(11).monospacedDigit()).foregroundStyle(.tertiary)
+                Text(verbatim: "\(process.pid)").font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
+                    .tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             agent.frame(width: Self.kelp, alignment: .leading)
@@ -97,7 +98,7 @@ struct ProcessRow: View {
             Text(serverDuration(Double(process.seconds))).foregroundStyle(.secondary).frame(
                 width: Self.number, alignment: .trailing)
         }
-        .font(.ui(12).monospacedDigit())
+        .font(.ui(TextSize.row).monospacedDigit())
         .padding(.horizontal, 8)
         .frame(height: Metrics.row)
         .background(

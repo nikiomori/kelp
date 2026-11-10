@@ -79,9 +79,9 @@ final class ParkedHeader: NSView {
     init(count: Int) {
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: String(localized: "Parked"))
-        title.font = .ui(11, weight: .semibold)
+        title.font = .ui(TextSize.caption, weight: .semibold)
         let number = NSTextField(labelWithString: "\(count)")
-        number.font = .uiDigits(11)
+        number.font = .uiDigits(TextSize.caption)
         number.textColor = .secondaryLabelColor
         let row = NSStackView(views: [title, number])
         row.spacing = Metrics.gap

@@ -41,26 +41,26 @@ final class ArtifactBar: NSObject {
     private var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
-        kind.font = .ui(12, weight: .medium)
+        kind.font = .ui(TextSize.row, weight: .medium)
         kind.textColor = .labelColor   // what this is: not a path, so not quiet like one
         status.textColor = .secondaryLabelColor
         for field in [kind, status] { field.lineBreakMode = .byTruncatingTail }
-        status.font = .ui(12)
+        status.font = .ui(TextSize.row)
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ring.style = .spinning
         ring.controlSize = .small
-        count.font = .uiDigits(12)
+        count.font = .uiDigits(TextSize.row)
         count.padding = Metrics.gap
         count.onClick = { [weak self] in self?.showVersions() }
         for (button, title) in [(latest, String(localized: "Show Latest")), (restore, String(localized: "Restore"))] {
             button.title = title
-            button.font = .ui(12)
+            button.font = .ui(TextSize.row)
             button.padding = Metrics.gap
             button.restFill = .fillRest
         }
         latest.onClick = { [weak self] in self?.show(nil) }
         restore.onClick = { [weak self] in self?.restoreShown() }
-        author.font = .ui(12)
+        author.font = .ui(TextSize.row)
         author.padding = Metrics.gap
         author.restFill = .fillRest
         author.imagePosition = .imageLeading
@@ -247,7 +247,7 @@ final class ArtifactBar: NSObject {
         text.append(
             NSAttributedString(
                 string: "\n" + detail,
-                attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
+                attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
         return text
     }
 }

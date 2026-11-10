@@ -28,7 +28,7 @@ extension DiffViewController {
             checkboxWithTitle: String(localized: "Viewed"), target: self, action: #selector(toggleViewed(_:)))
         box.tag = row
         box.controlSize = .small
-        box.font = .ui(11)
+        box.font = .ui(TextSize.caption)
         box.setContentHuggingPriority(.required, for: .horizontal)   // the path takes the room, not the box
         box.state = viewed.has(diffs[row]) ? .on : .off
         return box

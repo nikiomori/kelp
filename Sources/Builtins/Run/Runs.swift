@@ -272,7 +272,7 @@ final class Runs: NSObject, NSMenuDelegate {
             text.string = lines.joined(separator: "\n")
             text.isEditable = false
             text.drawsBackground = false
-            text.font = .uiMono(11)
+            text.font = .uiMono(TextSize.caption)
         }
         return scroll
     }

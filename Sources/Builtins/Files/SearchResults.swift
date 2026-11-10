@@ -40,10 +40,10 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let match = matches[row]
         let top = NSTextField(labelWithString: "\(match.path):\(match.line)")
-        top.font = .uiDigits(11)
+        top.font = .uiDigits(TextSize.caption)
         top.textColor = .secondaryLabelColor
         let txt = NSTextField(labelWithString: match.text)
-        txt.font = .uiMono(11)
+        txt.font = .uiMono(TextSize.caption)
         txt.lineBreakMode = .byTruncatingTail
         let stack = NSStackView(views: [top, txt])
         stack.orientation = .vertical

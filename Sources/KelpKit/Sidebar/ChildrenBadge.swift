@@ -18,7 +18,7 @@ final class ChildrenBadge: PointerControl {
 
     init() {
         super.init(frame: .zero)
-        count.font = .uiDigits(11, weight: .medium)
+        count.font = .uiDigits(TextSize.caption, weight: .medium)
         count.textColor = .secondaryLabelColor
         let row = NSStackView(views: [pips, count])
         row.spacing = 3

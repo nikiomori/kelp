@@ -114,7 +114,7 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             leftOut > 0
             ? String(localized: "\(leftOut) files with unsaved edits or nothing to change are left out.") : ""
         let note = NSTextField(wrappingLabelWithString: left)
-        note.font = .ui(11)
+        note.font = .ui(TextSize.caption)
         note.textColor = .secondaryLabelColor
         let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
         cancel.keyEquivalent = "\u{1b}"
@@ -150,14 +150,14 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             box.state =
                 files[fileIndex].chosen.isEmpty
                 ? .off : files[fileIndex].chosen.count == files[fileIndex].matches.count ? .on : .mixed
-            box.font = .ui(12, weight: .semibold)
+            box.font = .ui(TextSize.row, weight: .semibold)
             return box
         }
         let match = files[fileIndex].matches[matchIndex]
         box.state = files[fileIndex].chosen.contains(matchIndex) ? .on : .off
         func line(_ sign: String, _ text: String, _ color: NSColor) -> NSTextField {
             let label = NSTextField(labelWithString: sign + text)
-            label.font = .uiMono(11)
+            label.font = .uiMono(TextSize.caption)
             label.textColor = color
             label.lineBreakMode = .byTruncatingTail
             return label

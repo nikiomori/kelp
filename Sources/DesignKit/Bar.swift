@@ -91,6 +91,6 @@ public final class Bar: NSView {
             ObjectIdentifier(type(of: view)))
         guard push || plain, let control = view as? NSControl else { return }
         control.controlSize = .small
-        control.font = .ui(11)
+        control.font = .ui(TextSize.caption)
     }
 }

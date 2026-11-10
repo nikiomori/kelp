@@ -86,8 +86,11 @@ struct SwitcherRow {
     /// "Kelp · main · +3 −1": the name, then where it is and what's changed, quieter.
     private static func name(_ title: String, place: [String], badges: [NSAttributedString]) -> NSAttributedString {
         let text = NSMutableAttributedString(
-            string: title, attributes: [.font: NSFont.ui(13, weight: .medium), .foregroundColor: NSColor.labelColor])
-        let quiet: [NSAttributedString.Key: Any] = [.font: NSFont.ui(12), .foregroundColor: NSColor.secondaryLabelColor]
+            string: title,
+            attributes: [.font: NSFont.ui(TextSize.body, weight: .medium), .foregroundColor: NSColor.labelColor])
+        let quiet: [NSAttributedString.Key: Any] = [
+            .font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor
+        ]
         for part in place { text.append(NSAttributedString(string: " · " + part, attributes: quiet)) }
         for badge in badges {
             text.append(NSAttributedString(string: " · ", attributes: quiet))
@@ -100,7 +103,7 @@ struct SwitcherRow {
     private static func detail(prefix: (String, NSColor)?, _ said: String, badges: [NSAttributedString])
         -> NSAttributedString
     {
-        let font = NSFont.ui(11)
+        let font = NSFont.ui(TextSize.caption)
         let text = NSMutableAttributedString()
         if let (word, color) = prefix {
             text.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: color]))
@@ -157,7 +160,8 @@ struct SwitcherRow {
 
     private static func quiet(_ text: String) -> NSAttributedString {
         NSAttributedString(
-            string: text, attributes: [.font: NSFont.uiDigits(11), .foregroundColor: NSColor.tertiaryLabelColor])
+            string: text,
+            attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor])
     }
 
     private static func label(_ text: NSAttributedString) -> NSTextField {
@@ -221,7 +225,7 @@ final class SwitcherCard: NSVisualEffectView {
         column.spacing = 0
         if let hint {
             let keys = NSTextField(labelWithString: hint)
-            keys.font = .ui(11)
+            keys.font = .ui(TextSize.caption)
             keys.textColor = .tertiaryLabelColor
             column.addArrangedSubview(keys)
             column.edgeInsets.bottom = Metrics.gapWide

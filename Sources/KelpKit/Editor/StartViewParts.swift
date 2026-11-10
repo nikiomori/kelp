@@ -121,17 +121,17 @@ final class StartRow: PointerControl {
         icon.symbolConfiguration = .chrome(Metrics.iconLarge)
         icon.contentTintColor = .secondaryLabelColor   // symbols only; real icons keep their colors
         let label = NSTextField(labelWithString: title)
-        label.font = .ui(13)
+        label.font = .ui(TextSize.body)
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let more = NSTextField(labelWithString: detail ?? "")
         more.textColor = .secondaryLabelColor
-        more.font = .ui(12)
+        more.font = .ui(TextSize.row)
         more.lineBreakMode = .byTruncatingTail
         more.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // the name wins
         let key = NSTextField(labelWithString: shortcut ?? "")
         key.textColor = .secondaryLabelColor
-        key.font = .ui(12)
+        key.font = .ui(TextSize.row)
         let row = NSStackView(views: [icon, label, NSView(), more, key])
         row.spacing = 10
         row.detachesHiddenViews = true

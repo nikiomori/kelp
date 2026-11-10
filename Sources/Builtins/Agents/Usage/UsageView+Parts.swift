@@ -43,7 +43,7 @@ extension UsageView {
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(row.fullName).font(.ui(13, weight: .semibold))
+                    Text(row.fullName).font(.ui(TextSize.body, weight: .semibold))
                     if let at = row.readAt {
                         Text(
                             row.stale
@@ -51,7 +51,7 @@ extension UsageView {
                                 : Date().timeIntervalSince(at) < 60
                                     ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago")
                         )
-                        .font(.ui(11)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
+                        .font(.ui(TextSize.caption)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -74,29 +74,30 @@ extension UsageView {
                                     Text("Even pace \(UsageView.percent(even))").fixedSize().monospacedDigit()
                                 }
                             }
-                            .font(.ui(11)).foregroundStyle(.secondary)
+                            .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         }
                         if !row.stale,
                             let eta = forecast.warning(
                                 LimitForecast.key(row.id, line.kind), resetAt: line.resetAt, window: line.window)
                         {
                             Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(
-                                .ui(11)
+                                .ui(TextSize.caption)
                             ).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else if !row.stale,
                             LimitForecast.unusedNearReset(
                                 percent: line.used * 100, resetAt: line.resetAt, window: line.window)
                         {
-                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(11)).foregroundStyle(
-                                .secondary
-                            )
-                            .fixedSize(horizontal: false, vertical: true)
+                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(TextSize.caption))
+                                .foregroundStyle(
+                                    .secondary
+                                )
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
             }
-            .font(.ui(12))
+            .font(.ui(TextSize.row))
             .frame(width: 276, alignment: .leading)   // 300 with its padding, as the design's popovers are
             .padding(12)
         }

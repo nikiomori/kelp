@@ -47,7 +47,8 @@ struct ExtensionsSettings: View {
             Text("Built-in")
         } footer: {
             let always = registry.extensions.filter(\.essential).map { loc($0.name) }.joined(separator: ", ")
-            Text("Turn off what you don't use. Always on: \(always).").font(.ui(11)).foregroundStyle(.secondary)
+            Text("Turn off what you don't use. Always on: \(always).").font(.ui(TextSize.caption)).foregroundStyle(
+                .secondary)
         }
         let added = registry.extensions.filter { !$0.builtin }
         if !added.isEmpty {
@@ -61,7 +62,7 @@ struct ExtensionsSettings: View {
                 )
                     + String(localized: "It knows how through the extensions skill (Settings › Agents).")
             )
-            .font(.ui(11)).foregroundStyle(.secondary)
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             HStack {
                 Button("How Extensions Work") {
                     app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md"))

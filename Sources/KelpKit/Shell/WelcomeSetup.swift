@@ -52,7 +52,7 @@ struct WelcomeSetup: View {
     private func choice<Content: View>(_ title: LocalizedStringKey, @ViewBuilder _ content: () -> Content) -> some View
     {
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
-            Text(title).font(.ui(13, weight: .semibold))
+            Text(title).font(.ui(TextSize.body, weight: .semibold))
             content()
         }
     }

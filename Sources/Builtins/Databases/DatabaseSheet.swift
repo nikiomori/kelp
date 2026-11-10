@@ -69,7 +69,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     func showStart() {
         pane = nil
         let title = NSTextField(labelWithString: String(localized: "Add Database"))
-        title.font = .ui(13, weight: .semibold)
+        title.font = .ui(TextSize.body, weight: .semibold)
         let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? String(localized: "this project")
         let lead = Self.small(
             String(localized: "Databases in \(project)’s files are listed already. Add any other here."))
@@ -78,10 +78,10 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         heading.alignment = .centerY
 
         field.placeholderString = String(localized: "Search, or paste a connection URL or a file’s path")
-        field.font = .ui(13)
+        field.font = .ui(TextSize.body)
         field.delegate = self
         field.controlSize = .large
-        understood.font = .ui(11)
+        understood.font = .ui(TextSize.caption)
         understood.isHidden = true
 
         tiles.orientation = .vertical
@@ -94,7 +94,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             if let url = URL(string: "https://github.com/nikiomori/kelp/issues/new") { PreviewLinks.openOutside(url) }
         }
         later.isBordered = false
-        later.font = .ui(11)
+        later.font = .ui(TextSize.caption)
         later.contentTintColor = .tertiaryLabelColor
 
         found.orientation = .vertical
@@ -104,7 +104,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         let file = NSButton(title: String(localized: "Import from File…"), target: self, action: #selector(importFile))
         file.isBordered = false
         file.contentTintColor = .linkColor
-        file.font = .ui(12)
+        file.font = .ui(TextSize.row)
         let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
         cancel.keyEquivalent = "\u{1b}"
         next.title = String(localized: "Continue")
@@ -198,11 +198,11 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                 : String(localized: "No password in it: the next step asks.")
         let text = NSMutableAttributedString(
             string: "\(db.engine.displayName) · \(db.database ?? db.name)\n",
-            attributes: [.font: NSFont.ui(12, weight: .semibold), .foregroundColor: NSColor.labelColor])
+            attributes: [.font: NSFont.ui(TextSize.row, weight: .semibold), .foregroundColor: NSColor.labelColor])
         text.append(
             NSAttributedString(
                 string: place + ssl + (key.isEmpty ? "" : "\n" + key),
-                attributes: [.font: NSFont.ui(11), .foregroundColor: NSColor.secondaryLabelColor]))
+                attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
         return text
     }
 
@@ -278,14 +278,14 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     static func section(_ title: String) -> NSTextField {
         let label = NSTextField(labelWithString: title.uppercased())
-        label.font = .ui(11, weight: .semibold)
+        label.font = .ui(TextSize.caption, weight: .semibold)
         label.textColor = .tertiaryLabelColor
         return label
     }
 
     static func small(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text)
-        label.font = .ui(11)
+        label.font = .ui(TextSize.caption)
         label.textColor = .secondaryLabelColor
         return label
     }
@@ -316,7 +316,7 @@ final class FoundRow: NSView {
         image.widthAnchor.constraint(equalToConstant: side).isActive = true
         image.heightAnchor.constraint(equalToConstant: side).isActive = true
         let name = NSTextField(labelWithString: title)
-        name.font = .ui(13)
+        name.font = .ui(TextSize.body)
         let under = DatabaseSheet.small(detail)
         under.lineBreakMode = .byTruncatingTail
         let end: NSView

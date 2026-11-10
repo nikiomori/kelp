@@ -73,8 +73,8 @@ final class LimitStrip: NSView {
         let mark = NSImageView(image: .symbol("clock", String(localized: "Stopped at its limit")))
         mark.symbolConfiguration = .chrome(Metrics.segmentPoint)
         mark.contentTintColor = .textOrange
-        title.font = .ui(13, weight: .semibold)
-        detail.font = .ui(11)
+        title.font = .ui(TextSize.body, weight: .semibold)
+        detail.font = .ui(TextSize.caption)
         detail.textColor = .secondaryLabelColor
         for l in [title, detail] {
             l.lineBreakMode = .byTruncatingTail

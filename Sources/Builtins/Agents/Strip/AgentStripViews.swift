@@ -176,14 +176,15 @@ final class StripButton: PointerControl {
         func text(_ s: String, _ font: NSFont, _ color: NSColor) -> NSAttributedString {
             NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
         }
-        let title = NSMutableAttributedString(attributedString: text(item.name, .ui(12, weight: .medium), .labelColor))
+        let title = NSMutableAttributedString(
+            attributedString: text(item.name, .ui(TextSize.row, weight: .medium), .labelColor))
         let color: NSColor =
             switch item.cell {
             case .asks: .textOrange
             case .failed: .textRed
             case .working, .done: .secondaryLabelColor
             }
-        title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(12), color))
+        title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(TextSize.row), color))
         return title
     }
 
@@ -226,8 +227,8 @@ final class StripTip {
     static let listed = 5
     private let name = NSTextField(labelWithString: ""), agents = NSTextField(labelWithString: "")
     private lazy var panel: StripPanel = {
-        name.font = .ui(12, weight: .medium)
-        agents.font = .ui(11)
+        name.font = .ui(TextSize.row, weight: .medium)
+        agents.font = .ui(TextSize.caption)
         agents.textColor = .secondaryLabelColor
         for f in [name, agents] {
             f.lineBreakMode = .byTruncatingTail

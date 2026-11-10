@@ -99,7 +99,7 @@ final class SidebarCell: NSTableCellView {
         app = owner.app
         super.init(frame: .zero)
         title.lineBreakMode = .byTruncatingTail
-        trailing.font = .uiDigits(11, weight: .regular)
+        trailing.font = .uiDigits(TextSize.caption, weight: .regular)
         trailing.textColor = .secondaryLabelColor
         // Not the cell's textField: the source list would restyle it, a project's as a grey group heading and a picked
         // row's in bold, which here means "something new". Type-select reads the name from the controller instead.
@@ -107,9 +107,9 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id):
             // A name, not a section label: what's under it is the project's. On the right only what needs doing.
-            title.font = .ui(13, weight: .semibold)
+            title.font = .ui(TextSize.body, weight: .semibold)
             title.textColor = .labelColor
-            trailing.font = .ui(11, weight: .semibold)
+            trailing.font = .ui(TextSize.caption, weight: .semibold)
             trailing.textColor = .textOrange
             let button = Self.newChatButton { [weak owner] in owner?.newChat(id) }
             add = button   // on hover, like Finder's sidebar
@@ -120,7 +120,7 @@ final class SidebarCell: NSTableCellView {
             slot.wantsLayer = true
             glow.frame = CGRect(x: 0, y: 0, width: 16, height: 16)
             slot.layer?.insertSublayer(glow, at: 0)
-            detail.font = .ui(12)
+            detail.font = .ui(TextSize.row)
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingTail
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
@@ -129,12 +129,12 @@ final class SidebarCell: NSTableCellView {
             detail.isHidden = true
         case .workspace:
             // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
-            title.font = .ui(13, weight: .medium)
+            title.font = .ui(TextSize.body, weight: .medium)
             styleBranch()
             fillSlot(icon)
             layout(row: [slot, title, detail, muted, stack, changes, pr, ci, trailing])
         case .agent:
-            title.font = .ui(13)
+            title.font = .ui(TextSize.body)
             glyph.imageScaling = .scaleProportionallyUpOrDown
             NSLayoutConstraint.activate([
                 glyph.widthAnchor.constraint(equalToConstant: 12), glyph.heightAnchor.constraint(equalToConstant: 12)
@@ -229,7 +229,7 @@ final class SidebarCell: NSTableCellView {
             // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
             let busy =
                 !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
-            title.font = .ui(13, weight: busy ? .medium : .regular)
+            title.font = .ui(TextSize.body, weight: busy ? .medium : .regular)
             // Over workspace headings it stays the parent: primary, never greyer than the rows under it.
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip =
@@ -273,7 +273,7 @@ final class SidebarCell: NSTableCellView {
             guard let session = app.session(sid) else { return }
             showIcon(session)
             title.stringValue = app.catalog.displayName(session)
-            title.font = .ui(13, weight: Self.isNews(session) ? .semibold : .regular)
+            title.font = .ui(TextSize.body, weight: Self.isNews(session) ? .semibold : .regular)
             mark.status = Self.shownStatus(session)
             mark.unread = session.unread
             mark.limited = session.limitHit != nil
@@ -341,7 +341,7 @@ extension SidebarCell {
     fileprivate func styleBranch() {
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
-        detail.font = .ui(11)
+        detail.font = .ui(TextSize.caption)
         detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
         detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)
@@ -352,7 +352,7 @@ extension SidebarCell {
 extension SidebarCell {
     /// The second line, under the name: what an agent asks.
     private func addAsk() {
-        ask.font = .ui(11)
+        ask.font = .ui(TextSize.caption)
         ask.lineBreakMode = .byTruncatingTail
         ask.usesSingleLineMode = true
         ask.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -379,7 +379,7 @@ extension SidebarCell {
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
-        let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(11)
+        let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(TextSize.caption)
         let styled = NSMutableAttributedString()
         // On the pill too: the text shades hold 4.5:1 on it (light 5.5, dark 4.9), and the row it marks is the one you're on.
         if let (word, color) = line.prefix {

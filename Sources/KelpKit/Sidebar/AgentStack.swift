@@ -18,7 +18,7 @@ final class AgentStack: NSView {
 
     init() {
         super.init(frame: .zero)
-        more.font = .uiDigits(11, weight: .medium)
+        more.font = .uiDigits(TextSize.caption, weight: .medium)
         more.textColor = .secondaryLabelColor
         addSubview(more)
         setAccessibilityElement(true)

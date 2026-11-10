@@ -12,7 +12,7 @@ public final class LoadingView: NSView {
         super.init(frame: .zero)
         spinner.style = .spinning
         spinner.controlSize = .small
-        line.font = .ui(13)
+        line.font = .ui(TextSize.body)
         line.textColor = .secondaryLabelColor
         let stack = NSStackView(views: [spinner, line])
         stack.spacing = Metrics.gap
@@ -49,7 +49,7 @@ public struct LoadingLine: View {
     public var body: some View {
         HStack(spacing: Metrics.gap) {
             ProgressView().controlSize(.small)
-            Text(text).font(.ui(13)).foregroundStyle(.secondary)
+            Text(text).font(.ui(TextSize.body)).foregroundStyle(.secondary)
         }
     }
 }

@@ -27,7 +27,9 @@ struct AgentWork: View {
                         Button {
                             everyone = true
                         } label: {
-                            Text("\(rows.count - Self.atOnce) more").font(.ui(11)).foregroundStyle(.secondary).frame(
+                            Text("\(rows.count - Self.atOnce) more").font(.ui(TextSize.caption)).foregroundStyle(
+                                .secondary
+                            ).frame(
                                 maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
@@ -41,7 +43,7 @@ struct AgentWork: View {
     private func heading(finished: Int, of total: Int) -> some View {
         HStack(spacing: 6) {
             Text("At work").sectionTitle()
-            if finished > 0 { Text("\(finished) of \(total) finished").font(.ui(11).monospacedDigit()) }
+            if finished > 0 { Text("\(finished) of \(total) finished").font(.ui(TextSize.caption).monospacedDigit()) }
         }
         .foregroundStyle(.secondary)
     }
@@ -147,20 +149,21 @@ struct AgentWorkRow: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 6) {
                 mark.frame(width: 12, height: 12)
-                Text(row.title).font(row.code && row.mark == .command ? .uiMono(11) : .ui(12)).lineLimit(1)
+                Text(row.title).font(row.code && row.mark == .command ? .uiMono(TextSize.caption) : .ui(TextSize.row))
+                    .lineLimit(1)
                     .truncationMode(.tail)
                 if let kind = row.kind {
-                    Text(kind).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
+                    Text(kind).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
                 }
                 Spacer(minLength: 8)
                 if let angle = row.chevron {
                     Image(systemName: "chevron.right").font(.symbol(Metrics.iconTiny)).foregroundStyle(.secondary)
                         .rotationEffect(.degrees(angle))
                 }
-                time.font(.ui(11).monospacedDigit()).foregroundStyle(.secondary)
+                time.font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
             if let detail = row.detail {
-                Text(detail).font(row.code ? .uiMono(11) : .ui(11)).foregroundStyle(
+                Text(detail).font(row.code ? .uiMono(TextSize.caption) : .ui(TextSize.caption)).foregroundStyle(
                     row.warns ? Color.textOrange : .secondary
                 )
                 .lineLimit(1).truncationMode(.middle).padding(.leading, 18)

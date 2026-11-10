@@ -83,7 +83,7 @@ extension CodeEditor {
 
     private func showSignature(_ label: String, active: NSRange?, at location: Int) {
         let text = NSMutableAttributedString(
-            string: label, attributes: [.font: NSFont.uiMono(12), .foregroundColor: NSColor.labelColor])
+            string: label, attributes: [.font: NSFont.uiMono(TextSize.row), .foregroundColor: NSColor.labelColor])
         if let active, NSMaxRange(active) <= text.length {
             text.addAttribute(
                 .font, value: NSFont.monospacedSystemFont(ofSize: TextSize.of(12), weight: .bold), range: active)
@@ -107,7 +107,7 @@ extension CodeEditor {
 @MainActor
 enum HoverText {
     static func attributed(_ markdown: String) -> NSAttributedString {
-        let out = NSMutableAttributedString(), body = NSFont.ui(12), code = NSFont.uiMono(12)
+        let out = NSMutableAttributedString(), body = NSFont.ui(TextSize.row), code = NSFont.uiMono(TextSize.row)
         var fenced = false
         for line in markdown.components(separatedBy: "\n") {
             if line.hasPrefix("```") {

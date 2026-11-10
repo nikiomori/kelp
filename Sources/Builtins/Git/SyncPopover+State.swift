@@ -72,7 +72,7 @@ extension SyncPopover {
         primary.isHidden = !possible || ops.isEmpty
         let text = running ?? title
         primary.title = text
-        primary.font = .ui(13, weight: .semibold)
+        primary.font = .ui(TextSize.body, weight: .semibold)
         primary.isEnabled = running == nil
     }
 

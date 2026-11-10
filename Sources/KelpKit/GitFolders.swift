@@ -96,7 +96,7 @@ package final class GitFolders {
         return changes(added: stats.totalAdded, removed: stats.totalRemoved, compact: compact)
     }
     package static func changes(added: Int, removed: Int, compact: Bool = false) -> NSAttributedString {
-        let result = NSMutableAttributedString(), font = NSFont.uiDigits(11, weight: .regular)
+        let result = NSMutableAttributedString(), font = NSFont.uiDigits(TextSize.caption, weight: .regular)
         func short(_ lines: Int) -> String {
             guard compact, lines >= 10_000 else { return "\(lines)" }
             let thousands = (Double(lines) / 100).rounded() / 10

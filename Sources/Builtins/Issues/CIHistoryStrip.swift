@@ -15,7 +15,7 @@ final class CIHistoryStrip: NSView {
     init() {
         super.init(frame: .zero)
         marks.spacing = Metrics.lineGap
-        words.font = .uiDigits(11)
+        words.font = .uiDigits(TextSize.caption)
         words.textColor = .secondaryLabelColor
         words.lineBreakMode = .byTruncatingTail
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

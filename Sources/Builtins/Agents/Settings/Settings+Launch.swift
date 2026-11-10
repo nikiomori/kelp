@@ -30,14 +30,16 @@ extension AgentsSettings {
     func status(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).fontWeight(.medium)
-            Text(detail).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(detail).font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
         }
     }
 
     /// A command as it runs, to read or copy.
     func commandLine(_ cmd: String) -> some View {
         HStack(alignment: .top) {
-            Text(cmd).font(.uiMono(11)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            Text(cmd).font(.uiMono(TextSize.caption)).textSelection(.enabled).fixedSize(
+                horizontal: false, vertical: true)
             Spacer()
             Button {
                 copyText(cmd)
@@ -102,7 +104,7 @@ extension AgentsSettings {
             Text(
                 "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent."
             )
-            .font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 

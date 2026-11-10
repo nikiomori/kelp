@@ -65,7 +65,7 @@ struct PictureTile<Art: View>: View {
                 art.frame(height: Self.height)
                     .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
                     .cardEdge(selected: on)
-                Text(name).font(.ui(11)).fontWeight(on ? .semibold : .regular).foregroundStyle(
+                Text(name).font(.ui(TextSize.caption)).fontWeight(on ? .semibold : .regular).foregroundStyle(
                     on ? .primary : .secondary
                 ).lineLimit(1)
             }
@@ -83,7 +83,8 @@ struct TileHeading<Title: View>: View {
         VStack(alignment: .leading, spacing: Metrics.lineGap) {
             title
             if let about {
-                Text(about).font(.ui(11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(about).font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
             }
         }
     }

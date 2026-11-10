@@ -54,8 +54,9 @@ struct ServerView: View {
 
     private var header: some View {
         ContentBar {
-            Text(host).font(.ui(13, weight: .semibold))
-            Text(serverLine(stats)).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            Text(host).font(.ui(TextSize.body, weight: .semibold))
+            Text(serverLine(stats)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1).truncationMode(
+                .middle)
             Spacer(minLength: 8)
             Button(String(localized: "Terminal")) { ServerActions.runOnServer(app, host) }
             Button("htop") { ServerActions.openHtop(app, host) }
@@ -90,7 +91,8 @@ struct ServerView: View {
                         ? String(localized: "Kelp connects when you ask: it doesn't dial a machine by itself.")
                         : String(localized: "Check that the machine is on and on this network, then try again."))
                 if let error {
-                    Text(error).font(.ui(11).monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text(error).font(.ui(TextSize.caption).monospaced()).foregroundStyle(.secondary).textSelection(
+                        .enabled)
                 }
             }
         } actions: {

@@ -77,11 +77,11 @@ final class CIRunMeta: NSView {
         who.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let time = NSTextField(labelWithString: run.timeWords(usual: usual) ?? "")
         if !run.finished { clock.follow(time) { run.timeWords(usual: usual) } }
-        time.font = .uiDigits(11)
+        time.font = .uiDigits(TextSize.caption)
         time.textColor = .labelColor
         // A run still going has no "when" yet: its time is now.
         let ago = NSTextField(labelWithString: run.finished ? CIRunLook.ago(run.began) : "")
-        ago.font = .uiDigits(11)
+        ago.font = .uiDigits(TextSize.caption)
         ago.textColor = .secondaryLabelColor
         ago.alignment = .right
         ago.widthAnchor.constraint(greaterThanOrEqualToConstant: TextSize.of(Self.whenColumn)).isActive = true
@@ -105,14 +105,16 @@ final class CIRunMeta: NSView {
         let one = NSMutableParagraphStyle()
         one.lineBreakMode = .byTruncatingTail
         let look: [NSAttributedString.Key: Any] = [
-            .font: NSFont.uiDigits(11), .foregroundColor: NSColor.secondaryLabelColor,
+            .font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor,
             .paragraphStyle: one
         ]
         let text = NSMutableAttributedString()
         if let number = run.number { text.append(NSAttributedString(string: "#\(number)", attributes: look)) }
         if let sha = run.shortSHA {
             text.append(NSAttributedString(string: text.length > 0 ? " " : "", attributes: look))
-            text.append(NSAttributedString(string: sha, attributes: look.merging([.font: NSFont.uiMono(11)]) { $1 }))
+            text.append(
+                NSAttributedString(
+                    string: sha, attributes: look.merging([.font: NSFont.uiMono(TextSize.caption)]) { $1 }))
         }
         if !extras.isEmpty {
             text.append(
@@ -134,17 +136,20 @@ enum CIRow {
             let seconds = fold.steps.compactMap { $0.seconds() }.reduce(0, +),
                 done = String(localized: "\(count) steps passed")
             return line(
-                CIRunLook.mark("completed", "success"), done, font: .ui(11), color: .secondaryLabelColor,
+                CIRunLook.mark("completed", "success"), done, font: .ui(TextSize.caption), color: .secondaryLabelColor,
                 right: ciSpan(seconds)
             ).cell
         case .skipped:
             let skipped = String(localized: "\(count) steps skipped")
             return line(
-                CIRunLook.mark("completed", "skipped"), skipped, font: .ui(11), color: .tertiaryLabelColor, right: nil
+                CIRunLook.mark("completed", "skipped"), skipped, font: .ui(TextSize.caption),
+                color: .tertiaryLabelColor, right: nil
             ).cell
         case .upcoming, .one:
             let left = String(localized: "\(count) steps to go")
-            return line(CIRunLook.mark("queued", nil), left, font: .ui(11), color: .tertiaryLabelColor, right: nil).cell
+            return line(
+                CIRunLook.mark("queued", nil), left, font: .ui(TextSize.caption), color: .tertiaryLabelColor, right: nil
+            ).cell
         }
     }
 
@@ -159,7 +164,7 @@ enum CIRow {
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         guard let right else { return (row([mark, label]), nil) }
         let time = NSTextField(labelWithString: right)
-        time.font = .uiDigits(11)
+        time.font = .uiDigits(TextSize.caption)
         time.textColor = .secondaryLabelColor
         return (row([mark, label, NSView(), time]), time)
     }
@@ -194,7 +199,7 @@ private final class AttemptChip: PointerControl {
         layer?.cornerRadius = Metrics.radiusXS
         isEnabled = false
         toolTip = String(localized: "Attempt \(attempt) of this run")
-        label.font = .ui(10, weight: .medium)
+        label.font = .ui(TextSize.micro, weight: .medium)
         label.textColor = .secondaryLabelColor
         pin(label, inset: NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4))
         setContentCompressionResistancePriority(.required, for: .horizontal)

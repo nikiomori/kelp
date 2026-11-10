@@ -23,7 +23,7 @@ extension FilesPanel {
         let img = NSImageView()
         img.image = app.fileIcons.image(node.name, folder: node.children != nil, expanded: tree.isItemExpanded(node))
         tf.lineBreakMode = .byTruncatingMiddle
-        tf.font = .ui(12)
+        tf.font = .ui(TextSize.row)
         let badge = NSTextField(labelWithString: "")
         if let change = status[node.path] {
             let (letter, color) = change.badge
@@ -37,7 +37,7 @@ extension FilesPanel {
             tf.textColor = .secondaryLabelColor
             img.alphaValue = 0.5
         }
-        badge.font = badge.stringValue == "●" ? .ui(7) : .ui(10, weight: .bold)
+        badge.font = badge.stringValue == "●" ? .ui(7) : .ui(TextSize.micro, weight: .bold)
         for subview in [img, tf, badge] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             cell.addSubview(subview)

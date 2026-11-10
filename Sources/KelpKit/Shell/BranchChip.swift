@@ -13,7 +13,7 @@ package final class BranchChip: PointerButton {
         imagePosition = .imageLeading
         imageHugsTitle = true
         image = Glyph.image("arrow.triangle.branch", size: Metrics.segmentPoint)
-        font = .ui(12, weight: .semibold)
+        font = .ui(TextSize.row, weight: .semibold)
         lineBreakMode = .byTruncatingMiddle
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }

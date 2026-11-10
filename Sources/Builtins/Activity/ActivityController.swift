@@ -33,7 +33,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.doubleAction = #selector(open)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        total.font = .uiDigits(12)
+        total.font = .uiDigits(TextSize.row)
         total.textColor = .secondaryLabelColor
         total.lineBreakMode = .byTruncatingTail
         total.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -114,14 +114,14 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
             labelWithString: session.agent == "shell"
                 ? (session.title.isEmpty ? String(localized: "Terminal") : session.title)
                 : app.catalog.displayName(session))
-        name.font = .ui(12, weight: .medium)
+        name.font = .ui(TextSize.row, weight: .medium)
         name.lineBreakMode = .byTruncatingTail
         let place = NSTextField(
             labelWithString: [
                 model.worktree(session.worktreeId)?.displayName, String(localized: "\(entry.processes) processes")
             ]
             .compactMap { $0 }.joined(separator: " · "))
-        place.font = .ui(11)
+        place.font = .ui(TextSize.caption)
         place.textColor = .secondaryLabelColor
         place.lineBreakMode = .byTruncatingTail
         let text = NSStackView(views: [name, place])
@@ -129,7 +129,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         text.alignment = .leading
         text.spacing = Metrics.lineGap
         let cost = NSTextField(labelWithString: "\(Self.percent(entry.cpu))\n\(bytes(entry.memory))")
-        cost.font = .uiDigits(11)
+        cost.font = .uiDigits(TextSize.caption)
         cost.alignment = .right
         cost.textColor = entry.cpu > 80 ? .textOrange : .secondaryLabelColor
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")

@@ -44,7 +44,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         super.init(frame: .zero)
         replaceField.delegate = self
         replaceField.controlSize = .small
-        replaceField.font = .ui(12)
+        replaceField.font = .ui(TextSize.row)
         replaceField.focusRingType = .none
         replaceField.widthAnchor.constraint(equalToConstant: FindCard.fieldWidth).isActive = true
         replaceField.placeholderString = String(localized: "Replace")
@@ -73,7 +73,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     private func button(_ title: String, _ action: @escaping () -> Void) -> NSView {
         let button = PointerButton()
         button.title = title
-        button.font = .ui(11)
+        button.font = .ui(TextSize.caption)
         button.padding = Metrics.gap
         button.restFill = .fillRest
         button.onClick = action

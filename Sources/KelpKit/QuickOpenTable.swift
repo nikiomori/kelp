@@ -79,7 +79,7 @@ extension QuickOpen {
         guard case .item(let it) = rows[row] else {
             guard case .heading(let group) = rows[row] else { return nil }
             let heading = NSTextField(labelWithString: loc(group))
-            heading.font = .ui(11, weight: .semibold)
+            heading.font = .ui(TextSize.caption, weight: .semibold)
             heading.textColor = .secondaryLabelColor
             let header = NSStackView(views: [heading])
             header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
@@ -114,7 +114,7 @@ extension QuickOpen {
         t1.attributedStringValue = Self.highlighted(it.title, field.stringValue)
         t1.lineBreakMode = .byTruncatingTail
         let t2 = NSTextField(labelWithString: it.detail)
-        t2.font = .ui(12)
+        t2.font = .ui(TextSize.row)
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
         // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
@@ -122,7 +122,7 @@ extension QuickOpen {
         let shortcut = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
         let kind = NSTextField(
             labelWithString: shortcut + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? ""))
-        kind.font = .ui(11)
+        kind.font = .ui(TextSize.caption)
         kind.textColor = .secondaryLabelColor
         // The choice in effect: a tick at the end, as in a menu.
         let tick = NSImageView(image: .symbol("checkmark", String(localized: "Current")))
@@ -130,7 +130,7 @@ extension QuickOpen {
         tick.isHidden = !it.checked
         // A command's shortcut: at the end of the title's line, as in a menu.
         let key = NSTextField(labelWithString: it.key)
-        key.font = .ui(12)
+        key.font = .ui(TextSize.row)
         key.textColor = .secondaryLabelColor
         key.isHidden = it.key.isEmpty
         key.setContentCompressionResistancePriority(.required, for: .horizontal)

@@ -164,8 +164,8 @@ final class WindowBar: NSView {
         track(owner: self) {
             app.themes.chromeText
         } changed: { [weak self] _ in
-            self?.name.font = .ui(13, weight: .semibold)
-            for chip in [self?.folder, self?.branch, self?.pr] { chip?.font = .ui(12) }
+            self?.name.font = .ui(TextSize.body, weight: .semibold)
+            for chip in [self?.folder, self?.branch, self?.pr] { chip?.font = .ui(TextSize.row) }
             self?.update()
         }
         track(owner: self) {
@@ -229,7 +229,7 @@ final class WindowBar: NSView {
         let button = PointerButton(frame: .zero)
         button.radius = nil
         button.padding = chipPadding
-        button.font = .ui(12)
+        button.font = .ui(TextSize.row)
         button.imagePosition = .imageLeading
         button.imageHugsTitle = true
         if let symbol {
@@ -292,7 +292,7 @@ final class WindowBar: NSView {
     /// upstream: only what publishing would push.
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
-        let font = NSFont.ui(12), count = NSFont.ui(12, weight: .semibold)
+        let font = NSFont.ui(TextSize.row), count = NSFont.ui(TextSize.row, weight: .semibold)
         let title = NSMutableAttributedString(
             string: info.current ?? info.head ?? "HEAD",
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])

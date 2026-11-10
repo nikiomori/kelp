@@ -71,7 +71,7 @@ final class SectionCell: NSTableCellView, Hoverable {
         chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
         let titleField = NSTextField(labelWithString: title)
-        titleField.font = .ui(11, weight: .semibold)
+        titleField.font = .ui(TextSize.caption, weight: .semibold)
         titleField.textColor = .secondaryLabelColor
         let capsule = CountCapsule(count.map(String.init) ?? "")
         capsule.isHidden = count == nil
@@ -93,7 +93,7 @@ private final class CountCapsule: NSView {
     init(_ text: String) {
         super.init(frame: .zero)
         let field = NSTextField(labelWithString: text)
-        field.font = .uiDigits(10, weight: .semibold)
+        field.font = .uiDigits(TextSize.micro, weight: .semibold)
         field.textColor = .secondaryLabelColor
         field.translatesAutoresizingMaskIntoConstraints = false
         addSubview(field)
@@ -231,20 +231,20 @@ final class FileCell: NSTableCellView, Hoverable {
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
         let name = NSTextField(labelWithString: (f.path as NSString).lastPathComponent)
-        name.font = .ui(12)
+        name.font = .ui(TextSize.row)
         name.lineBreakMode = .byTruncatingTail
         if letter.0 == "D" {
             name.attributedStringValue = NSAttributedString(
-                string: name.stringValue, attributes: [.strikethroughStyle: 1, .font: NSFont.ui(12)])
+                string: name.stringValue, attributes: [.strikethroughStyle: 1, .font: NSFont.ui(TextSize.row)])
         }
         let dir = NSTextField(labelWithString: (f.path as NSString).deletingLastPathComponent)
-        dir.font = .ui(11)
+        dir.font = .ui(TextSize.caption)
         dir.textColor = .secondaryLabelColor
         dir.lineBreakMode = .byTruncatingHead
         dir.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         name.setContentCompressionResistancePriority(.init(400), for: .horizontal)
         let letterField = NSTextField(labelWithString: letter.0)
-        letterField.font = .uiMono(11, weight: .semibold)
+        letterField.font = .uiMono(TextSize.caption, weight: .semibold)
         letterField.textColor = letter.1
         letterField.alignment = .center
         letterField.widthAnchor.constraint(equalToConstant: 12).isActive = true
@@ -270,7 +270,7 @@ final class NoteCell: NSTableCellView {
     init(_ text: String) {
         super.init(frame: .zero)
         let field = NSTextField(labelWithString: text)
-        field.font = .ui(12)
+        field.font = .ui(TextSize.row)
         field.textColor = .secondaryLabelColor
         pinRow(self, [field], leading: Metrics.inset + SectionCell.indent)
     }

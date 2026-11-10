@@ -43,13 +43,13 @@ final class CommitCell: NSTableCellView, Hoverable {
         graph.isHead = isHead
         graph.translatesAutoresizingMaskIntoConstraints = false
         addSubview(graph)
-        subject.font = .ui(12, weight: isHead ? .semibold : .regular)
+        subject.font = .ui(TextSize.row, weight: isHead ? .semibold : .regular)
         subject.textColor = .labelColor
         subject.lineBreakMode = .byTruncatingTail
         subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         // A breaking change ("feat!:"): a red "!" before the words.
         let bang = parsedSubject.breaking ? NSTextField(labelWithString: "!") : nil
-        bang?.font = .ui(12, weight: .bold)
+        bang?.font = .ui(TextSize.row, weight: .bold)
         bang?.textColor = .textRed
         bang?.setAccessibilityLabel(String(localized: "Breaking change"))
         let mark = Self.mark(parsedSubject, merge: c.parents.count > 1).map { typeMark in
@@ -62,13 +62,13 @@ final class CommitCell: NSTableCellView, Hoverable {
             return markView
         }
         let scope = NSTextField(labelWithString: parsedSubject.scope ?? "")
-        scope.font = .ui(11)
+        scope.font = .ui(TextSize.caption)
         scope.textColor = .secondaryLabelColor
         scope.lineBreakMode = .byTruncatingTail
         scope.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         scope.widthAnchor.constraint(lessThanOrEqualToConstant: TextSize.of(80)).isActive = true
         let date = NSTextField(labelWithString: Self.relative(c.date))
-        date.font = .uiDigits(11)
+        date.font = .uiDigits(TextSize.caption)
         date.textColor = .secondaryLabelColor
         // Not on the remote yet: an arrow before the time, as in GitHub Desktop.
         let notPushed = String(localized: "Not pushed yet")
@@ -227,7 +227,7 @@ final class Badge: NSView {
         self.text = NSAttributedString(
             string: text,
             attributes: [
-                .font: NSFont.ui(10, weight: strong ? .semibold : .medium),
+                .font: NSFont.ui(TextSize.micro, weight: strong ? .semibold : .medium),
                 .foregroundColor: color
             ])
         super.init(frame: .zero)

@@ -55,7 +55,7 @@ final class AgentSummary: NSView {
         self.app = app
         super.init(frame: .zero)
         title.maximumNumberOfLines = 1
-        title.font = .ui(12, weight: .semibold)
+        title.font = .ui(TextSize.row, weight: .semibold)
         title.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, title])
         content.spacing = Metrics.gap
@@ -77,7 +77,7 @@ final class AgentSummary: NSView {
         asideText.lineBreakMode = .byClipping
         asideText.maximumNumberOfLines = 1
         asideText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        doneText.font = .ui(11)
+        doneText.font = .ui(TextSize.caption)
         doneText.textColor = .secondaryLabelColor
         doneMark.status = .done
         doneMark.announces = false
@@ -173,7 +173,7 @@ final class AgentSummary: NSView {
             busy > 0 ? String(localized: "\(busy) working") : asking || done > 0 ? "" : String(localized: "Projects")
         asideText.isHidden = asideText.stringValue.isEmpty
         doneText.stringValue = done > 0 ? String(localized: "\(done) done") : ""
-        asideText.font = busy > 0 ? .ui(11) : .ui(11, weight: .semibold)
+        asideText.font = busy > 0 ? .ui(TextSize.caption) : .ui(TextSize.caption, weight: .semibold)
         aside.isHidden = busy == 0 && done == 0 && asking
         // The whole line, for when what finished (or works) had no room.
         let counts =
