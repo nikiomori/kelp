@@ -55,16 +55,16 @@ let package = Package(
         .target(name: "EditorKit", dependencies: ["DesignKit", .product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
                                                  .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter")]),
         // The shell, and what an extension is given (`package` declarations): the window, the editor area, tabs, panels.
-        .target(name: "KelpKit", dependencies: ["Core", "DesignKit", "Agents", "TerminalKit", "EditorKit", "Markdown", "WorkbenchKit",
+        .target(name: "KelpKit", dependencies: ["Core", "DesignKit", "Agents", "TerminalKit", "EditorKit", "WorkbenchKit",
                                                 .product(name: "Sparkle", package: "Sparkle")],
                 resources: [.process("Resources/AgentLogos")]),   // Lobe Icons 1.102.0, MIT (its LICENSE inside)
         // The built-in extensions: each sees only what KelpKit declares `package`, never the shell's own parts, nor another.
         .target(name: "BuiltinAgents", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "TerminalKit", "WorkbenchKit"], path: "Sources/Builtins/Agents"),
         .target(name: "BuiltinFiles", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "Markdown", "WorkbenchKit"], path: "Sources/Builtins/Files"),
         .target(name: "BuiltinGit", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "WorkbenchKit"], path: "Sources/Builtins/Git"),
-        .target(name: "BuiltinBrowser", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Browser"),
+        .target(name: "BuiltinBrowser", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Browser"),
         .target(name: "BuiltinIssues", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "EditorKit", "WorkbenchKit"], path: "Sources/Builtins/Issues"),
-        .target(name: "BuiltinActivity", dependencies: ["KelpKit", "DesignKit", "Core", "Agents", "WorkbenchKit"], path: "Sources/Builtins/Activity"),
+        .target(name: "BuiltinActivity", dependencies: ["KelpKit", "DesignKit", "Core"], path: "Sources/Builtins/Activity"),
         .target(name: "BuiltinRoutines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Routines"),
         .target(name: "BuiltinServers", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Servers"),
         .target(name: "BuiltinMachines", dependencies: ["KelpKit", "DesignKit", "Core", "WorkbenchKit"], path: "Sources/Builtins/Machines"),
