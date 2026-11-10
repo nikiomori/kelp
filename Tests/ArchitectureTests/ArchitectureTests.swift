@@ -372,7 +372,7 @@ func codeOnly(_ s: String) -> String {
 /// Outside text reaches an agent in one frame (`Untrusted.frame`): a second hand-made one would differ in what it escapes.
 @Test func outsideTextIsFramedInOnePlace() throws {
     let frames = try matches(#"<untrusted"#, in: ["Sources"]).map { String($0.split(separator: ":")[0]) }
-    #expect(Set(frames) == ["Sources/Daemon/RepoConfig.swift"])
+    #expect(Set(frames) == ["Sources/Daemon/Project/RepoConfig.swift"])
 }
 
 /// The app doesn't ask the daemon again and again: views watch (`watch.start`) and the daemon pushes what changed.
