@@ -77,29 +77,6 @@ extension FilesPanel {
         }
     }
 
-    /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
-    func findInFiles() {
-        guard let window = view.window else { return }
-        searchBy(name: false)
-        if window.firstResponder === search.currentEditor() {
-            app.workbench.editor?.focusSelected()
-            return
-        }
-        window.makeFirstResponder(search)
-        search.currentEditor()?.selectAll(nil)
-    }
-
-    /// A language server's list where a search's goes.
-    func show(references found: [SearchMatch]) {
-        searchBy(name: false)
-        search.stringValue = ""
-        matches = found
-        results.reloadData()
-        showContentResults(true)
-        noResults.show(nil)
-        replaceRow.isHidden = true   // a server's list: Rename is the way to change it
-    }
-
     func findByName() {
         searchBy(name: true)
         view.window?.makeFirstResponder(search)
@@ -137,8 +114,7 @@ extension FilesPanel {
         byName = name
         UserDefaults.standard.set(name, forKey: "files.searchByName")
         setUpSearchMode()
-        matches = []
-        results.reloadData()
+        results.show([])
         narrowTree()
         showSearchOptions()
         if !name { runSearch() } else { showContentResults(false) }

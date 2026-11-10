@@ -19,7 +19,7 @@ extension FilesPanel {
     /// left out, as what's on disk isn't what's in its tab.
     func replaceAll() {
         let template = replaceField.stringValue, query = search.stringValue.trimmingCharacters(in: .whitespaces)
-        let names = Array(Set(matches.map(\.path))).sorted(), root = root, app = app
+        let names = Array(Set(results.matches.map(\.path))).sorted(), root = root, app = app
         var options = FindOptions()
         options.matchCase = searchOptions.matchCase
         options.wholeWord = searchOptions.wholeWord

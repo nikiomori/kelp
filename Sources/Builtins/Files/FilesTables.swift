@@ -27,14 +27,13 @@ final class ResultsTable: NSTableView {
     }
 }
 
-/// The tree and the search results as the inspector's lists: rows 24 and 38 (with the text size), the rounded selection
-/// (DesignKit's ListRowView), no background of their own over the panel.
+/// The tree as the inspector's list: rows 24 (with the text size), the rounded selection (DesignKit's ListRowView), no
+/// background of its own over the panel. The results are styled alike (`SearchResults`).
 extension FilesPanel {
     func styleLists() {
-        for table in [outline, results] as [NSTableView] { table.rowSizeStyle = .custom }
+        outline.rowSizeStyle = .custom
         outline.rowHeight = TextSize.of(Metrics.row)
         outline.indentationPerLevel = 12
-        results.rowHeight = TextSize.of(Metrics.rowTwoLine)
     }
 
     func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }

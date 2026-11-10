@@ -8,8 +8,7 @@ import WorkbenchKit
 
 /// The workspace's files: tree with git status (click opens a tab), file operations, and project search.
 @MainActor
-final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTableViewDataSource,
-    NSTableViewDelegate, NSSearchFieldDelegate,
+final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSearchFieldDelegate,
     NSMenuDelegate
 {
     let app: AppModel
@@ -29,9 +28,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     var renaming: (field: NSTextField, url: URL, open: Bool)?
     /// Rows fading on their way to the Trash.
     var fadedRows: [NSTableRowView] = []
-    let results = ResultsTable()
+    private(set) lazy var results = SearchResults(app: app)
     let search = NSSearchField()
-    let leftScroll = NSScrollView(), resultsScroll = NSScrollView()
+    let leftScroll = NSScrollView()
     var nodes: [FileNode] = []
     var status: [String: FileChange] = [:]
     /// Folders with a changed file somewhere under them (a grey dot).
@@ -42,7 +41,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     var lowered: (of: [String], paths: [String]) = ([], [])
     /// What the open ignored folders hold, by folder: kept when the tree is built again, read again after an operation.
     var opened: [String: [String]] = [:]
-    var matches: [SearchMatch] = []
     /// Its files and their git status, pushed by the daemon while the panel is on screen (`WatchTopic.files`, `.git`):
     /// a hidden one costs no listing on every change, and the list comes again when it shows.
     private lazy var filesWatch = Watched(.files, in: app)
@@ -54,7 +52,6 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     override func loadView() {
         let app = self.app
         outline.plainList("f", in: leftScroll)
-        results.plainList("r", in: resultsScroll)
         styleLists()
         outline.dataSource = self
         outline.delegate = self
@@ -68,14 +65,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.onDelete = { [weak self] in self?.trashSelected() }
         outline.menu = NSMenu()
         outline.menu?.delegate = self
-        results.menu = NSMenu()
-        results.menu?.delegate = self
-        results.dataSource = self
-        results.delegate = self
-        results.target = self
-        results.action = #selector(openResult)
         search.delegate = self
-        resultsScroll.isHidden = true
         // One field, like Finder's: empty shows the tree, a search (↩) shows matches in their place, clearing it goes back.
         setUpSearchMode()
         search.target = self
@@ -85,7 +75,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let content = NSView()
         let bar = header()
         setUpSearchRows()
-        for subview in [bar, replaceRow, leftScroll, resultsScroll, patternError] as [NSView] {
+        for subview in [bar, replaceRow, leftScroll, results.scroll, patternError] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview(subview)
         }
@@ -106,9 +96,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             patternError.topAnchor.constraint(equalTo: bar.bottomAnchor),
             patternError.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: Metrics.inset),
             patternError.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -Metrics.inset),
-            resultsTop, resultsScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            resultsScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            resultsScroll.bottomAnchor.constraint(equalTo: content.bottomAnchor)
+            resultsTop, results.scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            results.scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            results.scroll.bottomAnchor.constraint(equalTo: content.bottomAnchor)
         ])
         view = content
         track(owner: self) { [app] in
@@ -133,10 +123,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        if menu === results.menu { return fillResult(menu, row: results.clickedRow) }
-        fill(menu, row: outline.clickedRow)
-    }
+    func menuNeedsUpdate(_ menu: NSMenu) { fill(menu, row: outline.clickedRow) }
 
     /// The tree's right-click menu, for what's under the pointer. Over empty space `clickedRow` is -1 and `selectedNode`
     /// answers with the selected row, so nothing here goes through it: Move to Trash would reach a file nobody clicked.
@@ -204,10 +191,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             outline.reloadData()
         }
         worktree = next
+        results.root = root
         searchOptions = next.map { SearchOptions(app, workspace: $0.id) } ?? SearchOptions()
         showSearchOptions()
-        matches = []
-        results.reloadData()
+        results.show([])
         watchShown()
         if let next {
             badges(app.latest(GitEvent.self, next.id)?.changes)
@@ -312,7 +299,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     var searchOptions = SearchOptions()
     /// What the field looks through: names narrow the tree in place, contents list matches instead of it.
     var byName = UserDefaults.standard.bool(forKey: "files.searchByName")
-    private(set) lazy var resultsTop = resultsScroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
+    private(set) lazy var resultsTop = results.scroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
     private(set) lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in
         self?.toggle(\.matchCase)
     }

@@ -11,7 +11,7 @@ extension FilesPanel {
     // MARK: search
     func showContentResults(_ on: Bool) { showResults(on) }
     private func showResults(_ on: Bool) {
-        resultsScroll.isHidden = !on
+        results.scroll.isHidden = !on
         leftScroll.isHidden = on || !loadError.isHidden
         if !on { noResults.show(nil) }
     }
@@ -21,7 +21,7 @@ extension FilesPanel {
         } else {
             loadError.show(nil)
         }
-        leftScroll.isHidden = message != nil || !resultsScroll.isHidden
+        leftScroll.isHidden = message != nil || !results.scroll.isHidden
     }
     /// Results follow the typing (a pause of a quarter second), like Xcode's Find navigator.
     func controlTextDidChange(_ note: Notification) {
@@ -43,14 +43,37 @@ extension FilesPanel {
             outline.selectRowIndexes([firstFileRow ?? 0], byExtendingSelection: false)
             return true
         }
-        guard control === search, sel == #selector(NSResponder.moveDown(_:)), !matches.isEmpty, !resultsScroll.isHidden
+        guard control === search, sel == #selector(NSResponder.moveDown(_:)), !results.matches.isEmpty,
+            !results.scroll.isHidden
         else {
             return false
         }
-        view.window?.makeFirstResponder(results)
-        results.selectRowIndexes([0], byExtendingSelection: false)
+        view.window?.makeFirstResponder(results.table)
+        results.table.selectRowIndexes([0], byExtendingSelection: false)
         return true
     }
+    /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
+    func findInFiles() {
+        guard let window = view.window else { return }
+        searchBy(name: false)
+        if window.firstResponder === search.currentEditor() {
+            app.workbench.editor?.focusSelected()
+            return
+        }
+        window.makeFirstResponder(search)
+        search.currentEditor()?.selectAll(nil)
+    }
+
+    /// A language server's list where a search's goes.
+    func show(references found: [SearchMatch]) {
+        searchBy(name: false)
+        search.stringValue = ""
+        results.show(found)
+        showContentResults(true)
+        noResults.show(nil)
+        replaceRow.isHidden = true   // a server's list: Rename is the way to change it
+    }
+
     @objc func runSearch() {
         guard !byName else {
             narrowTree()
@@ -74,18 +97,18 @@ extension FilesPanel {
                 search.stringValue.trimmingCharacters(in: .whitespaces) == query
             else { return }
             // Half typed, a pattern often isn't one yet: what it found last stays.
-            if options.regex, let error = found.error, !matches.isEmpty {
+            if options.regex, let error = found.error, !results.matches.isEmpty {
                 showPatternError(error)
                 return
             }
-            matches = found.value ?? []
-            results.reloadData()
+            results.show(found.value ?? [])
             showReplace()
             if let error = found.error {
                 noResults.showError(String(localized: "Couldn't search"), text: error, buttons: [clearButton()])
             } else {
                 noResults.show(
-                    matches.isEmpty ? String(localized: "No matches for “\(query)”") : nil, symbol: "magnifyingglass",
+                    results.matches.isEmpty ? String(localized: "No matches for “\(query)”") : nil,
+                    symbol: "magnifyingglass",
                     buttons: [clearButton()])
             }
         }
@@ -122,7 +145,7 @@ extension FilesPanel {
 
     /// The replace field comes with what it would replace.
     func showReplace() {
-        replaceRow.isHidden = byName || matches.isEmpty || resultsScroll.isHidden
+        replaceRow.isHidden = byName || results.matches.isEmpty || results.scroll.isHidden
         showPatternError(nil)
     }
 
@@ -134,46 +157,6 @@ extension FilesPanel {
             showSearchOptions()
             runSearch()
             view.window?.makeFirstResponder(outline)
-        }
-    }
-    func numberOfRows(in tableView: NSTableView) -> Int { matches.count }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
-        let match = matches[row]
-        let top = NSTextField(labelWithString: "\(match.path):\(match.line)")
-        top.font = .uiDigits(11)
-        top.textColor = .secondaryLabelColor
-        let txt = NSTextField(labelWithString: match.text)
-        txt.font = .uiMono(11)
-        txt.lineBreakMode = .byTruncatingTail
-        let stack = NSStackView(views: [top, txt])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = Metrics.lineGap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        return stack
-    }
-    @objc func openResult() {
-        let row = results.clickedRow >= 0 ? results.clickedRow : results.selectedRow
-        if matches.indices.contains(row) {
-            let match = matches[row]
-            openFile(match.path, line: match.line)
-        }
-    }
-
-    /// A line the search found: what the editor offers for a line.
-    func fillResult(_ menu: NSMenu, row: Int) {
-        menu.removeAllItems()
-        guard matches.indices.contains(row) else { return }
-        let app = app, hit = matches[row], path = root + "/" + hit.path
-        menu.add(String(localized: "Open")) { [weak self] in self?.openFile(hit.path, line: hit.line) }
-        menu.add(String(localized: "Open to the Side")) {
-            app.workbench.open(TabURI.file(path, line: hit.line), split: .right)
-        }
-        menu.addItem(.separator())
-        menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: hit.line...hit.line) }
-        menu.add(String(localized: "Copy Path and Line")) {
-            FileActions(app).copyReference(path, lines: hit.line...hit.line)
         }
     }
 }
