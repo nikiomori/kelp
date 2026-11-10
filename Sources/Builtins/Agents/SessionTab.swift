@@ -63,7 +63,7 @@ final class SessionTab: TabContent {
     ) {
         let sid = TabURI.body(uri)
         AgentActions(app).addSessionItems(to: m, sid) {
-            app.workbench.focusedSession = sid
+            app.workbench.lastSession = sid
             openBeside(TabURI.diff(workspace, source: "turn"))
         }
     }

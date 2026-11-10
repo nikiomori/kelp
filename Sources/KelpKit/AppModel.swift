@@ -179,7 +179,7 @@ package final class AppModel {
             workspace: shown.map {
                 ShownUI.Workspace(id: $0.id, name: $0.displayName, path: $0.path, branch: $0.branch)
             },
-            focusedSession: workbench.focusedSession, focusedFile: workbench.focusedFile,
+            focusedSession: workbench.lastSession, focusedFile: workbench.focusedFile,
             editor: workbench.editor?.stateForAgents,
             extensions: reg.extensions.map {
                 ShownUI.Extension(

@@ -140,8 +140,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // for (`gitFolder(project:)`).
     // 301 → 296: a built-in starts sessions through `SessionStarter` and acts on the tabs on screen through Workbench
     // (`starter`, `focusedContent`, `split`…); the editor area isn't the built-ins' any more.
-    #expect(declared <= 319, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 319, "fewer now (\(declared)): lower the ceiling")
+    // +1, nothing new: `focusedTab` is computed from the layout now, and its `package internal(set)` wasn't counted.
+    #expect(declared <= 320, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 320, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

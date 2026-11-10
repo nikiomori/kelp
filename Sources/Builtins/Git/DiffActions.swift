@@ -135,7 +135,7 @@ extension DiffViewController {
             $0.worktreeId == wid && $0.status != .exited && $0.id != reviewer && !reviewers.contains($0.title)
                 && $0.isAgent
         }
-        if let cur = app.workbench.focusedSession, live.contains(where: { $0.id == cur }) { return cur }
+        if let cur = app.workbench.lastSession, live.contains(where: { $0.id == cur }) { return cur }
         if live.count == 1 { return live[0].id }
         guard !live.isEmpty else {
             status.stringValue = String(localized: "No running agent in this worktree")

@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import Observation
 import WorkbenchKit
 
@@ -54,16 +55,42 @@ package final class Workbench {
     /// Workspaces and servers' pages by when they were last on screen, latest first, kept across launches: ⌃Tab's
     /// order.
     var recentWorkspaces: [String] { app.uiState.strings("workbench.recentWorkspaces") }
-    init(app: AppModel) { self.app = app }
-    package var focusedSession: String?
-    /// The tab with focus in the workspace on screen (its URI): the sidebar marks its agent's row.
-    package internal(set) var focusedTab: String?
-    var focusedFile: String?
+    init(app: AppModel) {
+        self.app = app
+        // What was looked at last follows the focus, as it moves and as another workspace comes on screen.
+        track(owner: self, now: false) { [weak self] in
+            [self?.workspaceId, self?.focusedTab]
+        } changed: { [weak self] _ in
+            self?.focusMoved()
+        }
+    }
+    /// The tab with focus in the workspace on screen (its URI), from its layout: the sidebar marks its agent's row.
+    package var focusedTab: String? { workspaceId.flatMap { layouts[$0].focusedGroup?.selectedTab?.uri } }
     /// The workspace on screen puts its agents side by side as they open (the title bar's button, ⌃⌘T).
-    var sideBySide = true
+    var sideBySide: Bool { workspaceId.map { layouts[$0].manual != true } ?? true }
+    /// The session last looked at in the workspace on screen, else its newest chat: what "send to agent" and the diff's
+    /// review go to. It stays while a file or a page has the focus.
+    package var lastSession: String?
+    /// The file last looked at there (an extension's `{file}`); it stays while a terminal has the focus.
+    var focusedFile: String?
+
+    private func focusMoved() {
+        let uri = focusedTab ?? ""
+        switch TabURI.scheme(uri) {
+        case "session": lastSession = TabURI.body(uri)
+        case "file": focusedFile = TabURI.filePath(uri).path
+        default: break
+        }
+        if lastSession.flatMap({ app.session($0)?.worktreeId }) != workspaceId {
+            lastSession = app.sessions.last { $0.worktreeId == workspaceId && $0.status != .exited && $0.isChat }?.id
+        }
+        app.publishUIState()
+    }
     var inspectorPanel: String = UserDefaults.standard.string(forKey: "inspectorPanel") ?? "" {   // none yet: the first
         didSet { UserDefaults.standard.set(inspectorPanel, forKey: "inspectorPanel") }
     }
+    /// Every workspace's layout, loaded or not (`WorkspaceLayouts`).
+    @ObservationIgnored lazy var layouts = WorkspaceLayouts(state: app.uiState)
     /// What ⇧⌘T brings back. Here, not in `EditorArea`: an area not seen lately leaves memory.
     @ObservationIgnored var closedTabs = ClosedTabs()
     /// For Back / Forward (⌃⌘← / ⌃⌘→). Observed: the title bar's arrows follow it.
@@ -82,5 +109,3 @@ package final class Workbench {
         }
     }
 }
-    /// Every workspace's layout, loaded or not (`WorkspaceLayouts`).
-    @ObservationIgnored lazy var layouts = WorkspaceLayouts(state: app.uiState)

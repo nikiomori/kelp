@@ -10,35 +10,11 @@ extension EditorArea {
     func responderChanged(_ responder: NSResponder?) {
         var candidate = responder as? NSView
         while let current = candidate, !(current is GroupView) { candidate = current.superview }
-        guard let group = candidate as? GroupView, layout.focused != group.groupId else {
-            publishFocus()
-            return
-        }
+        guard let group = candidate as? GroupView, layout.focused != group.groupId else { return }
         let old = layout.focused
         layout.focused = group.groupId
         if let old { refreshGroup(old) }
         refreshGroup(group.groupId)
-        publishFocus()
-    }
-
-    /// The focused tab tells the inspector which agent / file the user is looking at. Only the main window's workspace
-    /// on screen says so: a background workspace opening a tab must not redirect "send to agent".
-    func publishFocus() {
-        guard app.workbench.editors?.current === self else { return }
-        let uri = layout.focusedGroup?.selectedTab?.uri ?? ""
-        let wb = app.workbench
-        if wb.focusedTab != uri { wb.focusedTab = uri }
-        if wb.sideBySide != (layout.manual != true) { wb.sideBySide = layout.manual != true }
-        switch TabURI.scheme(uri) {
-        case "session": wb.focusedSession = TabURI.body(uri)
-        case "file": wb.focusedFile = TabURI.filePath(uri).path
-        default: break
-        }
-        if wb.focusedSession.flatMap({ app.session($0)?.worktreeId }) != workspaceId {
-            wb.focusedSession =
-                app.sessions.last { $0.worktreeId == workspaceId && $0.status != .exited && $0.isChat }?.id
-        }
-        app.publishUIState()
     }
 
     func focusSelected() {

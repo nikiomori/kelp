@@ -15,7 +15,6 @@ extension EditorArea {
         if let old, old != layout.focused { refreshGroup(old) }
         if let gid = layout.group(of: tab) { refreshGroup(gid) }
         if focus { focusSelected() }
-        publishFocus()
     }
 
     /// A `terminal:` or `agent:` URI: what it says is run. Kelp's own callers only (`ArchitectureTests`), never a URL that came
@@ -90,7 +89,6 @@ extension EditorArea {
             layout.focused = gid
             shown.map(refreshGroup)
             refreshGroup(gid)
-            publishFocus()
         }
         if typing { focusSelected() }   // a new pane rebuilds the area, which takes the keys from the terminal
     }
@@ -223,14 +221,12 @@ extension EditorArea {
         if layout.manual == true { layout.tile([]) } else { arrange() }
         render()
         focusSelected()
-        publishFocus()
     }
 
     /// A split or a tab dragged to another pane: the panes stay as the user puts them, agents no longer tile.
     func arrangedByHand() {
         guard layout.manual != true else { return }
         layout.manual = true
-        publishFocus()
     }
 
     func tabMenu(_ id: String) -> NSMenu {

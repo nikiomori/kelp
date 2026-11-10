@@ -115,7 +115,7 @@ extension BrowserTab {
                     : String(localized: "Copied \(source) and the element's details"))
             return
         }
-        guard let sid = app.workbench.focusedSession else {
+        guard let sid = app.workbench.lastSession else {
             copyText(msg)
             Banner.show(
                 String(localized: "No agent on this screen — the element details were copied to the clipboard."))
