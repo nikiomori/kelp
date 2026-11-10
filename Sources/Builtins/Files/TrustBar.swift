@@ -19,15 +19,8 @@ enum TrustBar {
         text.lineBreakMode = .byTruncatingTail
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         text.toolTip = text.stringValue
-        let later = PointerButton(), yes = PointerButton()
-        for (b, t) in [(later, String(localized: "Not Now")), (yes, String(localized: "Trust"))] {
-            b.title = t
-            b.font = .ui(TextSize.row)
-            b.padding = Metrics.gap
-            b.restFill = .fillRest
-        }
-        later.onClick = notNow
-        yes.onClick = trust
+        let later = TextButton(String(localized: "Not Now"), onClick: notNow)
+        let yes = TextButton(String(localized: "Trust"), onClick: trust)
         return Bar.content([icon, text], [later, yes], stretching: text)
     }
 }

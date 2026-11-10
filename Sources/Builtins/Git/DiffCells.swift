@@ -314,9 +314,7 @@ extension DiffViewController {
         if let staged = hunksStaged(f) {
             // Named buttons at the hunk's end, as in Xcode's and GitHub Desktop's reviews.
             func button(_ title: String, _ a: Selector) -> NSButton {
-                let hunkButton = NSButton(title: title, target: self, action: a)
-                hunkButton.bezelStyle = .push
-                hunkButton.controlSize = .small
+                let hunkButton = TextButton(title, target: self, action: a)
                 hunkButton.tag = f * 10000 + h
                 return hunkButton
             }

@@ -30,9 +30,7 @@ extension DiffViewController {
     }
 
     func undoTurnButton() -> NSButton {
-        let button = ClosureButton(title: String(localized: "Undo Turn…")) { [weak self] in self?.undoTurn() }
-        button.bezelStyle = .push
-        button.controlSize = .small
+        let button = TextButton(String(localized: "Undo Turn…")) { [weak self] in self?.undoTurn() }
         button.toolTip = String(localized: "Put the files back as they were before this turn")
         return button
     }

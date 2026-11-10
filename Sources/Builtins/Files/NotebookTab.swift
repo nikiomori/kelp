@@ -28,11 +28,9 @@ final class NotebookTab: NSViewController {
 
     override func loadView() {
         func actionButton(_ title: String, _ sym: String, _ sel: Selector) -> NSButton {
-            let button = NSButton(title: title, target: self, action: sel)
+            let button = TextButton(title, target: self, action: sel)
             button.image = .symbol(sym)
             button.imagePosition = .imageLeading
-            button.bezelStyle = .push
-            button.controlSize = .small
             return button
         }
         status.textColor = .secondaryLabelColor

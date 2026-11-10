@@ -230,10 +230,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if single != nil {
             bar.set([pathLabel, status], [position, steps, spaceToggle, layoutToggle])
         } else {
-            func btn(_ title: String, _ action: Selector) -> NSButton {   // sized by the bar, as its pop-ups
-                let button = NSButton(title: title, target: self, action: action)
-                button.bezelStyle = .push
-                return button
+            func btn(_ title: String, _ action: Selector) -> NSButton {
+                TextButton(title, target: self, action: action)
             }
             bar.set(
                 [

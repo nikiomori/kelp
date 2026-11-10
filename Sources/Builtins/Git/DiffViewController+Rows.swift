@@ -109,9 +109,7 @@ extension DiffViewController {
                     color: .secondaryLabelColor)
                 guard first, let uri = alone(path) else { return said }
                 said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-                let open = ClosureButton(title: String(localized: "Open Changes")) { app.workbench.open(uri) }
-                open.bezelStyle = .push
-                open.controlSize = .small
+                let open = TextButton(String(localized: "Open Changes")) { app.workbench.open(uri) }
                 let stack = NSStackView(views: [said, open])
                 stack.spacing = 8
                 return stack
