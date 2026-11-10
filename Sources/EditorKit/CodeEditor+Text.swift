@@ -91,18 +91,4 @@ extension CodeEditor {
         let shown = textView.visibleRect.intersection(box)
         return shown.isEmpty ? nil : view.convert(shown, from: textView)
     }
-
-    /// A tab when most indented lines start with one; two spaces when that's the smallest indent; else four.
-    static func indentUnit(of text: String) -> String {
-        var tabs = 0, spaces: [Int] = []
-        for line in text.prefix(64_000).split(separator: "\n").prefix(500) {   // the start of a big file is enough
-            if line.hasPrefix("\t") {
-                tabs += 1
-            } else if line.hasPrefix(" ") {
-                spaces.append(line.prefix { $0 == " " }.count)
-            }
-        }
-        if tabs > spaces.count { return "\t" }
-        return spaces.min() == 2 ? "  " : "    "
-    }
 }

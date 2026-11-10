@@ -163,7 +163,6 @@ public final class CodeEditor: NSObject {
         refreshAppearance()
         load(text)
         textView.setSelectedRange(NSRange(location: 0, length: 0))
-        textView.indentUnit = Self.indentUnit(of: text)
         textView.lineBreak = text.prefix(64_000).contains("\r\n") ? "\r\n" : "\n"
         textView.colonOpensBlock = ["python", "yaml"].contains(language.tsName)
     }

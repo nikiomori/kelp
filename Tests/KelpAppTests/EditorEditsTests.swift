@@ -172,8 +172,9 @@ extension OneAtATime {
 
     @Test func returnIndentsLikeTheLineAboveAndOpensABracePair() {
         let (e, tv) = editor("  if x {}", selecting: [NSRange(location: 8, length: 0)])
+        e.useIndent(tabWidth: 2, spaces: true)   // the file indents by two, as its tab found (`Indentation.detect`)
         tv.doCommand(by: #selector(NSResponder.insertNewline(_:)))
-        #expect(e.text == "  if x {\n    \n  }")   // the file indents by two
+        #expect(e.text == "  if x {\n    \n  }")
         #expect(tv.cursors == [NSRange(location: 13, length: 0)])
     }
 
