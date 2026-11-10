@@ -10,49 +10,49 @@ extension Builtins {
         "kelp.run", "Run", "The project's commands: the run chip, the Run menu and the pages they serve.",
         icon: "play"
     ) { app in
-        let scripts = app.part { ScriptsMenu(app: app) }
+        let runs = app.part { Runs(app: app) }
         let inWorkspace: @MainActor () -> Bool = { app.workbench.workspaceId != nil }
         return Contributions(
             commands: [
                 // The Run menu: what ran last in the project, else the list of what its files offer (`{"name": "lint"}`
                 // runs a .kelp.yaml command by name).
                 CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r", enabled: inWorkspace) { args in
-                    scripts.run(args["name"]?.string ?? "run")
+                    runs.run(args["name"]?.string ?? "run")
                 },
-                cmd("scripts.choose", "Run…", "ctrl+cmd+r") { scripts.choose() },
+                cmd("scripts.choose", "Run…", "ctrl+cmd+r") { runs.choose() },
                 CommandSpec(id: "scripts.test", title: "Test", key: "cmd+u", enabled: inWorkspace) { _ in
-                    scripts.run("test")
+                    runs.run("test")
                 },
-                CommandSpec(id: "scripts.stop", title: "Stop", key: "cmd+.", enabled: { scripts.canStop }) { _ in
-                    scripts.stop()
+                CommandSpec(id: "scripts.stop", title: "Stop", key: "cmd+.", enabled: { runs.canStop }) { _ in
+                    runs.stop()
                 },
                 CommandSpec(
                     id: "scripts.openPage", title: "Open Page", key: "shift+cmd+o",
-                    enabled: { app.workbench.workspaceId.map { !scripts.pages($0).isEmpty } ?? false }
-                ) { _ in scripts.openPage() },
-                CommandSpec(id: "scripts.edit", title: "Edit Commands…", enabled: inWorkspace) { _ in scripts.edit() },
+                    enabled: { app.workbench.workspaceId.map { !runs.pages($0).isEmpty } ?? false }
+                ) { _ in runs.openPage() },
+                CommandSpec(id: "scripts.edit", title: "Edit Commands…", enabled: inWorkspace) { _ in runs.edit() },
                 // The language's commands (`contributes.languages`): run the file in front and its test at the cursor.
-                cmd("editor.runFile", "Run File") { if let tab = fileTab(app) { scripts.runFile(tab, "run") } },
+                cmd("editor.runFile", "Run File") { if let tab = fileTab(app) { runs.runFile(tab, "run") } },
                 cmd("editor.testAtCursor", "Test at Cursor") {
-                    if let tab = fileTab(app) { scripts.runFile(tab, "test") }
+                    if let tab = fileTab(app) { runs.runFile(tab, "test") }
                 }
             ],
             runs: ProjectRuns(
-                bar: { [RunChip(app: app, scripts: scripts), PageChip(app: app, scripts: scripts)] },
-                menu: scripts,
-                hidden: { scripts.hidden },
-                look: { scripts.look($0) },
-                port: { scripts.port(of: $0) },
+                bar: { [RunChip(app: app, runs: runs), PageChip(app: app, runs: runs)] },
+                menu: runs,
+                hidden: { runs.hidden },
+                look: { runs.look($0) },
+                port: { runs.port(of: $0) },
                 tabsFollow: {
-                    [scripts.state.active.count.description] + scripts.state.active.values.compactMap(\.url)
-                        + scripts.state.found.keys.sorted()
+                    [runs.state.active.count.description] + runs.state.active.values.compactMap(\.url)
+                        + runs.state.found.keys.sorted()
                 },
-                tabMenu: { scripts.tabItems($0, $1) },
-                choices: { scripts.choices($0) },
-                open: { scripts.open($0, in: $1) },
-                served: { scripts.served($0) },
-                portBusy: { scripts.portBusy($0) },
-                setup: { await scripts.setup($0, pullRequest: $1) })
+                tabMenu: { runs.tabItems($0, $1) },
+                choices: { runs.choices($0) },
+                open: { runs.open($0, in: $1) },
+                served: { runs.served($0) },
+                portBusy: { runs.portBusy($0) },
+                setup: { await runs.setup($0, pullRequest: $1) })
         )
     }
 

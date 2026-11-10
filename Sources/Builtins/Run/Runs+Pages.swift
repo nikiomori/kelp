@@ -5,7 +5,7 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-extension ScriptsMenu {
+extension Runs {
     // MARK: hidden runs
 
     /// Runs whose tab was put away in the Run menu: they keep running, the menu shows them (`run.hidden` in UIState, so a

@@ -5,7 +5,7 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-extension ScriptsMenu {
+extension Runs {
     /// The Run menu: what's already running that it didn't start, then the project's commands a group a program ("make",
     /// "npm · web"), each by what it does, a line each: its purpose's symbol, its name, the program in grey; more than three
     /// that say nothing of their purpose go under More, by file. A description and the whole command are the tip.
@@ -19,16 +19,14 @@ extension ScriptsMenu {
             runMenu.addItem(.sectionHeader(title: String(localized: "Already Running")))
             for port in elsewhere { server(port, in: runMenu, wid) }
         }
-        let rows = rows(wid), rest = rows.filter { Self.purpose($0) == .other }
-        let shown = rest.count > 3 ? rows.filter { Self.purpose($0) != .other } : rows
+        let rows = rows(wid), rest = rows.filter { $0.purpose == .other }
+        let shown = rest.count > 3 ? rows.filter { $0.purpose != .other } : rows
         let tools = shown.map(Self.source).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         // The programs, after the longest name.
         let column = NSMenuItem.noteColumn(shown.map(\.name) + [String(localized: "More")])
         for tool in tools {
             if runMenu.numberOfItems > 0 { runMenu.addItem(.separator()) }
-            let group = shown.filter { Self.source($0) == tool }.sorted {
-                Self.purpose($0).rawValue < Self.purpose($1).rawValue
-            }
+            let group = shown.filter { Self.source($0) == tool }.sorted { $0.purpose.rawValue < $1.purpose.rawValue }
             for row in group { item(row, in: runMenu, wid, column: column) }
         }
         if rest.count > 3 {
@@ -131,7 +129,7 @@ extension ScriptsMenu {
     static func glyph(_ row: Row) -> (String, NSColor) {
         let name = row.name.lowercased()
         if row.running { return ("play.circle.fill", .systemGreen) }
-        switch purpose(row) {
+        switch row.purpose {
         case .install: return ("arrow.down.circle.fill", .systemTeal)
         case .run: return ("play.fill", .systemGreen)
         case .test: return ("flask.fill", .systemPurple)

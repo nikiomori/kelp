@@ -496,7 +496,7 @@ extension OneAtATime {
     let info = ScriptsList.Result(
         scripts: [.init(name: "test", command: "npm test")], setup: "npm i", tabs: ["claude"], shared: ["node_modules"],
         recipes: ["commit": "also run x"], issueCommand: "Fix {title}", digest: "", trusted: false, file: "")
-    let scroll = try #require(ScriptsMenu.trustText(info) as? NSScrollView)
+    let scroll = try #require(Runs.trustText(info) as? NSScrollView)
     let text = try #require(scroll.documentView as? NSTextView).string
     for line in [
         "setup: npm i", "test: npm test", "tabs: claude", "shared: node_modules", "issueCommand: Fix {title}",

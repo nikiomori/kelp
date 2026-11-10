@@ -29,7 +29,7 @@ final class RunState {
     @ObservationIgnored var ports: [String: [PortsList.Port]] = [:]
 }
 
-extension ScriptsMenu {
+extension Runs {
     // MARK: the choices
 
     /// What ran last in the workspace's project (its workspaces share it).
@@ -166,6 +166,8 @@ extension ScriptsMenu {
         var session: String?
         /// run.detect's kind (run, test, build, lint, other), the file it comes from, and where it runs ("" the workspace's folder).
         var kind = "other", file = "", folder = ""
+        /// What it's for, from the above (`Runs.purpose`): set once the row is made.
+        var purpose = Purpose.other
     }
 
     /// Every command the menu offers: .kelp.yaml's, then the files', its own folder's first; what runs, and what ⌘R runs.
@@ -194,6 +196,7 @@ extension ScriptsMenu {
             row.session = live[row.id]
             row.current = row.id == mark
             row.install = row.kind == "install"
+            row.purpose = Self.purpose(row)
             return row
         }
     }

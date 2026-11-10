@@ -15,13 +15,13 @@ final class PageChip: ChipCapsule, WindowBarItem {
     var compact = false { didSet { if compact != oldValue { show(look) } } }
 
     private let app: AppModel
-    private let scripts: ScriptsMenu
+    private let runs: Runs
     private let ports: Watched
     private let open = PointerButton(frame: .zero), more = PointerButton(frame: .zero)
 
-    init(app: AppModel, scripts: ScriptsMenu) {
+    init(app: AppModel, runs: Runs) {
         self.app = app
-        self.scripts = scripts
+        self.runs = runs
         ports = Watched(.ports, in: app)
         super.init()
         hold([open, more], font: .uiDigits(12))
@@ -32,12 +32,12 @@ final class PageChip: ChipCapsule, WindowBarItem {
         open.symbolConfiguration = .chrome(Metrics.iconSmall)
         open.onClick = { [weak self] in
             guard let self, let look = look else { return }
-            scripts.open(look.page, in: look.workspace)
+            runs.open(look.page, in: look.workspace)
         }
         more.padding = 6
         more.contentTintColor = .secondaryLabelColor
         more.toolTip = String(localized: "Everything Running Here (⌃⌘R)")
-        more.onClick = { [weak self] in self?.scripts.choose(from: self?.more) }
+        more.onClick = { [weak self] in self?.runs.choose(from: self?.more) }
         isHidden = true
         track(owner: self) { [weak self] in
             self?.look
@@ -58,7 +58,7 @@ final class PageChip: ChipCapsule, WindowBarItem {
 
     private var look: Look? {
         guard let wid = app.workbench.workspaceId else { return nil }
-        let pages = scripts.pages(wid)
+        let pages = runs.pages(wid)
         return pages.first.map { Look(workspace: wid, page: $0, more: pages.count - 1) }
     }
 
@@ -84,11 +84,11 @@ final class PageChip: ChipCapsule, WindowBarItem {
 
     /// What a click doesn't do. A page that came from a run's printed address may have no process here: a host's.
     private func menu(_ look: Look) -> NSMenu {
-        let actions = NSMenu(), app = app, scripts = scripts
+        let actions = NSMenu(), app = app, runs = runs
         if look.page.isWeb {
             actions.add(String(localized: "Open in Browser")) {
                 Task {
-                    if let url = await scripts.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) })
+                    if let url = await runs.reach(look.page, in: look.workspace).flatMap({ URL(string: $0.url) })
                     {
                         PreviewLinks.openOutside(url)
                     }
@@ -97,7 +97,7 @@ final class PageChip: ChipCapsule, WindowBarItem {
         }
         actions.add(String(localized: "Copy Address")) {
             Task {
-                if let reached = await scripts.reach(look.page, in: look.workspace) { scripts.copy(reached) }
+                if let reached = await runs.reach(look.page, in: look.workspace) { runs.copy(reached) }
             }
         }
         if look.page.host != nil, look.page.forwarded {

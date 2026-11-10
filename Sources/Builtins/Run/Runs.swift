@@ -9,7 +9,7 @@ import WorkbenchKit
 /// banner says how, with the way to its output. ⌘R runs what last ran in the project (`run.last.<project>` in UIState),
 /// else lists the choices; ⌘U the tests, ⌘. stops. A .kelp.yaml's commands run only after you trust the file.
 @MainActor
-final class ScriptsMenu: NSObject, NSMenuDelegate {
+final class Runs: NSObject, NSMenuDelegate {
     let app: AppModel
     init(app: AppModel) {
         self.app = app

@@ -11,12 +11,12 @@ final class RunChip: ChipCapsule, WindowBarItem {
     struct Look: Equatable { var name: String, guess: Bool, running: Bool }
 
     private let app: AppModel
-    private let scripts: ScriptsMenu
+    private let runs: Runs
     private let go = PointerButton(frame: .zero), name = PointerButton(frame: .zero)
 
-    init(app: AppModel, scripts: ScriptsMenu) {
+    init(app: AppModel, runs: Runs) {
         self.app = app
-        self.scripts = scripts
+        self.runs = runs
         super.init()
         hold([go, name], font: .ui(12))
         go.imagePosition = .imageOnly
@@ -30,7 +30,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
         name.image = .symbol("chevron.down", "")
         name.symbolConfiguration = .chrome(Metrics.iconTiny)
         name.lineBreakMode = .byTruncatingTail
-        name.onClick = { [weak self] in self?.scripts.choose() }
+        name.onClick = { [weak self] in self?.runs.choose() }
         name.toolTip = String(localized: "Choose What to Run (⌃⌘R)")
         track(owner: self) { [weak self] in
             self?.look
@@ -41,10 +41,10 @@ final class RunChip: ChipCapsule, WindowBarItem {
         track(owner: self) {
             app.workbench.workspaceId
         } changed: { wid in
-            guard let wid, scripts.state.found[wid] == nil else { return }
+            guard let wid, runs.state.found[wid] == nil else { return }
             Task {
-                await scripts.detect(wid)
-                await scripts.load(wid)
+                await runs.detect(wid)
+                await runs.load(wid)
             }
         }
     }
@@ -55,14 +55,14 @@ final class RunChip: ChipCapsule, WindowBarItem {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window != nil { scripts.anchor = name }
+        if window != nil { runs.anchor = name }
     }
 
     /// What the workspace on screen would run, and what runs there now.
     private var look: Look? {
-        guard let wid = app.workbench.workspaceId, let current = scripts.current(wid) else { return nil }
-        let live = scripts.running(in: wid)
-        let label = scripts.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
+        guard let wid = app.workbench.workspaceId, let current = runs.current(wid) else { return nil }
+        let live = runs.running(in: wid)
+        let label = runs.label(current.choice, in: wid) + (live.count > 1 ? " +\(live.count - 1)" : "")
         let host = app.worktree(wid).flatMap { RemoteHost.of($0.path)?.host }
         return Look(name: label + (host.map { " · \($0)" } ?? ""), guess: current.guess, running: !live.isEmpty)
     }
@@ -84,7 +84,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
     }
 
     private func goClicked() {
-        if scripts.canStop { scripts.stop() } else { scripts.run("run") }
+        if runs.canStop { runs.stop() } else { runs.run("run") }
     }
 }
 
