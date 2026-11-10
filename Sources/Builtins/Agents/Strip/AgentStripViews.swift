@@ -8,8 +8,8 @@ import KelpKit
 final class StripPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
-    /// Moved by the pointer, and let go.
-    var onDropped: (() -> Void)?
+    /// Moved by the pointer, and let go: where it would come to rest, thrown (`StripModel.projected`).
+    var onDropped: ((NSRect) -> Void)?
     /// ⎋ while it has the keys (a card).
     var onCancel: (() -> Void)?
     /// What a hand trembles by: less than this is a click.
@@ -18,17 +18,28 @@ final class StripPanel: NSPanel {
     /// Follows the pointer until the button is let go; says if it went anywhere, as if not this was a click.
     func drag(from down: NSEvent) -> Bool {
         let start = frame.origin, from = Self.onScreen(down)
-        var moved = false
+        var moved = false, recent: [(at: CGPoint, time: TimeInterval)] = []
         while let event = nextEvent(matching: [.leftMouseUp, .leftMouseDragged]), event.type == .leftMouseDragged {
             let at = Self.onScreen(event), dx = at.x - from.x, dy = at.y - from.y
             moved = moved || hypot(dx, dy) >= Self.dragFrom
             if moved { setFrameOrigin(NSPoint(x: start.x + dx, y: start.y - dy)) }
+            recent = (recent + [(at, event.timestamp)]).filter { event.timestamp - $0.time < Self.recent }
         }
-        if moved { onDropped?() }
+        if moved { onDropped?(StripModel.projected(frame, velocity: Self.velocity(recent))) }
         return moved
     }
 
     override func cancelOperation(_ sender: Any?) { onCancel?() }
+
+    /// How far back the pointer's moves say how fast it went as it was let go.
+    private static let recent: TimeInterval = 0.08
+
+    /// Points a second, up positive (the events' own y goes down); still for a hand that stopped before letting go.
+    private static func velocity(_ moves: [(at: CGPoint, time: TimeInterval)]) -> CGVector {
+        guard let first = moves.first, let last = moves.last, last.time > first.time else { return .zero }
+        let seconds = last.time - first.time
+        return CGVector(dx: (last.at.x - first.at.x) / seconds, dy: (first.at.y - last.at.y) / seconds)
+    }
 
     /// From the event itself, in the screen's own coordinates: `locationInWindow` shifts as the window follows the pointer.
     private static func onScreen(_ e: NSEvent) -> CGPoint { e.cgEvent?.location ?? .zero }
@@ -71,6 +82,9 @@ final class StripPanel: NSPanel {
 final class StripRow: NSStackView {
     var onHover: ((Bool) -> Void)?
     var onClick: (() -> Void)?
+    /// Two fingers swept over it, on a trackpad.
+    var onSwipe: ((StripSwipe) -> Void)?
+    private var swept = CGVector.zero
     /// The pointer is on the strip, its tiles included.
     var pointerOn = false
     private var anyApp: NSTrackingArea?
@@ -84,6 +98,19 @@ final class StripRow: NSStackView {
     }
     override func mouseEntered(with event: NSEvent) { onHover?(true) }
     override func mouseExited(with event: NSEvent) { onHover?(false) }
+    /// A trackpad's scroll over the strip (a tile's goes on up to here) adds up while the fingers move, and says its way
+    /// when they lift; the coasting after it is no gesture. A mouse wheel's clicks aren't one either.
+    override func scrollWheel(with event: NSEvent) {
+        guard event.hasPreciseScrollingDeltas, event.momentumPhase.isEmpty else { return }
+        if event.phase.contains(.began) { swept = .zero }
+        swept.dx += event.scrollingDeltaX
+        swept.dy += event.scrollingDeltaY
+        guard event.phase.contains(.ended) else { return }
+        if let way = StripModel.swipe(dx: swept.dx, dy: swept.dy, natural: event.isDirectionInvertedFromDevice) {
+            onSwipe?(way)
+        }
+        swept = .zero
+    }
     /// With Kelp behind, the click that reaches a window goes only to a view that takes a first click.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }

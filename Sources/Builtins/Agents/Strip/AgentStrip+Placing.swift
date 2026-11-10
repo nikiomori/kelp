@@ -5,18 +5,39 @@ import DesignKit
 import KelpKit
 
 extension AgentStrip {
-    /// Let go after a drag: it goes to the nearest corner of the screen it's on; a card it left behind goes.
-    func dropped() {
-        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
+    /// Let go after a drag, where it would come to rest (`at`: thrown, further on its way): it goes to the nearest corner of
+    /// the screen that is on, or behind the side it went past; a card it left behind goes.
+    func dropped(at rest: NSRect? = nil) {
+        guard let panel else { return }
+        let frame = rest ?? panel.frame
+        guard let screen = Self.screen(under: panel.frame) else { return }
         let area = screen.visibleFrame
-        if let edge = StripModel.edge(dropped: panel.frame, in: area), Self.outer(edge, of: screen) {
-            moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
+        if let edge = StripModel.edge(dropped: frame, in: area), Self.outer(edge, of: screen) {
+            moved(to: Self.place(behind: edge, of: screen, at: frame))
             return
         }
-        let corner = StripModel.corner(nearest: panel.frame, in: area)
-        moved(
-            to: corner == .bottom && screen == NSScreen.main
-                ? nil : StripPlace(corner: corner, display: Self.number(of: screen)))
+        moved(to: Self.place(StripModel.corner(nearest: frame, in: area), of: screen))
+    }
+
+    /// Two fingers swept over it: the next of its places that way, behind the side from that side's corner, out again.
+    func swipe(_ way: StripSwipe) {
+        guard let panel, let screen = Self.screen(under: panel.frame) else { return }
+        let area = screen.visibleFrame
+        let high = panel.frame.midY > area.midY
+        let corner =
+            place?.edge.map { $0 == .left ? (high ? .topLeft : .bottomLeft) : (high ? .topRight : .bottomRight) }
+            ?? self.corner
+        switch StripModel.swiped(from: corner, edge: place?.edge, way) {
+        case .corner(let to): moved(to: Self.place(to, of: screen))
+        case .edge(let edge) where Self.outer(edge, of: screen):
+            moved(to: Self.place(behind: edge, of: screen, at: panel.frame))
+        case .edge, nil: break   // nowhere further that way
+        }
+    }
+
+    /// At a corner of that screen; the foot of the main one is where it starts, so that's no place to keep.
+    private static func place(_ corner: StripCorner, of screen: NSScreen) -> StripPlace? {
+        corner == .bottom && screen == NSScreen.main ? nil : StripPlace(corner: corner, display: number(of: screen))
     }
 
     /// From the menu: behind the side of its screen it's nearer, where it stands.
@@ -143,7 +164,8 @@ extension AgentStrip {
         row.onHover = { [weak self] on in self?.hoverStrip(on) }
         row.onClick = { [weak self] in self?.peek(true) }
         let made = StripPanel.floating(row, radius: StripButton.stripHeight / 2, fullScreen: state.fullScreen)
-        made.onDropped = { [weak self] in self?.dropped() }
+        made.onDropped = { [weak self] rest in self?.dropped(at: rest) }
+        row.onSwipe = { [weak self] way in self?.swipe(way) }
         panel = made
         return made
     }

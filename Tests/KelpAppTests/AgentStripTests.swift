@@ -276,3 +276,26 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(titles.prefix(5) == ["kelp — Build failed", "Open in Kelp", "Continue", "Later", "Mute Notifications"])
     #expect(titles.contains("Hide Strip") && titles.contains("Strip Settings…"))
 }
+
+/// A thrown strip flies on the way it went; a slow drag stays where it was let go.
+@MainActor @Test func aThrowLandsWhereItWasHeading() {
+    let frame = NSRect(x: 900, y: 8, width: 200, height: 40)
+    #expect(StripModel.projected(frame, velocity: CGVector(dx: 100, dy: 0)) == frame)
+    let thrown = StripModel.projected(frame, velocity: CGVector(dx: -3000, dy: 3000))
+    #expect(thrown.minX < frame.minX && thrown.minY > frame.minY)
+    #expect(StripModel.corner(nearest: thrown, in: screenArea) == .topLeft || thrown.minX < 0)
+}
+
+/// Swipes step along the six places, behind a side from its corner, and back out of it.
+@MainActor @Test func aSwipeStepsToTheNextPlace() {
+    #expect(StripModel.swipe(dx: 60, dy: 3, natural: true) == .right)
+    #expect(StripModel.swipe(dx: 60, dy: 3, natural: false) == .left)
+    #expect(StripModel.swipe(dx: 10, dy: 5, natural: true) == nil)
+    #expect(StripModel.swipe(dx: 2, dy: -70, natural: true) == .up)
+    #expect(StripModel.swiped(from: .bottom, edge: nil, .right) == .corner(.bottomRight))
+    #expect(StripModel.swiped(from: .bottomRight, edge: nil, .right) == .edge(.right))
+    #expect(StripModel.swiped(from: .bottomLeft, edge: nil, .up) == .corner(.topLeft))
+    #expect(StripModel.swiped(from: .top, edge: nil, .up) == nil)
+    #expect(StripModel.swiped(from: .bottomLeft, edge: .left, .right) == .corner(.bottomLeft))
+    #expect(StripModel.swiped(from: .bottomLeft, edge: .left, .left) == nil)
+}

@@ -146,6 +146,34 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         #expect(strip.frame == before)
     }
 
+    /// Two fingers swept over the strip move it to the next place that way; the coasting after doesn't count.
+    @Test func aSwipeOverTheStripMovesIt() async throws {
+        let rig = try await AppRig()
+        _ = NSApplication.shared
+        StripPlace.save(nil)
+        let strip = AgentStrip(app: rig.app)
+        strip.front = { false }   // behind another app, whatever another test brings forward
+        strip.animates = false
+        defer { StripPlace.save(nil) }
+        strip.start()
+        rig.app.sessions = [session(rig.workspace.id, .working)]
+        try await settled(strip) { strip.isShowing }
+        func scroll(_ phase: CGScrollPhase, dx: Int32) throws -> NSEvent {
+            let e = try #require(
+                CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: dx, wheel3: 0))
+            e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+            e.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
+            return try #require(NSEvent(cgEvent: e))
+        }
+        for (phase, dx) in [(CGScrollPhase.began, 30), (.changed, 30), (.changed, 30), (.ended, 0)]
+            as [(CGScrollPhase, Int32)]
+        {
+            strip.row.scrollWheel(with: try scroll(phase, dx: dx))
+        }
+        try await settled(strip)
+        #expect(strip.place?.corner == .bottomLeft || strip.place?.corner == .bottomRight)
+    }
+
     /// Once `first` holds, until the strip stops moving: its animation's end, not a guess at how long one takes (a loaded
     /// machine runs them late). Gives up after 15 s, a failure there.
     private func settled(_ strip: AgentStrip, after first: () -> Bool = { true }) async throws {
