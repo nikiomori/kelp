@@ -304,18 +304,16 @@ package final class EditorArea: NSViewController {
         group.strip.set(
             Self.disambiguated(
                 model.tabs.map { tab in
-                    var item = placeholder(tab)
-                    if let content = contents[tab.id] {
-                        item = .badged(
-                            .init(
-                                id: tab.id, title: content.title, icon: content.icon, status: nil,
-                                toolTip: content.toolTip), content.badge,
-                            edited: content.isEdited)
-                    } else if TabURI.scheme(tab.uri) == "session" {   // not built, or its terminal let go: its session still says all this
-                        let sid = TabURI.body(tab.uri)
-                        item = .badged(item, .of(app.session(sid), meter: app.latest(ContextEvent.self, sid)?.shown))
+                    guard let content = contents[tab.id] else {
+                        // Not built, or let go of (a hidden terminal): what it stands for still says all this.
+                        var item = placeholder(tab)
+                        item.badge = app.extensions.tabProvider(for: tab.uri)?.badge?(tab.uri)
+                        return runLook(item, tab)
                     }
-                    return runLook(item, tab)
+                    return runLook(
+                        .init(
+                            id: tab.id, title: content.title, icon: content.icon, toolTip: content.toolTip,
+                            edited: content.isEdited, badge: content.badge), tab)
                 }, model.tabs), selected: model.selectedTab?.id)
         group.show(visible?.view)
         noteShown(model.selectedTab?.id)

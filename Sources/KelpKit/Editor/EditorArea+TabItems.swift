@@ -38,74 +38,14 @@ extension EditorArea {
         }
     }
 
+    /// A tab not built yet, as its provider says it will look; an extension's view by its manifest, else its URI.
     func placeholder(_ tab: TabRef) -> TabStrip.Item {
-        let body = TabURI.body(tab.uri)
-        switch TabURI.scheme(tab.uri) {
-        case "session":
-            let session = app.session(body)
-            let title = session.map(app.catalog.displayName) ?? String(localized: "Session")
-            return .init(
-                id: tab.id, title: title, icon: app.catalog.icon(session?.agent),
-                status: session.flatMap { $0.agent == "shell" ? nil : $0.endedWithError ? .error : $0.status },
-                unread: session?.unread ?? false, toolTip: title)
-        case "file":
-            let path = TabURI.filePath(tab.uri).path
-            return .init(
-                id: tab.id, title: (path as NSString).lastPathComponent,
-                icon: app.fileIcons.image((path as NSString).lastPathComponent),
-                status: nil, toolTip: path)
-        case "diff":
-            return .init(
-                id: tab.id, title: String(localized: "Changes"), icon: .symbol("plus.forwardslash.minus"), status: nil,
-                toolTip: nil)
-        case "http", "https", "about", TabURI.agentScheme:
-            return .init(
-                id: tab.id, title: URL(string: TabURI.pageURL(tab.uri))?.host ?? String(localized: "New Page"),
-                icon: .symbol("safari"),
-                status: nil, toolTip: tab.uri)
-        case "preview":
-            return .init(
-                id: tab.id, title: (body as NSString).lastPathComponent, icon: .symbol("eye"), status: nil,
-                toolTip: body)
-        case "usage":
-            return .init(
-                id: tab.id, title: String(localized: "Usage"), icon: .symbol("chart.bar"), status: nil, toolTip: nil)
-        case "routines":
-            return .init(
-                id: tab.id, title: String(localized: "Routines"), icon: .symbol("clock.arrow.circlepath"), status: nil,
-                toolTip: nil)
-        case "cilog":
-            return .init(
-                id: tab.id, title: String(localized: "Log"), icon: .symbol("doc.text"), status: nil, toolTip: nil)
-        case "db":   // "<workspace>/<name>[?table=<t>|?run=<id>]": as the tab will title itself
-            let parts = body.split(separator: "?", maxSplits: 1).map(String.init)
-            let name =
-                parts[0].split(separator: "/", maxSplits: 1).last.map {
-                    String($0).removingPercentEncoding ?? String($0)
-                } ?? body
-            let table =
-                parts.count > 1 && parts[1].hasPrefix("table=")
-                ? String(parts[1].dropFirst(6)).removingPercentEncoding : nil
-            return .init(
-                id: tab.id, title: table.map { "\($0) · \(name)" } ?? name, icon: .symbol("cylinder.split.1x2"),
-                status: nil, toolTip: nil)
-        default:
-            let info = app.extensions.viewInfo(tab.uri)
-            return .init(
-                id: tab.id, title: info?.title ?? body, icon: .symbol(info?.icon ?? "puzzlepiece.extension"),
-                status: nil,
-                toolTip: tab.uri)
+        if let look = app.extensions.tabProvider(for: tab.uri)?.placeholder?(tab.uri) {
+            return .init(id: tab.id, title: look.title, icon: look.icon, toolTip: look.toolTip)
         }
-    }
-}
-
-extension TabStrip.Item {
-    /// `p`'s name, icon and tip, with what a tab's badge says.
-    static func badged(_ p: TabStrip.Item, _ b: TabBadge?, edited: Bool = false) -> TabStrip.Item {
-        TabStrip.Item(
-            id: p.id, title: p.title, icon: p.icon, status: b?.status, unread: b?.unread ?? false, toolTip: p.toolTip,
-            edited: edited,
-            meter: b?.meter, progress: b?.progress, background: b?.background ?? 0, backgroundTip: b?.backgroundTip,
-            waitsFor: b?.waitsFor ?? false)
+        let info = app.extensions.viewInfo(tab.uri)
+        return .init(
+            id: tab.id, title: info?.title ?? TabURI.body(tab.uri),
+            icon: .symbol(info?.icon ?? "puzzlepiece.extension"), toolTip: tab.uri)
     }
 }

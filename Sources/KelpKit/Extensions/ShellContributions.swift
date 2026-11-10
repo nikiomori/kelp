@@ -9,6 +9,8 @@ import WorkbenchKit
 package struct TabProvider {
     package init(
         schemes: [String], make: @escaping @MainActor (String) -> TabContent?,
+        placeholder: (@MainActor (_ uri: String) -> (title: String, icon: NSImage?, toolTip: String?))? = nil,
+        badge: (@MainActor (_ uri: String) -> TabBadge?)? = nil, releasable: Bool = false,
         closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)? = nil,
         menu: (
             @MainActor (
@@ -19,12 +21,23 @@ package struct TabProvider {
     ) {
         self.schemes = schemes
         self.make = make
+        self.placeholder = placeholder
+        self.badge = badge
+        self.releasable = releasable
         self.closeUnbuilt = closeUnbuilt
         self.menu = menu
         self.browse = browse
     }
     let schemes: [String]
     let make: @MainActor (String) -> TabContent?
+    /// What its tab shows before it's built (a tab in the background since launch), from the URI alone: it must not do
+    /// work. None: the URI and a puzzle piece.
+    var placeholder: (@MainActor (_ uri: String) -> (title: String, icon: NSImage?, toolTip: String?))?
+    /// Its marks while it isn't built, as its tab's `badge` would say them (a session's state and context ring).
+    var badge: (@MainActor (_ uri: String) -> TabBadge?)?
+    /// A tab of its hidden a while lets go of what it holds (a terminal's surface, ~25 MB) and is built again when shown
+    /// (`EditorRelease`); meanwhile `placeholder` and `badge` stand in.
+    let releasable: Bool
     /// Closing a tab of its URI that was never built (in the background since launch); false keeps it.
     var closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)?
     /// Its items in the tab's context menu, added to `menu` above Close Tab: `workspace` is the editor area's, and

@@ -2,6 +2,7 @@ import AppKit
 import Core
 import KelpKit
 import SwiftUI
+import WorkbenchKit
 
 extension Builtins {
 
@@ -12,7 +13,11 @@ extension Builtins {
         icon: "server.rack"
     ) { app in
         return Contributions(
-            tabs: [TabProvider(schemes: ["host"]) { ServerTab(uri: $0, app: app) }],
+            tabs: [
+                TabProvider(
+                    schemes: ["host"], make: { ServerTab(uri: $0, app: app) },
+                    placeholder: { (TabURI.body($0), .symbol("server.rack"), nil) })
+            ],
             // The sidebar's server cards: the header over a host's projects, its menu, a remote project's items and hover card.
             servers: ServerCards(
                 header: { ServerHeader(host: $0, app: app, row: $1) },

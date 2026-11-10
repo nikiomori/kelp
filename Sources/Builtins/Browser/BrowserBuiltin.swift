@@ -23,6 +23,14 @@ extension Builtins {
                 TabProvider(
                     schemes: ["http", "https", "about", "preview", TabURI.agentScheme],
                     make: { BrowserTab(uri: $0, app: app) },
+                    placeholder: { uri in
+                        guard TabURI.scheme(uri) == "preview" else {
+                            let host = URL(string: TabURI.pageURL(uri))?.host
+                            return (host ?? String(localized: "New Page"), .symbol("safari"), uri)
+                        }
+                        let path = TabURI.body(uri)
+                        return ((path as NSString).lastPathComponent, .symbol("eye"), path)
+                    },
                     browse: { tab, action, args in
                         guard let page = tab as? BrowserTab else {
                             throw RPCError.invalidParams("That tab shows no page.")

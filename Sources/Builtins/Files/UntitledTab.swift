@@ -26,10 +26,12 @@ final class UntitledTab: SavableTab {
         backup.drop()
     }
 
+    static func title(_ uri: String) -> String { String(localized: "Untitled-\(TabURI.body(uri))") }
+
     init(uri: String, app: AppModel) {
         self.uri = uri
         self.app = app
-        title = String(localized: "Untitled-\(TabURI.body(uri))")
+        title = Self.title(uri)
         editor.view.clipsToBounds = true
         let bar = EditorStatusBar(url: URL(fileURLWithPath: "Untitled.txt"), text: "")
         bar.show(cursor: editor.cursor)

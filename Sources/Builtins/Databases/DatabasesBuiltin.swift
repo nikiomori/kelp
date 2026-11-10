@@ -70,7 +70,13 @@ extension Builtins {
                             "Postgres and MySQL stop a read past it.", range: [1, 300])
                     ], keywords: ["SQL", "Postgres", "MySQL", "SQLite"], order: 75, tint: NSColor(hex: 0x5856D6))
             ],
-            tabs: [TabProvider(schemes: [TabURI.databaseScheme]) { DatabaseTab(uri: $0, app: app) }],
+            tabs: [
+                TabProvider(
+                    schemes: [TabURI.databaseScheme], make: { DatabaseTab(uri: $0, app: app) },
+                    placeholder: { uri in
+                        (DatabaseURI(uri).map(DatabaseTab.title) ?? TabURI.body(uri), .symbol(DatabaseLook.symbol), nil)
+                    })
+            ],
             // "+" and the empty workspace offer Database where the workspace has one: its databases are followed while it's
             // on screen (the daemon reads them again only when a file that names one changes).
             launched: [{ DatabaseFollow.start(app) }],

@@ -105,7 +105,10 @@ final class CommitMessageTab: TabContent {
     private let root = NSView()
     private let commitButton = NSButton()
     var view: NSView { root }
-    var title: String { amend ? String(localized: "Amend Commit") : String(localized: "Commit Message") }
+    var title: String { Self.title(amend: amend) }
+    static func title(amend: Bool) -> String {
+        amend ? String(localized: "Amend Commit") : String(localized: "Commit Message")
+    }
     var icon: NSImage? { .symbol("square.and.pencil") }
 
     init(uri: String, app: AppModel) {

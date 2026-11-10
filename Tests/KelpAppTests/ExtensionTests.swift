@@ -229,7 +229,9 @@ extension OneAtATime {
         init(_ uri: String) { self.uri = uri }
         func focus() {}
     }
-    let area = EditorArea(app: AppModel(builtins: Builtins.all), workspaceId: "release-test")
+    let app = AppModel(builtins: Builtins.all)
+    app.extensions.reload()   // the session tabs' provider says they may be let go of
+    let area = EditorArea(app: app, workspaceId: "release-test")
     let file = area.layout.add(TabURI.file("/tmp/a.txt"))
     area.contents[file.id] = Fake(file.uri)
     area.noteShown(file.id)
@@ -243,6 +245,24 @@ extension OneAtATime {
     area.noteShown(nil, now: Date().addingTimeInterval(EditorArea.releaseAfter + 1))
     #expect(area.contents[tabs[0].id] == nil && area.contents[tabs[1].id] != nil && area.contents[tabs[3].id] != nil)
     #expect(area.contents[file.id] != nil)
+}
+
+/// A tab not built yet (in the background since launch) looks as its provider says, whichever built-in's it is: a
+/// machine's, a server's, a subagent's and an untitled file's too, not a puzzle piece and its raw URI.
+@MainActor @Test func unbuiltTabsLookAsTheirProvidersSay() {
+    let app = AppModel(builtins: Builtins.all)
+    app.extensions.reload()
+    let area = EditorArea(app: app, workspaceId: "placeholder-test")
+    let looks = [
+        ("vm:dev", "dev"), ("host:box", "box"), ("subagent:s/a", "Subagent"), ("untitled:3", "Untitled-3"),
+        ("prompt:x", "Prompt"), ("db:w/main?table=users", "users · main"), ("usage:", "Usage")
+    ]
+    var layout = WorkspaceLayout()
+    for (uri, title) in looks {
+        let item = area.placeholder(layout.add(uri))
+        #expect(item.title == title, "\(uri)")
+        #expect(item.toolTip != uri, "\(uri)")   // not the stand-in for a scheme no one claims
+    }
 }
 
 /// An extension that runs a command, made before Kelp asked (`ExtensionTrust.askedSince`) or now.

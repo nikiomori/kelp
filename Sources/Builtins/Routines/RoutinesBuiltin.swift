@@ -34,7 +34,11 @@ extension Builtins {
                     }
                 }
             ],
-            tabs: [TabProvider(schemes: ["routines"]) { RoutinesTab(uri: $0, app: app) }]
+            tabs: [
+                TabProvider(
+                    schemes: ["routines"], make: { RoutinesTab(uri: $0, app: app) },
+                    placeholder: { _ in (String(localized: "Routines"), .symbol("clock.arrow.circlepath"), nil) })
+            ]
         )
     }
 }

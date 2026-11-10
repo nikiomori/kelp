@@ -20,7 +20,9 @@ extension EditorArea {
         for id in hidden where hiddenAt[id] == nil { hiddenAt[id] = now }
         for id in hidden.dropLast(Self.keptHidden) where now.timeIntervalSince(hiddenAt[id] ?? now) >= Self.releaseAfter
         {
-            guard let content = contents[id], TabURI.scheme(content.uri) == "session", !content.isEdited else {
+            guard let content = contents[id], app.extensions.tabProvider(for: content.uri)?.releasable == true,
+                !content.isEdited
+            else {
                 continue
             }
             contents[id] = nil

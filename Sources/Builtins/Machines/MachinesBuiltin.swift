@@ -2,6 +2,7 @@ import AppKit
 import Core
 import KelpKit
 import SwiftUI
+import WorkbenchKit
 
 extension Builtins {
 
@@ -12,7 +13,11 @@ extension Builtins {
         icon: "shippingbox"
     ) { app in
         return Contributions(
-            tabs: [TabProvider(schemes: ["vm"]) { MachineTab(uri: $0, app: app) }],
+            tabs: [
+                TabProvider(
+                    schemes: ["vm"], make: { MachineTab(uri: $0, app: app) },
+                    placeholder: { (TabURI.body($0), .symbol("shippingbox"), nil) })
+            ],
             sidebarSections: [
                 SidebarSection(id: "machines") {
                     // Kelp's virtual machines, once there's one

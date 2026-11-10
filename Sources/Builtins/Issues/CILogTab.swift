@@ -42,11 +42,18 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
         app.workbench.open(uri)
     }
 
+    private static func query(_ uri: String) -> [URLQueryItem] {
+        URLComponents(string: "x:" + TabURI.body(uri))?.queryItems ?? []
+    }
+    static func title(_ uri: String) -> String {
+        String(localized: "Log: \(query(uri).first { $0.name == "name" }?.value ?? "")")
+    }
+
     init(uri: String, app: AppModel) {
         self.uri = uri
-        let query = URLComponents(string: "x:" + TabURI.body(uri))?.queryItems ?? []
+        let query = Self.query(uri)
         func value(_ name: String) -> String? { query.first { $0.name == name }?.value }
-        title = String(localized: "Log: \(value("name") ?? "")")
+        title = Self.title(uri)
         view = box
         Self.shown[uri] = { [weak self] in self }
         guard let worktree = value("worktree"), let job = value("job").flatMap(Int.init) else { return }

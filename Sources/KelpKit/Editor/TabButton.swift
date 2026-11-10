@@ -124,41 +124,41 @@ final class TabButton: NSControl, NSDraggingSource {
         title.stringValue = it.title
         title.lineBreakMode = it.keepsEnd ? .byTruncatingMiddle : .byTruncatingTail
         if icon.image !== it.icon { icon.image = it.icon }
-        mark.status = it.status
-        mark.unread = it.unread
-        mark.progress = it.progress
-        mark.waitsForCommand = it.waitsFor
-        meter.usage = it.meter
-        let level = ContextMeter.level(it.meter)
+        mark.status = it.badge?.status
+        mark.unread = it.badge?.unread ?? false
+        mark.progress = it.badge?.progress
+        mark.waitsForCommand = it.badge?.waitsFor ?? false
+        meter.usage = it.badge?.meter
+        let level = ContextMeter.level(it.badge?.meter)
         full.isHidden = level < 3
-        full.stringValue = it.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
+        full.stringValue = it.badge?.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = .textRed
-        chip.isHidden = it.background == 0
-        chip.show("apple.terminal", count: it.background)
-        chip.toolTip = it.card == nil ? it.backgroundTip : nil   // the card lists them
-        chip.setAccessibilityLabel(it.backgroundTip)
+        chip.isHidden = (it.badge?.background ?? 0) == 0
+        chip.show("apple.terminal", count: it.badge?.background ?? 0)
+        chip.toolTip = it.card == nil ? it.badge?.backgroundTip : nil   // the card lists them
+        chip.setAccessibilityLabel(it.badge?.backgroundTip)
         toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
-        setAccessibilityLabel(it.status.map { "\(it.title), \($0.words)" } ?? it.title)
+        setAccessibilityLabel((it.badge?.status).map { "\(it.title), \($0.words)" } ?? it.title)
         setAccessibilityValue(selected)
         updateLook()
     }
 
     /// Working, asking, failed, or finished and not looked at: the state says more than the agent's icon.
     private var showsState: Bool {
-        guard let status = item?.status else { return false }
-        return [.working, .waiting, .error].contains(status) || (status == .done && item?.unread == true)
+        guard let status = item?.badge?.status else { return false }
+        return [.working, .waiting, .error].contains(status) || (status == .done && item?.badge?.unread == true)
     }
 
     /// There's something here for you: it stays bright when its pane fades.
-    private var news: Bool { showsState && item?.status != .working }
+    private var news: Bool { showsState && item?.badge?.status != .working }
 
     /// It asks, or it failed and wasn't looked at: its title takes the colour (and the tab glows, `glow`), so the pane
     /// that calls for you reads across the window, not only by its 12 pt mark.
     private var callText: NSColor? {
-        switch item?.status {
+        switch item?.badge?.status {
         case .waiting?: .textOrange
-        case .error? where item?.unread == true: .textRed
+        case .error? where item?.badge?.unread == true: .textRed
         default: nil
         }
     }
@@ -196,20 +196,20 @@ final class TabButton: NSControl, NSDraggingSource {
     /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
     /// unseen, a faint glow in the text's colour when it finished unseen. A glow and its edge line: it reads as the pane's.
     private var glow: NSColor? {
-        switch item?.status {
+        switch item?.badge?.status {
         case .waiting?: .systemOrange
-        case .error? where item?.unread == true: .systemRed
-        case .done? where item?.unread == true: .labelColor
+        case .error? where item?.badge?.unread == true: .systemRed
+        case .done? where item?.badge?.unread == true: .labelColor
         default: item?.run
         }
     }
     /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the
     /// selected fill under it stays as it is.
     private func showGlow() {
-        edgeGlow.show(glow, breathing: item?.status == .waiting, faint: item?.status == .done)
+        edgeGlow.show(glow, breathing: item?.badge?.status == .waiting, faint: item?.badge?.status == .done)
     }
 
-    private var doneUnread: Bool { item?.status == .done && item?.unread == true }
+    private var doneUnread: Bool { item?.badge?.status == .done && item?.badge?.unread == true }
 
     private func applyWidth() {
         widest.constant = compact ? 160 : 300

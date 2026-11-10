@@ -92,8 +92,15 @@ extension Builtins {
                     ], order: 80, tint: NSColor(hex: 0xFF9500))
             ],
             tabs: [
-                TabProvider(schemes: ["diff"]) { DiffTab(uri: $0, app: app) },
-                TabProvider(schemes: ["commit"]) { CommitMessageTab(uri: $0, app: app) }
+                TabProvider(
+                    schemes: ["diff"], make: { DiffTab(uri: $0, app: app) },
+                    placeholder: { _ in (String(localized: "Changes"), .symbol("plus.forwardslash.minus"), nil) }),
+                TabProvider(
+                    schemes: ["commit"], make: { CommitMessageTab(uri: $0, app: app) },
+                    placeholder: { uri in
+                        let amend = URLComponents(string: uri)?.queryItems?.contains { $0.name == "amend" } == true
+                        return (CommitMessageTab.title(amend: amend), .symbol("square.and.pencil"), nil)
+                    })
             ],
             // The window bar's branch chip: what runs, its popover; a merged PR's switch in the project's menu.
             branch: BranchActions(

@@ -277,10 +277,24 @@ extension Builtins {
             tabs: [
                 TabProvider(
                     schemes: ["session"], make: { SessionTab(uri: $0, app: app) },
+                    placeholder: { uri in
+                        let session = app.session(TabURI.body(uri))
+                        let title = session.map(app.catalog.displayName) ?? String(localized: "Session")
+                        return (title, app.catalog.icon(session?.agent), title)
+                    },
+                    badge: { uri in
+                        let sid = TabURI.body(uri)
+                        return .of(app.session(sid), meter: app.latest(ContextEvent.self, sid)?.shown)
+                    },
+                    releasable: true,
                     closeUnbuilt: { await SessionTab.close(app, session: TabURI.body($0)) },
                     menu: { SessionTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) }),
-                TabProvider(schemes: ["usage"]) { _ in UsageTab(app: app) },
-                TabProvider(schemes: ["subagent"]) { SubagentTab(uri: $0, app: app) }
+                TabProvider(
+                    schemes: ["usage"], make: { _ in UsageTab(app: app) },
+                    placeholder: { _ in (String(localized: "Usage"), .symbol("chart.bar"), nil) }),
+                TabProvider(
+                    schemes: ["subagent"], make: { SubagentTab(uri: $0, app: app) },
+                    placeholder: { _ in (String(localized: "Subagent"), .symbol("list.bullet.rectangle"), nil) })
             ],
             // The plan limits: the sidebar's foot, each reading as it lands (their pace, their notifications), and the note
             // beside each agent where agents are chosen.

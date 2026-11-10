@@ -247,9 +247,17 @@ extension Builtins {
             tabs: [
                 TabProvider(
                     schemes: ["file"], make: { FileTab(uri: $0, app: app) },
+                    placeholder: { uri in
+                        let path = TabURI.filePath(uri).path, name = (path as NSString).lastPathComponent
+                        return (name, app.fileIcons.image(name), path)
+                    },
                     menu: { FileTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) }),
-                TabProvider(schemes: ["untitled"]) { UntitledTab(uri: $0, app: app) },
-                TabProvider(schemes: ["prompt"]) { PromptTab(uri: $0, app: app) }
+                TabProvider(
+                    schemes: ["untitled"], make: { UntitledTab(uri: $0, app: app) },
+                    placeholder: { (UntitledTab.title($0), .symbol("doc"), nil) }),
+                TabProvider(
+                    schemes: ["prompt"], make: { PromptTab(uri: $0, app: app) },
+                    placeholder: { _ in (String(localized: "Prompt"), .symbol("text.bubble"), nil) })
             ],
             languages: [
                 LanguageSpec(

@@ -8,15 +8,10 @@ extension TabStrip {
         let id: String
         var title: String
         var icon: NSImage?
-        let status: AgentStatus?
-        var unread = false
         let toolTip: String?
         var edited = false
-        var meter: SessionContextWindow.Usage?
-        var progress: Double?
-        var background = 0
-        var backgroundTip: String?
-        var waitsFor = false
+        /// A session's marks (its state, context ring, commands beside it), as its tab says them.
+        var badge: TabBadge?
         /// A run's colour (the Run menu's): its tab glows so, steady, below any call for attention.
         var run: NSColor?
         /// An agent's tab: the sidebar's card for it ("a:<session>") under the pointer, in place of the tooltip.

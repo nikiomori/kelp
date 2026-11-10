@@ -45,7 +45,11 @@ extension Builtins {
                     keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"], order: 90,
                     tint: NSColor(hex: 0x34C759))
             ],
-            tabs: [TabProvider(schemes: ["cilog"]) { CILogTab(uri: $0, app: app) }]
+            tabs: [
+                TabProvider(
+                    schemes: ["cilog"], make: { CILogTab(uri: $0, app: app) },
+                    placeholder: { (CILogTab.title($0), .symbol("doc.text"), nil) })
+            ]
         )
     }
 }
