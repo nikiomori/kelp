@@ -25,7 +25,7 @@ enum Forge {
     static func noRemote(_ message: String?) -> (title: String, text: String)? {
         guard message == GitHub.noRemote else { return nil }
         return (
-            String(localized: "No GitHub remote"),
+            String(localized: "No GitHub Remote"),
             String(
                 localized: "Pull requests, issues and CI runs show here once this project's git has a remote on GitHub."
             )

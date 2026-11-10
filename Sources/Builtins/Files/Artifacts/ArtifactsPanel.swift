@@ -120,7 +120,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
         foot.isHidden = count <= Self.filterFrom && find.isEmpty
         empty.show(
-            list != nil && items.isEmpty ? String(localized: "No artifacts yet") : nil, symbol: "doc.richtext",
+            list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",
             text: String(localized: "Pages agents make show here."), buttons: [makeButton])
         table.reloadData()
         markOpen()
