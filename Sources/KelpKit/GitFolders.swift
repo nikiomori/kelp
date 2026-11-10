@@ -116,6 +116,8 @@ package final class GitFolders {
 extension AppModel {
     /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace of a project) the project's.
     package func gitFolder(of workspace: String?) -> Worktree? { gitState.folder(of: workspace) }
+    /// The folder a project's row stands for: its own worktree's (nil: a project that isn't a git folder).
+    package func gitFolder(project id: String) -> Worktree? { gitState.folder(project: id) }
     /// Every folder the sidebar lists, whose git, PR and CI its rows show.
     package var gitFolders: Set<String> { gitState.folders }
     /// Its files that another folder of the project changes too, with that folder's branch (`GitFolders.shared`).

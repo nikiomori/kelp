@@ -102,15 +102,21 @@ extension Builtins {
                         return (CommitMessageTab.title(amend: amend), .symbol("square.and.pencil"), nil)
                     })
             ],
-            // The window bar's branch chip: what runs, its popover; a merged PR's switch in the project's menu.
+            // A merged PR's switch in its project's menu.
+            rowMenu: [
+                { row, menu in
+                    guard case .project(let id) = row, let folder = app.gitFolder(project: id) else { return }
+                    MergedPR(app: app).addItems(to: menu, folder)
+                }
+            ],
+            // The window bar's branch chip: what runs, its popover.
             branch: BranchActions(
                 running: { GitSync.state(app).running[$0] },
                 popover: { worktree, popover in
                     let controller = SyncPopover(app: app, worktree: worktree)
                     controller.popover = popover
                     return controller
-                },
-                folderMenu: { MergedPR(app: app).addItems(to: $1, $0) }),
+                }),
             // The CI and PR marks beside folders and on the window bar, and the PR in a folder's hover card.
             ci: FolderCI(
                 rows: { RowMarks.of(app).sidebarMarks },

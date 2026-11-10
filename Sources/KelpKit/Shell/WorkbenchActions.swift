@@ -169,14 +169,18 @@ extension Workbench {
         area.drop(tab.id)
     }
 
-    /// The sessions the sidebar lists: a run hidden in the Run menu is there, not in the sidebar.
+    /// The sessions the sidebar lists: one a built-in keeps out of sight (a run hidden in the Run menu) isn't there.
     var shownSessions: [Session] {
-        let hidden = app.extensions.all.runs?.hidden() ?? [], inTab = Set(app.uiState.strings(Session.inTabKey))
+        let hidden = keptHidden, inTab = Set(app.uiState.strings(Session.inTabKey))
         return app.sessions.filter { !hidden.contains($0.id) && !isOnLine($0, inTab: inTab) }
     }
-    /// No tab of its own: a run put away in the Run menu, or a command its agent's line shows.
+    /// No tab of its own: kept out of sight by a built-in (a run put away in the Run menu), or a command its agent's line
+    /// shows.
     package func isHidden(_ sid: String) -> Bool {
-        app.extensions.all.runs?.hidden().contains(sid) == true || app.session(sid).map { isOnLine($0) } == true
+        keptHidden.contains(sid) || app.session(sid).map { isOnLine($0) } == true
+    }
+    private var keptHidden: Set<String> {
+        app.extensions.all.sessionHidden.reduce(into: []) { $0.formUnion($1()) }
     }
     /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
     func isOnLine(_ session: Session, inTab: Set<String>? = nil) -> Bool {

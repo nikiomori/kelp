@@ -18,11 +18,21 @@ extension Builtins {
                     schemes: ["host"], make: { ServerTab(uri: $0, app: app) },
                     placeholder: { (TabURI.body($0), .symbol("server.rack"), nil) })
             ],
-            // The sidebar's server cards: the header over a host's projects, its menu, a remote project's items and hover card.
+            // A server header's menu, and its items in a remote project's.
+            rowMenu: [
+                { row, menu in
+                    switch row {
+                    case .host(let host): ServerHeaders.serverMenu(menu, host, app)
+                    case .project(let id):
+                        guard let host = app.repo(id).flatMap({ RemoteHost.of($0.path)?.host }) else { return }
+                        ServerHeaders.serverItems(menu, host, app)
+                    default: return
+                    }
+                }
+            ],
+            // The sidebar's server cards: the header over a host's projects and a remote project's hover card.
             servers: ServerCards(
                 header: { ServerHeader(host: $0, app: app, row: $1) },
-                menu: { ServerHeaders.serverMenu($0, $1, app) },
-                projectItems: { ServerHeaders.serverItems($0, $1, app) },
                 section: { AnyView(ServerSection(app: app, host: $0, close: $1)) },
                 listed: { ServerHeaders.watchHosts($0, app) })
         )

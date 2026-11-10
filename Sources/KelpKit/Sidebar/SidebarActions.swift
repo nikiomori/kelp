@@ -126,12 +126,11 @@ extension SidebarController {
                 menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(repo) }
                 return
             }
-            if let folder = app.gitState.folder(project: id) { app.extensions.all.branch?.folderMenu(folder, menu) }
+            builtinItems(menu, node.kind)
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
             if onThisMac(id) { menu.add(String(localized: "New Chat on Branch")) { app.workbench.newBranch(repo: id) } }
             menu.addItem(.separator())
-            if let host = RemoteHost.of(repo.path)?.host { app.extensions.all.servers?.projectItems(menu, host) }
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
             muteItem(menu, node.muteIds)
@@ -145,8 +144,11 @@ extension SidebarController {
                 }
             }
             menu.add(String(localized: "Remove Project…")) { WorkspaceActions(app).removeProject(repo) }
-        case .workspace(let id): workspaceMenu(menu, id)
+        case .workspace(let id):
+            builtinItems(menu, node.kind)
+            workspaceMenu(menu, id)
         case .agent(let sid):
+            builtinItems(menu, node.kind)
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
             menu.setSubmenu(
                 AgentActions(app).handoffMenu(sid),
@@ -174,12 +176,16 @@ extension SidebarController {
             menu.addItem(.separator())
             menu.add(String(localized: "Restart")) { AgentActions(app).restart(sid) }
             menu.add(String(localized: "Close Chat")) { app.workbench.closeChat(session: sid) }
-        case .host(let host):
-            app.extensions.all.servers?.menu(menu, host)
-            menu.addItem(.separator())
+        case .host:
+            builtinItems(menu, node.kind)
             menu.addChoiceMenu(SettingKeys.serverLook, app, title: String(localized: "Servers"))
         case .parked: break
         }
+    }
+
+    /// What the built-ins add for the row (`Contributions.rowMenu`), at the top of its menu.
+    private func builtinItems(_ menu: NSMenu, _ row: SidebarItem.Kind) {
+        for add in app.extensions.all.rowMenu { add(row, menu) }
     }
 
     /// No Project's row: chats, and its folder. Nothing to rename, colour or remove: it's Kelp's own.

@@ -37,10 +37,10 @@ extension Builtins {
                     if let tab = fileTab(app) { runs.runFile(tab, "test") }
                 }
             ],
+            sessionHidden: [{ runs.hidden }],
             runs: ProjectRuns(
                 bar: { [RunChip(app: app, runs: runs), PageChip(app: app, runs: runs)] },
                 menu: runs,
-                hidden: { runs.hidden },
                 look: { runs.look($0) },
                 port: { runs.port(of: $0) },
                 tabsFollow: {

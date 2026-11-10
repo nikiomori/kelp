@@ -5,15 +5,13 @@ import WorkbenchKit
 /// What runs in a workspace, from the built-in that runs a project's commands (Run): the window bar's run chip and the
 /// page it serves, the Run menu's project commands, how a run's tab looks and its menu, what the "+" menu and the empty
 /// workspace offer to run, the pages a run prints and a new workspace's setup. None, and nothing of it shows: no chip,
-/// no run choices, every session a row and a tab. What the sidebar and the tabs follow (`hidden`, `look`, `port`,
-/// `tabsFollow`, `choices`) is read under observation: it must not do work.
+/// no run choices. What the tabs follow (`look`, `port`, `tabsFollow`, `choices`) is read under observation: it must not
+/// do work. Runs put away in the Run menu are its `Contributions.sessionHidden`.
 package struct ProjectRuns {
     /// Right of the search in the window bar, before the cup.
     let bar: @MainActor () -> [any WindowBarItem]
     /// The Run menu's delegate: the project's other commands go between its separators as it opens.
     let menu: any NSMenuDelegate
-    /// Runs put away in the Run menu: they keep running with no tab and no sidebar row.
-    let hidden: @MainActor () -> Set<String>
     /// A run's tab among the terminals: its purpose's symbol in colour and a glow of that colour; nil for any other.
     let look: @MainActor (Session) -> (icon: NSImage?, glow: NSColor?)?
     /// The port after a tab's name.
@@ -35,7 +33,6 @@ package struct ProjectRuns {
     package init(
         bar: @escaping @MainActor () -> [any WindowBarItem],
         menu: any NSMenuDelegate,
-        hidden: @escaping @MainActor () -> Set<String>,
         look: @escaping @MainActor (Session) -> (icon: NSImage?, glow: NSColor?)?,
         port: @escaping @MainActor (Session) -> Int?,
         tabsFollow: @escaping @MainActor () -> [String],
@@ -48,7 +45,6 @@ package struct ProjectRuns {
     ) {
         self.bar = bar
         self.menu = menu
-        self.hidden = hidden
         self.look = look
         self.port = port
         self.tabsFollow = tabsFollow

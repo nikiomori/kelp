@@ -136,8 +136,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // that read a manifest's unknown one as `unknown`).
     // +8 for what several built-ins did each their own way: a tab's SwiftUI view (`HostedTab`), and a served page's
     // reach, copy, stop and forward (`PageActions`: Run, Browser and Servers).
-    #expect(declared <= 323, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 323, "fewer now (\(declared)): lower the ceiling")
+    // +1 so a merged PR's switch in a project's menu is Git's own row item (`rowMenu`), with the folder the row stands
+    // for (`gitFolder(project:)`).
+    #expect(declared <= 324, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 324, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

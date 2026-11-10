@@ -54,20 +54,16 @@ package struct TabProvider {
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
 /// What the window bar's branch chip does, from the built-in that knows git (Git): what runs on a workspace's branch now
-/// ("Pushing…"), the popover a click opens, and the items at the top of a project's menu for its folder's branch (a
-/// merged PR's "Switch to main and Pull").
+/// ("Pushing…") and the popover a click opens.
 package struct BranchActions {
     let running: @MainActor (_ worktree: String) -> String?
     let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
-    let folderMenu: @MainActor (_ folder: Worktree, _ menu: NSMenu) -> Void
     package init(
         running: @escaping @MainActor (String) -> String?,
-        popover: @escaping @MainActor (String, NSPopover) -> NSViewController,
-        folderMenu: @escaping @MainActor (Worktree, NSMenu) -> Void
+        popover: @escaping @MainActor (String, NSPopover) -> NSViewController
     ) {
         self.running = running
         self.popover = popover
-        self.folderMenu = folderMenu
     }
 }
 
@@ -137,28 +133,21 @@ package struct SidebarSection {
 }
 
 /// The sidebar's server cards, from the built-in that knows SSH servers (Servers): the header over the projects on one
-/// host, its menu, and what a remote project's menu and hover card add. None, and a remote project is a row like any other.
+/// host and what a remote project's hover card adds (their menus are its `rowMenu`). None, and a remote project is a row
+/// like any other.
 package struct ServerCards {
     /// The header's row, brought up to date by the sidebar as its rows and its card's look change.
     let header: @MainActor (_ host: String, _ row: ServerRow) -> SidebarRow
-    /// The header's menu, over the card's look.
-    let menu: @MainActor (_ menu: NSMenu, _ host: String) -> Void
-    /// A remote project's menu: its server's items.
-    let projectItems: @MainActor (_ menu: NSMenu, _ host: String) -> Void
     /// In a remote project's hover card, under its title; `close` puts the card away.
     let section: @MainActor (_ host: String, _ close: @escaping () -> Void) -> AnyView
     /// The hosts the sidebar lists, each time it builds its rows.
     let listed: @MainActor (_ hosts: Set<String>) -> Void
     package init(
         header: @escaping @MainActor (String, ServerRow) -> SidebarRow,
-        menu: @escaping @MainActor (NSMenu, String) -> Void,
-        projectItems: @escaping @MainActor (NSMenu, String) -> Void,
         section: @escaping @MainActor (String, @escaping () -> Void) -> AnyView,
         listed: @escaping @MainActor (Set<String>) -> Void
     ) {
         self.header = header
-        self.menu = menu
-        self.projectItems = projectItems
         self.section = section
         self.listed = listed
     }
@@ -183,7 +172,8 @@ package struct Contributions {
     package init(
         panels: [PanelSpec] = [], editors: [EditorSpec] = [], commands: [CommandSpec] = [],
         settings: [SettingsSection] = [], tabs: [TabProvider] = [], sidebarSections: [SidebarSection] = [],
-        sessionMarks: [@MainActor (Session) -> SessionMark?] = [], branch: BranchActions? = nil, ci: FolderCI? = nil,
+        sessionMarks: [@MainActor (Session) -> SessionMark?] = [], sessionHidden: [@MainActor () -> Set<String>] = [],
+        rowMenu: [@MainActor (_ row: SidebarItem.Kind, _ menu: NSMenu) -> Void] = [], branch: BranchActions? = nil, ci: FolderCI? = nil,
         pushed: [@MainActor (any Pushed) -> Void] = [], plans: PlanWords? = nil, servers: ServerCards? = nil,
         launched: [@MainActor () -> Void] = [], dockMenu: [@MainActor (NSMenu) -> Void] = [],
         dockUsage: (@MainActor () -> DockFace?)? = nil, runs: ProjectRuns? = nil, languages: [LanguageSpec] = [],
@@ -196,6 +186,8 @@ package struct Contributions {
         self.tabs = tabs
         self.sidebarSections = sidebarSections
         self.sessionMarks = sessionMarks
+        self.sessionHidden = sessionHidden
+        self.rowMenu = rowMenu
         self.branch = branch
         self.ci = ci
         self.pushed = pushed
@@ -221,6 +213,12 @@ package struct Contributions {
     /// A mark on an agent's sidebar row for where it runs something of the built-in's (a machine): the first that has one
     /// shows, when the row has no goal or command of its own to show. Read under observation: it must not do work.
     var sessionMarks: [@MainActor (Session) -> SessionMark?] = []
+    /// Sessions it keeps running with no tab and no sidebar row (Run's runs put away in the Run menu). Read under
+    /// observation: it must not do work.
+    var sessionHidden: [@MainActor () -> Set<String>] = []
+    /// Items at the top of a sidebar row's menu (a project's, a server's header…), each ending with its separator: a
+    /// merged PR's "Switch to main and Pull", a server's own.
+    var rowMenu: [@MainActor (_ row: SidebarItem.Kind, _ menu: NSMenu) -> Void] = []
     /// The branch chip's actions: one built-in's (the first that has them); none, and the chip only shows the branch.
     var branch: BranchActions?
     /// The CI and PR marks on folders' rows and the window bar: one built-in's (the first that has them); none, and no
@@ -260,6 +258,8 @@ package struct Contributions {
         languages += c.languages
         sidebarSections += c.sidebarSections
         sessionMarks += c.sessionMarks
+        sessionHidden += c.sessionHidden
+        rowMenu += c.rowMenu
         branch = branch ?? c.branch
         ci = ci ?? c.ci
         pushed += c.pushed

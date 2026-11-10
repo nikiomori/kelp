@@ -227,6 +227,7 @@ enum ServerHeaders {
         menu.add(String(localized: "Copy Host")) {
             copyText(host)
         }
+        menu.addItem(.separator())
     }
 
     /// A remote project's: its server's tab and htop there.
