@@ -147,6 +147,20 @@ extension AppOfItsOwn {
         #expect(try String(contentsOfFile: p, encoding: .utf8) == "theirs\n")
     }
 
+    /// Saving from the quit or close sheet (as Save All does) tidies like ⌘S: only ⌘S trimmed and ended the file.
+    @Test func everySaveTheUserAsksForTidies() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        rig.app.settings.set(SettingKeys.trimTrailingWhitespace, true)
+        rig.app.settings.set(SettingKeys.insertFinalNewline, true)
+        let p = try file("one\n")
+        let tab = await opened(p, in: rig)
+        tab.editor?.setText("mine  ")
+        tab.editor?.onChange?("mine  ")
+        #expect(await UnsavedChanges.settle([tab], .alertFirstButtonReturn))
+        #expect(try String(contentsOfFile: p, encoding: .utf8) == "mine\n")
+    }
+
     /// The agent's version read while a save is on its way (its text is made off the main thread: a while for a big file,
     /// or on a busy machine) isn't the one the save was checked against: the save still doesn't write over it. It did.
     @Test func anAgentsVersionReadDuringASaveIsNotWrittenOver() async throws {

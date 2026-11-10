@@ -64,16 +64,7 @@ extension Builtins {
                         NSSound.beep()
                         return
                     }
-                    Task {
-                        (tab as? FileTab)?.rules?.cleanUpForSave()
-                        let language = (tab as? FileTab)?.editor?.languageId
-                        if let file = tab as? FileTab, app.settings[SettingKeys.formatOnSave, language: language],
-                            file.language?.format != nil
-                        {
-                            await file.format()
-                        }
-                        await tab.save()
-                    }
+                    Task { await tab.save() }
                 },
                 searchOption(app, "files.search.matchCase", "Find in Project: Match Case", "ctrl+opt+c", \.matchCase),
                 searchOption(app, "files.search.wholeWord", "Find in Project: Whole Word", "ctrl+opt+w", \.wholeWord),

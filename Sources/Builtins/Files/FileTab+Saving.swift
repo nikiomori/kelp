@@ -29,7 +29,9 @@ extension FileTab {
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.addButton(withTitle: String(localized: "Don't Save"))
         switch await runSheet(alert) {
-        case .alertFirstButtonReturn: return await writeAndClose(answering: action, over: checked)
+        case .alertFirstButtonReturn:
+            await tidy()
+            return await writeAndClose(answering: action, over: checked)
         case .alertThirdButtonReturn:
             discard()
             return true
@@ -62,10 +64,12 @@ extension FileTab {
     /// that version, so a change it hasn't heard of yet is still never written over.
     var disk: FileSync.Disk { gone ? .missing : .present(known?.text) }
 
-    /// ⌘S. False when it couldn't be written, or the user is asked first (an agent changed the file meanwhile, or it's gone).
+    /// ⌘S, Save All, a sheet's Save and quitting: tidied first (`tidy`), then written. False when it couldn't be written,
+    /// or the user is asked first (an agent changed the file meanwhile, or it's gone).
     @discardableResult
     func save() async -> Bool {
         guard editor != nil else { return true }
+        await tidy()
         return await serially { [self] in
             guard let editor else { return true }
             switch FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk) {
@@ -78,6 +82,15 @@ extension FileTab {
             case .missing: return await askToWriteBack()
             default: return true
             }
+        }
+    }
+
+    /// What a save the user asks for does first: trailing spaces, the final newline, Format on Save. Autosave doesn't (it
+    /// would move the line being typed).
+    func tidy() async {
+        rules?.cleanUpForSave()
+        if app.settings[SettingKeys.formatOnSave, language: editor?.languageId], language?.format != nil {
+            await format()
         }
     }
 

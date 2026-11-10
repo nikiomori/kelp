@@ -106,7 +106,7 @@ final class FileRules {
         apply()
     }
 
-    /// ⌘S's tidying, one step of undo with what was typed before it. Autosave leaves the line being typed alone.
+    /// A save's tidying (`FileTab.tidy`), one step of undo with what was typed before it. Autosave leaves the line being typed alone.
     func cleanUpForSave() {
         guard let editor else { return }
         let language = editor.languageId
