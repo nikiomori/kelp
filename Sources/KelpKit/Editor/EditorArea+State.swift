@@ -75,13 +75,10 @@ extension EditorArea {
     }
 
     /// Open tabs and focus, for `ui.state`.
-    var stateForAgents: JSONValue {
-        .obj([
-            "tabs": .array(
-                layout.allTabs.map { t in .obj(["uri": .string(t.uri), "title": .string(contents[t.id]?.title ?? "")]) }
-            ),
-            "focused": .string(layout.focusedGroup?.selectedTab?.uri ?? "")
-        ])
+    var stateForAgents: ShownUI.Editor {
+        ShownUI.Editor(
+            tabs: layout.allTabs.map { ShownUI.Item(uri: $0.uri, title: contents[$0.id]?.title ?? "") },
+            focused: layout.focusedGroup?.selectedTab?.uri ?? "")
     }
 }
 

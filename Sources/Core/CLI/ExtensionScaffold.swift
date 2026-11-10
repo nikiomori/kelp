@@ -3,22 +3,17 @@ import Foundation
 /// `kelp ext list|enable|disable|new`: the extensions as the app shows them, the setting that turns one off, a starter.
 extension ExtensionFiles {
     /// What the app shows (`ui.state`) when it runs, else the folders in `dir`.
-    public static func extensions(client: RPCClient, dir: URL) async throws -> JSONValue {
-        if let shown = try await client.call(UIStateGet())["extensions"] { return shown }
+    public static func extensions(client: RPCClient, dir: URL) async throws -> [ShownUI.Extension] {
+        if let shown = try await client.call(UIStateGet()).extensions { return shown }
         let disabled = try await disabledExtensions(client: client)
         let folders = FileManager.default.items(in: dir)
-        return .array(
-            folders.sorted { $0.path < $1.path }.compactMap { folder in
-                guard let data = Data(contentsIfAny: folder.appendingPathComponent("extension.json")) else {
-                    return nil
-                }
-                let id = folder.lastPathComponent
-                let name = (try? JSONDecoder().decode(JSONValue.self, from: data))?["name"] ?? .string(id)
-                return .obj([
-                    "id": .string(id), "name": name, "enabled": .bool(!disabled.contains(id)), "builtin": false,
-                    "path": .string(folder.path)
-                ])
-            })
+        return folders.sorted { $0.path < $1.path }.compactMap { folder in
+            guard let data = Data(contentsIfAny: folder.appendingPathComponent("extension.json")) else { return nil }
+            let id = folder.lastPathComponent
+            let name = (try? JSONDecoder().decode(JSONValue.self, from: data))?["name"]?.string ?? id
+            return ShownUI.Extension(
+                id: id, name: name, enabled: !disabled.contains(id), builtin: false, path: folder.path)
+        }
     }
 
     /// Enabling/disabling is the `extensions.disabled` setting; the app applies it.

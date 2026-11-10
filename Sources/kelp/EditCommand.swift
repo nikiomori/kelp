@@ -20,7 +20,7 @@ extension Main {
             try await Task.sleep(for: .milliseconds(200))
             beats += 1
             // The window went: nobody will close the tab. The agent goes on with the text it had.
-            if beats % 10 == 0, try await c.call(UIStateGet()) == .object([:]) { return }
+            if beats % 10 == 0, try await c.call(UIStateGet()) == ShownUI() { return }
         }
         try fm.removeItem(atPath: done)
     }

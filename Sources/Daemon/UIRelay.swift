@@ -9,13 +9,12 @@ extension UIPublish: Handled {
     /// Only Kelp's window says what's on screen (and gets event.ui): an agent can't stand in for it.
     var onlyFromKelp: String? { "Only Kelp's window publishes its state." }
     func handle(_ clients: Clients, conn: Int) throws -> Done {
-        guard case .object = state else { throw RPCError.invalidParams("state must be an object") }
         clients.publishUI(state, from: conn)
         return Done()
     }
 }
 
-extension UIStateGet: Handled { func handle(_ clients: Clients) throws -> JSONValue { clients.uiState } }
+extension UIStateGet: Handled { func handle(_ clients: Clients) throws -> ShownUI { clients.uiState } }
 
 extension UIOpen: Handled {
     /// A terminal or an agent the app starts is nobody's: one an agent asks for comes from `kelp session new`, which makes it its own.

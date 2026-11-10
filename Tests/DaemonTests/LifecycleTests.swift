@@ -133,7 +133,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
 @Test func bigMessagesDontMixOnTheWire() async throws {
     let (d, c, _) = try daemon()
     defer { d.stop() }
-    let big = JSONValue.obj(["blob": .string(String(repeating: "x", count: 300_000))])
+    let big = JSONValue.obj(["focusedFile": .string(String(repeating: "x", count: 300_000))])
     _ = try await c.call("ui.publish", .obj(["state": big]))
     try await withThrowingTaskGroup(of: Bool.self) { g in
         for i in 0..<40 {

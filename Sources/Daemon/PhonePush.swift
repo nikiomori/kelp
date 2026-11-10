@@ -56,7 +56,7 @@ enum PhonePush {
 }
 
 extension ExtensionEvents {
-    private var phoneAway: Bool { clients.uiState == .object([:]) || PhonePush.inputIdle >= PhonePush.awayAfter }
+    private var phoneAway: Bool { clients.uiState == ShownUI() || PhonePush.inputIdle >= PhonePush.awayAfter }
 
     /// Told once per stop by `heard`.
     func phoneHeard(_ session: Session) {

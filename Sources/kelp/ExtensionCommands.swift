@@ -5,12 +5,11 @@ extension Main {
     static func ext(_ sub: String?, _ c: RPCClient) async throws {
         switch sub {
         case "list":
-            for e in try await ExtensionFiles.extensions(client: c, dir: Paths.extensions).array ?? [] {
+            for e in try await ExtensionFiles.extensions(client: c, dir: Paths.extensions) {
                 let tags = [
-                    e["builtin"]?.bool == true ? "(built-in)" : nil, e["enabled"]?.bool == false ? "(disabled)" : nil,
-                    e["error"]?.string.map { "error: \($0)" }
+                    e.builtin ? "(built-in)" : nil, e.enabled ? nil : "(disabled)", e.error.map { "error: \($0)" }
                 ].compactMap { $0 }
-                print(([e["id"]?.string ?? "", e["name"]?.string ?? ""] + tags).joined(separator: "\t"))
+                print(([e.id, e.name] + tags).joined(separator: "\t"))
             }
         case "new":
             let name = flag("--name"), description = flag("--description")

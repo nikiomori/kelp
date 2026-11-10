@@ -8,17 +8,85 @@ public struct Delivered: Codable, Sendable, Equatable {
     public init(delivered: Int) { self.delivered = delivered }
 }
 
+/// What the app shows, as agents read it back (`kelp ui state`): nothing at all when no app is connected.
+public struct ShownUI: Codable, Sendable, Equatable {
+    /// The workspace on screen.
+    public let workspace: Workspace?
+    public let focusedSession: String?, focusedFile: String?
+    /// The editor area's tabs.
+    public let editor: Editor?
+    public let extensions: [Extension]?
+    /// The palette's commands and the inspector's panels: what `kelp ui command` and `kelp open ext:` take.
+    public let commands: [Item]?, panels: [Item]?
+
+    public struct Workspace: Codable, Sendable, Equatable {
+        public let id: String, name: String, path: String, branch: String
+        public init(id: String, name: String, path: String, branch: String) {
+            self.id = id
+            self.name = name
+            self.path = path
+            self.branch = branch
+        }
+    }
+    public struct Editor: Codable, Sendable, Equatable {
+        public let tabs: [Item]
+        /// The focused tab's URI ("" for none).
+        public let focused: String
+        public init(tabs: [Item], focused: String) {
+            self.tabs = tabs
+            self.focused = focused
+        }
+    }
+    /// A tab (its URI and title), a command or a panel (its id and title).
+    public struct Item: Codable, Sendable, Equatable {
+        public let id: String?, uri: String?, title: String
+        public init(id: String? = nil, uri: String? = nil, title: String) {
+            self.id = id
+            self.uri = uri
+            self.title = title
+        }
+    }
+    public struct Extension: Codable, Sendable, Equatable {
+        public let id: String, name: String, enabled: Bool, builtin: Bool
+        /// Its folder; nil for a built-in.
+        public let path: String?
+        /// Why it didn't load.
+        public let error: String?
+        public init(id: String, name: String, enabled: Bool, builtin: Bool, path: String? = nil, error: String? = nil) {
+            self.id = id
+            self.name = name
+            self.enabled = enabled
+            self.builtin = builtin
+            self.path = path
+            self.error = error
+        }
+    }
+
+    public init(
+        workspace: Workspace? = nil, focusedSession: String? = nil, focusedFile: String? = nil, editor: Editor? = nil,
+        extensions: [Extension]? = nil, commands: [Item]? = nil, panels: [Item]? = nil
+    ) {
+        self.workspace = workspace
+        self.focusedSession = focusedSession
+        self.focusedFile = focusedFile
+        self.editor = editor
+        self.extensions = extensions
+        self.commands = commands
+        self.panels = panels
+    }
+}
+
 /// What the app shows (workspace, tabs, extensions, commands), for agents to read back with `ui.state`. Only Kelp's window.
 public struct UIPublish: InternalMethod {
     public static let name = "ui.publish"
     public typealias Result = Done
-    public var state: JSONValue
-    public init(state: JSONValue) { self.state = state }
+    public var state: ShownUI
+    public init(state: ShownUI) { self.state = state }
 }
 /// What the app last published (an empty object when no app is connected).
 public struct UIStateGet: InternalMethod {
     public static let name = "ui.state"
-    public typealias Result = JSONValue
+    public typealias Result = ShownUI
     public init() {}
 }
 /// A tab for `uri` in the app: beside the focused one (`split` right|down), in workspace `worktreeId`; `focus` brings Kelp

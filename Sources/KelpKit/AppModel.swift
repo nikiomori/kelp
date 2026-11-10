@@ -164,34 +164,25 @@ package final class AppModel {
         }
     }
     @ObservationIgnored private var publishQueued = false
-    @ObservationIgnored private var published: JSONValue?
+    @ObservationIgnored private var published: ShownUI?
 
     private func sendUIState() {
         guard let connection = client else { return }
         let shown = worktree(workbench.workspaceId)
         let reg = extensions
-        let state: JSONValue = .obj([
-            "workspace": shown.map {
-                .obj([
-                    "id": .string($0.id), "name": .string($0.displayName), "path": .string($0.path),
-                    "branch": .string($0.branch)
-                ])
-            } ?? .null,
-            "focusedSession": workbench.focusedSession.map { .string($0) } ?? .null,
-            "focusedFile": workbench.focusedFile.map { .string($0) } ?? .null,
-            "editor": workbench.editor?.stateForAgents ?? .null,
-            "extensions": .array(
-                reg.extensions.map { ext in
-                    .obj([
-                        "id": .string(ext.id), "name": .string(ext.name), "enabled": .bool(ext.enabled),
-                        "builtin": .bool(ext.builtin),
-                        "path": ext.path.map { .string($0.path) } ?? .null,
-                        "error": ext.error.map { .string($0) } ?? .null
-                    ])
-                }),
-            "commands": .array(reg.all.commands.map { .obj(["id": .string($0.id), "title": .string($0.title)]) }),
-            "panels": .array(reg.all.panels.map { .obj(["id": .string($0.id), "title": .string($0.title)]) })
-        ])
+        let state = ShownUI(
+            workspace: shown.map {
+                ShownUI.Workspace(id: $0.id, name: $0.displayName, path: $0.path, branch: $0.branch)
+            },
+            focusedSession: workbench.focusedSession, focusedFile: workbench.focusedFile,
+            editor: workbench.editor?.stateForAgents,
+            extensions: reg.extensions.map {
+                ShownUI.Extension(
+                    id: $0.id, name: $0.name, enabled: $0.enabled, builtin: $0.builtin, path: $0.path?.path,
+                    error: $0.error)
+            },
+            commands: reg.all.commands.map { ShownUI.Item(id: $0.id, title: $0.title) },
+            panels: reg.all.panels.map { ShownUI.Item(id: $0.id, title: $0.title) })
         guard state != published else { return }
         published = state
         // A call (applied in order all the same): a daemon that isn't this app's own copy refuses it, and agents' `kelp open`

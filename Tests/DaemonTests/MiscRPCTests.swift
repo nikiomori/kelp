@@ -636,10 +636,10 @@ func trustQuestionStandIn() -> String {
     try "setup: touch x\n".write(toFile: w.repo.path + "/.kelp.yaml", atomically: true, encoding: .utf8)
     let wt = try await workspace(w, "agent-trust")
     let shown = try await w.c.call("scripts.list", .obj(["worktreeId": .string(wt.id)]))
-    _ = try await w.c.call("ui.publish", .obj(["state": .obj(["tab": "real"])]))   // what the window shows
+    _ = try await w.c.call("ui.publish", .obj(["state": .obj(["focusedFile": "real"])]))   // what the window shows
     // An agent is another program on the same socket: it read the digest, says it's the window, and tries to trust.
     let lines = [
-        RPCRequest(id: nil, method: "ui.publish", params: .obj(["state": .obj(["tab": "fake"])])),
+        RPCRequest(id: nil, method: "ui.publish", params: .obj(["state": .obj(["focusedFile": "fake"])])),
         RPCRequest(
             id: 1, method: "scripts.trust",
             params: .obj(["worktreeId": .string(wt.id), "digest": shown["digest"] ?? .null]))
@@ -656,7 +656,7 @@ func trustQuestionStandIn() -> String {
     let reply = String(decoding: out.fileHandleForReading.availableData, as: UTF8.self)   // the answer to id 1
     p.terminate()
     #expect(reply.contains("Only Kelp's window"), "\(reply)")
-    #expect(try await w.c.call("ui.state")["tab"]?.string == "real")   // nor did its claim replace what the window shows
+    #expect(try await w.c.call("ui.state")["focusedFile"]?.string == "real")   // nor did its claim replace what the window shows
     #expect(try await w.c.call("scripts.list", .obj(["worktreeId": .string(wt.id)]))["trusted"]?.bool == false)
     // The same call from the program the daemon takes for its app (here: this test process) is accepted.
     _ = try await trustAsShown(w.c, .string(wt.id))

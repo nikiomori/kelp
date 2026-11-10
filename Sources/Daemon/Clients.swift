@@ -16,7 +16,7 @@ final class Clients: Sendable {
         var raw = Set<Int>()   // byte pipes, and new ones until their first request says they aren't: no JSON events go to them
         var app = Set<Int>()   // Kelp's window (ui.publish): it gets event.ui
         var muted = Set<Int>()   // asked for no broadcasts (client.events): kelp attach's control connection
-        var uiState: JSONValue = .object([:])   // what the app last published; cleared when no app is connected
+        var uiState = ShownUI()   // what the app last published; cleared when no app is connected
         var replies: [String: Waiting] = [:]   // ui.browser requests the app hasn't answered
     }
     /// A request to the app: who it went to (one that hangs up can't answer it), and its timeout.
@@ -48,7 +48,7 @@ final class Clients: Sendable {
             state.all[id] = nil
             state.raw.remove(id)
             state.muted.remove(id)
-            if state.app.remove(id) != nil, state.app.isEmpty { state.uiState = .object([:]) }
+            if state.app.remove(id) != nil, state.app.isEmpty { state.uiState = ShownUI() }
             // Asked of windows that are all gone now: nobody will answer.
             let gone = state.replies.filter { $0.value.to.allSatisfy { state.all[$0] == nil } }
             for key in gone.keys { state.replies[key] = nil }
@@ -115,13 +115,13 @@ final class Clients: Sendable {
         waiting.continuation.resume(with: result)
     }
 
-    func publishUI(_ ui: JSONValue, from id: Int) {
+    func publishUI(_ ui: ShownUI, from id: Int) {
         state.withLock {
             $0.uiState = ui
             $0.app.insert(id)
         }
     }
-    var uiState: JSONValue { state.withLock { $0.uiState } }
+    var uiState: ShownUI { state.withLock { $0.uiState } }
     var apps: Set<Int> { state.withLock { $0.app.subtracting($0.raw) } }
 }
 
