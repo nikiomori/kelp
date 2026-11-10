@@ -58,10 +58,7 @@ final class Box: @unchecked Sendable {
 
 /// Agents must own the PTY as controlling terminal, or resizes (SIGWINCH) never reach them.
 @Test func resizeReachesChild() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let kelp = root.appendingPathComponent(".build/debug/kelp").path
-    try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
+    let kelp = try builtProduct("kelp")
     let box = Box()
     let p = try PTY(
         argv: [
@@ -86,10 +83,7 @@ final class Box: @unchecked Sendable {
 /// sent while it woke, went nowhere (aResizeNeverWakesAPausedAgent). It still reaches the agent once it runs, or the
 /// agent draws for a smaller screen than the one it's shown on, and its redraws leave the rest of the old screen behind.
 @Test func theSizeATerminalGotWhileItsAgentWokeReachesTheAgent() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let kelp = root.appendingPathComponent(".build/debug/kelp").path
-    try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
+    let kelp = try builtProduct("kelp")
     let sizer = AgentManifest(
         id: "sizer", name: "Sizer", command: "/bin/sh",
         args: ["-c", "trap 'echo SIZE=$(stty size)' WINCH; echo SIZE=$(stty size); while :; do sleep 0.1; done", "x"],
@@ -138,10 +132,7 @@ final class Box: @unchecked Sendable {
 /// controlling process it then waits in exit for that output to be read, and nobody read it any more: it hung there
 /// for good, each one holding a PTY until the daemon ran out of file descriptors.
 @Test func droppedPTYLetsItsProgramExit() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let kelp = root.appendingPathComponent(".build/debug/kelp").path
-    try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
+    let kelp = try builtProduct("kelp")
     let pid: pid_t
     do {
         let box = Box()
@@ -189,10 +180,7 @@ final class Box: @unchecked Sendable {
 
 /// A shell running `sleep` is busy with it; at its prompt it is not (closing it would stop that program).
 @Test func aShellRunningAProgramReportsItAsForeground() async throws {
-    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let kelp = root.appendingPathComponent(".build/debug/kelp").path
-    try #require(FileManager.default.isExecutableFile(atPath: kelp), "build the kelp CLI first: swift build")
+    let kelp = try builtProduct("kelp")
     let box = Box()
     let p = try PTY(argv: ["/bin/zsh", "-f", "-i"], cwd: "/tmp", env: [:], trampoline: kelp)   // job control needs the controlling terminal
     p.onOutput = { box.add(String(bytes: $0, encoding: .utf8) ?? "") }
