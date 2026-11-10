@@ -59,16 +59,7 @@ struct MachineView: View {
             Button(String(localized: "Terminal")) { Machines.runInMachine(app, name) }
                 .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
             Menu {
-                if let info {
-                    switch info.state {
-                    case .running, .paused, .starting:
-                        Button(String(localized: "Sleep")) { Machines.control(app, machine: name, .sleep) }
-                        Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
-                    case .sleeping, .off:
-                        Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
-                    case .creating, .error: EmptyView()
-                    }
-                }
+                if let info { MachineControls(app: app, info: info) }
                 Divider()
                 Button(String(localized: "Copy Run Command")) {
                     copyText("kelp vm run \(name) -- ")

@@ -10,6 +10,8 @@ import SwiftUI
 /// sleeps or stops it.
 struct MachinesView: View {
     let app: AppModel
+    /// The list, watched while it's shown: the daemon reads them every 5 s, every second while one starts.
+    @State private var watched: Watched?
     @State private var hovered: String?
     /// What + offers, read once (it looks for an Android SDK and Xcode on disk), not at every redraw.
     @State private var choices: [(title: String, image: String, missing: String?)] = []
@@ -34,12 +36,13 @@ struct MachinesView: View {
             .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
         }
         .fontDesign(app.themes.chromeDesign)
-        // Watched while shown: the daemon reads them every 5 s, every second while one starts.
         .onAppear {
-            app.watch(.machines)
+            let list = Watched(.machines, in: app)
+            list.key = ""
+            watched = list
             choices = Machines.machineChoices
         }
-        .onDisappear { app.unwatch(.machines) }
+        .onDisappear { watched = nil }
     }
 
     /// + : a new machine of each kind this Mac can run; what it lacks greys one out and says why.
@@ -124,20 +127,30 @@ struct MachinesView: View {
         Button(String(localized: "Open Terminal")) { Machines.runInMachine(app, name) }.disabled(
             v.state == .creating || v.state == .error)
         Divider()
-        switch v.state {
+        MachineControls(app: app, info: v)
+        if v.state != .creating {
+            Divider()
+            Button(String(localized: "Delete…"), role: .destructive) { Machines.deleteMachine(app, v) }
+        }
+    }
+}
+
+/// Start, Sleep and Shut Down as its state allows: its row's menu and its tab's alike.
+struct MachineControls: View {
+    let app: AppModel, info: VMInfo
+
+    var body: some View {
+        let name = info.machine.name
+        switch info.state {
         case .running, .paused, .starting:
             Button(String(localized: "Sleep")) { Machines.control(app, machine: name, .sleep) }
             Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
         case .sleeping, .off:
             Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
-            if v.state == .sleeping {
+            if info.state == .sleeping {   // its saved state forgotten: the next start boots afresh
                 Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
             }
         case .creating, .error: EmptyView()
-        }
-        if v.state != .creating {
-            Divider()
-            Button(String(localized: "Delete…"), role: .destructive) { Machines.deleteMachine(app, v) }
         }
     }
 }

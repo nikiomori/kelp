@@ -128,8 +128,6 @@ enum Machines {
         }
     }
 
-    /// The machine the session runs a command in now, if any (`kelp vm run`).
-
     /// What a machine's state reads as, and in what colour.
     static func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
         switch v.state {

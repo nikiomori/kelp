@@ -35,7 +35,7 @@ extension VMService {
             throw RPCError.invalidParams(
                 "\(words.action) is for Android and iOS machines: kelp vm run \(name) -- … does it on macOS.")
         case "ui", "press":   // the app's controls, through Kelp Guest's Accessibility inside
-            return try overSSH(name, VMs.guestProgram + " " + words.all.map(IDE.shellWord).joined(separator: " "))
+            return try overSSH(name, VMs.guestProgram + " " + words.all.map(ShellQuote.word).joined(separator: " "))
         case "type" where words.rest.joined(separator: " ").contains { VMs.usKey($0) == nil }:
             // No key for it: pasted instead, its clipboard set over SSH (without LANG, read as Mac Roman).
             _ = try overSSH(name, "LANG=en_US.UTF-8 pbcopy", stdin: Data(words.rest.joined(separator: " ").utf8))
