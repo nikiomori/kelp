@@ -33,6 +33,18 @@ import Testing
     c.terminate()
 }
 
+/// A server's refusal is the server's: its code (-32602 here) isn't passed on as one of Kelp's own.
+@Test func aServersErrorIsKelpsInternalOne() async throws {
+    let reply = #"{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"bad position"}}"#
+    let script =
+        "read -r line; sleep 0.2; printf 'Content-Length: \(reply.utf8.count)\\r\\n\\r\\n%s' '\(reply)'; sleep 5"
+    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", script], root: NSTemporaryDirectory()))
+    await #expect(throws: RPCError.internalError("language server: bad position")) {
+        _ = try await c.request("initialize", .null, timeout: 5)
+    }
+    c.terminate()
+}
+
 @Test func documentsAreSharedByTabs() throws {
     let c = try #require(LSPClient(argv: ["/bin/cat"], root: NSTemporaryDirectory()))
     let idle = Counter()

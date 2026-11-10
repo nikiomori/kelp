@@ -150,9 +150,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
             return locked.pending.removeValue(forKey: id)
         }
         if let error = message["error"], error != .null {
+            // The server's own code means nothing to Kelp's clients, who'd read it as one of Kelp's (-32602 bad params…).
             waiting?.resume(
-                throwing: RPCError(
-                    code: error["code"]?.int ?? -32603, message: error["message"]?.string ?? "language server error"))
+                throwing: RPCError.internalError(
+                    "language server: \(error["message"]?.string ?? "error \(error["code"]?.int ?? 0)")"))
         } else {
             waiting?.resume(returning: message["result"] ?? .null)
         }
@@ -168,7 +169,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         }
     }
 
-    public func request(_ method: String, _ params: JSONValue, timeout: TimeInterval = 30) async throws -> JSONValue {
+    func request(_ method: String, _ params: JSONValue, timeout: TimeInterval = 30) async throws -> JSONValue {
         try await withCheckedThrowingContinuation { continuation in
             let id = state.withLock { locked -> Int? in
                 guard !locked.exited else { return nil }
@@ -198,7 +199,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
             }
         }
     }
-    public func notify(_ method: String, _ params: JSONValue) {
+    func notify(_ method: String, _ params: JSONValue) {
         send(["jsonrpc": "2.0", "method": .string(method), "params": params])
     }
 
