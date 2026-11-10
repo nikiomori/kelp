@@ -144,11 +144,11 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
                 empty.show(nil)
             } else if query.isEmpty {
                 empty.show(
-                    String(localized: "No conversations yet"), symbol: "clock.arrow.circlepath",
+                    String(localized: "No Conversations Yet"), symbol: "clock.arrow.circlepath",
                     text: String(localized: "Claude Code and Codex conversations on this Mac show here."))
             } else {
                 empty.show(
-                    String(localized: "No conversations match “\(query)”"), symbol: "magnifyingglass",
+                    String(localized: "No Conversations Match “\(query)”"), symbol: "magnifyingglass",
                     buttons: [showAll])
             }
             table.usesAlternatingRowBackgroundColors = !rows.isEmpty   // stripes with nothing on them read as a list still to come

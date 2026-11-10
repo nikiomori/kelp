@@ -93,7 +93,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
             empty.showError(String(localized: "Couldn't measure the sessions"), text: error)
         } else {
             empty.show(
-                rows.isEmpty ? String(localized: "No sessions running") : nil,
+                rows.isEmpty ? String(localized: "No Sessions Running") : nil,
                 symbol: "gauge.with.dots.needle.33percent")
         }
         table.reloadData()

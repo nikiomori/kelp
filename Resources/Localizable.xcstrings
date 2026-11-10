@@ -9854,7 +9854,7 @@
         }
       }
     },
-    "No panels": {
+    "No Panels": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10288,7 +10288,7 @@
         }
       }
     },
-    "No conversations match “%@”": {
+    "No Conversations Match “%@”": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10298,7 +10298,7 @@
         }
       }
     },
-    "No conversations yet": {
+    "No Conversations Yet": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10399,7 +10399,7 @@
         }
       }
     },
-    "No sessions running": {
+    "No Sessions Running": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -11052,7 +11052,7 @@
         }
       }
     },
-    "Pick a section": {
+    "Pick a Section": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19049,7 +19049,7 @@
         }
       }
     },
-    "No open issues": {
+    "No Open Issues": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19059,7 +19059,7 @@
         }
       }
     },
-    "No open pull requests": {
+    "No Open Pull Requests": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20041,7 +20041,7 @@
         }
       }
     },
-    "No GitHub remote": {
+    "No GitHub Remote": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20827,7 +20827,7 @@
         }
       }
     },
-    "No artifacts yet": {
+    "No Artifacts Yet": {
       "extractionState": "manual",
       "localizations": {
         "ru": {

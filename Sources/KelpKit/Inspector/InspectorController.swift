@@ -230,7 +230,7 @@ final class InspectorController: NSViewController {
         host.isHidden = none
         if panels.isEmpty {
             empty.show(
-                String(localized: "No panels"), symbol: "sidebar.right",
+                String(localized: "No Panels"), symbol: "sidebar.right",
                 text: String(localized: "Turn on an extension in Settings › Extensions."))
         } else {
             empty.show(
