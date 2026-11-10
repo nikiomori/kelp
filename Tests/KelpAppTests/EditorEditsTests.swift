@@ -271,13 +271,13 @@ extension OneAtATime {
             [.init(label: "name", insert: "name()"), .init(label: "other", insert: "other")]
         }
         e.showCompletions()
-        #expect(try await waitFor(5) { !(e.completionList?.isOpen != true) })
-        #expect(e.completionList?.items.count == 2)
+        #expect(try await waitFor(5) { !(e.completion.list?.isOpen != true) })
+        #expect(e.completion.list?.items.count == 2)
         tv.insertText("n", replacementRange: NSRange(location: NSNotFound, length: 0))
-        #expect(e.completionList?.items.map(\.label) == ["name"])
+        #expect(e.completion.list?.items.map(\.label) == ["name"])
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
         #expect(e.text == "obj.name()")
-        #expect(e.completionList?.isOpen == false)
+        #expect(e.completion.list?.isOpen == false)
     }
 
     /// Esc closes it, the cursor leaving the word too, and keys go back to the text.
@@ -285,13 +285,13 @@ extension OneAtATime {
         let (e, tv) = editor("a.b", selecting: [NSRange(location: 2, length: 0)])
         e.completionProvider = { _, _ in [.init(label: "b", insert: "b")] }
         e.showCompletions()
-        #expect(try await waitFor(5) { !(e.completionList?.isOpen != true) })
+        #expect(try await waitFor(5) { !(e.completion.list?.isOpen != true) })
         tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
-        #expect(e.completionList?.isOpen == false)
+        #expect(e.completion.list?.isOpen == false)
         e.showCompletions()
-        #expect(try await waitFor(5) { !(e.completionList?.isOpen != true) })
+        #expect(try await waitFor(5) { !(e.completion.list?.isOpen != true) })
         tv.setCursors([NSRange(location: 0, length: 0)])
-        #expect(e.completionList?.isOpen == false)
+        #expect(e.completion.list?.isOpen == false)
     }
 
     /// An import the item needs comes in the same undo as the item, and the cursor lands after the item.

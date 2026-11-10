@@ -9,11 +9,11 @@ extension CodeEditor {
 
     /// The pointer moved: if it rests on text, what's there is asked for.
     func pointerMoved(_ event: NSEvent) {
-        hoverWait?.cancel()
+        hover.wait?.cancel()
         guard hoverProvider != nil else { return }
         let location = textView.characterIndexForInsertion(at: textView.convert(event.locationInWindow, from: nil))
         let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.showHover(at: location) } }   // queued on main below
-        hoverWait = work
+        hover.wait = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.rest, execute: work)
     }
 
@@ -23,31 +23,31 @@ extension CodeEditor {
     private func showHover(at location: Int) {
         let string = textView.string as NSString
         guard let hoverProvider, location < string.length, Self.word(at: location, in: string).length > 0,
-            hoverShownAt != location
+            hover.shownAt != location
         else { return }
         let (line, column) = lineIndex.position(of: location, in: string)
-        hoverShownAt = location
+        hover.shownAt = location
         Task { [weak self] in
             let text = await hoverProvider(line, column)
-            guard let self, hoverShownAt == location, let text else { return }
+            guard let self, hover.shownAt == location, let text else { return }
             open(HoverCard(HoverText.attributed(text), width: Self.cardWidth, most: Self.cardHeight), at: location)
         }
     }
 
     private func open(_ card: NSViewController, at location: Int) {
-        hoverCard?.close()
+        hover.card?.close()
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = false
         popover.contentViewController = card
         popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
-        hoverCard = popover
+        hover.card = popover
     }
 
     /// A key went in. `(` and `,` ask for the call's signature, `)` ends it; the card goes, its text is out of date.
     func typed(_ key: String) {
-        hoverCard?.close()
-        hoverShownAt = nil
+        hover.card?.close()
+        hover.shownAt = nil
         let before = textView.string as NSString, cursor = textView.selectedRange().location
         if key == ":" || key == ">", cursor >= 2,
             before.substring(with: NSRange(location: cursor - 2, length: 2)) == (key == ":" ? "::" : "->")
@@ -55,8 +55,8 @@ extension CodeEditor {
             showCompletions()
         }
         if key == ")" {
-            signatureCard?.close()
-        } else if key == "(" || key == "," || signatureCard?.isShown == true {
+            hover.signatureCard?.close()
+        } else if key == "(" || key == "," || hover.signatureCard?.isShown == true {
             askSignature()
         }
     }
@@ -65,8 +65,8 @@ extension CodeEditor {
     /// cursor moving), past the edits' own pause.
     func askSignature() {
         guard let signatureProvider else { return }
-        signatureAsk?.cancel()
-        signatureAsk = Task { [weak self] in
+        hover.signatureAsk?.cancel()
+        hover.signatureAsk = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
             guard let at = self?.textView.selectedRange().location, let (line, column) = self?.cursor else {
                 return
@@ -74,7 +74,7 @@ extension CodeEditor {
             let found = await signatureProvider(line, column)
             guard let self, textView.selectedRange().location == at else { return }
             guard let found else {
-                signatureCard?.close()
+                hover.signatureCard?.close()
                 return
             }
             showSignature(found.label, active: found.active, at: at)
@@ -89,7 +89,7 @@ extension CodeEditor {
                 .font, value: NSFont.monospacedSystemFont(ofSize: TextSize.of(12), weight: .bold), range: active)
         }
         let card = HoverCard(text, width: Self.cardWidth, most: Self.cardHeight)
-        if let open = signatureCard, open.isShown {
+        if let open = hover.signatureCard, open.isShown {
             open.contentViewController = card
             open.contentSize = card.preferredContentSize
             return
@@ -99,7 +99,7 @@ extension CodeEditor {
         popover.animates = false
         popover.contentViewController = card
         popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
-        signatureCard = popover
+        hover.signatureCard = popover
     }
 }
 
@@ -167,4 +167,15 @@ final class HoverCard: NSViewController {
         tv.frame.size.height = needed
         preferredContentSize = NSSize(width: width, height: min(needed, most))
     }
+}
+
+/// The hover and signature cards, and the waits before them; only this file changes it.
+struct HoverState {
+    fileprivate var wait: DispatchWorkItem?
+    /// Where the card was asked for: a later answer for another place is dropped.
+    fileprivate var shownAt: Int?
+    fileprivate var card: NSPopover?
+    fileprivate(set) var signatureCard: NSPopover?
+    /// The signature asked once typing pauses (`askSignature`).
+    fileprivate var signatureAsk: Task<Void, Never>?
 }

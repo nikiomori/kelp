@@ -36,20 +36,13 @@ public final class CodeEditor: NSObject {
     var problemLines: [Int: Bool] = [:]
     /// ⌘F's, once it's been asked for.
     var findBar: FindBar?
-    /// While the list is open: where the word it completes starts, and all that was offered.
-    var completing: (start: Int, items: [Completion])?
-    var completionList: CompletionList?
-    /// A snippet's tab stops still to come, the current one first.
-    var snippetStops: [[NSRange]] = []
+    /// The completion list and a snippet's tab stops (CodeEditor+Completion changes it).
+    var completion = CompletionState()
     /// What the server says of a 1-based position: a symbol's text, and the signature of the call there.
     public var hoverProvider: ((Int, Int) async -> String?)?
     public var signatureProvider: ((Int, Int) async -> (label: String, active: NSRange?)?)?
-    var hoverWait: DispatchWorkItem?
-    var hoverShownAt: Int?
-    var hoverCard: NSPopover?
-    var signatureCard: NSPopover?
-    /// The signature asked once typing pauses (`askSignature`).
-    var signatureAsk: Task<Void, Never>?
+    /// The hover and signature cards (CodeEditor+Hover changes it).
+    var hover = HoverState()
     /// What each Expand Selection grew from, for Shrink.
     var selectionSteps: [NSRange] = []
     /// The selection they led to.
@@ -338,8 +331,8 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
-        if signatureCard?.isShown == true { askSignature() }
-        if completing != nil { refreshCompletions() }
+        if hover.signatureCard?.isShown == true { askSignature() }
+        if completion.completing != nil { refreshCompletions() }
         refreshScrollMarks()
         if textView.indentGuides { textView.setNeedsDisplay(textView.visibleRect) }   // which guide is the cursor's
         gutter?.needsDisplay = true

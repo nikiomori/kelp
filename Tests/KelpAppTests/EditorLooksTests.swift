@@ -73,8 +73,8 @@ import Testing
     e.snippetSource = { [snippet] }
     e.textView.setSelectedRange(NSRange(location: 6, length: 0))
     e.showCompletions()
-    #expect(try await waitFor(5) { !(e.completing == nil) })
-    #expect(e.completing?.items == [snippet])
+    #expect(try await waitFor(5) { !(e.completion.completing == nil) })
+    #expect(e.completion.completing?.items == [snippet])
     e.accept(snippet)
     #expect(e.text == "    func a() {\n        \n    }")
     #expect(e.textView.selectedRange() == NSRange(location: 9, length: 1))
@@ -82,7 +82,7 @@ import Testing
     e.textView.setSelectedRange(NSRange(location: 2, length: 0))
     e.showCompletions()
     await mainActorTurns()   // what it looked up is in
-    #expect(e.completing == nil)
+    #expect(e.completion.completing == nil)
 }
 
 /// A scope's neighbours are those as far in within the same scope; a heading's, those of its level under the same parent.
