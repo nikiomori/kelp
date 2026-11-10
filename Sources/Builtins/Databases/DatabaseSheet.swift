@@ -43,7 +43,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         _ = await runSheet(sheet.window)
     }
 
-    private init(app: AppModel, worktreeId: String) {
+    /// Not private: a test builds a pane without running the sheet.
+    init(app: AppModel, worktreeId: String) {
         self.app = app
         self.worktreeId = worktreeId
         super.init()
@@ -219,7 +220,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         }
     }
 
-    private func newOne(_ preset: EnginePreset) {
+    func newOne(_ preset: EnginePreset) {
         var db = DatabaseInfo(
             name: "", engine: preset.engine, host: preset.engine.isFile ? nil : "localhost", port: preset.port)
         db.ssl = preset.ssl
