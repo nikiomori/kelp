@@ -20,6 +20,8 @@ extension Builtins {
 
         - `kelp artifact new <doc|review|slides|design|dashboard> "<title>"` — a page in the project's `.kelp/artifacts`, opened beside you; prints
           the file to write. Write it with your file tools; the tab follows.
+        - `kelp artifact check <name>` — what Kelp finds wrong on a design it drew (text cut off, contrast, sizes), as
+          text: run it once instead of a screenshot.
         - `kelp artifact list`, `kelp artifact open <name>` — the project's pages, yours and other agents'.
         - A page you publish with claude-artifacts or Claude Docs joins that list by itself; give the user its link, which
           opens in their own browser (Kelp's tabs aren't signed in to claude.ai).

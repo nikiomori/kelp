@@ -48,7 +48,8 @@ extension Artifacts {
 
             Craft, in short (more: `kelp artifact guide design craft`): real content, no lorem ipsum or invented
             numbers ([YOUR PRICE] instead); no gradient washes, emoji, cards with a coloured left border; text 4.5:1;
-            touch targets 44px; real <button>, <a href>, <label>; a phone is 390 wide, a page 1280–1440.
+            touch targets 44px on a phone, while a Mac app keeps the Mac's own sizes; real <button>, <a href>,
+            <label>; a phone is 390 wide, a page 1280–1440.
 
             """
     }

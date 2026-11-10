@@ -60,13 +60,16 @@ enum CanvasScript {
                 for (const el of doc.body.querySelectorAll('*')) {
                   const st = win.getComputedStyle(el);
                   if (st.display === 'none' || st.visibility === 'hidden') continue;
-                  if (['hidden', 'clip'].includes(st.overflowX) && el.scrollWidth > el.clientWidth + 1
-                      && (el.textContent || '').trim()) say('text is cut off in ' + named(el));
+                  // Text kept for screen readers only (a 1-pixel box that clips) is hidden on purpose.
+                  if (el.clientWidth <= 1 || st.clipPath !== 'none') continue;
+                  // Its own text, not a child a pixel wider than a box that clips it.
+                  const text = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+                  if (text && ['hidden', 'clip'].includes(st.overflowX) && el.scrollWidth > el.clientWidth + 1)
+                    say('text is cut off in ' + named(el));
                   if (el.tagName === 'IMG' && el.complete && !el.naturalWidth)
                     say('image does not load: ' + el.getAttribute('src'));
                   const control = 'button, a[href], input, select, textarea, h1, h2, h3';
                   if (el.matches(control) && !el.closest('[data-id]')) bare++;
-                  const text = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
                   const fg = text && +st.opacity > 0 && rgb(st.color);
                   if (!fg) continue;
                   const a = lum(fg), b = lum(ground(win, el, page));
