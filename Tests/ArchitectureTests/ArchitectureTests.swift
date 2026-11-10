@@ -392,14 +392,14 @@ func codeOnly(_ s: String) -> String {
             "a notification's summary waits a moment for the agent's last line; a question is reminded of once, minutes later"
         ),
         "KelpKit/DevAids.swift": (1, "a snapshot waits for the window to draw (debug builds only)"),
-        "Builtins/Agents/LimitStrip.swift": (
+        "Builtins/Agents/Usage/LimitStrip.swift": (
             1, "\"in 38 min\" counts down to a limit's reset, which nothing announces"
         ),
-        "Builtins/Agents/LimitWatch.swift": (
+        "Builtins/Agents/Usage/LimitWatch.swift": (
             1, "a limit that stopped agents is waited out, to tell them they can go on: nothing announces its reset"
         ),
         "KelpKit/Parking.swift": (1, "a park for an hour ends when its hour is up, which nothing announces"),
-        "Builtins/Agents/StripCard.swift": (
+        "Builtins/Agents/Strip/StripCard.swift": (
             1,
             "Allow takes clicks a moment after its card comes up, as the card can land under a click meant for something else"
         ),
@@ -407,8 +407,8 @@ func codeOnly(_ s: String) -> String {
             1, "the ⌃Tab panel shows once ⌃ is held a moment, so a quick flip doesn't flash it"
         ),
         "Builtins/Git/RowMarks.swift": (1, "a passed CI's ✓ leaves the branch chip after a minute on screen"),
-        "Builtins/Agents/PaneView.swift": (1, "a terminal out of sight lets go of its agent once it could pause idle"),
-        "Builtins/Agents/CommandsBar.swift": (1, "a running command's time goes on (\"12s\" becomes \"13s\")"),
+        "Builtins/Agents/Session/PaneView.swift": (1, "a terminal out of sight lets go of its agent once it could pause idle"),
+        "Builtins/Agents/Session/CommandsBar.swift": (1, "a running command's time goes on (\"12s\" becomes \"13s\")"),
         "Builtins/Issues/CIRunRow.swift": (1, "a running job's time goes on, counted from when it began"),
         "Builtins/Files/FileTab+Saving.swift": (1, "typing settles before the language server hears it"),
         "Builtins/Files/MarkdownTab.swift": (1, "typing settles before the preview renders again"),
@@ -719,7 +719,7 @@ func codeOnly(_ s: String) -> String {
             2,
             "whether this Mac has Xcode (the apps in /Applications, and each one's developer folder), for the Add menu's iOS machine"
         ),
-        "Builtins/Agents/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
+        "Builtins/Agents/Session/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (1, "a local page, shown: it reloads as its folder changes"),
         "Builtins/Browser/BrowserTab+Design.swift": (1, "a page's screenshot"),
         "Builtins/Browser/BrowserDownloads.swift": (
