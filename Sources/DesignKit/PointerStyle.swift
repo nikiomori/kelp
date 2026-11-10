@@ -92,6 +92,28 @@ private struct CardEdge: ViewModifier {
     }
 }
 
+extension View {
+    /// A borderless menu (⋯, +) answers the pointer as a `PointerButtonStyle` button beside it does: under it a grey
+    /// fill fades in. Its press is the menu opening, which is the system's.
+    public func pointerMenu() -> some View { modifier(PointerMenu()) }
+}
+
+private struct PointerMenu: ViewModifier {
+    @State private var hovering = false
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 4)
+            .frame(minHeight: Metrics.iconButton)
+            .background(
+                RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
+                    .fill(Color(nsColor: hovering ? .fillHover : .clear))
+            )
+            .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
+            .onHover { hovering = $0 }
+            .padding(.horizontal, -4)   // the fill reaches past the glyph; its neighbours stay where they were
+    }
+}
+
 extension Animation {
     /// A press dipping and coming back, in SwiftUI (AppKit's is `pressBounce`).
     fileprivate static var pressSpring: Animation { .spring(response: 0.25, dampingFraction: 0.6) }

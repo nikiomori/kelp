@@ -197,6 +197,9 @@ extension SidebarController {
         (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.glowIcon(on)
     }
 
+    /// How many rows may come or go in one change and still move: more is the list changing as a whole.
+    var fewRows: Int { foldingHost ? .max : 3 }
+
     /// The rows on show.
     func shownRows() -> Set<String> {
         Set((0..<outline.numberOfRows).compactMap { (outline.item(atRow: $0) as? Node)?.key })
@@ -207,7 +210,7 @@ extension SidebarController {
     func settle(from old: Set<String>) {
         guard !old.isEmpty, !Motion.reduced, outline.window?.isVisible == true else { return }
         let came = shownRows().subtracting(old)
-        guard !came.isEmpty, came.count <= 3 else { return }
+        guard !came.isEmpty, came.count <= fewRows else { return }
         arriving = came
         instantly { updateCard() }
         outline.layoutSubtreeIfNeeded()
@@ -235,7 +238,7 @@ extension SidebarController {
     func leaveGhosts(of shown: Set<String>, next: [Node]) {
         func keys(_ ns: [Node]) -> [String] { ns.flatMap { [$0.key] + keys($0.children) } }
         let gone = shown.subtracting(keys(next))
-        guard !gone.isEmpty, gone.count <= 3, let list = outline.enclosingScrollView else { return }
+        guard !gone.isEmpty, gone.count <= fewRows, let list = outline.enclosingScrollView else { return }
         for key in gone {
             guard let node = node(key), case let row = outline.row(forItem: node), row >= 0 else { continue }
             outline.rowView(atRow: row, makeIfNecessary: false)?.leaveGhost(in: list)
@@ -256,7 +259,7 @@ extension SidebarController {
     func closeUp(after old: Set<String>, rows: [String: NSPoint], cards was: [String: NSRect]) {
         guard !old.isEmpty, !Motion.reduced, outline.window?.isVisible == true else { return }
         let now = shownRows(), gone = old.subtracting(now)
-        guard !gone.isEmpty, gone.count <= 3, now.isSubset(of: old) else { return }
+        guard !gone.isEmpty, gone.count <= fewRows, now.isSubset(of: old) else { return }
         outline.enumerateAvailableRowViews { rowView, row in
             if let key = (outline.item(atRow: row) as? Node)?.key, let place = rows[key] { rowView.slide(from: place) }
         }
@@ -284,7 +287,11 @@ extension SidebarController {
 
     func foldHost(_ host: String) {
         if hostFolded(host) { collapsed.remove("h:" + host) } else { collapsed.insert("h:" + host) }
+        // Its projects come and go as rows do when something happens, however many: it's one thing folding, not the
+        // list being filled.
+        foldingHost = true
         refresh()
+        foldingHost = false
     }
 
     /// What a server's header asks of the list: its fold, and the plate under its icon (ServerLook.icon).

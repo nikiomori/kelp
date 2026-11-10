@@ -117,7 +117,16 @@ extension FilesPanel {
         patternError.stringValue = String(localized: "Not a valid pattern")
         patternError.toolTip = detail
         patternError.isHidden = detail == nil || !replaceRow.isHidden
-        resultsTop.constant = !replaceRow.isHidden ? Metrics.row + Metrics.gap : detail == nil ? 0 : Metrics.row
+        let top = !replaceRow.isHidden ? Metrics.row + Metrics.gap : detail == nil ? 0 : Metrics.row
+        guard top != resultsTop.constant else { return }
+        // The results make room for the line and take it back, not jump a row with every key of a pattern being typed.
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = view.window == nil ? 0 : Motion.duration(Motion.fast)
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.allowsImplicitAnimation = true
+            resultsTop.animator().constant = top
+            view.layoutSubtreeIfNeeded()
+        }
     }
 
     /// What the language servers say of the project's open files, in a search's place; errors first.

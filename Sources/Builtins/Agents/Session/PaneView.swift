@@ -21,6 +21,7 @@ final class PaneView: NSView {
         title: String(localized: "Close"), target: self, action: #selector(closeTapped))
     private let endedSlot = NSView()
     private lazy var endedHeight = endedSlot.heightAnchor.constraint(equalToConstant: 0)
+    private var endedLeaving = false
     /// Under the terminal: what an agent's shell tool ran.
     private let commands: CommandsBar
     /// Over the terminal's foot, made the first time a plan limit stops this agent.
@@ -182,9 +183,32 @@ final class PaneView: NSView {
         }
         let paused = !attached && session?.status == .paused
         let stopped = !embedded && (!attached || session?.status == .exited)
-        if stopped != (endedHeight.constant > 0) {
-            endedHeight.constant = stopped ? endedBar.fittingSize.height : 0
-            if stopped { endedBar.comeIn() }
+        if stopped, endedLeaving {   // back while it was going
+            endedLeaving = false
+            endedBar.animator().alphaValue = 1
+        }
+        if stopped != (endedHeight.constant > 0), !endedLeaving {
+            if stopped {
+                endedHeight.constant = endedBar.fittingSize.height
+                endedBar.comeIn()
+            } else if window == nil || Motion.reduced {
+                endedHeight.constant = 0
+            } else {
+                // It fades as it came, and the terminal takes its room once it's gone: not cut off in a frame.
+                endedLeaving = true
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = Motion.slow
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    endedBar.animator().alphaValue = 0
+                } completionHandler: { [weak self] in
+                    MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                        guard let self, self.endedLeaving else { return }
+                        self.endedLeaving = false
+                        self.endedHeight.constant = 0
+                        self.endedBar.alphaValue = 1
+                    }
+                }
+            }
         }
         // Its agent still runs in tmux on the host (Session.connectionLost): Reconnect attaches to it again.
         let lost = session?.connectionLost == true

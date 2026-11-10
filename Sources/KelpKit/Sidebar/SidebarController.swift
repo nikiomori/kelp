@@ -96,6 +96,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var renaming: (id: String, project: Bool)?
     lazy var card = HoverCard(app: app)
     var rowHeights: [CGFloat] = []
+    /// A server's header is folding or opening: its projects move, however many (`fewRows`).
+    var foldingHost = false
 
     override func loadView() {
         let col = NSTableColumn(identifier: .init("main"))

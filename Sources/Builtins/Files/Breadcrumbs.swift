@@ -47,9 +47,21 @@ final class Breadcrumbs: NSView {
         track(owner: self) { [settings = app.settings, workbench = app.workbench] in
             settings[SettingKeys.breadcrumbs, language: language] && !workbench.inFocusMode
         } changed: { [weak self] on in
-            self?.isHidden = !on
-            self?.height?.constant = on ? TextSize.of(Metrics.statusBar) : 0
-            self?.rebuild()
+            guard let self else { return }
+            if on { isHidden = false }
+            rebuild()
+            // The file under it moves into its room or out of it (focus mode, the setting), not by a bar's height
+            // at once.
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = self.window == nil ? 0 : Motion.duration(Motion.base)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                ctx.allowsImplicitAnimation = true
+                self.height?.animator().constant = on ? TextSize.of(Metrics.statusBar) : 0
+                self.superview?.layoutSubtreeIfNeeded()
+            } completionHandler: { [weak self] in
+                // AppKit runs it on the main thread
+                MainActor.assumeIsolated { if let self, self.height?.constant == 0 { self.isHidden = true } }
+            }
         }
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }

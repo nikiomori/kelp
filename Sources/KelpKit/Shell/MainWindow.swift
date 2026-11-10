@@ -255,8 +255,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         place()
         sidebarItem.isCollapsed = was.sidebar
         inspectorItem.isCollapsed = was.inspector
-        sidebarToggle.isHidden = false
-        inspectorToggle.isHidden = false
+        for toggle in [sidebarToggle, inspectorToggle] {
+            toggle.isHidden = false
+            toggle.alphaValue = 1
+        }
     }
 
     @objc func toggleFocusMode() {
@@ -274,8 +276,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             slide([(sidebarItem, true), (inspectorItem, true)]) { [weak self] in self?.place() }
         }
         let on = focusMode != nil
-        sidebarToggle.isHidden = on
-        inspectorToggle.isHidden = on
+        for toggle in [sidebarToggle, inspectorToggle] { fade(toggle, hidden: on) }
+    }
+    /// A window bar's button goes or comes with the panels moving beside it, not in a frame.
+    private func fade(_ button: NSView, hidden: Bool) {
+        if !hidden { button.isHidden = false }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(Motion.base)
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            button.animator().alphaValue = hidden ? 0 : 1
+        } completionHandler: {
+            MainActor.assumeIsolated { if button.alphaValue == 0 { button.isHidden = true } }   // AppKit: on main
+        }
     }
     var inFocusMode: Bool { focusMode != nil }
 

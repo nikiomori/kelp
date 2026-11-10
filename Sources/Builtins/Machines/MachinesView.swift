@@ -58,7 +58,7 @@ struct MachinesView: View {
         } label: {
             Image(systemName: "plus").font(.symbol(Metrics.iconSmall))
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().pointerMenu()
         .help(String(localized: "New Machine"))
         .accessibilityLabel(String(localized: "New Machine"))
     }
