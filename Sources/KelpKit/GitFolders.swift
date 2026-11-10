@@ -2,11 +2,11 @@ import AppKit
 import Core
 import DesignKit
 
-/// What the sidebar shows beside a folder: lines not committed yet (its PR and CI are Git's: `FolderCI`). Workspaces
-/// share their project's folder, so the project row carries it; a workspace on its own branch (a worktree) carries its
-/// own. Every folder the sidebar lists is watched: the daemon pushes its git when its files change.
+/// The folders whose git Kelp shows and their lines not committed yet: beside the sidebar's rows, in the ⌃Tab switcher,
+/// on the window bar (their PR and CI are Git's: `FolderCI`). Workspaces share their project's folder; a workspace on its
+/// own branch (a worktree) has its own. Every such folder is watched: the daemon pushes its git when its files change.
 @MainActor @Observable
-package final class RowBadges {
+package final class GitFolders {
     private let app: AppModel
     /// Worktree id → changes (observed through AppModel).
     var stats: [String: LineStats] { app.latest(GitEvent.self).byKey.compactMapValues(\.stats) }
@@ -115,9 +115,9 @@ package final class RowBadges {
 
 extension AppModel {
     /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace of a project) the project's.
-    package func gitFolder(of workspace: String?) -> Worktree? { rowBadges.folder(of: workspace) }
+    package func gitFolder(of workspace: String?) -> Worktree? { gitState.folder(of: workspace) }
     /// Every folder the sidebar lists, whose git, PR and CI its rows show.
-    package var gitFolders: Set<String> { rowBadges.folders }
-    /// Its files that another folder of the project changes too, with that folder's branch (`RowBadges.shared`).
-    package func sharedFiles(_ id: String?) -> [String: [String]] { id.map(rowBadges.shared) ?? [:] }
+    package var gitFolders: Set<String> { gitState.folders }
+    /// Its files that another folder of the project changes too, with that folder's branch (`GitFolders.shared`).
+    package func sharedFiles(_ id: String?) -> [String: [String]] { id.map(gitState.shared) ?? [:] }
 }

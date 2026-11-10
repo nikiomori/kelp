@@ -82,7 +82,7 @@ final class SidebarCell: NSTableCellView {
     /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
-    /// for rows that stand for a folder (RowBadges; the CI from FolderCI); the dot goes first when the row is short of
+    /// for rows that stand for a folder (GitFolders; the CI from FolderCI); the dot goes first when the row is short of
     /// room, the CI mark last.
     let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero),
         ci = PointerButton(frame: .zero)
@@ -90,7 +90,7 @@ final class SidebarCell: NSTableCellView {
     var hasBadge = (changes: false, pr: false, ci: false)
     /// "+610 −23", shown in place of the dot while the pointer is on the row.
     var counts: NSAttributedString?
-    /// Another folder of the project changes some of these files too: the dot is orange (`RowBadges.shared`).
+    /// Another folder of the project changes some of these files too: the dot is orange (`GitFolders.shared`).
     var shares = false
 
     init(node: SidebarController.Node, owner: SidebarController) {

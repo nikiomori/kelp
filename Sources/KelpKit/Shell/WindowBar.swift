@@ -36,7 +36,7 @@ final class WindowBar: NSView {
     /// None over a page: the project and branch beside it would be the workspace's behind it.
     var worktree: Worktree? { app.workbench.page == nil ? app.worktree(app.workbench.workspaceId) : nil }
     /// The folder the sidebar keeps the pull request and CI for: a workspace shares its project's.
-    private var badgeFolder: Worktree? { app.rowBadges.folder(of: app.workbench.workspaceId) }
+    private var badgeFolder: Worktree? { app.gitState.folder(of: app.workbench.workspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
     private let ciMark = CIMark()
     /// Centred on the glyph's slot (the chip's padding, then 13 pt) or on the room left at the title's end (12 pt).

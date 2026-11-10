@@ -228,7 +228,7 @@ final class CommitCardView: NSView {
             if details.added + details.removed > 0 {
                 views.append(
                     NSTextField(
-                        labelWithAttributedString: RowBadges.changes(added: details.added, removed: details.removed)))
+                        labelWithAttributedString: GitFolders.changes(added: details.added, removed: details.removed)))
             }
         }
         let copyTitle = String(localized: "Copy Commit Hash")

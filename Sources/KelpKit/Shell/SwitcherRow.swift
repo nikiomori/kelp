@@ -35,9 +35,9 @@ struct SwitcherRow {
         where part.map({ $0 != title && $0 != worktree.displayName && !place.contains($0) }) == true {
             place.append(part ?? "")
         }
-        let folder = app.rowBadges.folder(of: worktree.id)
+        let folder = app.gitState.folder(of: worktree.id)
         let badges = [
-            folder.flatMap { RowBadges.changes(app.rowBadges.stats[$0.id], compact: true) },
+            folder.flatMap { GitFolders.changes(app.gitState.stats[$0.id], compact: true) },
             folder.flatMap { app.extensions.all.ci?.pr($0.id)?.title }
         ].compactMap { $0 }
         let said = lead.flatMap { SidebarCell.line($0, mode: "always", children: app.children(of: $0.id)) }

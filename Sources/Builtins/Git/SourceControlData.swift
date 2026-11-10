@@ -192,7 +192,7 @@ extension SourceControlController {
             return
         }
         stats.isHidden = false
-        stats.attributedStringValue = RowBadges.changes(lineStats) ?? NSAttributedString()
+        stats.attributedStringValue = GitFolders.changes(lineStats) ?? NSAttributedString()
         let names: [LineStats.Kind: String] = [
             .code: String(localized: "Code"), .tests: String(localized: "Tests"),
             .generated: String(localized: "Generated")

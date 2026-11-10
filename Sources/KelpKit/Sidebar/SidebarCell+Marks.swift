@@ -102,11 +102,11 @@ extension SidebarCell {
 }
 
 extension SidebarCell {
-    /// The folder this row stands for, if any (RowBadges.folder).
+    /// The folder this row stands for, if any (GitFolders.folder).
     var folder: Worktree? {
         switch node.kind {
-        case .project(let id): app.rowBadges.folder(project: id)
-        case .workspace(let id): app.rowBadges.folder(workspace: id)
+        case .project(let id): app.gitState.folder(project: id)
+        case .workspace(let id): app.gitState.folder(workspace: id)
         case .agent, .host, .parked: nil
         }
     }
@@ -123,10 +123,10 @@ extension SidebarCell {
     /// The stack shows a badge only when there's something to say, and drops it first when the row is narrow.
     func updateBadges() {
         let badgeFolder = app.settings[SettingKeys.gitBadges] ? folder : nil,
-            stats = badgeFolder.flatMap { app.rowBadges.stats[$0.id] }
-        let changeCounts = RowBadges.changes(stats)
+            stats = badgeFolder.flatMap { app.gitState.stats[$0.id] }
+        let changeCounts = GitFolders.changes(stats)
         let prBadge = badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
-        let sharedTip = badgeFolder.flatMap { RowBadges.sharedTip(app.rowBadges.shared($0.id)) }
+        let sharedTip = badgeFolder.flatMap { GitFolders.sharedTip(app.gitState.shared($0.id)) }
         counts = changeCounts
         shares = sharedTip != nil
         showChanges()

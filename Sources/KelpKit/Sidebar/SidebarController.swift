@@ -241,7 +241,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.syncSelection()
         }
         track(owner: self) { [app] in
-            app.rowBadges.stats
+            app.gitState.stats
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }

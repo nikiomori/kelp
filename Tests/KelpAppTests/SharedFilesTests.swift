@@ -27,9 +27,9 @@ import Testing
     #expect(m.sharedFiles("a") == ["Login.swift": ["main"]])
     #expect(m.sharedFiles("m") == ["Login.swift": ["fix-login"]])
     #expect(m.sharedFiles("o").isEmpty)
-    #expect(RowBadges.sharedTip(m.sharedFiles("a")) == "Also changed on main: Login.swift")
+    #expect(GitFolders.sharedTip(m.sharedFiles("a")) == "Also changed on main: Login.swift")
     let many = ["a/1.swift": ["x"], "b/2.swift": ["x"], "3.swift": ["x"], "4.swift": ["x", "y"]]
     #expect(
-        RowBadges.sharedTip(many)
+        GitFolders.sharedTip(many)
             == "Also changed on x: 1.swift, 2.swift, 3.swift and 1 more\nAlso changed on y: 4.swift")
 }

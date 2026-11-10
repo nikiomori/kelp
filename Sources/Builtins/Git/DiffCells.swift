@@ -78,7 +78,9 @@ extension DiffViewController {
             DiffColors.key(f, l).flatMap { syntax[$0] }.map {
                 Highlighter.attributed(
                     prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
-            } ?? NSAttributedString(string: prefix + text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
+            }
+            ?? NSAttributedString(
+                string: prefix + text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         let styled = NSMutableAttributedString(attributedString: colored)
         let key =
             l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil
@@ -210,7 +212,7 @@ extension DiffViewController {
         nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         nameLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let counts = NSTextField(
-            labelWithAttributedString: RowBadges.changes(added: diff.additions, removed: diff.deletions))
+            labelWithAttributedString: GitFolders.changes(added: diff.additions, removed: diff.deletions))
         counts.setContentHuggingPriority(.required, for: .horizontal)
         counts.setContentCompressionResistancePriority(.required, for: .horizontal)
         if ViewedFiles.viewed(diff, in: viewed, printed: prints[diff.path]) { nameLabel.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
@@ -231,7 +233,7 @@ extension DiffViewController {
         name.lineBreakMode = .byTruncatingHead
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let stack = NSStackView(views: [
-            icon, name, NSTextField(labelWithAttributedString: RowBadges.changes(added: a, removed: d))
+            icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: a, removed: d))
         ])
         // the room between goes to a spacer
         if single == nil, let index = diffs.firstIndex(where: { $0.path == path }) {

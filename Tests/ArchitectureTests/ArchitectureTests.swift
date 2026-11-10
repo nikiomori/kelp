@@ -84,11 +84,8 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
         #expect(!modules.contains { $0 != own && line.contains("\"\($0)\"") }, "depends on a built-in: \(line)")
     }
     // The window's own parts stay the shell's: nothing in them is declared for a built-in to reach.
-    let shared = ["RowBadges.swift"]   // the sidebar's, shown by the Agents built-in too
     let windowParts =
-        sources(["Sources/KelpKit/Sidebar", "Sources/KelpKit/Inspector"]).filter {
-            !shared.contains(($0.path as NSString).lastPathComponent)
-        }
+        sources(["Sources/KelpKit/Sidebar", "Sources/KelpKit/Inspector"])
         + sources(["Sources/KelpKit/Shell"]).filter { $0.path.hasSuffix("/MainWindow.swift") }
     #expect(windowParts.filter { codeOnly($0.text).contains("package ") }.map(\.path) == [])
     // What the built-ins may reach of the shell. It goes down when a built-in stops using one (that goes too), and up only

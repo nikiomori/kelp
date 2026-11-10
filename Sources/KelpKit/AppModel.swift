@@ -47,7 +47,7 @@ package final class AppModel {
     @ObservationIgnored private(set) package lazy var workbench = Workbench(app: self)
     @ObservationIgnored private(set) package lazy var settings = SettingsStore(app: self)
     @ObservationIgnored private(set) package lazy var extensions = ExtensionRegistry(app: self)
-    @ObservationIgnored private(set) lazy var rowBadges = RowBadges(app: self)
+    @ObservationIgnored private(set) lazy var gitState = GitFolders(app: self)
     @ObservationIgnored private(set) package lazy var uiState = UIState(app: self)
     /// The rest of what the app is made of, each made when first used.
     @ObservationIgnored private(set) package lazy var themes = ThemeManager(app: self)
