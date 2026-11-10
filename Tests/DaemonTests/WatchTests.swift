@@ -42,20 +42,21 @@ private final class Heard: Sendable {
     defer { w.d.stop() }
     let wt = try await firstWorkspace(w)
     let key = Watches.Key(topic: .git, key: wt.id)
-    func reads() -> Int { w.d.watches.reads.withLock { $0?[key] ?? 0 } }
     let heard = Heard()
     heard.listen(w.c)
     try "dist/\n".write(toFile: wt.path + "/.gitignore", atomically: true, encoding: .utf8)
     try FileManager.default.createDirectory(atPath: wt.path + "/dist/js", withIntermediateDirectories: true)
     w.c.notify(WatchStart(.git, wt.id))
     #expect(try await waitFor(10) { heard.events(GitEvent.self).first?.changes?.map(\.path) == [".gitignore"] })
-    // Time, both: what the setup's own events read is let in first, and no event says a dropped one was seen.
-    try await Task.sleep(for: .milliseconds(800))
-    let before = reads()
-    for i in 0..<5 { try "\(i)\n".write(toFile: wt.path + "/dist/js/a.js", atomically: true, encoding: .utf8) }
-    try await Task.sleep(for: .milliseconds(1200))
-    #expect(reads() == before)
+    // Judged by hand, as the watch judges its events: no event says a dropped one was seen, and a read counted after
+    // a wait says nothing of which event made it.
+    let (_, matters) = try #require(w.d.watches.folder(key))
+    let built = wt.path + "/dist/js/a.js"
+    #expect(matters([wt.path + "/src.txt"]) && !matters([built]) && !matters([built, wt.path + "/dist/b.js"]))
+    #expect(matters([built, wt.path + "/src.txt"]))   // one that counts among those that don't
+    for i in 0..<5 { try "\(i)\n".write(toFile: built, atomically: true, encoding: .utf8) }
     try "\n".write(toFile: wt.path + "/.gitignore", atomically: true, encoding: .utf8)
+    #expect(matters([wt.path + "/.gitignore"]) && matters([built]))   // the rules changed: asked again
     #expect(
         try await waitFor(10) {
             heard.events(GitEvent.self).last?.changes?.contains { $0.path.hasPrefix("dist/") } == true
@@ -326,13 +327,9 @@ private final class Heard: Sendable {
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).map(\.items) == [[]] })
     _ = try Artifacts.create(.doc, title: "Plan", root: wt.path, session: nil)
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Plan"] })
-    let reads = { w.d.watches.reads.withLock { $0?[Watches.Key(topic: .artifacts, key: wt.id)] ?? 0 } }
-    // Time, both: what the artifact's own events read is let in first, and no event says a dropped one was seen.
-    try await Task.sleep(for: .milliseconds(1200))
-    let before = reads()
-    try "x\n".write(toFile: wt.path + "/other.txt", atomically: true, encoding: .utf8)
-    try await Task.sleep(for: .milliseconds(1200))
-    #expect(reads() == before)
+    // Judged by hand, as the watch judges its events: no event says a dropped one was seen.
+    let (_, matters) = try #require(w.d.watches.folder(Watches.Key(topic: .artifacts, key: wt.id)))
+    #expect(!matters([wt.path + "/other.txt"]) && matters([wt.path + "/\(Artifacts.folder)/plan/index.md"]))
 }
 
 /// The daemon as it runs keeps no count of reads: one per key ever watched would only grow. Tests turn it on.

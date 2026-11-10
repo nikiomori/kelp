@@ -64,11 +64,12 @@ extension AppOfItsOwn {
         _ = await renamed.value
         _ = await panel.trash({ [rig.repo + "/c.txt"] }, undo: "Move to Trash").value
         undo.undo()
-        #expect(try await waitFor(4) { there("c.txt") })
-        // A rename undone with it would be back too by now: nothing says it isn't coming.
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(there("c.txt") && there("b.txt") && !there("a.txt"))
+        // The rename's step is still there to undo: one ⌘Z took it too if it isn't, whenever its file comes back.
         #expect(undo.undoActionName == "Rename")
+        #expect(try await waitFor(4) { there("c.txt") })
+        #expect(there("b.txt") && !there("a.txt"))
+        undo.undo()
+        #expect(try await waitFor(4) { there("a.txt") && !there("b.txt") })   // and it is the rename's
     }
 
     /// A file dropped from Finder is copied in under Finder's "name copy" when the name is taken, and ⌘Z puts the copy in

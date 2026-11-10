@@ -148,8 +148,9 @@ final class Watches: Sendable {
     }
 
     /// The folder whose file events can change a topic, and which of them do; nil: none (a remote project's folder here
-    /// holds only its marker, and the rest go by their clock).
-    private func folder(_ key: Key) -> (String, @Sendable ([String]) -> Bool)? {
+    /// holds only its marker, and the rest go by their clock). Not private: a test asks it what an event would do, since
+    /// no event says one was dropped.
+    func folder(_ key: Key) -> (String, @Sendable ([String]) -> Bool)? {
         switch key.topic {
         case .git, .files, .artifacts, .databases:
             guard let worktree = store.look("workspace \(key.key)", { try $0.worktree(key.key) }),

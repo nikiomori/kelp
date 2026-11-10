@@ -76,7 +76,12 @@ private func stopped(_ p: World, _ s: Session) async throws {
     _ = try await p.c.call(SessionContinueAt(id: s.id, at: Date()))
     #expect(try await waitFor(10) { try await printed().contains("continue") })
     #expect(try await waitFor { try await record()?.continueAt == nil })
-    try await Task.sleep(for: .seconds(1.2))   // a few ticks
+    // A few ticks more, by hand, then a line of the test's own: what a tick typed again would be printed before it.
+    let live = try #require(p.d.sessions.live[s.id])
+    for _ in 0..<3 { live.tick() }
+    _ = try await p.c.call(
+        "session.write", .obj(["id": .string(s.id), "base64": .string(Data("after\r".utf8).base64EncodedString())]))
+    #expect(try await waitFor(10) { try await printed().components(separatedBy: "after").count - 1 >= 2 })
     #expect(try await printed().components(separatedBy: "continue").count - 1 <= 2)   // once: the terminal's echo and cat's
     _ = try await p.c.call("session.kill", .obj(["id": .string(s.id)]))
 }

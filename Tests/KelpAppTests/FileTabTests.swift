@@ -192,7 +192,7 @@ extension AppOfItsOwn {
         let was = rig.app.latest(FileEvent.self, p)?.stamp
         try "theirs\n".write(toFile: p, atomically: true, encoding: .utf8)
         #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
-        try await Task.sleep(for: .milliseconds(200))   // its text read meanwhile
+        #expect(try await waitFor(5) { tab.known?.text == "theirs\n" })   // its text read, and judged in that turn
         #expect(tab.editor?.text == "mine\n" && tab.isEdited)
         #expect(!tab.gone)   // failed once on CI by saving over the file: this and `now` say which way it got there
         #expect(await !tab.save())

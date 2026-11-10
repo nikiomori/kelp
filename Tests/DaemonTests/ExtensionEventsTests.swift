@@ -81,14 +81,16 @@ private func temporary() -> URL {
     let kid = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "child", parent: s.id))
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
-    _ = try await w.c.call(SessionReport(id: kid.id, state: "done"))
-    // Time: the delay is what's tested, the stop judged before it stands again.
-    try await Task.sleep(for: .seconds(ExtensionEvents.eventDelay + 1))
-    #expect(lines(out).isEmpty)
+    // Events are judged in turn, each after the same delay: once this one is heard, the turns of those before it
+    // have passed, and it is the only one.
+    let last = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "last"))
+    _ = try await w.c.call(SessionReport(id: last.id, state: "done"))
+    #expect(try await waitFor(10) { !lines(out).isEmpty })
+    #expect(lines(out) == ["agent.done|last|"])
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))
-    #expect(try await waitFor(10) { lines(out) == ["agent.done|parent|"] })
+    #expect(try await waitFor(10) { lines(out).dropFirst() == ["agent.done|parent|"] })
     _ = try await w.c.call(WorkspaceCreate(repoId: w.repo.id))
-    #expect(try await waitFor(10) { lines(out).count == 2 && lines(out)[1].hasPrefix("workspace.created|") })
+    #expect(try await waitFor(10) { lines(out).count == 3 && lines(out)[2].hasPrefix("workspace.created|") })
     #expect(lines(off).isEmpty)
 }
 
