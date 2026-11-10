@@ -387,8 +387,10 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Files/FileTab+Saving.swift": "typing settles before the language server hears it",
         "Builtins/Files/MarkdownTab.swift": "typing settles before the preview renders again",
         "Builtins/Databases/DatabaseForm.swift": "typing settles before Add Database connects to check it",
-        "Builtins/Databases/DatabaseTab+Table.swift": "a read says Reading… only past half a second: a quick one doesn't flicker",
-        "Builtins/Databases/DatabaseTab+Opening.swift": "Connecting to … shows past half a second: a quick open doesn't flicker",
+        "Builtins/Databases/DatabaseTab+Table.swift":
+            "a read says Reading… only past half a second: a quick one doesn't flicker",
+        "Builtins/Databases/DatabaseTab+Opening.swift":
+            "Connecting to … shows past half a second: a quick open doesn't flicker",
         "Builtins/Git/CommitCard.swift":
             "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves",
         "KelpKit/Extensions/ExtListView.swift": "an extension's own refresh interval for its command's list",
@@ -695,7 +697,6 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Shell/KelpLinks.swift": (2, "a linked path: a file, a folder, or nothing"),
         "KelpKit/Shell/WorkspaceActions+OpenIn.swift": (1, "whether Open In was handed a file or a folder"),
         "KelpKit/Shell/ProjectIcon.swift": (1, "a project's icon, shown (a remote one's from the copy kelpd keeps)"),
-        "KelpKit/Sidebar/SidebarActions.swift": (1, "a project folder that's gone"),
         "Builtins/Machines/Machines.swift": (
             2,
             "whether this Mac has Xcode (the apps in /Applications, and each one's developer folder), for the Add menu's iOS machine"

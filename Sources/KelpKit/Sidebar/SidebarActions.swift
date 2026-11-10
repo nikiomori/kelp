@@ -121,7 +121,7 @@ extension SidebarController {
         case .project(let id):
             guard let repo = model.repo(id) else { return }
             if NoProject.holds(repo) { return noProjectMenu(menu, repo, node) }
-            if !FileManager.default.fileExists(atPath: repo.path) {
+            if app.missingFolders.contains(repo.path) {   // as its row says: looked for off the main thread
                 menu.add(String(localized: "Locate…")) { WorkspaceActions(app).relocate(repo) }
                 menu.add(String(localized: "Remove from Kelp…")) { WorkspaceActions(app).removeProject(repo) }
                 return
