@@ -25,10 +25,18 @@ extension AddonsList: Handled {
         }
         let files = own.map { AddonFiles(claude: $0) } ?? AddonFiles()
         let items = AddonList.build(loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted())
-        return Addons(items: items, chat: loaded != nil)
+        let off = sessions.setup.addonsOff(worktreeId: worktreeId).off
+        return Addons(items: AddonSwitches.applied(off, to: items), chat: loaded != nil)
+    }
+}
+
+extension AddonsSet: Handled {
+    func handle(_ addons: AgentAddons) throws -> Done {
+        try addons.sessions.setup.setAddon(key, on: on, worktreeId: worktreeId)
+        return Done()
     }
 }
 
 extension Methods {
-    static let addonMethods: [any Answered.Type] = [AddonsList.self]
+    static let addonMethods: [any Answered.Type] = [AddonsList.self, AddonsSet.self]
 }

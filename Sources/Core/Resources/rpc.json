@@ -39,6 +39,17 @@
             },
             "type" : "array"
           },
+          "fixed" : {
+            "description" : "The agents among `agents` that get it whatever the switch says: they have no way to leave it out of one chat.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "key" : {
+            "description" : "What `addons.set` takes to switch it for the project: its own (\"skill:tabbit\", \"server:claude_ai_Gmail\", \"kelp:kelp-vm\") or its plugin's (\"plugin:sales\", which switches all of that plugin's). nil: nothing switches it.",
+            "type" : "string"
+          },
           "kind" : {
             "$ref" : "#/components/schemas/Addon.Kind"
           },
@@ -48,6 +59,10 @@
           },
           "name" : {
             "type" : "string"
+          },
+          "off" : {
+            "description" : "Off for this project: a chat started from now on doesn't get it.",
+            "type" : "boolean"
           },
           "origin" : {
             "description" : "Where it comes from, as the person would name it: a folder (\"~/.agents/skills\"), a file, a plugin, \"claude.ai\".",
@@ -72,8 +87,10 @@
         "required" : [
           "agents",
           "copies",
+          "fixed",
           "kind",
           "name",
+          "off",
           "signIn",
           "source"
         ],
@@ -83,7 +100,8 @@
         "enum" : [
           "skill",
           "server",
-          "instructions"
+          "instructions",
+          "plugin"
         ],
         "type" : "string"
       },
@@ -5084,6 +5102,41 @@
           "$ref" : "#/components/schemas/Addons"
         }
       }
+    },
+    {
+      "description" : "Switches a skill, a server or a plugin (`Addon.key`) for the workspace's project. Chats started from then on get it or don't; one that runs keeps what it started with. Nothing of the agents' own is written: the choice is Kelp's (UI state `addons.off.<repo>`) and reaches an agent on its command line.",
+      "name" : "addons.set",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "on",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Settings › Agent Catalog: how an agent starts, kept as its file in the agents folder. `manifest` is the whole file (secrets in it as `agent.setSecret` left them); nil removes it, and the agent starts as Kelp's preset says again.",

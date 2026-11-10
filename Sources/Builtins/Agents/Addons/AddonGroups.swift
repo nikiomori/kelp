@@ -6,8 +6,14 @@ struct AddonGroup: Hashable {
     var kind: Addon.Kind
     /// nil: the servers waiting for a sign-in, whatever brought them.
     var source: Addon.Source?
+    /// One plugin's skills: a plugin goes on and off whole, so each is a group with the switch on its line.
+    var plugin: String?
+
+    /// What `addons.set` takes for the whole group; nil when its items switch one by one.
+    var key: String? { plugin.map { "plugin:\($0)" } }
 
     var title: String {
+        if let plugin { return plugin }
         guard let source else { return String(localized: "Not signed in") }
         return switch source {
         case .kelp: String(localized: "Kelp")
@@ -58,15 +64,39 @@ enum AddonGroups {
         let skills = items.filter { $0.kind == .skill }
         if !skills.isEmpty {
             out.append(.section(.skills, count: skills.count))
-            for source in skillSources {
+            for source in skillSources where source != .plugin {
                 out += group(.init(kind: .skill, source: source), skills.filter { $0.source == source }, toggled)
             }
         }
+        out += plugins(items, toggled)
         let files = items.filter { $0.kind == .instructions }
         if !files.isEmpty {
             out += [.section(.instructions, count: files.count)] + files.map { .item($0, nested: false) }
         }
         return out
+    }
+
+    /// Each plugin's skills under its name, and the plugins that are off (nothing of theirs loaded) as a line each.
+    private static func plugins(_ items: [Addon], _ toggled: Set<AddonGroup>) -> [AddonLine] {
+        let skills = items.filter { $0.kind == .skill && $0.source == .plugin }
+        let names = Set(skills.compactMap(\.origin)).union(items.filter { $0.kind == .plugin }.map(\.name)).sorted()
+        return names.flatMap { name -> [AddonLine] in
+            let g = AddonGroup(kind: .skill, source: .plugin, plugin: name)
+            let own = skills.filter { $0.origin == name }
+            return own.isEmpty ? [.group(g, count: 0, open: false)] : group(g, own, toggled)
+        }
+    }
+
+    /// Whether a group's switch is off: its plugin is named off, or what loaded of it is.
+    static func isOff(_ g: AddonGroup, _ items: [Addon]) -> Bool {
+        guard let key = g.key else { return false }
+        return items.contains { $0.key == key && $0.off }
+    }
+
+    /// A change that waits for a restart: off but loaded in this chat, or on again and not loaded.
+    static func waits(_ addon: Addon) -> Bool {
+        guard addon.key != nil, let loaded = addon.loaded, addon.problem == nil else { return false }
+        return addon.off == loaded
     }
 
     private static func group(_ g: AddonGroup, _ items: [Addon], _ toggled: Set<AddonGroup>) -> [AddonLine] {
@@ -85,9 +115,13 @@ enum AddonGroups {
     }
 
     /// A row's tooltip: what it says about itself, where it is, its other copies.
-    static func tip(_ addon: Addon) -> String {
-        ([addon.about, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }).compactMap { $0 }
-            .joined(separator: "\n")
+    static func tip(_ addon: Addon, names: (String) -> String = { $0 }) -> String {
+        var lines = [addon.about, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }
+        if !addon.fixed.isEmpty {
+            let who = addon.fixed.map(names).joined(separator: ", ")
+            lines.append(String(localized: "Always on in \(who): no switch for one chat there"))
+        }
+        return lines.compactMap { $0 }.joined(separator: "\n")
     }
 
     static func tokens(_ n: Int) -> String { String(localized: "\(k(n)) tok") }

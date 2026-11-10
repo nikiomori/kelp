@@ -7,6 +7,8 @@ import Foundation
 public struct Addon: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case skill, server, instructions
+        /// A plugin of the agent's, as a whole: listed only while it's off (on, its skills and servers are the rows).
+        case plugin
     }
     /// Who brought it: Kelp (its own skills), the person (their folders and settings), the project (its files), a
     /// plugin of the agent's, the agent's account (claude.ai's skills and connectors), or the agent itself (built in).
@@ -32,10 +34,18 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
     public var tokens: Int?
     /// Other places the same one sits in (a second copy of a skill's folder).
     public var copies: [String]
+    /// What `addons.set` takes to switch it for the project: its own ("skill:tabbit", "server:claude_ai_Gmail",
+    /// "kelp:kelp-vm") or its plugin's ("plugin:sales", which switches all of that plugin's). nil: nothing switches it.
+    public var key: String?
+    /// Off for this project: a chat started from now on doesn't get it.
+    public var off: Bool
+    /// The agents among `agents` that get it whatever the switch says: they have no way to leave it out of one chat.
+    public var fixed: [String]
 
     public init(
         kind: Kind, name: String, source: Source, about: String? = nil, origin: String? = nil, agents: [String] = [],
-        loaded: Bool? = nil, problem: String? = nil, signIn: Bool = false, tokens: Int? = nil, copies: [String] = []
+        loaded: Bool? = nil, problem: String? = nil, signIn: Bool = false, tokens: Int? = nil, copies: [String] = [],
+        key: String? = nil, off: Bool = false, fixed: [String] = []
     ) {
         self.kind = kind
         self.name = name
@@ -48,6 +58,9 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
         self.signIn = signIn
         self.tokens = tokens
         self.copies = copies
+        self.key = key
+        self.off = off
+        self.fixed = fixed
     }
 }
 
@@ -69,5 +82,19 @@ public struct AddonsList: RPCMethod {
     public init(worktreeId: String, session: String? = nil) {
         self.worktreeId = worktreeId
         self.session = session
+    }
+}
+
+/// Switches a skill, a server or a plugin (`Addon.key`) for the workspace's project. Chats started from then on get
+/// it or don't; one that runs keeps what it started with. Nothing of the agents' own is written: the choice is Kelp's
+/// (UI state `addons.off.<repo>`) and reaches an agent on its command line.
+public struct AddonsSet: InternalMethod {
+    public static let name = "addons.set"
+    public typealias Result = Done
+    public var worktreeId: String, key: String, on: Bool
+    public init(worktreeId: String, key: String, on: Bool) {
+        self.worktreeId = worktreeId
+        self.key = key
+        self.on = on
     }
 }

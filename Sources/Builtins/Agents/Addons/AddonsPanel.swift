@@ -5,7 +5,8 @@ import KelpKit
 
 /// Skills & MCP: what the chat looked at last in the workspace on screen gets besides the prompt (its skills, MCP
 /// servers and instruction files, as it reported them at its start), or what a new chat there would get when it has no
-/// record. Read when the panel shows, and again when the workspace or the chat changes. Read-only for now.
+/// record. Read when the panel shows, and again when the workspace or the chat changes. A switch is the project's:
+/// chats started from then on follow it, and the one on screen can be restarted to.
 @MainActor
 final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
     let app: AppModel
@@ -24,6 +25,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private var toggled: Set<AddonGroup> = []
     private var shown = false
     private var loading: Task<Void, Never>?
+    private let foot = NSStackView()
+    private var shownChat: Session?
 
     init(app: AppModel) {
         self.app = app
@@ -50,7 +53,20 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
             top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         summary.isHidden = true
         // A stack: the summary takes no room while it's hidden.
-        let column = NSStackView(views: [header, summary, scroll])
+        let note = NSTextField(labelWithString: String(localized: "Changes reach new chats."))
+        note.font = .ui(TextSize.caption)
+        note.textColor = .secondaryLabelColor
+        note.lineBreakMode = .byTruncatingTail
+        note.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let restart = PointerButton(title: String(localized: "Restart This Chat")) { [weak self] in
+            guard let self, let chat = shownChat else { return }
+            AgentActions(app).restart(chat.id)
+        }
+        foot.setViews([note, NSView(), restart], in: .leading)
+        foot.spacing = Metrics.gap
+        foot.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
+        foot.isHidden = true
+        let column = NSStackView(views: [header, summary, scroll, foot])
         column.orientation = .vertical
         column.spacing = 0
         for part in column.arrangedSubviews { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
@@ -120,12 +136,24 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         chatTitle.stringValue =
             named.map(app.catalog.displayName) ?? (value == nil ? "" : String(localized: "What a new chat gets"))
         counts.stringValue = AddonGroups.summary(items)
+        // Something waits for a restart, and there's a chat to restart.
+        shownChat = value?.chat == true ? chat : nil
+        foot.isHidden = shownChat == nil || !items.contains(where: AddonGroups.waits)
         relist()
     }
 
     private func relist() {
         lines = AddonGroups.lines(addons?.items ?? [], toggled: toggled)
         table.reloadData()
+    }
+
+    /// The project's switch, then the list again: the daemon says what it is now.
+    private func flip(_ key: String, on: Bool) {
+        guard let workspace = app.workbench.workspaceId else { return }
+        Task { [weak self, app] in
+            await app.call(AddonsSet(worktreeId: workspace, key: key, on: on))
+            self?.reload()
+        }
     }
 
     private func showMore() {
@@ -155,10 +183,12 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         }
     }
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
-        let rows = AddonRows(app: app)
+        let rows = AddonRows(app: app) { [weak self] key, on in self?.flip(key, on: on) }
+        let items = addons?.items ?? []
         return switch lines[row] {
         case .section(let section, let count): rows.section(section, count: count)
-        case .group(let g, let count, let open): rows.group(g, count: count, open: open)
+        case .group(let g, let count, let open):
+            rows.group(g, count: count, open: open, off: g.key == nil ? nil : AddonGroups.isOff(g, items))
         case .item(let addon, let nested): rows.item(addon, nested: nested)
         case .problem(let addon): rows.problem(addon)
         }

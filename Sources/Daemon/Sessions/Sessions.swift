@@ -171,11 +171,11 @@ final class Sessions: Sendable {
         // A remote project's sessions run on its host (see `launchArgv`). Kelp's hooks and skills are files on this Mac,
         // so they stay out: status comes from what the agent reports, and from the screen.
         let local = remotes.of(cwd) == nil
-        if local, launch.argv == nil, case .settingsFlag(let flag)? = manifest.hooks {
-            let settingsFile = setup.hooksDir(manifest).appendingPathExtension("json")
-            try Hooks.writeSettings(to: settingsFile)
-            argv += [flag, settingsFile.path]
+        if local, case .settingsFlag(let flag)? = manifest.hooks {
+            argv = try setup.withSettings(
+                argv, flag: flag, manifest: manifest, worktreeId: worktreeId, fresh: launch.argv == nil)
         }
+        if local, manifest.id == "codex" { argv = setup.withCodexSwitches(argv, worktreeId: worktreeId) }
         // Kelp's skills (written by the app into this home), for this session only: nothing goes into ~/.claude. A restart's
         // argv carries the ones it had: they're chosen again, as for a new chat (the browser's may differ by now).
         if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {

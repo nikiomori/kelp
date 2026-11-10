@@ -24,8 +24,10 @@ extension SessionSetup {
                 at: root.appendingPathComponent("vms"), includingPropertiesForKeys: nil,
                 options: [.skipsSubdirectoryDescendants, .skipsHiddenFiles])?.nextObject() != nil
         let hasDatabases = all.contains { $0.lastPathComponent == "kelp-db" } && hasDatabases(worktreeId: worktreeId)
+        let off = addonsOff(worktreeId: worktreeId).off   // the project's own switches (`addons.set`)
         let on = all.filter {
-            ($0.lastPathComponent != "kelp-browser" || browser?.on == true)
+            !off.contains("kelp:\($0.lastPathComponent)")
+                && ($0.lastPathComponent != "kelp-browser" || browser?.on == true)
                 && ($0.lastPathComponent != "kelp-vm" || machines)
                 && ($0.lastPathComponent != "kelp-db" || hasDatabases)
         }

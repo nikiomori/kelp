@@ -8,6 +8,8 @@ import KelpKit
 @MainActor
 struct AddonRows {
     let app: AppModel
+    /// A switch was flipped: the key it stands for (`Addon.key`), and whether it's on now.
+    var onSwitch: (String, Bool) -> Void = { _, _ in }
     private static let most = 4
 
     func section(_ section: AddonLine.Section, count: Int) -> NSView {
@@ -22,25 +24,47 @@ struct AddonRows {
         return line([title, digits(count), NSView()], inset: Metrics.inset)
     }
 
-    func group(_ g: AddonGroup, count: Int, open: Bool) -> NSView {
-        let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
+    /// `off`: the group's own switch (a plugin's), nil for a group whose items switch one by one.
+    func group(_ g: AddonGroup, count: Int, open: Bool, off: Bool?) -> NSView {
+        let chevron = NSImageView()
+        // A plugin that's off has nothing to unfold: its name still starts where the others do.
+        if count > 0 { chevron.image = .symbol(open ? "chevron.down" : "chevron.right") }
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .tertiaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
-        let row = line(
-            [chevron, label(g.title, font: .ui(TextSize.row)), NSView(), digits(count)], inset: Metrics.inset)
+        let name = label(g.title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
+        var views: [NSView] = [chevron, name, NSView()]
+        if count > 0 { views.append(digits(count)) }
+        if let off, let key = g.key { views.append(toggle(key, on: !off, name: g.title)) }
+        let row = line(views, inset: Metrics.inset)
         row.setAccessibilityLabel(g.title)
         return row
     }
 
     func item(_ addon: Addon, nested: Bool) -> NSView {
-        var views: [NSView] = [mark(addon), label(addon.name, font: .ui(TextSize.row)), NSView()]
-        if addon.kind != .skill, let origin = addon.origin { views.append(caption(origin, truncating: true)) }
+        let name = label(addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
+        var views: [NSView] = [mark(addon), name, NSView()]
+        if AddonGroups.waits(addon) {
+            views.append(caption(String(localized: "after restart"), truncating: false, color: .textOrange))
+        } else if addon.kind != .skill, let origin = addon.origin {
+            views.append(caption(origin, truncating: true))
+        }
         if let faces = faces(addon.agents) { views.append(faces) }
         if let tokens = addon.tokens { views.append(caption(AddonGroups.tokens(tokens), truncating: false)) }
+        // A plugin's skill goes with its plugin: the switch is on the plugin's line.
+        if let key = addon.key, !key.hasPrefix("plugin:") {
+            views.append(toggle(key, on: !addon.off, name: addon.name))
+        }
         let row = line(views, inset: nested ? Self.nested : Metrics.inset)
-        row.toolTip = AddonGroups.tip(addon)
+        row.toolTip = AddonGroups.tip(addon) { app.catalog.name($0) }
         return row
+    }
+
+    private func toggle(_ key: String, on: Bool, name: String) -> NSView {
+        let control = AddonSwitch(key: key, on: on, changed: onSwitch)
+        control.setAccessibilityLabel(name)
+        control.toolTip = on ? String(localized: "On in this project") : String(localized: "Off in this project")
+        return control
     }
 
     /// Needs a Look: the name over what's wrong, in red.
@@ -80,6 +104,7 @@ struct AddonRows {
             case .skill: "doc.text"
             case .server: "server.rack"
             case .instructions: "text.alignleft"
+            case .plugin: "puzzlepiece.extension"
             }
         let image = NSImageView(image: .symbol(symbol))
         image.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -99,8 +124,8 @@ struct AddonRows {
         return field
     }
 
-    private func caption(_ text: String, truncating: Bool) -> NSTextField {
-        let field = label(text, font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
+    private func caption(_ text: String, truncating: Bool, color: NSColor = .secondaryLabelColor) -> NSTextField {
+        let field = label(text, font: .uiDigits(TextSize.caption), color: color)
         if truncating {   // where it is gives way before the name does
             field.lineBreakMode = .byTruncatingMiddle
             field.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal)
@@ -125,4 +150,25 @@ struct AddonRows {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.inset)
         return stack
     }
+}
+
+/// A row's switch: the system's small one, which says what it stands for when flipped.
+@MainActor
+final class AddonSwitch: NSSwitch {
+    private let key: String
+    private let changed: (String, Bool) -> Void
+
+    init(key: String, on: Bool, changed: @escaping (String, Bool) -> Void) {
+        self.key = key
+        self.changed = changed
+        super.init(frame: .zero)
+        controlSize = .mini
+        state = on ? .on : .off
+        target = self
+        action = #selector(flipped)
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func flipped() { changed(key, state == .on) }
 }

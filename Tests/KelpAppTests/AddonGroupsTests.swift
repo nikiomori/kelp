@@ -53,3 +53,24 @@ private func server(_ name: String, _ source: Addon.Source, signIn: Bool = false
         copies: ["~/.claude/skills"])
     #expect(AddonGroups.tip(tip) == "Does x\n~/.agents/skills\nAlso in ~/.claude/skills")
 }
+
+/// A plugin is a group of its own with the switch on its line; one that's off (nothing of it loaded) is a bare line.
+/// A row waits for a restart when its switch and what the chat loaded disagree.
+@Test func addonPluginsAreGroupsWithASwitch() {
+    let prep = Addon(
+        kind: .skill, name: "sales:call-prep", source: .plugin, origin: "sales", loaded: true, key: "plugin:sales")
+    let off = Addon(kind: .plugin, name: "legal", source: .plugin, key: "plugin:legal", off: true)
+    let sales = AddonGroup(kind: .skill, source: .plugin, plugin: "sales")
+    let legal = AddonGroup(kind: .skill, source: .plugin, plugin: "legal")
+    #expect(
+        AddonGroups.lines([prep, off], toggled: []) == [
+            .section(.skills, count: 1), .group(legal, count: 0, open: false), .group(sales, count: 1, open: false)
+        ])
+    #expect(sales.key == "plugin:sales" && sales.title == "sales")
+    #expect(AddonGroups.isOff(legal, [prep, off]) && !AddonGroups.isOff(sales, [prep, off]))
+    var turnedOff = prep
+    turnedOff.off = true
+    #expect(AddonGroups.waits(turnedOff) && !AddonGroups.waits(prep) && !AddonGroups.waits(off))
+    let fixed = Addon(kind: .skill, name: "x", source: .yours, fixed: ["cursor"])
+    #expect(AddonGroups.tip(fixed) { $0.capitalized } == "Always on in Cursor: no switch for one chat there")
+}

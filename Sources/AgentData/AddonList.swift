@@ -19,15 +19,17 @@ public enum AddonList {
                     agents: ["claude"], loaded: true, tokens: ClaudeLoaded.tokens(file.chars))
             }
         } else {
-            items += kelp.map { Addon(kind: .skill, name: $0, source: .kelp, origin: "Kelp", agents: ["claude"]) }
+            items += kelp.map {
+                Addon(kind: .skill, name: $0, source: .kelp, origin: "Kelp", agents: ["claude"], key: "kelp:\($0)")
+            }
         }
         // What only the files know of: a skill or a server of another agent's, an instruction file Claude Code skips.
         let seen = Set(items.map(\.id))
         items += merged(onDisk, files: files).filter { !seen.contains($0.id) }
         items += named.filter { !seen.contains("server:\($0.name)") }.map {
             Addon(
-                kind: .server, name: $0.name, source: $0.project ? .project : .yours, origin: $0.file, agents: $0.agents
-            )
+                kind: .server, name: $0.name, source: $0.project ? .project : .yours, origin: $0.file,
+                agents: $0.agents, key: "server:\($0.name)")
         }
         for file in files.instructions(cwd: cwd) where !seen.contains("instructions:\(file.name)") {
             items.append(
@@ -43,16 +45,16 @@ public enum AddonList {
     static func skill(of listed: ClaudeLoaded.Skill, onDisk: [AddonFiles.Skill], files: AddonFiles) -> Addon {
         var item = Addon(
             kind: .skill, name: listed.name, source: .agent, about: listed.about, agents: ["claude"], loaded: true,
-            tokens: ClaudeLoaded.tokens(listed.chars))
+            tokens: ClaudeLoaded.tokens(listed.chars), key: "skill:\(listed.name)")
         let parts = listed.name.split(separator: ":", maxSplits: 1).map(String.init)
         if parts.count == 2 {
             item.name = parts[1]
             item.origin = parts[0]
             item.source = parts[0].hasPrefix("kelp-") ? .kelp : parts[0] == "anthropic-skills" ? .account : .plugin
-            if item.source == .kelp { item.origin = "Kelp" }
+            if item.source == .kelp { (item.origin, item.key) = ("Kelp", "kelp:\(parts[0])") }
             if item.source == .account { item.origin = "claude.ai" }
-            // Two plugins may bring a skill of one name: the plugin stays in it.
-            if item.source == .plugin { item.name = listed.name }
+            // Two plugins may bring a skill of one name: the plugin stays in it. A plugin's skills go with the plugin.
+            if item.source == .plugin { (item.name, item.key) = (listed.name, "plugin:\(parts[0])") }
             return item
         }
         guard let found = merged(onDisk.filter { $0.name == listed.name }, files: files).first else {
@@ -99,13 +101,16 @@ public enum AddonList {
         return item
     }
 
+    /// `key`: the server as tool names spell it ("plugin_data_definite"; a failed one comes as "plugin:data:definite").
     private static func base(_ key: String, _ named: [AddonFiles.Server]) -> Addon {
         let (name, source, origin) = server(key)
+        let off = "server:" + key.replacingOccurrences(of: ":", with: "_")
         guard source == .agent, let file = named.first(where: { $0.name == key }) else {
-            return Addon(kind: .server, name: name, source: source, origin: origin, agents: ["claude"])
+            return Addon(kind: .server, name: name, source: source, origin: origin, agents: ["claude"], key: off)
         }
         return Addon(
-            kind: .server, name: name, source: file.project ? .project : .yours, origin: file.file, agents: file.agents)
+            kind: .server, name: name, source: file.project ? .project : .yours, origin: file.file,
+            agents: file.agents, key: off)
     }
 
     /// An error as one short line: "ENOENT: no such file or directory, posix_spawn '/Applications/…'" says the program
@@ -132,7 +137,8 @@ public enum AddonList {
             let copies = Set(all.map(\.real)).subtracting([home.real]).sorted().map(files.tilde)
             return Addon(
                 kind: .skill, name: name, source: home.project ? .project : .yours, about: home.about,
-                origin: files.tilde((home.real as NSString).deletingLastPathComponent), agents: agents, copies: copies)
+                origin: files.tilde((home.real as NSString).deletingLastPathComponent), agents: agents, copies: copies,
+                key: "skill:\(name)")
         }
     }
 }
