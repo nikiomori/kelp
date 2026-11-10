@@ -462,7 +462,8 @@ func codeOnly(_ s: String) -> String {
     #expect(stored >= 15, "fewer now: lower the ceiling")
     // Nor does it go into `Sessions` instead, the service the most comes near: what isn't a session's goes in a type of
     // its own (`ChildReports`, `SessionSetup`, `SessionProcesses`, `Turns`, `KeepAwake`…), which `Sessions` holds as one.
-    let sessions = try #require(sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions.swift" })
+    let sessions = try #require(
+        sources(["Sources/Daemon"]).first { $0.path == "Sources/Daemon/Sessions/Sessions.swift" })
     let held = try NSRegularExpression(
         pattern: #"^    (?:public |private |package )?let "#, options: [.anchorsMatchLines]
     )
@@ -600,7 +601,7 @@ func codeOnly(_ s: String) -> String {
         !$0.hasPrefix("Sources/Daemon/Server/Handlers.swift:")
     }
     #expect(
-        reads.map { $0.split(separator: ":")[0] } == ["Sources/Daemon/SessionLanes.swift"],
+        reads.map { $0.split(separator: ":")[0] } == ["Sources/Daemon/Sessions/SessionLanes.swift"],
         "params read without the caller check: \(reads)")
     // ui.publish, scripts.trust, state.set, session.annotate, ui.browser.reply
     #expect(try matches(#"var onlyFromKelp: String\? \{(?!\s*(?:nil|get)\s*\})"#, in: ["Sources/Daemon"]).count == 5)

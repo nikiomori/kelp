@@ -10,7 +10,8 @@ import Testing
         "Sources/Core/System/FileWatcher.swift: FileWatcher": "an FSEventStream, started here and stopped on its own queue",
         "Sources/LSPKit/LSPClient.swift: LSPClient": "Process and Pipe; what changes is under `state`'s lock",
         "Sources/Daemon/Daemon.swift: Running": "the sources, set up and cancelled under `running`'s lock",
-        "Sources/Daemon/PTY.swift: PTY": "its phases under `phase`'s lock, the read source (set on `queue`) too",
+        "Sources/Daemon/Sessions/Live/PTY.swift: PTY":
+            "its phases under `phase`'s lock, the read source (set on `queue`) too",
         "Sources/EditorKit/SyntaxHighlighter.swift: Worker":
             "the parser and its tree: the main thread's for a short text, `queue`'s alone once long",
         "Sources/EditorKit/SyntaxHighlighter.swift: Text": "an immutable copy of the text, or read under `queue.sync`",
