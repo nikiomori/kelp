@@ -113,13 +113,14 @@ import Testing
 }
 
 /// A machine of its own on an SDK of two scripts, named by ANDROID_HOME: the emulator writes how it was started to the
-/// log and runs until adb's `emu kill`; adb writes what it was asked to adb.log, and answers Android booted once this
+/// log and runs until adb's `emu kill` (which writes its snapshot); adb writes what it was asked to adb.log, and answers Android booted once this
 /// boot's emulator is there to kill (the pid of the one before goes with it). `booting` runs before the emulator does
 /// (`exit` there: one that quits as it starts); `adb` answers first what it names (`*getprop*) ;;`: never booted).
 @MainActor func standIn(booting: String = "", adb: String = "") throws -> (AndroidRuntime, URL) {
     let sdk = FileManager.default.temporaryDirectory.appendingPathComponent("sdk-\(UUID().uuidString.prefix(6))")
     let log = sdk.appendingPathComponent("starts.log").path, pid = sdk.appendingPathComponent("emulator.pid").path
     let asked = sdk.appendingPathComponent("adb.log").path
+    let saved = sdk.appendingPathComponent("machine/avd/phone.avd/snapshots/default_boot").path
     try script(
         sdk.appendingPathComponent("emulator/emulator"),
         """
@@ -130,7 +131,7 @@ import Testing
         sdk.appendingPathComponent("platform-tools/adb"),
         """
         echo "$*" >> '\(asked)'
-        case "$*" in \(adb) *getprop*) [ -s '\(pid)' ] && echo 1 ;; *"emu kill"*) kill "$(cat '\(pid)')"; rm -f '\(pid)' ;; esac
+        case "$*" in \(adb) *getprop*) [ -s '\(pid)' ] && echo 1 ;; *"emu kill"*) kill "$(cat '\(pid)')"; rm -f '\(pid)'; mkdir -p '\(saved)'; touch '\(saved)/snapshot.pb' ;; esac
         """)
     setenv("ANDROID_HOME", sdk.path, 1)
     let folder = sdk.appendingPathComponent("machine")

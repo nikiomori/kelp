@@ -16,6 +16,33 @@ enum Lifecycle {
         error == nil && !hasVM && state != .starting
     }
 
+    /// A sleep kelpd's memory budget asks (`if-idle`) refused: the machine is in use by now, which it wasn't when the
+    /// budget looked. The user's own sleep is never refused.
+    static func refusesSleep(_ request: VMHelper.Request, inUse: Bool) -> Bool { request.ifIdle && inUse }
+
+    /// A child (an emulator, an iOS runner) noted in the machine's folder, its pid and when it started: a kelp-vm
+    /// that's killed takes no leave, and the next one for the machine ends what that left (`endLeftover`).
+    static func remember(_ process: Process, in folder: URL, as name: String) {
+        let pid = process.processIdentifier
+        let note = "\(pid) \(Subprocess.started(pid) ?? 0)"
+        do {
+            try note.write(to: folder.appendingPathComponent(name + ".child"), atomically: true, encoding: .utf8)
+        } catch { log("can't note \(name)'s pid: \(error.localizedDescription)") }
+    }
+
+    /// Ends the child an earlier kelp-vm noted, if it still runs (the same process, by its start time): SIGTERM, then
+    /// SIGKILL, before this returns. Called under the machine's lock, so it's nobody else's.
+    static func endLeftover(in folder: URL, _ name: String) {
+        let note = folder.appendingPathComponent(name + ".child")
+        guard let words = String(contentsIfAny: note)?.split(separator: " "), words.count == 2,
+            let pid = pid_t(words[0]), let start = UInt64(words[1])
+        else { return }
+        FileManager.default.removeIfAny(note)
+        guard start != 0, Subprocess.started(pid) == start else { return }
+        log("ending \(name) \(pid), left by a kelp-vm that was killed")
+        Subprocess.stopTreeNow(pid)
+    }
+
     enum IdleStep { case pause, sleep }
 
     /// What a tick does with a machine nobody used for `idle` seconds: a running one pauses after `Runtime.pauseAfter`,

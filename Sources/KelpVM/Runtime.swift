@@ -17,6 +17,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private var shareUse: [Int: Date] = [:]
     /// Agents' and people's SSH connections open now; none for a while, and it pauses, then sleeps.
     private var connections = 0
+    /// `screen` calls under way (an agent reading or driving a macOS machine's screen).
+    private var screening = 0
+    /// In use: a connection, its window on screen (the user works in it), its screen read or driven. kelpd's memory
+    /// budget sleeps an idle machine only, and no tick pauses one that isn't.
+    private var using: Int {
+        connections + (window?.isVisible == true ? 1 : 0) + (screening > 0 || Screen.turn != nil ? 1 : 0)
+    }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = [], stopped: [() -> Void] = []
     /// A save under way (`sleep`): who waits for it to end (another sleep), and what wakes it right after (a command came).
@@ -33,9 +40,11 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private var tries = 0
     private var listeners: [DispatchSourceRead] = [], signals: [DispatchSourceSignal] = []
     /// Its screen, when someone asked to see it (`show`): while it's open the machine counts as in use.
-    private var window: NSWindow?
+    var window: NSWindow?   // internal: a test gives it one
     /// How it ends once it has left: the process's exit; a test's own.
     var exitProcess: () -> Void = { exit(0) }
+    /// What time it is: the clock's; a test's, moved past the idle limits.
+    var now: () -> Date = { Date() }
 
     nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
     private var saved: URL { folder.appendingPathComponent("state.vzsave") }
@@ -72,7 +81,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private func connect(_ client: Int32, counted: Bool) {
         if counted {
             connections += 1
-            lastUse = Date()
+            lastUse = now()
         }
         let join: (String?) -> Void = { [self] error in
             guard error == nil else { return finish(client, counted) }
@@ -146,7 +155,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         close(client)
         if counted {
             connections -= 1
-            lastUse = Date()
+            lastUse = now()
         }
     }
 
@@ -164,17 +173,21 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         case .status: done(nil, nil)
         // `begin` (kelpd's wake, holding its lock): starting is answered at once, the boot goes on.
         case .start where request.begins:
-            lastUse = Date()
+            lastUse = now()
             wake { _ in }
             done(nil, nil)
         case .start:
-            lastUse = Date()
+            lastUse = now()
             wake { done($0, nil) }
         // Asleep or off, nothing is kept here (the state is on disk): it ends, and the next start is the kelp-vm Kelp has
         // then, an update's included. Its answer is written before (`reply` writes and closes).
         // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
         // then would cut its power.
         // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
+        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now (a command
+        // that connected since, a window opened).
+        case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0):
+            done("\(machine.name) is in use.", nil)
         case .sleep:
             sleep { error in
                 done(error, nil)
@@ -186,18 +199,23 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                 self.leaveSoon()
             }
         case .show:
-            lastUse = Date()
+            lastUse = now()
             wake { error in
                 if error == nil { self.show() }
                 done(error, nil)
             }
         case .screen:
             guard machine.os == "macos" else { return done("Its screen is a macOS machine's.", nil) }
-            lastUse = Date()
+            lastUse = now()
             wake { error in
                 guard error == nil else { return done(error, nil) }
                 guard let view = self.screen() else { return done("The machine has no screen yet.", nil) }
-                Screen.run(request.args ?? [], session: request.session ?? "-", view: view) { done($0, nil) }
+                self.screening += 1
+                Screen.run(request.args ?? [], session: request.session ?? "-", view: view) {
+                    self.screening -= 1
+                    self.lastUse = self.now()
+                    done($0, nil)
+                }
             }
         case .quit:
             // `if-down` (a new size): not while it runs, which a command may have woken it to since it was asked.
@@ -242,12 +260,17 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
+        Control.write(fd, answer(error, slot: slot))
+    }
+
+    /// Internal: the tests read it.
+    func answer(_ error: String?, slot: Int? = nil) -> VMHelper.Reply {
         var answer = VMHelper.Reply(
-            state: state, connections: connections, memoryMiB: vm == nil ? nil : usage?.memoryMiB ?? targetMiB,
+            state: state, connections: using, memoryMiB: vm == nil ? nil : usage?.memoryMiB ?? targetMiB,
             error: error, slot: slot)
         answer.screen = Screen.turn
         answer.cpu = vm == nil ? nil : usage?.cpu
-        Control.write(fd, answer)
+        return answer
     }
 
     // MARK: the machine
@@ -383,7 +406,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             vm = nil
         }
         state = error == nil ? .running : .error
-        lastUse = Date()
+        lastUse = now()
         let waiting = ready
         ready = []
         waiting.forEach { $0(error?.localizedDescription) }
@@ -417,9 +440,9 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
     private func tick() {
         ticks += 1
         usage = vm == nil ? nil : Usage.sample()
-        if window?.isVisible == true { lastUse = Date() }   // someone watches its screen
-        let idle = Date().timeIntervalSince(lastUse)
-        switch Lifecycle.idleStep(state, idle: idle, inUse: connections > 0) {
+        if using > 0 { lastUse = now() }   // idle from when the window closed, not from before it was opened
+        let idle = now().timeIntervalSince(lastUse)
+        switch Lifecycle.idleStep(state, idle: idle, inUse: using > 0) {
         case .pause:
             vm?.pause { result in
                 MainActor.assumeIsolated {
@@ -429,7 +452,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
                     }
                 }
             }
-        case .sleep where Date().timeIntervalSince(saveFailed ?? .distantPast) > 600:
+        case .sleep where now().timeIntervalSince(saveFailed ?? .distantPast) > 600:
             sleep { error in
                 if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
             }   // as `.sleep` does
@@ -549,7 +572,7 @@ extension Runtime {
             // Whatever came meanwhile is woken first (so a kelp-vm about to end for the sleep stays), then told.
             let end = { (error: String?) in
                 self.saving = false
-                if error != nil { self.saveFailed = Date() }
+                if error != nil { self.saveFailed = self.now() }
                 let waiting = self.saveDone, wanted = self.afterSave
                 self.saveDone = []
                 self.afterSave = []

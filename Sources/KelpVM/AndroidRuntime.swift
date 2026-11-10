@@ -51,10 +51,14 @@ final class AndroidRuntime {
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
 
+    /// In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
+    /// Limit: a command kelpd just answered a start for isn't seen until its adb runs, a few milliseconds on.
+    private var using: Int {
+        state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) : 0
+    }
+
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .paused, .starting].contains(state)
-        // In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
-        let using = state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) : 0
         let answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? serial : nil)
@@ -74,6 +78,8 @@ final class AndroidRuntime {
         case .start:
             lastUse = now()
             wake(done)
+        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now.
+        case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0): done("\(machine.name) is in use.")
         case .sleep: sleep(done)
         case .stop:
             stop {
@@ -88,9 +94,16 @@ final class AndroidRuntime {
             if hasWindow, !saving { return wake(done) }
             nextBootShown = true   // a boot is to come (off, headless, or being slept): it has the window
             if emulator == nil { return wake(done) }   // down: it boots with its window
+            // From its snapshot, now with a window; one that couldn't be slept is still up without one, and Show is told.
+            let again = {
+                self.sleep { error in
+                    guard let error, [.running, .paused].contains(self.state) else { return self.wake(done) }
+                    done(error)
+                }
+            }
             // Started headless (an agent's run): once it's up, slept and woken again with its window.
-            if state == .starting { return ready.append { _ in self.sleep { _ in self.wake(done) } } }
-            sleep { _ in self.wake(done) }   // from its snapshot, now with a window
+            if state == .starting { return ready.append { _ in again() } }
+            again()
         case .quit:
             done(nil)
             stop { self.exitProcess() }
@@ -103,7 +116,12 @@ final class AndroidRuntime {
         leaving = true
         if state == .starting { return ready.append { [weak self] _ in self?.leave() } }
         if saving { return whenSaved.append { [weak self] in self?.leave() } }
-        sleep { [weak self] _ in self?.exitProcess() }
+        sleep { [weak self] error in
+            guard let self else { return }
+            // One that couldn't be slept is still up: quit as a stop does, not left with nobody to end it.
+            guard error != nil, emulator != nil else { return exitProcess() }
+            stop { self.exitProcess() }
+        }
     }
 
     // MARK: the emulator
@@ -137,6 +155,8 @@ final class AndroidRuntime {
             return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME."))
         }
         state = .starting
+        // A kelp-vm that was killed took no leave: its emulator holds the AVD, and a second one on it would quit.
+        Lifecycle.endLeftover(in: folder, "emulator")
         port = Self.freePort()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: exe)
@@ -178,6 +198,7 @@ final class AndroidRuntime {
             return started(error)
         }
         emulator = process
+        Lifecycle.remember(process, in: folder, as: "emulator")
         shown = nextBootShown
         nextBootShown = false
         Task { await awaitBoot(since: now()) }
@@ -214,19 +235,19 @@ final class AndroidRuntime {
         waiting.forEach { $0(error?.localizedDescription) }
     }
 
-    /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was.
+    /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was. Not saved, it says
+    /// why, and is left where the next request finds it: still up, or off.
     private func sleep(_ done: @escaping (String?) -> Void) {
         guard !saving, let process = emulator, [.running, .paused].contains(state) else { return done(nil) }
         saving = true
         Task {
-            if state == .paused { await tell(["emu", "avd", "start"]) }
-            await tell(["emu", "kill"])
-            for _ in 0..<120 where process.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
-            if process.isRunning { process.terminate() }
-            // Asleep once the emulator is gone: a wake before would have started a second one on the same AVD.
-            state = .sleeping
+            if state == .paused, await tell(["emu", "avd", "start"]) { state = .running }
+            let error = await save(process)
             saving = false
-            log("asleep")
+            // Still up without its window: no later boot is asked of it by the Show that waited for this one.
+            // Limit: a Show that came while it saved is woken below and answered as for a start, with no window.
+            if error != nil, emulator != nil { nextBootShown = false }
+            log(error ?? "asleep")
             let wanted = afterSave
             afterSave = []
             // told it's stopping, when it's leaving
@@ -234,8 +255,55 @@ final class AndroidRuntime {
             let saved = whenSaved
             whenSaved = []
             saved.forEach { $0() }
-            done(nil)
+            done(error)
         }
+    }
+
+    /// The emulator told to quit with its snapshot, and the state that leaves, set here alone: asleep once it's gone
+    /// and its snapshot is there (a wake before would have started a second one on the same AVD); else why not.
+    /// Saved is read from its snapshot's files, written since it was told (the emulator says nothing of it itself).
+    private func save(_ process: Process) async -> String? {
+        let since = Date().addingTimeInterval(-1)   // the files' clock, not the idle one; a second for their resolution
+        let told = await tell(["emu", "kill"])
+        guard told || !process.isRunning else {
+            lastUse = now()   // still up: a tick tries again once it has idled anew, not every 5 s
+            return "\(machine.name) couldn't be told to sleep (adb didn't reach its emulator): it's still up."
+        }
+        guard await gone(process) else {
+            await end(process)
+            state = .off
+            return "\(machine.name)'s emulator didn't quit in 30 s and was ended: its state isn't saved."
+        }
+        guard written(since: since) else {
+            state = .off
+            return "\(machine.name)'s emulator quit without saving its state: the next start boots it."
+        }
+        state = .sleeping
+        return nil
+    }
+
+    /// Whether a file of its snapshot was written since `since`: an old snapshot left from the sleep before isn't this one.
+    private func written(since: Date) -> Bool {
+        let files = FileManager.default.enumerator(
+            at: snapshot, includingPropertiesForKeys: [.contentModificationDateKey])
+        return files?.contains { file in
+            ((try? (file as? URL)?.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate)
+                .map { $0 >= since } ?? false
+        } ?? false
+    }
+
+    /// Whether the emulator quit within 30 s of being told to.
+    private func gone(_ process: Process) async -> Bool {
+        let until = now().addingTimeInterval(30)
+        while process.isRunning, now() < until { try? await Task.sleep(nanoseconds: 250_000_000) }
+        return !process.isRunning
+    }
+
+    /// One that didn't quit when told: SIGTERM, then SIGKILL, waited for (kelp-vm may end right after, and a SIGKILL
+    /// left for later would never come).
+    private func end(_ process: Process) async {
+        let pid = process.processIdentifier
+        await Task.detached { Subprocess.stopTreeNow(pid) }.value
     }
 
     /// Quits it and forgets its snapshot: the next start boots afresh.
@@ -247,9 +315,9 @@ final class AndroidRuntime {
         }
         guard let process = emulator else { return forget() }
         Task {
-            await tell(["emu", "kill"])
-            for _ in 0..<120 where process.isRunning { try? await Task.sleep(nanoseconds: 250_000_000) }
-            if process.isRunning { process.terminate() }
+            // Not told (adb didn't reach it), it isn't waited for.
+            let quit = await tell(["emu", "kill"])
+            if !quit { await end(process) } else if await !gone(process) { await end(process) }
             forget()
         }
     }
@@ -261,7 +329,7 @@ final class AndroidRuntime {
             pausing = true
             Task {
                 defer { pausing = false }
-                guard (try? await adb(["emu", "avd", "stop"])) != nil else { return }
+                guard await tell(["emu", "avd", "stop"]) else { return }   // not stopped: the next tick tries again
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
                 if state == .running, now().timeIntervalSince(lastUse) > Runtime.pauseAfter {
                     state = .paused
@@ -278,10 +346,14 @@ final class AndroidRuntime {
         }
     }
 
-    /// `adb` for what it's told to do (quit, resume); its failure only logged: what comes after copes without it.
-    private func tell(_ args: [String]) async {
-        do { _ = try await adb(args) } catch {
+    /// `adb` for what it's told to do (quit, stop, resume): whether it was; its failure logged.
+    @discardableResult private func tell(_ args: [String]) async -> Bool {
+        do {
+            _ = try await adb(args)
+            return true
+        } catch {
             log("adb \(args.joined(separator: " ")): \(error.localizedDescription)")
+            return false
         }
     }
 

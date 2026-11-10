@@ -20,6 +20,10 @@ public enum VMHelper {
         }
         public var begins: Bool { op == .start && args?.first == "begin" }
         public var beginsShown: Bool { begins && args?.contains("show") == true }
+        /// A `sleep` kelpd's memory budget sends (`VMService.admit`): refused by a machine in use at that moment. The
+        /// user's own sleep has no args, and isn't.
+        public static var sleepIfIdle: Request { .init(op: .sleep, args: ["if-idle"]) }
+        public var ifIdle: Bool { op == .sleep && args == ["if-idle"] }
         public init(op: Operation, path: String? = nil, args: [String]? = nil, session: String? = nil) {
             self.op = op
             self.path = path

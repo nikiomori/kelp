@@ -12,6 +12,8 @@ final class IOSRuntime {
     private var port = 0
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
+    /// The last shutdown asked of the simulator: a boot waits for it (booted under it, it would be shut down again).
+    private var shutdown: Task<Void, Never>?
     private var sources: [DispatchSourceProtocol] = []
     /// How it ends once it has left, what time it is, and where xcrun is: the process's exit, the clock's, the
     /// system's; a test's own.
@@ -41,9 +43,11 @@ final class IOSRuntime {
         log("ready: \(machine.name) (iOS \(udid)), off")
     }
 
+    /// In use: what drives the simulator from outside (kelpd's memory budget sleeps an idle machine only).
+    private var using: Int { state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0 }
+
     private func reply(_ fd: Int32, _ error: String?) {
         let up = [.running, .starting].contains(state)
-        let using = state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0   // kelpd's budget sleeps an idle one only
         var answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? udid : nil)
@@ -61,6 +65,8 @@ final class IOSRuntime {
         case .start:
             lastUse = now()
             wake(done)
+        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now.
+        case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0): done("\(machine.name) is in use.")
         case .sleep, .stop:
             stop {
                 done(nil)
@@ -98,6 +104,8 @@ final class IOSRuntime {
 
     /// The simulator booted (a no-op when it already is), then the runner started in it and answering.
     private func boot() async {
+        await shutdown?.value
+        Lifecycle.endLeftover(in: folder, "runner")   // a kelp-vm that was killed left its runner; the simulator is taken as it is
         do {
             _ = try await simctl(["boot", udid], allowFailure: true)
             _ = try await simctl(["bootstatus", udid, "-b"])
@@ -139,6 +147,7 @@ final class IOSRuntime {
             }
             try process.run()
             runner = process
+            Lifecycle.remember(process, in: folder, as: "runner")
             let since = Date()
             while Date().timeIntervalSince(since) < 180 {
                 if await ping() { return started(nil) }
@@ -154,7 +163,7 @@ final class IOSRuntime {
     private func started(_ error: Error?) {
         if let error {
             log("start failed: \(error.localizedDescription)")
-            runner?.terminate()
+            _ = shutDown()   // half started, its simulator would stay booted: no tick looks at one that isn't running
         }
         state = error == nil ? .running : .error
         lastUse = now()
@@ -163,20 +172,41 @@ final class IOSRuntime {
         waiting.forEach { $0(error?.localizedDescription) }
     }
 
-    /// The runner gone and the simulator shut down: nothing of it runs.
+    /// The runner gone and the simulator shut down: nothing of it runs. Off from the moment it's asked: a start that
+    /// comes meanwhile boots it again once it's down (`boot` waits), and no tick asks for another shutdown.
     private func stop(_ done: @escaping () -> Void) {
-        runner?.terminate()
-        runner = nil
+        state = .off
+        let down = shutDown()
         Task {
-            _ = try? await simctl(["shutdown", udid], allowFailure: true)
-            state = .off
+            await down.value
             log("shut down")
             done()
         }
     }
 
+    /// Ends the runner (SIGTERM, then SIGKILL, waited for: kelp-vm may end right after) and shuts the simulator down,
+    /// after a shutdown already under way.
+    private func shutDown() -> Task<Void, Never> {
+        let ended = runner, before = shutdown
+        runner = nil
+        let task = Task {
+            await before?.value
+            if let ended, ended.isRunning {
+                let pid = ended.processIdentifier
+                await Task.detached { Subprocess.stopTreeNow(pid) }.value
+            }
+            // One shut down already says so, which is no failure.
+            do { _ = try await simctl(["shutdown", udid]) } catch  where !"\(error)".contains("current state: Shutdown")
+            {
+                log("shutting the simulator down: \(error.localizedDescription)")
+            } catch {}
+        }
+        shutdown = task
+        return task
+    }
+
     func tick() {   // internal: the tests drive it
-        if state == .running, Usage.clients(of: udid, programs: Self.clients) > 0 { lastUse = now() }   // a test run is use
+        if state == .running, using > 0 { lastUse = now() }   // a test run is use
         if state == .running, now().timeIntervalSince(lastUse) > Runtime.sleepAfter { stop {} }
     }
 

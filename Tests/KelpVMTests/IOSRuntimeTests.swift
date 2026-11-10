@@ -60,7 +60,7 @@ import Testing
         vm.now = { Date() + Runtime.sleepAfter + 1 }
         vm.tick()
         #expect(try await waitFor(5) { vm.state == .off })
-        #expect(try asked(folder).contains("simctl shutdown"))
+        #expect(try await waitFor(5) { try asked(folder).contains("simctl shutdown") }, "off at once, then shut down")
         #expect(try await waitFor(5) { kill(runner, 0) != 0 })
         #expect(!ended)
         #expect(await ask(vm, .start) == nil)
@@ -70,8 +70,9 @@ import Testing
 }
 
 /// A machine's folder with its simulator's udid (one no real program names), the runner built unless `built` is false,
-/// and an xcrun of its own whose xcodebuild runs `runner`.
-@MainActor private func iOS(built: Bool = true, runner: String? = nil) throws -> (IOSRuntime, URL) {
+/// and an xcrun of its own whose xcodebuild runs `runner`; `simctl` runs first for each call (`sleep 1` there: a slow
+/// one).
+@MainActor func iOS(built: Bool = true, runner: String? = nil, simctl: String = "") throws -> (IOSRuntime, URL) {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ios-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     try "U-\(UUID().uuidString)".write(to: folder.appendingPathComponent("udid"), atomically: true, encoding: .utf8)
@@ -85,6 +86,7 @@ import Testing
         folder.appendingPathComponent("xcrun"),
         """
         echo "$*" >> '\(log)'
+        [ "$1" = simctl ] && { \(simctl.isEmpty ? ":" : simctl); }
         [ "$1" = xcodebuild ] || exit 0
         echo $$ > '\(pid)'
         \(runner ?? "exec /usr/bin/perl -MIO::Socket::INET -e '\(answers)'")
@@ -97,7 +99,7 @@ import Testing
 }
 
 /// Its runner ended, whatever the test left, and its folder removed.
-private func putAway(_ folder: URL) {
+func putAway(_ folder: URL) {
     // still ours: not a number some other process has since
     if let runner = try? runnerPid(folder), Subprocess.parent(runner) == getpid() { kill(runner, SIGTERM) }
     try? FileManager.default.removeItem(at: folder)

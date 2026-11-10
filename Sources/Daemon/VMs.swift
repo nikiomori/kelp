@@ -261,8 +261,10 @@ struct VMService: Sendable {
         func used() -> Int { awake.reduce(machine.memoryMiB) { $0 + $1.machine.memoryMiB } }
         let idle = awake.filter { $0.connections == 0 }.sorted { $0.machine.memoryMiB > $1.machine.memoryMiB }
         for other in idle where used() > budget {
-            // Freed only once it says it's asleep: one still starting, a failed save or an Intel Mac keeps its memory.
-            do { guard try asleep(ask(other.machine.name, .init(op: .sleep), wait: 60)) else { continue } } catch {
+            // Freed only once it says it's asleep: one still starting, a failed save or an Intel Mac keeps its memory, and
+            // so does one in use since it was listed (`sleepIfIdle`: the machine itself refuses).
+            do { guard try asleep(ask(other.machine.name, .sleepIfIdle, wait: 60)) else { continue } } catch {
+                Log.vm.info("\(other.machine.name) wasn't put to sleep for \(machine.name): \(error)")
                 continue
             }
             awake.removeAll { $0.machine.name == other.machine.name }
@@ -341,6 +343,9 @@ struct VMService: Sendable {
     }
 
     /// The machine gone: its kelp-vm, an iOS one's simulator (it lives in Xcode's device set), its folder, its password.
+    /// Limit: an emulator or runner left by a kelp-vm that was killed (SIGKILL: no leave) is ended by that machine's next
+    /// start (`Lifecycle.endLeftover`, from the pid noted in its folder), not here: deleted first, it runs on until it's
+    /// quit by hand.
     /// `trash`: a machine the user deletes goes to the Trash (its disk is their work); a failed try's remains don't.
     func discard(_ name: String, trash: Bool = false) throws {
         quit(name)
