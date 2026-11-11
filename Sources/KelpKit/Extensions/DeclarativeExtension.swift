@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import Core
+import DesignKit
 import SwiftUI
 import WebKit
 import WorkbenchKit
@@ -196,6 +197,16 @@ enum DeclarativeExtension {
     ) -> NSViewController {
         if let list = v.list { return hosting(ExtListView(def: list, folder: folder, app: app)) }
         if let web = v.web {
+            // A missing page would load nothing and leave the panel blank, with no word of why.
+            guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(web).path) else {
+                let empty = EmptyStateView(), vc = NSViewController()
+                empty.show(
+                    String(localized: "No page to show"), symbol: "exclamationmark.triangle",
+                    text: String(localized: "\(m.name) has no file “\(web)” in its folder."),
+                    fix: "kelp ext check \(ShellQuote.word(folder.path))")
+                vc.view = empty
+                return vc
+            }
             return ExtWebController(
                 page: folder.appendingPathComponent(web), folder: folder, app: app, badge: badge, props: props)
         }
