@@ -352,3 +352,38 @@ final class Box: @unchecked Sendable {
     never.ask()
     #expect(neverClosed() == 1)
 }
+
+/// History longer than the ring loses what a full-screen program drew before the cut (Claude Code paints only changed
+/// cells): a terminal attached then gets a row less and back, so the program paints its whole screen again.
+@Test func attachingPastTheRingsCutMakesTheProgramRepaint() async throws {
+    let kelp = try builtProduct("kelp")
+    let painter = AgentManifest(
+        id: "painter", name: "Painter", command: "/bin/sh",
+        args: [
+            "-c",
+            "trap 'echo SIZE=$(stty size)' WINCH; head -c 1100000 /dev/zero | tr '\\0' x; echo; echo SIZE=$(stty size); "
+                + "while :; do sleep 0.1; done", "x"
+        ])
+    let w = try await world(agents: [painter])
+    defer { w.d.stop() }
+    let wt = try await workspace(w, "repaint")
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "agent": "painter"]), as: Session.self)
+    let read = { (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? "" }
+    #expect(try await waitFor(10) { try await read().contains("SIZE=") })
+    let size = try #require(try await read().components(separatedBy: "SIZE=").last?.prefix { !$0.isNewline })
+    let parts = size.split(separator: " ").compactMap { UInt16($0) }
+    try #require(parts.count == 2, "\(size.debugDescription)")
+    let sizes = { try await read().components(separatedBy: "SIZE=").count }
+    let before = try await sizes()
+    let term = try PTY(
+        argv: [kelp, "attach", s.id], cwd: "/tmp",
+        env: ["KELP_SOCKET": w.root.appendingPathComponent("kelp.sock").path],
+        cols: parts[1], rows: parts[0], trampoline: kelp)
+    term.start()
+    defer { term.kill() }
+    // Its shell reads the size after each 0.1 s sleep, so it may see the two changes as one, at the size it had.
+    #expect(try await waitFor(10) { try await sizes() > before })
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(try await read().components(separatedBy: "SIZE=").last?.hasPrefix(String(size)) == true)
+}

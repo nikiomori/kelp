@@ -12,13 +12,15 @@ extension LiveSession {
     /// nil once it was let go (`letGo`): its program is stopping, and nothing it shows would be live.
     @discardableResult
     func attach(_ conn: Int, send: @Sendable (Data) -> Void = { _ in }) -> Data? {
-        state.withLock { st in
+        let history = state.withLock { st -> Data? in
             guard !st.letGo else { return nil }
             st.attached.insert(conn)
             let history = st.historyModes.restore + TerminalReplies.withoutQueries(st.ring.suffix(Self.ringLimit))
             send(history)
             return history
         }
+        if history != nil { repaint() }
+        return history
     }
     func detach(_ conn: Int) { state.withLock { _ = $0.attached.remove(conn) } }
     /// Out of `live` with its program still to stop (paused, deleted): nobody attaches from now on. Who was attached.

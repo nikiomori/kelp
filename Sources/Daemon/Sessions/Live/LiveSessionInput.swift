@@ -175,6 +175,19 @@ extension LiveSession {
         pty.resize(cols: cols, rows: rows)
     }
 
+    /// For a terminal just attached to history the ring cut off: a full-screen program (Claude Code, Codex) paints only
+    /// the cells that changed, so what it drew before the cut (the prompt's frame, the mode line) would stay blank there.
+    /// A row less and back makes it paint the whole screen. The two sizes 0.1 s apart: SIGWINCHes closer together are
+    /// read as one, at the size it already had. A size from the terminal in between wins.
+    func repaint() {
+        guard state.withLock({ $0.ring.count >= Self.ringLimit }), let size = pty.size, size.rows > 1 else { return }
+        resize(cols: size.cols, rows: size.rows - 1)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { [self] in
+            guard let now = pty.size, now == (size.cols, size.rows - 1) else { return }
+            resize(cols: size.cols, rows: size.rows)
+        }
+    }
+
     /// A task's text (a launch prompt): typed once the program is ready, as a paste, so a leading "!" or "/" is text.
     func queuePrompt(_ prompt: String, draft: Bool = false) {
         state.withLock { state in

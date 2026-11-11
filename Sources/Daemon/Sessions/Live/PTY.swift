@@ -257,6 +257,14 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
             }
         }
     }
+    /// Its size now; nil once closed.
+    var size: (cols: UInt16, rows: UInt16)? {
+        phase.withLock {
+            var ws = winsize()
+            guard $0.open, ioctl(primaryFD, TIOCGWINSZ, &ws) == 0 else { return nil }
+            return (ws.ws_col, ws.ws_row)
+        }
+    }
     func kill() {
         signal {
             Darwin.kill(-$0, SIGHUP)
