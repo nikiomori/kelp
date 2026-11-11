@@ -50,7 +50,7 @@ struct DatabasePanelRows {
     /// The engine's mark with its dot, the name over "host : database", the environment at the right edge (a column
     /// down the list, not a mark in each name), a key while its password waits, what agents may do; one of All My
     /// Databases offers Use Here while the pointer is over it.
-    func database(_ db: DatabaseInfo, library: Bool, health: DatabaseHealth?) -> NSView {
+    func database(_ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, indent: Bool = false) -> NSView {
         var first: [NSView] = [label(Self.shownName(db), font: .ui(TextSize.row, weight: .medium)), NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
@@ -92,19 +92,43 @@ struct DatabasePanelRows {
             }
             views.append(access)
         }
-        let row = line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing, hovered: hovered)
+        let row = line(
+            views, inset: Metrics.inset + (indent ? Metrics.indentStep : 0), trailing: Metrics.insetTrailing,
+            hovered: hovered)
         row.toolTip = card(db, health: health)
         return row
     }
 
-    /// The project's own list when it has none: agents here reach no database until one is used here.
+    /// The project's own list when it has none: a box to drop one of All My Databases in (agents here reach no
+    /// database until one is used here).
     func hint() -> NSView {
+        let icon = NSImageView(image: .symbol("arrow.down.to.line"))
+        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
+        icon.contentTintColor = .secondaryLabelColor
         let said = label(
-            String(localized: "Agents in this project see no database."), font: .ui(TextSize.caption),
+            String(localized: "Drop a database here to use it"), font: .ui(TextSize.caption),
             color: .secondaryLabelColor)
-        let row = line([said, NSView()], inset: Metrics.inset, trailing: Metrics.insetTrailing)
-        row.toolTip = String(localized: "Point at one of All My Databases and click Use Here, or add one with +.")
+        let inside = NSStackView(views: [icon, said])
+        inside.spacing = Metrics.gap
+        inside.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset - 6, bottom: 0, right: Metrics.inset - 6)
+        let box = DashedBox()
+        box.pin(inside)
+        let row = NSView()
+        row.pin(box, inset: NSEdgeInsets(top: 3, left: 6, bottom: 3, right: 6))   // the selection's inset: lit the same
+        row.toolTip = String(
+            localized: "Agents in this project see no database. Drag one of All My Databases here, or add one with +.")
         return row
+    }
+
+    /// A group of All My Databases: chevron, folder, name, how many.
+    func group(_ name: String, count: Int, open: Bool) -> NSView {
+        let folder = NSImageView(image: .symbol("folder"))
+        folder.symbolConfiguration = .chrome(Metrics.iconSmall)
+        folder.contentTintColor = .secondaryLabelColor
+        let title = label(name, font: .ui(TextSize.row))
+        return line(
+            [chevron(open), folder, title, NSView(), digits(count)], inset: Metrics.inset,
+            trailing: Metrics.insetTrailing)
     }
 
     /// "AGR_GIS@pg-prod-ro" (Kelp's name for an unnamed TablePlus one) as "AGR_GIS": its host is on the line under it.
@@ -147,7 +171,7 @@ struct DatabasePanelRows {
     }
 
     /// Under a database that doesn't answer: why, and Start when compose can start it.
-    func problem(_ db: DatabaseInfo, _ h: DatabaseHealth) -> NSView {
+    func problem(_ db: DatabaseInfo, _ h: DatabaseHealth, indent: Bool = false) -> NSView {
         // "inkover doesn't answer at …": the row says whose, the line only what
         var said = h.reason ?? String(localized: "It doesn’t answer.")
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
@@ -163,7 +187,8 @@ struct DatabasePanelRows {
             start.underlinesOnHover = true
             views.append(start)
         }
-        return line(views, inset: Metrics.inset + 19 + Metrics.gap, trailing: Metrics.inset)   // under the name
+        let under = Metrics.inset + 19 + Metrics.gap + (indent ? Metrics.indentStep : 0)   // under the name
+        return line(views, inset: under, trailing: Metrics.inset)
     }
 
     func ran(_ run: DatabaseRun) -> NSView {
@@ -287,4 +312,30 @@ extension String {
 final class HoverRow: NSStackView, Hoverable {
     var hovered: [NSView] = []
     func setHover(_ on: Bool) { for v in hovered { v.isHidden = !on } }
+}
+
+/// A dashed rounded outline: where something can be dropped.
+final class DashedBox: NSView {
+    private let outline = CAShapeLayer()
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        outline.fillColor = nil
+        outline.lineWidth = 1
+        outline.lineDashPattern = [4, 3]
+        layer?.addSublayer(outline)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func layout() {
+        super.layout()
+        outline.frame = bounds
+        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
+        outline.path = CGPath(
+            roundedRect: rect, cornerWidth: Metrics.radiusSM, cornerHeight: Metrics.radiusSM, transform: nil)
+    }
+    override func updateLayer() {
+        super.updateLayer()
+        outline.strokeColor = NSColor.tertiaryLabelColor.cgColor   // read in the current appearance
+    }
+    override var wantsUpdateLayer: Bool { true }
 }

@@ -15,6 +15,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case heading(Heading)
         case asks(DatabaseRun)
         case database(DatabaseInfo, library: Bool)
+        /// A group of All My Databases (TablePlus' group, DBeaver's folder, or one made here), its rows under it.
+        case group(String, count: Int)
         case problem(DatabaseInfo, DatabaseHealth)
         case hint
         case run(DatabaseRun)
@@ -24,18 +26,24 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
 
     let app: AppModel
-    private let table = NSTableView()
+    let table = NSTableView()
     private let search = NSSearchField()
     private let empty = EmptyStateView()
     /// The header every inspector panel has: 36 pt with its hairline.
     private var bar: Bar?
-    private var rows: [Row] = []
+    var rows: [Row] = []
     private lazy var watched = Watched(.databases, in: app)
     private var shown = false
     var workspace: String { app.workbench.workspaceId ?? "" }
 
     /// What the user unfolded, and what Kelp read for it.
     private var libraryOpen = true, activityOpen = true
+    /// All My Databases' groups folded, by name: kept on this Mac.
+    var folded = Set(UserDefaults.standard.stringArray(forKey: "databases.foldedGroups") ?? []) {
+        didSet { UserDefaults.standard.set(folded.sorted(), forKey: "databases.foldedGroups") }
+    }
+    /// The folded group a drag rests on, and since when: it opens after a moment, as a folder does in Finder.
+    var springGroup: (name: String, since: Date)?
     private var health: [String: DatabaseHealth] = [:]
     /// All My Databases' dots, read once the section is open.
     private var libraryHealth: [String: DatabaseHealth] = [:], libraryCheckedFor: [String] = []
@@ -59,8 +67,11 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.action = #selector(clicked)
         table.menu = NSMenu()
         table.menu?.delegate = self
+        table.allowsMultipleSelection = true   // several of All My Databases into a group, or into the project
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
-        table.registerForDraggedTypes([.fileURL])   // a .sqlite or .duckdb file dropped in: Add Database with it
+        table.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
+        // a .sqlite or .duckdb file dropped in: Add Database with it; one of All My Databases: a group, or used here
+        table.registerForDraggedTypes([.fileURL, .kelpDatabase])
         search.placeholderString = String(localized: "Find a Database")
         search.delegate = self
         search.controlSize = .small
@@ -146,9 +157,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
         if !library.isEmpty {
             list.append(.heading(.library(library.count)))
-            if libraryOpen || !find.isEmpty {
-                for db in library { list += rows(of: db, library: true, find: find) }
-            }
+            if libraryOpen || !find.isEmpty { list += libraryRows(library, find: find) }
         }
         // The user's own reads (browsing tables in a tab) aren't news here; what agents ran and any change are.
         let ran = runs.filter { $0.state != .asks && ($0.session != nil || $0.changed != nil) }
@@ -180,11 +189,26 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             guard case .database(let db, _) = row, let open else { return false }
             return open.worktree == workspace && open.name == db.name
         }
+        guard table.selectedRowIndexes.count < 2 else { return }   // several picked by hand: theirs to keep
         if let index {
             if table.selectedRow != index { table.selectRowIndexes([index], byExtendingSelection: false) }
         } else if table.selectedRow >= 0 {
             table.deselectAll(nil)
         }
+    }
+
+    /// The groups by name, each with its databases (all of them while finding: a group's name finds them too), then
+    /// the ones in none.
+    private func libraryRows(_ library: [DatabaseInfo], find: String) -> [Row] {
+        let (groups, loose) = Self.grouped(library)
+        var out: [Row] = []
+        for (name, members) in groups {
+            let shown = members.flatMap { rows(of: $0, library: true, find: find) }
+            if shown.isEmpty { continue }
+            out.append(.group(name, count: members.count))
+            if !folded.contains(name) || !find.isEmpty { out += shown }
+        }
+        return out + loose.flatMap { rows(of: $0, library: true, find: find) }
     }
 
     /// A database's row, and what's wrong with it under it; found by its name, address or environment.
@@ -243,16 +267,16 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .heading, .problem, .hint: false
+        case .heading, .problem, .hint, .group: false
         default: true
         }
     }
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch rows[row] {
         case .heading: TextSize.of(Metrics.rowSection)
-        case .database, .asks: TextSize.of(Metrics.rowTwoLine)
+        case .database, .asks, .hint: TextSize.of(Metrics.rowTwoLine)
         case .problem: TextSize.of(Metrics.row) - 4
-        case .run, .hint: TextSize.of(Metrics.row)
+        case .run, .group: TextSize.of(Metrics.row)
         }
     }
 
@@ -263,9 +287,13 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             parts.heading(heading, libraryOpen: libraryOpen, activityOpen: activityOpen, only: only)
         case .asks(let run): parts.asks(run)
         case .database(let db, let library):
-            parts.database(db, library: library, health: library ? libraryHealth[db.name] : health[db.name])
-        case .problem(let db, let checked): parts.problem(db, checked)
+            parts.database(
+                db, library: library, health: library ? libraryHealth[db.name] : health[db.name],
+                indent: library && db.groupName != nil)
+        case .problem(let db, let checked):
+            parts.problem(db, checked, indent: rows[row - 1].inGroup)
         case .hint: parts.hint()
+        case .group(let name, let count): parts.group(name, count: count, open: !folded.contains(name))
         case .run(let run): parts.ran(run)
         }
     }
@@ -274,14 +302,14 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         _ tableView: NSTableView, validateDrop info: any NSDraggingInfo, proposedRow row: Int,
         proposedDropOperation op: NSTableView.DropOperation
     ) -> NSDragOperation {
-        Self.droppedFile(info) == nil ? [] : .copy
+        Self.droppedFile(info) != nil ? .copy : validateDatabases(info, row: row, op: op)
     }
 
     func tableView(
         _ tableView: NSTableView, acceptDrop info: any NSDraggingInfo, row: Int,
         dropOperation: NSTableView.DropOperation
     ) -> Bool {
-        guard let path = Self.droppedFile(info) else { return false }
+        guard let path = Self.droppedFile(info) else { return acceptDatabases(info, row: row, op: dropOperation) }
         let address: DatabaseAddress
         do { address = try DatabaseAddress.parse(path) } catch { return false }   // a path always reads: never here
         let wid = workspace, app = app
@@ -298,7 +326,13 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
 
     static func mention(_ table: String, in db: String) -> String {
-        "the table \(table) in \(db) (kelp db schema \(db) \(table))"
+        "the table \(table) in \(db) (kelp db schema \(quoted(table)) --db \(quoted(db)))"
+    }
+    /// A database dragged onto an agent's terminal: its name and where to read it.
+    static func mention(database db: String) -> String { "the database \(db) (kelp db schema --db \(quoted(db)))" }
+    private static func quoted(_ word: String) -> String {
+        word.allSatisfy { $0.isLetter || $0.isNumber || "_-.".contains($0) }
+            ? word : "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     // MARK: Clicks
@@ -311,7 +345,11 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .heading(.library): libraryOpen.toggle()
         case .heading(.activity): activityOpen.toggle()
         case .heading: return
+        case .group(let name, _):
+            if folded.remove(name) == nil { folded.insert(name) }
         case .database(let db, _):
+            // ⌘ and ⇧ pick several (to drag or for the menu): a plain click opens it
+            if !NSEvent.modifierFlags.isDisjoint(with: [.command, .shift]) { return }
             app.workbench.open(DatabaseURI(worktree: wid, name: db.name).uri)
             return
         case .asks(let run), .run(let run):
@@ -372,7 +410,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             }
         case .heading: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
         case .database(let db, let library):
-            DatabaseMenu.fill(menu, db, app: app, worktreeId: wid, library: library)
+            let picked = pickedLibrary(around: table.clickedRow)
+            if picked.count > 1 { return fillMany(menu, picked) }
+            DatabaseMenu.fill(menu, db, app: app, worktreeId: wid, library: library) { [weak self] in
+                self?.addGroupItems($0, [db])
+            }
+        case .group(let name, _): fillGroup(menu, name)
         case .asks(let run), .run(let run):
             menu.add(String(localized: "Show Rows")) {
                 app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)

@@ -91,3 +91,22 @@ import Testing
     #expect(DatabaseTab.took(84) == "84 ms")
     #expect(DatabaseTab.took(1513).hasSuffix(" s") && DatabaseTab.took(1513).contains("1"))
 }
+
+/// All My Databases: groups in name order with their databases, a blank group is none; a mention quotes what a
+/// shell would split.
+@MainActor @Test func allMyDatabasesGroupByNameAndMentionsQuote() {
+    func db(_ name: String, _ group: String?) -> DatabaseInfo {
+        var db = DatabaseInfo(name: name, engine: .postgres)
+        db.group = group
+        return db
+    }
+    let (groups, loose) = DatabasesPanel.grouped([
+        db("a", "Dev 10"), db("b", nil), db("c", "Dev 2"), db("d", " "), db("e", "Dev 2")
+    ])
+    #expect(groups.map(\.0) == ["Dev 2", "Dev 10"])
+    #expect(groups.first?.1.map(\.name) == ["c", "e"])
+    #expect(loose.map(\.name) == ["b", "d"])
+    #expect(DatabasesPanel.mention(database: "webdb dev") == "the database webdb dev (kelp db schema --db 'webdb dev')")
+    #expect(
+        DatabasesPanel.mention("orders", in: "shop") == "the table orders in shop (kelp db schema orders --db shop)")
+}

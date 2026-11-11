@@ -18,6 +18,7 @@ public enum Metrics {
     // Spacing
     public static let inset: CGFloat = 12   // a panel's edge to its content
     public static let insetTrailing: CGFloat = 8   // a bar's edge to its last icon
+    public static let indentStep: CGFloat = 12   // one outline level: the sidebar, the file tree, a group's rows
     public static let gap: CGFloat = 6   // between a bar's controls; icon to label in a row
     public static let gapWide: CGFloat = 8   // between independent controls in a tab's bar, a banner, a sheet's buttons
     public static let lineGap: CGFloat = 2   // between a row's two lines

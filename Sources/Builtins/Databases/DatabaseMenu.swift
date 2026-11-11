@@ -8,7 +8,11 @@ import KelpKit
 /// one of All My Projects is used in this project instead.
 @MainActor
 enum DatabaseMenu {
-    static func fill(_ menu: NSMenu, _ db: DatabaseInfo, app: AppModel, worktreeId: String, library: Bool = false) {
+    /// `more` adds to the part about where it's used (All My Databases' groups).
+    static func fill(
+        _ menu: NSMenu, _ db: DatabaseInfo, app: AppModel, worktreeId: String, library: Bool = false,
+        more: (NSMenu) -> Void = { _ in }
+    ) {
         menu.add(String(localized: "Open")) {
             app.workbench.open(DatabaseURI(worktree: worktreeId, name: db.name).uri)
         }
@@ -18,6 +22,7 @@ enum DatabaseMenu {
             menu.add(String(localized: "Use in \(project)")) {
                 Task { await app.call(DatabaseUse(worktreeId: worktreeId, name: db.name)) }
             }
+            more(menu)
         } else {
             menu.setSubmenu(
                 agents(db, app: app, worktreeId: worktreeId),
