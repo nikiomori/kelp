@@ -49,7 +49,7 @@ final class InspectorController: NSViewController {
         selector.edgeInsets = NSEdgeInsets(top: pad, left: pad, bottom: pad, right: pad)
         more.target = self
         more.action = #selector(showMore(_:))
-        more.rested = { [weak self] in self.map { $0.showMore($0.more) } }
+        more.rested = { [weak self] in self?.showMore(byHover: true) }
         more.setButtonType(.momentaryChange)
         Self.size(more)
         pin(moreBadge, on: more)

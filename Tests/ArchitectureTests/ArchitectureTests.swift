@@ -440,6 +440,9 @@ func codeOnly(_ s: String) -> String {
             1,
             "the daemon's state read again, three times at most, after a read that failed, while that daemon is still there"
         ),
+        "KelpKit/Inspector/InspectorParts.swift": (
+            1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
+        ),
         "Builtins/Browser/BrowserAutomation.swift": (
             4,
             "kelp browser waits for a page to load, to go quiet after an action, or to show what it was told to wait for: "

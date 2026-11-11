@@ -66,6 +66,7 @@ final class PanelIcon: NSButton {
     /// Runs when the pointer rests on the icon a moment (the » opens its menu without a click).
     var rested: (() -> Void)?
     private var resting: DispatchWorkItem?
+    private var held: (menu: NSMenu, area: NSRect, leftAt: Date?)?
     private var hover = false { didSet { needsDisplay = true } }
 
     convenience init(_ symbol: String, _ label: String) {
@@ -117,6 +118,46 @@ final class PanelIcon: NSButton {
     }
 
     override func menu(for e: NSEvent) -> NSMenu? { contextMenu?(e) }
+
+    /// Pops `menu` up under the icon. `closingWhenLeft`: it closes a moment after the pointer is off both the icon and
+    /// the menu (menu tracking delivers no mouse-exited, so a clock on the tracking run loop looks while it's open).
+    func popUp(_ menu: NSMenu, closingWhenLeft: Bool) {
+        let at = NSPoint(x: 0, y: bounds.height + 4)
+        guard closingWhenLeft, let window else {
+            menu.popUp(positioning: nil, at: at, in: self)
+            return refreshHover()
+        }
+        let icon = window.convertToScreen(convert(bounds, to: nil)), size = menu.size
+        let below = NSRect(x: icon.minX, y: icon.minY - 4 - size.height, width: size.width, height: size.height + 4)
+        held = (menu, icon.union(below), nil)
+        let watch = Timer(timeInterval: Motion.stagger, repeats: true) { [weak self] _ in
+            // Timer on the main run loop: it fires on the main thread.
+            MainActor.assumeIsolated { self?.checkHeld() }
+        }
+        RunLoop.main.add(watch, forMode: .eventTracking)
+        menu.popUp(positioning: nil, at: at, in: self)
+        refreshHover()
+        watch.invalidate()
+        held = nil
+    }
+
+    private func checkHeld() {
+        guard let h = held else { return }
+        // A menu macOS moved to fit the screen is still "on it" while one of its items is lit.
+        if h.area.contains(NSEvent.mouseLocation) || h.menu.highlightedItem != nil {
+            held?.leftAt = nil
+        } else if let left = h.leftAt {
+            if Date().timeIntervalSince(left) >= Motion.hoverClose { h.menu.cancelTracking() }
+        } else {
+            held?.leftAt = Date()
+        }
+    }
+
+    /// The menu's tracking swallowed mouse-exited: the grey of hover goes by where the pointer is now.
+    private func refreshHover() {
+        guard let window else { return }
+        hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+    }
 
     override func mouseDown(with e: NSEvent) {
         resting?.cancel()

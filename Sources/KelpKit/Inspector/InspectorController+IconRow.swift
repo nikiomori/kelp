@@ -38,7 +38,10 @@ extension InspectorController {
         }
     }
 
-    @objc func showMore(_ b: NSButton) {
+    @objc func showMore(_ b: NSButton) { showMore(byHover: false) }
+
+    /// Opened by a click, the menu stays until a click; opened by the pointer resting, it goes when the pointer leaves.
+    func showMore(byHover: Bool) {
         let menu = NSMenu()
         for i in folded {
             let panel = panels[i],
@@ -49,7 +52,7 @@ extension InspectorController {
             if let badge = panel.badge?(), badge.count > 0 { item.badge = NSMenuItemBadge(count: badge.count) }
             menu.addItem(item)
         }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
+        more.popUp(menu, closingWhenLeft: byHover)
     }
 
     /// The row's right-click menu (on an icon or the band around it): which icons show, where the row sits, auto-hide.
