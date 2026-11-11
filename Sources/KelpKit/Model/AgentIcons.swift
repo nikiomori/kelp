@@ -109,6 +109,9 @@ final class AgentIcons {
         let mono = Bundle.module.image(forResource: "\(id)-mono")
         guard let svg = mono ?? Bundle.module.image(forResource: id) else { return nil }
         let img = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
+            // AppKit asks an image view's picture with no context to draw in at times (a view a stack has set aside):
+            // nothing can be drawn then, and `fill(using:)` traps without one.
+            guard NSGraphicsContext.current != nil else { return false }
             svg.draw(in: rect.insetBy(dx: 2, dy: 2))   // the marks fill their square; a tile's art doesn't
             if mono != nil {
                 NSColor.labelColor.set()
