@@ -34,6 +34,12 @@ extension BrowserTab {
         if drive.takenOver, !Self.whileTakenOver.contains(action) {
             throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")
         }
+        return try await looked(action, ref: args["ref"]?.string, try await perform(action, args, drive, need))
+    }
+
+    private func perform(
+        _ action: BrowserAction, _ args: JSONValue, _ drive: AgentDrive, _ need: (String) throws -> String
+    ) async throws -> JSONValue {
         switch action {
         case .console, .network: return .string(listed(action == .console, clear: args["clear"]?.bool == true))
         case .info: return try await settled()
@@ -49,9 +55,7 @@ extension BrowserTab {
         case .viewport: return try await resize(try need("size"))
         case .snapshot:
             let find = args["find"]?.string ?? ""
-            let text =
-                try await run(Self.snapshotJS, ["ref": args["ref"]?.string ?? "", "max": find.isEmpty ? 1500 : 20000])
-                as? String ?? ""
+            let text = try await snapshot(args["ref"]?.string ?? "", max: find.isEmpty ? 1500 : 20000)
             return .string(find.isEmpty ? text : Self.found(find, in: text))
         case .dialog:
             let accept = try need("answer") == "accept", text = accept ? args["text"]?.string : nil
@@ -186,8 +190,16 @@ extension BrowserTab {
     nonisolated static func found(_ text: String, in snapshot: String) -> String {
         let lines = snapshot.components(separatedBy: "\n")
         guard let head = lines.first else { return "" }
+        let keep = kept(lines) { $0.localizedCaseInsensitiveContains(text) }
+        return keep.isEmpty
+            ? head + "\nNothing on the page mentions \"\(text)\"."
+            : ([head] + keep.map { lines[$0] }).joined(separator: "\n")
+    }
+
+    /// The lines (past the page's own) `matching`, and the lines each sits in.
+    nonisolated static func kept(_ lines: [String], matching: (String) -> Bool) -> IndexSet {
         var keep = IndexSet()
-        for (index, line) in lines.enumerated().dropFirst() where line.localizedCaseInsensitiveContains(text) {
+        for (index, line) in lines.enumerated().dropFirst() where matching(line) {
             keep.insert(index)
             var depth = line.prefix { $0 == " " }.count
             for above in stride(from: index - 1, to: 0, by: -1) where depth > 0 {
@@ -198,9 +210,7 @@ extension BrowserTab {
                 }
             }
         }
-        return keep.isEmpty
-            ? head + "\nNothing on the page mentions \"\(text)\"."
-            : ([head] + keep.map { lines[$0] }).joined(separator: "\n")
+        return keep
     }
 
     /// Two spellings of one address: `http://localhost:3000` and `http://localhost:3000/`.
@@ -296,7 +306,7 @@ extension BrowserTab {
     }
 
     /// An async function body with `args` as its variables; a script's exception comes back as its message.
-    private func run(_ body: String, _ args: [String: Any] = [:], page: Bool = false) async throws -> Any? {
+    func run(_ body: String, _ args: [String: Any] = [:], page: Bool = false) async throws -> Any? {
         do {
             return try await web.callAsyncJavaScript(
                 body, arguments: args, in: nil, contentWorld: page ? .page : Self.world)

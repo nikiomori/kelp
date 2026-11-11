@@ -18,11 +18,12 @@ extension Builtins {
             page, an API or docs, fetch it (curl, your fetch tool): the browser is for using a page, one its script
             draws, your dev server.
 
-            - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints its url and
-              title once it loaded; `error` says why it didn't. The page has cookies and storage of its own, so you
-              start logged out. `--shared` uses the user's instead: only when they ask, it acts as them, and Kelp asks
-              them first, for that one site; going to another site is blocked (the console says so) until you open it
-              with `--shared` again. Every other command drives a page you opened: the user's own tabs aren't yours.
+            - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints, once it loaded,
+              `page "Title" url` and its first lines with their refs (`failed:` says why it didn't load); `reload` and
+              `back` too. The page has cookies and storage of its own, so you start logged out. `--shared` uses the
+              user's instead: only when they ask, it acts as them, and Kelp asks them first, for that one site; going to
+              another site is blocked (the console says so) until you open it with `--shared` again. Every other command
+              drives a page you opened: the user's own tabs aren't yours.
             - `kelp browser reload` — after you change the code: loads it all again, nothing from the cache (opening the
               address it shows does the same).
             - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`, `- textbox
@@ -33,13 +34,15 @@ extension Builtins {
               is cut: `snapshot --find "cart"` keeps the lines that mention it (and what they sit in), `snapshot e7`
               only what's in e7.
             - `kelp browser click e12`, `kelp browser type e3 "a@b.c" [--submit]` — refs from a snapshot (one the page
-              no longer has says so). Both wait until the page is quiet, then `change` says what they did: `new page`,
-              `page changed` or `nothing changed` (a click that did nothing: look why before trying again). Kelp's
-              pointer moves to the element and it glows a moment, so the user sees it. Something over it (a cookie
-              banner, a dialog) stops the action with what covers it, as it would stop a person: close or answer that
-              first. `type` replaces the text a key at a time; `shows` says what the field shows when the page made it
-              something else (a mask, a length limit). A select takes an option's text or value (any case, or the one it
-              starts with; a wrong one lists them), a date field its own format (`2026-03-14`, time `09:30`).
+              no longer has says so). Both wait until the page is quiet, then say in one line what they did to what:
+              `click e2 button "Save" → page changed`, then the lines that came (`[new]`: an error under a field, the
+              menu it opened); `→ new page "Title" url` and the new page's first lines; `→ nothing changed` (look why
+              before trying again). Take a snapshot only for what those lines don't show. Kelp's pointer moves to the
+              element and it glows a moment, so the user sees it. Something over it (a cookie banner, a dialog) stops
+              the action with what covers it, as it would stop a person: close or answer that first. `type` replaces the
+              text a key at a time; `→ shows "+7 99"` says what the field shows when the page made it something else (a
+              mask, a length limit). A select takes an option's text or value (any case, or the one it starts with; a
+              wrong one lists them), a date field its own format (`2026-03-14`, time `09:30`).
             - `kelp browser drag e4 e9` — e4 dragged onto e9 as a person drags (pressed, moved, let go): sortable lists,
               boards, sliders; what can be dragged shows as `draggable`. Onto a zone with no ref, give a CSS selector
               (`drag e4 ".column.done"`). The page must take the drop there, or the error says so.
@@ -60,7 +63,8 @@ extension Builtins {
               and waits a little for what scrolling loads. `kelp browser back` — the previous page.
             - `kelp browser wait --text "Saved" [--selector ".toast"] [--timeout 10]` — until it shows.
             - `kelp browser eval "document.querySelectorAll('li').length"` — an expression in the page, its value as
-              JSON; for statements, `(() => { … })()`.
+              JSON; for statements, `(() => { … })()`. A longer script from stdin, the shell off its quotes: `kelp
+              browser eval - <<'JS'` … `JS`.
             - `kelp browser screenshot [file.png]` — prints where it went; look at it with your image reading.
             - `kelp browser viewport 390x844` — the page at that size (CSS pixels), for a layout at a phone's or
               tablet's width; prints the size the page now has. `viewport reset` fills the pane again. Only the size:
@@ -72,6 +76,19 @@ extension Builtins {
               ms)`, `failed POST url (fetch, 12 ms: TypeError…)`. Images, scripts and styles show only when they fail
               (in console).
             - `kelp browser info` — where the page is now.
+
+            Several steps you already know go in one call, one a line from stdin; each answer prints under its `› line`,
+            and the first that fails stops the rest. An `eval` line's script is the rest of its line, as written:
+
+            ```
+            kelp browser <<'EOF'
+            type e3 "a@b.c"
+            type e4 hunter2 --submit
+            eval document.title
+            EOF
+            ```
+
+            `--json` prints an answer as JSON instead, for a script of yours.
 
             After a click or a submit that misbehaves, read `console` and `network` before guessing.
 

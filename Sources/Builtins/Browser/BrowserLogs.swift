@@ -117,6 +117,8 @@ final class AgentDrive {
     /// The questions the page answered and what it downloaded, since the last action's answer said them.
     var dialogs: [String] = [], downloads: [String] = []
 
+    /// What each ref was in the snapshot it came from (`button "Save"`), for the answer of an action on it.
+    var names: [String: String] = [:]
     /// The page's fetch and XHR calls still out, by id, with when each started.
     var inflight: [String: Date] = [:]
     /// A call started in the last 1.5 s is still out: what an action set off is loading.

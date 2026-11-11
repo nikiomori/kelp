@@ -52,6 +52,30 @@ import Testing
     #expect(Main.address("file:///tmp/a.html") == "file:///tmp/a.html" && Main.address("about:blank") == "about:blank")
 }
 
+/// An action's answer reads as one line, what came under it; a line from stdin splits into words as a shell would.
+@Test func aBrowserAnswerIsALine() {
+    let clicked: JSONValue = .object([
+        "change": .string("page changed"), "element": .string(#"button "Check""#), "url": .string("http://x/"),
+        "title": .string("X"), "new": .string(#"- text: "Invalid" [new]"#), "dialogs": .array([.string("alert \"Hi\"")])
+    ])
+    #expect(
+        Main.browserText(.click, "e1", clicked)
+            == "click e1 button \"Check\" → page changed\ndialog: alert \"Hi\"\n- text: \"Invalid\" [new]")
+    let went: JSONValue = .object([
+        "change": .string("new page"), "url": .string("http://x/two"), "title": .string("Two")
+    ])
+    #expect(Main.browserText(.click, "e3", went) == #"click e3 → new page "Two" http://x/two"#)
+    let typed: JSONValue = .object(["shows": .string("+7 99"), "url": .string("u"), "title": .string("t")])
+    #expect(Main.browserText(.type, "e5", typed) == #"type e5 → shows "+7 99""#)
+    #expect(Main.browserText(.press, "Escape", .object([:])) == "press Escape → done")
+    #expect(
+        Main.browserText(.open, "", .object(["url": .string("u"), "title": .string("A \"b\"")])) == #"page "A \"b\"" u"#
+    )
+    #expect(Main.browserText(.snapshot, "", .string("- page")) == nil)
+    #expect(Main.words(#"type e3 "a b" 'c "d"' e\ f"#) == ["type", "e3", "a b", #"c "d""#, "e f"])
+    #expect(Main.words("  drag e1   '#col'  ") == ["drag", "e1", "#col"])
+}
+
 /// A value given on the command line is JSON when it parses, else the text itself (`kelp settings set k dark`).
 @Test func aCommandLineValueIsJSONOrText() {
     #expect(jsonOrText("3") == .int(3) && jsonOrText("true") == .bool(true))

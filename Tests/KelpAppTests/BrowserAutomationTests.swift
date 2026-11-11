@@ -117,6 +117,7 @@ import WorkbenchKit
     _ = try await tab.browse("snapshot", .object([:]))
     let went = try await tab.browse("click", .object(["ref": .string("e1")]))
     #expect(went["url"]?.string?.hasSuffix("two.html") == true && went["change"] == .string("new page"))
+    #expect(went["element"] == .string(#"link "Two""#) && went["page"] == .string(#"- text: "two""#))
     #expect(try await tab.browse("back", .object([:]))["url"]?.string?.hasSuffix("one.html") == true)
 
     // Opening the page it shows loads it again (a page's own state goes), as reload does.
@@ -354,11 +355,11 @@ import WorkbenchKit
     await #expect(throws: RPCError.self) { try await act("wait", ["text": .string("Saved"), "timeout": .double(1)]) }
 
     #expect(try await act("click", ["ref": .string("e2")])["change"] == .string("nothing changed"))
-    #expect(try await act("click", ["ref": .string("e1")])["change"] == .string("page changed"))
-    let after = try #require(try await act("snapshot").string)
-    #expect(after.contains(#"- text: "Invalid email" [new]"#) && after.contains(#"- button "Check" [ref=e1]"#))
-    #expect(!after.contains(#""Check" [ref=e1] [new]"#))
-    #expect(try await act("snapshot").string?.contains("[new]") == false)   // seen now
+    // The answer names what was clicked and brings what came: no snapshot needed to see it, and none shows it again.
+    let checked = try await act("click", ["ref": .string("e1")])
+    #expect(checked["change"] == .string("page changed") && checked["element"] == .string(#"button "Check""#))
+    #expect(checked["new"] == .string(#"- text: "Invalid email" [new]"#))
+    #expect(try await act("snapshot").string?.contains("[new]") == false)
 
     _ = try await act("click", ["ref": .string("e3")])
     #expect(try await act("eval", ["js": .string("c.checked")]) == .bool(true))
@@ -475,4 +476,17 @@ import WorkbenchKit
     after.url = "v"
     #expect(BrowserTab.change(from: before, to: after) == "new page")
     #expect(BrowserTab.change(from: before, to: nil) == "new page")
+}
+
+/// An answer's lines: a ref's name without its states, a page's first lines, what came with the lines it sits in.
+@Test func anAnswerNamesTheElementAndCarriesWhatCame() {
+    #expect(
+        BrowserTab.named(#"  - checkbox "Agree [x]" [checked] [ref=e12] [new]"#)! == ("e12", #"checkbox "Agree [x]""#))
+    #expect(BrowserTab.named("- textbox [disabled] [ref=e3]: \"a\"")! == ("e3", "textbox"))
+    #expect(BrowserTab.named(#"- text: "x""#) == nil)
+    let lines = ["- main", "  - list", "    - listitem", "      - text: \"Saved\" [new]", "- button \"Go\" [ref=e1]"]
+    #expect(BrowserTab.fresh(lines) == "- main\n  - list\n    - listitem\n      - text: \"Saved\" [new]")
+    #expect(BrowserTab.fresh(["- button \"Go\" [ref=e1]"]) == nil)
+    let long = (1...50).map { "- text: \"\($0)\"" }
+    #expect(BrowserTab.top(long).hasSuffix("- text: \"40\"\n… 10 more lines: snapshot shows them"))
 }
