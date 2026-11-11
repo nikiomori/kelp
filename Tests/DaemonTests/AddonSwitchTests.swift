@@ -127,3 +127,28 @@ import Testing
         _ = try await w.c.call(AddonsInstall(worktreeId: wt.id, source: "not a place"))
     }
 }
+
+/// An agent with no flag for Kelp's skills (Codex, Antigravity, Grok) finds them in the folder it works in, out of git;
+/// one turned off in the project goes from there too.
+@Test func kelpsSkillsGoIntoTheProjectForAgentsWithoutAFlag() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w), setup = w.d.sessions.setup
+    let skills = w.root.appendingPathComponent("agent-skills")
+    for name in ["kelp-settings", "kelp-terminals"] {
+        let file = skills.appendingPathComponent("\(name)/skills/\(name)/SKILL.md")
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "---\nname: \(name)\n---\n".write(to: file, atomically: true, encoding: .utf8)
+    }
+    _ = setup.writeProjectSkills(worktreeId: wt.id, cwd: wt.path)
+    let folder = URL(fileURLWithPath: wt.path).appendingPathComponent(".agents/skills")
+    let listed = { (try? FileManager.default.contentsOfDirectory(atPath: folder.path))?.sorted() ?? [] }
+    #expect(listed() == ["kelp-settings", "kelp-terminals"])
+    #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("kelp-settings/SKILL.md").path))
+    let exclude = try String(
+        contentsOf: URL(fileURLWithPath: wt.path).appendingPathComponent(".git/info/exclude"), encoding: .utf8)
+    #expect(exclude.contains("/.agents/skills/kelp-*/"))
+    _ = try await w.c.call(AddonsSet(worktreeId: wt.id, key: "kelp:kelp-terminals", on: false))
+    _ = setup.writeProjectSkills(worktreeId: wt.id, cwd: wt.path)
+    #expect(listed() == ["kelp-settings"])
+}

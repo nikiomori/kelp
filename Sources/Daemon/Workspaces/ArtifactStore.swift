@@ -133,7 +133,7 @@ extension Artifacts {
     }
 
     /// A line in the repository's own `info/exclude` (never a tracked file): git status stays clean. Removing it shares them.
-    static func excludeFromGit(root: String) throws {
+    static func excludeFromGit(root: String, entry: String = "/\(folder)/") throws {
         let fm = FileManager.default, dotGit = URL(fileURLWithPath: root).appendingPathComponent(".git")
         var isDir: ObjCBool = false
         guard fm.fileExists(atPath: dotGit.path, isDirectory: &isDir) else { return }
@@ -145,7 +145,7 @@ extension Artifacts {
             common = URL(fileURLWithPath: gitdir, relativeTo: URL(fileURLWithPath: root, isDirectory: true))
                 .standardizedFileURL.deletingLastPathComponent().deletingLastPathComponent()
         }
-        let exclude = common.appendingPathComponent("info/exclude"), entry = "/\(folder)/"
+        let exclude = common.appendingPathComponent("info/exclude")
         let text = fm.contents(atPath: exclude.path).map { String(decoding: $0, as: UTF8.self) } ?? ""
         guard !text.split(separator: "\n").contains(where: { $0 == entry }) else { return }
         try fm.createDirectory(at: exclude.deletingLastPathComponent(), withIntermediateDirectories: true)

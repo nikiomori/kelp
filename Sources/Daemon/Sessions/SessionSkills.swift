@@ -15,6 +15,20 @@ extension SessionSetup {
         argv: [String], browser: String?
     ) {
         let dir = root.appendingPathComponent("agent-skills")
+        let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd)
+        var argv = on.flatMap { [flag, $0.path] }
+        let guide = browser.flatMap {
+            $0.on || !$0.hint ? nil : dir.appendingPathComponent("kelp-browser/skills/kelp-browser/SKILL.md").path
+        }
+        if let contextFlag, let text = Self.kelpContext(on.map(\.lastPathComponent), browserGuide: guide) {
+            argv += [contextFlag, text]
+        }
+        return (argv, browser?.line)
+    }
+
+    /// Kelp's skills on disk that a chat starting in `cwd` gets (each a plugin folder), and the browser's choice.
+    func chosenSkills(worktreeId: String?, cwd: String) -> (on: [URL], browser: BrowserSkill?) {
+        let dir = root.appendingPathComponent("agent-skills")
         let all = WebApp.folders(in: dir).map(\.lastPathComponent).sorted()
             .map { dir.appendingPathComponent($0) }   // this home's own spelling (not /private/tmp for /tmp): a restart finds them by it
         let hasBrowser = all.contains { $0.lastPathComponent == "kelp-browser" }
@@ -31,14 +45,7 @@ extension SessionSetup {
                 && ($0.lastPathComponent != "kelp-vm" || machines)
                 && ($0.lastPathComponent != "kelp-db" || hasDatabases)
         }
-        var argv = on.flatMap { [flag, $0.path] }
-        let guide = browser.flatMap {
-            $0.on || !$0.hint ? nil : dir.appendingPathComponent("kelp-browser/skills/kelp-browser/SKILL.md").path
-        }
-        if let contextFlag, let text = Self.kelpContext(on.map(\.lastPathComponent), browserGuide: guide) {
-            argv += [contextFlag, text]
-        }
-        return (argv, browser?.line)
+        return (on, browser)
     }
 
     /// One sentence naming the skills that are on. Without it, "add a panel" reads as a request for the agent's own UI.

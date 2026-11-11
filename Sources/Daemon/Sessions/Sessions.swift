@@ -186,6 +186,10 @@ final class Sessions: Sendable {
             argv += skills.argv
             rec.browser = skills.browser
         }
+        // An agent with no such flag reads them from the folder it works in.
+        if local, manifest.pluginDirFlag == nil, !["shell", "custom"].contains(manifest.id) {
+            rec.browser = setup.writeProjectSkills(worktreeId: worktreeId, cwd: cwd)
+        }
         // Its own id, unless it resumes one (a restart's argv carries none: see session.restart).
         if local, let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) {
             argv += [flag, rec.id.lowercased()]
