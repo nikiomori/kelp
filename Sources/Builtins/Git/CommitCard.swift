@@ -261,11 +261,7 @@ final class CommitCardView: NSView {
     }
 
     private static func label(_ string: String, font: NSFont) -> NSTextField {
-        let field = NSTextField(labelWithString: string)
-        field.font = font
-        field.textColor = .secondaryLabelColor
-        field.lineBreakMode = .byTruncatingTail
-        return field
+        NSTextField.label(string, font: font, color: .secondaryLabelColor)
     }
 
     private static func text(_ string: String, font: NSFont, color: NSColor, lines: Int) -> NSTextField {

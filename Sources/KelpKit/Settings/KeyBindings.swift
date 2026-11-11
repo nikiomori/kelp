@@ -250,7 +250,7 @@ struct KeyboardSettings: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+        .buttonStyle(PointerButtonStyle(flush: true))
         .accessibilityValue(shown ? Text("Expanded") : Text("Collapsed"))
     }
 

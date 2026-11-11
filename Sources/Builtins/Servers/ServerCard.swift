@@ -74,22 +74,8 @@ struct ServerMeters: View {
     private func row(_ label: LocalizedStringKey, _ share: Double, _ value: String) -> some View {
         GridRow {
             Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
-            ServerBar(share: share).frame(height: 4)
+            MeterBar(share: share, tint: ServerReading.strained(share) ? ServerReading.strainedColor : .secondary)
             Text(value).font(.ui(TextSize.caption).monospacedDigit()).lineLimit(1).gridColumnAlignment(.trailing)
-        }
-    }
-}
-
-/// A thin bar: grey, orange from 90 %.
-struct ServerBar: View {
-    let share: Double
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color(nsColor: .quaternaryLabelColor))
-                Capsule().fill(ServerReading.strained(share) ? ServerReading.strainedColor : Color.secondary)
-                    .frame(width: max(2, geometry.size.width * min(1, max(0, share))))
-            }
         }
     }
 }

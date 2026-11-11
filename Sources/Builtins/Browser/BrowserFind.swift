@@ -23,12 +23,7 @@ extension BrowserTab {
         }
         card.onStep = { [weak self] in self?.step(forward: $0) }
         card.onClose = { [weak self] in self?.focus() }
-        card.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(card)
-        NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: web.topAnchor, constant: Metrics.gapWide),
-            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Metrics.gapWide * 2)
-        ])
+        card.float(in: view, top: web, trailing: view)
         finding = card
         return card
     }

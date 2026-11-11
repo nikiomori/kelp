@@ -135,14 +135,7 @@ extension UsageReportView {
                         separator: " · ")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(.quaternary)
-                            Capsule().fill(UsageView.tint(top.used)).frame(
-                                width: max(4, proxy.size.width * min(top.used, 1)))
-                        }
-                    }
-                    .frame(height: 4)
+                    MeterBar(share: top.used, tint: UsageView.tint(top.used))
                     Text(UsageView.percent(top.used)).monospacedDigit().foregroundStyle(
                         top.used >= 0.9 ? Color.textRed : top.used >= 0.7 ? .textOrange : .primary)
                 }

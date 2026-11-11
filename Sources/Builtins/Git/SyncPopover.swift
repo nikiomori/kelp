@@ -193,10 +193,8 @@ final class SyncPopover: NSViewController {
     }
 
     func label(_ text: String, size: CGFloat = 12, secondary: Bool = true) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = .ui(size)
-        field.textColor = secondary ? .secondaryLabelColor : .labelColor
-        return field
+        NSTextField.label(
+            text, font: .ui(size), color: secondary ? .secondaryLabelColor : .labelColor, truncation: .byClipping)
     }
 
 }

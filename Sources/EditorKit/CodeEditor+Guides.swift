@@ -41,16 +41,7 @@ extension EditorTextView {
 
     /// Whole indents at a line's start; nil for a blank line.
     func indentLevel(_ line: NSRange, in text: NSString) -> Int? {
-        var columns = 0
-        for index in line.location..<NSMaxRange(line) {
-            switch text.character(at: index) {
-            case 32: columns += 1
-            case 9: columns += guideColumns - columns % guideColumns
-            case 10, 13: return nil
-            default: return columns / max(guideColumns, 1)
-            }
-        }
-        return nil
+        Folds.indent(line, in: text, tab: guideColumns).map { $0 / max(guideColumns, 1) }
     }
 
     /// A blank line goes on as far as the less indented of the lines either side.

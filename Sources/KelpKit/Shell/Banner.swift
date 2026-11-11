@@ -173,24 +173,12 @@ private final class BannerCard: NSView {
         width.priority = .init(NSLayoutConstraint.Priority.required.rawValue - 1)
         NSLayoutConstraint.activate([width, padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340)])
         buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // the button at the right edge
-        Self.ground(padded, in: self)
+        pin(FloatingCard.ground(padded, radius: Metrics.radiusLG, glassRadius: Metrics.radiusXL + 2))
         addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
     }
     required init?(coder: NSCoder) { fatalError() }
-
-    /// Liquid Glass where there is, the popover card before.
-    private static func ground(_ content: NSView, in host: NSView) {
-        if #available(macOS 26, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = Metrics.radiusXL + 2
-            glass.contentView = content
-            host.pin(glass)
-        } else {
-            host.pin(FloatingCard(content, radius: Metrics.radiusLG))
-        }
-    }
 
     override func mouseEntered(with event: NSEvent) { hovering = true }
     override func mouseExited(with event: NSEvent) {

@@ -31,7 +31,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     private lazy var caseKept = TextToggle("AB", tip: String(localized: "Preserve Case")) { [weak self] in
         self?.flip(\.preserveCase)
     }
-    private lazy var more = IconButton(Self.symbol("chevron.right"), tip: String(localized: "Replace")) { [weak self] in
+    private lazy var more = IconButton(.symbol("chevron.right"), tip: String(localized: "Replace")) { [weak self] in
         self?.toggleReplace()
     }
     private lazy var replaceRow = NSStackView(views: [
@@ -56,19 +56,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         card.onStep = { [weak self] in self?.step(forward: $0) }
         card.onSelectAll = { [weak self] in self?.selectAllMatches() }
         card.onClose = { [weak self] in self?.close() }
-        card.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(card)
-        NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: leadingAnchor),
-            card.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
+        pin(card)
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
-
-    private static func symbol(_ name: String) -> NSImage? {
-        NSImage(systemSymbolName: name, accessibilityDescription: nil)
-    }
 
     private func button(_ title: String, _ action: @escaping () -> Void) -> NSView {
         let button = PointerButton()
@@ -127,7 +117,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
 
     private func toggleReplace() {
         replaceRow.isHidden.toggle()
-        more.image = Self.symbol(replaceRow.isHidden ? "chevron.right" : "chevron.down")
+        more.image = .symbol(replaceRow.isHidden ? "chevron.right" : "chevron.down")
     }
 
     func search(moving: Bool) {

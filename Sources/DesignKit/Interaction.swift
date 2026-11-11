@@ -19,16 +19,8 @@ extension NSView {
         guard let layer else { return }
         var new: CGColor?
         effectiveAppearance.performAsCurrentDrawingAppearance { new = color?.cgColor }
-        let old = layer.presentation()?.backgroundColor ?? layer.backgroundColor
-        layer.backgroundColor = new
-        if held { layer.removeAnimation(forKey: "fade") }
-        guard !held, !Motion.reduced, old != new else { return }
-        let animation = CABasicAnimation(keyPath: "backgroundColor")
-        animation.fromValue = old ?? NSColor.clear.cgColor
-        animation.toValue = new ?? NSColor.clear.cgColor
-        animation.duration = Motion.fast
-        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(animation, forKey: "fade")
+        layer.animate("backgroundColor", to: new, duration: held ? 0 : Motion.fast)
+        if held { layer.removeAnimation(forKey: "backgroundColor") }
     }
 
     /// What the view shows next fades in over what it showed (call it right before swapping its content).
@@ -165,6 +157,32 @@ extension NSView {
         CATransform3DConcat(
             CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), transform),
             CATransform3DMakeTranslation(bounds.midX, bounds.midY, 0))
+    }
+}
+
+@MainActor
+extension CALayer {
+    /// `keyPath` takes `value` now and is seen to go there from wherever it showed, over `duration`; at once under
+    /// Reduce Motion. No implicit action: a bare layer's own 0.25 s one showed the old value again after the fade. A
+    /// colour's nil is clear; another value nil before comes in where it's going.
+    public func animate(
+        _ keyPath: String, to value: Any?, duration: TimeInterval = Motion.fast,
+        timing: CAMediaTimingFunctionName = .easeOut
+    ) {
+        let none: Any? = keyPath.hasSuffix("Color") ? NSColor.clear.cgColor : value
+        let old = presentation()?.value(forKeyPath: keyPath) ?? self.value(forKeyPath: keyPath) ?? none
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        setValue(value, forKeyPath: keyPath)
+        CATransaction.commit()
+        let new = value ?? none
+        guard !Motion.reduced, duration > 0, old.map({ ($0 as AnyObject).isEqual(new) }) != true else { return }
+        let animation = CABasicAnimation(keyPath: keyPath)
+        animation.fromValue = old
+        animation.toValue = new
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: timing)
+        add(animation, forKey: keyPath)
     }
 }
 

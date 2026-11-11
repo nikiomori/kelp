@@ -64,26 +64,15 @@ package enum ProjectIcon {
         let shape = on ? glow.bounds.insetBy(dx: -side * 0.6, dy: -side * 0.2) : glow.bounds.insetBy(dx: 2, dy: 2)
         let corner = shape.height / 2
         let path = CGPath(roundedRect: shape, cornerWidth: corner, cornerHeight: corner, transform: nil)
-        let opacity: Float = on ? 1 : 0
-        let fromPath = glow.presentation()?.shadowPath ?? glow.shadowPath ?? path
-        let fromOpacity = glow.presentation()?.shadowOpacity ?? glow.shadowOpacity
+        let duration = on ? Motion.glowIn : Motion.glowOut
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         glow.shadowColor = color.glow.cgColor
         glow.shadowOffset = .zero
         glow.shadowRadius = Metrics.iconGlow
-        glow.shadowPath = path
-        glow.shadowOpacity = opacity
-        let moves: [(String, Any, Any)] = [("shadowPath", fromPath, path), ("shadowOpacity", fromOpacity, opacity)]
-        for (key, from, to) in moves {
-            let animation = CABasicAnimation(keyPath: key)
-            animation.fromValue = from
-            animation.toValue = to
-            animation.duration = Motion.duration(on ? Motion.glowIn : Motion.glowOut)
-            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            glow.add(animation, forKey: "glow." + key)
-        }
         CATransaction.commit()
+        glow.animate("shadowPath", to: path, duration: duration, timing: .easeInEaseOut)
+        glow.animate("shadowOpacity", to: Float(on ? 1 : 0), duration: duration, timing: .easeInEaseOut)
     }
 
     /// A glow coming comes wider and settles to its own blur, so the row being coloured is plain to see.

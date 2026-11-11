@@ -70,11 +70,8 @@ final class SectionCell: NSTableCellView, Hoverable {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
-        let titleField = NSTextField(labelWithString: title)
-        titleField.font = .ui(TextSize.caption, weight: .semibold)
-        titleField.textColor = .secondaryLabelColor
-        titleField.lineBreakMode = .byTruncatingTail
-        titleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let titleField = NSTextField.label(
+            title, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
         let capsule = CountCapsule(count.map(String.init) ?? "")
         capsule.isHidden = count == nil
         let detailField = NSTextField(labelWithAttributedString: detail ?? NSAttributedString())
@@ -274,11 +271,7 @@ final class FileCell: NSTableCellView, Hoverable {
 final class NoteCell: NSTableCellView {
     init(_ text: String) {
         super.init(frame: .zero)
-        let field = NSTextField(labelWithString: text)
-        field.font = .ui(TextSize.row)
-        field.textColor = .secondaryLabelColor
-        field.lineBreakMode = .byTruncatingTail
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let field = NSTextField.label(text, font: .ui(TextSize.row), color: .secondaryLabelColor)
         pinRow(self, [field], leading: Metrics.inset + SectionCell.indent)
     }
     required init?(coder: NSCoder) { fatalError() }

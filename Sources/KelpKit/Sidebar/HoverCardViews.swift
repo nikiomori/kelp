@@ -179,7 +179,7 @@ struct ContextBlock: View {
                     ContextLine(used: used, window: window)
                 }
             }
-            .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+            .buttonStyle(PointerButtonStyle(flush: true))
             if let cold = model.coldCache { Text(cold).font(.ui(TextSize.caption)).foregroundStyle(.secondary) }
             if open, let parts = model.parts { ContextParts(parts: parts, window: window, compact: model.compact) }
         }

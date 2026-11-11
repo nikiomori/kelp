@@ -149,11 +149,9 @@ final class CommitMessageTab: TabContent {
         let scroll = NSScrollView()
         scroll.documentView = text
         scroll.hasVerticalScroller = true
-        let hint = NSTextField(labelWithString: String(localized: "Lines starting with # are left out. ⌘↩ commits."))
-        hint.font = .ui(TextSize.caption)
-        hint.textColor = .secondaryLabelColor
-        hint.lineBreakMode = .byTruncatingTail
-        hint.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let hint = NSTextField.label(
+            String(localized: "Lines starting with # are left out. ⌘↩ commits."), font: .ui(TextSize.caption),
+            color: .secondaryLabelColor)
         let cancel = ClosureButton(title: String(localized: "Cancel")) { [weak self] in self?.dismiss() }
         cancel.bezelStyle = .push
         cancel.toolTip = String(localized: "Close without committing")

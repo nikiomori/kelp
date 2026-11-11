@@ -84,11 +84,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
         let bar = Bar.panel([search], [add], stretching: search)
         self.bar = bar
-        let column = NSStackView(views: [bar, scroll])
-        column.orientation = .vertical
-        column.spacing = 0
-        let content = NSView()
-        content.pin(column)
+        let content = stacked(bar, scroll)
         empty.place(in: content)
         view = content
     }

@@ -57,7 +57,7 @@ final class StripPanel: NSPanel {
         panel.isReleasedWhenClosed = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.apply(fullScreen: fullScreen)
-        panel.contentView = ground(content, radius: radius)
+        panel.contentView = FloatingCard.ground(content, radius: radius)
         return panel
     }
 
@@ -78,17 +78,6 @@ final class StripPanel: NSPanel {
         collectionBehavior = [
             .canJoinAllSpaces, fullScreen ? .fullScreenAuxiliary : .fullScreenNone, .stationary, .ignoresCycle
         ]
-    }
-
-    /// Liquid Glass where there is, the popover card before.
-    private static func ground(_ content: NSView, radius: CGFloat) -> NSView {
-        if #available(macOS 26, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = radius
-            glass.contentView = content
-            return glass
-        }
-        return FloatingCard(content, radius: radius)
     }
 }
 

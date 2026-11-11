@@ -34,13 +34,7 @@ extension DiffViewController {
             search("")
             view.window?.makeFirstResponder(table)
         }
-        card.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(card)
-        let under: NSView = table.enclosingScrollView ?? table
-        NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.gapWide),
-            card.trailingAnchor.constraint(equalTo: under.trailingAnchor, constant: -Metrics.gapWide * 2)
-        ])
+        card.float(in: view, top: table.enclosingScrollView ?? table)
         find.card = card
         return card
     }

@@ -63,3 +63,22 @@ public struct PartsBar: View {
         }
     }
 }
+
+/// How full one thing is: a thin capsule track filled from the left in `tint`; empty, a dot as wide as the bar is high.
+public struct MeterBar: View {
+    let share: Double, tint: Color, height: CGFloat
+    public init(share: Double, tint: Color, height: CGFloat = 4) {
+        self.share = share
+        self.tint = tint
+        self.height = height
+    }
+    public var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary)
+                Capsule().fill(tint).frame(width: max(height, geometry.size.width * min(1, max(0, share))))
+            }
+        }
+        .frame(height: height)
+    }
+}

@@ -74,13 +74,13 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
         return end > start ? NSRange(location: start, length: end - start) : nil
     }
 
-    /// A line's indent in columns (a tab is 4); nil for a blank line.
-    static func indent(_ line: NSRange, in string: NSString) -> Int? {
+    /// A line's indent in columns (a tab is `tab`); nil for a blank line.
+    static func indent(_ line: NSRange, in string: NSString, tab: Int = 4) -> Int? {
         var columns = 0
         for index in line.location..<NSMaxRange(line) {
             switch string.character(at: index) {
             case 32: columns += 1
-            case 9: columns += 4 - columns % 4
+            case 9: columns += tab - columns % tab
             case 10, 13: return nil
             default: return columns
             }

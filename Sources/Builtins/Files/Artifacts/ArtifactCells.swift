@@ -15,7 +15,8 @@ struct ArtifactCells {
     ]
 
     func heading(_ text: String) -> NSView {
-        let title = label(text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
+        let title = NSTextField.label(
+            text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
         let row = NSStackView(views: [title, NSView()])
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
         return row
@@ -26,7 +27,7 @@ struct ArtifactCells {
         icon.symbolConfiguration = .chrome()
         icon.contentTintColor = .secondaryLabelColor
         let project = panel.app.projectName(panel.app.worktree(panel.app.workbench.workspaceId)?.repoId)
-        let name = label(
+        let name = NSTextField.label(
             panel.title(item, project), font: .ui(TextSize.row, weight: panel.isNew(item) ? .semibold : .regular))
         var title: [NSView] = [name]
         if item.url != nil, let logo = panel.app.catalog.icon("claude", size: Metrics.iconSmall) {
@@ -37,7 +38,8 @@ struct ArtifactCells {
             title.append(mark)
         }
         if earlier > 0 {
-            let more = label("\(earlier + 1)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
+            let more = NSTextField.label(
+                "\(earlier + 1)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
             more.toolTip = String(localized: "\(earlier + 1) pages of this title: the latest opens")
             more.setContentCompressionResistancePriority(.required, for: .horizontal)
             title.append(more)
@@ -47,7 +49,8 @@ struct ArtifactCells {
         var lines: [NSView] = [top]
         if let note = panel.note(item) {
             lines.append(
-                label(note.text, font: .ui(TextSize.caption), color: note.waits ? .textOrange : .secondaryLabelColor))
+                NSTextField.label(
+                    note.text, font: .ui(TextSize.caption), color: note.waits ? .textOrange : .secondaryLabelColor))
         }
         let text = NSStackView(views: lines)
         text.orientation = .vertical
@@ -76,7 +79,7 @@ struct ArtifactCells {
             ring.toolTip = String(localized: "The agent is writing it")
             return [ring]
         }
-        let when = label(
+        let when = NSTextField.label(
             shortAgo(Date(timeIntervalSince1970: item.modified ?? item.created)), font: .uiDigits(TextSize.caption),
             color: .secondaryLabelColor)
         when.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -89,14 +92,6 @@ struct ArtifactCells {
         return [when, out]
     }
 
-    private func label(_ text: String, font: NSFont, color: NSColor = .labelColor) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = font
-        field.textColor = color
-        field.lineBreakMode = .byTruncatingTail
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return field
-    }
 }
 
 /// A page's row: under the pointer its time gives way to ↗ (when it has one), and the panel hears of it for the card.

@@ -2,13 +2,19 @@ import SwiftUI
 
 /// SwiftUI's side of `PointerButton`, for settings and extension panels: under the pointer a grey fill fades in, held it
 /// darkens at once and the button dips by `Motion.pressDip`, as Kelp's AppKit controls do. Reduce Motion: the fills change,
-/// nothing moves.
+/// nothing moves. `flush`: the fill reaches past the label, its neighbours stand where they would without it (a glyph in
+/// a line of text).
 public struct PointerButtonStyle: ButtonStyle {
     private let radius: CGFloat
-    public init(radius: CGFloat = Metrics.radiusSM) { self.radius = radius }
-    public func makeBody(configuration: ButtonStyleConfiguration) -> some View {
-        Pointed(configuration: configuration, radius: radius)
+    private let flush: Bool
+    public init(radius: CGFloat = Metrics.radiusSM, flush: Bool = false) {
+        self.radius = radius
+        self.flush = flush
     }
+    public func makeBody(configuration: ButtonStyleConfiguration) -> some View {
+        Pointed(configuration: configuration, radius: radius).padding(.horizontal, flush ? -Self.padding : 0)
+    }
+    fileprivate static let padding: CGFloat = 4
 
     private struct Pointed: View {
         let configuration: ButtonStyleConfiguration
@@ -17,7 +23,7 @@ public struct PointerButtonStyle: ButtonStyle {
         @State private var size = CGSize.zero
         var body: some View {
             configuration.label
-                .padding(.horizontal, 4)
+                .padding(.horizontal, PointerButtonStyle.padding)
                 .frame(minHeight: Metrics.iconButton)
                 .background(
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -102,7 +108,7 @@ private struct PointerMenu: ViewModifier {
     @State private var hovering = false
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 4)
+            .padding(.horizontal, PointerButtonStyle.padding)
             .frame(minHeight: Metrics.iconButton)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
@@ -110,7 +116,8 @@ private struct PointerMenu: ViewModifier {
             )
             .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
             .onHover { hovering = $0 }
-            .padding(.horizontal, -4)   // the fill reaches past the glyph; its neighbours stay where they were
+            // the fill reaches past the glyph; its neighbours stay where they were
+            .padding(.horizontal, -PointerButtonStyle.padding)
     }
 }
 

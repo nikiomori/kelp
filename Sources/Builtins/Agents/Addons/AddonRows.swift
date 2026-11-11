@@ -24,7 +24,7 @@ struct AddonRows {
             case .skills: String(localized: "Skills")
             case .instructions: String(localized: "Instructions")
             }
-        let title = label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
+        let title = NSTextField.label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
         return line([title, digits(count.formatted()), NSView()], inset: Metrics.inset)
     }
 
@@ -37,7 +37,8 @@ struct AddonRows {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .tertiaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
-        let name = label(g.title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
+        let name = NSTextField.label(
+            g.title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
         var views: [NSView] = [chevron, name, NSView()]
         if count > 0 { views.append(digits(AddonGroups.countAndTokens(count, tokens))) }
         if let off, let key = g.key { views.append(toggle(key, on: !off, name: g.title)) }
@@ -51,7 +52,7 @@ struct AddonRows {
     func item(_ addon: Addon, depth: Int, width: CGFloat) -> NSView {
         // A plugin's skill sits under its plugin's line: its name there is enough ("sales:call-prep" → "call-prep").
         let title = addon.source == .plugin ? addon.name.split(separator: ":").last.map(String.init) : nil
-        let name = label(
+        let name = NSTextField.label(
             title ?? addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
         var held: [NSView] = []
         if AddonGroups.waits(addon) { held.append(waiting()) }
@@ -126,7 +127,8 @@ struct AddonRows {
         warning.symbolConfiguration = .chrome(Metrics.iconSmall)
         warning.contentTintColor = mark
         let words = NSStackView(views: [
-            label(title, font: .ui(TextSize.row)), label(detail, font: .ui(TextSize.caption), color: color)
+            NSTextField.label(title, font: .ui(TextSize.row)),
+            NSTextField.label(detail, font: .ui(TextSize.caption), color: color)
         ])
         words.orientation = .vertical
         words.alignment = .leading
@@ -176,17 +178,8 @@ struct AddonRows {
     private static func inset(_ depth: Int) -> CGFloat { Metrics.inset + CGFloat(depth) * (chevron + Metrics.gap) }
 
     private func digits(_ text: String) -> NSTextField {
-        let field = label(text, font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
+        let field = NSTextField.label(text, font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
         field.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return field
-    }
-
-    private func label(_ text: String, font: NSFont, color: NSColor = .labelColor) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = font
-        field.textColor = color
-        field.lineBreakMode = .byTruncatingTail
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
     }
 

@@ -56,12 +56,7 @@ final class WrappingContainer: NSTextContainer {
     }
 
     private func indent(of string: NSString, line start: Int) -> CGFloat {
-        var columns = 0, index = start
-        while index < string.length, index - start < 200 {
-            let character = string.character(at: index)
-            if character == 32 { columns += 1 } else if character == 9 { columns += 4 - columns % 4 } else { break }
-            index += 1
-        }
+        let columns = Folds.indent(NSRange(location: start, length: min(200, string.length - start)), in: string) ?? 0
         return CGFloat(columns + (hanging == .indent ? 4 : 0)) * space
     }
 }

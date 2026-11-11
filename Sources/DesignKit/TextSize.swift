@@ -55,6 +55,21 @@ extension NSFont {
     }
 }
 
+@MainActor
+extension NSTextField {
+    /// One line of chrome text, cut at `truncation`; it's the first to give way when its line is too narrow.
+    public static func label(
+        _ text: String, font: NSFont, color: NSColor = .labelColor, truncation: NSLineBreakMode = .byTruncatingTail
+    ) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = font
+        field.textColor = color
+        field.lineBreakMode = truncation
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+}
+
 /// The same fonts for SwiftUI views, so they follow Text size and the look's font too.
 @MainActor
 extension Font {

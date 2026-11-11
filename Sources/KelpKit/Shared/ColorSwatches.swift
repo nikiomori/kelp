@@ -166,38 +166,25 @@ private final class Swatch: NSView {
 
     /// 14 → 16 pt with a spring a touch past it, and its glow, over `Motion.fast`; back in two thirds of that.
     private func grow() {
-        let scale = hovering ? Self.grown / Self.diameter : 1, glow: Float = hovering && color != nil ? 0.8 : 0
+        let back = Motion.fast * 2 / 3
+        dot.animate(
+            "shadowOpacity", to: Float(hovering && color != nil ? 0.8 : 0), duration: hovering ? Motion.fast : back)
+        guard hovering else { return dot.animate("transform.scale", to: 1, duration: back) }
+        let scale = Self.grown / Self.diameter
         let fromScale =
             dot.presentation()?.value(forKeyPath: "transform.scale") ?? dot.value(forKeyPath: "transform.scale")
-        let fromGlow = dot.presentation()?.shadowOpacity ?? dot.shadowOpacity
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         dot.setValue(scale, forKeyPath: "transform.scale")
-        dot.shadowOpacity = glow
         CATransaction.commit()
         guard !Motion.reduced else { return }
-        let size = CABasicAnimation(keyPath: "transform.scale")
-        if hovering {
-            let spring = CASpringAnimation(keyPath: "transform.scale")
-            spring.mass = 1
-            spring.stiffness = 500
-            spring.damping = 20
-            spring.duration = spring.settlingDuration
-            spring.fromValue = fromScale
-            spring.toValue = scale
-            dot.add(spring, forKey: "size")
-        } else {
-            size.fromValue = fromScale
-            size.toValue = scale
-            size.duration = Motion.fast * 2 / 3
-            size.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            dot.add(size, forKey: "size")
-        }
-        let shine = CABasicAnimation(keyPath: "shadowOpacity")
-        shine.fromValue = fromGlow
-        shine.toValue = glow
-        shine.duration = hovering ? Motion.fast : Motion.fast * 2 / 3
-        shine.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        dot.add(shine, forKey: "glow")
+        let spring = CASpringAnimation(keyPath: "transform.scale")
+        spring.mass = 1
+        spring.stiffness = 500
+        spring.damping = 20
+        spring.duration = spring.settlingDuration
+        spring.fromValue = fromScale
+        spring.toValue = scale
+        dot.add(spring, forKey: "transform.scale")
     }
 }

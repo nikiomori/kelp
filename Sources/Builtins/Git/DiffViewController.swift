@@ -121,22 +121,15 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         pathLabel.lineBreakMode = .byTruncatingHead
         pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let fc = NSTableColumn(identifier: .init("file"))
-        fc.title = String(localized: "Files")
-        files.addTableColumn(fc)
+        let fs = files.plainList("file")
+        files.tableColumns.first?.title = String(localized: "Files")
         files.dataSource = self
         files.delegate = self
         files.rowHeight = TextSize.of(Metrics.row)
         files.style = .sourceList
-        files.headerView = nil
-        fc.resizingMask = .autoresizingMask
         files.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle   // rows as wide as the pane
         files.menu = NSMenu()
         files.menu?.delegate = self
-        let fs = NSScrollView()
-        fs.documentView = files
-        fs.hasVerticalScroller = true
-        fs.drawsBackground = false
 
         table.dataSource = self
         table.delegate = self

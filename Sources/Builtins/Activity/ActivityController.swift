@@ -20,7 +20,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         var processes: Int
     }
     private let table = NSTableView()
-    private let total = NSTextField(labelWithString: "")
+    private let total = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
     private var rows: [Row] = []
 
@@ -33,25 +33,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.doubleAction = #selector(open)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        total.font = .uiDigits(TextSize.row)
-        total.textColor = .secondaryLabelColor
-        total.lineBreakMode = .byTruncatingTail
-        total.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let header = Bar.panel([total])
-        let root = NSView()
-        for x in [header, scroll] as [NSView] {
-            x.translatesAutoresizingMaskIntoConstraints = false
-            root.addSubview(x)
-        }
-        NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: root.topAnchor),
-            header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
-            scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor)
-        ])
+        let root = stacked(header, scroll)
         empty.place(in: root, under: header)
         view = root
     }

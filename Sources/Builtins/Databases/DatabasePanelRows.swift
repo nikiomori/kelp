@@ -34,8 +34,8 @@ struct DatabasePanelRows {
             run.changed.map { String(localized: "Change \($0) rows in \(run.database)") }
             ?? String(localized: "Run a change in \(run.database)")
         let words = stack([
-            label(what, font: .ui(TextSize.row), color: .textOrange),
-            label(oneLine(run.sql), font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
+            NSTextField.label(what, font: .ui(TextSize.row), color: .textOrange),
+            NSTextField.label(oneLine(run.sql), font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
         ])
         words.toolTip = run.sql
         let deny = ClosureButton(title: String(localized: "Deny")) { [weak panel] in panel?.answer(run, allow: false) }
@@ -53,7 +53,7 @@ struct DatabasePanelRows {
     func database(
         _ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, indent: Bool = false, color: ProjectColor? = nil
     ) -> NSView {
-        let name = label(
+        let name = NSTextField.label(
             Self.shownName(db), font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
         var first: [NSView] = [name, NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
@@ -77,7 +77,7 @@ struct DatabasePanelRows {
         if let chip = DatabaseLook.stageChip(db) { first.append(chip) }
         let top = NSStackView(views: first)
         top.spacing = Metrics.gap
-        let detail = label(
+        let detail = NSTextField.label(
             Self.place(db) ?? db.engine.displayName, font: .ui(TextSize.caption), color: .secondaryLabelColor)
         detail.lineBreakMode = .byTruncatingMiddle   // "psqldbread…agrohistory.local : webdb": both ends tell
         detail.toolTip = DatabaseLook.detail(db)
@@ -109,7 +109,7 @@ struct DatabasePanelRows {
         let icon = NSImageView(image: .symbol("arrow.down.to.line"))
         icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         icon.contentTintColor = .secondaryLabelColor
-        let said = label(
+        let said = NSTextField.label(
             String(localized: "Drop a database here to use it"), font: .ui(TextSize.caption),
             color: .secondaryLabelColor)
         let inside = NSStackView(views: [icon, said])
@@ -130,7 +130,7 @@ struct DatabasePanelRows {
         let folder = NSImageView(image: .symbol(color == nil ? "folder" : "folder.fill"))
         folder.symbolConfiguration = .chrome(Metrics.iconSmall)
         folder.contentTintColor = color?.color ?? .secondaryLabelColor
-        let title = label(name, font: .ui(TextSize.row))
+        let title = NSTextField.label(name, font: .ui(TextSize.row))
         return line(
             [chevron(open), folder, title, NSView(), digits(count)], inset: Metrics.inset,
             trailing: Metrics.insetTrailing)
@@ -180,7 +180,7 @@ struct DatabasePanelRows {
         // "inkover doesn't answer at …": the row says whose, the line only what
         var said = h.reason ?? String(localized: "It doesn’t answer.")
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
-        let why = label(
+        let why = NSTextField.label(
             said, font: .ui(TextSize.caption),
             color: h.state == .stopped ? .textOrange : .textRed)
         why.toolTip = h.reason
@@ -201,9 +201,9 @@ struct DatabasePanelRows {
         let icon = NSImageView(image: session.flatMap { app.catalog.icon($0.agent, size: 14) } ?? .symbol("person"))
         icon.contentTintColor = .secondaryLabelColor
         icon.widthAnchor.constraint(equalToConstant: 14).isActive = true
-        let sql = label(oneLine(run.sql), font: .uiMono(TextSize.caption))
+        let sql = NSTextField.label(oneLine(run.sql), font: .uiMono(TextSize.caption))
         sql.toolTip = [run.sql, run.error].compactMap { $0 }.joined(separator: "\n\n")
-        let end = label(Self.outcome(run), font: .uiDigits(TextSize.caption), color: Self.color(run.state))
+        let end = NSTextField.label(Self.outcome(run), font: .uiDigits(TextSize.caption), color: Self.color(run.state))
         return line([icon, sql, NSView(), end], inset: Metrics.inset, trailing: Metrics.inset)
     }
 
@@ -246,14 +246,14 @@ struct DatabasePanelRows {
     }
 
     private func title(_ text: String) -> NSTextField {
-        label(text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
+        NSTextField.label(text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
     }
 
     private func small(_ text: String) -> NSTextField {
-        label(text, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
+        NSTextField.label(text, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
     }
     private func digits(_ n: Int) -> NSTextField {
-        label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
+        NSTextField.label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
     }
 
     private func oneLine(_ sql: String) -> String {
@@ -288,15 +288,6 @@ struct DatabasePanelRows {
         column.spacing = Metrics.lineGap
         column.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return column
-    }
-
-    private func label(_ text: String, font: NSFont, color: NSColor = .labelColor) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = font
-        field.textColor = color
-        field.lineBreakMode = .byTruncatingTail
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return field
     }
 
     private func line(_ views: [NSView], inset: CGFloat, trailing: CGFloat, hovered: [NSView] = []) -> NSView {

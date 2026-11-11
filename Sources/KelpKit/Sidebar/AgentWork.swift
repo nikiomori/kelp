@@ -32,7 +32,7 @@ struct AgentWork: View {
                             ).frame(
                                 maxWidth: .infinity, alignment: .leading)
                         }
-                        .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+                        .buttonStyle(PointerButtonStyle(flush: true))
                     }
                     if !finished.isEmpty { finishedRows(finished, in: session) }
                 }
@@ -58,7 +58,7 @@ struct AgentWork: View {
                     id: "finished", mark: .status(.done), title: String(localized: "Finished \(finished.count)"),
                     time: shortSpan(to.timeIntervalSince(from), smallest: .second), chevron: finishedShown ? 90 : 0))
         }
-        .buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+        .buttonStyle(PointerButtonStyle(flush: true))
         if finishedShown {
             ForEach(finished) { run in
                 let took = (run.ended ?? run.started).timeIntervalSince(run.started)
@@ -139,7 +139,7 @@ struct AgentWorkRow: View {
 
     var body: some View {
         if let open = row.open {
-            Button(action: open) { content }.buttonStyle(PointerButtonStyle()).padding(.horizontal, -4)
+            Button(action: open) { content }.buttonStyle(PointerButtonStyle(flush: true))
         } else {
             content
         }

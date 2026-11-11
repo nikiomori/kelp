@@ -31,12 +31,7 @@ extension PaneView {
                     terminal.perform(action: "end_search")
                     self?.focus()
                 }
-                card.translatesAutoresizingMaskIntoConstraints = false
-                addSubview(card)
-                NSLayoutConstraint.activate([
-                    card.topAnchor.constraint(equalTo: terminal.topAnchor, constant: 8),
-                    card.trailingAnchor.constraint(equalTo: terminal.trailingAnchor, constant: -14)
-                ])
+                card.float(in: self, top: terminal, inset: NSSize(width: 14, height: 8))
                 findBar = card
                 return card
             }()

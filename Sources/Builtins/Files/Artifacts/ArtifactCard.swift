@@ -127,11 +127,7 @@ final class ArtifactCard {
     }
 
     private func line(_ text: String) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = .ui(TextSize.caption)
-        field.textColor = .secondaryLabelColor
-        field.lineBreakMode = .byTruncatingTail
-        return field
+        NSTextField.label(text, font: .ui(TextSize.caption), color: .secondaryLabelColor)
     }
 
     /// A page of HTML as it is; Markdown as its tab draws it. Read through the daemon, as a tab reads it; one it

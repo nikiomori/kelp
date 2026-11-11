@@ -175,24 +175,17 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         case "cwd": text = conversation.cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
         default: text = shortAgo(conversation.updated)   // "4m", "2h", "3d", as everywhere else in Kelp
         }
-        let field = label(text)
-        field.lineBreakMode = id == "cwd" ? .byTruncatingHead : .byTruncatingTail
-        if id == "updated" { field.textColor = .secondaryLabelColor }
+        let field = NSTextField.label(
+            text, font: .ui(TextSize.body), color: id == "updated" ? .secondaryLabelColor : .labelColor,
+            truncation: id == "cwd" ? .byTruncatingHead : .byTruncatingTail)
         return NSStackView(views: [field])   // in the row's middle, on the agent's line
     }
     /// The agent as the sidebar shows it: its icon and its name from the catalog.
     private func agentCell(_ agent: String) -> NSView {
-        let name = label(app.catalog.name(agent))
-        name.textColor = .secondaryLabelColor
+        let name = NSTextField.label(app.catalog.name(agent), font: .ui(TextSize.body), color: .secondaryLabelColor)
         let cell = NSStackView(views: [NSImageView(image: app.catalog.icon(agent) ?? NSImage()), name])
         cell.spacing = Metrics.gap
         return cell
-    }
-    private func label(_ text: String) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = .ui(TextSize.body)
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a narrow column truncates it
-        return field
     }
     /// Drag a conversation onto a terminal pane: drops its resume command there.
     func tableView(_ t: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {

@@ -21,16 +21,19 @@ public final class FloatingCard: NSView {
         floatShadow.shadowOffset = NSSize(width: 0, height: -2)
         floatShadow.shadowColor = NSColor.black.withAlphaComponent(0.2)
         shadow = floatShadow
-        for (outer, inner) in [(self, material), (material, content)] as [(NSView, NSView)] {
-            inner.translatesAutoresizingMaskIntoConstraints = false
-            outer.addSubview(inner)
-            NSLayoutConstraint.activate([
-                inner.topAnchor.constraint(equalTo: outer.topAnchor),
-                inner.bottomAnchor.constraint(equalTo: outer.bottomAnchor),
-                inner.leadingAnchor.constraint(equalTo: outer.leadingAnchor),
-                inner.trailingAnchor.constraint(equalTo: outer.trailingAnchor)
-            ])
-        }
+        pin(material)
+        material.pin(content)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Liquid Glass where there is (macOS 26), this card before. `glassRadius`: the glass's own, when it differs.
+    public static func ground(_ content: NSView, radius: CGFloat, glassRadius: CGFloat? = nil) -> NSView {
+        if #available(macOS 26, *) {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = glassRadius ?? radius
+            glass.contentView = content
+            return glass
+        }
+        return FloatingCard(content, radius: radius)
+    }
 }

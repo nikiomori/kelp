@@ -8,12 +8,7 @@ import KelpKit
 @MainActor
 enum AddonSheetParts {
     static func text(_ string: String, _ font: NSFont, _ color: NSColor = .labelColor) -> NSTextField {
-        let field = NSTextField(labelWithString: string)
-        field.font = font
-        field.textColor = color
-        field.lineBreakMode = .byTruncatingMiddle
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return field
+        NSTextField.label(string, font: font, color: color, truncation: .byTruncatingMiddle)
     }
 
     /// A title over a line about it.

@@ -43,18 +43,25 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         rows.alignment = .leading
         rows.spacing = Metrics.gap
         rows.edgeInsets = NSEdgeInsets(top: 5, left: 6, bottom: 5, right: 6)
-        let card = FloatingCard(rows, radius: Metrics.radiusMD)
-        card.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(card)
-        NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: leadingAnchor),
-            card.trailingAnchor.constraint(equalTo: trailingAnchor),
-            field.widthAnchor.constraint(equalToConstant: Self.fieldWidth)
-        ])
+        pin(FloatingCard(rows, radius: Metrics.radiusMD))
+        field.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true
         count.setContentHuggingPriority(.required, for: .horizontal)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Floats it in `host`, `inset.height` down from `top`'s top edge and `inset.width` in from `trailing`'s right
+    /// (nil: `top`'s).
+    public func float(
+        in host: NSView, top: NSView, trailing: NSView? = nil,
+        inset: NSSize = NSSize(width: Metrics.gapWide * 2, height: Metrics.gapWide)
+    ) {
+        translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(self)
+        NSLayoutConstraint.activate([
+            topAnchor.constraint(equalTo: top.topAnchor, constant: inset.height),
+            trailingAnchor.constraint(equalTo: (trailing ?? top).trailingAnchor, constant: -inset.width)
+        ])
+    }
 
     public func begin(_ needle: String?) {
         if isHidden {

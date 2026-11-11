@@ -15,20 +15,16 @@ extension UsageView {
         var body: some View {
             GeometryReader { geometry in
                 let width = geometry.size.width
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary)
-                    Capsule().fill(UsageView.tint(used)).frame(width: max(height, width * min(used, 1)))
-                }
-                .frame(height: height)
-                // An overlay, so the taller tick doesn't make the bar thicker than one without it.
-                // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
-                // popover's vibrancy (the track went black).
-                .overlay(alignment: .leading) {
-                    if let pace {
-                        Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(
-                            x: (width * pace).rounded())
+                MeterBar(share: used, tint: UsageView.tint(used), height: height)
+                    // An overlay, so the taller tick doesn't make the bar thicker than one without it.
+                    // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
+                    // popover's vibrancy (the track went black).
+                    .overlay(alignment: .leading) {
+                        if let pace {
+                            Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(
+                                x: (width * pace).rounded())
+                        }
                     }
-                }
             }
             .frame(minWidth: 48, maxWidth: .infinity)   // a bar, not a dot, when the text beside it is long
             .frame(height: height)
