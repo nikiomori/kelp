@@ -12,6 +12,17 @@ public enum AddonList {
     public static func build(
         loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = []
     ) -> [Addon] {
+        list(loaded: loaded, files: files, cwd: cwd, kelp: kelp, kept: kept).items
+    }
+
+    /// `build`, and what the chat's record names that isn't there any more (`gone`): the record is from the chat's
+    /// start, and for what lives in files (the person's skills, the project's, their servers) the files are what's true
+    /// now. `builtIn`: the skills Claude Code brings itself, when known (`ClaudeBuiltIns`).
+    public static func list(
+        loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = [],
+        builtIn: Set<String>? = nil
+    ) -> (items: [Addon], gone: [String]) {
+        var gone: [String] = []
         let onDisk = files.skills(cwd: cwd)
         let own = files.servers(cwd: cwd).filter { !kept.contains($0.name) }
         let named =
@@ -19,9 +30,32 @@ public enum AddonList {
             + kept.map { AddonFiles.Server(name: $0, file: Addon.kept, agents: ["claude", "codex"], project: false) }
         var items: [Addon] = []
         if let loaded {
-            items += loaded.skills.map { skill(of: $0, onDisk: onDisk, files: files) }
-            items += loaded.tools.sorted { $0.key < $1.key }.map { server(of: $0.key, $0.value, loaded, named) }
-            items += loaded.failed.sorted { $0.key < $1.key }.map { failed($0.key, $0.value, named) }
+            // A bare name in no folder is Claude Code's own or one deleted since. Unknown which are its own, the
+            // listing's order says: the person's and the project's come first, so one before the last still on disk
+            // was theirs.
+            let bare = loaded.skills.map(\.name).filter { !$0.contains(":") }
+            let lastHere = bare.lastIndex { name in onDisk.contains { $0.name == name } } ?? -1
+            for listed in loaded.skills {
+                let item = skill(of: listed, onDisk: onDisk, files: files)
+                let own = builtIn?.contains(listed.name) ?? ((bare.firstIndex(of: listed.name) ?? .max) > lastHere)
+                if item.source == .agent, !listed.name.contains(":"), !own {
+                    gone.append(listed.name)
+                } else {
+                    items.append(item)
+                }
+            }
+            let servers =
+                loaded.tools.sorted { $0.key < $1.key }.map { server(of: $0.key, $0.value, loaded, named) }
+                + loaded.failed.sorted { $0.key < $1.key }.map { failed($0.key, $0.value, named) }
+            // A server no file names and no plugin or account brought: Claude Code's own ("claude-in-chrome"), or one
+            // taken out of the settings since.
+            for item in servers {
+                if item.source == .agent, !item.name.hasPrefix("claude"), item.name != "ide" {
+                    gone.append(item.name)
+                } else {
+                    items.append(item)
+                }
+            }
             items += loaded.files.map { file in
                 Addon(
                     kind: .instructions, name: (file.path as NSString).lastPathComponent,
@@ -47,7 +81,7 @@ public enum AddonList {
                     kind: .instructions, name: file.name, source: .project, agents: file.agents,
                     tokens: ClaudeLoaded.tokens(file.chars)))
         }
-        return items
+        return (items, gone)
     }
 
     /// A listed skill: "plugin:name" is a plugin's (Kelp's own are plugins named kelp-…, claude.ai's sit under

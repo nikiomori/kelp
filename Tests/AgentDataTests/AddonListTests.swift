@@ -105,3 +105,24 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
     #expect(AddonFiles.codexEntry("remote", in: toml) == ServerEntry(url: "https://r.dev/mcp"))
     #expect(AddonFiles.codexEntry("none", in: toml) == nil)
 }
+
+/// The record is from the chat's start: a skill deleted since and a server taken out of the settings are gone, not
+/// Claude Code's own. Its own are told by what /context says is built in, or by where they stand in the listing.
+@Test func whatWasDeletedSinceTheChatStartedIsGone() throws {
+    let lines = [
+        #"{"type":"attachment","attachment":{"type":"skill_listing","isInitial":true,"content":"- web-perf: A\n- deleted: B\n- tabbit: C\n- init: D\n- sales:x: E"}}"#,
+        #"{"type":"attachment","attachment":{"type":"deferred_tools_delta","addedNames":["mcp__claude-in-chrome__find","mcp__linear__list"],"failedMcpServers":[{"name":"old","error":"ENOENT"}]}}"#
+    ]
+    let loaded = ClaudeLoaded.read(Data(lines.joined(separator: "\n").utf8))
+    let (files, cwd) = try home()
+    let byOrder = AddonList.list(loaded: loaded, files: files, cwd: cwd, kelp: [])
+    #expect(byOrder.gone == ["deleted", "linear", "old"])
+    #expect(byOrder.items.contains { $0.id == "skill:init" && $0.source == .agent })
+    #expect(byOrder.items.contains { $0.id == "server:claude-in-chrome" })
+    #expect(!byOrder.items.contains { $0.name == "deleted" || $0.name == "old" || $0.name == "linear" })
+    let known = AddonList.list(loaded: loaded, files: files, cwd: cwd, kelp: [], builtIn: ["deleted"])
+    #expect(known.gone == ["init", "linear", "old"])
+    let printed =
+        "### Skills\n\n| Skill | Source | Tokens |\n|---|---|---|\n| init | Built-in | ~10 |\n| x | User | ~5 |\n"
+    #expect(ClaudeBuiltIns.read(printed) == ["init"] && ClaudeBuiltIns.read("### MCP Tools\n") == nil)
+}

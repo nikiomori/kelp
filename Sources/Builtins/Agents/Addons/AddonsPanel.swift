@@ -26,6 +26,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private var shown = false
     private var loading: Task<Void, Never>?
     private let foot = NSStackView()
+    private var laidOut: CGFloat = 0
+    private let footNote = NSTextField(labelWithString: "")
     private var shownChat: Session?
 
     init(app: AppModel) {
@@ -58,7 +60,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
             top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         summary.isHidden = true
         // A stack: the summary takes no room while it's hidden.
-        let note = NSTextField(labelWithString: String(localized: "Changes reach new chats."))
+        let note = footNote
         note.font = .ui(TextSize.caption)
         note.textColor = .secondaryLabelColor
         note.lineBreakMode = .byTruncatingTail
@@ -88,6 +90,13 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         } changed: { [weak self] _ in
             self?.reload()
         }
+    }
+    /// Rows lay themselves out for the panel's width: drawn again when it changes.
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        guard abs(table.bounds.width - laidOut) >= 1 else { return }
+        laidOut = table.bounds.width
+        table.reloadData()
     }
     override func viewDidAppear() {
         super.viewDidAppear()
@@ -143,7 +152,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         counts.stringValue = AddonGroups.summary(items, chat: value?.chat ?? false)
         // Something waits for a restart, and there's a chat to restart.
         shownChat = value?.chat == true ? chat : nil
-        foot.isHidden = shownChat == nil || !items.contains(where: AddonGroups.waits)
+        let gone = value?.gone ?? []
+        foot.isHidden = shownChat == nil || (gone.isEmpty && !items.contains(where: AddonGroups.waits))
+        footNote.stringValue = AddonGroups.footNote(gone: gone)
+        footNote.toolTip = gone.isEmpty ? nil : gone.joined(separator: "\n")
         relist()
     }
 
@@ -215,7 +227,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         case .section(let section, let count): rows.section(section, count: count)
         case .group(let g, let count, let open):
             rows.group(g, count: count, open: open, off: g.key == nil ? nil : AddonGroups.isOff(g, items))
-        case .item(let addon, let nested): rows.item(addon, nested: nested)
+        case .item(let addon, let nested): rows.item(addon, nested: nested, width: tableView.bounds.width)
         case .problem(let addon): rows.problem(addon)
         }
     }

@@ -73,4 +73,11 @@ private func server(_ name: String, _ source: Addon.Source, signIn: Bool = false
     #expect(AddonGroups.waits(turnedOff) && !AddonGroups.waits(prep) && !AddonGroups.waits(off))
     let fixed = Addon(kind: .skill, name: "x", source: .yours, fixed: ["cursor"])
     #expect(AddonGroups.tip(fixed) { $0.capitalized } == "Always on in Cursor: no switch for one chat there")
+    #expect(AddonGroups.footNote(gone: []) == "Changes reach new chats.")
+    #expect(
+        AddonGroups.footNote(gone: ["pencil", "tabbit", "x"]) == "This chat still has pencil and 2 more, removed since."
+    )
+    // The name first: of what's beside it, as much as fits, in order.
+    #expect(AddonGroups.fitting([40, 60, 80], in: 110) == 2 && AddonGroups.fitting([40, 60], in: 30) == 0)
+    #expect(AddonGroups.fitting([40], in: -20) == 0 && AddonGroups.fitting([], in: 100) == 0)
 }

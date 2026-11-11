@@ -71,9 +71,13 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
 /// false when it's only what the files say a new chat would get.
 public struct Addons: Codable, Sendable, Equatable {
     public var items: [Addon], chat: Bool
-    public init(items: [Addon], chat: Bool) {
+    /// What the chat started with that isn't there any more (a skill deleted, a server taken out of the settings): it
+    /// keeps them until it restarts.
+    public var gone: [String]?
+    public init(items: [Addon], chat: Bool, gone: [String]? = nil) {
         self.items = items
         self.chat = chat
+        self.gone = gone
     }
 }
 

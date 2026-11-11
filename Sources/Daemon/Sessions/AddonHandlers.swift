@@ -25,10 +25,13 @@ extension AddonsList: Handled {
         }
         let files = own.map { AddonFiles(claude: $0) } ?? AddonFiles()
         let kept = ServerFiles.read(sessions.setup.serversFile).keys.sorted()
-        let items = AddonList.build(
-            loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted(), kept: kept)
+        // Which skills are Claude Code's own: learnt from its /context, read once here if nothing read one yet.
+        if loaded != nil, ClaudeBuiltIns.names == nil, let chat { _ = sessions.setup.claudeSetup(chat) }
+        let (items, gone) = AddonList.list(
+            loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted(), kept: kept,
+            builtIn: ClaudeBuiltIns.names)
         let off = sessions.setup.addonsOff(worktreeId: worktreeId).off
-        return Addons(items: AddonSwitches.applied(off, to: items), chat: loaded != nil)
+        return Addons(items: AddonSwitches.applied(off, to: items), chat: loaded != nil, gone: gone)
     }
 }
 

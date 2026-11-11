@@ -31,7 +31,9 @@ extension SessionSetup {
                 let result = try Subprocess.run(
                     [exe] + Self.setupArgs + flags, cwd: session.cwd, env: env, timeLimit: 30)
                 if result.status == 0, !result.timedOut {
-                    setup = ClaudeContext.setup(String(decoding: result.stdout, as: UTF8.self))
+                    let printed = String(decoding: result.stdout, as: UTF8.self)
+                    setup = ClaudeContext.setup(printed)
+                    ClaudeBuiltIns.learn(printed)
                 }
             }
         } catch {

@@ -125,6 +125,25 @@ enum AddonGroups {
         return lines.compactMap { $0 }.joined(separator: "\n")
     }
 
+    /// How many of a row's extras fit, first first: each takes its width of `room` while there's that much left.
+    static func fitting(_ widths: [CGFloat], in room: CGFloat) -> Int {
+        var left = room, count = 0
+        for width in widths {
+            guard width <= left else { break }
+            left -= width
+            count += 1
+        }
+        return count
+    }
+
+    /// Under the list while the chat is behind: what it still holds though it's gone, or that changes wait.
+    static func footNote(gone: [String]) -> String {
+        guard let first = gone.first else { return String(localized: "Changes reach new chats.") }
+        return gone.count == 1
+            ? String(localized: "This chat still has \(first), removed since.")
+            : String(localized: "This chat still has \(first) and \(gone.count - 1) more, removed since.")
+    }
+
     static func tokens(_ n: Int) -> String { String(localized: "\(k(n)) tok") }
 
     /// 17_600 → "17.6k", 31_000 → "31k", 640 → "640": as the context card says it (ContextParts.k, internal to

@@ -41,23 +41,38 @@ struct AddonRows {
         return row
     }
 
-    func item(_ addon: Addon, nested: Bool) -> NSView {
+    /// `width`: the row's, so the name gets its room first and what's beside it only what's left.
+    func item(_ addon: Addon, nested: Bool, width: CGFloat) -> NSView {
         let name = label(addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
-        var views: [NSView] = [mark(addon), name, NSView()]
-        if AddonGroups.waits(addon) {
-            views.append(caption(String(localized: "after restart"), truncating: false, color: .textOrange))
-        } else if addon.kind != .skill, let origin = addon.origin {
-            views.append(caption(origin, truncating: true))
-        }
-        if let faces = faces(addon.agents) { views.append(faces) }
-        if let tokens = addon.tokens { views.append(caption(AddonGroups.tokens(tokens), truncating: false)) }
+        var held: [NSView] = []
+        if AddonGroups.waits(addon) { held.append(waiting()) }
         // A plugin's skill goes with its plugin: the switch is on the plugin's line.
         if let key = addon.key, !key.hasPrefix("plugin:") {
-            views.append(toggle(key, on: !addon.off, name: addon.name))
+            held.append(toggle(key, on: !addon.off, name: addon.name))
         }
-        let row = line(views, inset: nested ? Self.nested : Metrics.inset)
-        row.toolTip = AddonGroups.tip(addon) { app.catalog.name($0) }
+        // What a narrow panel drops, last first: where it is, who gets it, what it weighs.
+        var extras: [NSView] = []
+        if let tokens = addon.tokens { extras.append(caption(AddonGroups.tokens(tokens), truncating: false)) }
+        if let faces = faces(addon.agents) { extras.append(faces) }
+        if addon.kind != .skill, let origin = addon.origin { extras.append(caption(origin, truncating: false)) }
+        let inset = nested ? Self.nested : Metrics.inset
+        let mark = mark(addon)
+        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset) { $0 + $1.fittingSize.width + Metrics.gap }
+        let shown = AddonGroups.fitting(extras.map { $0.fittingSize.width + Metrics.gap }, in: width - fixed)
+        let row = line([mark, name, NSView()] + extras.prefix(shown).reversed() + held, inset: inset)
+        let tip = AddonGroups.tip(addon) { app.catalog.name($0) }
+        row.toolTip = tip.isEmpty ? addon.name : addon.name + "\n" + tip
         return row
+    }
+
+    /// The switch and the chat disagree until it restarts: a mark that fits the narrowest panel, its words in the tip.
+    private func waiting() -> NSView {
+        let mark = NSImageView(image: .symbol("arrow.clockwise", String(localized: "After restart")))
+        mark.symbolConfiguration = .chrome(Metrics.iconSmall)
+        mark.contentTintColor = .textOrange
+        mark.toolTip = String(localized: "This chat follows the switch after a restart")
+        mark.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return mark
     }
 
     private func toggle(_ key: String, on: Bool, name: String) -> NSView {

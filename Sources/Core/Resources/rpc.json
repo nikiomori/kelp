@@ -123,6 +123,13 @@
           "chat" : {
             "type" : "boolean"
           },
+          "gone" : {
+            "description" : "What the chat started with that isn't there any more (a skill deleted, a server taken out of the settings): it keeps them until it restarts.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/Addon"
