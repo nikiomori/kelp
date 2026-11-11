@@ -23,7 +23,8 @@ extension Artifacts {
             Files (Kelp draws the frames, the rows, each board in light and dark, and the page around each board):
             - `canvas.json`: `{"boards": [{"file": "boards/A-welcome.html", "row": "A. Steps one at a time",
               "title": "Welcome", "w": 1280}]}`. Rows show in the order of their first board. `w` always; `h` only for a
-              fixed frame (a phone 390×844, a poster), otherwise a board is as tall as what it holds.
+              fixed frame (a phone 390×844, a poster, an app's panel), otherwise a board is as tall as what it holds. A
+              fixed frame is the whole screen: its root fills it (`min-height: 100vh`).
             - `boards/<name>.html`: one screen, as a fragment: no <html>, <head> or <body>, no scripts (they don't run).
               Colours, fonts, sizes and spacing only through the tokens, never typed in: then the dark board is right
               too.
@@ -102,9 +103,14 @@ extension Artifacts {
            `var(--font-body)`). A value is one string for both themes or `{"light", "dark"}`. Kelp sets each board's
            page from `bg`, `text`, `font.body` and `size.body`: keep those names. Add the project's own (`warning`,
            `selection`), and check every text colour against its ground at 4.5:1 in both themes.
-        2. `kit.css`: the project's components as classes, named as the project names them (`.button.primary`,
-           `.list-row`, `.sidebar`, `.badge`), with their states (`:hover`, `.selected`, `[disabled]`), built only from
-           the tokens. This is what keeps designs from drifting: a board is mostly these classes.
+        2. `kit.css`: first the plain elements as the project draws them (`a`, `button`, `input`, headings, lists:
+           in an app a row that opens something is not underlined text), then the project's components as classes,
+           named as the project names them (`.button.primary`, `.list-row`, `.sidebar`, `.badge`), with their states
+           (`:hover`, `.selected`, `[disabled]`), built only from the tokens. Then its icons and marks as classes, since
+           a board loads no files: a one-colour symbol as `.icon.doc { mask: url("data:image/svg+xml,…") center /
+           contain no-repeat; background: currentColor }`, a logo (the project's, the products it works with) as a
+           `background-image` data URL, each drawn from the project's own assets or the symbols it uses. This is what
+           keeps designs from drifting and looking generic: a board is mostly these classes.
         3. `DESIGN.md`, at most 60 lines: what the product is and for whom; its voice; which class for what; Do and
            Don't lists with the project's real rules (sizes, one accent, how errors show).
 
