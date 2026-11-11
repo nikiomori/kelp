@@ -42,8 +42,8 @@ private func tempRoot() throws -> URL {
     #expect(exclude == "/.kelp/artifacts/\n")
 }
 
-/// A design is a canvas (its boards in boards/), a dashboard a page of HTML, titled; slides are Markdown. Their
-/// versions keep their file's extension.
+/// A design and a dashboard are canvases (their boards in boards/); slides are Markdown. Their versions keep their
+/// file's extension.
 @Test func artifactKinds() throws {
     let root = try tempRoot()
     let design = try Artifacts.create(.design, title: "Header", root: root.path, session: "s1")
@@ -54,14 +54,12 @@ private func tempRoot() throws -> URL {
         FileManager.default.fileExists(
             atPath: design.deletingLastPathComponent().appendingPathComponent("boards").path, isDirectory: &isFolder)
             && isFolder.boolValue)
-    let dashboard = try Artifacts.create(.dashboard, title: "Header <A & B>", root: root.path, session: nil)
-    #expect(dashboard.lastPathComponent == "dashboard.html")
-    let html = try String(contentsOf: dashboard, encoding: .utf8)
-    #expect(html.contains("<title>Header &lt;A &amp; B&gt;</title>") && html.contains("color-scheme: light dark"))
+    let dashboard = try Artifacts.create(.dashboard, title: "CI", root: root.path, session: nil)
+    #expect(dashboard.lastPathComponent == "canvas.json")
     #expect(
         try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
-    #expect(Artifacts.versionPath(target: dashboard.path, 1).hasSuffix("/versions/1.html"))
+    #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.json"))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))
 }
 

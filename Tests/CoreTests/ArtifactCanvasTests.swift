@@ -58,5 +58,8 @@ import Testing
     for part in Artifacts.designParts { #expect(Artifacts.guide("design", whereTo: "local", part: part) != nil) }
     #expect(Artifacts.guide("design", whereTo: "local", part: "nope") == nil)
     #expect(Artifacts.guide("doc", whereTo: "local", part: "system") == nil)
-    #expect(Artifacts.Kind.design.file == "canvas.json" && !Artifacts.Kind.design.isHTML)
+    let dashboard = try #require(Artifacts.guide("dashboard", whereTo: "local", system: true))
+    #expect(dashboard.contains("kelp artifact new dashboard") && dashboard.contains("data-source"))
+    #expect(try #require(Artifacts.guide("slides", whereTo: "local")).contains("guide design deck"))
+    #expect(Artifacts.Kind.design.file == "canvas.json" && Artifacts.Kind.dashboard.file == "canvas.json")
 }

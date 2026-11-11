@@ -105,6 +105,8 @@ enum CanvasPage {
         if source.range(of: #"<(html|head|body)[\s>]"#, options: [.regularExpression, .caseInsensitive]) != nil {
             out.append("\(board): a board is a fragment; drop <html>, <head> and <body>")
         }
+        let bare = source.matches(of: /<[^>]*\bdata-value\b[^>]*>/).filter { !$0.output.contains("data-source") }.count
+        if bare > 0 { out.append("\(board): \(bare) figures without data-source (where each came from, and when)") }
         if hasSystem {
             let plain = source.replacing(/<!--\s*tweak[^>]*-->/, with: "")
             let typed = plain.matches(of: /#[0-9a-fA-F]{3,8}\b|rgba?\(/).count

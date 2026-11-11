@@ -39,14 +39,14 @@ extension Main {
                 }
             }
             print(file)
-            if kind == .design {
+            if kind.isCanvas {
                 let folder = (file as NSString).deletingLastPathComponent
                 let system = DesignSystem.dir(root: try await projectRoot(cwd, c)).path
                 print("Boards: \(folder)/boards/ · design system: \(system)/")
                 print(opened ? "Opened beside you; it redraws as you save." : "Write the boards, then canvas.json.")
                 let name = (folder as NSString).lastPathComponent
                 print(
-                    "Rules: `kelp artifact guide design` (skip if you've read it). "
+                    "Rules: `kelp artifact guide \(kind.rawValue)` (skip if you've read it). "
                         + "Check: `kelp artifact check \(name)`."
                 )
                 return

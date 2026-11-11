@@ -70,8 +70,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// A canvas: the `kelp artifact check` waiting for its next drawing, and what the last one found.
     var pendingCheck: String?
     var checkIssues: [String]?
-    /// A canvas: whether a click on a board puts a mark on it (Mark in the bar).
-    var marking = false
+    /// A canvas: whether a click on a board puts a mark on it (Mark in the bar), whether it's being presented, and who
+    /// hears that the presenting ended (Esc on the page).
+    var marking = false, presentingBoards = false
+    var onPresentEnded: (() -> Void)?
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
 
@@ -248,6 +250,12 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             return selectionBar.isHidden = true
         }
         selectionBar.show(over: view.convert(selection, from: editor.view), in: view)
+    }
+
+    /// The preview shown, and keys going to it (a canvas being presented steps with ← →).
+    func focusPreview() {
+        if modeSegment != 2 { modeSegment = 2 }
+        view.window?.makeFirstResponder(web)
     }
 
     /// Script for the page whose answer nobody waits for (the async evaluateJavaScript traps on an undefined result).

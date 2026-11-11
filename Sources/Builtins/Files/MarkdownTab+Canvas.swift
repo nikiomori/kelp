@@ -47,6 +47,9 @@ extension MarkdownTab {
             send(
                 "Picked “\(row)” on \(Artifacts.projectPath(url.path)): build it out in full; take the other rows off "
                     + "canvas.json, keeping their files.", keep: nil)
+        case "present":
+            presentingBoards = false
+            onPresentEnded?()
         case "tweak":
             guard let board = body["board"] as? String, let name = body["name"] as? String,
                 let value = body["value"] as? String
@@ -69,6 +72,13 @@ extension MarkdownTab {
     func toggleMarking() {
         marking.toggle()
         runJS("kelpMark(\(marking))")
+    }
+
+    /// Present in the bar: the boards one at a time, as large as the pane.
+    func togglePresenting() {
+        presentingBoards.toggle()
+        if presentingBoards { focusPreview() }
+        runJS("kelpPresent(\(presentingBoards))")
     }
 
     private func marks(_ body: [String: Any]) -> [CanvasMark] {

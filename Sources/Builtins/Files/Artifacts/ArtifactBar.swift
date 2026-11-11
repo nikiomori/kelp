@@ -37,6 +37,8 @@ final class ArtifactBar: NSObject {
     private var spentAt: Double?
     /// A canvas's Mark: a click on a board puts a mark on it, for the agent.
     private let mark = PointerButton()
+    /// A canvas's Present: its boards one at a time, as large as the pane (a deck's slides).
+    private let present = PointerButton()
     private var issues: [String] = []
     /// A canvas's time as the list last said: its boards' and the design system's latest change.
     private var canvasTime: Double?
@@ -91,8 +93,16 @@ final class ArtifactBar: NSObject {
         mark.toolTip = String(localized: "Click elements on the boards to mark them, then send your notes to the agent")
         mark.isHidden = markdown.page != .canvas
         mark.onClick = { [weak self] in self?.toggleMarking() }
+        present.font = .ui(TextSize.row)
+        present.padding = Metrics.gap
+        present.restFill = .fillRest
+        present.title = String(localized: "Present")
+        present.toolTip = String(localized: "The boards one at a time, as large as the pane: ← → step, Esc ends")
+        present.isHidden = markdown.page != .canvas
+        present.onClick = { [weak self] in self?.togglePresenting() }
+        markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }
         return Bar.content(
-            [kind, ring, status], [spent, latest, restore, mark, check, back, count, forward, author, more],
+            [kind, ring, status], [spent, latest, restore, present, mark, check, back, count, forward, author, more],
             stretching: status
         )
     }()
@@ -265,6 +275,11 @@ final class ArtifactBar: NSObject {
                 localized:
                     "What its chat spent on it: \(s.output) tokens written, \(s.read) read, priced as the API would")
         }
+    }
+
+    private func togglePresenting() {
+        markdown.togglePresenting()
+        present.title = markdown.presentingBoards ? String(localized: "Stop Presenting") : String(localized: "Present")
     }
 
     private func toggleMarking() {

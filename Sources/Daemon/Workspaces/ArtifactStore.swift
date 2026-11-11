@@ -23,11 +23,11 @@ extension Artifacts {
     {
         let folder = try newFolder(title, root: root)
         let page = folder.appendingPathComponent(kind.file)
-        if kind == .design {   // a canvas: its boards go in boards/, each a file of its own
+        if kind.isCanvas {   // its boards go in boards/, each a file of its own
             try FileManager.default.createDirectory(
                 at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
         }
-        let start = kind == .design ? ArtifactCanvas.empty : kind.isHTML ? htmlStart(title) : "# \(title)\n\n"
+        let start = kind.isCanvas ? ArtifactCanvas.empty : "# \(title)\n\n"
         try start.write(to: page, atomically: true, encoding: .utf8)
         try save(
             ArtifactRecord(type: kind.rawValue, title: title, created: now, session: session, file: kind.file),

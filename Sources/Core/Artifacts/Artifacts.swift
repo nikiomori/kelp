@@ -72,12 +72,14 @@ public enum Artifacts {
     /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.
     public enum Kind: String, Codable, CaseIterable, Sendable {
         case doc, review, slides, design, dashboard
-        public var file: String { self == .design ? "canvas.json" : "\(rawValue).\(isHTML ? "html" : "md")" }
-        public var isHTML: Bool { self == .dashboard }
+        public var file: String { isCanvas ? "canvas.json" : "\(rawValue).md" }
+        /// A canvas of boards Kelp draws (`ArtifactCanvas`), not a Markdown page.
+        public var isCanvas: Bool { self == .design || self == .dashboard }
     }
 
-    /// Files pages were once made as, which still open as pages: a design was one page of HTML before its canvas.
-    public static let olderFiles = ["design.html"]
+    /// Files pages were once made as, which still open as pages: a design and a dashboard were one page of HTML before
+    /// their canvas.
+    public static let olderFiles = ["design.html", "dashboard.html"]
 
     /// Every kind a guide speaks of.
     public static let guides = Kind.allCases.map(\.rawValue)
@@ -88,29 +90,6 @@ public enum Artifacts {
     static var nativePage: Regex<Substring> { /https:\/\/claude\.ai\/artifact\/[A-Za-z0-9_-]+/ }
 
     public static func dir(root: String) -> URL { URL(fileURLWithPath: root).appendingPathComponent(folder) }
-
-    /// A page of HTML's first lines: its title, and the system's font in the app's light or dark.
-    package static func htmlStart(_ title: String) -> String {
-        let escaped = title.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-        return """
-            <!doctype html>
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <title>\(escaped)</title>
-            <style>
-            :root { color-scheme: light dark; }
-            body { margin: 0; padding: 32px; font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
-            </style>
-            </head>
-            <body>
-            <h1>\(escaped)</h1>
-            </body>
-            </html>
-
-            """
-    }
 
     /// The project's artifacts, newest first (by when each was made).
     public static func list(root: String) -> [(slug: String, record: ArtifactRecord)] {
@@ -209,8 +188,9 @@ public enum Artifacts {
     /// What `kelp artifact guide <kind> [part]` prints. `whereTo`: the `artifacts.where` setting ("agent" or "local");
     /// `system`: whether the project has its design system (a design's guide says to make it first if not).
     public static func guide(_ kind: String, whereTo: String, part: String? = nil, system: Bool = false) -> String? {
-        if let part { return kind == Kind.design.rawValue ? designPart(part) : nil }
-        guard let rules = kind == Kind.design.rawValue ? designCore(system: system) : rules[kind] else { return nil }
+        let canvas = Kind(rawValue: kind).flatMap { $0.isCanvas ? $0 : nil }
+        if let part { return canvas != nil ? designPart(part) : nil }
+        guard let rules = canvas.map({ canvasCore($0, system: system) }) ?? rules[kind] else { return nil }
         var out = "# Making \(article(kind)) in Kelp\n\n"
         if kind == Kind.review.rawValue {
             out +=
@@ -223,7 +203,7 @@ public enum Artifacts {
                 + "give the user its link: it opens in their own browser, where they're signed in, and Kelp lists it. "
                 + "Use `kelp artifact new` only if you can't, or the user asked to keep it on this Mac.\n"
         }
-        if kind == Kind.design.rawValue { return out + "\n" + rules }
+        if canvas != nil { return out + "\n" + rules }
         out +=
             "\nRun `kelp artifact new \(kind) \"<title>\"`: it prints the file to write, and Kelp shows it beside you as you save.\n"
         return out + "\nRules for \(article(kind)):\n" + rules
@@ -253,13 +233,7 @@ public enum Artifacts {
         - Markdown. A line `---` with an empty line above and below starts the next slide; the first slide is the title.
         - One idea a slide, at most four bullets; a number that matters on a slide of its own.
         - Kelp shows them as 16:9 slides, one under the next (← → step through them, Print gives a page each).
-
-        """,
-        "dashboard": """
-        - One HTML file with its CSS inline, no scripts or files from the web; charts as inline SVG.
-        - Numbers first, as large figures with a label; then charts; then the table they came from.
-        - Set a background and its text colour together: the page opens in the app's light or dark.
-        - Every number names where it came from (the command you ran, the file you read) and when, beside it or under it.
+        - For a deck in the project's own look, make a design instead: `kelp artifact guide design deck`.
 
         """
     ]

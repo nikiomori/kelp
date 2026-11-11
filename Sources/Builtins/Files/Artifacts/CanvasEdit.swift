@@ -36,8 +36,9 @@ struct CanvasMark: Codable, Equatable, Sendable {
 
 /// Kelp's script for what the user does on a canvas (`MarkdownTab.world`; the boards' own don't run): marks on elements
 /// (`kelpMark(true)` from the bar; a click outlines the element, a number lands on it, a card at the foot holds the
-/// notes and sends them), Pick on each row, and each board's tweaks moved live and saved. To `kelpSync`: `marks` (send),
-/// `marksDraft` (keep), `pick`, `tweak`.
+/// notes and sends them), Pick on each row, each board's tweaks moved live and saved, and Present (`kelpPresent(true)`:
+/// the boards one at a time, each as large as the pane; ← → step, Esc ends). To `kelpSync`: `marks` (send),
+/// `marksDraft` (keep), `pick`, `tweak`, `present` (ended).
 enum CanvasEdit {
     struct Labels {
         var send: String, pick: String, tweaks: String, note: String, remove: String
@@ -197,6 +198,28 @@ enum CanvasEdit {
               panel.append(line);
             }
           }
+          const slides = [...new Set(frames.map(f => f.dataset.board))].map(light);
+          let at = -1;
+          function present() {
+            slides.forEach((f, i) => f.closest('.frame').classList.toggle('kelp-current', i === at));
+            const f = slides[at];
+            if (f) f.style.transform = 'scale(' + Math.min(innerWidth / f.offsetWidth, innerHeight / f.offsetHeight) + ')';
+          }
+          window.kelpPresent = on => {
+            at = on ? 0 : -1;
+            document.body.classList.toggle('kelp-present', on);
+            if (!on) for (const f of slides) f.style.transform = '';
+            present();
+          };
+          addEventListener('keydown', e => {
+            if (at < 0) return;
+            if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) at = Math.min(at + 1, slides.length - 1);
+            else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) at = Math.max(at - 1, 0);
+            else if (e.key === 'Escape') { kelpPresent(false); post({ kind: 'present' }); return; }
+            else return;
+            e.preventDefault(); present();
+          });
+          addEventListener('resize', () => { if (at >= 0) present(); });
           addEventListener('resize', draw);
           new ResizeObserver(() => requestAnimationFrame(draw)).observe(document.body);
           draw();
@@ -233,5 +256,18 @@ enum CanvasEdit {
         .kelp-seg button { border: 0; background: none; color: inherit; font: inherit; padding: 1px 7px;
           border-radius: 4px; }
         .kelp-seg button.on { background: rgba(127,127,127,.35); }
+        .kelp-present { overflow: hidden; }
+        .kelp-present #kelp-canvas { transform: none !important; }
+        .kelp-present .row h2, .kelp-present .name, .kelp-present .kelp-card, .kelp-present .kelp-layer,
+          .kelp-present .kelp-panel, .kelp-present .frame { display: none !important; }
+        .kelp-present .frame.kelp-current { display: flex !important; position: fixed; inset: 0; z-index: 30;
+          align-items: center; justify-content: center; background: #000; }
+        .kelp-present .kelp-current iframe { flex: none; box-shadow: none; border-radius: 0; }
+        @media print {
+          #kelp-canvas { transform: none !important; }
+          .name, .kelp-pick, .kelp-tweaks, .kelp-card, .kelp-layer, .kelp-panel,
+            .frame:has(iframe[data-theme="dark"]) { display: none !important; }
+          .frame { break-after: page; }
+        }
         """
 }

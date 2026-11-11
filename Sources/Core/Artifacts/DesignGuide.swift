@@ -1,12 +1,13 @@
 import Foundation
 
-/// What `kelp artifact guide design` prints: a short core every design needs, and the parts read only when one is
-/// needed (`kelp artifact guide design <part>`). Each is fixed text, so it stays in the agent's prompt cache.
+/// What `kelp artifact guide design|dashboard` prints: a short core every canvas needs, and the parts read only when
+/// one is needed (`kelp artifact guide design <part>`). Each is fixed text, so it stays in the agent's prompt cache.
 extension Artifacts {
-    public static let designParts = ["system", "craft"]
+    public static let designParts = ["system", "craft", "deck"]
 
-    /// The core. `system`: whether the project has its design system yet (`.kelp/design/`).
-    static func designCore(system: Bool) -> String {
+    /// The core for a canvas of `kind` (a design or a dashboard). `system`: whether the project has its design system
+    /// yet (`.kelp/design/`).
+    static func canvasCore(_ kind: Kind, system: Bool) -> String {
         let systemLine =
             system
             ? "The project's design system is in `.kelp/design/`: read DESIGN.md and kit.css before the first board, "
@@ -14,8 +15,8 @@ extension Artifacts {
             : "The project has no design system yet (`.kelp/design/`): make it first, from its code: "
                 + "`kelp artifact guide design system`. One turn, and every later design reuses it."
         return """
-            Run `kelp artifact new design "<title>"`: it makes the folder and prints its paths; Kelp opens the canvas
-            beside you and redraws it each time you save. Nothing to publish.
+            Run `kelp artifact new \(kind.rawValue) "<title>"`: it makes the folder and prints its paths; Kelp opens the
+            canvas beside you and redraws it each time you save. Nothing to publish.
 
             \(systemLine)
 
@@ -34,9 +35,7 @@ extension Artifacts {
               moves, never after a token.
 
             How to work:
-            1. If the look is open (no system, nothing said about it), make 2–3 small direction boards first, a row each
-               ("A. Dense list", "B. Cards"), each different on one axis you can name; say why in a line each and stop.
-               Otherwise build the screens straight away.
+            \(kind == .dashboard ? dashboardStart : designStart)
             2. Write all the boards and canvas.json in one go (parallel writes). No generator scripts: the kit is
                the shared part.
             3. Run `kelp artifact check <name>` once and fix what it lists. Don't screenshot, open or read back the
@@ -54,10 +53,24 @@ extension Artifacts {
             """
     }
 
+    private static let designStart = """
+        1. If the look is open (no system, nothing said about it), make 2–3 small direction boards first, a row each
+           ("A. Dense list", "B. Cards"), each different on one axis you can name; say why in a line each and stop.
+           Otherwise build the screens straight away. A deck: `kelp artifact guide design deck`.
+        """
+
+    private static let dashboardStart = """
+        1. Get the numbers first (run the commands, read the files). A board per view, 1280 wide: the figures that
+           matter, large, with a label; then charts as inline SVG coloured from the tokens; then the table they came
+           from. Every figure carries where it came from and when: `<b data-value data-source="gh run list, 11 Nov
+           10:00">42</b>`; the check lists one without. To bring it up to date, the user asks you again.
+        """
+
     static func designPart(_ part: String) -> String? {
         switch part {
         case "system": designSystem
         case "craft": designCraft
+        case "deck": designDeck
         default: nil
         }
     }
@@ -96,6 +109,20 @@ extension Artifacts {
            Don't lists with the project's real rules (sizes, one accent, how errors show).
 
         Then make the design you were asked for. Change the system only when the user asks: every design uses it.
+
+        """
+
+    private static let designDeck = """
+        # A deck as a design
+
+        For slides in the project's own look (its fonts, colours, components); plain Markdown slides are
+        `kelp artifact guide slides`.
+
+        - A board per slide, `"w": 1920, "h": 1080`, without a `row`: each is a row of its own, in the deck's order.
+        - The first slide is the title; one idea a slide; nothing smaller than 24px; at most 4–5 sizes.
+        - A slide is laid out to fit its frame (the check says when one runs over): too much is two slides, not
+          smaller type.
+        - The user presents it with Present in the canvas's bar (← → step, Esc ends) and prints a page a slide.
 
         """
 

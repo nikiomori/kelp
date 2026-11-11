@@ -47,6 +47,10 @@ private func demo() throws -> (root: URL, folder: URL) {
         CanvasSnapshot.live(json: "{", folder: folder), folder: folder, root: root.path, themes: .both, ground: nil)
     #expect(page.issues.first?.hasPrefix("canvas.json doesn't read") == true)
     #expect(CanvasPage.lint("<html><body><script>x()</script>", board: "b", hasSystem: false).count == 2)
+    let figures = #"<b data-value data-source="gh run list, today">42</b> <b class="n" data-value>7</b>"#
+    #expect(
+        CanvasPage.lint(figures, board: "b", hasSystem: false)
+            == ["b: 1 figures without data-source (where each came from, and when)"])
 }
 
 @Test func marksGoToTheChatAsOneLineByBoard() {
