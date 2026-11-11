@@ -18,6 +18,15 @@ extension BrowserTab: WKDownloadDelegate {
             noteLog("[blocked] \(url.absoluteString): another site than the one the user let the agent use")
             return (.cancel, preferences)
         }
+        // mailto:, tel:, an app's own scheme: WebKit would show its error page over the page the link was on.
+        if let url = action.request.url, !Self.inPage.contains(url.scheme?.lowercased() ?? "") {
+            if agentAnswers {
+                noteLog("[blocked] \(url.absoluteString): not a web page")
+            } else if action.navigationType == .linkActivated {
+                PreviewLinks.openOutside(url)   // mail goes out, the rest is refused with a banner
+            }
+            return (.cancel, preferences)
+        }
         if action.shouldPerformDownload { downloadDecided = Date() }
         return (action.shouldPerformDownload ? .download : .allow, preferences)
     }
@@ -30,6 +39,9 @@ extension BrowserTab: WKDownloadDelegate {
         else { return false }
         return PageOrigin.of(url) != allowed
     }
+
+    /// Schemes a page loads itself; any other is a link out of the page.
+    private static let inPage: Set<String> = ["http", "https", "about", "file", "data", "blob", "javascript"]
 
     /// Sites the user let download this run.
     static var downloadsAllowed: Set<String> = []

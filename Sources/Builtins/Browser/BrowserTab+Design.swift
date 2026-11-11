@@ -36,7 +36,6 @@ extension BrowserTab {
             NSEvent.removeMonitor(monitor)
             clickWatch = nil
         }
-        designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
         web.evaluateJavaScript(
             designOn ? Self.designJS(accent: .themeAccent) : "window.__kelpOff && window.__kelpOff()")
     }

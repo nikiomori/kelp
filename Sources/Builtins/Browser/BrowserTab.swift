@@ -33,6 +33,16 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
+    /// The address that failed while its error page shows: the bar, the tab and Reload keep to it, not to about:blank.
+    private var failed: URL?
+    @ObservationIgnored private var watches: [NSKeyValueObservation] = []
+    /// ⌘F's card (BrowserFind.swift), made the first time.
+    @ObservationIgnored var finding: FindCard?
+    private let back = IconButton(.symbol("chevron.left"), tip: String(localized: "Back"), target: nil, action: nil)
+    private let forward = IconButton(
+        .symbol("chevron.right"), tip: String(localized: "Forward"), target: nil, action: nil)
+    private let reload = IconButton(
+        .symbol("arrow.clockwise"), tip: String(localized: "Reload (⌘R)"), target: nil, action: nil)
     /// What `kelp browser` keeps here once an agent drives the page (`watch()`); nil on a page only the user browses.
     @ObservationIgnored var drive: AgentDrive?
     /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
@@ -77,8 +87,6 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         func b(_ sym: String, _ tip: String) -> NSButton {
             IconButton(.symbol(sym), tip: tip, target: nil, action: nil)
         }
-        let back = b("chevron.left", String(localized: "Back")), fwd = b("chevron.right", String(localized: "Forward"))
-        let reload = b("arrow.clockwise", String(localized: "Reload (⌘R)"))
         let browser = Self.defaultBrowser()
         let ext = IconButton(browser?.icon ?? .symbol("safari"), tip: Self.openIn(browser), target: nil, action: nil)
         let more = b("ellipsis.circle", String(localized: "More"))
@@ -94,7 +102,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             localized:
                 "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)"
         )
-        let bar = Bar.content([back, fwd, reload, address], [designButton, ext, more], stretching: address)
+        let bar = Bar.content([back, forward, reload, address], [designButton, ext, more], stretching: address)
         let body = NSView()
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
@@ -103,7 +111,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         box.pin(stacked(bar, agentSlot, body))
         view = box
         super.init()
-        box.reload = { [weak self] in self?.web.reload() }
+        box.reload = { [weak self] in self?.reloadPage() }
+        box.find = { [weak self] in self?.find($0) }
         agentSlotHeight.isActive = true
         webFill = [
             web.topAnchor.constraint(equalTo: body.topAnchor), web.bottomAnchor.constraint(equalTo: body.bottomAnchor),
@@ -127,10 +136,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         address.action = #selector(go)
         back.target = web
         back.action = #selector(WKWebView.goBack(_:))
-        fwd.target = web
-        fwd.action = #selector(WKWebView.goForward(_:))
-        reload.target = web
-        reload.action = #selector(WKWebView.reload(_:))
+        forward.target = web
+        forward.action = #selector(WKWebView.goForward(_:))
+        reload.target = self
+        reload.action = #selector(reloadOrStop)
+        follow()
         ext.target = self
         ext.action = #selector(openExternal)
         more.target = self
@@ -188,6 +198,51 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             NSLayoutConstraint.activate(webFill)
         }
         if !agentSlot.subviews.isEmpty { showAgentBar() }
+    }
+
+    /// The bar follows the page as WebKit changes it (KVO, delivered on the main thread): Back and Forward only when
+    /// there's a page that way, Reload turns into Stop while loading, and a single-page app's own address and title
+    /// changes (pushState, document.title) reach the bar and the tab, not just loads.
+    private func follow() {
+        watches = [
+            web.observe(\.canGoBack, options: .initial) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.showButtons() }
+            },
+            web.observe(\.canGoForward) { [weak self] _, _ in MainActor.assumeIsolated { self?.showButtons() } },
+            web.observe(\.isLoading) { [weak self] _, _ in MainActor.assumeIsolated { self?.showButtons() } },
+            web.observe(\.url) { [weak self] _, _ in MainActor.assumeIsolated { self?.showPage() } },
+            web.observe(\.title) { [weak self] _, _ in MainActor.assumeIsolated { self?.showPage() } }
+        ]
+    }
+
+    private func showButtons() {
+        back.isEnabled = web.canGoBack
+        forward.isEnabled = web.canGoForward
+        reload.image = .symbol(web.isLoading ? "xmark" : "arrow.clockwise")
+        reload.toolTip = web.isLoading ? String(localized: "Stop Loading") : String(localized: "Reload (⌘R)")
+    }
+
+    /// The page's address and title in the bar and the tab; the bar keeps what the user is typing in it.
+    private func showPage() {
+        let blank = web.url?.absoluteString == "about:blank"
+        guard let url = blank ? failed ?? web.url : web.url else { return }
+        page = (url, blank ? nil : web.title)
+        if address.currentEditor() == nil, previewFile == nil { address.stringValue = url.absoluteString }
+    }
+
+    @objc private func reloadOrStop() {
+        if web.isLoading { web.stopLoading() } else { reloadPage() }
+    }
+
+    /// Reload, or on the error page another try at the address that failed (a dev server that has started since).
+    func reloadPage(fromOrigin: Bool = false) {
+        if let failed {
+            web.load(URLRequest(url: failed))
+        } else if fromOrigin {
+            web.reloadFromOrigin()
+        } else {
+            web.reload()
+        }
     }
 
     func focus() {
@@ -256,7 +311,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             }
         }
         menu.addItem(.separator())
-        menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.web.reloadFromOrigin() }
+        menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.reloadPage(fromOrigin: true) }
         menu.add(String(localized: "Copy Screenshot")) { [weak self] in
             self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit answers on main
                 MainActor.assumeIsolated {
@@ -296,10 +351,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        if webView.url?.absoluteString != "about:blank" { loadError = nil }   // the error page (about:blank) keeps it
-        address.stringValue = webView.url?.absoluteString ?? ""
+        if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps them
+            loadError = nil
+            failed = nil
+        }
         ports.isHidden = true
-        page = (webView.url, webView.title)
+        showPage()
         if drive != nil, let pageURL = webView.url?.absoluteString, pageURL != "about:blank" {
             noteLog("[page] \(pageURL)")
         }
@@ -315,14 +372,18 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         return Self.downloads(navigationResponse) ? .download : .allow
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        address.stringValue = webView.url?.absoluteString ?? ""
-        page = (webView.url, webView.title)
+        showPage()
         if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
         if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
     }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showError(error) }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         showError(error)
+    }
+    /// WebKit's page process quit (a crash, memory pressure): the pane stays white until something loads again.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        if drive != nil { noteLog("[page] the page's process ended; loaded again") }
+        reloadPage()
     }
     private func showError(_ error: Error) {
         let ns = error as NSError
@@ -333,27 +394,39 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         {
             return
         }
+        failed = ns.userInfo[NSURLErrorFailingURLErrorKey] as? URL ?? failed
         loadError =
             ns.localizedDescription
             + ((ns.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).map { " (\($0))" } ?? "")
-        let text = ns.localizedDescription + " " + String(localized: "Is the dev server running?")
+        let said = ns.localizedDescription, stop = said.hasSuffix(".") ? " " : ". "
+        let text = said + stop + String(localized: "Is the dev server running? Reload (⌘R) tries again.")
         web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
     }
 
 }
 
 /// Holds a browser tab. While the focus is in it (the page or its address), ⌘R reloads the page before the menu bar
-/// gives it to Run, as in Safari; elsewhere ⌘R stays Run.
+/// gives it to Run, as in Safari; elsewhere ⌘R stays Run. ⌘F there finds on the page.
 private final class BrowserBox: NSView {
     var reload: () -> Void = {}
+    var find: (NSFindPanelAction?) -> Void = { _ in }
+
+    /// Edit › Find and ⌘G from the page (WKWebView doesn't answer them): the tab's find card.
+    @objc func performFindPanelAction(_ sender: Any?) {
+        find(NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)))
+    }
 
     override func performKeyEquivalent(with e: NSEvent) -> Bool {
         let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
-        guard mods == .command, e.charactersIgnoringModifiers?.lowercased() == "r",
-            let focus = window?.firstResponder as? NSView, focus.isDescendant(of: self)
-        else {
+        guard mods == .command, let focus = window?.firstResponder as? NSView, focus.isDescendant(of: self) else {
             return super.performKeyEquivalent(with: e)
         }
+        // ⌘F by key code (a Russian layout sends another letter): the address field's editor would take it otherwise.
+        if e.keyCode == 3 {
+            find(nil)
+            return true
+        }
+        guard e.charactersIgnoringModifiers?.lowercased() == "r" else { return super.performKeyEquivalent(with: e) }
         reload()
         return true
     }

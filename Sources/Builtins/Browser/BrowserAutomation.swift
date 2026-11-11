@@ -50,7 +50,7 @@ extension BrowserTab {
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
         case .reload:
-            web.reloadFromOrigin()
+            reloadPage(fromOrigin: true)
             return try await settled()
         case .viewport: return try await resize(try need("size"))
         case .snapshot:
