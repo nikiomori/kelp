@@ -46,7 +46,8 @@ extension Artifacts {
                place, never rewrite a board. `Picked “A. …”` means: build that row out, drop the others from
                canvas.json.
 
-            Craft, in short (more: `kelp artifact guide design craft`): real content, no lorem ipsum or invented
+            Before the first board, read `kelp artifact guide design craft` (once a session). In short: real content,
+            no lorem ipsum or invented
             numbers ([YOUR PRICE] instead); no gradient washes, emoji, cards with a coloured left border; text 4.5:1;
             touch targets 44px on a phone, while a Mac app keeps the Mac's own sizes; real <button>, <a href>,
             <label>; a phone is 390 wide, a page 1280–1440.
@@ -135,21 +136,51 @@ extension Artifacts {
     private static let designCraft = """
         # Craft for designs
 
+        Look
         - Decide the look before the first board: the system's, a brand the user names, or one direction you can name
           in four words. Without a system, a neutral grey with one accent; never cream-and-serif or purple gradients
           by habit.
         - Options: 2–4, each on an axis you can name (density, layout, navigation), with the same names across turns.
           Why each one and what it costs go in your answer, not on the board.
-        - Content: the subject's real words, units and terms; missing facts as [YOUR PRICE]. Copy from the user's
-          side of the screen: a button says what it does.
-        - Type: a scale of 4–5 sizes from the tokens; running text about 65 characters wide; headings balanced.
-        - Layout: siblings with flex or grid and gap, not margins; repeated rows share edges and paddings; text that
-          outgrows its box wraps, never clips. A page works at 390 wide too: rows stack, tables scroll in their box.
-        - Colour: the accent marks the one thing to do; state (error, warning, done) has its own colours and a word or
-          icon too; colours that must be told apart differ in lightness.
-        - Accessible as drawn: real controls, `aria-label` on icon-only buttons, visible focus, contrast 4.5:1
-          (3:1 at 24px and up) in both themes.
-        - Icons as inline SVG strokes in currentColor, one set and weight; no emoji.
+        - Use what the system has: its components, icons and logos (an agent's or a product's name gets its logo
+          beside it where the product shows one), not look-alikes drawn again.
+
+        States: a screen is judged by them
+        - Draw the states the brief names and the ones every such screen has: in a list one row selected and one
+          under the pointer (frozen, as a real row), a row being worked on, an empty state, an error or offline state
+          when the data can fail, a disabled control when one can't be used yet. A board per state, or one board
+          showing several rows each in its own.
+        - An empty state: what goes here, why it's empty, and the one action that fills it, with a verb that says
+          what it does ("New Doc", not "Make…").
+
+        Content
+        - The subject's real words, units and terms; missing facts as [YOUR PRICE]. Full product names ("Claude
+          Code", not "Claude"). The project's own case rules (DESIGN.md); "…" is one character.
+        - Times say what the heading around them doesn't: under Today a clock time (14:20), this week a weekday, older
+          a date (Nov 6); never "1d" under Yesterday.
+        - Copy from the user's side of the screen: a button says what it does.
+
+        Layout and type
+        - A scale of 4–5 sizes from the tokens; running text about 65 characters wide; headings balanced.
+        - Siblings with flex or grid and gap, not margins; repeated rows share edges and paddings; columns of numbers
+          and times line up (tabular digits, a fixed column). Text that outgrows its box wraps, never clips.
+        - A page works at 390 wide too: rows stack, tables scroll in their box.
+
+        A product's website
+        - Header: the logo (the system's), 3–4 section links, and the main action again on the right.
+        - Hero: a short line above the headline (version, platform), the headline, one sentence under it, the main
+          action and a quieter second one, then the requirement line (OS, price); then a picture of the product.
+        - Each feature: a small label, a heading, one or two sentences, three short points (a check icon each), and a
+          picture beside it, sides alternating; the same spacing between every section.
+        - Pictures of the product are filled and true to it: every pane has content, lines at the product's own
+          spacing, text in them 11px or larger; crop to the part that matters rather than draw a half-empty window.
+
+        Colour and access
+        - The accent marks the one thing to do; state (error, warning, done) has its own colours and a word or icon
+          too; colours that must be told apart differ in lightness.
+        - A filled button's label is 4.5:1 on its fill: darken the fill if the accent is too light.
+        - Real controls, `aria-label` on icon-only buttons, visible focus, contrast 4.5:1 (3:1 at 24px and up) in
+          both themes. Icons in one set and weight, in currentColor; no emoji.
         - Leave out what wasn't asked: no extra sections, fake stats, testimonials or decorative blobs.
 
         """
