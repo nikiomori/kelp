@@ -26,7 +26,9 @@ extension SyncPopover {
         let published = before?.upstream != nil, branch = before?.current ?? "HEAD"
         result = nil
         Task {
-            if let error = await GitSync.run(app, wid, ops) {
+            let error = await GitSync.run(app, wid, ops)
+            listKey = ""   // the lists and the fetch time are read again, even when no count moved
+            if let error {
                 failed(error, ops: ops)
             } else if ops.contains("push") {
                 let text =

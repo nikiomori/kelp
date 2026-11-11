@@ -34,6 +34,7 @@ import Testing
     try Git.remote(repo, .fetch, remotes: .none)
     let u = try Git.unsynced(repo, limit: 1, remotes: .none)
     #expect(u.outgoing.map(\.subject) == ["mine 2"] && u.incoming.map(\.subject) == ["theirs 2"])   // newest first, cut at the limit
+    #expect(abs((u.fetched ?? 0) - Date().timeIntervalSince1970) < 60)   // the fetch just now, from FETCH_HEAD
     #expect(u.outgoing.first?.author == "Ada" && (u.outgoing.first?.date ?? 0) > 1_000_000_000)
     let b = try Git.branches(repo, remotes: .none)
     #expect(b.ahead == 2 && b.behind == 2)   // the counts the chip shows are the lists' lengths

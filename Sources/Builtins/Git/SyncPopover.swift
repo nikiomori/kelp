@@ -7,7 +7,7 @@ import KelpKit
 /// commits it would move, and a line to commit what's changed. Everything bigger (staging, history, diffs) stays in Source Control.
 @MainActor
 final class SyncPopover: NSViewController {
-    static let width: CGFloat = 320, shown = 5   // a popover of commits, as the commit card
+    static let width: CGFloat = 320, shown = 6   // a popover of commits, as the commit card
     /// What reaches past the words' edge: the pad a link line and a text button grey in under the pointer, so their
     /// words keep to the same edge as every other line.
     static let bleed: CGFloat = 4
@@ -23,7 +23,7 @@ final class SyncPopover: NSViewController {
     lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
-    let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView()
+    let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView(), files = NSStackView()
     /// The folder whose CI the section shows (a workspace shares its project's): the one the branch chip's mark reads.
     var folder: String { app.gitFolder(of: wid)?.id ?? wid }
     let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
@@ -92,7 +92,7 @@ final class SyncPopover: NSViewController {
         status.spacing = 6
         status.alignment = .top
 
-        for stack in [outgoing, incoming, ci] {
+        for stack in [outgoing, incoming, ci, files] {
             stack.orientation = .vertical
             stack.alignment = .leading
             stack.spacing = 2
@@ -129,23 +129,24 @@ final class SyncPopover: NSViewController {
         root.edgeInsets = NSEdgeInsets(top: Metrics.inset, left: side, bottom: Metrics.gapWide, right: side)
         root.setViews(
             [
-                head, state, status, primary, ci, outgoing, incoming, rules.0, changeHead, field, nothing, hint,
-                rules.1, footer
+                head, state, ci, status, primary, outgoing, incoming, rules.0, changeHead, files, field, nothing,
+                hint, rules.1, footer
             ], in: .top)
+        // One rhythm: 12 between parts, 4 from a part's caption (or the standing line) to its rows.
         let gaps: [(NSView, CGFloat)] = [
-            (head, Metrics.lineGap), (state, 12), (primary, 16), (ci, 12), (outgoing, 12), (incoming, 16),
-            (rules.0, 12), (field, 12), (hint, 12), (rules.1, 4)
+            (head, Metrics.lineGap), (state, 12), (ci, 12), (status, 12), (primary, 12), (outgoing, 12),
+            (incoming, 12), (rules.0, 12), (changeHead, 4), (files, 8), (field, 12), (hint, 12), (rules.1, 4)
         ]
         for (part, gap) in gaps {
             root.setCustomSpacing(gap, after: part)
         }
-        for part in [state, status, primary, outgoing, incoming, changeHead, field, nothing, hint] as [NSView] {
+        for part in [state, status, primary, outgoing, incoming, changeHead, files, field, nothing, hint] as [NSView] {
             part.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         }
         for part in [head, footer] as [NSView] {
             part.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
         }
-        ci.alignment = .centerX   // its caption on the words' edge, its runs' pads past it
+        ci.alignment = .centerX   // its runs' pads reach past the words' edge
 
         // On the popover's own glass, as the commit card, the hover card and every other popover: a ground of its own
         // under it made this the one popover of another colour.
@@ -176,9 +177,11 @@ final class SyncPopover: NSViewController {
         }
     }
 
-    /// Opened for a pull or a push, not to type: the commit field waits for a click.
+    /// Opened for a pull or a push, not to type: the commit field waits for a click. The popover's window is made key,
+    /// though: in a window that isn't, the primary button is grey and reads as off.
     override func viewDidAppear() {
         super.viewDidAppear()
+        view.window?.makeKey()
         view.window?.makeFirstResponder(nil)
     }
 
@@ -227,4 +230,41 @@ final class LinkRow: PointerControl {
     override func clicked() { run() }
     // one target, label included
     override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
+}
+
+/// A commit to push or pull: its subject and when (or who). Under the pointer the hash takes that place; the tooltip
+/// has both and the whole subject.
+@MainActor
+final class CommitRow: NSStackView {
+    private let trailing: NSTextField, rest: String, commitHash: String
+    private var area: NSTrackingArea?
+
+    init(subject: String, hash: String, trailing rest: String) {
+        let words = NSTextField(labelWithString: subject)
+        words.font = .ui(TextSize.row)
+        words.lineBreakMode = .byTruncatingTail
+        words.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+        trailing = NSTextField(labelWithString: rest)
+        trailing.textColor = .secondaryLabelColor
+        trailing.setContentCompressionResistancePriority(.required, for: .horizontal)
+        self.rest = rest
+        commitHash = hash
+        super.init(frame: .zero)
+        setViews([words, trailing], in: .leading)
+        spacing = 8
+        toolTip = "\(hash) · \(rest)\n\(subject)"
+        show(hovering: false)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func show(hovering: Bool) {
+        trailing.stringValue = hovering ? commitHash : rest
+        trailing.font = hovering ? .uiMono(TextSize.caption) : .uiDigits(TextSize.caption)
+    }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        area = retracked(area, .activeAlways)
+    }
+    override func mouseEntered(with event: NSEvent) { show(hovering: true) }
+    override func mouseExited(with event: NSEvent) { show(hovering: false) }
 }

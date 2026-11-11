@@ -254,9 +254,12 @@ public struct Unsynced: Codable, Sendable, Equatable {
         }
     }
     public var outgoing: [Commit], incoming: [Commit]
-    public init(outgoing: [Commit], incoming: [Commit]) {
+    /// When the last fetch was (seconds since 1970); nil: never, or a remote project's (not read over ssh).
+    public var fetched: Double?
+    public init(outgoing: [Commit], incoming: [Commit], fetched: Double? = nil) {
         self.outgoing = outgoing
         self.incoming = incoming
+        self.fetched = fetched
     }
 }
 

@@ -16,7 +16,9 @@ extension SyncPopover {
             attributes: [.font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.labelColor])
         name.image = .symbol("chevron.down", String(localized: "Switch Branch"))
         name.isEnabled = info != nil && running == nil
-        state.stringValue = Self.standing(upstream: info?.upstream, ahead: ahead, behind: behind, hasRemote: hasRemote)
+        state.stringValue =
+            Self.standing(upstream: info?.upstream, ahead: ahead, behind: behind, hasRemote: hasRemote)
+            + (unsynced?.fetched.map { " · " + Self.fetched(Date(timeIntervalSince1970: $0)) } ?? "")
 
         fetch.isHidden = !hasRemote
         fetch.isEnabled = running == nil
@@ -62,6 +64,13 @@ extension SyncPopover {
                 : String(localized: "\(behind) commits behind \(upstream)")
         default: return String(localized: "\(ahead) ahead, \(behind) behind \(upstream)")
         }
+    }
+
+    /// "fetched 4m ago": how old the counts may be.
+    private static func fetched(_ date: Date) -> String {
+        let ago = shortAgo(date)
+        return ago == String(localized: "now")
+            ? String(localized: "fetched just now") : String(localized: "fetched \(ago) ago")
     }
 
     /// The one sync that matters now, full width; none when there's nothing to move. A rejected push turns it into the fix.
@@ -132,9 +141,15 @@ extension SyncPopover {
         outgoing.isHidden = ahead == 0
         incoming.isHidden = behind == 0
 
+        // The button above says what the commits are: a caption only where two lists, or a first push, need telling
+        // apart.
         let title = published ? String(localized: "To push") : String(localized: "To publish")
+        let named = !published || behind > 0
+        let mine = cut(out, of: ahead)
         outgoing.setViews(
-            [caption(title, ahead)] + out.map { row($0, trailing: when($0)) } + more(ahead - out.count), in: .top)
+            (named ? [caption(title, ahead)] : []) + mine.map { row($0, trailing: when($0)) }
+                + more(ahead - mine.count), in: .top)
+        if named, let head = outgoing.arrangedSubviews.first { outgoing.setCustomSpacing(4, after: head) }
 
         let toggle = PointerButton(title: "") { [weak self] in
             guard let self else { return }
@@ -148,21 +163,21 @@ extension SyncPopover {
         toggle.image = .symbol(showIncoming ? "chevron.down" : "chevron.right", String(localized: "To pull"))
         toggle.imagePosition = .imageLeading
         toggle.contentTintColor = .secondaryLabelColor
-        let rows = showIncoming ? inc.map { row($0, trailing: $0.author) } + more(behind - inc.count) : []
+        let theirs = cut(inc, of: behind)
+        let rows = showIncoming ? theirs.map { row($0, trailing: $0.author) } + more(behind - theirs.count) : []
         incoming.setViews([toggle] + rows, in: .top)
     }
 
-    /// "CI" (the line under the title names the branch) and the newest run of each workflow (CI and deploys apart), as
-    /// CI Runs marks them; a row opens CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
+    /// The newest run of each workflow (CI and deploys apart), as CI Runs marks them, under the standing line: it is
+    /// the remote's state. No caption: the mark and the workflow's name say it. A row opens CI Runs, which has the
+    /// logs and Re-run. Settings › Appearance › CI can leave it out.
     private func showCI() {
         let runs =
             !app.settings[SettingKeys.ciPopover]
             ? [] : CIRuns.latest(app.latest(CIEvent.self, folder)?.result?.runs ?? [])
         ci.isHidden = runs.isEmpty
+        root.setCustomSpacing(runs.isEmpty ? 12 : 4, after: state)
         guard !runs.isEmpty else { return }
-        let head = NSTextField(labelWithString: "")
-        head.attributedStringValue = NSAttributedString(string: "CI", attributes: Self.captionAttributes)
-        head.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         let shown = runs.prefix(3).map { run in
             let words = label(CIRunLook.words(run.status, run.conclusion))
             words.lineBreakMode = .byTruncatingTail
@@ -185,8 +200,7 @@ extension SyncPopover {
             line.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
             return line as NSView
         }
-        ci.setViews([head] + shown + more(runs.count - shown.count), in: .top)
-        ci.setCustomSpacing(2, after: head)
+        ci.setViews(shown + more(runs.count - shown.count), in: .top)
     }
 
     private func caption(_ text: String, _ count: Int) -> NSView {
@@ -199,6 +213,11 @@ extension SyncPopover {
     /// "11m", as the sidebar and the graph write how long ago (the relative formatter's short style wrote "−11 мин" in Russian).
     private func when(_ commit: Unsynced.Commit) -> String { shortAgo(Date(timeIntervalSince1970: commit.date)) }
 
+    /// All of them when they fit in `shown` rows; past that one row fewer, so "and N more" counts at least two.
+    private func cut(_ commits: [Unsynced.Commit], of count: Int) -> [Unsynced.Commit] {
+        Array(commits.prefix(count > Self.shown ? Self.shown - 1 : Self.shown))
+    }
+
     private func more(_ count: Int) -> [NSView] {
         guard count > 0 else { return [] }
         let line = label(String(localized: "and \(count) more"))
@@ -207,16 +226,39 @@ extension SyncPopover {
     }
 
     private func row(_ commit: Unsynced.Commit, trailing: String) -> NSView {
-        let hash = label(commit.hash, size: 11)
-        hash.font = .monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
-        let subject = label(commit.subject, secondary: false)
-        subject.lineBreakMode = .byTruncatingTail
-        subject.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        let line = NSStackView(views: [hash, subject, label(trailing, size: 11)])
-        line.spacing = 8
-        hash.widthAnchor.constraint(equalToConstant: 56).isActive = true
+        let line = CommitRow(subject: commit.subject, hash: commit.hash, trailing: trailing)
         line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         return line
+    }
+
+    /// The first few changed files, as Source Control lists them: the letter, the folder in grey, the name.
+    private func showFiles(_ list: [FileChange]) {
+        let shown = list.prefix(list.count > 3 ? 2 : 3).map { file -> NSView in
+            let code = file.letter(inWorktree: file.unstaged || file.untracked)
+            let letter = NSTextField(labelWithString: code)
+            letter.font = .uiMono(TextSize.caption, weight: .semibold)
+            letter.textColor = .gitLetter(code)
+            letter.widthAnchor.constraint(equalToConstant: 10).isActive = true
+            let name = NSTextField(labelWithString: "")
+            let folder = (file.path as NSString).deletingLastPathComponent
+            let text = NSMutableAttributedString(
+                string: folder.isEmpty ? "" : folder + "/",
+                attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor])
+            text.append(
+                NSAttributedString(
+                    string: (file.path as NSString).lastPathComponent,
+                    attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.labelColor]))
+            name.attributedStringValue = text
+            name.lineBreakMode = .byTruncatingHead
+            name.setContentCompressionResistancePriority(.init(250), for: .horizontal)
+            name.toolTip = file.path
+            let line = NSStackView(views: [letter, name])
+            line.spacing = 6
+            line.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+            return line
+        }
+        files.setViews(shown + more(list.count - shown.count), in: .top)
+        files.isHidden = list.isEmpty
     }
 
     func showChanges() {
@@ -239,6 +281,7 @@ extension SyncPopover {
             }
         }
         stats.attributedStringValue = text
+        showFiles(list)
         field.isHidden = changed == 0
         nothing.isHidden = changed > 0
         let typed = !message.stringValue.trimmingCharacters(in: .whitespaces).isEmpty

@@ -172,6 +172,23 @@ extension Git {
     /// The newest `limit` commits a push would send and a pull would bring. With an upstream: HEAD against it; without
     /// one (never pushed, or its branch deleted), what is on no remote branch yet, as `branches` counts it.
     public static func unsynced(_ path: String, limit: Int = 5, remotes: Remotes) throws -> Unsynced {
+        var lists = try unsyncedLists(path, limit: limit, remotes: remotes)
+        lists.fetched = try lastFetch(path, remotes: remotes)
+        return lists
+    }
+
+    /// When FETCH_HEAD was written: git writes it on every fetch and pull, whether anything came or not. A remote
+    /// project's isn't read (one more ssh round trip for a word in a popover).
+    static func lastFetch(_ path: String, remotes: Remotes) throws -> Double? {
+        guard remotes.of(path) == nil else { return nil }
+        let file = try line(
+            ["rev-parse", "--path-format=absolute", "--git-path", "FETCH_HEAD"], cwd: path, remotes: remotes)
+        var info = stat()
+        guard !file.isEmpty, stat(file, &info) == 0 else { return nil }
+        return Double(info.st_mtimespec.tv_sec)
+    }
+
+    private static func unsyncedLists(_ path: String, limit: Int, remotes: Remotes) throws -> Unsynced {
         func commits(_ range: [String]) throws -> [Unsynced.Commit] {
             try run(
                 ["log", "--format=%h%x09%an%x09%at%x09%s", "-n\(max(1, limit))"] + range, cwd: path, remotes: remotes

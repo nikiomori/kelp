@@ -4362,6 +4362,10 @@
       "Unsynced" : {
         "description" : "The newest commits a sync would move: `outgoing` is what a push sends, `incoming` what a pull brings (none without an upstream).",
         "properties" : {
+          "fetched" : {
+            "description" : "When the last fetch was (seconds since 1970); nil: never, or a remote project's (not read over ssh).",
+            "type" : "number"
+          },
           "incoming" : {
             "items" : {
               "$ref" : "#/components/schemas/Unsynced.Commit"
