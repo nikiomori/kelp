@@ -6,9 +6,15 @@ import Foundation
 /// once in light and once in dark when the system has a dark theme. The boards' scripts don't run; Kelp's (`script`)
 /// size the frames, fit the canvas to the pane and check what's drawn.
 enum CanvasPage {
-    /// Which themes the boards show in (a view preference of this Mac).
+    /// Which themes the boards show in (a view preference of this Mac; none set: the window's own).
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
+
+    /// How it's drawn: in which themes, and who is writing it now (their board gets the ring).
+    struct View: Sendable {
+        var themes: Themes
+        var writer: String?
+    }
 
     struct Built: Sendable {
         var html: String
@@ -22,11 +28,9 @@ enum CanvasPage {
     }
 
     /// The page for `snapshot` (the canvas and its boards' text), with the design system from `root` and the marks from
-    /// `folder`. `ground`: the pane's background and text colours. Reads files: off the main thread.
-    static func build(
-        _ snapshot: CanvasSnapshot, folder: URL, root: String, themes: Themes,
-        ground: (background: String, text: String)?
-    ) -> Built {
+    /// `folder`. Reads files: off the main thread.
+    static func build(_ snapshot: CanvasSnapshot, folder: URL, root: String, view: View) -> Built {
+        let themes = view.themes
         let json = snapshot.canvas
         let system = DesignSystem.dir(root: root)
         let tokensJSON = read(system.appendingPathComponent("tokens.json")) ?? ""
@@ -35,9 +39,20 @@ enum CanvasPage {
         let hasSystem = !kit.isEmpty || !tokens.light.isEmpty
         var issues: [String] = [], tweaks: [String: [Tweak]] = [:]
         guard let canvas = ArtifactCanvas.read(json) else {
-            let why = "canvas.json doesn't read as {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}"
-            return Built(html: shell(ground, body: note(why)), issues: [why])
+            let why = problem(json)
+            let page = CanvasStates.unreadable(
+                why, file: Artifacts.projectPath(folder.appendingPathComponent("canvas.json").path), agent: view.writer)
+            return Built(html: shell(body: page), issues: ["canvas.json: " + why])
         }
+        // The board its agent saved last is the one being written, while it writes.
+        let newest =
+            view.writer == nil
+            ? nil
+            : canvas.boards.max {
+                let a = Artifacts.fileStat(folder.appendingPathComponent($0.file).path)?.mtime.tv_sec ?? 0
+                let b = Artifacts.fileStat(folder.appendingPathComponent($1.file).path)?.mtime.tv_sec ?? 0
+                return a < b
+            }?.file
         let shown: [String] =
             switch themes {
             case .light: ["light"]
@@ -49,10 +64,10 @@ enum CanvasPage {
             var frames = ""
             for board in row.boards {
                 guard let source = snapshot.boards[board.file] else {
-                    issues.append("\(board.file): no such file")
-                    frames +=
-                        "<div class=\"frame\"><div class=\"name\">\(escape(board.file))</div>"
-                        + note("\(board.file) is missing") + "</div>"
+                    if view.writer == nil { issues.append("\(board.file): no such file") }
+                    frames += CanvasStates.unwritten(
+                        board.title ?? (board.file as NSString).lastPathComponent, file: board.file,
+                        w: min(max(board.w ?? 1280, 40), 8000), h: board.h, writing: view.writer != nil)
                     continue
                 }
                 issues += lint(source, board: board.file, hasSystem: hasSystem)
@@ -61,17 +76,18 @@ enum CanvasPage {
                     let vars =
                         (theme == "dark" ? tokens.dark : tokens.light) + " " + Tweak.css(tweaks[board.file] ?? [])
                     let doc = boardPage(source, theme: theme, vars: vars, kit: kit, base: folder)
-                    frames += frame(board, theme: theme, doc: doc, dark: shown.count > 1 && theme == "dark")
+                    frames += frame(
+                        board, theme: theme, doc: doc, dark: shown.count > 1 && theme == "dark",
+                        writing: board.file == newest && theme == shown.first)
                 }
             }
             let title = row.title.map { "<h2>\(escape($0))</h2>" } ?? ""
             rows += "<section class=\"row\">\(title)<div class=\"boards\">\(frames)</div></section>"
         }
-        let empty = String(localized: "No boards yet: the agent writes them into boards/ and lists them here.")
-        let body = canvas.boards.isEmpty ? note(empty) : rows
+        let body = canvas.boards.isEmpty ? CanvasStates.empty(writer: view.writer) : rows
         let marks = CanvasMark.read(Artifacts.small(folder.appendingPathComponent(CanvasMark.file).path))
         return Built(
-            html: shell(ground, body: "<div id=\"kelp-canvas\">\(body)</div>"), issues: issues, tweaks: tweaks,
+            html: shell(body: "<div id=\"kelp-canvas\">\(body)</div>"), issues: issues, tweaks: tweaks,
             marks: marks, tokens: DesignSystem.names(tokens: tokensJSON))
     }
 
@@ -87,13 +103,18 @@ enum CanvasPage {
         """
     }
 
-    private static func frame(_ board: ArtifactCanvas.Board, theme: String, doc: String, dark: Bool) -> String {
+    private static let ring = "<span class=\"kelp-ring\"></span>"
+
+    private static func frame(
+        _ board: ArtifactCanvas.Board, theme: String, doc: String, dark: Bool, writing: Bool
+    ) -> String {
         let w = min(max(board.w ?? 1280, 40), 8000), h = board.h.map { min(max($0, 40), 8000) }
         let size = h.map { "\(w) × \($0)" } ?? "\(w)"
         let name = (board.title ?? (board.file as NSString).lastPathComponent) + " · " + size + (dark ? " · dark" : "")
         let height = h.map { " data-h=\"\($0)\"" } ?? ""
         return """
-            <div class="frame"><div class="name">\(escape(name))</div><iframe sandbox="allow-same-origin" \
+            <div class="frame"><div class="name">\(writing ? ring : "")\(escape(name))</div>\
+            <iframe sandbox="allow-same-origin" \
             data-board="\(escape(board.file))" data-theme="\(theme)" data-w="\(w)"\(height) \
             style="width: \(w)px; height: \(h ?? 600)px" srcdoc="\(escape(doc))"></iframe></div>
             """
@@ -118,30 +139,36 @@ enum CanvasPage {
         return out
     }
 
-    private static func shell(_ ground: (background: String, text: String)?, body: String) -> String {
-        let bg = ground?.background ?? "#ececec", fg = ground?.text ?? "#1d1d1f"
-        return """
-            <!doctype html><html><head><meta charset="utf-8"><style>
-            :root { color-scheme: light dark; }
-            body { margin: 0; padding: 32px 40px 80px; background: \(bg); color: \(fg);
-              font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
-            #kelp-canvas { display: flex; width: max-content; flex-direction: column; gap: 48px;
-              transform-origin: 0 0; }
-            .row h2 { font-size: calc(13px / var(--z, 1)); font-weight: 600; margin: 0 0 18px; }
-            .boards { display: flex; gap: 48px; align-items: flex-start; }
-            .frame { display: flex; flex-direction: column; gap: 6px; flex: none; }
-            .name { opacity: 0.6; font-size: calc(11px / var(--z, 1)); white-space: nowrap; }
-            iframe { border: 0; display: block; border-radius: 4px; background: #fff;
-              box-shadow: 0 0 0 0.5px rgba(0,0,0,.15), 0 1px 4px rgba(0,0,0,.18); }
-            iframe[data-theme="dark"] { background: #1c1c1e; }
-            .note { padding: 24px; opacity: 0.6; font-size: 13px; }
-            \(CanvasEdit.style)
-            \(CanvasEditMode.style)
-            </style></head><body>\(body)</body></html>
-            """
+    /// Why canvas.json doesn't read: where its JSON breaks, or that it isn't a list of boards.
+    static func problem(_ json: String) -> String {
+        do { _ = try JSONSerialization.jsonObject(with: Data(json.utf8)) } catch {
+            return ((error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String) ?? error.localizedDescription
+        }
+        return String(localized: "It isn't {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
     }
 
-    private static func note(_ text: String) -> String { "<div class=\"note\">\(escape(text))</div>" }
+    private static func shell(body: String) -> String {
+        """
+        <!doctype html><html><head><meta charset="utf-8"><style>
+        :root { color-scheme: light dark; }
+        body { margin: 0; padding: 32px 40px 80px; background: var(--k-ground); color: var(--k-label);
+          font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
+        #kelp-canvas { display: flex; width: max-content; flex-direction: column; gap: 48px;
+          transform-origin: 0 0; }
+        .row h2 { font-size: calc(13px / var(--z, 1)); font-weight: 600; margin: 0 0 18px; }
+        .boards { display: flex; gap: 48px; align-items: flex-start; }
+        .frame { display: flex; flex-direction: column; gap: 6px; flex: none; }
+        .name { opacity: 0.6; font-size: calc(11px / var(--z, 1)); white-space: nowrap; }
+        iframe { border: 0; display: block; border-radius: 4px; background: #fff;
+          box-shadow: 0 0 0 0.5px rgba(0,0,0,.15), 0 1px 4px rgba(0,0,0,.18); }
+        iframe[data-theme="dark"] { background: #1c1c1e; }
+        \(CanvasChrome.style)
+        \(CanvasStates.style)
+        \(CanvasEdit.style)
+        \(CanvasEditMode.style)
+        </style></head><body>\(body)</body></html>
+        """
+    }
 
     private static func read(_ url: URL) -> String? {
         Artifacts.small(url.path, limit: 4 << 20).map { String(decoding: $0, as: UTF8.self) }

@@ -62,6 +62,15 @@ extension MarkdownTab {
         case "present":
             presentingBoards = false
             onPresentEnded?()
+        case "themes":
+            UserDefaults.standard.set(body["value"] as? String, forKey: CanvasPage.themesKey)
+            rerender()
+        case "zoom": canvasZoom = body["value"] as? Double
+        case "source": modeSegment = 1
+        case "fixCheck": sendCheck()
+        case "fixCanvas":
+            send(
+                "\(Artifacts.projectPath(url.path)) doesn't read (\(body["why"] as? String ?? "")): fix it.", keep: nil)
         case "tweak":
             guard let board = body["board"] as? String, let name = body["name"] as? String,
                 let value = body["value"] as? String
@@ -77,18 +86,30 @@ extension MarkdownTab {
         return CanvasEdit.Labels(
             send: String(localized: "Send to \(who)"),
             pick: String(localized: "Pick"), tweaks: String(localized: "Tweaks"),
-            note: String(localized: "What should change?"), remove: String(localized: "Remove"))
+            note: String(localized: "What should change?"), remove: String(localized: "Remove"),
+            marks: String(localized: "Marks"), check: String(localized: "Check"),
+            askFix: String(localized: "Ask \(who) to Fix"),
+            noMarks: String(localized: "Click an element on a board to mark it, then say what should change."),
+            noIssues: String(localized: "No issues: nothing cut off, every text readable, every file there."),
+            of: String(localized: "of"), escEnds: String(localized: "Esc to end"))
     }
 
-    /// Mark in the bar: a click on a board puts a mark on it.
-    func toggleMarking() {
-        marking.toggle()
-        if marking, editing {
-            editing = false
-            chosen = nil
-            runJS("kelpEdit(false)")
-        }
-        runJS("kelpMark(\(marking))")
+    var canvasChromeLabels: CanvasChrome.Labels {
+        CanvasChrome.Labels(
+            light: String(localized: "Light"), dark: String(localized: "Dark"), both: String(localized: "Both"),
+            fit: String(localized: "Fit"), zoomOut: String(localized: "Smaller"), zoomIn: String(localized: "Bigger"))
+    }
+
+    /// What a click on a board does: nothing (View), put a mark on it (Mark), or choose it to change by hand (Edit).
+    enum CanvasMode: Int { case view, mark, edit }
+    var canvasMode: CanvasMode { marking ? .mark : editing ? .edit : .view }
+
+    /// The bar's View / Mark / Edit.
+    func setCanvasMode(_ mode: CanvasMode) {
+        marking = mode == .mark
+        editing = mode == .edit
+        if !editing { chosen = nil }
+        runJS("kelpEdit(\(editing)); kelpMark(\(marking))")
     }
 
     /// Present in the bar: the boards one at a time, as large as the pane.
@@ -138,30 +159,28 @@ extension MarkdownTab {
         }
     }
 
-    /// Edit in the bar: a click chooses an element to change by hand. Mark and Edit take turns.
-    func toggleEditing() {
-        editing.toggle()
-        if editing, marking {
-            marking = false
-            runJS("kelpMark(false)")
-        }
-        if !editing { chosen = nil }
-        runJS("kelpEdit(\(editing))")
-    }
-
     var canvasEditLabels: CanvasEditMode.Labels {
-        CanvasEditMode.Labels(
-            parent: String(localized: "Parent"), none: String(localized: "As drawn"),
-            noID: String(localized: "This element has no data-id: mark it and ask the agent to give it one."),
-            typeHint: String(localized: "Double-click it to change its text."))
+        [
+            "title": String(localized: "Properties"), "parent": String(localized: "Parent"),
+            "asDrawn": String(localized: "As Drawn"),
+            "noID": String(localized: "This element has no data-id: mark it and ask the agent to give it one."),
+            "typeHint": String(localized: "Double-click it to change its text."),
+            "choose": String(localized: "Click an element on a board to change its style, or double-click a text."),
+            "text": String(localized: "Text"), "layout": String(localized: "Layout"), "fill": String(localized: "Fill"),
+            "size": String(localized: "Size"), "weight": String(localized: "Weight"),
+            "colour": String(localized: "Colour"),
+            "padding": String(localized: "Padding"), "gap": String(localized: "Gap"),
+            "background": String(localized: "Background"), "radius": String(localized: "Radius")
+        ]
     }
 
     /// What's turned on again once the canvas is drawn again: marking or editing, and the element chosen.
     var canvasModeScripts: [String] {
-        if marking { return ["kelpMark(true)"] }
-        guard editing else { return [] }
+        let zoom = canvasZoom.map { ["kelpZoom(\($0))"] } ?? []
+        if marking { return zoom + ["kelpMark(true)"] }
+        guard editing else { return zoom }
         let select = chosen.map { "kelpSelect(\(Self.jsString($0.board)), \(Self.jsString($0.id)))" }
-        return ["kelpEdit(true)"] + (select.map { [$0] } ?? [])
+        return zoom + ["kelpEdit(true)"] + (select.map { [$0] } ?? [])
     }
 
     /// An older version of the canvas made the files again: each of its boards, then the canvas.

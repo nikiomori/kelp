@@ -35,13 +35,14 @@ struct CanvasMark: Codable, Equatable, Sendable {
 }
 
 /// Kelp's script for what the user does on a canvas (`MarkdownTab.world`; the boards' own don't run): marks on elements
-/// (`kelpMark(true)` from the bar; a click outlines the element, a number lands on it, a card at the foot holds the
-/// notes and sends them), Pick on each row, each board's tweaks moved live and saved, and Present (`kelpPresent(true)`:
-/// the boards one at a time, each as large as the pane; ← → step, Esc ends). To `kelpSync`: `marks` (send),
-/// `marksDraft` (keep), `pick`, `tweak`, `present` (ended).
+/// (`kelpMark(true)` from the bar; a click outlines the element, a number lands on it, the column on the right holds
+/// the notes and sends them), Pick on each row, each board's tweaks moved live and saved, and Present
+/// (`kelpPresent(true)`: the boards one at a time, each as large as the pane; ← → step, Esc ends). To `kelpSync`:
+/// `marks` (send), `marksDraft` (keep), `pick`, `tweak`, `present` (ended).
 enum CanvasEdit {
     struct Labels {
         var send: String, pick: String, tweaks: String, note: String, remove: String
+        var marks: String, check: String, askFix: String, noMarks: String, noIssues: String, of: String, escEnds: String
     }
 
     static func source(marks: [CanvasMark], tweaks: [String: [Tweak]], labels: Labels) -> String {
@@ -65,7 +66,8 @@ enum CanvasEdit {
             (function () {
               const marks = \(marksJSON), tweaks = \(tweaksJSON);
               const L = { send: \(js(l.send)), pick: \(js(l.pick)), tweaks: \(js(l.tweaks)), note: \(js(l.note)),
-                remove: \(js(l.remove)) };
+                remove: \(js(l.remove)), marks: \(js(l.marks)), check: \(js(l.check)), askFix: \(js(l.askFix)),
+                noMarks: \(js(l.noMarks)), noIssues: \(js(l.noIssues)), of: \(js(l.of)), escEnds: \(js(l.escEnds)) };
             \(body)
             })();
             """
@@ -75,11 +77,11 @@ enum CanvasEdit {
           const post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
           const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls;
             if (text != null) e.textContent = text; return e; };
-          const layer = el('div', 'kelp-layer'), outline = el('div', 'kelp-outline'), card = el('div', 'kelp-card');
+          const layer = el('div', 'kelp-layer'), outline = el('div', 'kelp-outline');
           // While marking, a sheet over the canvas takes the pointer: a board's frame runs no script, its own listeners
           // included, so what's under the pointer is asked of the frame (elementFromPoint).
           const sheet = el('div', 'kelp-sheet');
-          document.body.append(layer, sheet, card);
+          document.body.append(layer, sheet);
           layer.append(outline);
           const frames = [...document.querySelectorAll('iframe[data-board]')];
           const light = b => frames.find(f => f.dataset.board === b && f.dataset.theme !== 'dark')
@@ -89,7 +91,10 @@ enum CanvasEdit {
           const setMode = m => {
             mode = m; outline.style.display = 'none'; sheet.style.display = m ? 'block' : 'none';
           };
-          window.kelpMark = on => setMode(on ? 'mark' : mode === 'mark' ? null : mode);
+          window.kelpMark = on => {
+            setMode(on ? 'mark' : mode === 'mark' ? null : mode);
+            if (on) draw(); else if (mode !== 'edit') window.kelpColumn?.close();
+          };
           const pointed = e => e.closest('[data-id]') || e;
           const describe = e => {
             const d = e.closest('[data-id]');
@@ -112,34 +117,63 @@ enum CanvasEdit {
             return e ? { f, e } : null;
           }
           const keep = () => post({ kind: 'marksDraft', marks: marks });
+          // Pins on the boards; while marking, the column lists the marks (each with its note) or the check's findings.
+          let tab = 'marks';
           function draw() {
             for (const p of layer.querySelectorAll('.kelp-pin')) p.remove();
             marks.forEach((m, i) => {
               const at = find(m); if (!at) return;
               const b = box(at.f, at.e), pin = el('div', 'kelp-pin', String(i + 1));
-              Object.assign(pin.style, { left: (b.x + b.w - 10) + 'px', top: (b.y - 10) + 'px' });
+              Object.assign(pin.style, { left: (b.x + b.w - 9) + 'px', top: (b.y - 9) + 'px' });
               layer.append(pin);
             });
-            card.replaceChildren();
-            card.style.display = marks.length ? 'flex' : 'none';
+            if (mode !== 'mark' || !window.kelpColumn) return;
+            const issues = window.kelpIssues || [], seg = el('span', 'kelp-seg');
+            const tabs = [['marks', L.marks + ' ' + marks.length], ['check', L.check + ' ' + issues.length]];
+            for (const [key, name] of tabs) {
+              const b = el('button', key === tab ? 'on' : '', name);
+              b.onclick = () => { tab = key; draw(); };
+              seg.append(b);
+            }
+            window.kelpColumn.open([seg], tab === 'marks' ? markRows() : checkRows(issues));
+          }
+          function markRows() {
+            if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];
+            const rows = [];
             marks.forEach((m, i) => {
-              const row = el('div', 'kelp-mark');
-              const note = el('input'); note.placeholder = L.note; note.value = m.note;
+              const head = el('div', 'kelp-row'), x = el('button', 'kelp-ib', '×');
+              x.title = L.remove;
+              x.onclick = () => { marks.splice(i, 1); keep(); draw(); };
+              head.append(el('span', 'kelp-num', String(i + 1)), el('span', 'kelp-grow kelp-what', m.target
+                + (m.text ? ' «' + m.text + '»' : '')), x);
+              const note = el('input', 'kelp-field'), line = el('div', 'kelp-row kelp-indent');
+              note.placeholder = L.note; note.value = m.note;
               note.addEventListener('change', () => { m.note = note.value; keep(); });
               note.addEventListener('keydown', e => { if (e.key === 'Enter') note.blur(); });
-              const x = el('button', 'kelp-x', '×'); x.title = L.remove;
-              x.onclick = () => { marks.splice(i, 1); keep(); draw(); };
-              const what = el('span', 'kelp-what', m.target + (m.text ? ' «' + m.text + '»' : ''));
-              row.append(el('b', null, String(i + 1)), what, note, x);
-              card.append(row);
+              line.append(note);
+              rows.push(head, line);
             });
-            if (marks.length) {
-              const send = el('button', 'kelp-send', L.send);
-              send.onclick = () => { for (const i of card.querySelectorAll('input')) i.blur();
-                post({ kind: 'marks', marks: marks }); marks.length = 0; draw(); };
-              card.append(send);
-            }
+            const send = el('button', 'kelp-prominent', L.send), foot = el('div', 'kelp-row kelp-end');
+            send.onclick = () => {
+              for (const i of document.querySelectorAll('.kelp-col input')) i.blur();
+              post({ kind: 'marks', marks: marks }); marks.length = 0; draw();
+            };
+            foot.append(send);
+            return [...rows, foot];
           }
+          function checkRows(issues) {
+            if (!issues.length) return [el('p', 'kelp-note', L.noIssues)];
+            const rows = issues.map(t => {
+              const r = el('div', 'kelp-row kelp-issue');
+              r.append(el('span', 'kelp-mark-warn', '!'), el('span', 'kelp-grow', t));
+              return r;
+            });
+            const fix = el('button', 'kelp-pill', L.askFix), foot = el('div', 'kelp-row kelp-end');
+            fix.onclick = () => post({ kind: 'fixCheck' });
+            foot.append(fix);
+            return [...rows, foot];
+          }
+          addEventListener('kelp-check', draw);
           function under(e, raw) {
             for (const f of frames) {
               const r = f.getBoundingClientRect(), k = r.width / f.offsetWidth, doc = f.contentDocument;
@@ -158,8 +192,8 @@ enum CanvasEdit {
           sheet.addEventListener('click', e => {
             const at = mode === 'mark' && under(e); if (!at) return;
             marks.push(Object.assign({ board: at.f.dataset.board, note: '' }, describe(at.e)));
-            keep(); draw();
-            const inputs = card.querySelectorAll('input'); inputs[inputs.length - 1]?.focus();
+            tab = 'marks'; keep(); draw();
+            const inputs = document.querySelectorAll('.kelp-col input'); inputs[inputs.length - 1]?.focus();
           });
           for (const f of frames) f.addEventListener('load', draw);
           window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode };
@@ -187,7 +221,7 @@ enum CanvasEdit {
                 c.oninput = () => set(t, c.value, false); c.onchange = () => set(t, c.value, true);
                 line.append(c);
               } else {
-                const seg = el('span', 'kelp-seg');
+                const seg = el('span', 'kelp-tseg');
                 for (const o of t.options) {
                   const b = el('button', o === t.value ? 'on' : '', o);
                   b.onclick = () => {
@@ -202,11 +236,30 @@ enum CanvasEdit {
             }
           }
           const slides = [...new Set(frames.map(f => f.dataset.board))].map(light);
-          let at = -1;
+          let at = -1, quiet = null;
+          // A strip at the foot while presenting: where you are, ‹ ›, and how to end; it fades when the pointer rests.
+          const strip = el('div', 'kelp-strip');
+          const back = el('button', 'kelp-ib', '‹'), next = el('button', 'kelp-ib', '›');
+          const where = el('span', 'kelp-where');
+          back.onclick = () => { at = Math.max(at - 1, 0); present(); };
+          next.onclick = () => { at = Math.min(at + 1, slides.length - 1); present(); };
+          strip.append(back, where, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));
+          document.body.append(strip);
+          const wake = () => {
+            strip.classList.add('on'); clearTimeout(quiet);
+            quiet = setTimeout(() => strip.classList.remove('on'), 2000);
+          };
+          addEventListener('mousemove', () => { if (at >= 0) wake(); });
           function present() {
             slides.forEach((f, i) => f.closest('.frame').classList.toggle('kelp-current', i === at));
             const f = slides[at];
-            if (f) f.style.transform = 'scale(' + Math.min(innerWidth / f.offsetWidth, innerHeight / f.offsetHeight) + ')';
+            const fits = f && Math.min(innerWidth / f.offsetWidth, (innerHeight - 64) / f.offsetHeight);
+            if (f) f.style.transform = 'scale(' + fits + ')';
+            if (f) {
+              const name = (f.closest('.frame').querySelector('.name')?.firstChild?.textContent || '').split(' · ')[0];
+              where.textContent = name + ' · ' + (at + 1) + ' ' + L.of + ' ' + slides.length;
+              wake();
+            }
           }
           window.kelpPresent = on => {
             at = on ? 0 : -1;
@@ -228,47 +281,59 @@ enum CanvasEdit {
           draw();
         """
 
-    /// The style of what Kelp puts on the canvas (pins, the card, Pick, tweaks).
+    /// The style of what Kelp puts on the canvas (pins, the column's rows, Pick, tweaks, the strip while presenting).
     static let style = """
         .kelp-layer { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 10; }
         .kelp-sheet { position: fixed; inset: 0; display: none; cursor: crosshair; z-index: 15; }
-        .kelp-outline { position: absolute; display: none; border: 1.5px solid #f08a24; border-radius: 3px; }
-        .kelp-pin { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #f08a24;
-          color: #1a1a1a;
-          font: 700 11px/20px -apple-system, sans-serif; text-align: center; box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
-        .kelp-card { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, 90vw);
-          display: none; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; z-index: 20;
-          background: rgba(40,41,44,.96); color: #ececec; box-shadow: 0 8px 24px rgba(0,0,0,.35);
-          font: 12px/1.4 -apple-system, sans-serif; }
-        .kelp-mark { display: flex; gap: 8px; align-items: center; }
-        .kelp-mark b { color: #f08a24; min-width: 14px; }
-        .kelp-what { opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
-        .kelp-mark input { flex: 1; min-width: 0; font: inherit; color: inherit; background: rgba(255,255,255,.08);
-          border: 0; border-radius: 5px; padding: 4px 6px; }
-        .kelp-x { border: 0; background: none; color: inherit; opacity: .6; font-size: 15px; }
-        .kelp-send { align-self: flex-end; border: 0; border-radius: 6px; padding: 5px 12px; background: #2f7d5c;
-          color: #fff; font: 600 12px -apple-system, sans-serif; }
-        .kelp-pick, .kelp-tweaks { margin-left: 10px; border: 0; border-radius: 5px; padding: 1px 8px; font: inherit;
-          font-weight: 500; background: rgba(127,127,127,.18); color: inherit; opacity: 0; }
+        .kelp-with-col .kelp-sheet { right: 260px; }
+        .kelp-outline { position: absolute; display: none; border: 1.5px solid var(--k-orange); border-radius: 3px; }
+        .kelp-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--k-orange);
+          color: #1d1d1f; font: 600 10px/18px -apple-system, sans-serif; text-align: center;
+          box-shadow: 0 0 0 2px var(--k-card); }
+        .kelp-num { width: 16px; height: 16px; border-radius: 50%; background: var(--k-orange); color: #1d1d1f;
+          font: 600 10px/16px -apple-system, sans-serif; text-align: center; }
+        .kelp-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .kelp-indent { padding-left: 36px; padding-top: 0; }
+        .kelp-end { justify-content: flex-end; padding-top: 10px; }
+        .kelp-field { flex: 1; min-width: 0; height: 22px; box-sizing: border-box; padding: 0 7px; border: 0;
+          border-radius: 6px; background: var(--k-card); color: var(--k-label); font: inherit;
+          box-shadow: inset 0 0 0 1px var(--k-sep); }
+        .kelp-issue { align-items: flex-start; }
+        .kelp-mark-warn { width: 14px; height: 14px; border-radius: 4px; color: var(--k-text-orange);
+          font: 700 10px/14px -apple-system, sans-serif; text-align: center;
+          box-shadow: 0 0 0 1px var(--k-orange); margin-top: 1px; }
+        .kelp-pick, .kelp-tweaks { margin-left: 10px; border: 0; border-radius: 999px; padding: 1px 8px; font: inherit;
+          font-weight: 500; background: var(--k-rest); color: inherit; opacity: 0; }
         .row h2:hover .kelp-pick, .kelp-tweaks { opacity: 1; }
         .kelp-panel { display: none; gap: 14px; flex-wrap: wrap; padding: 6px 0 4px; font-size: 11px; }
         .kelp-panel.open { display: flex; }
         .kelp-panel label { display: flex; gap: 6px; align-items: center; }
         .kelp-panel input[type=color] { width: 22px; height: 18px; border: 0; padding: 0; background: none; }
-        .kelp-seg { display: inline-flex; border-radius: 5px; background: rgba(127,127,127,.15); padding: 1px; }
-        .kelp-seg button { border: 0; background: none; color: inherit; font: inherit; padding: 1px 7px;
-          border-radius: 4px; }
-        .kelp-seg button.on { background: rgba(127,127,127,.35); }
+        .kelp-tseg { display: inline-flex; border-radius: 999px; background: var(--k-rest); padding: 1px; }
+        .kelp-tseg button { border: 0; background: none; color: inherit; font: inherit; padding: 1px 7px;
+          border-radius: 999px; }
+        .kelp-tseg button.on { background: var(--k-card); box-shadow: 0 .5px 2px rgba(0,0,0,.12); }
+        .kelp-strip { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: none;
+          align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 999px; opacity: 0;
+          background: rgba(40,40,40,.85); color: rgba(255,255,255,.85); font: 12px -apple-system, sans-serif;
+          transition: opacity .17s ease-in; }
+        .kelp-present .kelp-strip { display: flex; }
+        .kelp-strip.on { opacity: 1; transition: opacity .12s ease-out; }
+        .kelp-strip .kelp-ib { color: inherit; }
+        .kelp-strip .kelp-sep { background: rgba(255,255,255,.2); }
+        .kelp-where { font-variant-numeric: tabular-nums; }
+        .kelp-esc { color: rgba(255,255,255,.6); }
         .kelp-present { overflow: hidden; }
         .kelp-present #kelp-canvas { transform: none !important; }
-        .kelp-present .row h2, .kelp-present .name, .kelp-present .kelp-card, .kelp-present .kelp-layer,
+        .kelp-present .row h2, .kelp-present .name, .kelp-present .kelp-layer,
           .kelp-present .kelp-panel, .kelp-present .frame { display: none !important; }
         .kelp-present .frame.kelp-current { display: flex !important; position: fixed; inset: 0; z-index: 30;
-          align-items: center; justify-content: center; background: #000; }
+          align-items: center; justify-content: center; background: #000; padding-bottom: 64px;
+          box-sizing: border-box; }
         .kelp-present .kelp-current iframe { flex: none; box-shadow: none; border-radius: 0; }
         @media print {
           #kelp-canvas { transform: none !important; }
-          .name, .kelp-pick, .kelp-tweaks, .kelp-card, .kelp-layer, .kelp-panel,
+          .name, .kelp-pick, .kelp-tweaks, .kelp-layer, .kelp-panel, .kelp-col, .kelp-float, .kelp-issues,
             .frame:has(iframe[data-theme="dark"]) { display: none !important; }
           .frame { break-after: page; }
         }

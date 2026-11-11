@@ -27,7 +27,7 @@ private func demo() throws -> (root: URL, folder: URL) {
     let json =
         #"{"boards": [{"file": "boards/A.html", "row": "A. One", "w": 390, "h": 844}, {"file": "boards/B.html"}]}"#
     let page = CanvasPage.build(
-        CanvasSnapshot.live(json: json, folder: folder), folder: folder, root: root.path, themes: .both, ground: nil)
+        CanvasSnapshot.live(json: json, folder: folder), folder: folder, root: root.path, view: .init(themes: .both))
     #expect(page.html.components(separatedBy: "<iframe").count - 1 == 2, "A in light and dark; B is missing")
     #expect(page.html.contains("data-theme=\"dark\"") && page.html.contains("--bg: #111111;"))
     #expect(page.html.contains("--gap: 8px;"), "the board's tweaks are set on its page")
@@ -36,7 +36,7 @@ private func demo() throws -> (root: URL, folder: URL) {
     #expect(page.issues.contains("boards/B.html: no such file"))
     #expect(page.issues.contains("boards/A.html: 1 colours typed in; use the tokens (var(--name))"))
     let light = CanvasPage.build(
-        CanvasSnapshot.live(json: json, folder: folder), folder: folder, root: root.path, themes: .light, ground: nil)
+        CanvasSnapshot.live(json: json, folder: folder), folder: folder, root: root.path, view: .init(themes: .light))
     #expect(light.html.components(separatedBy: "<iframe").count - 1 == 1)
 }
 
@@ -44,8 +44,8 @@ private func demo() throws -> (root: URL, folder: URL) {
     let (root, folder) = try demo()
     defer { try? FileManager.default.removeItem(at: root) }
     let page = CanvasPage.build(
-        CanvasSnapshot.live(json: "{", folder: folder), folder: folder, root: root.path, themes: .both, ground: nil)
-    #expect(page.issues.first?.hasPrefix("canvas.json doesn't read") == true)
+        CanvasSnapshot.live(json: "{", folder: folder), folder: folder, root: root.path, view: .init(themes: .both))
+    #expect(page.issues.first?.hasPrefix("canvas.json: ") == true && page.html.contains("data-kelp=\"fixCanvas\""))
     #expect(CanvasPage.lint("<html><body><script>x()</script>", board: "b", hasSystem: false).count == 2)
     let figures = #"<b data-value data-source="gh run list, today">42</b> <b class="n" data-value>7</b>"#
     #expect(
@@ -72,7 +72,21 @@ private func demo() throws -> (root: URL, folder: URL) {
     let then = CanvasSnapshot(canvas: json, boards: ["boards/A.html": "<p>Then</p>"])
     let kept = try #require(then.data.map { String(decoding: $0, as: UTF8.self) })
     let page = CanvasPage.build(
-        try #require(CanvasSnapshot.read(kept)), folder: folder, root: root.path, themes: .light, ground: nil)
+        try #require(CanvasSnapshot.read(kept)), folder: folder, root: root.path, view: .init(themes: .light))
     #expect(page.html.contains("&lt;p&gt;Then&lt;/p&gt;") && !page.html.contains("Hi &amp;amp;"))
     #expect(CanvasSnapshot.live(json: json, folder: folder).boards["boards/A.html"]?.contains("Hi & ") == true)
+}
+
+@Test func whileItsAgentWritesABoardNotThereYetIsAFrameOfItsSize() throws {
+    let (root, folder) = try demo()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let json = #"{"boards": [{"file": "boards/A.html", "w": 390}, {"file": "boards/B.html", "w": 600, "h": 400}]}"#
+    let live = CanvasSnapshot.live(json: json, folder: folder)
+    let writing = CanvasPage.build(live, folder: folder, root: root.path, view: .init(themes: .light, writer: "Codex"))
+    #expect(writing.html.contains("kelp-skel") && writing.html.contains("width: 600px; height: 400px"))
+    #expect(!writing.issues.contains("boards/B.html: no such file") && writing.html.contains("kelp-ring"))
+    let empty = CanvasPage.build(
+        CanvasSnapshot.live(json: ArtifactCanvas.empty, folder: folder), folder: folder, root: root.path,
+        view: .init(themes: .light, writer: "Codex"))
+    #expect(empty.html.contains("Codex is writing the first one"))
 }

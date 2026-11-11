@@ -74,7 +74,8 @@ final class FileTab: SavableTab {
     var icon: NSImage? {
         gone
             ? .symbol("exclamationmark.triangle", String(localized: "Moved or deleted"))
-            : app.fileIcons.image(url.lastPathComponent)
+            : markdown?.page == .canvas
+                ? .symbol("square.grid.2x2", String(localized: "Design")) : app.fileIcons.image(url.lastPathComponent)
     }
     var toolTip: String? {
         gone ? String(localized: "\(path) was moved or deleted. ⌘S asks before writing it there again.") : path

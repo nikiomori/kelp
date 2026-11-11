@@ -77,6 +77,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// and data-id), chosen again once the canvas is drawn again.
     var editing = false
     var chosen: (board: String, id: String)?
+    /// A canvas: its size set by hand (nil: fitted), and the agent writing it now (its board gets the ring).
+    var canvasZoom: Double?
+    var canvasWriter: String? {
+        didSet { if canvasWriter != oldValue, page == .canvas { rerender() } }
+    }
     var onPresentEnded: (() -> Void)?
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
@@ -349,8 +354,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 page = (colors.background.hexString, colors.text.hexString)
             }
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, marking = marking
-            let editLabels = canvasEditLabels, again = canvasModeScripts
-            let themes = CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
+            let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
+            let themes =
+                CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
+                ?? (dark ? .dark : .light)
+            let canvasView = CanvasPage.View(themes: themes, writer: canvasWriter)
             // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
             // Kelp's do, beside it.
             let ask =
@@ -361,12 +369,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 if kind == .canvas {
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
                     let built = CanvasPage.build(
-                        snapshot, folder: base, root: Self.projectRoot(of: base.path), themes: themes ?? .both,
-                        ground: page
-                    )
+                        snapshot, folder: base, root: Self.projectRoot(of: base.path), view: canvasView)
+                    let around = CanvasChrome.source(themes: themes.rawValue, labels: chrome)
                     let edit = CanvasEdit.source(marks: built.marks, tweaks: built.tweaks, labels: labels)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
-                    return (built.html, [CanvasScript.source(issues: built.issues), edit, byHand] + again)
+                    return (built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + again)
                 }
                 if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)

@@ -35,10 +35,10 @@ final class ArtifactBar: NSObject {
     /// What its chat spent on it (Claude Code's): calls and dollars, quiet.
     private let spent = NSTextField(labelWithString: "")
     private var spentAt: Double?
-    /// A canvas's Mark: a click on a board puts a mark on it, for the agent.
-    private let mark = PointerButton()
-    /// A canvas's Edit: a click chooses an element to change by hand (its style, its text).
-    private let byHand = PointerButton()
+    /// A canvas's View / Mark / Edit: what a click on a board does (nothing, a mark for the agent, a change by hand).
+    private let modes = NSSegmentedControl(
+        labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
+        trackingMode: .selectOne, target: nil, action: nil)
     /// A canvas's Present: its boards one at a time, as large as the pane (a deck's slides).
     private let present = PointerButton()
     private var issues: [String] = []
@@ -88,20 +88,17 @@ final class ArtifactBar: NSObject {
         spent.font = .uiDigits(TextSize.row)
         spent.textColor = .secondaryLabelColor
         spent.isHidden = true
-        mark.font = .ui(TextSize.row)
-        mark.padding = Metrics.gap
-        mark.restFill = .fillRest
-        mark.toolTip = String(localized: "Click elements on the boards to mark them, then send your notes to the agent")
-        mark.isHidden = markdown.page != .canvas
-        mark.onClick = { [weak self] in self?.toggleMarking() }
-        byHand.font = .ui(TextSize.row)
-        byHand.padding = Metrics.gap
-        byHand.restFill = .fillRest
-        byHand.toolTip = String(
-            localized: "Choose an element to change its style, or double-click its text to type over it")
-        byHand.isHidden = markdown.page != .canvas
-        byHand.onClick = { [weak self] in self?.toggleEditing() }
-        showModes()
+        modes.controlSize = .small
+        modes.font = .ui(TextSize.row)
+        modes.selectedSegment = markdown.canvasMode.rawValue
+        modes.setToolTip(String(localized: "Look at the boards"), forSegment: 0)
+        modes.setToolTip(
+            String(localized: "Click elements to mark them, then send your notes to the agent"), forSegment: 1)
+        modes.setToolTip(
+            String(localized: "Click an element to change its style, double-click a text to retype it"), forSegment: 2)
+        modes.target = self
+        modes.action = #selector(modeChosen)
+        modes.isHidden = markdown.page != .canvas
         present.font = .ui(TextSize.row)
         present.padding = Metrics.gap
         present.restFill = .fillRest
@@ -112,7 +109,7 @@ final class ArtifactBar: NSObject {
         markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }
         return Bar.content(
             [kind, ring, status],
-            [spent, latest, restore, present, byHand, mark, check, back, count, forward, author, more],
+            [spent, latest, restore, modes, present, check, back, count, forward, author, more],
             stretching: status
         )
     }()
@@ -129,6 +126,7 @@ final class ArtifactBar: NSObject {
         workspace = app.worktree(holding: real)?.id
         super.init()
         markdown.onCheck = { [weak self] in self?.show(check: $0) }
+        if markdown.page == .canvas { nameFromRecord() }
         watched.key = workspace
         track(owner: self) { [app, workspace] in
             app.latest(ArtifactsEvent.self, workspace ?? "")?.items
@@ -180,6 +178,7 @@ final class ArtifactBar: NSObject {
         }   // gone, or now the latest
         let writing =
             session?.status == .working && (item?.modified).map { Date().timeIntervalSince1970 - $0 < 120 } == true
+        if markdown.page == .canvas { markdown.canvasWriter = writing ? app.catalog.name(session?.agent) : nil }
         if shown != nil {
             status.stringValue = String(localized: "An older version, from \(Self.time(entries[shown ?? 0].at))")
         } else {
@@ -292,20 +291,21 @@ final class ArtifactBar: NSObject {
         present.title = markdown.presentingBoards ? String(localized: "Stop Presenting") : String(localized: "Present")
     }
 
-    private func toggleMarking() {
-        markdown.toggleMarking()
-        showModes()
+    @objc private func modeChosen() {
+        markdown.setCanvasMode(MarkdownTab.CanvasMode(rawValue: modes.selectedSegment) ?? .view)
     }
 
-    private func toggleEditing() {
-        markdown.toggleEditing()
-        showModes()
-    }
-
-    /// Mark and Edit take turns: each says whether it's on.
-    private func showModes() {
-        mark.title = markdown.marking ? String(localized: "Done Marking") : String(localized: "Mark")
-        byHand.title = markdown.editing ? String(localized: "Done Editing") : String(localized: "Edit")
+    /// A canvas outside the workspace's list (opened from elsewhere) is named by its own record, as one in it is.
+    private func nameFromRecord() {
+        let record = (path as NSString).deletingLastPathComponent + "/artifact.json"
+        Task {
+            guard item == nil, let file = await app.quiet(FilesRead(path: record)) else { return }
+            let saved: ArtifactRecord
+            do { saved = try Artifacts.decoder.decode(ArtifactRecord.self, from: Data(file.text.utf8)) } catch {
+                return
+            }
+            if item == nil, !saved.title.isEmpty { markdown.onPageTitle?(saved.title) }
+        }
     }
 
     private func showCheck() {
@@ -333,21 +333,6 @@ final class ArtifactBar: NSObject {
             let item = menu.add(title) { md.modeSegment = mode }
             item.state = md.modeSegment == mode ? .on : .off
             item.isEnabled = md.shownVersion == nil   // an older version is only read
-        }
-        if md.page == .canvas {
-            menu.addItem(.separator())
-            let shown = UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? CanvasPage.Themes.both.rawValue
-            let names = [
-                CanvasPage.Themes.both: String(localized: "Light and Dark"), .light: String(localized: "Light Only"),
-                .dark: String(localized: "Dark Only")
-            ]
-            for theme in CanvasPage.Themes.allCases {
-                let item = menu.add(names[theme] ?? theme.rawValue) {
-                    UserDefaults.standard.set(theme.rawValue, forKey: CanvasPage.themesKey)
-                    md.rerender()
-                }
-                item.state = shown == theme.rawValue ? .on : .off
-            }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
