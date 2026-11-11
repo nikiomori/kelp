@@ -530,3 +530,46 @@ import WorkbenchKit
     let look = tab.pointerLook(.click, ref: "e2", .object([:]))
     #expect(look["label"] as? String == "Agent · clicks “Save”")
 }
+
+/// The address bar completes from the pages visited: to the site while no "/" is typed, the page after it, and the
+/// completed address goes back to the scheme it was visited with.
+@Test func browserHistoryCompletesTheAddress() {
+    let urls = ["https://github.com/kelp/pulls", "http://www.intranet.test/wiki", "https://gitlab.com/"]
+    #expect(BrowserHistory.completion("git", in: urls) == "hub.com")
+    #expect(BrowserHistory.completion("github.com/k", in: urls) == "elp/pulls")
+    #expect(BrowserHistory.completion("intr", in: urls) == "anet.test")
+    #expect(BrowserHistory.completion("https://gitl", in: urls) == "ab.com")
+    #expect(BrowserHistory.completion("g", in: urls) == nil && BrowserHistory.completion("nothing", in: urls) == nil)
+    #expect(BrowserHistory.completion("github.com", in: urls) == nil)   // typed out: nothing left to add
+    #expect(BrowserHistory.address(for: "intranet.test", in: urls) == "http://www.intranet.test")
+    #expect(BrowserHistory.address(for: "github.com/kelp/pulls", in: urls) == "https://github.com/kelp/pulls")
+    #expect(BrowserHistory.address(for: "example.org", in: urls) == "example.org")
+}
+
+/// A window the user's page opens comes up as a tab of its own holding the web view WebKit made, so the page it opened
+/// keeps its `window.opener` (a sign-in popup posts back to it).
+@MainActor @Test(.timeLimit(.minutes(1))) func browserOpensAPagesWindowAsATab() async throws {
+    let app = AppModel()
+    let tab = BrowserTab(uri: "about:blank#opener", app: app)
+    tab.web.loadHTMLString("<p>opener</p>", baseURL: URL(string: "https://example.com/"))
+    #expect(try await waitFor(5) { !tab.web.isLoading && tab.web.url != nil })
+    BrowserTab.opened = [:]
+    _ = try await tab.web.evaluateJavaScript("window.open('about:blank', '_blank'); 1")
+    #expect(try await waitFor(5) { !BrowserTab.opened.isEmpty })
+    let (key, popup) = try #require(BrowserTab.opened.first)
+    let opened = BrowserTab(uri: key, app: app)
+    #expect(opened.web === popup && BrowserTab.opened.isEmpty)
+    #expect(try await opened.web.evaluateJavaScript("window.opener !== null") as? Bool == true)
+}
+
+/// A local address that failed loads again by itself once the screen serves its port.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserRetriesWhenTheDevServerStarts() async throws {
+    let app = AppModel()
+    app.workbench.workspaceId = "w1"
+    let tab = BrowserTab(uri: "http://localhost:9/app", app: app)
+    #expect(try await waitFor(10) { tab.loadError != nil })
+    #expect(tab.uri == "http://localhost:9/app")   // not the error page's about:blank
+    tab.loadError = nil
+    app.watched(PortsEvent(worktree: "w1", ports: [.init(port: 9, pid: 1, command: "vite", session: "s1")]))
+    #expect(try await waitFor(10) { tab.loadError != nil })   // it tried again (and the port is still closed)
+}

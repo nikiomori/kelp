@@ -15,23 +15,35 @@ extension BrowserTab: WKUIDelegate {
         return agent || Date().timeIntervalSince(drive.drivenAt) < 600
     }
 
+    /// Windows the user's pages opened, until their tab takes them (`BrowserTab.init`), by the tab's address.
+    static var opened: [String: WKWebView] = [:]
+
     /// A link to a new window (`target=_blank`, `window.open`), which WebKit dropped without this. The user's page opens
-    /// it in a tab beside; a page an agent drives (one page each) goes there itself, so the agent sees where it led.
-    /// Limit: the new tab has no `window.opener`, so a sign-in popup that posts back to its opener doesn't finish there;
-    /// that needs the web view WebKit configured handed to a tab.
+    /// it in a tab beside, the web view WebKit made: it keeps `window.opener`, so a sign-in popup posts back and closes.
+    /// A page an agent drives (one page each) goes there itself, so the agent sees where it led.
     func webView(
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        guard let url = navigationAction.request.url else { return nil }
         if agent || agentAnswers {
             webView.load(navigationAction.request)
-        } else if ["http", "https"].contains(url.scheme?.lowercased()) {
-            app.workbench.open(url.absoluteString)
-        } else {
-            PreviewLinks.openOutside(url)   // mail goes out, the rest is refused with a banner
+            return nil
         }
-        return nil
+        if let url = navigationAction.request.url, !["http", "https", "about"].contains(url.scheme?.lowercased()) {
+            PreviewLinks.openOutside(url)   // mail goes out, the rest is refused with a banner
+            return nil
+        }
+        configuration.userContentController = WKUserContentController()   // the opener's holds its own tab's handlers
+        let popup = WKWebView(frame: .zero, configuration: configuration)
+        let key = "about:blank#opened-\(UUID().uuidString.prefix(6))"
+        Self.opened[key] = popup
+        app.workbench.open(key)
+        return popup
+    }
+
+    /// The page closed its window (`window.close()`, a sign-in popup that's done): its tab goes.
+    func webViewDidClose(_ webView: WKWebView) {
+        app.workbench.closeTab(uri: uri, remember: false)
     }
 
     func webView(

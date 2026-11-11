@@ -38,6 +38,16 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored private var watches: [NSKeyValueObservation] = []
     /// ⌘F's card (BrowserFind.swift), made the first time.
     @ObservationIgnored var finding: FindCard?
+    /// The workspace's servers while a local address failed: the page loads again once its port is served.
+    @ObservationIgnored private lazy var serving = Watched(.ports, in: app)
+    /// How far the page has loaded, as a line under the bar while it loads.
+    @ObservationIgnored private let progress = NSView()
+    @ObservationIgnored private lazy var progressWidth = progress.widthAnchor.constraint(equalToConstant: 0)
+    /// The page's size, set by the user (⋯ › Page Size) or the agent (`kelp browser viewport`): the page sits at the
+    /// pane's top, in the middle, at that size; nil fills the pane (`placeWeb`).
+    @ObservationIgnored var viewport: CGSize?
+    /// The user's typing in the address bar removed text: no completion is offered for it.
+    @ObservationIgnored private var deleting = false
     private let back = IconButton(.symbol("chevron.left"), tip: String(localized: "Back"), target: nil, action: nil)
     private let forward = IconButton(
         .symbol("chevron.right"), tip: String(localized: "Forward"), target: nil, action: nil)
@@ -81,7 +91,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if agent { cfg.websiteDataStore = .nonPersistent() }
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
-        web = WKWebView(frame: .zero, configuration: cfg)
+        // A window the user's page opened (BrowserDialogs.swift): WebKit made it, with the opener's cookies and a
+        // `window.opener`, and is loading it already.
+        let opened = BrowserTab.opened.removeValue(forKey: start)
+        web = opened ?? WKWebView(frame: .zero, configuration: cfg)
         web.allowsBackForwardNavigationGestures = true
         web.isInspectable = true
         func b(_ sym: String, _ tip: String) -> NSButton {
@@ -107,6 +120,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
         body.pin(ports)
+        progress.wantsLayer = true
+        progress.layer?.backgroundColor = NSColor.themeAccent.cgColor
+        progress.alphaValue = 0
+        progress.translatesAutoresizingMaskIntoConstraints = false
+        body.addSubview(progress)
         let box = BrowserBox()
         box.pin(stacked(bar, agentSlot, body))
         view = box
@@ -127,6 +145,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             web.leadingAnchor.constraint(greaterThanOrEqualTo: body.leadingAnchor), middle
         ]
         NSLayoutConstraint.activate(webFill)
+        NSLayoutConstraint.activate([
+            progress.topAnchor.constraint(equalTo: body.topAnchor),
+            progress.leadingAnchor.constraint(equalTo: body.leadingAnchor),
+            progress.heightAnchor.constraint(equalToConstant: 2), progressWidth
+        ])
         ports.onOpen = { [weak self] u in self?.load(u) }
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -148,7 +171,29 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         designButton.target = self
         designButton.action = #selector(toggleDesign)
         if agent { watch() }
-        load(start)
+        track(owner: self) { [weak self] in
+            self?.failedServed ?? false
+        } changed: { [weak self] served in
+            if served { self?.reloadPage() }
+        }
+        if opened == nil {
+            load(start)
+        } else {
+            ports.isHidden = true
+            showPage()
+        }
+    }
+
+    /// The local address that failed is served now (its dev server started in this screen).
+    private var failedServed: Bool {
+        guard let failed, let port = failed.port, Self.isLocal(failed), let wid = serving.key else { return false }
+        // A remote project's port is served here once forwarded (`here`).
+        return app.latest(PortsEvent.self, wid)?.ports.contains { ($0.host == nil ? $0.port : $0.here) == port } == true
+    }
+
+    static func isLocal(_ url: URL) -> Bool {
+        ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].contains(url.host?.lowercased() ?? "")
+            || url.host?.hasSuffix(".localhost") == true
     }
 
     /// Shows the agent's strip (an agent drove the page) in its current state.
@@ -171,7 +216,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             (takenOver
                 ? String(localized: "You took this page over: the agent waits until you hand it back")
                 : String(localized: "An agent is using this page"))
-            + (drive?.viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
+            + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
         agentButton.title = takenOver ? String(localized: "Hand Back") : String(localized: "Take Over")
         agentButton.toolTip =
             takenOver
@@ -188,7 +233,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     func placeWeb() {
         NSLayoutConstraint.deactivate(webFill + webFixed)
         webFixed.removeSubrange(3...)
-        if let viewport = drive?.viewport {
+        if let viewport {
             webFixed += [
                 web.widthAnchor.constraint(equalToConstant: viewport.width),
                 web.heightAnchor.constraint(equalToConstant: viewport.height)
@@ -210,6 +255,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             },
             web.observe(\.canGoForward) { [weak self] _, _ in MainActor.assumeIsolated { self?.showButtons() } },
             web.observe(\.isLoading) { [weak self] _, _ in MainActor.assumeIsolated { self?.showButtons() } },
+            web.observe(\.estimatedProgress) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.showProgress() }
+            },
             web.observe(\.url) { [weak self] _, _ in MainActor.assumeIsolated { self?.showPage() } },
             web.observe(\.title) { [weak self] _, _ in MainActor.assumeIsolated { self?.showPage() } }
         ]
@@ -220,6 +268,18 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         forward.isEnabled = web.canGoForward
         reload.image = .symbol(web.isLoading ? "xmark" : "arrow.clockwise")
         reload.toolTip = web.isLoading ? String(localized: "Stop Loading") : String(localized: "Reload (⌘R)")
+        showProgress()
+    }
+
+    /// The line grows as the page loads and fades once it has.
+    private func showProgress() {
+        let width = progress.superview?.bounds.width ?? 0, loading = web.isLoading
+        if loading, progress.alphaValue == 0 { progressWidth.constant = 0 }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = loading ? Motion.fast : Motion.disappear
+            progressWidth.animator().constant = width * (loading ? web.estimatedProgress : 1)
+            progress.animator().alphaValue = loading && web.estimatedProgress < 1 ? 1 : 0
+        }
     }
 
     /// The page's address and title in the bar and the tab; the bar keeps what the user is typing in it.
@@ -243,6 +303,24 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         } else {
             web.reload()
         }
+    }
+
+    /// Completes the address as it's typed from the pages visited (`BrowserHistory`), the rest selected, as Safari does.
+    func controlTextDidChange(_ notification: Notification) {
+        guard let editor = address.currentEditor() as? NSTextView, !deleting else { return }
+        let typed = address.stringValue, end = (typed as NSString).length
+        guard editor.selectedRange == NSRange(location: end, length: 0), let rest = BrowserHistory.completion(typed)
+        else { return }
+        address.stringValue = typed + rest
+        editor.selectedRange = NSRange(location: end, length: (rest as NSString).length)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        deleting = [
+            #selector(NSText.delete(_:)), #selector(NSTextView.deleteBackward(_:)),
+            #selector(NSTextView.deleteForward(_:)), #selector(NSTextView.deleteWordBackward(_:))
+        ].contains(selector)
+        return false
     }
 
     func focus() {
@@ -281,7 +359,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     @objc private func go() {
-        load(address.stringValue)
+        load(BrowserHistory.address(for: address.stringValue))
         view.window?.makeFirstResponder(web)
     }
     @objc private func openExternal() { if let url = web.url { PreviewLinks.openOutside(url) } }
@@ -303,13 +381,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @objc private func showMore(_ sender: NSButton) {
         let menu = NSMenu()
         menu.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
-        if let viewport = drive?.viewport {
-            menu.add(String(localized: "Fill the Pane (the agent set \(Int(viewport.width))×\(Int(viewport.height)))"))
-            { [weak self] in
-                self?.drive?.viewport = nil
-                self?.placeWeb()
-            }
-        }
+        menu.addItem(pageSizes())
         menu.addItem(.separator())
         menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.reloadPage(fromOrigin: true) }
         menu.add(String(localized: "Copy Screenshot")) { [weak self] in
@@ -330,6 +402,30 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             keyEquivalent: "")
         tip.isEnabled = false
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+    }
+
+    /// ⋯ › Page Size: the page at a phone's, a tablet's or a laptop's size, to see its layout there, or filling the pane.
+    private func pageSizes() -> NSMenuItem {
+        let sizes: [(String, CGSize?)] = [
+            (String(localized: "Fill the Pane"), nil),
+            (String(localized: "Phone 390×844"), CGSize(width: 390, height: 844)),
+            (String(localized: "Tablet 820×1180"), CGSize(width: 820, height: 1180)),
+            (String(localized: "Laptop 1280×800"), CGSize(width: 1280, height: 800))
+        ]
+        let menu = NSMenu()
+        for (name, size) in sizes {
+            menu.add(name) { [weak self] in
+                self?.viewport = size
+                self?.placeWeb()
+            }
+            .state = viewport == size ? .on : .off
+        }
+        if let viewport, !sizes.contains(where: { $0.1 == viewport }) {
+            menu.add(String(localized: "\(Int(viewport.width))×\(Int(viewport.height)) (the agent's)")) {}.state = .on
+        }
+        let item = NSMenuItem(title: String(localized: "Page Size"), action: nil, keyEquivalent: "")
+        item.submenu = menu
+        return item
     }
 
     private func clearSiteData() {
@@ -354,6 +450,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps them
             loadError = nil
             failed = nil
+            serving.key = nil
         }
         ports.isHidden = true
         showPage()
@@ -373,6 +470,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         showPage()
+        if !agent, let url = webView.url { BrowserHistory.visited(url) }
         if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
         if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
     }
@@ -395,11 +493,17 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             return
         }
         failed = ns.userInfo[NSURLErrorFailingURLErrorKey] as? URL ?? failed
+        if let failed, Self.isLocal(failed) { serving.key = app.workbench.workspaceId }
         loadError =
             ns.localizedDescription
             + ((ns.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).map { " (\($0))" } ?? "")
         let said = ns.localizedDescription, stop = said.hasSuffix(".") ? " " : ". "
-        let text = said + stop + String(localized: "Is the dev server running? Reload (⌘R) tries again.")
+        let local = failed.map(Self.isLocal) == true
+        let text =
+            said + stop
+            + (local
+                ? String(localized: "Is the dev server running? The page opens once it starts here; ⌘R tries now.")
+                : String(localized: "Reload (⌘R) tries again."))
         web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
     }
 

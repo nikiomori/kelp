@@ -107,9 +107,6 @@ final class AgentDrive {
     var drivenAt = Date.distantPast
     /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
     var takenOver = false
-    /// The page's size the agent set (`kelp browser viewport`): the page sits at the pane's top, in the middle, at that
-    /// size; nil fills the pane (`BrowserTab.placeWeb`).
-    var viewport: CGSize?
     /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).
     var dialogAnswer: (accept: Bool, text: String?)?
     /// `kelp browser console | network`.
