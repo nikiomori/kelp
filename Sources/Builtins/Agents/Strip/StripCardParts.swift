@@ -28,7 +28,8 @@ private final class CardLink: PointerButton {
     convenience init(_ title: String, _ run: @escaping () -> Void) {
         self.init(title: title, action: run)
         font = .ui(TextSize.row)
-        contentTintColor = .secondaryLabelColor
+        // Quiet by size and no fill: a button's secondary tint on Liquid Glass fades to nothing.
+        contentTintColor = .labelColor
         padding = Metrics.gap / 2
     }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -95,7 +96,7 @@ extension StripCard {
         label.font = .ui(TextSize.body, weight: .semibold)
         label.textColor = red ? .textRed : .labelColor
         label.maximumNumberOfLines = 4
-        label.lineBreakMode = .byTruncatingTail
+        label.cell?.truncatesLastVisibleLine = true   // .byTruncatingTail would keep it to one line
         label.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset
         return label
     }

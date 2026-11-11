@@ -61,6 +61,18 @@ final class StripPanel: NSPanel {
         return panel
     }
 
+    /// For one that takes the keys (a card): a key borderless window is drawn square, its shadow and rim at the corners
+    /// past the rounded ground. A titled one with its bar see-through and empty is rounded as windows are.
+    func takesKeys() {
+        styleMask.insert([.titled, .fullSizeContentView])
+        titlebarAppearsTransparent = true
+        titleVisibility = .hidden
+        isMovable = false
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            standardWindowButton(button)?.isHidden = true
+        }
+    }
+
     /// Off: it stays out of a full-screen app's Space (a talk, a film).
     func apply(fullScreen: Bool) {
         collectionBehavior = [

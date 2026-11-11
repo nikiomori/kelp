@@ -58,6 +58,7 @@ final class StripCard {
         }
         stack.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         let made = StripPanel.floating(stack, radius: Metrics.radiusXL, fullScreen: fullScreen)
+        made.takesKeys()
         made.onCancel = { [weak self] in self?.onEnd(.left) }
         panel = made
     }
