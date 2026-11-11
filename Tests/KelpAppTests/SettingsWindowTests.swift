@@ -118,6 +118,7 @@ import Testing
     let noRow = [
         "accounts.profiles": "the accounts are a list of their own, under Settings › Agents",
         "extensions.disabled": "Settings › Extensions' switches",
+        "editor.languageServers": "a language server's own options and settings, by its command: settings.json only",
         "keys": "the shortcuts set by hand: Settings › Keyboard is a page of its own",
         "extensions.library": "where the library's index is: settings.json only, for someone running their own",
         "usage.readClaudePlan": "Show plan limits' old name, read while the new one isn't set",

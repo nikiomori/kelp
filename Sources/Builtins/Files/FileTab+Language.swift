@@ -28,7 +28,7 @@ extension FileTab {
 
     func startLSP() {
         let filePath = path, projectRoot = root, app = app
-        guard LSPManager.of(app).language(filePath)?.server != nil,
+        guard LSPManager.of(app).language(filePath)?.allServers.isEmpty == false,
             LSPManager.of(app).whenTrusted(projectRoot, { [weak self] in self?.startLSP() })
         else { return }   // asked once per project
         Task { [weak self] in

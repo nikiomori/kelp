@@ -1,8 +1,8 @@
 import Foundation
 
 // Language servers live in the daemon: one per (project, server command), shared by every client, started for the first
-// file a trusted project opens and stopped once none is open. The app says which server a file gets (its extensions'
-// `languages`); the daemon decides whether one may run.
+// file a trusted project opens and stopped once none is open. The app says which servers a file gets (its extensions'
+// `languages`: a language's own and, beside it, a linter's); the daemon decides whether one may run.
 
 /// Where a symbol is defined.
 public struct CodeLocation: Codable, Sendable, Equatable {
@@ -123,7 +123,7 @@ public enum LSPRefusal: Codable, Sendable, Equatable {
     }
 }
 
-/// A file a tab shows, given to its server (started now when it isn't running). Fails with an `LSPRefusal` when no server
+/// A file a tab shows, given to one of its servers (started now when it isn't running). Fails with an `LSPRefusal` when no server
 /// may run there. Each open is matched by an `LSPClose`; a connection that goes closes what it opened.
 public struct LSPOpen: InternalMethod {
     public static let name = "lsp.open"
@@ -132,13 +132,24 @@ public struct LSPOpen: InternalMethod {
     /// writes it).
     public static let trustKey = "lsp.trusted"
     public var root: String, path: String, languageId: String, command: String, args: [String]?, text: String
-    public init(root: String, path: String, languageId: String, command: String, args: [String]? = nil, text: String) {
+    /// A file of several servers is opened at each: `rank` is this one's place among them (the first that can answers a
+    /// question; problems and fixes come from all).
+    public var rank: Int?
+    /// The server's `initializationOptions`, and its settings: what it gets for `workspace/configuration`, by section.
+    public var options: JSONValue?, settings: JSONValue?
+    public init(
+        root: String, path: String, languageId: String, command: String, args: [String]? = nil, text: String,
+        rank: Int? = nil, options: JSONValue? = nil, settings: JSONValue? = nil
+    ) {
         self.root = root
         self.path = path
         self.languageId = languageId
         self.command = command
         self.args = args
         self.text = text
+        self.rank = rank
+        self.options = options
+        self.settings = settings
     }
 }
 /// The file's whole text now (sent as a notification while typing).

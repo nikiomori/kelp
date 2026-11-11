@@ -4,12 +4,17 @@ import LSPKit
 import os
 
 /// Language servers, one per (project, server command), shared by every client: started for the first file a trusted
-/// project opens; one that died starts again on the next open (its open files with it), at most once per `retryDelay`;
+/// project opens. A file may be open at several (its language's own and a linter's), each on its own: one that died starts again on the next open (its open files with it), at most once per `retryDelay`;
 /// one with no file open for `idleDelay` stops. Opens, changes and closes come in order from a connection's reader thread
 /// and stay quick: while a server starts they're queued, and given to it once it's up. A restarted server gets each open
 /// file's text as last sent (unsaved edits included), not what's on disk.
 final class LSPHost: Sendable {
-    struct Key: Hashable, Sendable { let root: String, argv: [String] }
+    struct Key: Hashable, Sendable {
+        let root: String, argv: [String]
+        var options: JSONValue?, settings: JSONValue?
+    }
+    /// A file at one of its servers.
+    private struct DocID: Hashable, Sendable { let key: Key, path: String }
     private enum DocOp: Sendable {
         case open(path: String, text: String, languageId: String), change(path: String, text: String), close(
             path: String)
@@ -19,18 +24,19 @@ final class LSPHost: Sendable {
         case running(LSPClient)
         case failed
     }
-    /// A file open in some tab: its server, its language, how many opens it has and its text as last sent.
+    /// A file open in some tab, at one server: its language, the server's place among the file's, how many opens it
+    /// has and its text as last sent.
     private struct Doc: Sendable {
-        let key: Key, path: String, languageId: String
+        let languageId: String, order: Int
         var count: Int, text: String
     }
     private struct State {
         var servers: [Key: Server] = [:]
-        var docs: [String: Doc] = [:]   // "root|path"
-        var owners: [Int: [String: Int]] = [:]   // connection → the docs it opened, and how many times
+        var docs: [DocID: Doc] = [:]
+        var owners: [Int: [DocID: Int]] = [:]   // connection → the docs it opened, and how many times
         var started: [Key: Date] = [:]   // a broken server isn't started again on every open
         var closed = false   // the daemon stopped them all: an open arriving after starts none
-        var problems: [String: [CodeProblem]] = [:]   // by the path a tab has it open under
+        var problems: [String: [Key: [CodeProblem]]] = [:]   // by the path a tab has it open under, each server's own
         var problemsChanged: (@Sendable (String) -> Void)?
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -55,15 +61,14 @@ final class LSPHost: Sendable {
     }
 
     func open(conn: Int, _ request: LSPOpen) {
-        let key = Key(root: request.root, argv: [request.command] + (request.args ?? [])),
-            id = request.root + "|" + request.path
+        let key = Key(
+            root: request.root, argv: [request.command] + (request.args ?? []), options: request.options,
+            settings: request.settings)
+        let id = DocID(key: key, path: request.path)
         let launch = state.withLock { state -> Bool in
             guard !state.closed else { return false }
-            state.docs[
-                id,
-                default: Doc(key: key, path: request.path, languageId: request.languageId, count: 0, text: request.text)
-            ].count +=
-                1
+            let new = Doc(languageId: request.languageId, order: request.rank ?? 0, count: 0, text: request.text)
+            state.docs[id, default: new].count += 1
             state.docs[id]?.text = request.text
             state.owners[conn, default: [:]][id, default: 0] += 1
             let op = DocOp.open(path: request.path, text: request.text, languageId: request.languageId)
@@ -77,9 +82,9 @@ final class LSPHost: Sendable {
             default:   // none yet, or it died: a new one gets every file open for it, as last sent
                 if let at = state.started[key], Date().timeIntervalSince(at) < retryDelay { return false }
                 state.started[key] = Date()
-                let others = state.docs.filter { $0.key != id && $0.value.key == key }.values.flatMap { doc in
+                let others = state.docs.filter { $0.key != id && $0.key.key == key }.flatMap { other, doc in
                     Array(
-                        repeating: DocOp.open(path: doc.path, text: doc.text, languageId: doc.languageId),
+                        repeating: DocOp.open(path: other.path, text: doc.text, languageId: doc.languageId),
                         count: doc.count)
                 }
                 state.servers[key] = .starting(
@@ -91,11 +96,11 @@ final class LSPHost: Sendable {
     }
 
     func change(_ root: String, _ path: String, text: String) {
-        let id = root + "|" + path
         state.withLock { state in
-            guard let doc = state.docs[id] else { return }
-            state.docs[id]?.text = text
-            Self.send(.change(path: path, text: text), to: doc.key, in: &state)
+            for id in state.docs.keys.filter({ $0.path == path && $0.key.root == root }) {
+                state.docs[id]?.text = text
+                Self.send(.change(path: path, text: text), to: id.key, in: &state)
+            }
         }
     }
 
@@ -104,26 +109,39 @@ final class LSPHost: Sendable {
         state.withLock { $0.problemsChanged = changed }
     }
 
-    func problems(_ path: String) -> [CodeProblem] { state.withLock { $0.problems[path] ?? [] } }
+    /// Every server's, top to bottom.
+    func problems(_ path: String) -> [CodeProblem] {
+        state.withLock { $0.problems[path] ?? [:] }.values.joined().sorted {
+            ($0.line, $0.column, $0.message) < ($1.line, $1.column, $1.message)
+        }
+    }
 
     /// A server may name a file by its real path (/private/tmp), a tab by the one it was given. Kept only for a file open in
     /// a tab (a server may report on the whole project, and the next open is told again); the paths are resolved outside
     /// the lock, which opens and changes take on a connection's reader thread.
-    private func heard(_ reported: String, _ found: [CodeProblem]) {
+    private func heard(_ key: Key, _ reported: String, _ found: [CodeProblem]) {
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
-        let open = state.withLock { s in Set(s.docs.values.map(\.path)) }
+        let open = state.withLock { s in Set(s.docs.keys.filter { $0.key == key }.map(\.path)) }
         let target = real(reported)
         guard let path = open.contains(reported) ? reported : open.first(where: { real($0) == target }) else { return }
         let changed = state.withLock { state -> (@Sendable (String) -> Void)? in
-            guard state.docs.values.contains(where: { $0.path == path }) else { return nil }   // closed meanwhile
-            state.problems[path] = found.isEmpty ? nil : found
+            guard state.docs[DocID(key: key, path: path)] != nil else { return nil }   // closed meanwhile
+            state.problems[path, default: [:]][key] = found.isEmpty ? nil : found
+            if state.problems[path]?.isEmpty == true { state.problems[path] = nil }
             return state.problemsChanged
         }
         changed?(path)
     }
 
+    /// A tab on the file closed: at each of its servers.
     func close(conn: Int, _ root: String, _ path: String) {
-        let id = root + "|" + path
+        let ids = state.withLock { state in
+            (state.owners[conn] ?? [:]).keys.filter { $0.path == path && $0.key.root == root }
+        }
+        ids.forEach { close(conn: conn, $0) }
+    }
+
+    private func close(conn: Int, _ id: DocID) {
         let idle = state.withLock { state -> Key? in
             // not opened by this connection
             guard let opens = state.owners[conn]?[id], opens > 0, var doc = state.docs[id] else { return nil }
@@ -131,33 +149,59 @@ final class LSPHost: Sendable {
             if state.owners[conn]?.isEmpty == true { state.owners[conn] = nil }
             doc.count -= 1
             state.docs[id] = doc.count > 0 ? doc : nil
-            if doc.count == 0 { state.problems[path] = nil }   // the last tab on it, of any connection
-            Self.send(.close(path: path), to: doc.key, in: &state)
-            return state.docs.values.contains { $0.key == doc.key } ? nil : doc.key
+            if doc.count == 0 {   // the last tab on it, of any connection
+                state.problems[id.path]?[id.key] = nil
+                if state.problems[id.path]?.isEmpty == true { state.problems[id.path] = nil }
+            }
+            Self.send(.close(path: id.path), to: id.key, in: &state)
+            return state.docs.keys.contains { $0.key == id.key } ? nil : id.key
         }
         if let idle { stopLater(idle) }
     }
 
     /// A connection that went: what it opened is closed.
     func closeAll(conn: Int) {
-        let opened = state.withLock { state in
-            (state.owners[conn] ?? [:]).compactMap { id, opens in state.docs[id].map { ($0.key.root, $0.path, opens) } }
+        for (id, opens) in state.withLock({ $0.owners[conn] ?? [:] }) {
+            for _ in 0..<opens { close(conn: conn, id) }
         }
-        for (root, path, opens) in opened { for _ in 0..<opens { close(conn: conn, root, path) } }
     }
 
-    /// The running server of an open file, waiting for one that's starting; nil when there's none.
-    func client(_ root: String, _ path: String) async -> LSPClient? {
-        let (running, ready) = state.withLock { state -> (LSPClient?, Task<LSPClient?, Never>?) in
-            guard let doc = state.docs[root + "|" + path] else { return (nil, nil) }
-            switch state.servers[doc.key] {
-            case .running(let client)?: return (client.isRunning ? client : nil, nil)
-            case .starting(_, let ready)?: return (nil, ready)
-            default: return (nil, nil)
-            }
+    /// An open file's servers in their order, each running or still starting.
+    private func servers(_ root: String, _ path: String) -> [(LSPClient?, Task<LSPClient?, Never>?)] {
+        state.withLock { state in
+            state.docs.filter { $0.key.path == path && $0.key.key.root == root }
+                .sorted { $0.value.order < $1.value.order }
+                .map { id, _ in
+                    switch state.servers[id.key] {
+                    case .running(let client)?: (client.isRunning ? client : nil, nil)
+                    case .starting(_, let ready)?: (nil, ready)
+                    default: (nil, nil)
+                    }
+                }
         }
-        if let running { return running }
-        return await ready?.value
+    }
+
+    /// The running servers of an open file, in their order, waiting for those that are starting.
+    func clients(_ root: String, _ path: String) async -> [LSPClient] {
+        var up: [LSPClient] = []
+        for (running, ready) in servers(root, path) {
+            if let running { up.append(running) } else if let started = await ready?.value { up.append(started) }
+        }
+        return up
+    }
+
+    /// Who answers a question about an open file: the first of its servers that said it can (`hoverProvider`…), not
+    /// waiting for those after it; the first of all when none said so. Nil when none runs.
+    func client(_ root: String, _ path: String, can capability: String) async -> LSPClient? {
+        var first: LSPClient?
+        for (running, ready) in servers(root, path) {
+            var client = running
+            if client == nil { client = await ready?.value }
+            guard let client else { continue }
+            if client.can(capability) { return client }
+            first = first ?? client
+        }
+        return first
     }
 
     /// The daemon is stopping: so do its servers.
@@ -179,8 +223,10 @@ final class LSPHost: Sendable {
             let made = OSAllocatedUnfairLock<LSPClient?>(initialState: nil)
             await withCheckedContinuation { continuation in
                 Thread.detachNewThread {
-                    let client = LSPClient(argv: key.argv, root: key.root) { [weak self] path, found in
-                        self?.heard(path, found)
+                    let client = LSPClient(
+                        argv: key.argv, root: key.root, options: key.options, settings: key.settings
+                    ) { [weak self] path, found in
+                        self?.heard(key, path, found)
                     }
                     made.withLock { $0 = client }
                     continuation.resume()
@@ -238,7 +284,7 @@ final class LSPHost: Sendable {
     private func stopLater(_ key: Key) {
         DispatchQueue.global().asyncAfter(deadline: .now() + idleDelay) { [self] in
             let idle = state.withLock { state -> LSPClient? in
-                guard !state.docs.values.contains(where: { $0.key == key }),
+                guard !state.docs.keys.contains(where: { $0.key == key }),
                     case .running(let client)? = state.servers[key]
                 else {
                     return nil

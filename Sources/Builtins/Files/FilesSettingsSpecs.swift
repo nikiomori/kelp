@@ -100,5 +100,7 @@ extension SettingKeys {
     static let trimTrailingWhitespace = Setting("files.trimTrailingWhitespace", false)
     static let insertFinalNewline = Setting("files.insertFinalNewline", false)
     static let lsp = Setting("editor.lsp", true)
+    /// A language server's own `options` and `settings`, by its command: `{ "gopls": { "settings": { … } } }`.
+    static let languageServers = Setting("editor.languageServers", JSONValue.object([:]))
     static let hover = Setting("editor.hover", true)
 }

@@ -59,9 +59,13 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         var changes: [String: (write: Int, params: JSONValue)] = [:]
         var nextWrite = 0
         var onIdle: (@Sendable () -> Void)?
+        /// What the server said it can do, when it started (`hoverProvider`, `codeActionProvider`…).
+        var capabilities: JSONValue = .null
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
     public let root: String
+    /// Its `initializationOptions`, and its settings: sent once it's up and given for `workspace/configuration`.
+    private let options: JSONValue?, settings: JSONValue?
     private let onProblems: (@Sendable (String, [CodeProblem]) -> Void)?
     /// The last open document was closed.
     public var onIdle: (@Sendable () -> Void)? {
@@ -71,9 +75,14 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     /// `argv[0]` is looked up on the login-shell PATH, which the server gets too (npm servers need `node`).
     /// `onProblems`: a file's errors and warnings, each time the server says them.
-    public init?(argv: [String], root: String, onProblems: (@Sendable (_ path: String, [CodeProblem]) -> Void)? = nil) {
+    public init?(
+        argv: [String], root: String, options: JSONValue? = nil, settings: JSONValue? = nil,
+        onProblems: (@Sendable (_ path: String, [CodeProblem]) -> Void)? = nil
+    ) {
         guard let cmd = argv.first, let exe = LoginPath.find(cmd) else { return nil }
         self.root = root
+        self.options = options
+        self.settings = settings
         self.onProblems = onProblems
         proc.executableURL = URL(fileURLWithPath: exe)
         proc.arguments = Array(argv.dropFirst())
@@ -134,8 +143,14 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     private func handle(_ body: Data) {
         guard let message = try? JSONDecoder().decode(JSONValue.self, from: body) else { return }
         let id = message["id"].flatMap { $0 == .null ? nil : $0 }
-        if let method = message["method"]?.string {   // a request (workspace/configuration) gets null; of the notifications, only diagnostics count
-            if let id { send(["jsonrpc": "2.0", "id": id, "result": .null]) }
+        if let method = message["method"]?.string {   // a request gets its settings or null; of the notifications, only diagnostics count
+            if let id {
+                let asked = method == "workspace/configuration"
+                send([
+                    "jsonrpc": "2.0", "id": id,
+                    "result": asked ? Self.configuration(settings, for: message["params"]) : .null
+                ])
+            }
             if method == "textDocument/publishDiagnostics", let params = message["params"],
                 let (path, found) = Self.problems(params)
             {
@@ -203,17 +218,36 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         send(["jsonrpc": "2.0", "method": .string(method), "params": params])
     }
 
+    /// The answer to `workspace/configuration`: for each item asked, the part of `settings` its dotted `section` names
+    /// (all of them when it names none), null where there's nothing.
+    static func configuration(_ settings: JSONValue?, for params: JSONValue?) -> JSONValue {
+        .array(
+            (params?["items"]?.array ?? []).map { item in
+                (item["section"]?.string ?? "").split(separator: ".").reduce(settings) { $0?[String($1)] } ?? .null
+            })
+    }
+
+    /// The server said, when it started, that it answers this (`hoverProvider`, `codeActionProvider`…).
+    public func can(_ capability: String) -> Bool {
+        let value = state.withLock { $0.capabilities[capability] }
+        return value != nil && value != .null && value != .bool(false)
+    }
+
     public func initialize() async throws {
         let uri = URL(fileURLWithPath: root).absoluteString
-        _ = try await request(
+        // Settings are asked for only by a server told it may: one given none keeps its own defaults, as before.
+        var workspace: [String: JSONValue] = ["symbol": .obj([:])]
+        if settings != nil { workspace["configuration"] = true }
+        let started = try await request(
             "initialize",
             .obj([
                 "processId": .int(Int(ProcessInfo.processInfo.processIdentifier)), "rootUri": .string(uri),
+                "initializationOptions": options ?? .null,
                 "workspaceFolders": .array([
                     .obj(["uri": .string(uri), "name": .string((root as NSString).lastPathComponent)])
                 ]),
                 "capabilities": .obj([
-                    "workspace": .obj(["symbol": .obj([:])]),
+                    "workspace": .object(workspace),
                     "textDocument": .obj([
                         "definition": .obj([:]), "references": .obj([:]), "rename": .obj([:]),
                         "codeAction": .obj([
@@ -239,7 +273,9 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
                     ])
                 ])
             ]))
+        state.withLock { $0.capabilities = started["capabilities"] ?? .null }
         notify("initialized", .obj([:]))
+        if let settings { notify("workspace/didChangeConfiguration", .obj(["settings": settings])) }
     }
 
     /// `publishDiagnostics`' params: errors and warnings, not the hints a server has for every other line.

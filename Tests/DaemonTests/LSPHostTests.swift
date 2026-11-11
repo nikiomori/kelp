@@ -221,7 +221,7 @@ private func lines(_ log: String) -> [String] {
     #expect(try await waitFor(5) { lines(server.log).contains("textDocument/didChange 2") })
     let first = try #require(lines(server.log).first { $0.hasPrefix("start ") }.flatMap { Int32($0.dropFirst(6)) })
     kill(first, SIGKILL)
-    #expect(try await waitFor(5) { await d.lsp.client(root, b) == nil })   // its client saw it go
+    #expect(try await waitFor(5) { await d.lsp.clients(root, b).first == nil })   // its client saw it go
     try await open(b, "b")
     let unsaved = "text \(URL(fileURLWithPath: a).absoluteString) unsaved"
     #expect(
@@ -359,4 +359,107 @@ private func lines(_ log: String) -> [String] {
             ])
         ]))
     #expect(doc.map(\.path) == ["/c.swift"])
+}
+
+/// A server beside a file's own, as a linter is: named `name`, it says it can do `can`, answers completion, hover and
+/// code actions with its name, reports one problem on line `line` of each file opened, and writes to `log` the options
+/// it started with and what it got when it asked for its settings.
+private func fakeLinter(_ name: String, can: String, line: Int, in dir: String) throws -> (args: [String], log: String)
+{
+    let script = dir + "/\(name).py", log = dir + "/\(name).log"
+    try #"""
+    import sys, json
+    name, can, line, log = sys.argv[1], json.loads(sys.argv[2]), int(sys.argv[3]), open(sys.argv[4], "a", buffering=1)
+    def read():
+        head = b""
+        while not head.endswith(b"\r\n\r\n"):
+            c = sys.stdin.buffer.read(1)
+            if not c: return None
+            head += c
+        n = int([h for h in head.decode().split("\r\n") if h.lower().startswith("content-length")][0].split(":")[1])
+        return json.loads(sys.stdin.buffer.read(n))
+    def send(o):
+        b = json.dumps(o).encode()
+        sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n" % len(b) + b); sys.stdout.buffer.flush()
+    while True:
+        m = read()
+        if m is None: break
+        meth, params = m.get("method"), m.get("params") or {}
+        uri = (params.get("textDocument") or {}).get("uri")
+        at = {"start": {"line": line, "character": 0}, "end": {"line": line, "character": 1}}
+        if "id" in m and meth:
+            r = None
+            if meth == "initialize":
+                log.write("options %s\n" % json.dumps(params.get("initializationOptions"), sort_keys=True))
+                log.write("asks %s\n" % json.dumps(params["capabilities"]["workspace"].get("configuration")))
+                r = {"capabilities": can}
+            elif meth == "textDocument/completion": r = [{"label": name}]
+            elif meth == "textDocument/hover": r = {"contents": name}
+            elif meth == "textDocument/codeAction":
+                r = [{"title": "fix " + name, "edit": {"changes": {uri: [{"range": at, "newText": name}]}}}]
+            send({"jsonrpc": "2.0", "id": m["id"], "result": r})
+        elif meth == "initialized":
+            send({"jsonrpc": "2.0", "id": "cfg", "method": "workspace/configuration",
+                  "params": {"items": [{"section": "lint.select"}, {"section": "nope"}, {}]}})
+        elif meth == "workspace/didChangeConfiguration": log.write("pushed %s\n" % json.dumps(params, sort_keys=True))
+        elif meth == "textDocument/didOpen":
+            send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": uri, "diagnostics": [
+                {"range": at, "severity": 2, "message": "from " + name}]}})
+        elif meth == "exit": break
+        elif m.get("id") == "cfg": log.write("settings %s\n" % json.dumps(m.get("result"), sort_keys=True))
+    """#.write(toFile: script, atomically: true, encoding: .utf8)
+    return ([script, name, can, String(line), log], log)
+}
+
+/// A file of two servers (its language's and a linter's) is open at both: each one's problems show, top to bottom, a
+/// question goes to the first in their order that said it can answer (not to the one opened first), fixes come from
+/// both, and a tab closed closes it at both.
+@Test func aFileOfTwoServersGetsBothsProblemsAndFixes() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = tmp().path, file = root + "/main.py"
+    let own = try fakeLinter("own", can: #"{"completionProvider": {}, "codeActionProvider": true}"#, line: 3, in: root)
+    let lint = try fakeLinter("lint", can: #"{"hoverProvider": true, "codeActionProvider": true}"#, line: 1, in: root)
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
+    func open(_ args: [String], order: Int) async throws {
+        _ = try await c.call(
+            LSPOpen(
+                root: root, path: file, languageId: "python", command: "/usr/bin/python3", args: args, text: "x",
+                rank: order))
+    }
+    try await open(lint.args, order: 1)
+    try await open(own.args, order: 0)
+    #expect(try await c.call(LSPCompletion(root: root, path: file, line: 1, column: 1)).map(\.label) == ["own"])
+    #expect(try await c.call(LSPHover(root: root, path: file, line: 1, column: 1)) == "lint")   // the first can't
+    #expect(
+        try await c.call(LSPActions(root: root, path: file, line: 1, column: 1)).map(\.title) == ["fix own", "fix lint"]
+    )
+    #expect(
+        try await waitFor(5) {
+            (try? await c.call(LSPProblems(path: file)))?.map(\.message) == ["from lint", "from own"]
+        })
+    #expect(lines(own.log).contains("asks null"))   // no settings given: it isn't told to ask for any
+    _ = try await c.call(LSPClose(root: root, path: file))
+    #expect(try await c.call(LSPProblems(path: file)).isEmpty)
+    #expect(try await c.call(LSPCompletion(root: root, path: file, line: 1, column: 1)).isEmpty)
+}
+
+/// A server's `options` reach it as it starts, and its `settings` when it's up and whenever it asks: the part each
+/// dotted section names, all of them for no section, null for one that isn't there.
+@Test func aServerGetsItsOptionsAndSettings() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = tmp().path, file = root + "/main.py", lint = try fakeLinter("lint", can: "{}", line: 0, in: root)
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
+    let settings = JSONValue.object(["lint": .object(["select": .array([.string("E")])])])
+    _ = try await c.call(
+        LSPOpen(
+            root: root, path: file, languageId: "python", command: "/usr/bin/python3", args: lint.args, text: "x",
+            options: .object(["fast": .bool(true)]), settings: settings))
+    #expect(try await waitFor(5) { lines(lint.log).contains { $0.hasPrefix("settings") } })
+    #expect(
+        lines(lint.log) == [
+            #"options {"fast": true}"#, "asks true", #"pushed {"settings": {"lint": {"select": ["E"]}}}"#,
+            #"settings [["E"], null, {"lint": {"select": ["E"]}}]"#
+        ])
 }

@@ -6,7 +6,7 @@ import WorkbenchKit
 import os
 
 /// The app's side of language servers, which run in the daemon (one per project and server command, shared by every
-/// client, stopped once no file is open for it). Which server a file gets comes from the extensions' `languages`; whether
+/// client, stopped once no file is open for it). Which servers a file gets comes from the extensions' `languages`; whether
 /// a project may run one is the user's say, asked here once per project and checked again by the daemon.
 @MainActor @Observable
 final class LSPManager {
@@ -35,7 +35,9 @@ final class LSPManager {
     /// The project isn't trusted to run code, and a file of `language` has a language server or a formatter that would.
     func restricts(_ root: String, _ language: LanguageSpec?) -> Bool {
         guard let lang = language else { return false }
-        return (lang.server != nil && enabled() || lang.format != nil) && !trusted(root)
+        // A server that's optional doesn't ask by itself: a JSON file opened in a clone isn't a question.
+        let serves = lang.allServers.contains { $0.optional != true }
+        return (serves && enabled() || lang.format != nil) && !trusted(root)
     }
     /// Roots asked about this run, and what starts once the user trusts them (the tabs that wanted a server).
     @ObservationIgnored private var waiting: [String: [@MainActor () -> Void]] = [:]
@@ -72,28 +74,35 @@ final class LSPManager {
         (waiting.removeValue(forKey: root) ?? []).forEach { $0() }
     }
 
-    /// Gives a file a tab shows to its server, which the daemon starts when it isn't running. False when there's none: no
-    /// server for its language, servers off, or refused — the daemon's reason shows (trust the project, install the server;
-    /// `retry` runs once the user trusts it).
+    /// Gives a file a tab shows to its servers, which the daemon starts when they aren't running. False when there's
+    /// none: no server for its language, servers off, or refused — the daemon's reason shows (trust the project, install
+    /// the server; `retry` runs once the user trusts it).
     func open(root: String, path: String, text: String, retry: @escaping @MainActor () -> Void) async
         -> Bool
     {
-        guard enabled(), let lang = language(path), let server = lang.server else { return false }
+        guard enabled(), let lang = language(path), !lang.allServers.isEmpty else { return false }
         await sent()   // after the file's close from a tab just closed, never before it
-        do {
-            _ = try await app.get(
-                LSPOpen(
-                    root: root, path: path, languageId: lang.id, command: server.command, args: server.args, text: text)
-            )
-            return true
-        } catch {
-            switch LSPRefusal(error) {
-            case .untrusted?: _ = askTrust(root, retry)   // the daemon doesn't have it as trusted (another copy of Kelp recorded it)
-            case .notInstalled?: reportMissing(server)
-            case nil: break   // no daemon now: a reconnect opens it again
+        let own = app.settings[SettingKeys.languageServers]
+        var opened = false
+        for (order, listed) in lang.allServers.enumerated() {
+            let server = listed.with(own[listed.command])
+            do {
+                _ = try await app.get(
+                    LSPOpen(
+                        root: root, path: path, languageId: lang.id, command: server.command, args: server.args,
+                        text: text, rank: order, options: server.options, settings: server.settings))
+                opened = true
+            } catch {
+                switch LSPRefusal(error) {
+                case .untrusted?:   // the daemon doesn't have it as trusted (another copy of Kelp recorded it)
+                    _ = askTrust(root, retry)
+                    return false
+                case .notInstalled?: if server.optional != true { reportMissing(server) }
+                case nil: break   // no daemon now: a reconnect opens it again
+                }
             }
-            return false
         }
+        return opened
     }
 
     /// The file's whole text, as typed. Encoded and sent off the main thread (5 MB took 140 ms to encode on it), from one

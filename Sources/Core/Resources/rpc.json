@@ -408,7 +408,7 @@
         "type" : "object"
       },
       "Artifacts.Kind" : {
-        "description" : "The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.",
+        "description" : "The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a canvas of boards.",
         "enum" : [
           "doc",
           "review",
@@ -9096,7 +9096,7 @@
       "x-internal" : true
     },
     {
-      "description" : "A file a tab shows, given to its server (started now when it isn't running). Fails with an `LSPRefusal` when no server may run there. Each open is matched by an `LSPClose`; a connection that goes closes what it opened.",
+      "description" : "A file a tab shows, given to one of its servers (started now when it isn't running). Fails with an `LSPRefusal` when no server may run there. Each open is matched by an `LSPClose`; a connection that goes closes what it opened.",
       "name" : "lsp.open",
       "paramStructure" : "by-name",
       "params" : [
@@ -9125,6 +9125,14 @@
           }
         },
         {
+          "description" : "The server's `initializationOptions`, and its settings: what it gets for `workspace/configuration`, by section.",
+          "name" : "options",
+          "required" : false,
+          "schema" : {
+
+          }
+        },
+        {
           "name" : "path",
           "required" : true,
           "schema" : {
@@ -9132,10 +9140,25 @@
           }
         },
         {
+          "description" : "A file of several servers is opened at each: `rank` is this one's place among them (the first that can answers a question; problems and fixes come from all).",
+          "name" : "rank",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
           "name" : "root",
           "required" : true,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "settings",
+          "required" : false,
+          "schema" : {
+
           }
         },
         {

@@ -200,9 +200,32 @@ commands that run, test and format them:
 }
 ```
 `id` is the LSP language id. `extensions` match in any case; `"fileNames": ["Dockerfile"]` matches whole names.
-Kelp's own are swift, typescript, typescriptreact, javascript, javascriptreact, python, go and rust; a language with
-the same `id` replaces one. When `command` isn't on PATH, opening a file says so, with a button that runs `install`
-in a terminal.
+Kelp has its own for some forty languages (swift, typescript, python, go, rust, c, cpp, ruby, php, java, kotlin,
+csharp, lua, shellscript, json, yaml…); a language with the same `id` replaces one. When `command` isn't on PATH,
+opening a file says so, with a button that runs `install` in a terminal; a server marked `"optional": true` says
+nothing.
+
+A linter is a second language server: list it in `servers`, beside `server`. The file is given to each. Errors,
+warnings and quick fixes come from all of them; completion, hover, jump to definition and rename from the first that
+has them.
+```json
+{
+  "id": "python",
+  "extensions": ["py"],
+  "server": { "command": "pyright-langserver", "args": ["--stdio"] },
+  "servers": [{ "command": "ruff", "args": ["server"], "optional": true }]
+}
+```
+
+A server takes `options` (its `initializationOptions`) and `settings` (what it asks for by section, so the top key is
+usually the server's name):
+```json
+"server": { "command": "gopls", "settings": { "gopls": { "staticcheck": true } } }
+```
+Anyone can set their own for a server without an extension, by its command, in settings.json:
+```json
+"editor.languageServers": { "gopls": { "settings": { "gopls": { "staticcheck": true } } } }
+```
 
 `run` and `test` open a terminal tab in the workspace's folder: Run › Run File and Test at Cursor, and ⌘R / ⌘U when
 the project's `.kelp.yaml` has no `run` / `test`. `format` gets the file's text on stdin and prints it formatted, run

@@ -53,28 +53,28 @@ extension LSPProblems: Handled {
 
 extension LSPDefinition: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> CodeLocation? {
-        guard let client = await lsp.client(root, path) else { return nil }
+        guard let client = await lsp.client(root, path, can: "definitionProvider") else { return nil }
         return try await client.definition(path, line: line, column: column)
     }
 }
 
 extension LSPCompletion: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeCompletion] {
-        guard let client = await lsp.client(root, path) else { return [] }
+        guard let client = await lsp.client(root, path, can: "completionProvider") else { return [] }
         return try await client.completion(path, line: line, column: column)
     }
 }
 
 extension LSPSymbol: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        guard let client = await lsp.client(root, path) else { return nil }
+        guard let client = await lsp.client(root, path, can: "documentSymbolProvider") else { return nil }
         return try await client.symbol(path, line: line)
     }
 }
 
 extension LSPSymbols: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
-        guard let client = await lsp.client(root, path) else { return [] }
+        guard let client = await lsp.client(root, path, can: "documentSymbolProvider") else { return [] }
         return try await client.symbols(path)
     }
 }
@@ -82,7 +82,7 @@ extension LSPSymbols: AsyncHandled {
 extension LSPWorkspaceSymbols: AsyncHandled {
     /// The project's own: a toolchain's or a dependency's names aren't what's looked for.
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
-        guard let client = await lsp.client(root, path) else { return [] }
+        guard let client = await lsp.client(root, path, can: "workspaceSymbolProvider") else { return [] }
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
         return try await client.workspaceSymbols(query).compactMap { symbol in
             guard let symbolPath = symbol.path,
@@ -97,21 +97,21 @@ extension LSPWorkspaceSymbols: AsyncHandled {
 
 extension LSPHover: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        guard let client = await lsp.client(root, path) else { return nil }
+        guard let client = await lsp.client(root, path, can: "hoverProvider") else { return nil }
         return try await client.hover(path, line: line, column: column)
     }
 }
 
 extension LSPSignature: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> CodeSignature? {
-        guard let client = await lsp.client(root, path) else { return nil }
+        guard let client = await lsp.client(root, path, can: "signatureHelpProvider") else { return nil }
         return try await client.signature(path, line: line, column: column)
     }
 }
 
 extension LSPReferences: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [SearchMatch] {
-        guard let client = await lsp.client(root, path) else { return [] }
+        guard let client = await lsp.client(root, path, can: "referencesProvider") else { return [] }
         let found = try await client.references(path, line: line, column: column), root = root
         return try await lsp.offloads.run { Self.lines(of: found, in: root) }
     }
@@ -139,15 +139,21 @@ extension LSPReferences: AsyncHandled {
 
 extension LSPRename: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> [CodeFileEdit] {
-        guard let client = await lsp.client(root, path) else { return [] }
+        guard let client = await lsp.client(root, path, can: "renameProvider") else { return [] }
         return try await client.rename(path, line: line, column: column, to: name)
     }
 }
 
 extension LSPActions: AsyncHandled {
+    /// Every server's: a linter's fixes beside the language's own.
     func handle(_ lsp: LSPHost) async throws -> [CodeAction] {
-        guard let client = await lsp.client(root, path) else { return [] }
-        return try await client.actions(path, line: line, column: column)
+        let all = await lsp.clients(root, path), able = all.filter { $0.can("codeActionProvider") }
+        var found: [CodeAction] = [], failure: Error?
+        for client in able.isEmpty ? Array(all.prefix(1)) : able {
+            do { found += try await client.actions(path, line: line, column: column) } catch { failure = error }
+        }
+        if found.isEmpty, let failure { throw failure }   // one server's refusal doesn't hide another's fixes
+        return found
     }
 }
 

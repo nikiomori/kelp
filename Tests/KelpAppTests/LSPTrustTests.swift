@@ -28,6 +28,12 @@ extension OneAtATime {
         #expect(started == 0 && !lsp.trusted(root))
         let rust: LanguageSpec? = LanguageSpec(id: "rust", extensions: ["rs"], server: .init(command: "rust-analyzer"))
         #expect(lsp.asks(root, rust))   // its code tabs show the question
+        // A language whose only server is optional (JSON's) doesn't make its files ask.
+        let json = LanguageSpec(id: "json", extensions: ["json"], server: .init(command: "x", optional: true))
+        #expect(!lsp.asks(root, json))
+        // Kelp's own languages: no id twice, no file extension claimed by two.
+        let all = Languages.all, extensions = all.flatMap(\.extensions)
+        #expect(Set(all.map(\.id)).count == all.count && Set(extensions).count == extensions.count)
         lsp.notNow(root)
         #expect(!lsp.asks(root, rust) && lsp.restricts(root, rust))   // put off: "Restricted" alone says it
         #expect(!lsp.askTrust(root, again: true) {})   // Format asks again

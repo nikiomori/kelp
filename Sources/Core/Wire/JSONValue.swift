@@ -1,7 +1,7 @@
 import Foundation
 
 /// Minimal JSON tree used for JSON-RPC params/results.
-public enum JSONValue: Codable, Sendable, Equatable {
+public enum JSONValue: Codable, Sendable, Hashable {
     case null, bool(Bool), int(Int), double(Double), string(String)
     case array([JSONValue]), object([String: JSONValue])
 

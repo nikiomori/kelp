@@ -163,6 +163,21 @@ import WorkbenchKit
     #expect(LanguageSpec.find("x.py", in: specs + [mine]) == nil)
 }
 
+/// A language's servers: its own first, then those beside it; the user's settings for one replace the manifest's.
+@Test func aLanguagesServersAndTheUsersSettingsForThem() throws {
+    let json = #"""
+        { "id": "python", "extensions": ["py"], "server": { "command": "pyright-langserver" },
+          "servers": [{ "command": "ruff", "args": ["server"], "optional": true, "settings": { "lineLength": 100 } }] }
+        """#
+    let py = try JSONDecoder().decode(LanguageSpec.self, from: Data(json.utf8))
+    #expect(py.allServers.map(\.command) == ["pyright-langserver", "ruff"])
+    #expect(py.allServers[1].optional == true && py.allServers[1].settings == .object(["lineLength": .int(100)]))
+    #expect(LanguageSpec(id: "c", extensions: ["c"]).allServers.isEmpty)
+    let mine = py.allServers[1].with(.object(["options": .object(["a": .int(1)])]))
+    #expect(mine.options == .object(["a": .int(1)]) && mine.settings == .object(["lineLength": .int(100)]))
+    #expect(py.allServers[1].with(nil) == py.allServers[1])
+}
+
 @Test func languageCommands() throws {
     let json =
         #"{ "id": "python", "extensions": ["py"], "run": "python3 ${file}", "test": "pytest ${file} -k ${symbol}", "format": "ruff format -" }"#

@@ -26,9 +26,6 @@ extension Builtins {
         "kelp.files", "Files & Editor", "File tree, search and the code editor (tree-sitter, LSP).",
         icon: "doc.text", essential: true
     ) { app in
-        let ts = LanguageSpec.Server(
-            command: "typescript-language-server", args: ["--stdio"],
-            install: "npm i -g typescript-language-server typescript")
         return Contributions(
             panels: [
                 PanelSpec(id: "files", title: "Files", icon: "folder", extensionId: "kelp.files") {
@@ -179,29 +176,7 @@ extension Builtins {
                     schemes: ["prompt"], make: { PromptTab(uri: $0, app: app) },
                     placeholder: { _ in (String(localized: "Prompt"), .symbol("text.bubble"), nil) })
             ],
-            languages: [
-                LanguageSpec(
-                    id: "swift", extensions: ["swift"], server: .init(command: "xcrun", args: ["sourcekit-lsp"]),
-                    format: "swift format -"),
-                LanguageSpec(id: "typescript", extensions: ["ts"], server: ts),
-                LanguageSpec(id: "typescriptreact", extensions: ["tsx"], server: ts),
-                LanguageSpec(id: "javascript", extensions: ["js"], server: ts, run: "node ${file}"),
-                LanguageSpec(id: "javascriptreact", extensions: ["jsx"], server: ts),
-                LanguageSpec(
-                    id: "python", extensions: ["py"],
-                    server: .init(command: "pyright-langserver", args: ["--stdio"], install: "npm i -g pyright"),
-                    run: "python3 ${file}", test: "python3 -m pytest ${file} -k ${symbol}", format: "ruff format -"),
-                // The file's package, so a main split over several files runs too.
-                LanguageSpec(
-                    id: "go", extensions: ["go"],
-                    server: .init(command: "gopls", install: "go install golang.org/x/tools/gopls@latest"),
-                    run: "cd ${dir} && go run .", test: "cd ${dir} && go test -run ${symbol} .", format: "gofmt"),
-                // From stdin rustfmt can't read Cargo.toml's edition, and 2015's parser rejects async fn.
-                LanguageSpec(
-                    id: "rust", extensions: ["rs"],
-                    server: .init(command: "rust-analyzer", install: "rustup component add rust-analyzer"),
-                    test: "cargo test ${symbol}", format: "rustfmt --edition 2021")
-            ],
+            languages: Languages.all,
             skills: [artifactsSkill]
         )
     }
