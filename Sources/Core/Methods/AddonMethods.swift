@@ -44,11 +44,19 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
     public var off: Bool
     /// The agents among `agents` that get it whatever the switch says: they have no way to leave it out of one chat.
     public var fixed: [String]
+    /// The file to open for it: a skill's SKILL.md, an instruction file, the settings file a server is named in.
+    public var path: String?
+    /// The whole of what went wrong, as the agent reported it (`problem` is its short form).
+    public var error: String?
+    /// The plugin it came with, by the id the agent installed it under ("sales@synced"): what its own
+    /// `plugin uninstall` takes.
+    public var plugin: String?
 
     public init(
         kind: Kind, name: String, source: Source, about: String? = nil, origin: String? = nil, agents: [String] = [],
         loaded: Bool? = nil, problem: String? = nil, signIn: Bool = false, tokens: Int? = nil, copies: [String] = [],
-        key: String? = nil, off: Bool = false, fixed: [String] = []
+        key: String? = nil, off: Bool = false, fixed: [String] = [], path: String? = nil, error: String? = nil,
+        plugin: String? = nil
     ) {
         self.kind = kind
         self.name = name
@@ -64,6 +72,9 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
         self.key = key
         self.off = off
         self.fixed = fixed
+        self.path = path
+        self.error = error
+        self.plugin = plugin
     }
 }
 
@@ -200,5 +211,57 @@ public struct AddonsRemove: InternalMethod {
     public init(worktreeId: String, key: String) {
         self.worktreeId = worktreeId
         self.key = key
+    }
+}
+
+/// A server's entry as its file has it (`Addon.key`): Kelp's own, the project's, or the one in an agent's own settings.
+/// For editing it and copying it out. It may hold what the server signs in with: the user's only.
+public struct AddonsEntry: InternalMethod {
+    public static let name = "addons.entry"
+    public typealias Result = ServerEntry
+    public var worktreeId: String, key: String
+    public init(worktreeId: String, key: String) {
+        self.worktreeId = worktreeId
+        self.key = key
+    }
+}
+
+/// Moves one of the person's own skills (`Addon.key`, in their folders or the project's) to the Trash, with the links
+/// that point at it.
+public struct AddonsTrash: InternalMethod {
+    public static let name = "addons.trash"
+    public typealias Result = Done
+    public var worktreeId: String, key: String
+    public init(worktreeId: String, key: String) {
+        self.worktreeId = worktreeId
+        self.key = key
+    }
+}
+
+/// Gives a skill only some agents read (`Addon.key`) to the rest: a link to its folder in the folder the others read
+/// (`~/.agents/skills` and Claude Code's own; the project's two for a project's skill).
+public struct AddonsLink: InternalMethod {
+    public static let name = "addons.link"
+    public typealias Result = Done
+    public var worktreeId: String, key: String
+    public init(worktreeId: String, key: String) {
+        self.worktreeId = worktreeId
+        self.key = key
+    }
+}
+
+/// Adds skills: a new one named `name` (a SKILL.md to fill in), or with `source` those of a folder or a git
+/// repository (every folder in it that holds a SKILL.md). They go into the shared folder (`~/.agents/skills`, or the
+/// project's `.agents/skills` with `project`) with a link in Claude Code's. Returns the SKILL.md files, new first.
+public struct AddonsInstall: InternalMethod {
+    public static let name = "addons.install"
+    public typealias Result = [String]
+    public static var timeout: TimeInterval? { 120 }
+    public var worktreeId: String, name: String?, source: String?, project: Bool
+    public init(worktreeId: String, name: String? = nil, source: String? = nil, project: Bool = false) {
+        self.worktreeId = worktreeId
+        self.name = name
+        self.source = source
+        self.project = project
     }
 }

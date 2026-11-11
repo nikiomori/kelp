@@ -20,14 +20,20 @@ public enum AddonList {
     /// now. `builtIn`: the skills Claude Code brings itself, when known (`ClaudeBuiltIns`).
     public static func list(
         loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = [],
-        builtIn: Set<String>? = nil
+        builtIn: Set<String>? = nil, kelpHome: URL? = nil
     ) -> (items: [Addon], gone: [String]) {
         var gone: [String] = []
+        let plugins = loaded == nil ? [:] : files.plugins()
+        let kelpSkills = kelpHome?.appendingPathComponent("agent-skills")
+        let keptFile = kelpHome?.appendingPathComponent("mcp.json").path
         let onDisk = files.skills(cwd: cwd)
         let own = files.servers(cwd: cwd).filter { !kept.contains($0.name) }
         let named =
             own
-            + kept.map { AddonFiles.Server(name: $0, file: Addon.kept, agents: ["claude", "codex"], project: false) }
+            + kept.map {
+                AddonFiles.Server(
+                    name: $0, file: Addon.kept, agents: ["claude", "codex"], project: false, path: keptFile)
+            }
         var items: [Addon] = []
         if let loaded {
             // A bare name in no folder is Claude Code's own or one deleted since. Unknown which are its own, the
@@ -36,7 +42,8 @@ public enum AddonList {
             let bare = loaded.skills.map(\.name).filter { !$0.contains(":") }
             let lastHere = bare.lastIndex { name in onDisk.contains { $0.name == name } } ?? -1
             for listed in loaded.skills {
-                let item = skill(of: listed, onDisk: onDisk, files: files)
+                var item = skill(of: listed, onDisk: onDisk, files: files)
+                locate(&item, listed.name, plugins: plugins, kelp: kelpSkills, files: files)
                 let own = builtIn?.contains(listed.name) ?? ((bare.firstIndex(of: listed.name) ?? .max) > lastHere)
                 if item.source == .agent, !listed.name.contains(":"), !own {
                     gone.append(listed.name)
@@ -49,7 +56,8 @@ public enum AddonList {
                 + loaded.failed.sorted { $0.key < $1.key }.map { failed($0.key, $0.value, named) }
             // A server no file names and no plugin or account brought: Claude Code's own ("claude-in-chrome"), or one
             // taken out of the settings since.
-            for item in servers {
+            for var item in servers {
+                if item.source == .plugin { item.plugin = item.origin.flatMap { plugins[$0]?.id } }
                 if item.source == .agent, !item.name.hasPrefix("claude"), item.name != "ide" {
                     gone.append(item.name)
                 } else {
@@ -60,11 +68,13 @@ public enum AddonList {
                 Addon(
                     kind: .instructions, name: (file.path as NSString).lastPathComponent,
                     source: Paths.inside(file.path, cwd) ? .project : .yours, origin: files.tilde(file.path),
-                    agents: ["claude"], loaded: true, tokens: ClaudeLoaded.tokens(file.chars))
+                    agents: ["claude"], loaded: true, tokens: ClaudeLoaded.tokens(file.chars), path: file.path)
             }
         } else {
             items += kelp.map {
-                Addon(kind: .skill, name: $0, source: .kelp, origin: "Kelp", agents: ["claude"], key: "kelp:\($0)")
+                Addon(
+                    kind: .skill, name: $0, source: .kelp, origin: "Kelp", agents: ["claude"], key: "kelp:\($0)",
+                    path: kelpSkills?.appendingPathComponent("\($0)/skills/\($0)/SKILL.md").path)
             }
         }
         // What only the files know of: a skill or a server of another agent's, an instruction file Claude Code skips.
@@ -73,13 +83,14 @@ public enum AddonList {
         items += named.filter { !seen.contains("server:\($0.name)") }.map {
             Addon(
                 kind: .server, name: $0.name, source: $0.project ? .project : .yours, origin: $0.file,
-                agents: $0.agents, key: "server:\($0.name)")
+                agents: $0.agents, key: "server:\($0.name)", path: $0.path)
         }
         for file in files.instructions(cwd: cwd) where !seen.contains("instructions:\(file.name)") {
             items.append(
                 Addon(
                     kind: .instructions, name: file.name, source: .project, agents: file.agents,
-                    tokens: ClaudeLoaded.tokens(file.chars)))
+                    tokens: ClaudeLoaded.tokens(file.chars),
+                    path: URL(fileURLWithPath: cwd).appendingPathComponent(file.name).path))
         }
         return (items, gone)
     }
@@ -106,6 +117,7 @@ public enum AddonList {
             return item
         }
         item.source = found.source
+        item.path = found.path
         item.origin = found.origin
         item.copies = found.copies
         item.agents = found.agents.contains("claude") ? found.agents : ["claude"] + found.agents
@@ -142,6 +154,7 @@ public enum AddonList {
         var item = base(key, named)
         item.loaded = false
         item.problem = problem(error)
+        item.error = error
         return item
     }
 
@@ -154,15 +167,42 @@ public enum AddonList {
         }
         return Addon(
             kind: .server, name: name, source: file.project ? .project : .yours, origin: file.file,
-            agents: file.agents, key: off)
+            agents: file.agents, key: off, path: file.path)
+    }
+
+    /// Where a listed skill that came with a plugin, with Kelp or from the account is on disk, and its plugin's id.
+    private static func locate(
+        _ item: inout Addon, _ listed: String, plugins: [String: AddonFiles.Plugin], kelp: URL?, files: AddonFiles
+    ) {
+        let parts = listed.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return }
+        var file: URL?
+        switch item.source {
+        case .plugin:
+            item.plugin = plugins[parts[0]]?.id
+            file = plugins[parts[0]].map { $0.dir.appendingPathComponent("skills/\(parts[1])/SKILL.md") }
+        case .kelp: file = kelp?.appendingPathComponent("\(parts[0])/skills/\(parts[1])/SKILL.md")
+        case .account:
+            let synced = files.claude.appendingPathComponent("skills/synced")
+            file = FileManager.default.items(in: synced).map { $0.appendingPathComponent("\(parts[1])/SKILL.md") }
+                .first { FileManager.default.fileExists(atPath: $0.path) }
+        default: break
+        }
+        if let file, FileManager.default.fileExists(atPath: file.path) { item.path = file.path }
     }
 
     /// An error as one short line: "ENOENT: no such file or directory, posix_spawn '/Applications/…'" says the program
     /// isn't there.
+    /// "Dynamic Client Registration rejected (HTTP 403): <html…" is a sign-in refused; anything else is its first
+    /// sentence, without the address's scheme. The whole text stays in `Addon.error`.
     static func problem(_ error: String) -> String {
         if error.contains("ENOENT") { return "Doesn’t start: its program isn’t there" }
-        let first = error.split(separator: "\n").first.map(String.init) ?? error
-        return first.isEmpty ? "Doesn’t start" : "Doesn’t start: " + first.prefix(80)
+        if error.contains("Registration"), let code = error.range(of: #"\(HTTP \d+\)"#, options: .regularExpression) {
+            return "Sign-in refused \(error[code])"
+        }
+        let line = error.split(separator: "\n").first.map(String.init) ?? error
+        let first = (line.components(separatedBy: ". ").first ?? line).replacingOccurrences(of: "https://", with: "")
+        return first.isEmpty ? "Doesn’t start" : String(first.prefix(70))
     }
 
     /// The folders as skills: one a name, the agents of every folder that holds it (a link counts as its target), and
@@ -182,7 +222,7 @@ public enum AddonList {
             return Addon(
                 kind: .skill, name: name, source: home.project ? .project : .yours, about: home.about,
                 origin: files.tilde((home.real as NSString).deletingLastPathComponent), agents: agents, copies: copies,
-                key: "skill:\(name)")
+                key: "skill:\(name)", path: home.real + "/SKILL.md")
         }
     }
 }

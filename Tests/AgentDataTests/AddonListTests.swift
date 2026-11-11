@@ -126,3 +126,54 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
         "### Skills\n\n| Skill | Source | Tokens |\n|---|---|---|\n| init | Built-in | ~10 |\n| x | User | ~5 |\n"
     #expect(ClaudeBuiltIns.read(printed) == ["init"] && ClaudeBuiltIns.read("### MCP Tools\n") == nil)
 }
+
+/// A row says which file to open, and an error is short on the row and whole beside it.
+@Test func rowsNameTheirFilesAndShortenErrors() throws {
+    let (files, cwd) = try home()
+    let items = AddonList.build(loaded: nil, files: files, cwd: cwd, kelp: [])
+    #expect(items.first { $0.id == "skill:web-perf" }?.path?.hasSuffix(".agents/skills/web-perf/SKILL.md") == true)
+    #expect(items.first { $0.id == "server:pencil" }?.path?.hasSuffix(".claude.json") == true)
+    #expect(items.first { $0.id == "instructions:AGENTS.md" }?.path == cwd + "/AGENTS.md")
+    #expect(
+        AddonList.problem("Dynamic Client Registration rejected (HTTP 403): !DOCTYPE HTML PUBLIC")
+            == "Sign-in refused (HTTP 403)")
+    #expect(
+        AddonList.problem("MCP endpoint not found at https://api.definite.app. Check the URL in your MCP config.")
+            == "MCP endpoint not found at api.definite.app")
+    #expect(AddonList.problem("") == "Doesn’t start")
+}
+
+/// A new skill sits once, in the shared folder, with a link in Claude Code's; a folder's skills are copied in the
+/// same way; one only Claude Code has is linked for the others.
+@Test func skillsAreMadeCopiedInAndLinked() throws {
+    let (files, cwd) = try home()
+    let made = try files.newSkill("notes", cwd: cwd, project: false)
+    #expect(made.hasSuffix(".agents/skills/notes/SKILL.md"))
+    let link = files.claude.appendingPathComponent("skills/notes")
+    #expect(
+        link.resolvingSymlinksInPath().path
+            == URL(fileURLWithPath: made).deletingLastPathComponent().resolvingSymlinksInPath().path)
+    #expect(throws: (any Error).self) { _ = try files.newSkill("notes", cwd: cwd, project: false) }
+    #expect(throws: (any Error).self) { _ = try files.newSkill("bad name", cwd: cwd, project: false) }
+
+    let repo = tmp().appendingPathComponent("pack")
+    try put("---\nname: a\n---\n", repo.appendingPathComponent("skills/alpha/SKILL.md"))
+    try put("---\nname: b\n---\n", repo.appendingPathComponent("skills/beta/SKILL.md"))
+    try put("x", repo.appendingPathComponent("skills/alpha/.git/HEAD"))
+    let installed = try files.installSkills(from: repo, cwd: cwd, project: true)
+    #expect(
+        installed.map { ($0 as NSString).deletingLastPathComponent }.map { ($0 as NSString).lastPathComponent } == [
+            "alpha", "beta"
+        ])
+    #expect(FileManager.default.fileExists(atPath: cwd + "/.claude/skills/alpha/SKILL.md"))
+    #expect(!FileManager.default.fileExists(atPath: cwd + "/.agents/skills/alpha/.git"))
+    #expect(throws: (any Error).self) { _ = try files.installSkills(from: tmp(), cwd: cwd, project: true) }
+
+    // tabbit's second copy is Claude Code's own real folder; "solo" is only there: a link gives it to the others.
+    try put("---\nname: solo\n---\n", files.claude.appendingPathComponent("skills/solo/SKILL.md"))
+    try files.linkSkill("solo", cwd: cwd)
+    let shared = files.home.appendingPathComponent(".agents/skills/solo")
+    #expect(shared.resolvingSymlinksInPath().lastPathComponent == "solo")
+    #expect(FileManager.default.fileExists(atPath: shared.appendingPathComponent("SKILL.md").path))
+    #expect(throws: (any Error).self) { try files.linkSkill("none", cwd: cwd) }
+}

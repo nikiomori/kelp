@@ -39,6 +39,10 @@
             },
             "type" : "array"
           },
+          "error" : {
+            "description" : "The whole of what went wrong, as the agent reported it (`problem` is its short form).",
+            "type" : "string"
+          },
           "fixed" : {
             "description" : "The agents among `agents` that get it whatever the switch says: they have no way to leave it out of one chat.",
             "items" : {
@@ -66,6 +70,14 @@
           },
           "origin" : {
             "description" : "Where it comes from, as the person would name it: a folder (\"~/.agents/skills\"), a file, a plugin, \"claude.ai\".",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The file to open for it: a skill's SKILL.md, an instruction file, the settings file a server is named in.",
+            "type" : "string"
+          },
+          "plugin" : {
+            "description" : "The plugin it came with, by the id the agent installed it under (\"sales@synced\"): what its own `plugin uninstall` takes.",
             "type" : "string"
           },
           "problem" : {
@@ -5206,6 +5218,107 @@
       "x-internal" : true
     },
     {
+      "description" : "A server's entry as its file has it (`Addon.key`): Kelp's own, the project's, or the one in an agent's own settings. For editing it and copying it out. It may hold what the server signs in with: the user's only.",
+      "name" : "addons.entry",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/ServerEntry"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Adds skills: a new one named `name` (a SKILL.md to fill in), or with `source` those of a folder or a git repository (every folder in it that holds a SKILL.md). They go into the shared folder (`~/.agents/skills`, or the project's `.agents/skills` with `project`) with a link in Claude Code's. Returns the SKILL.md files, new first.",
+      "name" : "addons.install",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "name",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "project",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "source",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Gives a skill only some agents read (`Addon.key`) to the rest: a link to its folder in the folder the others read (`~/.agents/skills` and Claude Code's own; the project's two for a project's skill).",
+      "name" : "addons.link",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The skills, MCP servers and instruction files of the workspace's agents; with `session`, what that chat loaded.",
       "name" : "addons.list",
       "paramStructure" : "by-name",
@@ -5277,6 +5390,34 @@
           "required" : true,
           "schema" : {
             "type" : "boolean"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Moves one of the person's own skills (`Addon.key`, in their folders or the project's) to the Trash, with the links that point at it.",
+      "name" : "addons.trash",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         },
         {

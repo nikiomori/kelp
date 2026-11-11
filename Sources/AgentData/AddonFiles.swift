@@ -24,7 +24,15 @@ public struct AddonFiles: Sendable {
         public var name: String, about: String, path: String, real: String, agents: [String], project: Bool
     }
     public struct Server: Sendable, Equatable {
-        public var name: String, file: String, agents: [String], project: Bool
+        /// `file`: where it's named, as the person would say it ("~/.claude.json"); `path`: that file, to open.
+        public var name: String, file: String, agents: [String], project: Bool, path: String?
+        public init(name: String, file: String, agents: [String], project: Bool, path: String? = nil) {
+            self.name = name
+            self.file = file
+            self.agents = agents
+            self.project = project
+            self.path = path
+        }
     }
 
     /// The skill folders of the person and of the project at `cwd`.
@@ -58,16 +66,19 @@ public struct AddonFiles: Sendable {
             let mine = (root["mcpServers"] as? [String: Any] ?? [:]).keys
             let here = ((root["projects"] as? [String: Any])?[cwd] as? [String: Any])?["mcpServers"] as? [String: Any]
             for name in Set(mine).union((here ?? [:]).keys) {
-                out.append(Server(name: name, file: tilde(file.path), agents: ["claude"], project: false))
+                out.append(
+                    Server(name: name, file: tilde(file.path), agents: ["claude"], project: false, path: file.path))
             }
         }
         let shared = URL(fileURLWithPath: cwd).appendingPathComponent(".mcp.json")
         for name in (Self.json(shared)?["mcpServers"] as? [String: Any] ?? [:]).keys {
-            out.append(Server(name: name, file: ".mcp.json", agents: ["claude", "copilot"], project: true))
+            out.append(
+                Server(name: name, file: ".mcp.json", agents: ["claude", "copilot"], project: true, path: shared.path))
         }
         let config = codex.appendingPathComponent("config.toml")
         for name in Self.codexServers(Self.text(config) ?? "") {
-            out.append(Server(name: name, file: tilde(config.path), agents: ["codex"], project: false))
+            out.append(
+                Server(name: name, file: tilde(config.path), agents: ["codex"], project: false, path: config.path))
         }
         return out.sorted { $0.name < $1.name }
     }

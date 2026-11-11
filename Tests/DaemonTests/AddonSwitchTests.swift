@@ -107,3 +107,23 @@ import Testing
         _ = try await w.c.call(AddonsRemove(worktreeId: wt.id, key: "server:pencil"))
     }
 }
+
+/// A server's entry is read back for editing; only a skill of the person's own is moved or linked.
+@Test func entriesAreReadBackAndOnlyOwnSkillsMove() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let entry = ServerEntry(command: "npx", args: ["-y", "pkg"])
+    _ = try await w.c.call(AddonsAdd(worktreeId: wt.id, name: "context7", entry: entry, project: true))
+    #expect(try await w.c.call(AddonsEntry(worktreeId: wt.id, key: "server:context7")) == entry)
+    await #expect(throws: (any Error).self) {
+        _ = try await w.c.call(AddonsEntry(worktreeId: wt.id, key: "server:none"))
+    }
+    for key in ["skill:sales:call-prep", "server:context7", "skill:no-such-skill"] {
+        await #expect(throws: (any Error).self) { _ = try await w.c.call(AddonsTrash(worktreeId: wt.id, key: key)) }
+        await #expect(throws: (any Error).self) { _ = try await w.c.call(AddonsLink(worktreeId: wt.id, key: key)) }
+    }
+    await #expect(throws: (any Error).self) {
+        _ = try await w.c.call(AddonsInstall(worktreeId: wt.id, source: "not a place"))
+    }
+}
