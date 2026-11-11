@@ -21,7 +21,7 @@ import Testing
     #expect(month.soon(now: now) == nil)
     // Claude's 5 hours resetting in 3: 40 % gone, and the time shows.
     let session = UsageView.Line(
-        label: "5 hours", used: 0.08, resets: "3:40 PM", resetAt: now + 3 * 3600, window: UsageView.window("session"))
+        label: "5 hours", used: 0.08, resets: "3:40 PM", resetAt: now + 3 * 3600, window: UsageGet.window("session"))
     #expect(abs((session.pace(now: now) ?? 0) - 0.4) < 0.0001)
     #expect(session.soon(now: now) == "3:40 PM")
     // Without a reset, a known window or one that already passed: no tick.
@@ -31,8 +31,8 @@ import Testing
     #expect(
         UsageView.Line(label: "Week", used: 0.1, resets: "x", resetAt: now - 60, window: 7 * day).pace(now: now) == nil)
     #expect(
-        UsageView.window("week · Fable") == 7 * day && UsageView.window("Gemini week") == 7 * day
-            && UsageView.window("daily") == nil)
+        UsageGet.window("week · Fable") == 7 * day && UsageGet.window("Gemini week") == 7 * day
+            && UsageGet.window("daily") == nil)
 }
 
 @Test func limitForecastTellsFromOneReadingByTheWindowsAverage() {

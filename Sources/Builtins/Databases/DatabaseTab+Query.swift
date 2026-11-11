@@ -123,16 +123,13 @@ extension DatabaseTab {
     @objc func keepQuery() {
         let sql = editor.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !sql.isEmpty else { return NSSound.beep() }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Save the query as")
-        let name = NSTextField(string: sql.split(whereSeparator: \.isNewline).first.map { String($0.prefix(40)) } ?? "")
-        name.frame = NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: 22)
-        alert.accessoryView = name
-        alert.addButton(withTitle: String(localized: "Save"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        let initial = sql.split(whereSeparator: \.isNewline).first.map { String($0.prefix(40)) } ?? ""
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-            let title = name.stringValue.trimmingCharacters(in: .whitespaces)
+            guard
+                let name = await prompt(
+                    String(localized: "Save the query as"), "", initial: initial, action: String(localized: "Save"))
+            else { return }
+            let title = name.trimmingCharacters(in: .whitespaces)
             storeQueries(
                 sidebar.saved.filter { $0.name != title } + [.init(name: title.isEmpty ? sql : title, sql: sql)])
         }

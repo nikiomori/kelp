@@ -36,7 +36,7 @@ extension MarkdownTab {
             guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
             guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
             let sent = String(localized: "Sent to \(author.title)")
-            runJS("kelpReviewSent(\(Self.jsString(sent)))")
+            runJS("kelpReviewSent(\(Self.js(sent)))")
         }
     }
 
@@ -52,10 +52,10 @@ extension MarkdownTab {
         app.workbench.focus(session: author.id)
     }
 
-    /// A JavaScript string literal.
-    nonisolated static func jsString(_ text: String) -> String {
-        "\""
-            + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n") + "\""
+    /// `value` as a JavaScript literal (JSON is one): a string, the marks, the labels of a page's script.
+    nonisolated static func js(_ value: some Encodable) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        do { return String(decoding: try encoder.encode(value), as: UTF8.self) } catch { return "null" }
     }
 }

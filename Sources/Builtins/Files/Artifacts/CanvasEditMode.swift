@@ -12,16 +12,13 @@ enum CanvasEditMode {
     typealias Labels = [String: String]
 
     static func source(tokens: [String: [String]], labels: Labels) -> String {
-        let js = MarkdownTab.jsString
-        let groups = ["color", "size", "space", "radius"].map { group in
-            "\(group): [" + (tokens[group] ?? []).map(js).joined(separator: ", ") + "]"
-        }
-        let words = labels.sorted { $0.key < $1.key }.map { "\($0.key): \(js($0.value))" }.joined(separator: ", ")
+        let groups = Dictionary(
+            uniqueKeysWithValues: ["color", "size", "space", "radius"].map { ($0, tokens[$0] ?? []) })
         return """
             (function () {
               const K = window.kelpCanvas, C = window.kelpColumn; if (!K || !C) return;
-              const T = { \(groups.joined(separator: ", ")) };
-              const L = { \(words) };
+              const T = \(MarkdownTab.js(groups));
+              const L = \(MarkdownTab.js(labels));
             \(body)
             })();
             """

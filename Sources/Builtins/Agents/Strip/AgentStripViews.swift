@@ -79,6 +79,29 @@ final class StripPanel: NSPanel {
             .canJoinAllSpaces, fullScreen ? .fullScreenAuxiliary : .fullScreenNone, .stationary, .ignoresCycle
         ]
     }
+
+    /// Onto the screen at `frame`, sliding in from `by` away as it fades in.
+    func slideIn(to frame: NSRect, by: CGVector) {
+        setFrame(frame.offsetBy(dx: by.dx, dy: by.dy), display: false)
+        alphaValue = 0
+        orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.appear)
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            animator().setFrame(frame, display: true)
+            animator().alphaValue = 1
+        }
+    }
+
+    /// Faded, then off the screen, unless `back` says it was shown again meanwhile.
+    func fadeOut(unless back: @escaping @MainActor () -> Bool = { false }) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.duration(Motion.fast)
+            animator().alphaValue = 0
+        } completionHandler: {
+            MainActor.assumeIsolated { if !back() { self.orderOut(nil) } }   // AppKit runs it on the main thread
+        }
+    }
 }
 
 /// The strip's own ground, between its tiles: it moves the strip too, and a click on it (the handle of a hidden strip) is its own.

@@ -5,8 +5,8 @@ import KelpKit
 /// The panel's bar: what it lists (source and filter as title words) and Refresh, the last action's word under it.
 extension TasksViewController {
     func makeBar() -> NSView {
-        let more = IconButton(
-            .symbol("ellipsis.circle"), tip: String(localized: "More"), target: self, action: #selector(showMore(_:)))
+        let refresh = IconButton(
+            .symbol("arrow.clockwise"), tip: String(localized: "Refresh"), target: self, action: #selector(reload))
         status.textColor = .secondaryLabelColor
         status.font = .ui(TextSize.caption)
         status.lineBreakMode = .byWordWrapping
@@ -20,8 +20,8 @@ extension TasksViewController {
             c.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
         filter.font = .ui(TextSize.row)
-        // An inspector panel: its bar (what it lists, ⋯), the last action's word under it, the list over the details.
-        let controls = Bar.panel([source, filter], [more])
+        // An inspector panel: its bar (what it lists, ↻), the last action's word under it, the list over the details.
+        let controls = Bar.panel([source, filter], [refresh])
         status.isHidden = true
         let bar = NSStackView(views: [controls, status])
         bar.orientation = .vertical
@@ -31,32 +31,21 @@ extension TasksViewController {
         bar.setHuggingPriority(.defaultHigh, for: .vertical)   // as tall as its views: over the split's holding, or the list gets no height
         return bar
     }
-
-    @objc private func showMore(_ sender: NSButton) {
-        let menu = NSMenu()
-        menu.addItem(withTitle: String(localized: "Refresh"), action: #selector(reload), keyEquivalent: "").target =
-            self
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
-    }
 }
 
 /// No rows: the list gives way to the empty state, with the button that helps (show all, sign in).
 extension TasksViewController {
-    /// `text` instead of the list (an error with `error`), with the buttons that aren't hidden; nil shows the list.
-    func showEmpty(
-        _ text: String?, symbol: String = "tray", error: String? = nil, title: String? = nil, retry: Bool = false
-    ) {
+    /// `text` instead of the list, with the buttons that aren't hidden; nil shows the list.
+    func showEmpty(_ text: String?, symbol: String = "tray") {
+        showList(text == nil)
+        emptyView.show(text, symbol: symbol, buttons: [showAll, setupButton].filter { !$0.isHidden })
+    }
+
+    /// The list, or room for the empty state in its place.
+    func showList(_ on: Bool) {
         loadingView.show(nil)
-        split.isHidden = text != nil
+        split.isHidden = !on
         placeDivider()
-        let buttons = [showAll, setupButton].filter { !$0.isHidden } + (retry ? [checkAgain] : [])
-        if let error {
-            emptyView.showError(error, text: text, buttons: buttons)
-        } else if let title {
-            emptyView.show(title, symbol: symbol, text: text, buttons: buttons)
-        } else {
-            emptyView.show(text, symbol: symbol, buttons: buttons)
-        }
     }
 }
 

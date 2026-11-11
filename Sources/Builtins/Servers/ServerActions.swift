@@ -49,14 +49,6 @@ enum ServerActions {
     }
 }
 
-/// "3 d 10 h", "18 m", "40 s".
-func serverDuration(_ seconds: Double) -> String {
-    let total = Int(seconds), days = total / 86400, hours = total % 86400 / 3600, minutes = total % 3600 / 60
-    if days > 0 { return hours > 0 ? "\(days) d \(hours) h" : "\(days) d" }
-    if hours > 0 { return minutes > 0 ? "\(hours) h \(minutes) m" : "\(hours) h" }
-    return minutes > 0 ? "\(minutes) m" : "\(total) s"
-}
-
 /// A server's readings as the header, the hover card and the server's tab all say them.
 enum ServerReading {
     /// From 90 % a reading is strained: its number, bar or line turns orange.

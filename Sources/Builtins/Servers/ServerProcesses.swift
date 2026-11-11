@@ -95,7 +95,7 @@ struct ProcessRow: View {
             Text(process.user).foregroundStyle(.secondary).lineLimit(1).frame(width: Self.user, alignment: .leading)
             Text(String(format: "%.1f%%", process.cpu)).frame(width: Self.number, alignment: .trailing)
             Text(process.memory > 0 ? bytes(process.memory) : "–").frame(width: Self.number, alignment: .trailing)
-            Text(serverDuration(Double(process.seconds))).foregroundStyle(.secondary).frame(
+            Text(shortSpan(Double(process.seconds), units: 2, smallest: .second)).foregroundStyle(.secondary).frame(
                 width: Self.number, alignment: .trailing)
         }
         .font(.ui(TextSize.row).monospacedDigit())

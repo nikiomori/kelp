@@ -11,7 +11,7 @@ enum CanvasChrome {
     }
 
     static func source(themes: String, labels l: Labels) -> String {
-        let js = MarkdownTab.jsString
+        let js: (String) -> String = MarkdownTab.js
         return """
             (function () {
               const post = m => webkit.messageHandlers.kelpSync?.postMessage(m);

@@ -31,14 +31,14 @@ public func runSheet(_ p: NSSavePanel) async -> NSApplication.ModalResponse {
 
 /// A one-field question (rename, go to line…).
 @MainActor
-public func prompt(_ title: String, _ info: String, initial: String = "") async -> String? {
+public func prompt(_ title: String, _ info: String, initial: String = "", action: String? = nil) async -> String? {
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = info
     let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
     field.stringValue = initial
     alert.accessoryView = field
-    alert.addButton(withTitle: String(localized: "OK"))
+    alert.addButton(withTitle: action ?? String(localized: "OK"))
     alert.addButton(withTitle: String(localized: "Cancel"))
     alert.window.initialFirstResponder = field
     return await runSheet(alert) == .alertFirstButtonReturn ? field.stringValue : nil

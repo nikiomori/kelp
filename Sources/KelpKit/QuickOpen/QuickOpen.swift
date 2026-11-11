@@ -39,8 +39,9 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     var commandsOnly = false
     /// The title bar's Search pill, which the palettes grow out of.
     weak var anchor: NSView?
-    /// The tmux sessions listed instead of the palette (`showTmux`); nil for the palette.
-    var tmux: [Tmux.Session]?
+    /// A list of its own instead of the palette's — tmux sessions (`showTmux`), a built-in's (`showList`): its rows for
+    /// what's typed. Nil for the palette.
+    var own: (@MainActor (String) async -> [Item])?
     var tmuxLoad: Task<Void, Never>?
 
     /// `text`: what the field starts with (":" for Go to Line).
@@ -102,7 +103,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     func list(query: String) {
         stopChoosing()
         tmuxLoad?.cancel()
-        tmux = nil
+        own = nil
         field.placeholderString =
             commandsOnly
             ? String(localized: "Run a command") : String(localized: "Search chats, tabs, files and commands")
@@ -255,7 +256,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     @objc private func filterAction() { filter() }
     func controlTextDidChange(_ obj: Notification) {
         // ">" first, as in VS Code: the commands, with what follows it.
-        if !commandsOnly, choosing == nil, tmux == nil, field.stringValue.hasPrefix(">") {
+        if !commandsOnly, choosing == nil, own == nil, field.stringValue.hasPrefix(">") {
             commandsOnly = true
             list(query: String(field.stringValue.dropFirst()).trimmingCharacters(in: .whitespaces))
             return
@@ -266,8 +267,12 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     func filter() {
         scoring?.cancel()
         let typed = field.stringValue
-        if let sessions = tmux {
-            setRows(tmuxItems(sessions, typed), grouped: false)
+        if let own {
+            scoring = Task { [weak self] in
+                let items = await own(typed)
+                guard let self, !Task.isCancelled else { return }
+                setRows(items, grouped: false)
+            }
             return
         }
         let prefix = commandsOnly || choosing != nil ? nil : Prefix(typed)

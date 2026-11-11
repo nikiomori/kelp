@@ -104,3 +104,26 @@ enum Forge {
         return menu
     }
 }
+
+extension EmptyStateView {
+    /// A forge's `error` instead of the list: gh or glab to set up (on `setupButton`, then Check Again), no GitHub
+    /// remote, or `failed` with `hint` or the error's words. The setup, for the button to run.
+    func showForge(
+        _ error: String, failed: String, hint: String? = nil, setupButton: NSButton, checkAgain: NSButton
+    ) -> Forge.Setup? {
+        let setup = Forge.setup(for: error)
+        setupButton.isHidden = setup == nil
+        if let setup {
+            setupButton.title = setup.title
+            setupButton.toolTip = setup.command
+            show(
+                setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
+                buttons: [setupButton, checkAgain])
+        } else if let quiet = Forge.noRemote(error) {
+            show(quiet.title, symbol: "network", text: quiet.text, buttons: [checkAgain])
+        } else {
+            showError(failed, text: hint ?? error, buttons: [checkAgain])
+        }
+        return setup
+    }
+}

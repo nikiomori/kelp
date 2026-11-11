@@ -363,7 +363,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             // Kelp's do, beside it.
             let ask =
                 artifactBar == nil || kind == .canvas
-                ? [] : [PageAsk.script(label: Self.jsString(String(localized: "Ask Agent")))]
+                ? [] : [PageAsk.script(label: Self.js(String(localized: "Ask Agent")))]
             let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
                 if kind == .html { return (text, []) }
                 if kind == .canvas {

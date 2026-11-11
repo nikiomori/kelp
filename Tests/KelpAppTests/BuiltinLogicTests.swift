@@ -347,14 +347,6 @@ import os
     #expect(Machines.machineLine(app, v) == "The disk is full" && Machines.machineWord(v).text == "Failed")
 }
 
-/// A server's uptime reads in its two largest units, without a second one that's zero, and in seconds under a minute.
-@Test func aServersUptimeReadsInItsTwoLargestUnits() {
-    #expect(serverDuration(3 * 86400 + 10 * 3600 + 59) == "3 d 10 h")
-    #expect(serverDuration(2 * 86400 + 30 * 60) == "2 d")   // minutes don't show beside days
-    #expect(serverDuration(3600) == "1 h" && serverDuration(5400) == "1 h 30 m")
-    #expect(serverDuration(18 * 60 + 5) == "18 m" && serverDuration(40.9) == "40 s" && serverDuration(0) == "0 s")
-}
-
 /// A server's heading says nothing while it's fine, and what's wrong otherwise: not connected, out of reach (in red),
 /// or the first of disk and memory that's nearly full.
 @MainActor @Test func aServersHeadingSaysOnlyWhatsWrong() {

@@ -46,7 +46,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let empty = EmptyStateView()
     /// Over the whole tab until the database is open: connecting, or why it isn't and what to do.
     let gate = EmptyStateView()
-    let loading = DatabaseLoading()
+    let loading = LoadingView()
     /// Turning in the foot while a page is read (past half a second).
     let busy = NSProgressIndicator()
     let whole = NSSplitView()
@@ -195,7 +195,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         center.setContentHuggingPriority(.init(1), for: .horizontal)
         view.pin(whole)
         gate.place(in: view)
-        view.pin(loading)
+        loading.place(in: view)
         empty.place(in: grid.scroll)
         arrange()
     }
@@ -375,7 +375,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         let (read, error) = await app.tryCall(
             DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
         reading?.cancel()
-        loading.hide()
+        loading.show(nil)
         guard let read else {
             if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
             empty.showError(String(localized: "Can't read \(address.name)"), text: error)

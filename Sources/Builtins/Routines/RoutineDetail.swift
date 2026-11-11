@@ -19,7 +19,7 @@ struct RoutineDetail: View {
                         .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(String(localized: "Run Now")) { Task { await RoutineActions(app: app).runNow(routine) } }
+                Button(String(localized: "Run Now")) { Task { await app.call(RoutineRun(id: routine.id)) } }
                     .disabled(runs.contains(where: \.isOpen))
                 Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
                 Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
@@ -66,11 +66,6 @@ struct RoutineDetail: View {
 @MainActor
 struct RoutineActions {
     let app: AppModel
-
-    /// The run it started; nil when it didn't (the error is a banner).
-    @discardableResult func runNow(_ routine: Routine) async -> Routine.Run? {
-        await app.call(RoutineRun(id: routine.id))
-    }
 
     func turn(_ routine: Routine, on: Bool) {
         var changed = routine

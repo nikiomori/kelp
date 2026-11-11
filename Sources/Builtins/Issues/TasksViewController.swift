@@ -288,21 +288,19 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 guard gen == reloads else { return }
                 showAll.isHidden = true
                 let message = (error as? RPCError)?.message ?? "\(error)"
-                setup = src.needsRemote ? Forge.setup(for: message) : nil
-                setupButton.title = setup?.title ?? ""
-                setupButton.toolTip = setup?.command
-                setupButton.isHidden = setup == nil
                 self.rows = []
-                let why = setup?.note ?? src.connectHint ?? message
                 status.stringValue = ""
-                let quiet = Forge.noRemote(why)
-                filter.isHidden = quiet != nil   // the source stays: Linear and Jira need no remote
-                if let quiet {
-                    showEmpty(quiet.text, symbol: "network", title: quiet.title, retry: true)
-                } else if !src.needsRemote {
-                    showEmpty(why, symbol: "link")
+                // The source stays: Linear and Jira need no remote.
+                filter.isHidden = src.needsRemote && Forge.noRemote(message) != nil
+                if src.needsRemote {
+                    showList(false)
+                    setup = emptyView.showForge(
+                        message, failed: String(localized: "Couldn't load the list"), hint: src.connectHint,
+                        setupButton: setupButton, checkAgain: checkAgain)
                 } else {
-                    showEmpty(why, error: String(localized: "Couldn't load the list"))
+                    setup = nil
+                    setupButton.isHidden = true
+                    showEmpty(src.connectHint ?? message, symbol: "link")
                 }
             }
             table.reloadData()

@@ -9,76 +9,75 @@ import Foundation
 /// `kelpZoom(z)` sets the canvas's size by hand (nil: fitted to the pane beside the column).
 enum CanvasScript {
     static func source(issues: [String]) -> String {
-        let known = "[" + issues.map(MarkdownTab.jsString).joined(separator: ", ") + "]"
-        return """
-            (function () {
-              const known = \(known);
-              const frames = [...document.querySelectorAll('iframe[data-board]')];
-              const canvas = document.getElementById('kelp-canvas');
-              // Fits the rows to the pane beside the column (down to a quarter, then it scrolls), or the size set by
-              // hand; labels stay readable.
-              let chosen = null;
-              window.kelpZoom = z => { chosen = z; fit(); };
-              function fit() {
-                if (!canvas) return;
-                canvas.style.transform = '';
-                const wide = canvas.scrollWidth + 80;
-                const column = document.body.classList.contains('kelp-with-col') ? 260 : 0;
-                const room = document.documentElement.clientWidth - column;
-                const z = chosen || Math.max(0.25, Math.min(1, room / wide));
-                window.kelpZoomNow = z;
-                canvas.style.setProperty('--z', z);
-                canvas.style.transform = z < 1 ? 'scale(' + z + ')' : '';
-                document.body.style.height = z < 1 ? (canvas.scrollHeight * z + 112) + 'px' : '';
-                document.body.style.width = z !== 1 ? (canvas.scrollWidth * z + 80) + 'px' : '';
-                if (z > 1) document.body.style.height = (canvas.scrollHeight * z + 112) + 'px';
-                dispatchEvent(new CustomEvent('kelp-zoom'));
-                drawMarkers();
-              }
-              window.kelpFit = fit;
-              // A `!` on each element the check faults, over its board, in the light frame only.
-              const faults = [], markers = document.createElement('div');
-              markers.className = 'kelp-issues';
-              document.body.append(markers);
-              function drawMarkers() {
-                markers.replaceChildren();
-                for (const m of faults) {
-                  const fr = m.f.getBoundingClientRect(), r = m.el.getBoundingClientRect();
-                  const k = fr.width / m.f.offsetWidth;
-                  const b = document.createElement('div');
-                  b.className = 'kelp-fault'; b.textContent = '!'; b.title = m.text;
-                  b.style.left = (fr.left + scrollX + (r.left + r.width) * k - 8) + 'px';
-                  b.style.top = (fr.top + scrollY + r.top * k - 8) + 'px';
-                  markers.append(b);
-                }
-              }
-              addEventListener('resize', fit);
-              new ResizeObserver(() => requestAnimationFrame(fit)).observe(document.documentElement);
-            \(checker)
-              let left = frames.length;
-              function done() {
-                const out = known.slice();
-                for (const f of frames) check(f, out);
-                fit();
-                const issues = [...new Set(out)].slice(0, 40);
-                window.kelpIssues = issues;
-                dispatchEvent(new CustomEvent('kelp-check'));
-                webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues: issues });
-              }
-              if (!left) {
-                fit();
-                window.kelpIssues = known;
-                dispatchEvent(new CustomEvent('kelp-check'));
-                return webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues: known });
-              }
-              for (const f of frames) {
-                const ready = () => { if (--left === 0) setTimeout(done, 50); };
-                const d = f.contentDocument;
-                if (d && d.URL === 'about:srcdoc' && d.readyState === 'complete') ready();
-                else f.addEventListener('load', ready, { once: true });
-              }
-            })();
-            """
+        """
+        (function () {
+          const known = \(MarkdownTab.js(issues));
+          const frames = [...document.querySelectorAll('iframe[data-board]')];
+          const canvas = document.getElementById('kelp-canvas');
+          // Fits the rows to the pane beside the column (down to a quarter, then it scrolls), or the size set by
+          // hand; labels stay readable.
+          let chosen = null;
+          window.kelpZoom = z => { chosen = z; fit(); };
+          function fit() {
+            if (!canvas) return;
+            canvas.style.transform = '';
+            const wide = canvas.scrollWidth + 80;
+            const column = document.body.classList.contains('kelp-with-col') ? 260 : 0;
+            const room = document.documentElement.clientWidth - column;
+            const z = chosen || Math.max(0.25, Math.min(1, room / wide));
+            window.kelpZoomNow = z;
+            canvas.style.setProperty('--z', z);
+            canvas.style.transform = z < 1 ? 'scale(' + z + ')' : '';
+            document.body.style.height = z < 1 ? (canvas.scrollHeight * z + 112) + 'px' : '';
+            document.body.style.width = z !== 1 ? (canvas.scrollWidth * z + 80) + 'px' : '';
+            if (z > 1) document.body.style.height = (canvas.scrollHeight * z + 112) + 'px';
+            dispatchEvent(new CustomEvent('kelp-zoom'));
+            drawMarkers();
+          }
+          window.kelpFit = fit;
+          // A `!` on each element the check faults, over its board, in the light frame only.
+          const faults = [], markers = document.createElement('div');
+          markers.className = 'kelp-issues';
+          document.body.append(markers);
+          function drawMarkers() {
+            markers.replaceChildren();
+            for (const m of faults) {
+              const fr = m.f.getBoundingClientRect(), r = m.el.getBoundingClientRect();
+              const k = fr.width / m.f.offsetWidth;
+              const b = document.createElement('div');
+              b.className = 'kelp-fault'; b.textContent = '!'; b.title = m.text;
+              b.style.left = (fr.left + scrollX + (r.left + r.width) * k - 8) + 'px';
+              b.style.top = (fr.top + scrollY + r.top * k - 8) + 'px';
+              markers.append(b);
+            }
+          }
+          addEventListener('resize', fit);
+          new ResizeObserver(() => requestAnimationFrame(fit)).observe(document.documentElement);
+        \(checker)
+          let left = frames.length;
+          function done() {
+            const out = known.slice();
+            for (const f of frames) check(f, out);
+            fit();
+            const issues = [...new Set(out)].slice(0, 40);
+            window.kelpIssues = issues;
+            dispatchEvent(new CustomEvent('kelp-check'));
+            webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues: issues });
+          }
+          if (!left) {
+            fit();
+            window.kelpIssues = known;
+            dispatchEvent(new CustomEvent('kelp-check'));
+            return webkit.messageHandlers.kelpSync?.postMessage({ kind: 'check', issues: known });
+          }
+          for (const f of frames) {
+            const ready = () => { if (--left === 0) setTimeout(done, 50); };
+            const d = f.contentDocument;
+            if (d && d.URL === 'about:srcdoc' && d.readyState === 'complete') ready();
+            else f.addEventListener('load', ready, { once: true });
+          }
+        })();
+        """
     }
 
     /// What the check reads on each drawn board (`check(f, out)`), with the colour helpers it needs.

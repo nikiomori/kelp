@@ -8,17 +8,10 @@ import WorkbenchKit
 /// Kelp's virtual machines (Core/VM/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
 @MainActor
 enum Machines {
-    /// Any Xcode in /Applications, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it): an app with a developer
-    /// folder, not Xcodes.app (which installs them).
+    /// Any Xcode, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it): they share its bundle ID; Xcodes.app
+    /// (which installs them) doesn't.
     private static var xcodeInstalled: Bool {
-        do {
-            return try FileManager.default.contentsOfDirectory(atPath: "/Applications").contains {
-                $0.hasPrefix("Xcode") && $0.hasSuffix(".app")
-                    && FileManager.default.fileExists(atPath: "/Applications/\($0)/Contents/Developer")
-            }
-        } catch {
-            return false   // no /Applications to read: no Xcode there
-        }
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.dt.Xcode") != nil
     }
 
     /// The kinds of machine the sidebar's Machines + offers; `missing` says what this Mac lacks for one (Apple silicon, an

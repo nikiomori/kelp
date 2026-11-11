@@ -420,14 +420,7 @@ final class AgentStrip {
             panel.orderOut(nil)
             return
         }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.fast)
-            panel.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            MainActor.assumeIsolated {   // AppKit runs it on the main thread
-                if self?.wanted != true { panel.orderOut(nil) }   // it may have been wanted again meanwhile
-            }
-        }
+        panel.fadeOut { [weak self] in self?.wanted == true }
     }
 
     private var wanted: Bool {

@@ -45,11 +45,7 @@ extension Builtins {
                 cmd("files.quickOpen", "Open Quickly…", "cmd+p") { app.workbench.openQuickly() },
                 cmd("files.new", "New File", "opt+cmd+n") { app.workbench.open(UntitledTab.next(app)) },
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
-                    guard let md = (app.workbench.focusedContent as? FileTab)?.markdown else {
-                        NSSound.beep()
-                        return
-                    }
-                    md.cycleMode()
+                    markdown(app)?.cycleMode()
                 },
                 // The formatting bar's, from the keyboard (as on GitHub); on only in a Markdown file's editor.
                 cmd("markdown.bold", "Bold", "cmd+b") { markdown(app)?.bold() },

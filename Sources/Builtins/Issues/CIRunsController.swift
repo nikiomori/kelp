@@ -64,8 +64,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     var workflows: [CIRuns.Workflow] = []
     var worktree: String?
     var branchName = ""
-    /// The branch's runs, watched while the panel shows: the daemon looks again while one runs, and says when they changed.
-    private lazy var ciWatch = Watched(.ci, in: app)
     private var autoOpened = Set<Int>()
     /// The list being shown, its open runs read again.
     private var applying: Task<Void, Never>?
@@ -127,7 +125,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         } changed: { [weak self, app] in
             self?.worktree = $0
             self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
-            self?.follow()
             self?.loadPages()
             if app.latest(CIEvent.self, $0 ?? "") == nil { self?.loading.show(String(localized: "Loading…")) }
         }
@@ -180,18 +177,15 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     // MARK: loading
 
-    /// Watched while on screen: shown again (another panel was on screen), what ran meanwhile comes at once.
+    // The runs are watched for the workspace on screen all the time (`FailedRuns`, the icon's dot): not again here.
     override func viewDidAppear() {
         super.viewDidAppear()
-        follow()
         clock.start()
     }
     override func viewDidDisappear() {
         super.viewDidDisappear()
-        follow()
         clock.stop()
     }
-    private func follow() { ciWatch.key = view.window != nil ? worktree : nil }
 
     /// Refresh, and after starting runs: the daemon reads them now, and keeps looking for a while.
     func reload() { if let worktree { app.watchAgain(.ci, worktree) } }
@@ -205,7 +199,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             if let error = event.error {
                 branch.title = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
                 workflowsButton.isHidden = true
-                show(note: error, setup: Forge.setup(for: error), failed: true)
+                show(note: error, failed: true)
                 return
             }
             branchName = event.result?.branch ?? ""
@@ -268,20 +262,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// A run's jobs and the folds of their steps, top down, as they have to be opened.
     private func openBelow(_ run: Item) -> [Item] { (run.children ?? []).flatMap { [$0] + ($0.children ?? []) } }
 
-    /// `setup`: gh or glab isn't installed or signed in; what it says, and the button that runs the fix in a terminal.
-    private func show(note text: String?, setup: Forge.Setup? = nil, failed: Bool = false) {
-        self.setup = setup
-        if let setup {
-            setupButton.title = setup.title
-            setupButton.toolTip = setup.command
-            empty.show(
-                setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
-                buttons: [setupButton, checkAgain])
-        } else if let quiet = Forge.noRemote(text) {
-            empty.show(quiet.title, symbol: "network", text: quiet.text, buttons: [checkAgain])
-        } else if failed {
-            empty.showError(String(localized: "Couldn't read the runs"), text: text, buttons: [checkAgain])
+    /// `failed`: `text` is the error, and says what fixes it (`showForge`).
+    private func show(note text: String?, failed: Bool = false) {
+        if failed, let text {
+            setup = empty.showForge(
+                text, failed: String(localized: "Couldn't read the runs"), setupButton: setupButton,
+                checkAgain: checkAgain)
         } else {
+            setup = nil
             empty.show(text, symbol: "checkmark.seal")
         }
         // The runs and the log go together: the log's divider alone under the header drew a second line there.

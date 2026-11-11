@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-// MARK: tmux
+// MARK: tmux and built-ins' lists
 
 extension QuickOpen {
     /// File › Attach to tmux Session, the "+" menu: the sessions tmux has on this workspace's machine, the last used first.
@@ -13,6 +13,31 @@ extension QuickOpen {
             NSSound.beep()
             return
         }
+        showOwn(
+            String(localized: "Attach to a tmux session, or type a name for a new one"),
+            keys: String(localized: "↑↓ Select    ↩ Attach    ⇧↩ Attach in a Split")
+        ) { [weak self] in self?.tmuxItems([], $0) ?? [] }
+        tmuxLoad = Task {
+            let found = await app.call(TmuxList(worktreeId: wid)) ?? []
+            guard !Task.isCancelled, own != nil else { return }
+            own = { [weak self] in self?.tmuxItems(found, $0) ?? [] }
+            filter()
+        }
+    }
+
+    /// A built-in's list where the palette shows (Open Database): `rows` makes its rows from what's typed.
+    func showList(_ placeholder: String, keys: String, rows: @escaping @MainActor (String) async -> [QuickItem]) {
+        showOwn(placeholder, keys: keys) { typed in
+            await rows(typed).map { row in
+                Item(
+                    kind: "", icon: row.icon, title: row.title, detail: row.detail, action: row.open, split: row.split,
+                    image: row.image, accessory: row.accessory)
+            }
+        }
+    }
+
+    /// The palette's panel listing `rows` instead of its own items.
+    private func showOwn(_ placeholder: String, keys: String, rows: @escaping @MainActor (String) async -> [Item]) {
         if panel == nil { build() }
         stopChoosing()
         filesLoad?.cancel()
@@ -21,18 +46,13 @@ extension QuickOpen {
         commandsOnly = false
         recents = []
         all = []
-        tmux = []
-        field.placeholderString = String(localized: "Attach to a tmux session, or type a name for a new one")
-        keys.stringValue = String(localized: "↑↓ Select    ↩ Attach    ⇧↩ Attach in a Split")
+        own = rows
+        field.placeholderString = placeholder
+        self.keys.stringValue = keys
+        field.scope = nil
         field.stringValue = ""
         filter()
         present()
-        tmuxLoad = Task {
-            let found = await app.call(TmuxList(worktreeId: wid)) ?? []
-            guard !Task.isCancelled, tmux != nil else { return }
-            tmux = found
-            filter()
-        }
     }
 
     /// The sessions matching what's typed, that exact name first; then a new session by that name, or by the project's.
@@ -70,6 +90,27 @@ extension QuickOpen {
         }
         guard !sessions.contains(where: { $0.name == new }) else { return found }
         return found + [item(new, icon: "plus", detail: String(localized: "New tmux session"))]
+    }
+}
+
+/// A row of a built-in's list in Open Quickly (`Workbench.showList`).
+package struct QuickItem {
+    let title: String, detail: String, icon: String, image: NSImage?
+    /// At the row's end, as a database's stage.
+    let accessory: (@MainActor () -> NSView?)?
+    let open: () -> Void, split: (() -> Void)?
+
+    package init(
+        _ title: String, detail: String, icon: String = "", image: NSImage? = nil,
+        accessory: (@MainActor () -> NSView?)? = nil, open: @escaping () -> Void, split: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.detail = detail
+        self.icon = icon
+        self.image = image
+        self.accessory = accessory
+        self.open = open
+        self.split = split
     }
 }
 

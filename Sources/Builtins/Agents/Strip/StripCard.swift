@@ -115,18 +115,10 @@ final class StripCard {
         if let area {
             frame.origin.x = min(max(frame.minX, area.minX + Metrics.gapWide), area.maxX - size.width - Metrics.gapWide)
         }
-        shown.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : -8), display: false)
-        shown.alphaValue = 0
-        shown.orderFrontRegardless()
+        shown.slideIn(to: frame, by: CGVector(dx: 0, dy: Motion.reduced ? 0 : -8))
         // Keys come here now; Kelp stays behind, so the app in front is still the one in front once it closes.
         shown.makeKey()
         if reply.superview != nil { shown.makeFirstResponder(reply) }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.appear)
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            shown.animator().setFrame(frame, display: true)
-            shown.animator().alphaValue = 1
-        }
         watch()
     }
 
@@ -150,14 +142,7 @@ final class StripCard {
         if let spaces { NSWorkspace.shared.notificationCenter.removeObserver(spaces) }
         spaces = nil
         // It goes as the strip does: faded, not cut.
-        if let shown = panel {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Motion.duration(Motion.fast)
-                shown.animator().alphaValue = 0
-            } completionHandler: {
-                MainActor.assumeIsolated { shown.orderOut(nil) }   // AppKit runs it on the main thread
-            }
-        }
+        panel?.fadeOut()
         panel = nil
     }
 }

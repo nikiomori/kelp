@@ -27,6 +27,8 @@ extension QuickOpen {
         var key = ""
         /// Run from here lately: on top of ⇧⌘P's empty list, under Recently Used.
         var recent = false
+        /// A built-in's row: a view at its end (`QuickItem`).
+        var accessory: (@MainActor () -> NSView?)?
     }
     /// A setting's choices on screen: the key, the value to go back to, whether moving tries them on, the query to return to.
     struct Choosing {

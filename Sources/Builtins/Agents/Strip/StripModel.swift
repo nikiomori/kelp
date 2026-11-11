@@ -28,14 +28,14 @@ struct StripCI: Equatable {
 
 /// Where the strip stands: a corner of a screen, or the middle of its foot or head. It snaps to the nearest after a drag, as a
 /// picture-in-picture window does, and widens away from its corner when a pill opens. Kept per Mac: it's about this Mac's screens.
-enum StripCorner: String, CaseIterable {
+enum StripCorner: String, CaseIterable, Codable {
     case bottom, bottomLeft, bottomRight, top, topLeft, topRight
     var isTop: Bool { [.top, .topLeft, .topRight].contains(self) }
     var isLeft: Bool { self == .bottomLeft || self == .topLeft }
     var isRight: Bool { self == .bottomRight || self == .topRight }
 }
 
-struct StripPlace: Equatable {
+struct StripPlace: Equatable, Codable {
     var corner: StripCorner
     var display: UInt32?
     /// Hidden behind this side, `y` up from the foot of the screen's visible part.
@@ -44,23 +44,11 @@ struct StripPlace: Equatable {
 
     private static let key = "agents.dockStrip.place"
     static func load() -> StripPlace? {
-        guard let saved = UserDefaults.standard.dictionary(forKey: key),
-            let corner = (saved["corner"] as? String).flatMap(StripCorner.init)
-        else { return nil }
-        return StripPlace(
-            corner: corner, display: (saved["display"] as? NSNumber)?.uint32Value,
-            edge: (saved["edge"] as? String).flatMap(StripEdge.init),
-            y: (saved["y"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? 0)
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        do { return try JSONDecoder().decode(StripPlace.self, from: data) } catch { return nil }
     }
     static func save(_ place: StripPlace?) {
-        guard let place else {
-            UserDefaults.standard.removeObject(forKey: key)
-            return
-        }
-        var saved: [String: Any] = ["corner": place.corner.rawValue, "y": Double(place.y)]
-        saved["display"] = place.display
-        saved["edge"] = place.edge?.rawValue
-        UserDefaults.standard.set(saved, forKey: key)
+        do { UserDefaults.standard.set(try place.map { try JSONEncoder().encode($0) }, forKey: key) } catch {}
     }
 }
 

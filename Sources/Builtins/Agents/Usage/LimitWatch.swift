@@ -88,7 +88,7 @@ final class LimitWatch {
         var read = Set<String>()
         for r in u.fresh() {
             let agent = r.agent, l = r.limit, resetAt = r.resetAt
-            let key = LimitForecast.key(agent, l.kind), window = UsageView.window(l.kind)
+            let key = LimitForecast.key(agent, l.kind), window = UsageGet.window(l.kind)
             read.insert(key)
             // Told again only once its pace eases to 90 % at the reset: a pace that wobbles around full isn't news each read.
             if forecast.atReset(key, resetAt: resetAt, window: window).map({ $0 <= 90 }) ?? true {

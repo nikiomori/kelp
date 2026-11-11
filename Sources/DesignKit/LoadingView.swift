@@ -2,11 +2,13 @@ import AppKit
 import SwiftUI
 
 /// What a panel, a tab or a window shows while what it lists is on its way: a small spinner and one secondary line
-/// beside it, where `EmptyStateView` stands and lifted as it is, so one gives way to the other without a jump.
+/// beside it (a `detail` under them), where `EmptyStateView` stands and lifted as it is, so one gives way to the other
+/// without a jump.
 @MainActor
 public final class LoadingView: NSView {
     private let spinner = NSProgressIndicator()
     private let line = NSTextField(labelWithString: "")
+    private let detail = NSTextField(wrappingLabelWithString: "")
 
     public init() {
         super.init(frame: .zero)
@@ -14,7 +16,14 @@ public final class LoadingView: NSView {
         spinner.controlSize = .small
         line.font = .ui(TextSize.body)
         line.textColor = .secondaryLabelColor
-        let stack = NSStackView(views: [spinner, line])
+        detail.font = .ui(TextSize.caption)
+        detail.textColor = .tertiaryLabelColor
+        detail.alignment = .center
+        detail.preferredMaxLayoutWidth = 360
+        let row = NSStackView(views: [spinner, line])
+        row.spacing = Metrics.gap
+        let stack = NSStackView(views: [row, detail])
+        stack.orientation = .vertical
         stack.spacing = Metrics.gap
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
@@ -28,10 +37,12 @@ public final class LoadingView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Shows it with `text` ("Loading…"); nil hides it and stops the spinner.
-    public func show(_ text: String?) {
+    /// Shows it with `text` ("Loading…") and what it waits for, if `detail`; nil hides it and stops the spinner.
+    public func show(_ text: String?, detail: String? = nil) {
         isHidden = text == nil
         line.stringValue = text ?? ""
+        self.detail.stringValue = detail ?? ""
+        self.detail.isHidden = detail?.isEmpty ?? true
         if text == nil { spinner.stopAnimation(nil) } else { spinner.startAnimation(nil) }
     }
 

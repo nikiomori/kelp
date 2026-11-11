@@ -182,7 +182,7 @@ struct WeekGrid: View {
             Task { await app.call(SessionKill(id: sessionId)) }
         } else {
             Task {
-                if let run = await RoutineActions(app: app).runNow(routine) {
+                if let run = await app.call(RoutineRun(id: routine.id)) {
                     picked = run.id
                     chosen = routine.id
                 }

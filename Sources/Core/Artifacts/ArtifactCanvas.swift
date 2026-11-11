@@ -121,7 +121,7 @@ public enum DesignSystem {
 
 /// A board's levers, moved in Kelp without its agent: a line at its top, `<!-- tweak --highlight: #1f7a5a -->`
 /// (a colour) or `<!-- tweak --gap: 12px (8px, 12px, 16px) -->` (one of those). The board uses `var(--highlight)`.
-public struct Tweak: Equatable, Sendable {
+public struct Tweak: Equatable, Sendable, Encodable {
     public var name: String, value: String
     /// Its choices; empty for a colour.
     public var options: [String]

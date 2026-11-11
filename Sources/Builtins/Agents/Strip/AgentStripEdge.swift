@@ -5,7 +5,7 @@ import KelpKit
 
 /// A side of a screen the strip hides behind, as a picture-in-picture video does in Dia. Not the foot (the Dock) nor the head
 /// (the menu bar).
-enum StripEdge: String { case left, right }
+enum StripEdge: String, Codable { case left, right }
 
 /// The strip behind an edge, without a window.
 @MainActor
@@ -181,15 +181,7 @@ final class StripLine {
         let originX = edge == .right ? strip.minX - Metrics.gapWide - size.width : strip.maxX + Metrics.gapWide
         let frame = NSRect(x: originX, y: strip.midY - size.height / 2, width: size.width, height: size.height)
         let from = Motion.reduced ? 0 : (edge == .right ? 1 : -1) * StripModel.handle
-        panel.setFrame(frame.offsetBy(dx: from, dy: 0), display: false)
-        panel.alphaValue = 0
-        panel.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.appear)
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().setFrame(frame, display: true)
-            panel.animator().alphaValue = 1
-        }
+        panel.slideIn(to: frame, by: CGVector(dx: from, dy: 0))
         hold(false)
     }
 
@@ -213,13 +205,7 @@ final class StripLine {
         ends?.invalidate()
         guard panel.isVisible else { return }
         let shown = panel
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.fast)
-            shown.animator().alphaValue = 0
-        } completionHandler: {
-            // AppKit runs it on the main thread
-            MainActor.assumeIsolated { if shown.alphaValue == 0 { shown.orderOut(nil) } }
-        }
+        shown.fadeOut { shown.alphaValue != 0 }
     }
 
     /// The whole line is the button, and takes the click that reaches it with Kelp behind.

@@ -203,7 +203,7 @@ struct UsageView: View {
             Line(
                 label: label(reading.kind), used: reading.percent / 100,
                 resets: reading.resets.map { ResetTime.shown($0) },
-                resetAt: reading.resets.flatMap { ResetTime.parse($0) }, window: window(reading.kind),
+                resetAt: reading.resets.flatMap { ResetTime.parse($0) }, window: UsageGet.window(reading.kind),
                 kind: reading.kind)
         }
     }
@@ -219,8 +219,6 @@ struct UsageView: View {
                         ? String(localized: "Week, \(String(kind.dropFirst(7)))")
                         : kind.prefix(1).uppercased() + kind.dropFirst()
     }
-
-    static func window(_ kind: String) -> TimeInterval? { UsageGet.window(kind) }
 
     /// Claude Code's /usage, or the percentages a session printed.
     private static func claude(_ usage: UsageGet.Result) -> [Line] {
@@ -242,7 +240,7 @@ struct UsageView: View {
             return Line(
                 label: label(kind), used: expired ? 0 : usedPercent / 100, resets: at.map { ResetTime.shown($0) },
                 resetAt: at,
-                window: minutes.map { $0 * 60 } ?? window(kind), kind: kind)
+                window: minutes.map { $0 * 60 } ?? UsageGet.window(kind), kind: kind)
         }
     }
 }

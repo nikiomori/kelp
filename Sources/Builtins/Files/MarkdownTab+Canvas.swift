@@ -179,7 +179,7 @@ extension MarkdownTab {
         let zoom = canvasZoom.map { ["kelpZoom(\($0))"] } ?? []
         if marking { return zoom + ["kelpMark(true)"] }
         guard editing else { return zoom }
-        let select = chosen.map { "kelpSelect(\(Self.jsString($0.board)), \(Self.jsString($0.id)))" }
+        let select = chosen.map { "kelpSelect(\(Self.js($0.board)), \(Self.js($0.id)))" }
         return zoom + ["kelpEdit(true)"] + (select.map { [$0] } ?? [])
     }
 

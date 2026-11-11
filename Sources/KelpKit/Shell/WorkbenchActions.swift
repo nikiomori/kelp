@@ -163,6 +163,10 @@ extension Workbench {
     package func openQuickly(text: String = "") { app.quickOpen.show(commandsOnly: false, text: text) }
     /// The tmux sessions to attach to, listed where the palette shows.
     package func showTmuxSessions() { app.quickOpen.showTmux() }
+    /// A built-in's own list there (Open Database): `rows` makes its rows from what's typed.
+    package func showList(
+        _ placeholder: String, keys: String, rows: @escaping @MainActor (String) async -> [QuickItem]
+    ) { app.quickOpen.showList(placeholder, keys: keys, rows: rows) }
 
     /// ⇧⌘U: the next agent that asked something or finished, wherever it is.
     package func showNextNeedingAttention() {

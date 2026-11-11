@@ -40,37 +40,19 @@ struct CanvasMark: Codable, Equatable, Sendable {
 /// (`kelpPresent(true)`: the boards one at a time, each as large as the pane; ← → step, Esc ends). To `kelpSync`:
 /// `marks` (send), `marksDraft` (keep), `pick`, `tweak`, `present` (ended).
 enum CanvasEdit {
-    struct Labels {
+    struct Labels: Encodable {
         var send: String, pick: String, tweaks: String, note: String, remove: String
         var marks: String, check: String, askFix: String, noMarks: String, noIssues: String, of: String, escEnds: String
     }
 
     static func source(marks: [CanvasMark], tweaks: [String: [Tweak]], labels: Labels) -> String {
-        let js = MarkdownTab.jsString
-        let marksJSON =
-            "["
-            + marks.map {
-                "{board: \(js($0.board)), target: \(js($0.target)), text: \(js($0.text)), note: \(js($0.note))}"
-            }.joined(separator: ", ") + "]"
-        let tweaksJSON =
-            "{"
-            + tweaks.map { board, list in
-                js(board) + ": ["
-                    + list.map { t in
-                        let options = t.options.map(js).joined(separator: ", ")
-                        return "{name: \(js(t.name)), value: \(js(t.value)), options: [\(options)]}"
-                    }.joined(separator: ", ") + "]"
-            }.joined(separator: ", ") + "}"
-        let l = labels
-        return """
-            (function () {
-              const marks = \(marksJSON), tweaks = \(tweaksJSON);
-              const L = { send: \(js(l.send)), pick: \(js(l.pick)), tweaks: \(js(l.tweaks)), note: \(js(l.note)),
-                remove: \(js(l.remove)), marks: \(js(l.marks)), check: \(js(l.check)), askFix: \(js(l.askFix)),
-                noMarks: \(js(l.noMarks)), noIssues: \(js(l.noIssues)), of: \(js(l.of)), escEnds: \(js(l.escEnds)) };
-            \(body)
-            })();
-            """
+        """
+        (function () {
+          const marks = \(MarkdownTab.js(marks)), tweaks = \(MarkdownTab.js(tweaks));
+          const L = \(MarkdownTab.js(labels));
+        \(body)
+        })();
+        """
     }
 
     private static let body = """

@@ -36,7 +36,7 @@ extension Builtins {
             commands: [
                 cmd("databases.open", "Open Database…", "ctrl+cmd+k") {
                     guard let workspace = app.workbench.workspaceId else { return NSSound.beep() }
-                    Task { await DatabaseOpener.run(app, worktreeId: workspace) }
+                    DatabaseOpener.show(app, worktreeId: workspace)
                 },
                 cmd("databases.add", "Add Database…") {
                     guard let workspace = app.workbench.workspaceId else {

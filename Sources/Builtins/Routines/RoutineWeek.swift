@@ -55,8 +55,6 @@ struct RoutineWeek {
 
     /// 540 → "9:00" in the person's clock (13:30 or 1:30 PM).
     static func time(_ minutes: Int) -> String {
-        let date =
-            Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
-        return date.formatted(date: .omitted, time: .shortened)
+        RepeatFields.date(minutes).formatted(date: .omitted, time: .shortened)
     }
 }

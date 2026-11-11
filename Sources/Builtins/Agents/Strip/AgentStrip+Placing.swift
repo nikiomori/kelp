@@ -176,15 +176,7 @@ extension AgentStrip {
                     })
             return
         }
-        window.setFrame(frame.offsetBy(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8), display: false)
-        window.alphaValue = 0
-        window.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.duration(Motion.appear)
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            window.animator().setFrame(frame, display: true)
-            window.animator().alphaValue = 1
-        }
+        window.slideIn(to: frame, by: CGVector(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8))
     }
 
     /// The spring's way back from a little past its place, unless it was sent somewhere else since.
