@@ -71,7 +71,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
         table.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
         // a .sqlite or .duckdb file dropped in: Add Database with it; one of All My Databases: a group, or used here
-        table.registerForDraggedTypes([.fileURL, .kelpDatabase])
+        table.registerForDraggedTypes([.fileURL, .kelpDatabase, .kelpDatabaseGroup])
         search.placeholderString = String(localized: "Find a Database")
         search.delegate = self
         search.controlSize = .small

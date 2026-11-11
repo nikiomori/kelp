@@ -6,6 +6,8 @@ import KelpKit
 extension NSPasteboard.PasteboardType {
     /// One of All My Databases dragged in the Databases panel: its name.
     static let kelpDatabase = NSPasteboard.PasteboardType("app.kelp.database")
+    /// A group of All My Databases dragged: its name. Only the project's part takes it, all of it at once.
+    static let kelpDatabaseGroup = NSPasteboard.PasteboardType("app.kelp.database-group")
 }
 
 extension DatabaseInfo {
@@ -17,8 +19,8 @@ extension DatabaseInfo {
 }
 
 /// All My Databases' groups. One dragged onto a group goes into it, onto the section's title out of any, onto the
-/// project's part is used here (a copy: it stays in All My Databases). A group lasts while it has a database; several
-/// picked with ⌘ or ⇧ share one menu.
+/// project's part is used here (a copy: it stays in All My Databases); a group dragged there brings all of its own. A
+/// group lasts while it has a database; several picked with ⌘ or ⇧ share one menu.
 extension DatabasesPanel {
     enum DropTarget: Equatable { case group(String), noGroup, project }
 
@@ -39,15 +41,20 @@ extension DatabasesPanel {
     /// One of All My Databases is no agent's yet: only this panel takes it. A project's, dropped on an agent's
     /// terminal, is its name and where to read it.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
-        guard case .database(let db, let library) = rows[row] else { return nil }
         let item = NSPasteboardItem()
+        if case .group(let name, _) = rows[row] {
+            item.setString(name, forType: .kelpDatabaseGroup)
+            return item
+        }
+        guard case .database(let db, let library) = rows[row] else { return nil }
         item.setString(library ? db.name : Self.mention(database: db.name), forType: library ? .kelpDatabase : .string)
         return item
     }
 
     func validateDatabases(_ info: any NSDraggingInfo, row: Int, op: NSTableView.DropOperation) -> NSDragOperation {
         let dbs = dragged(info)
-        guard !dbs.isEmpty, let (target, lit) = dropTarget(row: row, op: op) else {
+        guard !dbs.isEmpty, let (target, lit) = dropTarget(row: row, op: op), target == .project || !isGroup(info)
+        else {
             springGroup = nil
             return []
         }
@@ -67,7 +74,8 @@ extension DatabasesPanel {
     func acceptDatabases(_ info: any NSDraggingInfo, row: Int, op: NSTableView.DropOperation) -> Bool {
         springGroup = nil
         let dbs = dragged(info)
-        guard !dbs.isEmpty, let (target, _) = dropTarget(row: row, op: op) else { return false }
+        guard !dbs.isEmpty, let (target, _) = dropTarget(row: row, op: op), target == .project || !isGroup(info)
+        else { return false }
         switch target {
         case .project: use(dbs)
         case .group(let name): move(dbs, to: name)
@@ -77,8 +85,14 @@ extension DatabasesPanel {
     }
 
     private func dragged(_ info: any NSDraggingInfo) -> [DatabaseInfo] {
-        let names = Set(info.draggingPasteboard.pasteboardItems?.compactMap { $0.string(forType: .kelpDatabase) } ?? [])
-        return library.filter { names.contains($0.name) }
+        let items = info.draggingPasteboard.pasteboardItems ?? []
+        let names = Set(items.compactMap { $0.string(forType: .kelpDatabase) })
+        let groups = Set(items.compactMap { $0.string(forType: .kelpDatabaseGroup) })
+        return library.filter { names.contains($0.name) || $0.groupName.map(groups.contains) == true }
+    }
+
+    private func isGroup(_ info: any NSDraggingInfo) -> Bool {
+        info.draggingPasteboard.availableType(from: [.kelpDatabaseGroup]) != nil
     }
 
     private var projectDatabases: [DatabaseInfo] { app.latest(DatabasesEvent.self, workspace)?.databases ?? [] }
