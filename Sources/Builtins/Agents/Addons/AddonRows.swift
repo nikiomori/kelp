@@ -3,13 +3,17 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Skills & MCP panel's rows, drawn: a section's title with its count, a group's line (chevron, name, count), an
-/// item (its kind's symbol, name, where it is, the agents that get it, what it costs), and what's wrong with one.
+/// The Skills & MCP panel's rows, drawn: a section's title with its count, a group's line (chevron, name, count and
+/// weight), an item (its kind's symbol, name, the agents that get it, what it costs), and what's wrong with one.
 @MainActor
 struct AddonRows {
     let app: AppModel
     /// A switch was flipped: the key it stands for (`Addon.key`), and whether it's on now.
     var onSwitch: (String, Bool) -> Void = { _, _ in }
+    /// A row's file to open: its button under the pointer.
+    var onOpen: (String) -> Void = { _ in }
+    /// Off Here: the keys to switch off for the project.
+    var onOff: ([String]) -> Void = { _ in }
     private static let most = 3
 
     func section(_ section: AddonLine.Section, count: Int) -> NSView {
@@ -21,11 +25,12 @@ struct AddonRows {
             case .instructions: String(localized: "Instructions")
             }
         let title = label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-        return line([title, digits(count), NSView()], inset: Metrics.inset)
+        return line([title, digits(count.formatted()), NSView()], inset: Metrics.inset)
     }
 
-    /// `off`: the group's own switch (a plugin's), nil for a group whose items switch one by one.
-    func group(_ g: AddonGroup, count: Int, open: Bool, off: Bool?) -> NSView {
+    /// `off`: the group's own switch (a plugin's), nil for a group whose items switch one by one. A plugin's line sits
+    /// in the Plugins group, one step in.
+    func group(_ g: AddonGroup, count: Int, tokens: Int?, open: Bool, off: Bool?) -> NSView {
         let chevron = NSImageView()
         // A plugin that's off has nothing to unfold: its name still starts where the others do.
         if count > 0 { chevron.image = .symbol(open ? "chevron.down" : "chevron.right") }
@@ -34,32 +39,46 @@ struct AddonRows {
         chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
         let name = label(g.title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
         var views: [NSView] = [chevron, name, NSView()]
-        if count > 0 { views.append(digits(count)) }
+        if count > 0 { views.append(digits(AddonGroups.countAndTokens(count, tokens))) }
         if let off, let key = g.key { views.append(toggle(key, on: !off, name: g.title)) }
-        let row = line(views, inset: Metrics.inset)
+        let row = line(views, inset: Self.inset(g.plugin == nil ? 0 : 1))
         row.setAccessibilityLabel(g.title)
         return row
     }
 
-    /// `width`: the row's, so the name gets its room first and what's beside it only what's left.
-    func item(_ addon: Addon, nested: Bool, width: CGFloat) -> NSView {
-        let name = label(addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
+    /// `width`: the row's, so the name gets its room first and what's beside it only what's left. Under the pointer a
+    /// row with a file shows a button that opens it.
+    func item(_ addon: Addon, depth: Int, width: CGFloat) -> NSView {
+        // A plugin's skill sits under its plugin's line: its name there is enough ("sales:call-prep" → "call-prep").
+        let title = addon.source == .plugin ? addon.name.split(separator: ":").last.map(String.init) : nil
+        let name = label(
+            title ?? addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
         var held: [NSView] = []
         if AddonGroups.waits(addon) { held.append(waiting()) }
         // A plugin's skill goes with its plugin: the switch is on the plugin's line.
         if let key = addon.key, !key.hasPrefix("plugin:") {
             held.append(toggle(key, on: !addon.off, name: addon.name))
         }
-        // What a narrow panel drops, last first: where it is, who gets it, what it weighs.
+        // What a narrow panel drops, last first: who gets it, what it weighs.
         var extras: [NSView] = []
-        if let tokens = addon.tokens { extras.append(caption(AddonGroups.tokens(tokens), truncating: false)) }
+        if let tokens = addon.tokens { extras.append(digits(AddonGroups.k(tokens))) }
         if let faces = faces(addon.agents) { extras.append(faces) }
-        if addon.kind != .skill, let origin = addon.origin { extras.append(caption(origin, truncating: false)) }
-        let inset = nested ? Self.nested : Metrics.inset
+        let inset = Self.inset(depth)
         let mark = mark(addon)
-        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset) { $0 + $1.fittingSize.width + Metrics.gap }
+        let open = addon.path.map { path in
+            IconButton(.symbol("arrow.up.forward.square"), tip: String(localized: "Open")) { onOpen(path) }
+        }
+        let room = open == nil ? 0 : Metrics.iconButton + Metrics.gap
+        let fixed = ([mark, name] + held).reduce(inset + Metrics.inset + room) {
+            $0 + $1.fittingSize.width + Metrics.gap
+        }
         let shown = AddonGroups.fitting(extras.map { $0.fittingSize.width + Metrics.gap }, in: width - fixed)
-        let row = line([mark, name, NSView()] + extras.prefix(shown).reversed() + held, inset: inset)
+        let row = line(
+            [mark, name, NSView()] + [open].compactMap { $0 } + extras.prefix(shown).reversed() + held, inset: inset)
+        if let open {
+            open.isHidden = true
+            row.hovered = [open]
+        }
         let tip = AddonGroups.tip(addon) { app.catalog.name($0) }
         row.toolTip = tip.isEmpty ? addon.name : addon.name + "\n" + tip
         return row
@@ -82,22 +101,45 @@ struct AddonRows {
         return control
     }
 
-    /// Needs a Look: the name over what's wrong, in red.
+    /// Needs a Look: the name over what's wrong, in red, and a button that switches it off here.
     func problem(_ addon: Addon) -> NSView {
-        let warning = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Problem")))
+        let off = addon.key.flatMap { addon.off ? nil : [$0] } ?? []
+        let row = twoLines(
+            addon.name, addon.problem ?? "", color: .textRed, offHere: off, mark: .textRed)
+        row.toolTip = [addon.problem, AddonGroups.tip(addon)].compactMap { $0 }.joined(separator: "\n")
+        return row
+    }
+
+    /// Needs a Look: the servers waiting for a sign-in, as one line with one button for all of them.
+    func unsigned(_ servers: [Addon]) -> NSView {
+        let text = AddonGroups.unsignedText(servers)
+        let row = twoLines(
+            text.title, text.detail, color: .secondaryLabelColor, offHere: servers.compactMap(\.key), mark: .textOrange)
+        row.toolTip = servers.map(\.name).joined(separator: ", ")
+        return row
+    }
+
+    private func twoLines(
+        _ title: String, _ detail: String, color: NSColor, offHere keys: [String], mark: NSColor
+    ) -> AddonCell {
+        let warning = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Needs a look")))
         warning.symbolConfiguration = .chrome(Metrics.iconSmall)
-        warning.contentTintColor = .textRed
+        warning.contentTintColor = mark
         let words = NSStackView(views: [
-            label(addon.name, font: .ui(TextSize.row)),
-            label(addon.problem ?? "", font: .ui(TextSize.caption), color: .textRed)
+            label(title, font: .ui(TextSize.row)), label(detail, font: .ui(TextSize.caption), color: color)
         ])
         words.orientation = .vertical
         words.alignment = .leading
         words.spacing = Metrics.lineGap
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let row = line([warning, words, NSView()], inset: Metrics.inset)
-        row.toolTip = [addon.problem, AddonGroups.tip(addon)].compactMap { $0 }.joined(separator: "\n")
-        return row
+        var views: [NSView] = [warning, words, NSView()]
+        if !keys.isEmpty {
+            let button = PointerButton(title: String(localized: "Off Here")) { onOff(keys) }
+            button.toolTip = String(localized: "Off in this project: new chats here don’t get it")
+            button.setContentCompressionResistancePriority(.required, for: .horizontal)
+            views.append(button)
+        }
+        return line(views, inset: Metrics.inset)
     }
 
     /// The agents that get it, as their icons; nil when the list doesn't say.
@@ -129,24 +171,13 @@ struct AddonRows {
 
     // MARK: Parts
 
-    /// A group's items start where its name does.
+    /// A group's items start where its name does: each level one chevron and a gap further in.
     private static let chevron: CGFloat = 12
-    private static var nested: CGFloat { Metrics.inset + chevron + Metrics.gap }
+    private static func inset(_ depth: Int) -> CGFloat { Metrics.inset + CGFloat(depth) * (chevron + Metrics.gap) }
 
-    private func digits(_ n: Int) -> NSTextField {
-        let field = label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
+    private func digits(_ text: String) -> NSTextField {
+        let field = label(text, font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
         field.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return field
-    }
-
-    private func caption(_ text: String, truncating: Bool, color: NSColor = .secondaryLabelColor) -> NSTextField {
-        let field = label(text, font: .uiDigits(TextSize.caption), color: color)
-        if truncating {   // where it is gives way before the name does
-            field.lineBreakMode = .byTruncatingMiddle
-            field.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal)
-        } else {
-            field.setContentCompressionResistancePriority(.required, for: .horizontal)
-        }
         return field
     }
 
@@ -159,8 +190,8 @@ struct AddonRows {
         return field
     }
 
-    private func line(_ views: [NSView], inset: CGFloat) -> NSStackView {
-        let stack = NSStackView(views: views)
+    private func line(_ views: [NSView], inset: CGFloat) -> AddonCell {
+        let stack = AddonCell(views: views)
         stack.spacing = Metrics.gap
         stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.inset)
         return stack
@@ -186,4 +217,11 @@ final class AddonSwitch: NSSwitch {
     required init?(coder: NSCoder) { fatalError() }
 
     @objc private func flipped() { changed(key, state == .on) }
+}
+
+/// A row: under the pointer it shows what waits for it (the button that opens its file).
+@MainActor
+final class AddonCell: NSStackView, Hoverable {
+    var hovered: [NSView] = []
+    func setHover(_ on: Bool) { for view in hovered { view.isHidden = !on } }
 }

@@ -31,7 +31,15 @@ extension AddonsList: Handled {
             loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted(), kept: kept,
             builtIn: ClaudeBuiltIns.names, kelpHome: sessions.root)
         let off = sessions.setup.addonsOff(worktreeId: worktreeId).off
-        return Addons(items: AddonSwitches.applied(off, to: items), chat: loaded != nil, gone: gone)
+        var all = AddonSwitches.applied(off, to: items)
+        // A plugin that's off has no skill listed to say which install it is: its line still names it, to uninstall.
+        if all.contains(where: { $0.kind == .plugin }) {
+            let plugins = files.plugins()
+            for index in all.indices where all[index].kind == .plugin {
+                all[index].plugin = plugins[all[index].name]?.id
+            }
+        }
+        return Addons(items: all, chat: loaded != nil, gone: gone)
     }
 }
 

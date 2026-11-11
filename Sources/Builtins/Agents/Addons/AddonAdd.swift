@@ -13,9 +13,11 @@ final class AddonAddForm: NSObject, NSTextFieldDelegate {
     private let shared = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let alert = NSAlert()
 
-    init(project: String) {
+    /// `editing`: a server's entry as JSON, and whether it's the project's: the form changes it in place.
+    init(project: String, editing: (name: String, json: String, project: Bool)? = nil) {
         super.init()
-        alert.messageText = String(localized: "Add an MCP Server")
+        alert.messageText =
+            editing.map { String(localized: "Edit “\($0.name)”") } ?? String(localized: "Add an MCP Server")
         alert.informativeText = String(
             localized: "Claude Code and Codex get it when a chat starts. Their own settings stay as they are.")
         field.placeholderString = String(localized: "A command, an address or a JSON entry")
@@ -25,6 +27,15 @@ final class AddonAddForm: NSObject, NSTextFieldDelegate {
         read.textColor = .secondaryLabelColor
         shared.title = String(localized: "Only in \(project), for the team (.mcp.json)")
         shared.font = .ui(TextSize.row)
+        if let editing {   // the entry as its file spells it, over several lines
+            field.stringValue = editing.json
+            field.usesSingleLineMode = false
+            field.cell?.wraps = true
+            field.cell?.isScrollable = false
+            field.preferredMaxLayoutWidth = Metrics.alertAccessory
+            shared.state = editing.project ? .on : .off
+            shared.isEnabled = false
+        }
         let column = NSStackView(views: [field, read, shared])
         column.orientation = .vertical
         column.alignment = .leading
@@ -36,7 +47,7 @@ final class AddonAddForm: NSObject, NSTextFieldDelegate {
         column.layoutSubtreeIfNeeded()
         column.frame.size = column.fittingSize
         alert.accessoryView = column
-        alert.addButton(withTitle: String(localized: "Add"))
+        alert.addButton(withTitle: editing == nil ? String(localized: "Add") : String(localized: "Save"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         alert.window.initialFirstResponder = field
         show()
@@ -71,47 +82,5 @@ final class AddonAddForm: NSObject, NSTextFieldDelegate {
         let secrets = (found.entry.env ?? [:]).keys.sorted() + (found.entry.headers ?? [:]).keys.sorted()
         if !secrets.isEmpty { parts.append(String(localized: "keeps \(secrets.joined(separator: ", "))")) }
         return parts.joined(separator: " · ")
-    }
-}
-
-/// A row's own menu: hand a server only one agent has to the others, take away one Kelp added.
-@MainActor
-enum AddonMenu {
-    /// The agent whose own file holds this server alone, for "Give to All Agents".
-    static func only(_ addon: Addon) -> String? {
-        guard addon.kind == .server, addon.source == .yours, addon.origin != Addon.kept,
-            addon.agents.count == 1, let agent = addon.agents.first, ["claude", "codex"].contains(agent)
-        else { return nil }
-        return agent
-    }
-
-    /// One Kelp can take away: in its own file or the project's.
-    static func removable(_ addon: Addon) -> Bool {
-        addon.kind == .server && (addon.origin == Addon.kept || addon.origin == ".mcp.json")
-    }
-
-    static func fill(_ menu: NSMenu, _ addon: Addon, app: AppModel, worktreeId: String, done: @escaping () -> Void) {
-        if let agent = only(addon), let key = addon.key {
-            menu.add(String(localized: "Give to All Agents")) {
-                Task {
-                    let name = String(key.dropFirst("server:".count))
-                    await app.call(AddonsAdd(worktreeId: worktreeId, name: name, entry: nil, from: agent))
-                    done()
-                }
-            }
-        }
-        if removable(addon), let key = addon.key {
-            menu.add(String(localized: "Remove…")) {
-                Task {
-                    let alert = NSAlert(
-                        question: String(localized: "Remove “\(addon.name)”?"),
-                        detail: String(localized: "New chats won’t get this server. Its entry is deleted."),
-                        action: String(localized: "Remove"))
-                    guard await runSheet(alert) == .alertFirstButtonReturn else { return }
-                    await app.call(AddonsRemove(worktreeId: worktreeId, key: key))
-                    done()
-                }
-            }
-        }
     }
 }

@@ -1,12 +1,13 @@
 import Core
 import Foundation
 
-/// A folded group of the Skills & MCP panel: one kind's items from one source, or the servers that wait for a sign-in.
+/// A folded group of the Skills & MCP panel: one kind's items from one source, the servers that wait for a sign-in,
+/// all the plugins, or one plugin's skills.
 struct AddonGroup: Hashable {
     var kind: Addon.Kind
     /// nil: the servers waiting for a sign-in, whatever brought them.
     var source: Addon.Source?
-    /// One plugin's skills: a plugin goes on and off whole, so each is a group with the switch on its line.
+    /// One plugin's skills: a plugin goes on and off whole, so its line has the switch. It sits in the Plugins group.
     var plugin: String?
 
     /// What `addons.set` takes for the whole group; nil when its items switch one by one.
@@ -26,65 +27,65 @@ struct AddonGroup: Hashable {
         }
     }
     /// The person's own skills and the project's show; the many others wait for a click.
-    var openAtFirst: Bool { kind == .skill && (source == .yours || source == .project) }
+    var openAtFirst: Bool { kind == .skill && plugin == nil && (source == .yours || source == .project) }
+}
+
+/// How the list is shown: the order inside groups, whether what's off shows, and the filter's text.
+struct AddonView: Equatable {
+    var byName = false
+    var showOff = true
+    var filter = ""
 }
 
 /// One line of the panel's list.
 enum AddonLine: Equatable {
     enum Section: Equatable { case needsLook, servers, skills, instructions }
     case section(Section, count: Int)
-    case group(AddonGroup, count: Int, open: Bool)
-    /// `nested`: under a group's line.
-    case item(Addon, nested: Bool)
+    /// `tokens`: what its items weigh together; nil when none of theirs is known.
+    case group(AddonGroup, count: Int, tokens: Int?, open: Bool)
+    /// `depth`: 0 on its own, 1 under a group's line, 2 under a plugin's.
+    case item(Addon, depth: Int)
     /// In Needs a Look: its name over what's wrong.
     case problem(Addon)
+    /// In Needs a Look: the servers that wait for a sign-in and are on, as one line.
+    case unsigned([Addon])
 }
 
 /// What the panel lists, in its order, without AppKit: what needs a look, the servers (the person's and the
 /// project's one by one, the rest folded), the skills by who brought them, the instruction files.
 enum AddonGroups {
-    static let skillSources: [Addon.Source] = [.kelp, .yours, .project, .account, .plugin, .agent]
+    static let skillSources: [Addon.Source] = [.project, .yours, .kelp, .plugin, .account, .agent]
     static let folded: [Addon.Source] = [.account, .plugin, .agent]
 
-    /// `toggled`: the groups the person folded or unfolded, against `openAtFirst`.
-    static func lines(_ items: [Addon], toggled: Set<AddonGroup>) -> [AddonLine] {
-        var out: [AddonLine] = []
-        let problems = items.filter { $0.problem != nil }
-        if !problems.isEmpty { out += [.section(.needsLook, count: problems.count)] + problems.map(AddonLine.problem) }
-        let servers = items.filter { $0.kind == .server }
-        if !servers.isEmpty {
-            out.append(.section(.servers, count: servers.count))
-            let ready = servers.filter { !$0.signIn }
-            out += ready.filter { !folded.contains($0.source) }.map { .item($0, nested: false) }
-            for source in folded {
-                out += group(.init(kind: .server, source: source), ready.filter { $0.source == source }, toggled)
-            }
-            out += group(.init(kind: .server, source: nil), servers.filter(\.signIn), toggled)
-        }
-        let skills = items.filter { $0.kind == .skill }
-        if !skills.isEmpty {
-            out.append(.section(.skills, count: skills.count))
-            for source in skillSources where source != .plugin {
-                out += group(.init(kind: .skill, source: source), skills.filter { $0.source == source }, toggled)
-            }
-        }
-        out += plugins(items, toggled)
-        let files = items.filter { $0.kind == .instructions }
-        if !files.isEmpty {
-            out += [.section(.instructions, count: files.count)] + files.map { .item($0, nested: false) }
-        }
-        return out
+    /// `toggled`: the groups the person folded or unfolded, against `openAtFirst` (against open while filtering).
+    static func lines(_ items: [Addon], toggled: Set<AddonGroup>, view: AddonView = .init()) -> [AddonLine] {
+        let lister = Lister(items: shown(items, view), toggled: toggled, view: view)
+        return lister.needsLook() + lister.servers() + lister.skills() + lister.instructions()
     }
 
-    /// Each plugin's skills under its name, and the plugins that are off (nothing of theirs loaded) as a line each.
-    private static func plugins(_ items: [Addon], _ toggled: Set<AddonGroup>) -> [AddonLine] {
-        let skills = items.filter { $0.kind == .skill && $0.source == .plugin }
-        let names = Set(skills.compactMap(\.origin)).union(items.filter { $0.kind == .plugin }.map(\.name)).sorted()
-        return names.flatMap { name -> [AddonLine] in
-            let g = AddonGroup(kind: .skill, source: .plugin, plugin: name)
-            let own = skills.filter { $0.origin == name }
-            return own.isEmpty ? [.group(g, count: 0, open: false)] : group(g, own, toggled)
+    /// What the view lets through: what's off only when it shows, and only names the filter matches.
+    static func shown(_ items: [Addon], _ view: AddonView) -> [Addon] {
+        let filter = view.filter.trimmingCharacters(in: .whitespaces)
+        return items.filter { addon in
+            (view.showOff || !addon.off) && (filter.isEmpty || addon.name.localizedCaseInsensitiveContains(filter))
         }
+    }
+
+    /// The heaviest first, those of unknown weight last, then by name.
+    static func byWeight(_ a: Addon, _ b: Addon) -> Bool {
+        switch (a.tokens, b.tokens) {
+        case (let x?, let y?) where x != y: x > y
+        case (.some, nil): true
+        case (nil, .some): false
+        default: byName(a, b)
+        }
+    }
+    static func byName(_ a: Addon, _ b: Addon) -> Bool { a.name.localizedStandardCompare(b.name) == .orderedAscending }
+
+    /// What a list weighs together; nil when none of it is known.
+    static func sum(_ items: [Addon]) -> Int? {
+        let known = items.compactMap(\.tokens)
+        return known.isEmpty ? nil : known.reduce(0, +)
     }
 
     /// Whether a group's switch is off: its plugin is named off, or what loaded of it is.
@@ -99,58 +100,86 @@ enum AddonGroups {
         return addon.off == loaded
     }
 
-    private static func group(_ g: AddonGroup, _ items: [Addon], _ toggled: Set<AddonGroup>) -> [AddonLine] {
-        guard !items.isEmpty else { return [] }
-        let open = g.openAtFirst != toggled.contains(g)
-        return [.group(g, count: items.count, open: open)] + (open ? items.map { .item($0, nested: true) } : [])
+    /// The servers that wait for a sign-in and are on: they offer nothing and still cost their tokens.
+    static func unsigned(_ items: [Addon]) -> [Addon] {
+        items.filter { $0.kind == .server && $0.signIn && !$0.off && $0.problem == nil && $0.key != nil }
+    }
+}
+
+/// The lines of one listing: the items the view lets through, the groups folded by hand, the view's order.
+private struct Lister {
+    let items: [Addon], toggled: Set<AddonGroup>, view: AddonView
+    private var filtering: Bool { !view.filter.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    func needsLook() -> [AddonLine] {
+        let problems = items.filter { $0.problem != nil }, unsigned = AddonGroups.unsigned(items)
+        let lines = problems.map(AddonLine.problem) + (unsigned.isEmpty ? [] : [.unsigned(unsigned)])
+        return lines.isEmpty ? [] : [.section(.needsLook, count: lines.count)] + lines
     }
 
-    /// "152 skills · 45 servers · ~7.5k tokens at start"; the tokens only when some are known.
-    /// `chat`: the list is a chat's own record, which knows what things weigh; the files alone don't.
-    static func summary(_ items: [Addon], chat: Bool = true) -> String {
-        let skills = items.count { $0.kind == .skill }, servers = items.count { $0.kind == .server }
-        var parts = [String(localized: "\(skills) skills"), String(localized: "\(servers) servers")]
-        let known = items.compactMap(\.tokens)
-        if chat, !known.isEmpty { parts.append(String(localized: "~\(k(known.reduce(0, +))) tokens at start")) }
-        return parts.joined(separator: " · ")
-    }
-
-    /// A row's tooltip: what it says about itself, where it is, its other copies.
-    static func tip(_ addon: Addon, names: (String) -> String = { $0 }) -> String {
-        var lines = [addon.about, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }
-        if !addon.fixed.isEmpty {
-            let who = addon.fixed.map(names).joined(separator: ", ")
-            lines.append(String(localized: "Always on in \(who): no switch for one chat there"))
+    func servers() -> [AddonLine] {
+        let servers = items.filter { $0.kind == .server }
+        guard !servers.isEmpty else { return [] }
+        let ready = servers.filter { !$0.signIn }
+        var out: [AddonLine] = [.section(.servers, count: servers.count)]
+        out += sorted(ready.filter { !AddonGroups.folded.contains($0.source) }).map { .item($0, depth: 0) }
+        for source in AddonGroups.folded {
+            out += group(.init(kind: .server, source: source), ready.filter { $0.source == source })
         }
-        return lines.compactMap { $0 }.joined(separator: "\n")
+        return out + group(.init(kind: .server, source: nil), servers.filter(\.signIn))
     }
 
-    /// How many of a row's extras fit, first first: each takes its width of `room` while there's that much left.
-    static func fitting(_ widths: [CGFloat], in room: CGFloat) -> Int {
-        var left = room, count = 0
-        for width in widths {
-            guard width <= left else { break }
-            left -= width
-            count += 1
+    func skills() -> [AddonLine] {
+        let skills = items.filter { $0.kind == .skill }, plugins = plugins()
+        guard !skills.isEmpty || !plugins.isEmpty else { return [] }
+        var out: [AddonLine] = [.section(.skills, count: skills.count)]
+        for source in AddonGroups.skillSources {
+            out +=
+                source == .plugin
+                ? plugins : group(.init(kind: .skill, source: source), skills.filter { $0.source == source })
         }
-        return count
+        return out
     }
 
-    /// Under the list while the chat is behind: what it still holds though it's gone, or that changes wait.
-    static func footNote(gone: [String]) -> String {
-        guard let first = gone.first else { return String(localized: "Changes reach new chats.") }
-        return gone.count == 1
-            ? String(localized: "This chat still has \(first), removed since.")
-            : String(localized: "This chat still has \(first) and \(gone.count - 1) more, removed since.")
+    func instructions() -> [AddonLine] {
+        let files = items.filter { $0.kind == .instructions }
+        guard !files.isEmpty else { return [] }
+        return [.section(.instructions, count: files.count)] + sorted(files).map { .item($0, depth: 0) }
     }
 
-    static func tokens(_ n: Int) -> String { String(localized: "\(k(n)) tok") }
+    /// One Plugins group; in it a line per plugin with its switch, each unfolding to its skills. One that's off
+    /// (nothing of it loaded) is a line with nothing to unfold.
+    private func plugins() -> [AddonLine] {
+        let skills = items.filter { $0.kind == .skill && $0.source == .plugin }
+        let names = Set(skills.compactMap(\.origin)).union(items.filter { $0.kind == .plugin }.map(\.name))
+        guard !names.isEmpty else { return [] }
+        let each = names.map { name in (name: name, skills: skills.filter { $0.origin == name }) }
+        let ordered = each.sorted { a, b in
+            let x = AddonGroups.sum(a.skills) ?? -1, y = AddonGroups.sum(b.skills) ?? -1
+            return view.byName || x == y ? a.name.localizedStandardCompare(b.name) == .orderedAscending : x > y
+        }
+        let outer = AddonGroup(kind: .skill, source: .plugin), open = isOpen(outer)
+        let head = AddonLine.group(outer, count: names.count, tokens: AddonGroups.sum(skills), open: open)
+        guard open else { return [head] }
+        return [head]
+            + ordered.flatMap { plugin -> [AddonLine] in
+                let g = AddonGroup(kind: .skill, source: .plugin, plugin: plugin.name)
+                return plugin.skills.isEmpty
+                    ? [.group(g, count: 0, tokens: nil, open: false)] : group(g, plugin.skills, depth: 2)
+            }
+    }
 
-    /// 17_600 → "17.6k", 31_000 → "31k", 640 → "640": as the context card says it (ContextParts.k, internal to
-    /// KelpKit).
-    static func k(_ tokens: Int) -> String {
-        guard tokens >= 1000 else { return "\(tokens)" }
-        let tenths = (tokens + 50) / 100
-        return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
+    private func group(_ g: AddonGroup, _ list: [Addon], depth: Int = 1) -> [AddonLine] {
+        guard !list.isEmpty else { return [] }
+        let open = isOpen(g)
+        return [.group(g, count: list.count, tokens: AddonGroups.sum(list), open: open)]
+            + (open ? sorted(list).map { .item($0, depth: depth) } : [])
+    }
+
+    /// While filtering every group with a match is open, and a click folds it; else as it starts, or as clicked.
+    private func isOpen(_ g: AddonGroup) -> Bool { (filtering || g.openAtFirst) != toggled.contains(g) }
+
+    private func sorted(_ list: [Addon]) -> [Addon] {
+        list.sorted(by: view.byName ? AddonGroups.byName : AddonGroups.byWeight)
     }
 }
