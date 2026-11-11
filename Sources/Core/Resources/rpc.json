@@ -6644,6 +6644,14 @@
       "paramStructure" : "by-name",
       "params" : [
         {
+          "description" : "A new one (Add, not an edit): refused when its name is taken there, not saved over the one that has it.",
+          "name" : "adding",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
           "name" : "container",
           "required" : false,
           "schema" : {

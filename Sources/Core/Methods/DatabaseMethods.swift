@@ -354,15 +354,18 @@ public struct DatabaseSave: InternalMethod {
     public typealias Result = DatabaseInfo
     public var worktreeId: String, database: DatabaseInfo, password: String?
     public var library: Bool?, container: String?
+    /// A new one (Add, not an edit): refused when its name is taken there, not saved over the one that has it.
+    public var adding: Bool?
     public init(
         worktreeId: String, database: DatabaseInfo, password: String? = nil, library: Bool? = nil,
-        container: String? = nil
+        container: String? = nil, adding: Bool? = nil
     ) {
         self.worktreeId = worktreeId
         self.database = database
         self.password = password
         self.library = library
         self.container = container
+        self.adding = adding
     }
 }
 

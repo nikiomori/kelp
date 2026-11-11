@@ -32,6 +32,13 @@ extension Databases {
             .sorted { ($0.group ?? "", $0.name) < ($1.group ?? "", $1.name) }
     }
 
+    /// Whether `name` is taken where a new one would be saved: the project's (found or by hand), or All My Databases.
+    func named(_ name: String, in worktreeId: String, library: Bool) throws -> Bool {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        if library { return try store.db.read { try LibraryDatabase.fetchOne($0, key: name) } != nil }
+        return try connections(worktreeId).contains { $0.database.name == name }
+    }
+
     func libraryConnection(_ name: String) throws -> DatabaseConnection? {
         guard let entry = try store.db.read({ try LibraryDatabase.fetchOne($0, key: name) }), let db = entry.database
         else { return nil }

@@ -85,6 +85,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         path.stringValue = db.path ?? ""
         name.stringValue = editing?.name ?? (db.name.isEmpty ? "" : db.name)
         nameTyped = editing != nil
+        // Its name is its key (and its password's): an edit keeps it, a new name would be a copy without the password.
+        name.isEditable = editing == nil
 
         var rows: [(String, NSView)] = []
         if engine.isFile {
@@ -342,7 +344,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                 DatabaseSave(
                     worktreeId: sheet.worktreeId, database: db,
                     password: secret.isEmpty && (editing != nil || container != nil) ? nil : secret, library: library,
-                    container: secret.isEmpty ? container : nil))
+                    container: secret.isEmpty ? container : nil, adding: editing == nil))
             if answer.value != nil {
                 sheet.end()
             } else {

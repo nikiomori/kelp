@@ -24,6 +24,11 @@ extension DatabaseQuery: AsyncHandled {
 
 extension DatabaseSave: Handled {
     func handle(_ dbs: Databases) throws -> DatabaseInfo {
+        if adding == true, try dbs.named(database.name, in: worktreeId, library: library ?? false) {
+            throw RPCError.invalidParams(
+                "There's a database named \(database.name.trimmingCharacters(in: .whitespaces)) already: "
+                    + "give this one another name.")
+        }
         let secret = try password ?? container.map { try dbs.containerPassword($0, database.engine) } ?? nil
         return try dbs.save(worktreeId, database, password: secret, library: library ?? false)
     }
