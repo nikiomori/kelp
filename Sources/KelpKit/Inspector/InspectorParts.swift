@@ -63,6 +63,9 @@ final class PanelIcon: NSButton {
     var moved: ((NSPoint) -> Void)?
     var dropped: (() -> Void)?
     var contextMenu: ((NSEvent) -> NSMenu?)?
+    /// Runs when the pointer rests on the icon a moment (the » opens its menu without a click).
+    var rested: (() -> Void)?
+    private var resting: DispatchWorkItem?
     private var hover = false { didSet { needsDisplay = true } }
 
     convenience init(_ symbol: String, _ label: String) {
@@ -101,12 +104,22 @@ final class PanelIcon: NSButton {
         get { false }
         set {}
     }
-    override func mouseEntered(with e: NSEvent) { hover = true }
-    override func mouseExited(with e: NSEvent) { hover = false }
+    override func mouseEntered(with e: NSEvent) {
+        hover = true
+        guard let rested else { return }
+        let work = DispatchWorkItem(block: rested)
+        resting = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.base, execute: work)   // passing over doesn't open it
+    }
+    override func mouseExited(with e: NSEvent) {
+        hover = false
+        resting?.cancel()
+    }
 
     override func menu(for e: NSEvent) -> NSMenu? { contextMenu?(e) }
 
     override func mouseDown(with e: NSEvent) {
+        resting?.cancel()
         if e.modifierFlags.contains(.control), let shown = menu(for: e) {
             return NSMenu.popUpContextMenu(shown, with: e, for: self)
         }
