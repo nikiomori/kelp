@@ -186,6 +186,27 @@ extension OneAtATime {
         }
     }
 
+    /// "+8" after the logos is whole: the label stands inside the room the stack asks the row for.
+    @Test func aFoldedProjectsCountOfMoreAgentsFitsInItsStack() throws {
+        let agents = (0..<12).map {
+            Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Chat \($0)")
+        }
+        try withSidebar(repos: [project], worktrees: [own("w1")], sessions: agents) { vc, o in
+            let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
+            vc.toggle(project)
+            let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true))
+            cell.layoutSubtreeIfNeeded()
+            @MainActor func stack(_ v: NSView) -> AgentStack? {
+                v as? AgentStack ?? v.subviews.lazy.compactMap(stack).first
+            }
+            let logos = try #require(stack(cell))
+            logos.layoutSubtreeIfNeeded()
+            let more = try #require(logos.subviews.compactMap { $0 as? NSTextField }.first { !$0.isHidden })
+            #expect(more.stringValue.hasPrefix("+"))
+            #expect(more.frame.maxX <= logos.intrinsicContentSize.width)
+        }
+    }
+
     @Test func aBackgroundCommandTakesItsMarksRoomOnlyAndItsNameIsInTheTooltip() throws {
         var agent = Session(
             worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working,

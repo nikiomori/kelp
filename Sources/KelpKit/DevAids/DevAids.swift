@@ -310,7 +310,9 @@ extension AppDelegate {
         /// A visible label's text or a button's title or tooltip (in a sheet over the window first), or "@x,y": a point in the
         /// window, from its top-left corner (SwiftUI content has no labels). "2:" first double-clicks (a row's rename in place).
         func click(text spec: String) {
-            guard let main = main.window else { return }
+            // With KELP_SNAPSHOT_WINDOW=settings the clicks are for that window: "@x,y" from its top left.
+            let inSettings = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WINDOW"] == "settings"
+            guard let main = (inSettings ? SettingsWindow.window : nil) ?? main.window else { return }
             let label = spec.hasPrefix("2:") ? String(spec.dropFirst(2)) : spec
             let window =
                 main.attachedSheet.flatMap { sheet in
@@ -334,6 +336,7 @@ extension AppDelegate {
                 xy.count == 2
             {
                 point = NSPoint(x: xy[0], y: window.frame.height - xy[1])
+                queued = inSettings   // its list is a table, which waits for its mouse-up
             } else if let field = root.allSubviews(of: NSTextField.self)
                 .first(where: { $0.stringValue == text && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor })
             {

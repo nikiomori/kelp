@@ -64,11 +64,15 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    Label {
-                        Text("Extensions")
-                    } icon: {
-                        SettingsIcon(symbol: "puzzlepiece.extension", tint: NSColor(hex: 0xA2845E))
-                    }.tag(Optional("extensions"))
+                    // A row of a ForEach, as the sections are: the list picks a row by the id that gives it, and a row
+                    // standing alone with only a tag couldn't be picked.
+                    ForEach(["extensions"], id: \.self) { id in
+                        Label {
+                            Text("Extensions")
+                        } icon: {
+                            SettingsIcon(symbol: "puzzlepiece.extension", tint: NSColor(hex: 0xA2845E))
+                        }.tag(Optional(id))
+                    }
                 }
             }
             .toolbar(removing: .sidebarToggle)   // a settings window keeps its sections in view (HIG › Settings)
