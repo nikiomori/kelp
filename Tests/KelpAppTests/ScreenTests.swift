@@ -604,6 +604,22 @@ extension OneAtATime {
     #expect(try #require(vc.split.arrangedSubviews.first).frame.height > 400)
 }
 
+/// Auto-hide moves the panel into its floater and back, where it is squeezed to nothing for a moment: the list came
+/// back with no height, the details below it taking the whole panel.
+@MainActor @Test func theListComesBackAfterThePanelWasSqueezed() throws {
+    _ = testHome
+    let vc = TasksViewController(app: AppModel(builtins: Builtins.all))
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 250, height: 800), styleMask: [.titled], backing: .buffered, defer: true)   // never shown
+    window.contentViewController = vc
+    vc.showEmpty(nil)
+    for height in [800, 0, 800] as [CGFloat] {
+        vc.view.frame = NSRect(x: 0, y: 0, width: 250, height: height)
+        vc.view.layoutSubtreeIfNeeded()
+    }
+    #expect(try #require(vc.split.arrangedSubviews.first).frame.height > 200)
+}
+
 /// A chat's row closes it the way its tab does, with the tab's question.
 @MainActor @Test func closingAChatFromItsRowGoesThroughItsTab() throws {
     let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())

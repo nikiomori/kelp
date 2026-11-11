@@ -139,9 +139,14 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         placeDivider()
     }
 
-    /// Once it's on screen with a height (a hidden split ignores the position): the list gets the larger part, details the rest.
+    /// Once it's on screen with a height (a hidden split ignores the position): the list gets the larger part, details the
+    /// rest. Again whenever the list was squeezed to less than a row: auto-hide moves the panel into its floater and back,
+    /// a moment with no height that the list, the part that gives way, came back from with none.
     func placeDivider() {
-        guard !dividerPlaced, !split.isHidden, split.bounds.height > 100 else { return }
+        guard !split.isHidden, split.bounds.height > 100 else { return }
+        split.layoutSubtreeIfNeeded()   // its panes' heights for its height now, not the last one
+        let squeezed = (split.arrangedSubviews.first?.frame.height ?? 0) < table.rowHeight
+        guard !dividerPlaced || squeezed else { return }
         dividerPlaced = true
         split.setPosition(split.bounds.height * 0.55, ofDividerAt: 0)
     }
