@@ -29,6 +29,13 @@ public func shortSpan(_ seconds: Double, units: Int = 1, smallest: NSCalendar.Un
 }
 nonisolated(unsafe) private let spanFormatters = NSCache<NSString, DateComponentsFormatter>()   // NSCache is thread-safe, as is formatting
 
+/// Tokens as the context card says them: 17_600 → "17.6k", 31_000 → "31k", 184_000 → "184k", 640 → "640".
+public func shortTokens(_ tokens: Int) -> String {
+    guard tokens >= 1000 else { return "\(tokens)" }
+    let tenths = (tokens + 50) / 100
+    return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
+}
+
 /// Bytes as people read memory and disk: "870 MB", "3.1 GB".
 public func bytes(_ n: Int) -> String { bytes(n, file: false) }
 /// `file`: a file's size, as Finder shows it (by 1000, not 1024).

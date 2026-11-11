@@ -8,9 +8,8 @@ import WorkbenchKit
 /// and when, how big the change is, and the hash to copy. It stays while the pointer is on it.
 @MainActor
 final class CommitCard {
-    private let popover = NSPopover()
+    private let card = HoverPopover()
     private var shown: String?
-    private var opening: Task<Void, Never>?, closing: Task<Void, Never>?
     private var details: [String: CommitDetails] = [:]
     private var pictures: [String: NSImage] = [:]
     /// The daemon's details of a commit; without them the card shows what the graph knows.
@@ -18,44 +17,29 @@ final class CommitCard {
     /// The author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
 
-    init() {   // as the sidebar's: it goes when the pointer leaves, and moves from row to row without popping
-        popover.behavior = .applicationDefined
-        popover.animates = false
+    init() {
+        card.onClose = { [weak self] in self?.shown = nil }
     }
 
     /// The pointer came onto or left a commit's row. A card already up follows the pointer to the next row at once.
     func hover(_ on: Bool, commit c: GraphCommit, pushed: Bool?, over row: NSView) {
-        opening?.cancel()
         guard on else {
-            closeSoon()
+            card.closeSoon()
             return
         }
-        closing?.cancel()
-        guard !(popover.isShown && shown == c.hash) else { return }
-        let wait: Duration = .seconds(popover.isShown ? Motion.hoverOpenWarm : Motion.hoverOpen)
+        guard !(card.isShown && shown == c.hash) else {
+            card.cancel()
+            return
+        }
         let loading = Task { await detailsOf(c.hash) }
-        opening = Task { [weak self] in
-            try? await Task.sleep(for: wait)
+        card.open { [weak self] in
             let loaded = await loading.value
             guard !Task.isCancelled, let self, row.window != nil else { return }
             self.show(c, details: loaded, pushed: pushed, over: row)
         }
     }
 
-    func close() {
-        opening?.cancel()
-        closing?.cancel()
-        shown = nil
-        if popover.isShown { popover.performClose(nil) }
-    }
-
-    private func closeSoon() {
-        closing?.cancel()
-        closing = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Motion.hoverClose))
-            if !Task.isCancelled { self?.close() }
-        }
-    }
+    func close() { card.close() }
 
     private func detailsOf(_ hash: String) async -> CommitDetails? {
         if let known = details[hash] { return known }
@@ -66,19 +50,18 @@ final class CommitCard {
 
     private func show(_ c: GraphCommit, details d: CommitDetails?, pushed: Bool?, over row: NSView) {
         let email = d?.email.lowercased() ?? ""
-        let card = CommitCardView(c, details: d, pushed: pushed, picture: pictures[email])
-        card.onInside = { [weak self] inside in if inside { self?.closing?.cancel() } else { self?.closeSoon() } }
+        let view = CommitCardView(c, details: d, pushed: pushed, picture: pictures[email])
+        view.onInside = { [weak self] inside in if inside { self?.card.cancel() } else { self?.card.closeSoon() } }
         let vc = NSViewController()
-        vc.view = card
-        popover.contentViewController = vc
-        popover.contentSize = card.fittingSize
+        vc.view = view
+        vc.preferredContentSize = view.fittingSize
         shown = c.hash
-        popover.show(relativeTo: row.bounds, of: row, preferredEdge: .minX)   // shown already: it moves to this row
+        card.show(vc, relativeTo: row.bounds, of: row, edge: .minX)
         guard !email.isEmpty, pictures[email] == nil else { return }
-        Task { [weak self, weak card] in
+        Task { [weak self, weak view] in
             guard let img = await self?.picture?(email) else { return }
             self?.pictures[email] = img
-            if self?.shown == c.hash { card?.avatar.image = img }
+            if self?.shown == c.hash { view?.avatar.image = img }
         }
     }
 }

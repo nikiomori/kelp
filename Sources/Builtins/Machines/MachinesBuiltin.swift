@@ -15,7 +15,7 @@ extension Builtins {
         return Contributions(
             tabs: [
                 TabProvider(
-                    schemes: ["vm"], make: { MachineTab(uri: $0, app: app) },
+                    schemes: ["vm"], make: { machineTab(uri: $0, app: app) },
                     placeholder: { (TabURI.body($0), .symbol("shippingbox"), nil) })
             ],
             sidebarSections: [

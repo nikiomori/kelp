@@ -60,22 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.timeGlances(any)
         }
         track(owner: self) { [app] in
-            app.extensions.revision
-        } changed: { [weak self] _ in
-            self?.buildMenu()
-        }
-        track(owner: self) {
-            app.availability.ids
-        } changed: { [weak self] _ in
-            self?.buildMenu()
-        }
-        track(owner: self) { [app] in
-            app.settings[SettingKeys.keys]
-        } changed: { [weak self] _ in
-            self?.buildMenu()
-        }
-        track(owner: self) { [app] in
-            app.updates.ready
+            MenuSources(
+                revision: app.extensions.revision, agents: app.availability.ids, keys: app.settings[SettingKeys.keys],
+                update: app.updates.ready)
         } changed: { [weak self] _ in
             self?.buildMenu()
         }
@@ -273,6 +260,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         return menuItem
     }
+}
+
+/// What the menu bar is built from: it's built again when any of it changes.
+private struct MenuSources: Equatable {
+    let revision: Int, agents: Set<String>, keys: JSONValue?, update: Updates.Ready?
 }
 
 extension AppDelegate: NSMenuItemValidation {

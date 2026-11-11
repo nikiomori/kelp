@@ -82,20 +82,13 @@ extension AppModel {
     }
 
     /// A project or workspace as it is now: the lists follow the daemon's records without reading them again.
-    func record(_ r: Repo) {
+    func record<R: Revised & Equatable>(_ r: R, in list: ReferenceWritableKeyPath<AppModel, [R]>) {
         recordEvents[r.id, default: 0] += 1
-        if let index = repos.firstIndex(where: { $0.id == r.id }) {
-            if repos[index] != r, !r.isOlder(than: repos[index]) { repos[index] = r }
+        if let index = self[keyPath: list].firstIndex(where: { $0.id == r.id }) {
+            let old = self[keyPath: list][index]
+            if old != r, !r.isOlder(than: old) { self[keyPath: list][index] = r }
         } else {
-            repos.append(r)
-        }
-    }
-    func record(_ w: Worktree) {
-        recordEvents[w.id, default: 0] += 1
-        if let index = worktrees.firstIndex(where: { $0.id == w.id }) {
-            if worktrees[index] != w, !w.isOlder(than: worktrees[index]) { worktrees[index] = w }
-        } else {
-            worktrees.append(w)
+            self[keyPath: list].append(r)
         }
     }
 

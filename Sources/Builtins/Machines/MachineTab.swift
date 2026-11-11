@@ -7,26 +7,13 @@ import WorkbenchKit
 
 /// "vm:<name>" — a machine at a glance: what runs in it (each `kelp vm run`, with the chat it came from), the ports
 /// something listens on (open in Kelp's browser), the folders shared with it and what it is. Watched while the tab is open
-/// (`WatchTopic.machineDetail`); reading never wakes it.
+/// (`WatchTopic.machineDetail`), with the list (the sidebar may be hidden); reading never wakes it.
 @MainActor
-final class MachineTab: KelpKit.TabContent {   // not SwiftUI's
-    let uri: String
-    let view: NSView
-    private let name: String
-    /// The list (the sidebar may be hidden) and what runs in this one, for as long as the tab is open.
-    private let list: Watched, detail: Watched
-    var title: String { name }
-    var icon: NSImage? { .symbol("shippingbox") }
-    init(uri: String, app: AppModel) {
-        self.uri = uri
-        name = TabURI.body(uri)
-        list = Watched(.machines, in: app)
-        list.key = ""
-        detail = Watched(.machineDetail, in: app)
-        detail.key = name
-        view = HostedTab(MachineView(app: app, name: name))
-    }
-    func focus() {}
+func machineTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
+    let name = TabURI.body(uri)
+    return HostedTabContent(
+        uri: uri, title: name, icon: "shippingbox", app: app, watching: [(.machines, ""), (.machineDetail, name)],
+        MachineView(app: app, name: name))
 }
 
 struct MachineView: View {

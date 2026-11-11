@@ -49,7 +49,6 @@ struct ExtActions {
         Self.openableURI(
             TabURI.normalize(expand(template, item: item, quote: false), cwd: IDEContext.of(app).workspace?.path))
     }
-    private static let runs = ["terminal", "agent"]
 
     /// What an `open` of the extension's own terminal: or agent: URI does, with the item's values put in the way the
     /// `terminal` and `agent` actions put them: a command's as shell variables (never text in it), a prompt typed for
@@ -58,10 +57,8 @@ struct ExtActions {
         case agent(String?, prompt: String?), terminal(command: String?, title: String?), tmux(String)
     }
     func runAction(_ template: String, item: JSONValue?) -> RunAction? {
-        guard let colon = template.firstIndex(of: ":"), Self.runs.contains(String(template[..<colon])) else {
-            return nil
-        }
-        var rest = template[template.index(after: colon)...]
+        guard template.contains(":"), TabURI.runs(template) else { return nil }
+        var rest = Substring(TabURI.body(template))
         if rest.hasPrefix("//") { rest = rest.dropFirst(2) }
         let target = String(rest.prefix { $0 != "?" }).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         var query: [String: String] = [:]
@@ -73,7 +70,7 @@ struct ExtActions {
                 if kv.count == 2 { query[kv[0]] = kv[1] }
             }
         }
-        if template.hasPrefix("agent:") {
+        if TabURI.scheme(template) == "agent" {
             return .agent(
                 target.isEmpty ? nil : target, prompt: query["prompt"].map { expand($0, item: item, quote: false) })
         }
@@ -84,7 +81,7 @@ struct ExtActions {
     }
 
     /// A URI that opens something (a page, a file, a diff, a tab) rather than running a command or an agent; nil else.
-    static func openableURI(_ uri: String) -> String? { runs.contains(TabURI.scheme(uri)) ? nil : uri }
+    static func openableURI(_ uri: String) -> String? { TabURI.runs(uri) ? nil : uri }
 
     static func text(_ v: JSONValue) -> String {
         switch v {

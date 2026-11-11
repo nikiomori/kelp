@@ -15,7 +15,7 @@ extension Builtins {
         return Contributions(
             tabs: [
                 TabProvider(
-                    schemes: ["host"], make: { ServerTab(uri: $0, app: app) },
+                    schemes: ["host"], make: { serverTab(uri: $0, app: app) },
                     placeholder: { (TabURI.body($0), .symbol("server.rack"), nil) })
             ],
             // A server header's menu, and its items in a remote project's.

@@ -13,26 +13,25 @@ final class HoverCard {
     private let app: AppModel
     /// Under a tab: the card hangs below it and leaves out the place (the tab is in this workspace).
     private let underTabs: Bool
-    private var keys: Any?
-    private let popover = NSPopover()
-    private let pending = Debounce()
+    private let card = HoverPopover()
     private(set) var shownKind: SidebarItem.Kind?
     private var shown: CardModel?
-    private var warmUntil = Date.distantPast
     private weak var anchor: NSWindow?
 
     init(app: AppModel, underTabs: Bool = false) {
         self.app = app
         self.underTabs = underTabs
-        popover.behavior = .applicationDefined
-        popover.animates = false
+        card.onClose = { [weak self] in
+            self?.shown?.stop()
+            self?.shownKind = nil
+        }
         // The rows' pointer events stop when the window loses focus, so the one that would close the card may never come:
         // a card left open costs a core's tenth for as long as it stays, SwiftUI laying it out over and over.
         resignWatch = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: nil, queue: .main
         ) { [weak self] notification in
             let window = notification.object as? NSWindow
-            MainActor.assumeIsolated { if window === self?.anchor { self?.closeUnlessInside() } }   // queue: .main
+            MainActor.assumeIsolated { if window === self?.anchor { self?.card.closeUnlessInside() } }   // queue: .main
         }
     }
     /// The window losing focus, watched while the card's owner (a sidebar, a tab strip) is there.
@@ -41,44 +40,22 @@ final class HoverCard {
 
     /// The pointer is over a row (a workspace's, an agent's…), or over nothing.
     func hover(_ kind: SidebarItem.Kind?, rect: NSRect, in view: NSView) {
-        guard kind != shownKind || !popover.isShown else { return }
+        guard kind != shownKind || !card.isShown else { return }
         guard let kind else {
-            pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
+            card.closeSoon(unlessInside: true)
             return
         }
-        let warm = popover.isShown || Date() < warmUntil
-        pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak view] in
+        card.open { [weak self, weak view] in
             if let view { self?.show(kind, rect: rect, in: view) }
         }
     }
 
-    /// The pointer went into the card, whose buttons are for clicking: it stays, looked at again until the pointer leaves.
-    func closeUnlessInside() {
-        guard popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true else {
-            close()
-            return
-        }
-        pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
-    }
-
-    func close() {
-        pending.cancel()
-        shown?.stop()
-        if popover.isShown {
-            warmUntil = Date().addingTimeInterval(0.8)
-            popover.close()
-        }
-        shownKind = nil
-        if let keys {
-            NSEvent.removeMonitor(keys)
-            self.keys = nil
-        }
-    }
+    func close() { card.close() }
 
     /// A row's card without the wait: a click asked for it.
     func open(_ kind: SidebarItem.Kind, rect: NSRect, in view: NSView) {
-        pending.cancel()
-        if kind != shownKind || !popover.isShown { show(kind, rect: rect, in: view) }
+        card.cancel()
+        if kind != shownKind || !card.isShown { show(kind, rect: rect, in: view) }
     }
 
     private func show(_ kind: SidebarItem.Kind, rect: NSRect, in view: NSView) {
@@ -94,15 +71,8 @@ final class HoverCard {
         model.closeCard = { [weak self] in self?.close() }
         let host = NSHostingController(rootView: CardView(model: model))
         host.sizingOptions = .preferredContentSize   // else the popover is placed at a pre-layout size and grows down from its top, off the row
-        popover.contentViewController = host
-        popover.show(relativeTo: rect, of: view, preferredEdge: underTabs ? .minY : .maxX)
+        card.show(host, relativeTo: rect, of: view, edge: underTabs ? .minY : .maxX)
         model.load()
-        keys =
-            keys
-            ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
-                return event
-            }
     }
 }
 
@@ -271,7 +241,7 @@ extension CardModel {
     }
 
     static func coldCache(until: Date, used: Int, now: Date) -> String? {
-        let left = until.timeIntervalSince(now), size = ContextParts.k(used)
+        let left = until.timeIntervalSince(now), size = shortTokens(used)
         if left <= 0 { return String(localized: "Cache is cold: the next message writes \(size) again") }
         let minutes = Int((left / 60).rounded(.up))
         return minutes <= 15

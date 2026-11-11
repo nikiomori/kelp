@@ -63,28 +63,15 @@ final class EditorHost: NSViewController {
     /// While a panel slides beside it, what the card shows keeps its width and the card uncovers or covers it: laid out
     /// for every width on the way, each terminal drew itself anew on the main thread, a frame or two each time.
     /// `trailing`: the edge that stays (the other one's panel is moving).
-    private var held: [(inner: NSLayoutConstraint, width: NSLayoutConstraint)] = []
+    private var held: [WidthHold] = []
     func holdWidth(trailing: Bool) {
         guard held.isEmpty else { return }
-        let moving: NSLayoutConstraint.Attribute = trailing ? .leading : .trailing
-        for content in card.subviews where content.frame.width > 0 {
-            guard
-                let inner = card.constraints.first(where: {
-                    $0.firstItem === content && $0.secondItem === card && $0.firstAttribute == moving
-                })
-            else { continue }
-            let width = content.widthAnchor.constraint(equalToConstant: content.frame.width)
-            inner.isActive = false
-            width.isActive = true
-            held.append((inner, width))
+        held = card.subviews.filter { $0.frame.width > 0 }.compactMap {
+            WidthHold($0, in: card, edge: trailing ? .leading : .trailing, width: $0.frame.width)
         }
     }
     func letWidthGo() {
-        for hold in held {
-            hold.width.isActive = false
-            // Unless what it showed went meanwhile (another workspace).
-            if let content = hold.inner.firstItem as? NSView, content.superview === card { hold.inner.isActive = true }
-        }
+        held.forEach { $0.release() }
         held = []
     }
 

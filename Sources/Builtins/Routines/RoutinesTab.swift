@@ -9,16 +9,10 @@ import WorkbenchKit
 /// asked, failed, running, missed) and, ahead, when it's due. Under the week, the chosen routine: its prompt, when it
 /// repeats, and how the chosen run went.
 @MainActor
-final class RoutinesTab: KelpKit.TabContent {   // not SwiftUI's
-    let uri: String
-    let view: NSView
-    var title: String { String(localized: "Routines") }
-    var icon: NSImage? { .symbol("clock.arrow.circlepath") }
-    init(uri: String, app: AppModel) {
-        self.uri = uri
-        view = HostedTab(RoutinesView(app: app, repoId: TabURI.body(uri)))
-    }
-    func focus() {}
+func routinesTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
+    HostedTabContent(
+        uri: uri, title: String(localized: "Routines"), icon: "clock.arrow.circlepath", app: app,
+        RoutinesView(app: app, repoId: TabURI.body(uri)))
 }
 
 struct RoutinesView: View {

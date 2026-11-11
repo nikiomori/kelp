@@ -1,4 +1,5 @@
 import Core
+import DesignKit
 import Foundation
 
 /// What a chat's start is made of, by the four parts the panel's bar shows.
@@ -44,7 +45,9 @@ extension AddonGroups {
     /// "38.4k tokens before the first word" when the list is a chat's own record and weights are known (the files
     /// alone don't know them); else "152 skills · 45 servers".
     static func headline(_ items: [Addon], chat: Bool) -> String {
-        if chat, let total = sum(items) { return String(localized: "\(k(total)) tokens before the first word") }
+        if chat, let total = sum(items).map(shortTokens) {
+            return String(localized: "\(total) tokens before the first word")
+        }
         let skills = items.count { $0.kind == .skill }, servers = items.count { $0.kind == .server }
         return [String(localized: "\(skills) skills"), String(localized: "\(servers) servers")].joined(separator: " · ")
     }
@@ -53,7 +56,7 @@ extension AddonGroups {
     static func countAndTokens(_ count: Int, _ tokens: Int?) -> String {
         guard let tokens else { return count.formatted() }
         let tenths = max(1, (tokens + 50) / 100)
-        return "\(count.formatted()) · " + (tenths >= 10 ? k(max(tokens, 1000)) : "0.\(tenths)k")
+        return "\(count.formatted()) · " + (tenths >= 10 ? shortTokens(max(tokens, 1000)) : "0.\(tenths)k")
     }
 
     /// Needs a Look's line for the servers waiting for a sign-in: what it is, and what it costs.
@@ -63,7 +66,7 @@ extension AddonGroups {
             ? String(localized: "1 server isn’t signed in")
             : String(localized: "\(servers.count) servers aren’t signed in")
         guard let tokens = sum(servers) else { return (title, String(localized: "They do nothing until signed in")) }
-        return (title, String(localized: "Idle, \(k(tokens)) tokens each chat"))
+        return (title, String(localized: "Idle, \(shortTokens(tokens)) tokens each chat"))
     }
 
     /// A row's tooltip: what it says about itself, where it is, its other copies.
@@ -119,13 +122,5 @@ extension AddonGroups {
     static func serverName(_ addon: Addon) -> String {
         guard let key = addon.key, key.hasPrefix("server:") else { return addon.name }
         return String(key.dropFirst("server:".count))
-    }
-
-    /// 17_600 → "17.6k", 31_000 → "31k", 640 → "640": as the context card says it (ContextParts.k, internal to
-    /// KelpKit).
-    static func k(_ tokens: Int) -> String {
-        guard tokens >= 1000 else { return "\(tokens)" }
-        let tenths = (tokens + 50) / 100
-        return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
     }
 }

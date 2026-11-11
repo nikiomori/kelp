@@ -293,7 +293,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func contextPartsReadAsALegend() {
-    #expect([640, 17_640, 31_000, 30_960, 184_200].map(ContextParts.k) == ["640", "17.6k", "31k", "31k", "184k"])
+    #expect([640, 17_640, 31_000, 30_960, 184_200].map(shortTokens) == ["640", "17.6k", "31k", "31k", "184k"])
     typealias Parts = SessionContextParts
     let files = Parts.Part(
         kind: .files, tokens: 52_000,

@@ -41,7 +41,7 @@ struct AddonWeight: View {
         HStack(spacing: Metrics.gap) {
             PartsBar.Swatch(color)
             Text(share.part.title).lineLimit(1)
-            Text(AddonGroups.k(share.tokens)).monospacedDigit().foregroundStyle(.secondary)
+            Text(shortTokens(share.tokens)).monospacedDigit().foregroundStyle(.secondary)
         }
         .font(.ui(TextSize.caption))
     }

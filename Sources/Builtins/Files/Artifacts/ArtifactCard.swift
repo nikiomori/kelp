@@ -16,11 +16,8 @@ final class ArtifactCard {
     static let size = NSSize(width: 284, height: 178)
 
     private let app: AppModel
-    private let popover = NSPopover()
-    private let pending = Debounce()
+    private let card = HoverPopover()
     private var shownTarget: String?
-    private var warmUntil = Date.distantPast
-    private var keys: Any?
     private let shots = ArtifactShots()
     /// The picture's place: a grey fill until the page is drawn, then the page, faded in.
     private lazy var picture: NSImageView = {
@@ -38,53 +35,35 @@ final class ArtifactCard {
 
     init(app: AppModel) {
         self.app = app
-        popover.behavior = .applicationDefined
-        popover.animates = false
+        card.onClose = { [weak self] in
+            self?.loading?.cancel()
+            self?.shownTarget = nil
+        }
     }
 
     /// The pointer is over a page's row, or over none.
     func hover(_ shown: Shown?, rect: NSRect, in view: NSView) {
         guard let shown else {
-            pending.after(Motion.hoverClose) { [weak self] in self?.close() }
+            card.closeSoon()
             return
         }
-        guard shown.item.target != shownTarget || !popover.isShown else {
-            pending.cancel()
+        guard shown.item.target != shownTarget || !card.isShown else {
+            card.cancel()
             return
         }
-        let warm = popover.isShown || Date() < warmUntil
-        pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak view] in
+        card.open { [weak self, weak view] in
             if let view { self?.show(shown, rect: rect, in: view) }
         }
     }
 
-    func close() {
-        pending.cancel()
-        loading?.cancel()
-        if popover.isShown {
-            warmUntil = Date().addingTimeInterval(0.8)
-            popover.close()
-        }
-        shownTarget = nil
-        if let keys {
-            NSEvent.removeMonitor(keys)
-            self.keys = nil
-        }
-    }
+    func close() { card.close() }
 
     private func show(_ shown: Shown, rect: NSRect, in view: NSView) {
         guard view.window != nil else { return }
         shownTarget = shown.item.target
         let controller = NSViewController()
         controller.view = content(shown)
-        popover.contentViewController = controller
-        popover.show(relativeTo: rect, of: view, preferredEdge: .minX)
-        keys =
-            keys
-            ?? NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                MainActor.assumeIsolated { self?.close() }   // local monitors run on the main thread
-                return event
-            }
+        card.show(controller, relativeTo: rect, of: view, edge: .minX)
     }
 
     private func content(_ shown: Shown) -> NSView {

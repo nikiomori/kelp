@@ -62,7 +62,7 @@ struct AddonRows {
         }
         // What a narrow panel drops, last first: who gets it, what it weighs.
         var extras: [NSView] = []
-        if let tokens = addon.tokens { extras.append(digits(AddonGroups.k(tokens))) }
+        if let tokens = addon.tokens { extras.append(digits(shortTokens(tokens))) }
         if let faces = faces(addon.agents) { extras.append(faces) }
         let inset = Self.inset(depth)
         let mark = mark(addon)

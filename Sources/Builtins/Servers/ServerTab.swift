@@ -9,22 +9,11 @@ import WorkbenchKit
 /// is, and beside them Kelp's agents there, what still runs in tmux, the ports and the projects. Read every 2 s while it's
 /// on screen (`WatchTopic.hostDetail`); htop is a button away for the rest.
 @MainActor
-final class ServerTab: KelpKit.TabContent {   // not SwiftUI's
-    let uri: String
-    let view: NSView
-    private let host: String
-    /// Read every 2 s for as long as the tab is open.
-    private let watched: Watched
-    var title: String { host }
-    var icon: NSImage? { .symbol("server.rack") }
-    init(uri: String, app: AppModel) {
-        self.uri = uri
-        host = TabURI.body(uri)
-        watched = Watched(.hostDetail, in: app)
-        watched.key = host
-        view = HostedTab(ServerView(app: app, host: host))
-    }
-    func focus() {}
+func serverTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
+    let host = TabURI.body(uri)
+    return HostedTabContent(
+        uri: uri, title: host, icon: "server.rack", app: app, watching: [(.hostDetail, host)],
+        ServerView(app: app, host: host))
 }
 
 struct ServerView: View {

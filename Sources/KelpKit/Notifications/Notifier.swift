@@ -95,10 +95,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             content.body = String(
                 localized: "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.")
             content.userInfo = ["uri": "routines:\(routine.repoId)"]
-            alert { [self] in
-                center?.add(UNNotificationRequest(identifier: "missed-\(run.id)", content: content, trigger: nil))
-                if !allowed, NSApp.isActive { Banner.show(content.body, title: content.title) }
-            }
+            alert { [self] in deliver("missed-\(run.id)", content) }
         }
     }
 
@@ -168,12 +165,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", ")
         content.sound = sound(ss.contains { $0.status == .error } ? .error : .done)   // the failure's, if one failed
         content.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
-        if !allowed, NSApp.isActive {
-            Banner.show(
-                body, action: (String(localized: "Show"), { app.workbench.focus(session: ss[0].id) }), title: title,
-                subtitle: content.subtitle)
-        }
-        center?.add(UNNotificationRequest(identifier: "held-\(ss[0].id)", content: content, trigger: nil))
+        let first = ss[0].id
+        deliver("held-\(first)", content, action: (String(localized: "Show"), { app.workbench.focus(session: first) }))
         NSApp.requestUserAttention(.informationalRequest)
     }
 
@@ -182,10 +175,18 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func postAlert(
         _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)?
     ) {
-        alert { [self] in
-            center?.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
-            if !allowed, NSApp.isActive { Banner.show(content.body, action: action, title: content.title) }
+        alert { [self] in deliver(id, content, action: action) }
+    }
+
+    /// To Notification Center; with Kelp's notifications off there and Kelp in front, in a banner inside it instead.
+    private func deliver(
+        _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)? = nil,
+        icon: NSImage? = nil
+    ) {
+        if !allowed, NSApp.isActive {
+            Banner.show(content.body, action: action, title: content.title, subtitle: content.subtitle, icon: icon)
         }
+        center?.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 
     func updateBadge() {
@@ -365,15 +366,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.sound = sound(s.limitHit == nil ? s.status : .waiting)
         content.userInfo = ["session": s.id, "question": s.summary]
         if let cat = Self.category(s) { content.categoryIdentifier = cat }
-        if !allowed, NSApp.isActive {   // banners are off: say it inside Kelp instead
-            Banner.show(
-                content.body, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
-                title: content.title, subtitle: content.subtitle, icon: app.catalog.icon(s.agent, size: 24))
-        }
         // Under an id of its own: macOS may show one added again under the same id silently.
         let rid = again ? "\(s.id)-again-\(s.status.rawValue)" : "\(s.id)-\(s.status.rawValue)"
         if again, let first = posted[s.id] { center?.removeDeliveredNotifications(withIdentifiers: [first]) }
-        center?.add(UNNotificationRequest(identifier: rid, content: content, trigger: nil))
+        deliver(
+            rid, content, action: (String(localized: "Show"), { app.workbench.focus(session: s.id) }),
+            icon: app.catalog.icon(s.agent, size: 24))
         posted[s.id] = rid
         NSApp.requestUserAttention(.informationalRequest)
         if !again { remind(of: s) }

@@ -339,8 +339,8 @@ package final class AppModel {
             }
         case let devServer as DevServerEvent: extensions.all.runs?.served(devServer)
         case let busy as PortBusyEvent: extensions.all.runs?.portBusy(busy)
-        case let repo as Repo: record(repo)
-        case let worktree as Worktree: record(worktree)
+        case let repo as Repo: record(repo, in: \.repos)
+        case let worktree as Worktree: record(worktree, in: \.worktrees)
         case let removal as RemovedEvent: removed(removal)
         case let clone as CloneEvent: CloneSheet.cloneProgress(id: clone.id, line: clone.line)
         case let change as SettingsEvent: settings.received(change.settings)

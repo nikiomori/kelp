@@ -190,17 +190,8 @@ package enum SettingType: Codable, Equatable {
     ]
     /// As settings.json's schema and the settings guide call it.
     var name: String {
-        switch self {
-        case .boolean: "boolean"
-        case .number: "number"
-        case .string: "string"
-        case .enum: "enum"
-        case .color: "color"
-        case .font: "font"
-        case .panels: "panels"
-        case .theme: "theme"
-        case .unknown(let name): name
-        }
+        if case .unknown(let name) = self { return name }
+        return "\(self)"   // each case is named as it's written
     }
     package init(from decoder: Decoder) throws {
         let name = try decoder.singleValueContainer().decode(String.self)
@@ -219,11 +210,8 @@ package enum SettingLook: Codable, Equatable {
     case unknown(String)
 
     var name: String {
-        switch self {
-        case .segments: "segments"
-        case .pictures: "pictures"
-        case .unknown(let name): name
-        }
+        if case .unknown(let name) = self { return name }
+        return "\(self)"
     }
     package init(from decoder: Decoder) throws {
         let name = try decoder.singleValueContainer().decode(String.self)

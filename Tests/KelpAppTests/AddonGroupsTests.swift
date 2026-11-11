@@ -1,4 +1,5 @@
 import Core
+import DesignKit
 import Foundation
 import Testing
 
@@ -153,7 +154,7 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     #expect(AddonGroups.weight([server("d", .yours)]).isEmpty)
     #expect(AddonGroups.countAndTokens(7, 480) == "7 · 0.5k" && AddonGroups.countAndTokens(7, nil) == "7")
     #expect(AddonGroups.countAndTokens(3, 2300) == "3 · 2.3k" && AddonGroups.countAndTokens(1, 980) == "1 · 1k")
-    #expect(AddonGroups.k(435) == "435" && AddonGroups.k(5000) == "5k" && AddonGroups.k(1240) == "1.2k")
+    #expect(shortTokens(435) == "435" && shortTokens(5000) == "5k" && shortTokens(1240) == "1.2k")
 }
 
 @Test func addonTextsAndFolders() {

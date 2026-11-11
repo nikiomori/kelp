@@ -149,8 +149,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `read`, `value`, and the menu's Color row `addColor`).
     // +3: Open Database lists its rows in the palette (`QuickItem`, its `init`, `showList`), not in a palette of its
     // own.
-    #expect(declared <= 338, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 338, "fewer now (\(declared)): lower the ceiling")
+    // +5: a SwiftUI tab (`HostedTabContent`), which Servers, Routines and Machines each wrote as a class of their own;
+    // `HostedTab` under it is the shell's again.
+    #expect(declared <= 343, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 343, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -246,8 +248,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 417, "lines over 120: \(over120)")
-    #expect(over120 >= 417, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 416, "lines over 120: \(over120)")
+    #expect(over120 >= 416, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -433,9 +435,6 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Databases/DatabaseTab+Opening.swift": (
             1, "Connecting to … shows past half a second: a quick open doesn't flicker"
         ),
-        "Builtins/Git/CommitCard.swift": (
-            2, "a commit's card opens once the pointer rests on its row, and closes a moment after it leaves"
-        ),
         "KelpKit/Extensions/ExtListView.swift": (1, "an extension's own refresh interval for its command's list"),
         "KelpKit/Extensions/DeclarativeExtension.swift": (
             1, "an extension's own refresh interval for its panel's badge command"
@@ -573,7 +572,7 @@ func codeOnly(_ s: String) -> String {
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
         "Daemon": 58, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 8, "Agents": 13, "kelp": 10,
-        "Builtins": 10,
+        "Builtins": 8,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 0, "DesignKit": 0
     ]

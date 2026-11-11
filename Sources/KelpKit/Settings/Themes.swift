@@ -88,29 +88,30 @@ package final class ThemeManager {
                     "#636366", "#e0362e", "#28a745", "#b28600", "#0a84ff", "#bf5af2", "#3a9bae", "#1d1d1f"
                 ]),
             editor: nil, window: .system),
-        Theme(
-            id: "kelp.dark", name: "Kelp Dark", appearance: "dark",
-            terminal: .init(
-                background: "#1e1e22", foreground: "#e5e5ea", cursor: nil, selection: "#3a4a63",
-                palette: [
-                    "#2c2c30", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
-                    "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"
-                ]),
-            editor: .init(
-                background: "#1e1e22", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
-                type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system),
-        Theme(
-            id: "kelp.black", name: "Kelp Black", appearance: "dark",
-            terminal: .init(
-                background: "#000000", foreground: "#e5e5ea", cursor: nil, selection: "#2a3a55",
-                palette: [
-                    "#1c1c1e", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
-                    "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"
-                ]),
-            editor: .init(
-                background: "#000000", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
-                type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system)
+        kelpDark, kelpBlack
     ]
+    private static let kelpDark = Theme(
+        id: "kelp.dark", name: "Kelp Dark", appearance: "dark",
+        terminal: .init(
+            background: "#1e1e22", foreground: "#e5e5ea", cursor: nil, selection: "#3a4a63",
+            palette: [
+                "#2c2c30", "#ff6b6b", "#7ee787", "#e3c26a", "#6cb6ff", "#d2a8ff", "#5dd8e0", "#c7c7cc",
+                "#636366", "#ff8a80", "#97f3a0", "#f2d58a", "#8cc8ff", "#e0bfff", "#87e5ec", "#ffffff"
+            ]),
+        editor: .init(
+            background: "#1e1e22", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
+            type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system)
+    /// Kelp Dark on black: its backgrounds, the selection and the first palette colour go darker.
+    private static let kelpBlack = {
+        var black = kelpDark
+        black.id = "kelp.black"
+        black.name = "Kelp Black"
+        black.terminal?.background = "#000000"
+        black.terminal?.selection = "#2a3a55"
+        black.terminal?.palette?[0] = "#1c1c1e"
+        black.editor?.background = "#000000"
+        return black
+    }()
 
     /// "auto" follows macOS light/dark; "ghostty" leaves the terminal to ~/.config/ghostty.
     var themes: [Theme] { Self.builtin + Theme.looks + Theme.popular + app.extensions.all.themes }

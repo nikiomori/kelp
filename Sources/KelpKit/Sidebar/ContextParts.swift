@@ -75,7 +75,7 @@ struct ContextParts: View {
         GridRow {
             PartsBar.Swatch(row.color)
             Text(row.label).fontWeight(bold ? .semibold : .regular).lineLimit(1)
-            Text(Self.k(row.tokens)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+            Text(shortTokens(row.tokens)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(.trailing)
             Text(Self.share(row.tokens, of: window)).monospacedDigit().foregroundStyle(.secondary).gridColumnAlignment(
                 .trailing)
         }
@@ -119,7 +119,7 @@ struct ContextParts: View {
     static func deferred(_ deferredItems: [SessionContextParts.Item]) -> String {
         let items = deferredItems.map { item in
             let name = label(item.label.replacingOccurrences(of: " (deferred)", with: ""))
-            return "\(name) \(k(item.tokens))"
+            return "\(name) \(shortTokens(item.tokens))"
         }
         return String(localized: "Not in the context until used: \(items.joined(separator: " · "))")
     }
@@ -160,7 +160,7 @@ struct ContextParts: View {
                 case (.conversation, "notes"): String(localized: "Claude Code's notes")
                 default: item.count > 1 ? "\(item.label) ×\(item.count)" : item.label
                 }
-            return "\(name) \(k(item.tokens))"
+            return "\(name) \(shortTokens(item.tokens))"
         }
         let line = list(items, more: part.more, rest: part.tokens - part.top.reduce(0) { $0 + $1.tokens })
         return part.kind == .conversation ? line.prefix(1).uppercased() + line.dropFirst() : line   // "Its replies", but "npm test"
@@ -172,19 +172,12 @@ struct ContextParts: View {
             return String(localized: "Hook output, the environment, names of tools loaded when used")
         }
         return list(
-            group.top.map { "\($0.label) \(k($0.tokens))" }, more: group.more,
+            group.top.map { "\($0.label) \(shortTokens($0.tokens))" }, more: group.more,
             rest: max(0, group.tokens - group.top.reduce(0) { $0 + $1.tokens }))
     }
 
     private static func list(_ items: [String], more: Int, rest: Int) -> String {
-        (items + (more > 0 ? [String(localized: "+\(more) more \(k(rest))")] : [])).joined(separator: " · ")
-    }
-
-    /// 17_600 → "17.6k", 31_000 → "31k", 184_000 → "184k", 640 → "640".
-    static func k(_ tokens: Int) -> String {
-        guard tokens >= 1000 else { return "\(tokens)" }
-        let tenths = (tokens + 50) / 100
-        return tokens >= 100_000 || tenths % 10 == 0 ? "\((tokens + 500) / 1000)k" : "\(tenths / 10).\(tenths % 10)k"
+        (items + (more > 0 ? [String(localized: "+\(more) more \(shortTokens(rest))")] : [])).joined(separator: " · ")
     }
 
     /// 146_200 of 1M → "14.6%".
