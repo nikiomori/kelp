@@ -132,18 +132,25 @@ extension BrowserTab {
           const root = el.getRootNode();
           return (root.getElementById ? root : el.ownerDocument).getElementById(id);
         };
-        const nameOf = (el, role) => {
+        // A label's own text: not the options of a select inside it.
+        const labelText = (label, el) => {
+          let t = '';
+          const w = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+          for (let n = w.nextNode(); n; n = w.nextNode()) if (!el.contains(n)) t += n.textContent + ' ';
+          return t;
+        };
+        const nameOf = (el, role, whole) => {
           const l = el.getAttribute('aria-label'); if (l) return clean(l);
           const by = el.getAttribute('aria-labelledby');
           if (by) {
             const s = clean(by.split(/\s+/).map(id => (byId(el, id) || {}).innerText || '').join(' '));
             if (s) return s;
           }
-          if (el.labels && el.labels.length) return clean([...el.labels].map(x => x.innerText).join(' '));
+          if (el.labels && el.labels.length) return clean([...el.labels].map(x => labelText(x, el)).join(' '));
           if (el.localName === 'img') return clean(el.alt || el.getAttribute('title'));
           if (el.localName === 'input' && ['button', 'submit', 'reset'].includes(el.type)) return clean(el.value);
           if (FIELD.has(role)) return clean(el.placeholder || el.getAttribute('title'));
-          if (leaf(el, role)) return clean(el.innerText || el.getAttribute('title'));
+          if (whole) return clean(el.innerText || el.getAttribute('title'));
           return clean(el.getAttribute('title'));
         };
         const shown = el => {
@@ -175,13 +182,18 @@ extension BrowserTab {
             if (el.localName === 'iframe' || el.localName === 'frame') { frame(el, pad, depth, now); continue; }
             const role = roleOf(el);
             if (!role) { walk(kids(el), depth, now); continue; }
+            // What the page lets be dragged takes a ref whatever it is (a list's items), and its text as a name.
+            // What the page lets be dragged takes a ref whatever it is (a list's items), and its text as a name.
+            const drags = role !== 'draggable' && el.getAttribute('draggable') === 'true';
+            const whole = leaf(el, role) || drags && !el.querySelector(INNER);
             let line = pad + '- ' + role;
-            const name = nameOf(el, role); if (name) line += ' ' + JSON.stringify(cut(name));
+            const name = nameOf(el, role, whole); if (name) line += ' ' + JSON.stringify(cut(name));
             if (role === 'heading') line += ' [level=' + (el.getAttribute('aria-level') || el.localName.slice(1)) + ']';
             if (el.checked || el.getAttribute('aria-checked') === 'true') line += ' [checked]';
             if (el.disabled || el.getAttribute('aria-disabled') === 'true') line += ' [disabled]';
             const ex = el.getAttribute('aria-expanded'); if (ex) line += ' [expanded=' + ex + ']';
-            if (ACT.has(role)) line += ' [ref=' + refOf(el) + ']';
+            if (drags) line += ' [draggable]';
+            if (ACT.has(role) || drags) line += ' [ref=' + refOf(el) + ']';
             if (role === 'link' && el.getAttribute('href')) line += ' -> ' + cut(el.getAttribute('href'));
             if (FIELD.has(role)) {
               // A password's value never leaves the page: that one is typed says enough.
@@ -190,7 +202,7 @@ extension BrowserTab {
               if (v) line += ': ' + JSON.stringify(cut(v));
             }
             out.push(line + mark);
-            if (!leaf(el, role)) walk(kids(el), depth + 1, now);
+            if (!whole) walk(kids(el), depth + 1, now);
           }
         };
         walk(root ? [root] : [], 0, false);
@@ -208,11 +220,16 @@ extension BrowserTab {
         return '- page ' + JSON.stringify(document.title) + ' ' + location.href + '\n' + body.join('\n');
         """#
 
-    /// `el`: the element of `ref` from the last snapshot, scrolled into view. `box(e)`: where an element is in the top
-    /// page (a frame's own place added: its elements' boxes are the frame's).
+    /// `el`: the element of `ref` from a snapshot (or the first a CSS selector matches), scrolled into view. `box(e)`:
+    /// where an element is in the top page (a frame's own place added: its elements' boxes are the frame's).
     static let findJS = #"""
-        const el = window.__kelpRefs && window.__kelpRefs.get(ref);
-        if (!el || !el.isConnected) throw new Error('No ' + ref + ' on the page now: take a new snapshot');
+        // A ref, or a CSS selector for an element the snapshot gave none.
+        const byRef = /^e\d+$/.test(ref);
+        const el = byRef ? window.__kelpRefs && window.__kelpRefs.get(ref) : document.querySelector(ref);
+        if (!el || !el.isConnected) {
+          throw new Error(byRef ? 'No ' + ref + ' on the page now: take a new snapshot'
+            : 'Nothing on the page matches ' + ref);
+        }
         el.scrollIntoView({block: 'center', inline: 'center'});
         const box = e => {
           const r = e.getBoundingClientRect(); let x = r.left, y = r.top;
@@ -429,10 +446,10 @@ extension BrowserTab {
     /// gets the drag events a browser sends, and the element under the pointer must take the drop (its `dragover`
     /// cancelled), as in a browser; anything else follows the pointer (sortable lists by pointer, sliders, canvases).
     static let dragJS = #"""
-        const byRef = /^e\d+$/.test(onto);
-        const dst = byRef ? window.__kelpRefs.get(onto) : el.ownerDocument.querySelector(onto);
+        const ontoRef = /^e\d+$/.test(onto);
+        const dst = ontoRef ? window.__kelpRefs.get(onto) : el.ownerDocument.querySelector(onto);
         if (!dst || !dst.isConnected) {
-          throw new Error('No ' + onto + ' on the page now' + (byRef ? ': take a new snapshot' : ''));
+          throw new Error('No ' + onto + ' on the page now' + (ontoRef ? ': take a new snapshot' : ''));
         }
         const doc = el.ownerDocument, view = doc.defaultView;
         if (dst.ownerDocument !== doc) {

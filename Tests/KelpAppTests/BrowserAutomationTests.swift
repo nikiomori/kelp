@@ -283,6 +283,15 @@ import WorkbenchKit
               - button "Add to cart" [ref=e3]
             """)
     #expect(BrowserTab.found("checkout", in: snap).hasSuffix(#"Nothing on the page mentions "checkout"."#))
+    // What's inside a match comes with it: a heading's list, a form's fields.
+    #expect(
+        BrowserTab.found("site", in: snap) == """
+            - page "Shop" http://x/
+            - navigation "Site"
+              - list
+                - link "Home" [ref=e1] -> /
+                - link "Cart" [ref=e2] -> /cart
+            """)
 }
 
 /// A link with `download` on an agent's page: the file lands in Kelp's temporary folder, and the click's answer says
@@ -403,7 +412,15 @@ import WorkbenchKit
             try await act("eval", ["js": .string("document.querySelector('iframe').contentDocument.body.innerText")])
                 == .string("Inside")
         })
+    _ = try await act(
+        "eval",
+        [
+            "js": .string(
+                #"document.body.insertAdjacentHTML('beforeend', '<label>Size <select><option>S</option></select></label>')"#
+            )
+        ])
     let page = try #require(try await act("snapshot").string)
+    #expect(page.contains(#"- combobox "Size" [ref=e4]: "S""#))   // the label's text, not its select's options
     #expect(page.contains(#"- iframe "Editor""#) && page.contains(#"  - button "Inside" [ref=e3]"#))
 
     #expect(
@@ -447,8 +464,16 @@ import WorkbenchKit
     func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
         try await tab.browse(a, .object(args))
     }
+    _ = try await act(
+        "eval",
+        ["js": .string(#"document.body.insertAdjacentHTML('beforeend', '<ul><li draggable=\"true\">Pine</li></ul>')"#)])
     let page = try #require(try await act("snapshot").string)
     #expect(page.contains(#"- draggable "Card" [ref=e1]"#) && page.contains(#"- draggable "o" [ref=e2]"#))
+    #expect(page.contains(#"- listitem "Pine" [draggable] [ref=e4]"#))   // a list's own items: a ref whatever their role
+    // A CSS selector where the snapshot gave no ref, for what's dragged too.
+    await #expect(throws: RPCError.self) {
+        try await act("drag", ["ref": .string("#nothing"), "onto": .string("#done")])
+    }
 
     #expect(
         try await act("drag", ["ref": .string("e1"), "onto": .string("#done")])["change"] == .string("page changed"))

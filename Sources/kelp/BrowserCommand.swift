@@ -125,7 +125,7 @@ extension Main {
     /// nothing changed`), or where the page is; then the page's questions, downloads, and the lines it brought. Nil for
     /// what has no such shape (a snapshot's text, eval's value): printed as it came.
     static func browserText(_ action: BrowserAction, _ what: String, _ answer: JSONValue) -> String? {
-        guard case .object(let f) = answer else { return nil }
+        guard action != .eval, case .object(let f) = answer else { return nil }   // eval's value is the page's
         if action == .screenshot { return f["path"]?.string }
         let page = "page \(quoted(f["title"]?.string ?? "")) \(f["url"]?.string ?? "")"
         var lines: [String]

@@ -186,11 +186,17 @@ extension BrowserTab {
     /// What an agent may still do on a page the user took over: look.
     static let whileTakenOver: Set<BrowserAction> = [.wait, .info]
 
-    /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place.
+    /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place,
+    /// and over what's inside it (a heading's list, a form's fields), up to 20 lines each.
     nonisolated static func found(_ text: String, in snapshot: String) -> String {
         let lines = snapshot.components(separatedBy: "\n")
         guard let head = lines.first else { return "" }
-        let keep = kept(lines) { $0.localizedCaseInsensitiveContains(text) }
+        var keep = kept(lines) { $0.localizedCaseInsensitiveContains(text) }
+        let indent = { (line: String) in line.prefix { $0 == " " }.count }
+        for match in keep where lines[match].localizedCaseInsensitiveContains(text) {
+            let inside = lines[(match + 1)...].prefix { indent($0) > indent(lines[match]) }.prefix(20)
+            keep.insert(integersIn: (match + 1)..<(match + 1 + inside.count))
+        }
         return keep.isEmpty
             ? head + "\nNothing on the page mentions \"\(text)\"."
             : ([head] + keep.map { lines[$0] }).joined(separator: "\n")

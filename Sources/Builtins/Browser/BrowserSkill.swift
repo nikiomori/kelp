@@ -19,11 +19,11 @@ extension Builtins {
             draws, your dev server.
 
             - `kelp browser open localhost:3000` — opens the page (or takes your page there) and prints, once it loaded,
-              `page "Title" url` and its first lines with their refs (`failed:` says why it didn't load); `reload` and
-              `back` too. The page has cookies and storage of its own, so you start logged out. `--shared` uses the
-              user's instead: only when they ask, it acts as them, and Kelp asks them first, for that one site; going to
-              another site is blocked (the console says so) until you open it with `--shared` again. Every other command
-              drives a page you opened: the user's own tabs aren't yours.
+              `page "Title" url` and its first lines with their refs (no snapshot needed after it) (`failed:` says why
+              it didn't load); `reload` and `back` too. The page has cookies and storage of its own, so you start logged
+              out. `--shared` uses the user's instead: only when they ask, it acts as them, and Kelp asks them first,
+              for that one site; going to another site is blocked (the console says so) until you open it with
+              `--shared` again. Every other command drives a page you opened: the user's own tabs aren't yours.
             - `kelp browser reload` — after you change the code: loads it all again, nothing from the cache (opening the
               address it shows does the same).
             - `kelp browser snapshot` — what's on the page, a line an element: `- button "Save" [ref=e12]`, `- textbox
@@ -34,18 +34,20 @@ extension Builtins {
               is cut: `snapshot --find "cart"` keeps the lines that mention it (and what they sit in), `snapshot e7`
               only what's in e7.
             - `kelp browser click e12`, `kelp browser type e3 "a@b.c" [--submit]` — refs from a snapshot (one the page
-              no longer has says so). Both wait until the page is quiet, then say in one line what they did to what:
-              `click e2 button "Save" → page changed`, then the lines that came (`[new]`: an error under a field, the
-              menu it opened); `→ new page "Title" url` and the new page's first lines; `→ nothing changed` (look why
-              before trying again). Take a snapshot only for what those lines don't show. Kelp's pointer moves to the
-              element and it glows a moment, so the user sees it. Something over it (a cookie banner, a dialog) stops
-              the action with what covers it, as it would stop a person: close or answer that first. `type` replaces the
-              text a key at a time; `→ shows "+7 99"` says what the field shows when the page made it something else (a
-              mask, a length limit). A select takes an option's text or value (any case, or the one it starts with; a
-              wrong one lists them), a date field its own format (`2026-03-14`, time `09:30`).
+              no longer has says so); for an element the snapshot gave no ref, a CSS selector instead (`click "#menu >
+              li:nth-child(2)"`), here and in every command that takes a ref. Both wait until the page is quiet, then
+              say in one line what they did to what: `click e2 button "Save" → page changed`, then the lines that came
+              (`[new]`: an error under a field, the menu it opened); `→ new page "Title" url` and the new page's first
+              lines; `→ nothing changed` (look why before trying again). Take a snapshot only for what those lines don't
+              show. Kelp's pointer moves to the element and it glows a moment, so the user sees it. Something over it (a
+              cookie banner, a dialog) stops the action with what covers it, as it would stop a person: close or answer
+              that first. `type` replaces the text a key at a time; `→ shows "+7 99"` says what the field shows when the
+              page made it something else (a mask, a length limit). A select takes an option's text or value (any case,
+              or the one it starts with; a wrong one lists them), a date field its own format (`2026-03-14`, time
+              `09:30`).
             - `kelp browser drag e4 e9` — e4 dragged onto e9 as a person drags (pressed, moved, let go): sortable lists,
-              boards, sliders; what can be dragged shows as `draggable`. Onto a zone with no ref, give a CSS selector
-              (`drag e4 ".column.done"`). The page must take the drop there, or the error says so.
+              boards, sliders; what can be dragged shows as `draggable` or `[draggable]`. Onto a zone with no ref, give
+              a CSS selector (`drag e4 ".column.done"`). The page must take the drop there, or the error says so.
             - `kelp browser upload e9 photo.png [more…]` — files into a file field: its ref, its label's, or the button
               over a hidden one; with no field, they're dropped on e9 (a drop zone). A file chooser the page opens by
               itself is cancelled.

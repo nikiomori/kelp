@@ -72,6 +72,7 @@ import Testing
         Main.browserText(.open, "", .object(["url": .string("u"), "title": .string("A \"b\"")])) == #"page "A \"b\"" u"#
     )
     #expect(Main.browserText(.snapshot, "", .string("- page")) == nil)
+    #expect(Main.browserText(.eval, "", .object(["n": .int(1)])) == nil)   // eval's value, as the page gave it
     #expect(Main.words(#"type e3 "a b" 'c "d"' e\ f"#) == ["type", "e3", "a b", #"c "d""#, "e f"])
     #expect(Main.words("  drag e1   '#col'  ") == ["drag", "e1", "#col"])
 }
