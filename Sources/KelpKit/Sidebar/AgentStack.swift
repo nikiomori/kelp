@@ -55,11 +55,15 @@ final class AgentStack: NSView {
     func width(showing logos: Int) -> CGFloat {
         let logos = min(logos, faces.count)
         guard logos > 0 else { return 0 }
-        let rest = total - logos,
-            label =
-                rest > 0
-                ? NSAttributedString(string: "+\(rest)", attributes: [.font: more.font as Any]).size().width + 4 : 0
-        return Self.side + CGFloat(logos - 1) * Self.step + 2 + ceil(label)
+        let rest = total - logos
+        return Self.side + CGFloat(logos - 1) * Self.step + (rest > 0 ? Self.gap + labelWidth("+\(rest)") : 0)
+    }
+    /// Between the last logo and "+N".
+    private static let gap: CGFloat = 4
+    /// The room "+N" takes: its words and the 2 pt a label keeps on each side of them. Asked of the field, it came out
+    /// as the words alone, and the last digit lost its right edge.
+    private func labelWidth(_ words: String) -> CGFloat {
+        ceil(NSAttributedString(string: words, attributes: [.font: more.font as Any]).size().width) + 4
     }
     var count: Int { faces.count }
 
@@ -94,9 +98,9 @@ final class AgentStack: NSView {
         super.layout()
         let top = (bounds.height - Self.side) / 2
         for (index, face) in faces.enumerated() { face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step, y: top)) }
-        let moreX = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + 6
+        let moreX = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + Self.gap
         more.frame = NSRect(
-            x: moreX, y: (bounds.height - more.intrinsicContentSize.height) / 2, width: more.intrinsicContentSize.width,
-            height: more.intrinsicContentSize.height)
+            x: moreX, y: (bounds.height - more.intrinsicContentSize.height) / 2,
+            width: labelWidth(more.stringValue), height: more.intrinsicContentSize.height)
     }
 }

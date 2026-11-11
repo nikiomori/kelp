@@ -189,7 +189,8 @@ extension OneAtATime {
     /// "+8" after the logos is whole: the label stands inside the room the stack asks the row for.
     @Test func aFoldedProjectsCountOfMoreAgentsFitsInItsStack() throws {
         let agents = (0..<12).map {
-            Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Chat \($0)")
+            Session(
+                worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Chat \($0)")
         }
         try withSidebar(repos: [project], worktrees: [own("w1")], sessions: agents) { vc, o in
             let project = try #require(o.item(atRow: 0) as? SidebarController.Node)
@@ -204,6 +205,8 @@ extension OneAtATime {
             let more = try #require(logos.subviews.compactMap { $0 as? NSTextField }.first { !$0.isHidden })
             #expect(more.stringValue.hasPrefix("+"))
             #expect(more.frame.maxX <= logos.intrinsicContentSize.width)
+            // The words and the 2 pt a label keeps on each side of them: narrower, the last digit's edge is cut.
+            #expect(more.frame.width >= ceil(more.attributedStringValue.size().width) + 4)
         }
     }
 
