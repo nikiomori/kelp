@@ -74,6 +74,22 @@ extension IOSRuntimeOnAStandIn {
         _ = await askIOS(vm, .stop)
     }
 
+    /// The memory budget's sleep while it boots (here a slow `bootstatus`) leaves it booting: the start that waits on it
+    /// is answered, and kelp-vm stays.
+    @Test(.timeLimit(.minutes(1))) func theBudgetsSleepLeavesABootingOneBooting() async throws {
+        let (vm, folder) = try iOS(simctl: #"case "$2" in bootstatus) sleep 1 ;; esac"#)
+        defer { putAway(folder) }
+        var ended = false
+        vm.exitProcess = { ended = true }
+        let start = Task { await askIOS(vm, .start) }
+        #expect(try await waitFor(5) { vm.state == .starting })
+        #expect(await withCheckedContinuation { c in vm.handle(.sleepIfIdle) { c.resume(returning: $0) } } == nil)
+        #expect(await start.value == nil)
+        #expect(vm.state == .running && !ended)
+        vm.exitProcess = {}
+        _ = await askIOS(vm, .stop)
+    }
+
     /// A boot that fails (here its runner isn't built) shuts down the simulator it booted.
     @Test(.timeLimit(.minutes(1))) func aFailedBootShutsTheSimulatorDown() async throws {
         let (vm, folder) = try iOS(built: false)

@@ -65,7 +65,9 @@ final class IOSRuntime {
         case .start:
             lastUse = now()
             wake(done)
-        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now.
+        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now. One still
+        // booting is left to boot (its start waits on it): answered as it is, up, so the budget counts it as held.
+        case .sleep where request.ifIdle && state == .starting: done(nil)
         case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0): done("\(machine.name) is in use.")
         case .sleep, .stop:
             stop {
