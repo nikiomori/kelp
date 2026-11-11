@@ -45,7 +45,7 @@ extension InspectorController {
                 item = NSMenuItem(title: loc(panel.title), action: #selector(selected(_:)), keyEquivalent: "")
             item.target = self
             item.tag = i
-            item.image = .symbol(panel.icon, loc(panel.title))
+            item.show(.symbol(panel.icon, loc(panel.title)))   // macOS 27 hides an item's image unless asked
             if let badge = panel.badge?(), badge.count > 0 { item.badge = NSMenuItemBadge(count: badge.count) }
             menu.addItem(item)
         }
