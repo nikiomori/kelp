@@ -515,3 +515,18 @@ import WorkbenchKit
     let long = (1...50).map { "- text: \"\($0)\"" }
     #expect(BrowserTab.top(long).hasSuffix("- text: \"40\"\n… 10 more lines: snapshot shows them"))
 }
+
+/// The pointer the user watches says whose it is and what it does, in a colour that stands out on any page: the
+/// agent's own, Kelp's purple for one near black or grey.
+@MainActor @Test func thePointerSaysWhoAndWhat() {
+    #expect(BrowserTab.shownName(#"button "Sign up""#) == "Sign up")
+    #expect(BrowserTab.shownName(#"textbox "Say \"hi\"""#) == #"Say "hi""#)
+    #expect(BrowserTab.shownName("textbox") == nil)
+    #expect(BrowserTab.verb(.click) == "clicks" && BrowserTab.verb(.type) == "types in")
+    #expect(BrowserTab.vivid("#D97857").hexString == "#d97857")   // Claude's orange
+    #expect(BrowserTab.vivid("#262626") == .systemPurple && BrowserTab.vivid(nil) == .systemPurple)
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.watch().names["e2"] = #"button "Save""#
+    let look = tab.pointerLook(.click, ref: "e2", .object([:]))
+    #expect(look["label"] as? String == "Agent · clicks “Save”")
+}

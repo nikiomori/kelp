@@ -1,6 +1,61 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "clicks": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нажимает"
+          }
+        }
+      }
+    },
+    "types in": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "печатает в"
+          }
+        }
+      }
+    },
+    "points at": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "наводит на"
+          }
+        }
+      }
+    },
+    "drags": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "тянет"
+          }
+        }
+      }
+    },
+    "adds files to": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "добавляет файлы в"
+          }
+        }
+      }
+    },
     "Updates": {
       "extractionState": "manual",
       "localizations": {

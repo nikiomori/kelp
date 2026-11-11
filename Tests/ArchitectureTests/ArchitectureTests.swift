@@ -144,8 +144,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1: its tile mutes a chat as the chat's row does (`Mutes.mute`).
     // +4: its tile shows a workspace's CI as the sidebar's row does (`CIRunLook.mark`, `FolderCI`'s `row`, `line`,
     // `open`).
-    #expect(declared <= 329, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 329, "fewer now (\(declared)): lower the ceiling")
+    // +1: the browser's pointer wears the agent's colour, as its tile in the catalog does (`AgentCatalog.color`).
+    #expect(declared <= 330, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 330, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -241,8 +242,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 422, "lines over 120: \(over120)")
-    #expect(over120 >= 422, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 420, "lines over 120: \(over120)")
+    #expect(over120 >= 420, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out

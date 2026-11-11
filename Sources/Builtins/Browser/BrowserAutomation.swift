@@ -116,6 +116,7 @@ extension BrowserTab {
     /// An action on the element of `ref`: its answer says what it did (`settled(after:)`).
     private func onElement(_ action: BrowserAction, _ ref: String, _ args: JSONValue) async throws -> JSONValue {
         let reach = Self.findJS + Self.reachJS + Self.flashJS, before = await probe()
+        let look = pointerLook(action, ref: ref, args)
         switch action {
         case .upload:
             // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
@@ -123,24 +124,25 @@ extension BrowserTab {
                 if case .object(let fields) = file { return fields.compactMapValues(\.string) } else { return nil }
             }
             guard !files.isEmpty else { throw RPCError.invalidParams("upload needs a file") }
-            let how = try await run(Self.findJS + Self.flashJS + Self.uploadJS, shown(["ref": ref, "files": files]))
+            let how = try await run(
+                Self.findJS + Self.flashJS + Self.uploadJS, shown(["ref": ref, "files": files], look))
             return try await settled(
                 how as? String == "dropped" ? ["upload": .string("dropped on \(ref)")] : [:], after: before)
         case .drag:
             guard let onto = args["onto"]?.string, !onto.isEmpty else {
                 throw RPCError.invalidParams("drag needs onto")
             }
-            _ = try await run(reach + Self.dragJS, shown(["ref": ref, "onto": onto, "editable": false]))
+            _ = try await run(reach + Self.dragJS, shown(["ref": ref, "onto": onto, "editable": false], look))
         case .type:
             let text = args["text"]?.string ?? "", submit = args["submit"]?.bool == true
             let shows = try await run(
-                reach + Self.typeJS, shown(["ref": ref, "text": text, "submit": submit, "editable": true]))
+                reach + Self.typeJS, shown(["ref": ref, "text": text, "submit": submit, "editable": true], look))
             // What the page made of it (a mask, a length limit, the option picked), when that isn't what was typed.
             let field: [String: JSONValue] = (shows as? String).map { $0 == text ? [:] : ["shows": .string($0)] } ?? [:]
             return try await settled(field, after: before, typing: true)
         default:
             let js = action == .click ? Self.clickJS : Self.hoverJS
-            _ = try await run(reach + js, shown(["ref": ref, "editable": false]))
+            _ = try await run(reach + js, shown(["ref": ref, "editable": false], look))
         }
         return try await settled(after: before)
     }
@@ -299,16 +301,17 @@ extension BrowserTab {
         return after.changes == before.changes ? "nothing changed" : "page changed"
     }
 
-    /// The arguments of an action the user sees done: the element's glow, in the accent colour and Kelp's motion (ms).
-    /// The wait before the action, the typing pace and how long the pointer stays aren't motion: Reduce Motion keeps them.
-    private func shown(_ args: [String: Any]) -> [String: Any] {
+    /// The arguments of an action the user sees done: the element's glow and the pointer in `look` (the agent's colour
+    /// and label, `pointerLook`), in Kelp's motion (ms). The wait before the action, the typing pace and how long the
+    /// pointer stays aren't motion: Reduce Motion keeps them.
+    private func shown(_ args: [String: Any], _ look: [String: Any]) -> [String: Any] {
         let ms = { (seconds: TimeInterval) in Int(seconds * 1000) }
         let motion = [
             "appear": ms(Motion.duration(Motion.appear)), "disappear": ms(Motion.duration(Motion.disappear)),
             "flash": ms(Motion.flash), "lead": ms(Motion.appear + Motion.fast), "idle": ms(Motion.wait),
             "key": ms(Motion.stagger), "typing": ms(Motion.linger)
         ]
-        return args.merging(["accent": NSColor.themeAccent.hexString, "motion": motion]) { $1 }
+        return args.merging(look) { $1 }.merging(["motion": motion]) { $1 }
     }
 
     /// An async function body with `args` as its variables; a script's exception comes back as its message.

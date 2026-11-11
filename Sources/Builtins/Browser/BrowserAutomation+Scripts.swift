@@ -288,7 +288,7 @@ extension BrowserTab {
         let cur = document.querySelector('[data-kelp-flash="cursor"]');
         if (!cur) {
           const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'), path = document.createElementNS(ns, 'path');
-          svg.setAttribute('width', '22'); svg.setAttribute('height', '22');
+          svg.setAttribute('width', '26'); svg.setAttribute('height', '26'); svg.setAttribute('viewBox', '0 0 22 22');
           path.setAttribute('d', 'M3 2 L3 18 L7.5 14 L10.5 20.5 L13 19.3 L10 13 L16 13 Z');
           path.setAttribute('stroke', '#fff'); path.setAttribute('stroke-width', '1.5'); path.setAttribute('stroke-linejoin', 'round');
           svg.append(path); cur = document.createElement('div'); cur.append(svg);
@@ -297,21 +297,35 @@ extension BrowserTab {
           document.documentElement.appendChild(cur);
         }
         cur.querySelector('path').setAttribute('fill', accent);
+        // Who it is and what it does, beside the pointer; on its left near the page's right edge.
+        let tag = cur.querySelector('[data-kelp-tag]');
+        if (!tag) { tag = document.createElement('div'); tag.setAttribute('data-kelp-tag', ''); cur.append(tag); }
+        tag.textContent = label;
+        tag.style.cssText = 'position:absolute;top:22px;white-space:nowrap;border-radius:999px;color:#fff;'
+          + 'font:600 ' + font + 'px -apple-system,system-ui,sans-serif;padding:' + padY + 'px ' + padX + 'px;'
+          + 'background:' + accent + ';box-shadow:0 1px 3px rgba(0,0,0,.35);'
+          + (to[0] > innerWidth - 240 ? 'right:12px' : 'left:16px');
         cur.getAnimations().forEach(a => a.cancel());
         const from = window.__kelpAt || [to[0] + 60, to[1] + 60], at = p => 'translate(' + (p[0] - 3) + 'px,' + (p[1] - 2) + 'px)';
         window.__kelpAt = to; cur.style.transform = at(to);
-        const move = cur.animate([{transform: at(from)}, {transform: at(to)}], {duration: motion.appear, easing: 'ease-in-out'});
+        // A page off screen plays no animation: one would hold its first frame (the pointer where it was, the glow
+        // unseen) until the tab shows; there they're where they end.
+        const move = on && cur.animate([{transform: at(from)}, {transform: at(to)}],
+          {duration: motion.appear, easing: 'ease-in-out'});
         clearTimeout(window.__kelpHide);
         window.__kelpHide = setTimeout(() => cur.animate([{opacity: 1}, {opacity: 0}], {duration: motion.disappear, fill: 'forwards'}), motion.idle);
         if (on) await move.finished.catch(() => 0);
         const fl = document.createElement('div');
         fl.setAttribute('data-kelp-flash', '');
-        fl.style.cssText = 'position:fixed;box-sizing:border-box;pointer-events:none;z-index:2147483647;border-radius:8px;'
+        fl.style.cssText = 'position:fixed;box-sizing:border-box;pointer-events:none;z-index:2147483646;border-radius:8px;'
           + 'left:' + (fr.left - 4) + 'px;top:' + (fr.top - 4) + 'px;width:' + (fr.width + 8) + 'px;height:' + (fr.height + 8) + 'px;'
           + 'border:2px solid ' + accent + ';background:' + accent + '26;'
           + 'box-shadow:0 0 0 4px ' + accent + '4d,0 0 18px 6px ' + accent + '99';
         document.documentElement.appendChild(fl);
-        fl.animate([{opacity: 0, transform: 'scale(1.3)'}, {opacity: 1, transform: 'scale(1)'}], {duration: motion.appear, easing: 'ease-out'});
+        if (on) {
+          fl.animate([{opacity: 0, transform: 'scale(1.3)'}, {opacity: 1, transform: 'scale(1)'}],
+            {duration: motion.appear, easing: 'ease-out'});
+        }
         // Removed by the clock: a page off screen plays no animation, so one's end would never come.
         setTimeout(() => { fl.animate([{opacity: 1}, {opacity: 0}], {duration: motion.disappear, fill: 'forwards'});
           setTimeout(() => fl.remove(), motion.disappear); }, motion.flash);

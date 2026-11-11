@@ -52,6 +52,8 @@ package struct AgentCatalog {
         return "\(base) \(index + 1)"
     }
 
+    /// Agent `id`'s own colour (`#rrggbb`), if its manifest has one.
+    package func color(_ id: String?) -> String? { manifest(id)?.color }
     /// The manifest of agent `id`, preset, file or extension's.
     func manifest(_ id: String?) -> AgentManifest? { id.flatMap { id in all.first { $0.id == id } } }
     /// What an agent is, in a few words: the empty workspace and Settings › Agents say it beside the name.

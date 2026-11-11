@@ -43,7 +43,9 @@ extension Main {
     static func browse(_ sub: String, js: String? = nil, _ c: RPCClient, _ workspace: String?, json: Bool) async throws
     {
         guard let action = BrowserAction(rawValue: sub) else { fail("usage: kelp " + browserUsage) }
-        let params = js.map { ["js": .string($0)] } ?? browserParams(action)
+        var params = js.map { ["js": .string($0)] } ?? browserParams(action)
+        // Whose pointer the user sees on the page: the agent's name and colour.
+        if let session = ProcessInfo.processInfo.environment["KELP_SESSION"] { params["session"] = .string(session) }
         let answer = try await c.call(UIBrowser(action: action.rawValue, args: .object(params), worktreeId: workspace))
         let what = [params["key"]?.string, params["ref"]?.string ?? params["to"]?.string].compactMap { $0 }
         if !json, let text = browserText(action, what.joined(separator: " "), answer) {
