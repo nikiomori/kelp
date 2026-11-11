@@ -113,15 +113,11 @@ final class ChangeBars {
     private func buttons(_ hunk: Hunk?) -> [NSView] {
         var out: [NSView] = []
         func add(_ title: String, _ go: @escaping () -> Void) {
-            let button = PointerButton()
-            button.title = title
-            button.padding = Metrics.gap
-            button.restFill = .fillRest
-            button.onClick = { [weak self] in
-                self?.card?.close()
-                go()
-            }
-            out.append(button)
+            out.append(
+                TextButton(title) { [weak self] in
+                    self?.card?.close()
+                    go()
+                })
         }
         // With edits in the buffer the file isn't what was diffed.
         if let hunk, !isEdited() {

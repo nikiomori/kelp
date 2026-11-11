@@ -63,9 +63,7 @@ package final class DockIcon {
         }
         answers.addItem(.separator())
         answers.add(String(localized: "Open in Kelp"), show)
-        let item = m.addItem(withTitle: "\(name) — \(s.summary) · \(place)", action: nil, keyEquivalent: "")
-        item.show(icon)
-        m.setSubmenu(answers, for: item)
+        m.add("\(name) — \(s.summary) · \(place)", submenu: answers).show(icon)
     }
 
     /// With nothing to show the plain icon stands in: no agents, or no plan's numbers (the built-in that reads plan

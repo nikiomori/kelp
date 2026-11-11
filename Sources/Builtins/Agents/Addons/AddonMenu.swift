@@ -160,9 +160,7 @@ struct AddonMenu {
 
     func confirm(_ question: String, _ detail: String, action: String, then: @escaping @MainActor () -> Void) {
         Task {
-            guard await runSheet(NSAlert(question: question, detail: detail, action: action)) == .alertFirstButtonReturn
-            else { return }
-            then()
+            if await DesignKit.confirm(question, detail: detail, action: action) { then() }
         }
     }
 

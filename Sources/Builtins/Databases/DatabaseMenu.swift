@@ -23,9 +23,7 @@ enum DatabaseMenu {
                 Task { await app.call(DatabaseUse(worktreeId: worktreeId, name: db.name)) }
             }
         } else {
-            menu.setSubmenu(
-                agents(db, app: app, worktreeId: worktreeId),
-                for: menu.addItem(withTitle: String(localized: "Agents"), action: nil, keyEquivalent: ""))
+            menu.add(String(localized: "Agents"), submenu: agents(db, app: app, worktreeId: worktreeId))
             production(menu, db, app: app, worktreeId: worktreeId)
             // A copy to change on this branch without touching the project's (`db.copy`): files and a Postgres here.
             if !db.production, db.engine != .mysql, let branch = app.worktree(worktreeId)?.branch {
@@ -102,15 +100,15 @@ enum DatabaseMenu {
                 changed.set(stage: stage)
                 Task {
                     if db.production, stage != .production {
-                        let alert = NSAlert()
-                        alert.messageText = String(localized: "Let agents change \(db.name)?")
-                        alert.informativeText = String(
+                        let detail = String(
                             localized:
                                 "\(db.address) stops being production: agents get what Agents says, \(DatabaseLook.title(changed.access)), and their changes reach it."
                         )
-                        alert.addButton(withTitle: String(localized: "Make It \(DatabaseLook.title(stage))"))
-                        alert.addButton(withTitle: String(localized: "Cancel"))
-                        guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+                        guard
+                            await confirm(
+                                String(localized: "Let agents change \(db.name)?"), detail: detail,
+                                action: String(localized: "Make It \(DatabaseLook.title(stage))"))
+                        else { return }
                     }
                     await app.call(DatabaseSave(worktreeId: worktreeId, database: changed))
                 }
@@ -123,7 +121,6 @@ enum DatabaseMenu {
                 return true
             }
         }
-        menu.setSubmenu(
-            stages, for: menu.addItem(withTitle: String(localized: "Environment"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Environment"), submenu: stages)
     }
 }

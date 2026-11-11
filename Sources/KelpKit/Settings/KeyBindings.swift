@@ -256,11 +256,12 @@ struct KeyboardSettings: View {
 
     private func restore() {
         Task {
-            let question = NSAlert(
-                question: String(localized: "Restore every shortcut to Kelp's default?"),
-                detail: String(localized: "The shortcuts you set are lost."),
-                action: String(localized: "Restore Defaults"))
-            guard await runSheet(question) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Restore every shortcut to Kelp's default?"),
+                    detail: String(localized: "The shortcuts you set are lost."),
+                    action: String(localized: "Restore Defaults"))
+            else { return }
             app.settings.set(SettingKeys.keys, nil)
             later()
         }

@@ -21,12 +21,10 @@ extension TasksViewController {
     }
 
     private func merge(_ number: Int, _ head: String?, _ wt: Worktree?, method: String, title: String) {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "\(title) #\(number)?")
-        alert.addButton(withTitle: String(localized: "Merge"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard await confirm(String(localized: "\(title) #\(number)?"), action: String(localized: "Merge")) else {
+                return
+            }
             // The merge runs in a workspace of the project (gh needs a checkout); the PR's own if it has one.
             guard let wid = wt?.id ?? app.worktrees.first(where: { $0.repoId == repoId })?.id else {
                 NSSound.beep()

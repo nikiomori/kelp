@@ -358,8 +358,7 @@ extension SourceControlController {
             copies.add(String(localized: "Message")) {
                 copyText(commit.subject)
             }
-            menu.setSubmenu(
-                copies, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
+            menu.add(String(localized: "Copy"), submenu: copies)
         case .commitFile(let hash, let fileChange):
             menu.add(String(localized: "Open Changes")) { [weak self] in
                 if let worktree = self?.worktreeId {

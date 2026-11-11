@@ -224,7 +224,6 @@ final class StripLine {
 
     /// The whole line is the button, and takes the click that reaches it with Kelp behind.
     private final class LineButton: PointerControl {
-        var onClick: (() -> Void)?
         var onHover: ((Bool) -> Void)?
         private var anyApp: NSTrackingArea?
         private let icon = NSImageView(), words = NSTextField(labelWithString: "")
@@ -283,7 +282,6 @@ final class StripLine {
             setAccessibilityLabel(says)
         }
 
-        override func clicked() { onClick?() }
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
         /// With Kelp behind too: a line under the pointer stays out.
         override func updateTrackingAreas() {

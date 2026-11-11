@@ -98,7 +98,7 @@ extension AppDelegate {
         // The standard application menu: Services, Hide / Hide Others / Show All, Quit.
         let services = NSMenu(title: "Services")
         NSApp.servicesMenu = services
-        app.setSubmenu(services, for: app.addItem(withTitle: "Services", action: nil, keyEquivalent: ""))
+        app.add("Services", submenu: services)
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Kelp", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(
@@ -126,19 +126,19 @@ extension AppDelegate {
         for e in b.reg.all.editors {
             with.add(e.title, symbol: e.icon) { e.open(IDEContext.of(app), in: app) }
         }
-        file.setSubmenu(with, for: file.addItem(withTitle: "New Tab", action: nil, keyEquivalent: ""))
+        file.add("New Tab", submenu: with)
         b.add(
             file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "-",
             "workspace.revealInFinder")
         let openIn = NSMenu()
         WorkspaceActions.addOpenIn(to: openIn, path: { app.worktree(app.workbench.workspaceId)?.path }, prefix: "")
         if !openIn.items.isEmpty {
-            file.setSubmenu(openIn, for: file.addItem(withTitle: "Open Folder In", action: nil, keyEquivalent: ""))
+            file.add("Open Folder In", submenu: openIn)
         }
         b.add(file, "-", "editor.reopenTab")
         let recent = NSMenu(title: "Recently Closed")
         recent.delegate = recentlyClosedMenu
-        file.setSubmenu(recent, for: file.addItem(withTitle: "Recently Closed", action: nil, keyEquivalent: ""))
+        file.add("Recently Closed", submenu: recent)
         b.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
     }
 
@@ -167,7 +167,7 @@ extension AppDelegate {
         }
         b.add(find, "files.findInWorkspace", "files.findByName")
         b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
-        edit.setSubmenu(find, for: edit.addItem(withTitle: "Find", action: nil, keyEquivalent: ""))
+        edit.add("Find", submenu: find)
         b.add(
             edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions",
             "editor.showHover",
@@ -181,7 +181,7 @@ extension AppDelegate {
             markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets",
             "markdown.numbered",
             "markdown.tasks", "-", "markdown.cycleView")
-        edit.setSubmenu(markdown, for: edit.addItem(withTitle: "Markdown", action: nil, keyEquivalent: ""))
+        edit.add("Markdown", submenu: markdown)
     }
 
     /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,
@@ -219,7 +219,7 @@ extension AppDelegate {
         b.add(
             panes, "view.nextPane", "view.previousPane", "-", "view.paneLeft", "view.paneRight", "view.paneAbove",
             "view.paneBelow")
-        view.setSubmenu(panes, for: view.addItem(withTitle: "Select Pane", action: nil, keyEquivalent: ""))
+        view.add("Select Pane", submenu: panes)
         b.add(view, "-", "editor.nextTab", "editor.previousTab")
         for n in 1...9 {
             b.add(view, "editor.tab.\(n)").forEach {
@@ -266,7 +266,7 @@ extension AppDelegate {
         win.addItem(.separator())
         let archived = NSMenu(title: "Archived Groups")
         archived.delegate = archivedMenu
-        win.setSubmenu(archived, for: win.addItem(withTitle: "Archived Groups", action: nil, keyEquivalent: ""))
+        win.add("Archived Groups", submenu: archived)
         win.addItem(.separator())
         win.addItem(
             withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")

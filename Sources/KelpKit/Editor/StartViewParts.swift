@@ -103,7 +103,6 @@ final class RunGroup: NSStackView {
 /// One action: symbol, title, a detail and its shortcut on the right; highlights on hover.
 @MainActor
 final class StartRow: PointerControl {
-    private let run: () -> Void
 
     /// The edge of the row's highlight to its icon.
     static let inset: CGFloat = 10
@@ -114,8 +113,8 @@ final class StartRow: PointerControl {
     }
 
     init(image: NSImage?, title: String, detail: String? = nil, shortcut: String?, action: @escaping () -> Void) {
-        run = action
         super.init(frame: .zero)
+        onClick = action
         layer?.cornerRadius = Metrics.radiusMD
         let icon = NSImageView(image: image ?? NSImage())
         icon.symbolConfiguration = .chrome(Metrics.iconLarge)
@@ -149,5 +148,4 @@ final class StartRow: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func clicked() { run() }
 }

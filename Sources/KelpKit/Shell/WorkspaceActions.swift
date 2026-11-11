@@ -152,9 +152,7 @@ package struct WorkspaceActions {
                 return
             }
             if !open.isEmpty {
-                let alert = NSAlert()
-                alert.messageText = String(localized: "Close “\(worktree.displayName)”?")
-                alert.informativeText =
+                let detail =
                     pausedGo(paused)
                     + (running.isEmpty
                         ? String(localized: "Files in the project are not touched.")
@@ -163,15 +161,17 @@ package struct WorkspaceActions {
                             : String(
                                 localized: "\(running.count) running agents stop. Files in the project are not touched."
                             ))
-                alert.addButton(
-                    withTitle: running.isEmpty
-                        ? String(localized: "Close")
-                        : running.count == 1
-                            ? String(localized: "Stop Agent and Close")
-                            : String(localized: "Stop \(running.count) Agents and Close")
-                ).hasDestructiveAction = true
-                alert.addButton(withTitle: String(localized: "Cancel"))
-                guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+                let action =
+                    running.isEmpty
+                    ? String(localized: "Close")
+                    : running.count == 1
+                        ? String(localized: "Stop Agent and Close")
+                        : String(localized: "Stop \(running.count) Agents and Close")
+                guard
+                    await confirm(
+                        String(localized: "Close “\(worktree.displayName)”?"), detail: detail, action: action,
+                        destructive: true)
+                else { return }
             }
             guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
             if app.workbench.workspaceId == worktree.id,
@@ -294,12 +294,11 @@ package struct WorkspaceActions {
             session.worktreeId.map(closing.contains) == true && session.status != .exited
         }
         let running = open.filter { $0.status != .paused }
-        let alert = NSAlert()
         let name = ws.first { $0.id == closing[0] }?.displayName ?? ""
-        alert.messageText =
+        let question =
             closing.count == 1
             ? String(localized: "Close “\(name)”?") : String(localized: "Close \(closing.count) groups?")
-        alert.informativeText =
+        let detail =
             pausedGo(open.count - running.count)
             + (running.isEmpty
                 ? ""
@@ -308,16 +307,14 @@ package struct WorkspaceActions {
                     : String(localized: "\(running.count) running sessions stop. "))
             + String(localized: "Files in the projects are not touched.")
             + (plan.keptSome ? " " + String(localized: "A project's own chats stay.") : "")
-        let close = alert.addButton(
-            withTitle: running.isEmpty
-                ? String(localized: "Close")
-                : running.count == 1
-                    ? String(localized: "Stop 1 Session and Close")
-                    : String(localized: "Stop \(running.count) Sessions and Close"))
-        close.hasDestructiveAction = !open.isEmpty
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        let action =
+            running.isEmpty
+            ? String(localized: "Close")
+            : running.count == 1
+                ? String(localized: "Stop 1 Session and Close")
+                : String(localized: "Stop \(running.count) Sessions and Close")
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn,
+            guard await confirm(question, detail: detail, action: action, destructive: !open.isEmpty),
                 await UnsavedChanges.confirm(closing: closing, in: app)
             else { return }
             if let id = app.workbench.workspaceId, closing.contains(id),
@@ -362,19 +359,18 @@ package struct WorkspaceActions {
     }
 
     func removeProject(_ repo: Repo) {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Remove “\(app.projectName(repo.id) ?? repo.name)” from Kelp?")
         let branches = app.worktrees.filter { $0.repoId == repo.id && $0.path != repo.path }
-        alert.informativeText = [
+        let detail = [
             String(localized: "Its agents stop, and its chats and routines leave Kelp for good."),
             branches.isEmpty
                 ? nil : String(localized: "Folders of its branch groups stay on disk, and Kelp no longer lists them."),
             String(localized: "The repository on disk is not touched.")
         ].compactMap { $0 }.joined(separator: " ")
-        alert.addButton(withTitle: String(localized: "Remove")).hasDestructiveAction = true
-        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn,
+            guard
+                await confirm(
+                    String(localized: "Remove “\(app.projectName(repo.id) ?? repo.name)” from Kelp?"), detail: detail,
+                    action: String(localized: "Remove"), destructive: true),
                 await UnsavedChanges.confirm(closing: app.worktrees.filter { $0.repoId == repo.id }.map(\.id), in: app)
             else { return }
             await app.call(RepoRemove(id: repo.id))

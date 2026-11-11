@@ -302,11 +302,9 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 /// A row of "Found on This Mac": the app's own icon (or a symbol), a name over a detail, and a click.
 @MainActor
 final class FoundRow: PointerControl {
-    private let run: () -> Void
-
     init(icon: NSImage, title: String, detail: String, trailing: String?, action: @escaping () -> Void) {
-        run = action
         super.init(frame: .zero)
+        onClick = action
         layer?.cornerRadius = Metrics.radiusSM
         let image = NSImageView(image: icon)
         image.imageScaling = .scaleProportionallyUpOrDown
@@ -338,6 +336,4 @@ final class FoundRow: PointerControl {
         toolTip = title
     }
     required init?(coder: NSCoder) { fatalError() }
-
-    override func clicked() { run() }
 }

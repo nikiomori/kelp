@@ -14,7 +14,6 @@ final class ChildrenBadge: PointerControl {
     }
     static let mostPips = 4
     private let pips = PipsView(), count = NSTextField(labelWithString: "")
-    var opened: () -> Void = {}
 
     init() {
         super.init(frame: .zero)
@@ -77,7 +76,6 @@ final class ChildrenBadge: PointerControl {
         setAccessibilityLabel(String(localized: "\(kids.count + running.count) at work, \(done) finished"))
     }
 
-    override func clicked() { opened() }
 }
 
 /// The dots themselves: layers, so a fill goes as it comes (`Motion.appear`) instead of switching.

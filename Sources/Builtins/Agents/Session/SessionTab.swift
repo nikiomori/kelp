@@ -75,23 +75,23 @@ final class SessionTab: TabContent {
         if let session, session.agent != "shell",
             session.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty
         {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Stop \(app.catalog.displayName(session))?")
-            alert.informativeText =
+            let detail =
                 (session.status == .working
                     ? String(localized: "The agent is still working. Closing the tab ends its session.")
                     : String(localized: "Closing the tab ends its session.")) + app.sessions.childrenWords(of: [sid])
                 + (beside.isEmpty ? "" : " " + String(localized: "What it runs in the background stops too: \(names)."))
-            alert.addButton(withTitle: String(localized: "Stop Agent"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
+            guard
+                await confirm(
+                    String(localized: "Stop \(app.catalog.displayName(session))?"), detail: detail,
+                    action: String(localized: "Stop Agent"))
+            else { return false }
         } else if session?.agent == "shell", let program = await busy(app, sid) {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Stop “\(program)”?")
-            alert.informativeText = String(localized: "It is still running in this terminal. Closing the tab stops it.")
-            alert.addButton(withTitle: String(localized: "Stop and Close"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
+            guard
+                await confirm(
+                    String(localized: "Stop “\(program)”?"),
+                    detail: String(localized: "It is still running in this terminal. Closing the tab stops it."),
+                    action: String(localized: "Stop and Close"))
+            else { return false }
         }
         Task { await app.call(SessionKill(id: sid)) }
         return true

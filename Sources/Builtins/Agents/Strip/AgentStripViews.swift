@@ -140,7 +140,6 @@ final class StripButton: PointerControl {
     static let stripHeight: CGFloat = 40
     private static let height: CGFloat = 32, tile: CGFloat = 24, markInset: CGFloat = 2, wordsWidth: CGFloat = 240
 
-    var onClick: (() -> Void)?
     var onMenu: (() -> NSMenu)?
     var onHover: ((Bool) -> Void)?
     private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
@@ -273,7 +272,6 @@ final class StripButton: PointerControl {
         }
     }
 
-    override func clicked() { onClick?() }
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
         onHover?(true)

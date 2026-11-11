@@ -47,12 +47,10 @@ extension BrowserTab: WKDownloadDelegate {
     static var downloadsAllowed: Set<String> = []
 
     private static func allowDownloads(from host: String) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Allow downloads from \(host)?")
-        alert.informativeText = String(localized: "Its files go to your Downloads folder.")
-        alert.addButton(withTitle: String(localized: "Allow"))
-        alert.addButton(withTitle: String(localized: "Don't Allow"))
-        return await runSheet(alert) == .alertFirstButtonReturn
+        await confirm(
+            String(localized: "Allow downloads from \(host)?"),
+            detail: String(localized: "Its files go to your Downloads folder."), action: String(localized: "Allow"),
+            cancel: String(localized: "Don't Allow"))
     }
 
     /// What the page answered is a file to keep: not a type WebKit shows, or sent as an attachment.

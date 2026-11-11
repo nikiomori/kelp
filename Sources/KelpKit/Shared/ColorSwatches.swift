@@ -87,8 +87,7 @@ extension NSMenu {
             item.show(color.dot)
             item.state = chosen == color ? .on : .off
         }
-        setSubmenu(
-            shades, for: addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
+        add(String(localized: "Color"), submenu: shades)
     }
 }
 

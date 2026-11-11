@@ -329,12 +329,15 @@ extension DatabaseTab {
     /// What saving would run, before it runs.
     @objc func showEdits() {
         guard let statements = pending() else { return }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "\(statements.count) statements, in one transaction")
-        alert.informativeText = statements.joined(separator: ";\n") + ";"
-        alert.addButton(withTitle: String(localized: "Copy"))
-        alert.addButton(withTitle: String(localized: "Close"))
-        Task { if await runSheet(alert) == .alertFirstButtonReturn { copyText(alert.informativeText) } }
+        let text = statements.joined(separator: ";\n") + ";"
+        Task {
+            if await confirm(
+                String(localized: "\(statements.count) statements, in one transaction"), detail: text,
+                action: String(localized: "Copy"), cancel: String(localized: "Close"))
+            {
+                copyText(text)
+            }
+        }
     }
 
     private func pending() -> [String]? {

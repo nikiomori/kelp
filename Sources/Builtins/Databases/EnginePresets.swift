@@ -83,12 +83,11 @@ struct EnginePreset {
 @MainActor
 final class EngineTile: PointerControl {
     let preset: EnginePreset
-    private let run: () -> Void
 
     init(_ preset: EnginePreset, action: @escaping () -> Void) {
         self.preset = preset
-        run = action
         super.init(frame: .zero)
+        onClick = action
         layer?.cornerRadius = Metrics.radiusLG
         let mark = NSImageView(image: preset.badge(36))
         let name = NSTextField(labelWithString: preset.name)
@@ -114,6 +113,4 @@ final class EngineTile: PointerControl {
         toolTip = preset.hint ?? preset.name
     }
     required init?(coder: NSCoder) { fatalError() }
-
-    override func clicked() { run() }
 }

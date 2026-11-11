@@ -116,10 +116,12 @@ struct AccountsSettings: View {
     private func remove() {
         guard let profile = profiles.first(where: { $0.id == selection }) else { return }
         Task {
-            let question = NSAlert(
-                question: String(localized: "Remove the profile “\(profile.name)”?"),
-                detail: String(localized: "Its login stays in \(profile.dir)."), action: String(localized: "Remove"))
-            guard await runSheet(question) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Remove the profile “\(profile.name)”?"),
+                    detail: String(localized: "Its login stays in \(profile.dir)."), action: String(localized: "Remove")
+                )
+            else { return }
             profiles.removeAll { $0.id == profile.id }
             await Accounts.save(app, profiles)
         }

@@ -67,8 +67,7 @@ extension WorkspaceActions {
         let editors = NSMenu()
         addOpenIn(to: editors, path: { path }, prefix: "")
         if !editors.items.isEmpty {
-            menu.setSubmenu(
-                editors, for: menu.addItem(withTitle: String(localized: "Open In"), action: nil, keyEquivalent: ""))
+            menu.add(String(localized: "Open In"), submenu: editors)
         }
         let copyPath: @MainActor () -> Void = {
             copyText(path)
@@ -80,6 +79,6 @@ extension WorkspaceActions {
         let list = NSMenu()
         list.add(String(localized: "Path"), copyPath)
         for copy in copies { list.add(copy.title, copy.run) }
-        menu.setSubmenu(list, for: menu.addItem(withTitle: String(localized: "Copy"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Copy"), submenu: list)
     }
 }

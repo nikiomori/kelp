@@ -27,11 +27,11 @@ final class ArtifactBar: NSObject {
         [weak self] in self?.step(1)
     }
     private let count = PointerButton()
-    private let latest = PointerButton()
-    private let restore = PointerButton()
-    private let author = PointerButton()
+    private let latest = TextButton(String(localized: "Show Latest"))
+    private let restore = TextButton(String(localized: "Restore"))
+    private let author = TextButton("")
     /// A canvas's check: what Kelp found wrong where it drew the boards (`CanvasScript`).
-    private let check = PointerButton()
+    private let check = TextButton("")
     /// What its chat spent on it (Claude Code's): calls and dollars, quiet.
     private let spent = NSTextField(labelWithString: "")
     private var spentAt: Double?
@@ -40,7 +40,7 @@ final class ArtifactBar: NSObject {
         labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
         trackingMode: .selectOne, target: nil, action: nil)
     /// A canvas's Present: its boards one at a time, as large as the pane (a deck's slides).
-    private let present = PointerButton()
+    private let present = TextButton(String(localized: "Present"))
     private var issues: [String] = []
     /// A canvas's time as the list last said: its boards' and the design system's latest change.
     private var canvasTime: Double?
@@ -67,22 +67,10 @@ final class ArtifactBar: NSObject {
         count.font = .uiDigits(TextSize.row)
         count.padding = Metrics.gap
         count.onClick = { [weak self] in self?.showVersions() }
-        for (button, title) in [(latest, String(localized: "Show Latest")), (restore, String(localized: "Restore"))] {
-            button.title = title
-            button.font = .ui(TextSize.row)
-            button.padding = Metrics.gap
-            button.restFill = .fillRest
-        }
         latest.onClick = { [weak self] in self?.show(nil) }
         restore.onClick = { [weak self] in self?.restoreShown() }
-        author.font = .ui(TextSize.row)
-        author.padding = Metrics.gap
-        author.restFill = .fillRest
         author.imagePosition = .imageLeading
         author.onClick = { [weak self] in self?.goToChat() }
-        check.font = .ui(TextSize.row)
-        check.padding = Metrics.gap
-        check.restFill = .fillRest
         check.isHidden = true
         check.onClick = { [weak self] in self?.showCheck() }
         spent.font = .uiDigits(TextSize.row)
@@ -99,10 +87,6 @@ final class ArtifactBar: NSObject {
         modes.target = self
         modes.action = #selector(modeChosen)
         modes.isHidden = markdown.page != .canvas
-        present.font = .ui(TextSize.row)
-        present.padding = Metrics.gap
-        present.restFill = .fillRest
-        present.title = String(localized: "Present")
         present.toolTip = String(localized: "The boards one at a time, as large as the pane: ← → step, Esc ends")
         present.isHidden = markdown.page != .canvas
         present.onClick = { [weak self] in self?.togglePresenting() }

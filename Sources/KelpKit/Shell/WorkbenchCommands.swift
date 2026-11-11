@@ -123,15 +123,16 @@ extension Builtins {
                 try await app.daemon.upgrade()
                 return
             } catch { refusal = AppModel.message(error) }
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Restart the background service?")
             // Why it can't keep them (an older kelpd, one session it can't hand over) comes first.
-            alert.informativeText =
+            let detail =
                 refusal + "\n\n"
                 + String(localized: "Running agent sessions end. Projects, history and settings are kept.")
-            alert.addButton(withTitle: String(localized: "Restart"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(alert) == .alertFirstButtonReturn { await app.daemon.restart() }
+            if await confirm(
+                String(localized: "Restart the background service?"), detail: detail,
+                action: String(localized: "Restart"))
+            {
+                await app.daemon.restart()
+            }
         }
     }
 }

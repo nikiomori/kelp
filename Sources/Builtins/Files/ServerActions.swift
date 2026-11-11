@@ -91,13 +91,10 @@ struct ServerActions {
     }
 
     private static func confirm(_ question: String, _ files: [CodeFileEdit], button: String) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = question
-        alert.informativeText = files.map { ($0.path as NSString).abbreviatingWithTildeInPath }.prefix(12).joined(
-            separator: "\n")
-        alert.addButton(withTitle: button)
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(alert) == .alertFirstButtonReturn
+        await DesignKit.confirm(
+            question,
+            detail: files.map { ($0.path as NSString).abbreviatingWithTildeInPath }.prefix(12).joined(separator: "\n"),
+            action: button)
     }
 
     /// The tab's own file takes the edits in its buffer, for its undo. Others are written, over the version just read; a file

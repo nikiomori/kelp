@@ -49,18 +49,17 @@ extension DiffViewController {
                 status.stringValue = String(localized: "Nothing changed since that turn began")
                 return
             }
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Put \(plan.files.count) files back as they were before this turn?")
             let shown = plan.files.prefix(12).joined(separator: "\n"), more = plan.files.count - 12
-            alert.informativeText =
+            let detail =
                 shown + (more > 0 ? "\n" + String(localized: "and \(more) more") : "") + "\n\n"
                 + String(
                     localized:
                         "Files the turn made go to the Trash; .env files stay as they are. Later turns' changes and your own edits in these files go too; Redo brings them back."
                 )
-            alert.addButton(withTitle: String(localized: "Put Back")).hasDestructiveAction = true
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn,
+            guard
+                await confirm(
+                    String(localized: "Put \(plan.files.count) files back as they were before this turn?"),
+                    detail: detail, action: String(localized: "Put Back"), destructive: true),
                 let after = await app.call(SessionTurnUndo(id: sid, turn: turn, apply: true, state: plan.state))
             else { return }
             status.stringValue = String(localized: "Put \(plan.files.count) files back")

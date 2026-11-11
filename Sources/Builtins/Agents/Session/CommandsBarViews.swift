@@ -12,7 +12,6 @@ import WorkbenchKit
 final class Header: PointerControl {
     let row = CommandRow(), chevron = NSImageView()
     let stop = PointerButton(), toTab = PointerButton()
-    var press: () -> Void = {}
     var contextMenu: (() -> NSMenu?)?
     private var run: Session?, always = false
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
@@ -36,7 +35,6 @@ final class Header: PointerControl {
         setAccessibilityRole(.button)
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func clicked() { press() }
 
     func showActions(for run: Session?, always: Bool) {
         self.run = run

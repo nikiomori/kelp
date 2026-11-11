@@ -174,12 +174,13 @@ extension DatabasesPanel {
     private func forget(_ dbs: [DatabaseInfo]) {
         let wid = workspace, app = app
         Task {
-            let question = NSAlert(
-                question: String(localized: "Forget \(dbs.count) databases?"),
-                detail: String(
-                    localized: "Their addresses and passwords leave Kelp. Projects that use them keep theirs."),
-                action: String(localized: "Forget"))
-            guard await runSheet(question) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Forget \(dbs.count) databases?"),
+                    detail: String(
+                        localized: "Their addresses and passwords leave Kelp. Projects that use them keep theirs."),
+                    action: String(localized: "Forget"))
+            else { return }
             for db in dbs {
                 guard await app.call(DatabaseRemove(worktreeId: wid, name: db.name, library: true)) != nil else {
                     return
@@ -226,8 +227,7 @@ extension DatabasesPanel {
         }
         if !groups.isEmpty { into.addItem(.separator()) }
         into.add(String(localized: "New Group…")) { [weak self] in self?.newGroup(dbs) }
-        menu.setSubmenu(
-            into, for: menu.addItem(withTitle: String(localized: "Move to Group"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Move to Group"), submenu: into)
         if dbs.contains(where: { $0.groupName != nil }) {
             menu.add(String(localized: "Remove from Group")) { [weak self] in self?.move(dbs, to: nil) }
         }

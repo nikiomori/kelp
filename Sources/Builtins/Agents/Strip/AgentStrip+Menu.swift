@@ -43,9 +43,7 @@ extension AgentStrip {
         }
         let times = NSMenu()
         for (title, until) in Mutes.choices() { times.add(title) { Mutes.mute([id], until: until, in: app) } }
-        menu.setSubmenu(
-            times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: "")
-        )
+        menu.add(String(localized: "Mute Notifications"), submenu: times)
     }
 
     /// Hide it for a while, what brings it up, where it stands, its settings. Turning it off and full-screen apps are in
@@ -55,8 +53,7 @@ extension AgentStrip {
         for c in Mutes.choices() where c.until != Mutes.forever {
             hide.add(c.title) { [weak self] in self?.hide(until: c.until) }
         }
-        menu.setSubmenu(
-            hide, for: menu.addItem(withTitle: String(localized: "Hide Strip"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Hide Strip"), submenu: hide)
         menu.addChoiceMenu(SettingKeys.dockStripComesFor, app, title: String(localized: "Comes Up For"), tryOn: false)
         if place?.edge == nil { menu.add(String(localized: "Hide Behind the Edge")) { [weak self] in self?.tuck() } }
         if place != nil {

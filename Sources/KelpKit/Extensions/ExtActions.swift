@@ -102,13 +102,8 @@ struct ExtActions {
             act(a, item: item, folder: folder, after: after)
             return
         }
-        let alert = NSAlert()
-        alert.messageText = expand(question, item: item, quote: false)
-        alert.addButton(withTitle: a.title)
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        Task {
-            if await runSheet(alert) == .alertFirstButtonReturn { act(a, item: item, folder: folder, after: after) }
-        }
+        let text = expand(question, item: item, quote: false)
+        Task { if await confirm(text, action: a.title) { act(a, item: item, folder: folder, after: after) } }
     }
 
     private func act(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {

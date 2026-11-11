@@ -76,12 +76,10 @@ extension EditorArea {
 
     /// Asked before `open --shared`: the page gets the user's cookies, and what the agent does there it does as them.
     private static func allowShared(_ url: String) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Let an agent use your logged-in browser?")
-        alert.informativeText = String(localized: "It opens \(url) with your cookies and can act as you on that site.")
-        alert.addButton(withTitle: String(localized: "Allow"))
-        alert.addButton(withTitle: String(localized: "Don't Allow"))
-        return await runSheet(alert) == .alertFirstButtonReturn
+        await confirm(
+            String(localized: "Let an agent use your logged-in browser?"),
+            detail: String(localized: "It opens \(url) with your cookies and can act as you on that site."),
+            action: String(localized: "Allow"), cancel: String(localized: "Don't Allow"))
     }
 
     /// The action, by the tab's provider, on the tab, built if it wasn't yet.

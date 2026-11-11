@@ -92,14 +92,13 @@ struct PRActions {
 
     /// Pushes and opens a PR; title and body come from the branch's commits.
     func create(worktree wid: String) {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Create a pull request?")
-        alert.informativeText = String(
+        let detail = String(
             localized: "Pushes \(app.worktree(wid)?.branch ?? "the branch") and opens a PR titled from its commits.")
-        alert.addButton(withTitle: String(localized: "Create"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Create a pull request?"), detail: detail, action: String(localized: "Create"))
+            else { return }
             guard let url = await app.call(GitHubPRCreate(worktreeId: wid))?.url else { return }
             Banner.show(
                 url.isEmpty

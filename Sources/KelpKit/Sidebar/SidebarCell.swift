@@ -65,7 +65,7 @@ final class SidebarCell: NSTableCellView {
     /// An agent's: the agents it started.
     lazy var family: ChildrenBadge = {
         let badge = ChildrenBadge()
-        badge.opened = { [weak owner, node] in owner?.openCard(node) }
+        badge.onClick = { [weak owner, node] in owner?.openCard(node) }
         return badge
     }()
     var add: NSButton?

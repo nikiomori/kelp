@@ -90,12 +90,13 @@ struct RoutineActions {
     func delete(_ routine: Routine) {
         let app = self.app
         Task {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Delete “\(routine.name)”?")
-            alert.informativeText = String(localized: "It stops running. Its group and the tabs of its runs stay.")
-            alert.addButton(withTitle: String(localized: "Delete")).hasDestructiveAction = true
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(alert) == .alertFirstButtonReturn { await app.call(RoutineDelete(id: routine.id)) }
+            if await confirm(
+                String(localized: "Delete “\(routine.name)”?"),
+                detail: String(localized: "It stops running. Its group and the tabs of its runs stay."),
+                action: String(localized: "Delete"), destructive: true)
+            {
+                await app.call(RoutineDelete(id: routine.id))
+            }
         }
     }
 }

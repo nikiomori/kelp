@@ -55,8 +55,7 @@ extension SidebarController {
         where group.path == repo.path && group.id != worktree.id && group.id != own?.id {
             list.add(group.displayName) { Task { await WorkspaceActions(app).move([sid], to: group.id) } }
         }
-        menu.setSubmenu(
-            list, for: menu.addItem(withTitle: String(localized: "Move to"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Move to"), submenu: list)
     }
 
     private func movable(_ sid: String) -> Worktree? {
@@ -150,9 +149,7 @@ extension SidebarController {
         case .agent(let sid):
             builtinItems(menu, node.kind)
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
-            menu.setSubmenu(
-                AgentActions(app).handoffMenu(sid),
-                for: menu.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            menu.add(String(localized: "Hand Off to"), submenu: AgentActions(app).handoffMenu(sid))
             AgentActions(app).addFork(to: menu, sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
@@ -236,8 +233,7 @@ extension SidebarController {
             guard let skill = await app.quiet(SkillsBrowser(worktreeId: worktree.id)) else { return }
             why.title = String(localized: "New chats: browser \(BrowserSkillWords.line(skill.line))")
         }
-        menu.setSubmenu(
-            list, for: menu.addItem(withTitle: String(localized: "Browser for Agents"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Browser for Agents"), submenu: list)
     }
 
     private func colorItem(_ menu: NSMenu, _ id: String) {
@@ -260,9 +256,7 @@ extension SidebarController {
         for (title, until) in Mutes.choices() {
             times.add(title) { app.arrangement.mute(Array(ids.prefix(1)), until: until) }
         }
-        menu.setSubmenu(
-            times, for: menu.addItem(withTitle: String(localized: "Mute Notifications"), action: nil, keyEquivalent: "")
-        )
+        menu.add(String(localized: "Mute Notifications"), submenu: times)
     }
 
     /// Park ▸ for how long, or Unpark once it is.
@@ -274,7 +268,7 @@ extension SidebarController {
         }
         let times = NSMenu()
         for (title, until) in Parking.choices() { times.add(title) { app.arrangement.park(sid, until: until) } }
-        menu.setSubmenu(times, for: menu.addItem(withTitle: String(localized: "Park"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Park"), submenu: times)
     }
 
     /// A group's items on its heading.

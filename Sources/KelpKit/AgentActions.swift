@@ -37,20 +37,15 @@ package struct AgentActions {
 
     package func stop(_ ids: [String]) {
         let one = ids.count == 1
-        let alert = NSAlert()
-        alert.messageText = one ? String(localized: "Stop this agent?") : String(localized: "Stop \(ids.count) agents?")
-        alert.informativeText =
+        let question = one ? String(localized: "Stop this agent?") : String(localized: "Stop \(ids.count) agents?")
+        let detail =
             (one ? String(localized: "Its session ends") : String(localized: "Their sessions end"))
             + ". " + String(localized: "Conversations can be resumed from Session History.")
             + app.sessions.childrenWords(of: ids)
         // The button says what it stops (destructive: red).
-        alert.addButton(
-            withTitle: one ? String(localized: "Stop Agent") : String(localized: "Stop \(ids.count) Agents")
-        )
-        .hasDestructiveAction = true
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        let action = one ? String(localized: "Stop Agent") : String(localized: "Stop \(ids.count) Agents")
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard await confirm(question, detail: detail, action: action, destructive: true) else { return }
             for id in ids { await app.call(SessionKill(id: id)) }
         }
     }
@@ -60,9 +55,7 @@ package struct AgentActions {
     package func addSessionItems(to m: NSMenu, _ sid: String, lastTurn: (@MainActor () -> Void)? = nil) {
         m.add(String(localized: "Rename…")) { rename(sid) }
         if app.session(sid)?.agent != "shell" {   // a terminal has no conversation to copy or hand over
-            m.setSubmenu(
-                handoffMenu(sid),
-                for: m.addItem(withTitle: String(localized: "Hand Off to"), action: nil, keyEquivalent: ""))
+            m.add(String(localized: "Hand Off to"), submenu: handoffMenu(sid))
             addFork(to: m, sid)
             m.add(String(localized: "Copy Context")) { copyContext(sid) }
             if let lastTurn { m.add(String(localized: "Changes in Its Last Turn"), lastTurn) }

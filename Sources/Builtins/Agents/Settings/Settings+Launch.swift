@@ -195,11 +195,12 @@ extension AgentsSettings {
 
     private func reset(_ m: AgentManifest) {
         Task {
-            let question = NSAlert(
-                question: String(localized: "Reset how \(m.name) starts?"),
-                detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
-                action: String(localized: "Reset"))
-            guard await runSheet(question) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Reset how \(m.name) starts?"),
+                    detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
+                    action: String(localized: "Reset"))
+            else { return }
             guard await app.call(AgentSave(agent: m.id)) != nil else { return }
             reload()
         }

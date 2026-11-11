@@ -21,12 +21,13 @@ struct CIActions {
 
     /// A cancelled run can't be taken back, only started again.
     func cancel(_ run: CIRuns.Run) {
-        let alert = NSAlert(
-            question: String(localized: "Cancel “\(run.title)”?"),
-            detail: String(localized: "What's running stops now. You can start the run again."),
-            action: String(localized: "Cancel Run"))
         Task {
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Cancel “\(run.title)”?"),
+                    detail: String(localized: "What's running stops now. You can start the run again."),
+                    action: String(localized: "Cancel Run"))
+            else { return }
             act(CIRunCancel(worktreeId: worktree, run: run.id), said: String(localized: "Cancelling the run"))
         }
     }

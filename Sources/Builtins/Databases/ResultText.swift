@@ -141,8 +141,7 @@ extension ResultGrid: NSMenuDelegate {
                         format, columns, picked.map { self.rows[$0] }, table: source?.table, engine: source?.engine))
             }
         }
-        menu.setSubmenu(
-            copyAs, for: menu.addItem(withTitle: String(localized: "Copy Rows As"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Copy Rows As"), submenu: copyAs)
         guard editable else { return }
         menu.addItem(.separator())
         if read, rows[row].indices.contains(column), rows[row][column] != nil || edits.edited(row: row, column: column)

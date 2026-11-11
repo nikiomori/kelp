@@ -150,12 +150,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     func close() async -> Bool {
         guard isEdited else { return true }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Save the changes to \(address.name)?")
-        alert.informativeText = String(localized: "\(grid.edits.count) changes you made aren't saved.")
-        alert.addButton(withTitle: String(localized: "Close Without Saving"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(alert) == .alertFirstButtonReturn
+        return await confirm(
+            String(localized: "Save the changes to \(address.name)?"),
+            detail: String(localized: "\(grid.edits.count) changes you made aren't saved."),
+            action: String(localized: "Close Without Saving"))
     }
 
     // MARK: Layout
@@ -210,7 +208,9 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         capsule.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         capsuleBox.spacing = Metrics.gap
         capsuleBox.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        let capsuleButton = CapsuleControl { [weak self] in self?.capsuleClicked() }
+        let capsuleButton = PointerControl(frame: .zero)
+        capsuleButton.layer?.cornerRadius = Metrics.radiusSM
+        capsuleButton.onClick = { [weak self] in self?.capsuleClicked() }
         capsuleButton.pin(capsuleBox)
         capsuleBox.toolTip = String(localized: "Its menu: environment, what agents may do, address")
         for button in [run, explain] { button.setContentHuggingPriority(.required, for: .horizontal) }
@@ -395,17 +395,4 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         }
     }
 
-}
-
-/// The capsule as a control: under the pointer it fills, a click springs it and opens its menu.
-@MainActor
-private final class CapsuleControl: PointerControl {
-    private let run: () -> Void
-    init(action: @escaping () -> Void) {
-        run = action
-        super.init(frame: .zero)
-        layer?.cornerRadius = Metrics.radiusSM
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override func clicked() { run() }
 }

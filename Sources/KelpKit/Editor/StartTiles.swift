@@ -5,7 +5,6 @@ import DesignKit
 /// tip). The default agent's has the accent's outline and its shortcut in the corner. Highlights on hover.
 @MainActor
 final class AgentTile: PointerControl {
-    private let run: () -> Void
     private let isDefault: Bool
     private let name: String
     private let bar = PlanBar()
@@ -26,10 +25,10 @@ final class AgentTile: PointerControl {
     }
 
     private init(icon: NSView, title: String, key: String?, isDefault: Bool, action: @escaping () -> Void) {
-        run = action
         self.isDefault = isDefault
         name = title
         super.init(frame: .zero)
+        onClick = action
         restFill = .fillRest
         let label = NSTextField(labelWithString: title)
         label.font = .ui(TextSize.row)
@@ -97,7 +96,6 @@ final class AgentTile: PointerControl {
         layer?.borderColor = (isDefault ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
     }
 
-    override func clicked() { run() }
 }
 
 /// A plan's share as a thin bar, in the plan's colour.

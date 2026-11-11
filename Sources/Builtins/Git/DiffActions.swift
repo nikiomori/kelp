@@ -142,16 +142,10 @@ extension DiffViewController {
             status.stringValue = String(localized: "No running agent in this worktree")
             return nil
         }
-        let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 240, height: 26))
-        for session in live {
-            pop.addItem(withTitle: "\(session.agent ?? "shell") [\(session.id.prefix(6))]")
-            pop.lastItem?.representedObject = session.id
-        }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Send to which agent?")
-        alert.accessoryView = pop
-        alert.addButton(withTitle: String(localized: "Send"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(alert) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
+        return await pick(
+            String(localized: "Send to which agent?"),
+            from: live.map { ("\($0.agent ?? "shell") [\($0.id.prefix(6))]", $0.id) },
+            action: String(localized: "Send"),
+            width: 240)
     }
 }

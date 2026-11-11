@@ -59,16 +59,16 @@ enum Machines {
     static func newMachine(_ app: AppModel, _ image: String, file: String? = nil) {
         Task {
             if image == "macos", file == nil {
-                let alert = NSAlert()
-                alert.messageText = String(localized: "Make a macOS machine?")
-                alert.informativeText = String(
+                let detail = String(
                     localized: """
                         Kelp downloads macOS from Apple (over 20 GB), installs and sets it up: about 20 minutes. \
                         It takes 6 GB of memory while it runs, none while it sleeps.
                         """)
-                alert.addButton(withTitle: String(localized: "Make It"))
-                alert.addButton(withTitle: String(localized: "Cancel"))
-                guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+                guard
+                    await confirm(
+                        String(localized: "Make a macOS machine?"), detail: detail, action: String(localized: "Make It")
+                    )
+                else { return }
             }
             let base =
                 ["debian-13": "debian", "linux": "linux", "macos": "macos", "android": "android", "ios": "iphone"][
@@ -111,17 +111,17 @@ enum Machines {
     static func deleteMachine(_ app: AppModel, _ info: VMInfo) {
         let name = info.machine.name
         Task {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Delete “\(name)”?")
             let size = info.diskMiB.map { bytes($0 << 20) }
-            alert.informativeText =
+            let detail =
                 size.map {
                     String(localized: "Its disk and everything on it (\($0)) are erased. This can't be undone.")
                 }
                 ?? String(localized: "Its disk and everything on it are erased. This can't be undone.")
-            alert.addButton(withTitle: String(localized: "Delete")).hasDestructiveAction = true
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard
+                await confirm(
+                    String(localized: "Delete “\(name)”?"), detail: detail, action: String(localized: "Delete"),
+                    destructive: true)
+            else { return }
             guard await app.call(VMControl(name: name, action: .delete)) != nil else { return }
             app.workbench.closeTab(uri: TabURI.machine(name))
             app.watchAgain(.machines)   // as the daemon has it now

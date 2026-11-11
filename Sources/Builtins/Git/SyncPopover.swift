@@ -205,7 +205,6 @@ final class SyncPopover: NSViewController {
 /// whole line one target that answers the pointer (`PointerControl`).
 @MainActor
 final class LinkRow: PointerControl {
-    private let run: () -> Void
     convenience init(_ title: String, action: @escaping () -> Void) {
         let label = NSTextField(labelWithString: title)
         label.font = .ui(TextSize.body)
@@ -213,8 +212,8 @@ final class LinkRow: PointerControl {
     }
     /// `views` along the row, then the chevron; `said` is what VoiceOver reads for it.
     init(_ views: [NSView], said: String, action: @escaping () -> Void) {
-        run = action
         super.init(frame: .zero)
+        onClick = action
         layer?.cornerRadius = Metrics.radiusSM
         let chevron = NSImageView(image: .symbol("chevron.right", ""))
         chevron.contentTintColor = .tertiaryLabelColor
@@ -227,7 +226,6 @@ final class LinkRow: PointerControl {
         setAccessibilityLabel(said)
     }
     required init?(coder: NSCoder) { fatalError() }
-    override func clicked() { run() }
     // one target, label included
     override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
 }

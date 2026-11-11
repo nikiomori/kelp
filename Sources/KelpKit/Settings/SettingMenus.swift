@@ -17,7 +17,7 @@ extension NSMenu {
     package func addChoiceMenu(_ setting: Setting<String>, _ app: AppModel, title: String, tryOn: Bool = true) {
         let list = NSMenu()
         list.addChoiceItems(setting, app, tryOn: tryOn)
-        setSubmenu(list, for: addItem(withTitle: title, action: nil, keyEquivalent: ""))
+        add(title, submenu: list)
     }
 
     /// A switch: a check mark, and a click changes it.

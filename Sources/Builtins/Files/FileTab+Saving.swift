@@ -96,12 +96,12 @@ extension FileTab {
 
     /// Moved or deleted (git mv, a rename): writing would bring the old file back beside the new one, so it asks.
     private func askToWriteBack() async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "“\(title)” was moved or deleted")
-        alert.informativeText = String(localized: "Save writes it at its old place again.")
-        alert.addButton(withTitle: String(localized: "Save Here"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
+        guard
+            await confirm(
+                String(localized: "“\(title)” was moved or deleted"),
+                detail: String(localized: "Save writes it at its old place again."),
+                action: String(localized: "Save Here"))
+        else { return false }
         return await write(overAnything: true)
     }
 

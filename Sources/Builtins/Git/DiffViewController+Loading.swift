@@ -77,20 +77,11 @@ extension DiffViewController {
         if single == nil, sourcePicked == .commit, askCommit {
             askCommit = false   // before asking: a load that starts while the question is up doesn't ask again
             let log = await app.call(GitLog(id: wid, all: true)) ?? []   // the user picked "a commit": a banner if git can't list them
-            let menu = NSMenu()
-            for commit in log.prefix(30) {
-                let item = menu.addItem(withTitle: "\(commit.hash)  \(commit.subject)", action: nil, keyEquivalent: "")
-                item.representedObject = commit.hash
-            }
-            let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 360, height: 26))
-            pop.menu = menu
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Review which commit?")
-            alert.accessoryView = pop
-            alert.addButton(withTitle: String(localized: "Show"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            if await runSheet(alert) == .alertFirstButtonReturn {
-                commitHash = pop.selectedItem?.representedObject as? String
+            let commits = log.prefix(30).map { ("\($0.hash)  \($0.subject)", $0.hash) }
+            if let hash = await pick(
+                String(localized: "Review which commit?"), from: commits, action: String(localized: "Show"), width: 360)
+            {
+                commitHash = hash
             } else {
                 sourcePicked = .uncommitted
                 commitHash = nil

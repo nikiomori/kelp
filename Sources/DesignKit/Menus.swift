@@ -14,6 +14,14 @@ extension NSMenu {
         if let symbol { item.image = .symbol(symbol) }
         return item
     }
+
+    /// An item that opens `submenu`.
+    @discardableResult
+    public func add(_ title: String, submenu: NSMenu) -> NSMenuItem {
+        let item = addItem(withTitle: title, action: nil, keyEquivalent: "")
+        setSubmenu(submenu, for: item)
+        return item
+    }
 }
 
 extension NSMenuItem {

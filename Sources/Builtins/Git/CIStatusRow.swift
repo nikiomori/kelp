@@ -6,7 +6,6 @@ import KelpKit
 /// The branch's CI in a line under Commit: the latest run of each workflow, a failure first with the job that broke
 /// ("CI: Failed · test"; the step is in the tooltip). Only the summary: a click opens the CI Runs panel, which has the log and the actions.
 final class CIStatusRow: PointerControl {
-    var onClick: (() -> Void)?
     private let text = NSTextField(labelWithString: ""), time = NSTextField(labelWithString: "")
     private let chevron = NSImageView()
     private let line = NSStackView()
@@ -70,7 +69,6 @@ final class CIStatusRow: PointerControl {
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
-    override func clicked() { onClick?() }
     // one target, labels included
     override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) != nil ? self : nil }
 }

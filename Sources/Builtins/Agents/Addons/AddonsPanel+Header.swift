@@ -50,9 +50,7 @@ extension AddonsPanel {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: folder)])
             }
         }
-        menu.setSubmenu(
-            folders,
-            for: menu.addItem(withTitle: String(localized: "Open Skills Folder"), action: nil, keyEquivalent: ""))
+        menu.add(String(localized: "Open Skills Folder"), submenu: folders)
         if shownChat != nil { menu.add(String(localized: "Restart This Chat")) { [weak self] in self?.restart() } }
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + Metrics.lineGap * 2), in: more)

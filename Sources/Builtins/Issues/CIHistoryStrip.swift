@@ -52,9 +52,9 @@ final class CIHistoryStrip: NSView {
 /// One run: 8 × 12, in the colour of its mark.
 @MainActor
 private final class HistoryMark: PointerControl {
-    private let color: NSColor, pick: @MainActor () -> Void
+    private let color: NSColor
 
-    init(_ run: CIRuns.Run, pick: @escaping @MainActor () -> Void) {
+    init(_ run: CIRuns.Run, pick: @escaping () -> Void) {
         color =
             switch (run.status, run.conclusion) {
             case ("completed", "success"?): .systemGreen
@@ -63,8 +63,8 @@ private final class HistoryMark: PointerControl {
             case ("completed", _): .systemRed
             default: .tertiaryLabelColor
             }
-        self.pick = pick
         super.init(frame: .zero)
+        onClick = pick
         layer?.cornerRadius = Metrics.lineGap
         let number = run.number.map { "#\($0) · " } ?? ""
         let said =
@@ -80,7 +80,6 @@ private final class HistoryMark: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func clicked() { pick() }
     override func showPointer(hovering: Bool, pressed: Bool) {
         fadeBackground(
             to: pressed ? color.withAlphaComponent(0.5) : hovering ? color.withAlphaComponent(0.75) : color,

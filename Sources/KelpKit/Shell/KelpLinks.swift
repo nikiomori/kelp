@@ -35,12 +35,15 @@ struct KelpLinks {
             } else if app.repos.contains(where: { Paths.inside(path, $0.path) }) {   // a link out of a project isn't in it
                 app.workbench.addProject(path: path)   // already a project: just shows it
             } else {
-                let alert = NSAlert()
-                alert.messageText = String(localized: "Add “\((path as NSString).lastPathComponent)” to Kelp?")
-                alert.informativeText = String(localized: "A link asked to open \(path) as a project.")
-                alert.addButton(withTitle: String(localized: "Add Project"))
-                alert.addButton(withTitle: String(localized: "Cancel"))
-                Task { if await runSheet(alert) == .alertFirstButtonReturn { app.workbench.addProject(path: path) } }
+                Task {
+                    if await confirm(
+                        String(localized: "Add “\((path as NSString).lastPathComponent)” to Kelp?"),
+                        detail: String(localized: "A link asked to open \(path) as a project."),
+                        action: String(localized: "Add Project"))
+                    {
+                        app.workbench.addProject(path: path)
+                    }
+                }
             }
         default: Banner.show(String(localized: "Kelp doesn't know the link \(url.absoluteString)."), style: .error)
         }
@@ -66,12 +69,10 @@ struct KelpLinks {
     }
 
     static func askToOpen(_ path: String) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Open “\((path as NSString).lastPathComponent)”?")
-        alert.informativeText = String(localized: "A link asked to open \(path), which is outside your projects.")
-        alert.addButton(withTitle: String(localized: "Open"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(alert) == .alertFirstButtonReturn
+        await confirm(
+            String(localized: "Open “\((path as NSString).lastPathComponent)”?"),
+            detail: String(localized: "A link asked to open \(path), which is outside your projects."),
+            action: String(localized: "Open"))
     }
 
     /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.

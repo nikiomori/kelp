@@ -42,15 +42,9 @@ final class PromptTab: TabContent {
         codeEditor.alwaysWraps = true
         codeEditor.refreshAppearance()
         editor = codeEditor
-        let cancel = PointerButton()
-        cancel.title = String(localized: "Cancel")
-        cancel.padding = Metrics.gap
-        cancel.onClick = { [weak self] in self?.cancel() }
-        let done = PointerButton()
-        done.title = String(localized: "Done")
-        done.padding = Metrics.gap
-        done.restFill = .fillRest
-        done.onClick = { [weak self] in self?.finish() }
+        let cancel = TextButton(String(localized: "Cancel")) { [weak self] in self?.cancel() }
+        cancel.restFill = nil   // quieter than Done
+        let done = TextButton(String(localized: "Done")) { [weak self] in self?.finish() }
         let label = NSTextField(
             labelWithString: String(localized: "Closing this tab puts the text in the agent's prompt"))
         label.font = .ui(TextSize.row)

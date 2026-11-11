@@ -71,7 +71,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         table.menu?.delegate = self
         popover.behavior = .transient
         consoleBox.clipsToBounds = true
-        header.press = { [weak self] in self?.fold(self?.unfolded == true) }
+        header.onClick = { [weak self] in self?.fold(self?.unfolded == true) }
         header.contextMenu = { [weak self] in self?.headerMenu() }
         header.stop.onClick = { [weak self] in if let run = self?.current { self?.stop(run) } }
         header.toTab.onClick = { [weak self] in if let run = self?.current { self?.moveToTab(run) } }

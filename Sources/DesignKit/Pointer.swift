@@ -143,7 +143,7 @@ open class PointerPopUpButton: NSPopUpButton {
 
 /// A custom clickable view (a pill, a capsule, a row drawn by hand) that answers the pointer like `PointerButton`:
 /// `showPointer(hovering:pressed:)` fades a grey fill by default (override it for glass), and a click — down and up
-/// inside — springs the view and calls `clicked()`, as a button fires on mouse-up.
+/// inside — springs the view and calls `clicked()` (`onClick`), as a button fires on mouse-up.
 @MainActor
 open class PointerControl: NSControl {
     private var area: NSTrackingArea?
@@ -159,8 +159,11 @@ open class PointerControl: NSControl {
     }
     required public init?(coder: NSCoder) { fatalError() }
 
-    /// What a click does.
-    open func clicked() {}
+    /// What a click does, unless `clicked()` is overridden.
+    public var onClick: (() -> Void)?
+
+    /// What a click does: `onClick`, by default.
+    open func clicked() { onClick?() }
 
     /// How it shows the pointer: a fill that fades, by default.
     open func showPointer(hovering: Bool, pressed: Bool) {
