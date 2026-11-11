@@ -30,7 +30,10 @@ extension EditorArea {
         let paths = tabs.map { TabURI.scheme($0.uri) == "file" ? TabURI.filePath($0.uri).path as NSString : nil }
         let names = paths.map { $0?.lastPathComponent }
         return zip(items, paths).map { item, path in
-            guard let path, names.filter({ $0 == path.lastPathComponent }).count > 1 else { return item }
+            // A tab named otherwise (an agent's page by its title) is told apart by that name already.
+            guard let path, item.title == path.lastPathComponent,
+                names.filter({ $0 == path.lastPathComponent }).count > 1
+            else { return item }
             var item = item
             item.title = path.lastPathComponent + " — " + (path.deletingLastPathComponent as NSString).lastPathComponent
             item.keepsEnd = true

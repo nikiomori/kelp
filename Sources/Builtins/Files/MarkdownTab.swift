@@ -34,6 +34,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         }
     }
     private var narrow = false
+    var narrowPane: Bool { narrow }
     /// Until then the source is following the preview, and doesn't lead it back.
     private var followingPreview = Date.distantPast
     /// Told whether the source can be edited on screen: the status bar's cursor means nothing in the preview.
@@ -83,12 +84,23 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         didSet { if canvasWriter != oldValue, page == .canvas { rerender() } }
     }
     var onPresentEnded: (() -> Void)?
+    /// A canvas that is a dashboard: drawn as a page of data (`CanvasPage.View.dashboard`).
+    var isDashboard = false {
+        didSet { if isDashboard != oldValue { rerender() } }
+    }
+    /// A doc: the page as its agent's last turn found it, to mark what the turn changed; and how many blocks it did.
+    var baseline: String? {
+        didSet { if baseline != oldValue { rerender() } }
+    }
+    var onChanges: ((Int) -> Void)?
+    /// Told when the page turns Mark on itself (its Mark button under a selection).
+    var onPageMode: ((CanvasMode) -> Void)?
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
 
     private var artifactBar: ArtifactBar?
-    /// A page an agent made: its title, for the tab.
-    var onPageTitle: ((String?) -> Void)?
+    /// A page an agent made: its title and kind, for the tab.
+    var onPageTitle: ((String?, Artifacts.Kind?) -> Void)?
     /// A canvas: what its check found each time it's drawn (the bar shows it).
     var onCheck: (([String]) -> Void)?
 
@@ -280,16 +292,14 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// (the source follows), or double-clicked on one (the cursor goes there).
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL != false else { return }
-        if artifactBar != nil, let body = message.body as? [String: Any], body["kind"] as? String == "ask" {
-            return ask(about: body["text"] as? String ?? "")
-        }
-        if page == .canvas, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
+        let agents = page == .canvas || (artifactBar != nil && (page == .markdown || page == .slides))
+        if agents, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             canvasMessage(kind, body)
         {
             return
         }
         if page == .review, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
-            ["pick", "note", "send"].contains(kind)
+            ["pick", "note", "send", "recommended", "unsend"].contains(kind)
         {
             guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
             return answer(
@@ -358,22 +368,30 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             let themes =
                 CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
                 ?? (dark ? .dark : .light)
-            let canvasView = CanvasPage.View(themes: themes, writer: canvasWriter)
-            // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
-            // Kelp's do, beside it.
-            let ask =
-                artifactBar == nil || kind == .canvas
-                ? [] : [PageAsk.script(label: Self.js(String(localized: "Ask Agent")))]
+            let canvasView = CanvasPage.View(
+                themes: isDashboard ? (dark ? .dark : .light) : themes, writer: canvasWriter, dashboard: isDashboard)
+            // An agent's Markdown page (a doc, slides) takes marks, and a doc shows what its agent's last turn changed.
+            let agents = artifactBar != nil && (kind == .markdown || kind == .slides)
+            let markLabels = pageMarkLabels,
+                slideLabels = ["of": String(localized: "of"), "escEnds": canvasLabels.escEnds]
+            let changed =
+                shown == nil && kind == .markdown ? baseline.map { Artifacts.changedLines(from: $0, to: text) } : nil
+            let noSource = String(localized: "Where it came from isn't said: ask its agent for a data-source.")
+            if changed == nil, agents { onChanges?(0) }
             let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
                 if kind == .html { return (text, []) }
                 if kind == .canvas {
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
                     let built = CanvasPage.build(
                         snapshot, folder: base, root: Self.projectRoot(of: base.path), view: canvasView)
-                    let around = CanvasChrome.source(themes: themes.rawValue, labels: chrome)
+                    let around = CanvasChrome.source(
+                        themes: themes.rawValue, labels: chrome, floats: !canvasView.dashboard)
                     let edit = CanvasEdit.source(marks: built.marks, tweaks: built.tweaks, labels: labels)
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
-                    return (built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + again)
+                    let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
+                    return (
+                        built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + dash + again
+                    )
                 }
                 if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
@@ -383,27 +401,46 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                     )
                 }
                 let body = MarkdownHTML.render(text, marking: true)
-                let html = MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page)
-                return (
-                    html + (kind == .slides ? MarkdownHTML.slidesStyle : ""),
-                    [
-                        kind == .slides ? MarkdownHTML.slidesScript : nil, MarkdownHTML.mermaid(for: text, dark: dark),
-                        MarkdownHTML.math(for: body), MarkdownHTML.scrollSync
-                    ].compactMap { $0 }
-                )
+                var html = MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page)
+                var scripts = [
+                    MarkdownHTML.mermaid(for: text, dark: dark), MarkdownHTML.math(for: body), MarkdownHTML.scrollSync
+                ]
+                .compactMap { $0 }
+                if kind == .slides {
+                    let system = DesignSystem.dir(root: Self.projectRoot(of: base.path)).appendingPathComponent(
+                        "tokens.json")
+                    let tokens = Artifacts.small(system.path, limit: 1 << 20).map {
+                        String(decoding: $0, as: UTF8.self)
+                    }
+                    html += SlidesPage.style + SlidesPage.tokens(tokens ?? "")
+                    scripts.append(SlidesPage.script(labels: slideLabels))
+                }
+                guard agents else { return (html, scripts) }
+                let marks = CanvasMark.read(Artifacts.small(base.appendingPathComponent(CanvasMark.file).path))
+                html += PageMarks.style
+                scripts += [
+                    CanvasChrome.source(themes: "", labels: chrome, floats: false),
+                    PageMarks.source(marks: marks, labels: markLabels)
+                ]
+                if let changed { scripts.append(PageMarks.changes(changed)) }
+                return (html, scripts + again)
             }.value
             guard !Task.isCancelled else { return }
-            // Keep the reader's place across re-renders (scrollY is always a number, so the async call can't trap on nil).
-            let scrollY =
-                (try? await web.evaluateJavaScript("window.scrollY", contentWorld: Self.world)) as? Double ?? 0
+            // Keep the reader's place across re-renders, and the slide shown (numbers both, so the async call can't trap
+            // on nil).
+            let was =
+                (try? await web.evaluateJavaScript("[window.scrollY, window.kelpAt ?? 0]", contentWorld: Self.world))
+                as? [Double] ?? [0, 0]
+            let scrollY = was.first ?? 0, slide = Int(was.last ?? 0)
             guard !Task.isCancelled else { return }
             // In Split, on the block being edited; the place it had otherwise.
             let place =
                 currentMode == "split" && (kind == .markdown || kind == .slides)
-                ? "kelpToLine(\(editor.cursor?.line ?? 1))" : "window.scrollTo(0, \(scrollY))"
+                ? "kelpToLine(\(editor.cursor?.line ?? 1))"
+                : kind == .slides ? "kelpGo(\(slide))" : "window.scrollTo(0, \(scrollY))"
             // A canvas is Kelp's own page: its boards sit in frames sandboxed without scripts (`CanvasPage`).
             links.load(
-                html, baseURL: base, scripts: scripts + ask + [place], world: Self.world, pageScripts: kind == .canvas,
+                html, baseURL: base, scripts: scripts + [place], world: Self.world, pageScripts: kind == .canvas,
                 in: web)
         }
     }

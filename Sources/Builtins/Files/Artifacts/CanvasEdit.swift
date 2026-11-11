@@ -14,14 +14,15 @@ struct CanvasMark: Codable, Equatable, Sendable {
     static let file = "notes.json"
 
     /// The marks as one line to the chat, by board: `Marks on <file>: boards/A.html 1 [data-id=t] «Hi»: bigger; …`.
+    /// A page's marks (a doc's, slides') have no board or target: `Marks on <file>: 1 «quoted text»: note`.
     static func message(_ marks: [CanvasMark], canvas: String) -> String {
         var n = 0
         let boards = Dictionary(grouping: marks, by: \.board).sorted { $0.key < $1.key }.map { board, marks in
-            board + " "
+            (board.isEmpty ? "" : board + " ")
                 + marks.map { m in
                     n += 1
-                    let text = m.text.isEmpty ? "" : " «\(m.text)»"
-                    return "\(n) \(m.target)\(text): \(m.note.isEmpty ? "look at this" : m.note)"
+                    let what = [String(n), m.target, m.text.isEmpty ? "" : "«\(m.text)»"].filter { !$0.isEmpty }
+                    return what.joined(separator: " ") + ": " + (m.note.isEmpty ? "look at this" : m.note)
                 }.joined(separator: "; ")
         }
         return "Marks on \(canvas): " + boards.joined(separator: " | ")
@@ -167,7 +168,7 @@ enum CanvasEdit {
             return null;
           }
           sheet.addEventListener('mousemove', e => {
-            const at = under(e, mode === 'edit');
+            const at = mode !== 'peek' && under(e, mode === 'edit');
             outline.style.display = at ? 'block' : 'none';
             if (at) place(outline, box(at.f, at.e));
           });

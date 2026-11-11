@@ -54,3 +54,19 @@ private let page = """
     #expect(!Review.isReview("/p/docs/review.md") && !Review.isReview("/p/.kelp/artifacts/grdb/doc.md"))
     #expect(Review("# T\n").answer(file: "r.md") == "My answers in r.md: none picked.")
 }
+
+@Test func aReviewSaysWhenItWasSentUntilAPickChanges() {
+    let text = "# T\n\n## 1. Q ✓\n- [ ] A. One *recommended*\n- [ ] B. Two\n\n## 2. R\n- [x] A. Yes\n"
+    let all = Review.pickRecommended(text)
+    #expect(Review(all).points.map(\.pick) == ["A", "A"])
+    #expect(Review(text).points[0].done && Review(text).points[0].question == "Q")
+    let sent = Review.markSent(all, at: "12:04")
+    #expect(Review(sent).sent == "12:04" && Review(sent).points.count == 2)
+    #expect(Review(Review.pick(sent, point: "1", option: "B")).sent == nil)
+}
+
+@Test func whatATurnChangedIsTheLinesAddedAndWhereLinesWentOut() {
+    #expect(Artifacts.changedLines(from: "a\nb\nc", to: "a\nB\nc\nd") == [2, 4])
+    #expect(Artifacts.changedLines(from: "a\nb\nc", to: "a\nc") == [2])
+    #expect(Artifacts.changedLines(from: "a", to: "a").isEmpty)
+}

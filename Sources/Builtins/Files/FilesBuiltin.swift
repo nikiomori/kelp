@@ -166,6 +166,9 @@ extension Builtins {
                     schemes: ["file"], make: { FileTab(uri: $0, app: app) },
                     placeholder: { uri in
                         let path = TabURI.filePath(uri).path, name = (path as NSString).lastPathComponent
+                        if let page = ArtifactBar.listed(path, in: app) {   // an agent's page: its title, as once built
+                            return (page.title, ArtifactBar.icon(page.kind), path)
+                        }
                         return (name, app.fileIcons.image(name), path)
                     },
                     menu: { FileTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) }),

@@ -66,7 +66,8 @@ extension Artifacts {
         1. Get the numbers first (run the commands, read the files). A board per view, 1280 wide: the figures that
            matter, large, with a label; then charts as inline SVG coloured from the tokens; then the table they came
            from. Every figure carries where it came from and when: `<b data-value data-source="gh run list, 11 Nov
-           10:00">42</b>`; the check lists one without. To bring it up to date, the user asks you again.
+           10:00">42</b>`; the check lists one without. The user's Update asks you to run the commands again and bring
+           every figure and its time up to date. Kelp shows the boards as the page, one at a time (a switch for more).
         """
 
     static func designPart(_ part: String) -> String? {

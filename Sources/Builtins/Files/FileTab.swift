@@ -17,8 +17,9 @@ final class FileTab: SavableTab {
     let view: NSView
     private(set) var editor: CodeEditor?
     private(set) var markdown: MarkdownTab?
-    /// A page an agent made is named by its title, not "doc.md".
+    /// A page an agent made is named by its title, not "doc.md", and shows what kind it is.
     private var pageTitle: String?
+    private var pageKind: Artifacts.Kind?
     private var notebook: NotebookTab?
     var changeBars: ChangeBars?
     /// Its indentation and what Save tidies.
@@ -74,8 +75,8 @@ final class FileTab: SavableTab {
     var icon: NSImage? {
         gone
             ? .symbol("exclamationmark.triangle", String(localized: "Moved or deleted"))
-            : markdown?.page == .canvas
-                ? .symbol("square.grid.2x2", String(localized: "Design")) : app.fileIcons.image(url.lastPathComponent)
+            : (pageKind ?? ArtifactBar.kind(ofFile: path)).map(ArtifactBar.icon)
+                ?? app.fileIcons.image(url.lastPathComponent)
     }
     var toolTip: String? {
         gone ? String(localized: "\(path) was moved or deleted. ⌘S asks before writing it there again.") : path
@@ -181,9 +182,17 @@ final class FileTab: SavableTab {
             let md = MarkdownTab(editor: codeEditor, url: url, app: app)
             md.startInPreview = path == Help.location.path || ArtifactBar.isPage(path)   // the help and agents' pages are for reading
             md.saveFile = { [weak self] in await self?.save() ?? false }
-            md.onPageTitle = { [weak self] in self?.pageTitle = $0 }
+            md.onPageTitle = { [weak self] title, kind in
+                self?.pageTitle = title
+                self?.pageKind = kind
+            }
             markdown = md
-            box.pin(stacked(md.header(else: crumbs), md.view, bar))
+            // An agent's page has no status bar: its own bar says what it is, and its lines mean nothing in the page.
+            if ArtifactBar.isPage(path) {
+                box.pin(stacked(md.header(else: crumbs), md.view))
+            } else {
+                box.pin(stacked(md.header(else: crumbs), md.view, bar))
+            }
             md.attach(bar)
         } else {
             box.pin(stacked(withTrustBar(crumbs), codeEditor.view, bar))

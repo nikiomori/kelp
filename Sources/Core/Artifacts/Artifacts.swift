@@ -69,7 +69,7 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
 }
 
 public enum Artifacts {
-    /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a page of HTML for what Markdown can't draw.
+    /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a canvas of boards.
     public enum Kind: String, Codable, CaseIterable, Sendable {
         case doc, review, slides, design, dashboard
         public var file: String { isCanvas ? "canvas.json" : "\(rawValue).md" }
@@ -225,6 +225,8 @@ public enum Artifacts {
         - A point per decision: `## 1. The question`, numbered from 1, at most 9.
         - Its options as `- [ ] A. What it means`, 2 to 4 of them, with a detail on the next line, indented two spaces.
         - Mark at most one option per point `*recommended*`.
+        - Once you've done a point the user picked, end its heading with ✓ (`## 1. The question ✓`): the page shows
+          it done.
         - Then tell the user the page is beside them and end your turn: they answer by number (1A 2B), and their
           picks may arrive as a line like `My answers in <file>: 1A 2B`, with `[x]` on the picked options in the file.
 
@@ -232,7 +234,12 @@ public enum Artifacts {
         "slides": """
         - Markdown. A line `---` with an empty line above and below starts the next slide; the first slide is the title.
         - One idea a slide, at most four bullets; a number that matters on a slide of its own.
-        - Kelp shows them as 16:9 slides, one under the next (← → step through them, Print gives a page each).
+        - Kelp lays each slide out by what it holds: the first is the title (`# Title`, a line under it); a heading that
+          is a number (`## 30 %`, a line under it) is a big number; an image (`![what it shows](chart.png)`, a file
+          beside slides.md) sits beside the slide's text; the rest reads as a list. The project's .kelp/design, if it
+          has one, gives the accent and the font: no HTML, no colours of your own.
+        - Kelp shows them one at a time beside a strip of all (← → step, Present fills the pane, Print gives a page
+          each).
         - For a deck in the project's own look, make a design instead: `kelp artifact guide design deck`.
 
         """

@@ -17,39 +17,32 @@ extension MarkdownTab {
         }
     }
 
-    /// A pick or a note goes into the file (the agent reads its answers there); Send types the line saying them into
-    /// the chat that wrote it, or, once that has ended, into the agent on screen for the user to send.
+    /// A pick, a note, the recommended picks or Change Answers go into the file (the agent reads its answers there);
+    /// Send types the line saying them into the chat that wrote it, or, once that has ended, into the agent on screen
+    /// for the user to send, and the file says when.
     func answer(_ kind: String, point: String, value: String) {
-        switch kind {
-        case "pick":
-            editor.apply(
-                text: Review.pick(editor.text, point: point, option: value), selection: NSRange(location: 0, length: 0))
-        case "note":
-            editor.apply(
-                text: Review.note(editor.text, point: point, note: value), selection: NSRange(location: 0, length: 0))
-        default: break
-        }
+        let text: String? =
+            switch kind {
+            case "pick": Review.pick(editor.text, point: point, option: value)
+            case "note": Review.note(editor.text, point: point, note: value)
+            case "recommended": Review.pickRecommended(editor.text)
+            case "unsend": Review.unsent(editor.text)
+            default: nil
+            }
+        if let text { editor.apply(text: text, selection: NSRange(location: 0, length: 0)) }
         Task {
             guard await saveFile?() != false else { return }
             guard kind == "send" else { return }
             let line = Review(editor.text).answer(file: Artifacts.projectPath(url.path))
-            guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
-            guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
-            let sent = String(localized: "Sent to \(author.title)")
-            runJS("kelpReviewSent(\(Self.js(sent)))")
+            if let author = pageAuthor {
+                guard await app.call(SessionSend(id: author.id, text: line, enter: true)) != nil else { return }
+            } else {
+                FileActions(app).sendToAgent(text: line)
+            }
+            let now = Date().formatted(date: .omitted, time: .shortened)
+            editor.apply(text: Review.markSent(editor.text, at: now), selection: NSRange(location: 0, length: 0))
+            _ = await saveFile?()
         }
-    }
-
-    /// Text selected on the page, quoted into the chat that made it (else the agent on screen), not sent: the user asks.
-    func ask(about quote: String) {
-        let quoted = quote.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.joined(
-            separator: " ")
-        guard !quoted.isEmpty else { return }
-        let shown = quoted.count > 400 ? String(quoted.prefix(399)) + "…" : quoted
-        let line = "About “\(shown)” in \(Artifacts.projectPath(url.path)):"
-        guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
-        Task { await app.call(SessionSend(id: author.id, text: line + " ", enter: false)) }
-        app.workbench.focus(session: author.id)
     }
 
     /// `value` as a JavaScript literal (JSON is one): a string, the marks, the labels of a page's script.

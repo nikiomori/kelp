@@ -43,6 +43,7 @@ enum CanvasScript {
             markers.replaceChildren();
             for (const m of faults) {
               const fr = m.f.getBoundingClientRect(), r = m.el.getBoundingClientRect();
+              if (!fr.width) continue;   // a board not shown (a dashboard's other view)
               const k = fr.width / m.f.offsetWidth;
               const b = document.createElement('div');
               b.className = 'kelp-fault'; b.textContent = '!'; b.title = m.text;
@@ -132,6 +133,10 @@ enum CanvasScript {
                   say('image does not load: ' + el.getAttribute('src'), el);
                 const control = 'button, a[href], input, select, textarea, h1, h2, h3';
                 if (el.matches(control) && !el.closest('[data-id]')) bare++;
+                // A figure says where it came from (`CanvasPage.lint` counts those that don't): a `!` on each.
+                if (el.hasAttribute('data-value') && !el.hasAttribute('data-source') && f.dataset.theme !== 'dark'
+                  && !faults.some(m => m.el === el))
+                  faults.push({ f, el, text: f.dataset.board + ': a figure without data-source (where it came from)' });
                 const fg = text && +st.opacity > 0 && rgb(st.color);
                 if (!fg) continue;
                 const a = lum(fg), b = lum(ground(win, el, page));

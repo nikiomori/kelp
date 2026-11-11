@@ -10,10 +10,12 @@ enum CanvasPage {
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
 
-    /// How it's drawn: in which themes, and who is writing it now (their board gets the ring).
+    /// How it's drawn: in which themes, who is writing it now (their board gets the ring), and whether it's a
+    /// dashboard: its boards as the pane's page, one view at a time, without rows, names or sizes (`DashboardPage`).
     struct View: Sendable {
         var themes: Themes
         var writer: String?
+        var dashboard = false
     }
 
     struct Built: Sendable {
@@ -87,7 +89,8 @@ enum CanvasPage {
         let body = canvas.boards.isEmpty ? CanvasStates.empty(writer: view.writer) : rows
         let marks = CanvasMark.read(Artifacts.small(folder.appendingPathComponent(CanvasMark.file).path))
         return Built(
-            html: shell(body: "<div id=\"kelp-canvas\">\(body)</div>"), issues: issues, tweaks: tweaks,
+            html: shell(body: "<div id=\"kelp-canvas\">\(body)</div>", dashboard: view.dashboard), issues: issues,
+            tweaks: tweaks,
             marks: marks, tokens: DesignSystem.names(tokens: tokensJSON))
     }
 
@@ -147,7 +150,7 @@ enum CanvasPage {
         return String(localized: "It isn't {\"boards\": [{\"file\", \"row\", \"title\", \"w\", \"h\"}]}.")
     }
 
-    private static func shell(body: String) -> String {
+    private static func shell(body: String, dashboard: Bool = false) -> String {
         """
         <!doctype html><html><head><meta charset="utf-8"><style>
         :root { color-scheme: light dark; }
@@ -166,7 +169,8 @@ enum CanvasPage {
         \(CanvasStates.style)
         \(CanvasEdit.style)
         \(CanvasEditMode.style)
-        </style></head><body>\(body)</body></html>
+        \(dashboard ? DashboardPage.style : "")
+        </style></head><body\(dashboard ? " class=\"kelp-dash\"" : "")>\(body)</body></html>
         """
     }
 

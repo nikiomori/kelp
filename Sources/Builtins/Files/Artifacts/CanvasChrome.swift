@@ -4,13 +4,13 @@ import Foundation
 /// Edit fill (`window.kelpColumn`), the theme switch at the top right (one theme at a time, or both), and the zoom
 /// capsule at the bottom right (− % + and Fit). Drawn with Kelp's own tokens, in the window's light or dark. To
 /// `kelpSync`: `themes` (light, dark or both) and `zoom` (a size, or null for Fit), which the tab keeps for the next
-/// drawing.
+/// drawing. Without `floats` (a doc's page, a dashboard), only the column.
 enum CanvasChrome {
     struct Labels {
         var light: String, dark: String, both: String, fit: String, zoomOut: String, zoomIn: String
     }
 
-    static func source(themes: String, labels l: Labels) -> String {
+    static func source(themes: String, labels l: Labels, floats: Bool = true) -> String {
         let js: (String) -> String = MarkdownTab.js
         return """
             (function () {
@@ -34,6 +34,10 @@ enum CanvasChrome {
                 },
                 el
               };
+              // The empty state's actions (canvas.json that doesn't read): open the file, or ask its agent.
+              for (const b of document.querySelectorAll('[data-kelp]'))
+                b.onclick = () => post({ kind: b.dataset.kelp, why: b.dataset.why || '' });
+              if (!\(floats)) return;
               // One theme at a time, or both side by side: the tab draws the boards again.
               const themes = el('div', 'kelp-float kelp-themes'), seg = el('span', 'kelp-seg');
               for (const [key, name] of [['light', \(js(l.light))], ['dark', \(js(l.dark))], ['both', \(js(l.both))]]) {
@@ -56,9 +60,6 @@ enum CanvasChrome {
               zoom.append(out, shown, into, el('span', 'kelp-sep'), fit);
               addEventListener('kelp-zoom', () => { shown.textContent = Math.round(now() * 100) + '%'; });
               document.body.append(themes, zoom);
-              // The empty state's actions (canvas.json that doesn't read): open the file, or ask its agent.
-              for (const b of document.querySelectorAll('[data-kelp]'))
-                b.onclick = () => post({ kind: b.dataset.kelp, why: b.dataset.why || '' });
             })();
             """
     }

@@ -8,12 +8,16 @@ import Foundation
 ///       Nine small edits; decoding stays strict.
 ///     - [ ] B. A migration that fills the columns once
 ///     > Note: keep the old backups readable
+///
+/// Once sent, a last line says when (`<!-- sent: 12:04 -->`); a point the agent has done ends its heading with ✓.
 public struct Review: Equatable, Sendable {
     public struct Option: Equatable, Sendable {
         public var key: String, text: String, detail: String, recommended: Bool, picked: Bool
     }
     public struct Point: Equatable, Sendable {
         public var number: String, question: String, options: [Option], note: String
+        /// The agent says it has done it: ✓ at the end of its heading.
+        public var done = false
         public var pick: String? { options.first { $0.picked }?.key }
     }
 
@@ -21,6 +25,8 @@ public struct Review: Equatable, Sendable {
     /// What comes between the title and the first point.
     public var intro: String
     public var points: [Point]
+    /// When the answers went to the agent (`<!-- sent: … -->`); nil until then, and again once a pick changes.
+    public var sent: String?
 
     public init(_ text: String) {
         title = ""
@@ -32,8 +38,15 @@ public struct Review: Equatable, Sendable {
                 title = String(match.1)
                 continue
             }
+            if let match = line.wholeMatch(of: Self.sentLine) {
+                sent = String(match.1)
+                continue
+            }
             if let match = line.wholeMatch(of: Self.pointLine) {
-                points.append(Point(number: String(match.1), question: String(match.2), options: [], note: ""))
+                var question = String(match.2).trimmingCharacters(in: .whitespaces)
+                let done = question.hasSuffix("✓")
+                if done { question = String(question.dropLast()).trimmingCharacters(in: .whitespaces) }
+                points.append(Point(number: String(match.1), question: question, options: [], note: "", done: done))
                 continue
             }
             guard !points.isEmpty else {
@@ -59,9 +72,9 @@ public struct Review: Equatable, Sendable {
         intro = introLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// `text` with `key` picked in point `number` (and its other options not).
+    /// `text` with `key` picked in point `number` (and its other options not): answers not sent yet.
     public static func pick(_ text: String, point number: String, option key: String) -> String {
-        edit(text, point: number) { lines, range in
+        edit(unsent(text), point: number) { lines, range in
             for index in range {
                 if let match = lines[index].wholeMatch(of: optionLine) {
                     lines[index] = "- [\(match.2 == key ? "x" : " ")] \(match.2). \(match.3)"
@@ -73,7 +86,7 @@ public struct Review: Equatable, Sendable {
     /// `text` with point `number`'s note set to `note` (one line; empty takes it away).
     public static func note(_ text: String, point number: String, note: String) -> String {
         let one = note.split(whereSeparator: \.isNewline).joined(separator: " ").trimmingCharacters(in: .whitespaces)
-        return edit(text, point: number) { lines, range in
+        return edit(unsent(text), point: number) { lines, range in
             var range = range
             if let old = range.first(where: { lines[$0].wholeMatch(of: noteLine) != nil }) {
                 lines.remove(at: old)
@@ -90,6 +103,28 @@ public struct Review: Equatable, Sendable {
             }
             lines.insert("> Note: \(one)", at: at)
         }
+    }
+
+    /// `text` with the recommended option picked in each point that has no pick yet.
+    public static func pickRecommended(_ text: String) -> String {
+        Review(text).points.reduce(text) { text, point in
+            guard point.pick == nil, let key = point.options.first(where: \.recommended)?.key else { return text }
+            return pick(text, point: point.number, option: key)
+        }
+    }
+
+    /// `text` saying its answers went to the agent at `time`.
+    public static func markSent(_ text: String, at time: String) -> String {
+        var out = unsent(text)
+        while out.hasSuffix("\n\n") { out.removeLast() }
+        return out + (out.hasSuffix("\n") ? "" : "\n") + "\n<!-- sent: \(time) -->\n"
+    }
+
+    /// `text` without the line saying when its answers were sent.
+    public static func unsent(_ text: String) -> String {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.contains(where: { $0.wholeMatch(of: sentLine) != nil }) else { return text }
+        return lines.filter { $0.wholeMatch(of: sentLine) == nil }.joined(separator: "\n")
     }
 
     /// The line that goes to the agent: "My answers in <file>: 1A 2B. Note on 2: …".
@@ -111,6 +146,7 @@ public struct Review: Equatable, Sendable {
 
     static var pointLine: Regex<(Substring, Substring, Substring)> { /##\s+(\d+)\.\s*(.+)/ }
     static var optionLine: Regex<(Substring, Substring, Substring, Substring)> { /- \[([ xX])\]\s+([A-Z])\.\s*(.*)/ }
+    static var sentLine: Regex<(Substring, Substring)> { /<!--\s*sent:\s*(.*?)\s*-->/ }
     static var noteLine: Regex<(Substring, Substring)> { /\s*>\s*Note:\s*(.*)/ }
 
     /// Applies `change` to the lines of point `number` (its heading to the line before the next heading).

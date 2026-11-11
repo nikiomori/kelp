@@ -62,6 +62,14 @@ extension MarkdownTab {
         case "present":
             presentingBoards = false
             onPresentEnded?()
+        case "mode":
+            setCanvasMode(.mark)
+            onPageMode?(.mark)
+        case "changes": onChanges?((body["count"] as? NSNumber)?.intValue ?? 0)
+        case "update":
+            send(
+                "Update \(Artifacts.projectPath(url.path)): run its commands again and bring every figure up to date, "
+                    + "its data-source time too.", keep: nil)
         case "themes":
             UserDefaults.standard.set(body["value"] as? String, forKey: CanvasPage.themesKey)
             rerender()
@@ -101,16 +109,44 @@ extension MarkdownTab {
     }
 
     /// What a click on a board does: nothing (View), put a mark on it (Mark), or choose it to change by hand (Edit).
+    /// On a doc or slides, Edit is the source beside the page.
     enum CanvasMode: Int { case view, mark, edit }
-    var canvasMode: CanvasMode { marking ? .mark : editing ? .edit : .view }
+    var canvasMode: CanvasMode {
+        if marking { return .mark }
+        if page == .canvas { return editing ? .edit : .view }
+        guard isViewLoaded else { return startInPreview ? .view : .edit }
+        return modeSegment == 2 ? .view : .edit
+    }
 
     /// The bar's View / Mark / Edit.
     func setCanvasMode(_ mode: CanvasMode) {
         marking = mode == .mark
-        editing = mode == .edit
-        if !editing { chosen = nil }
-        runJS("kelpEdit(\(editing)); kelpMark(\(marking))")
+        guard page != .canvas else {
+            editing = mode == .edit
+            if !editing { chosen = nil }
+            return runJS("kelpEdit(\(editing)); kelpMark(\(marking))")
+        }
+        // A doc's or slides' source: beside the page, or alone while the pane is too narrow for both.
+        let segment = mode == .edit ? (narrowPane ? 0 : 1) : 2
+        if modeSegment != segment { modeSegment = segment }
+        if mode == .edit { editor.focus() }
+        runJS("window.kelpMark?.(\(marking))")
     }
+
+    /// The words of a doc's marks and its column (`PageMarks`).
+    var pageMarkLabels: [String: String] {
+        let labels = canvasLabels
+        return [
+            "mark": String(localized: "Mark"), "marks": labels.marks, "send": labels.send, "note": labels.note,
+            "remove": labels.remove, "contents": String(localized: "Contents"),
+            "noMarks": String(localized: "Select text on the page to mark it, then say what should change."),
+            "noContents": String(localized: "No headings on this page."),
+            "hint": String(localized: "Select more text to add a mark. ⌘↩ sends.")
+        ]
+    }
+
+    /// A dashboard's Update: its agent runs the numbers again.
+    func askUpdate() { _ = canvasMessage("update", [:]) }
 
     /// Present in the bar: the boards one at a time, as large as the pane.
     func togglePresenting() {

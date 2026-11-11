@@ -41,6 +41,13 @@ final class ArtifactBar: NSObject {
         trackingMode: .selectOne, target: nil, action: nil)
     /// A canvas's Present: its boards one at a time, as large as the pane (a deck's slides).
     private let present = TextButton(String(localized: "Present"))
+    /// A doc's changes in its agent's last turn: a click goes to the next one.
+    private let changes = TextButton("")
+    /// A dashboard's figures: when they were drawn, and Update (its agent runs them again).
+    private let fresh = NSTextField(labelWithString: "")
+    private let refresh = TextButton(String(localized: "Update"))
+    /// The kept version a doc's changes are counted from.
+    private var baselineN: Int?
     private var issues: [String] = []
     /// A canvas's time as the list last said: its boards' and the design system's latest change.
     private var canvasTime: Double?
@@ -48,6 +55,9 @@ final class ArtifactBar: NSObject {
         self?.showMore()
     }
     private var item: ArtifactItem?
+    /// Its own record, read when the list doesn't have it; and its kind, from either.
+    private var recorded: ArtifactRecord?
+    private(set) var pageKind: Artifacts.Kind?
     private var entries: [Entry] = []
     /// What's on screen: a version's number, which a new version or one dropped doesn't move; nil for the file as it is.
     private var shownN: Int?
@@ -86,14 +96,38 @@ final class ArtifactBar: NSObject {
             String(localized: "Click an element to change its style, double-click a text to retype it"), forSegment: 2)
         modes.target = self
         modes.action = #selector(modeChosen)
-        modes.isHidden = markdown.page != .canvas
-        present.toolTip = String(localized: "The boards one at a time, as large as the pane: ← → step, Esc ends")
-        present.isHidden = markdown.page != .canvas
+        modes.isHidden = ![.canvas, .markdown, .slides].contains(markdown.page)
+        if markdown.page != .canvas {
+            modes.setToolTip(String(localized: "Read the page"), forSegment: 0)
+            modes.setToolTip(
+                String(localized: "Select text to mark it, then send your notes to the agent"), forSegment: 1)
+            modes.setToolTip(String(localized: "Its Markdown beside the page"), forSegment: 2)
+        }
+        markdown.onPageMode = { [weak self] in self?.modes.selectedSegment = $0.rawValue }
+        present.toolTip = String(localized: "One at a time, as large as the pane: ← → step, Esc ends")
+        present.isHidden = markdown.page != .canvas && markdown.page != .slides
+        changes.isHidden = true
+        changes.toolTip = String(
+            localized: "What its agent's last turn changed, marked beside the text: click for the next")
+        changes.onClick = { [weak self] in self?.markdown.runJS("kelpChange(1)") }
+        markdown.onChanges = { [weak self] count in
+            self?.changes.isHidden = count == 0
+            self?.changes.title = String(localized: "\(count) Changes")
+        }
+        fresh.font = .uiDigits(TextSize.row)
+        fresh.textColor = .secondaryLabelColor
+        fresh.isHidden = true
+        refresh.isHidden = true
+        refresh.toolTip = String(localized: "Ask its agent to run the numbers again")
+        refresh.onClick = { [weak self] in self?.markdown.askUpdate() }
         present.onClick = { [weak self] in self?.togglePresenting() }
         markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }
         return Bar.content(
             [kind, ring, status],
-            [spent, latest, restore, modes, present, check, back, count, forward, author, more],
+            [
+                spent, latest, restore, fresh, refresh, changes, modes, present, check, back, count, forward, author,
+                more
+            ],
             stretching: status
         )
     }()
@@ -110,7 +144,7 @@ final class ArtifactBar: NSObject {
         workspace = app.worktree(holding: real)?.id
         super.init()
         markdown.onCheck = { [weak self] in self?.show(check: $0) }
-        if markdown.page == .canvas { nameFromRecord() }
+        nameFromRecord()
         watched.key = workspace
         track(owner: self) { [app, workspace] in
             app.latest(ArtifactsEvent.self, workspace ?? "")?.items
@@ -122,6 +156,38 @@ final class ArtifactBar: NSObject {
         } changed: { [weak self] _ in
             self?.update()
         }
+    }
+
+    /// The kind its file says, before its record does: canvas.json is a design until it says it's a dashboard.
+    static func kind(ofFile path: String) -> Artifacts.Kind? {
+        guard isPage(path) else { return nil }
+        return Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }
+    }
+
+    /// The tab's icon for a kind of page.
+    static func icon(_ kind: Artifacts.Kind) -> NSImage? {
+        let (symbol, name) =
+            switch kind {
+            case .doc: ("doc.text", String(localized: "Doc"))
+            case .review: ("checklist", String(localized: "Review"))
+            case .slides: ("play.rectangle", String(localized: "Slides"))
+            case .design: ("square.grid.2x2", String(localized: "Design"))
+            case .dashboard: ("chart.bar", String(localized: "Dashboard"))
+            }
+        return .symbol(symbol, name)
+    }
+
+    /// A page as the workspace's list of artifacts has it (a tab not built yet is named by it).
+    static func listed(_ path: String, in app: AppModel) -> (title: String, kind: Artifacts.Kind)? {
+        guard isPage(path) else { return nil }
+        let real = Paths.real(path) ?? path
+        guard let workspace = app.worktree(holding: real)?.id,
+            let item = app.latest(ArtifactsEvent.self, workspace)?.items.first(where: {
+                (Paths.real($0.target) ?? $0.target) == real
+            }),
+            !item.title.isEmpty, let kind = Artifacts.Kind(rawValue: item.type) ?? kind(ofFile: path)
+        else { return nil }
+        return (item.title, kind)
     }
 
     /// Whether `path` is a page Kelp made (`.kelp/artifacts/<name>/<kind>.md`), not one of its kept versions.
@@ -138,14 +204,16 @@ final class ArtifactBar: NSObject {
             (Paths.real($0.target) ?? $0.target) == real
         }
         let session = item?.session.flatMap(app.session)
-        let type = item?.type ?? Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }?.rawValue ?? ""
+        let type = item?.type ?? recorded?.type ?? Self.kind(ofFile: path)?.rawValue ?? ""
         kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")
+        pageKind = Artifacts.Kind(rawValue: type)
+        if pageKind == .dashboard { showDashboard() }
         if let time = item?.modified, time != spentAt, item?.url == nil { countSpent(at: time) }
         if markdown.page == .canvas, let time = item?.modified, time != canvasTime {
             if canvasTime != nil { markdown.boardsChanged() }
             canvasTime = time
         }
-        if let title = item?.title, !title.isEmpty { markdown.onPageTitle?(title) }
+        if let title = item?.title ?? recorded?.title, !title.isEmpty { markdown.onPageTitle?(title, pageKind) }
         // The file as it is goes last; a last version it hasn't changed from is the same page, named by its turn.
         let versions = item?.versions ?? []
         let live = item?.changed != false || versions.isEmpty
@@ -163,6 +231,8 @@ final class ArtifactBar: NSObject {
         let writing =
             session?.status == .working && (item?.modified).map { Date().timeIntervalSince1970 - $0 < 120 } == true
         if markdown.page == .canvas { markdown.canvasWriter = writing ? app.catalog.name(session?.agent) : nil }
+        if markdown.page == .markdown { followBaseline(versions: versions, live: item?.changed != false) }
+        if markdown.page != .canvas { modes.selectedSegment = markdown.canvasMode.rawValue }   // ⇧⌘V may have moved it
         if shown != nil {
             status.stringValue = String(localized: "An older version, from \(Self.time(entries[shown ?? 0].at))")
         } else {
@@ -194,6 +264,32 @@ final class ArtifactBar: NSObject {
         "doc": String(localized: "Doc"), "review": String(localized: "Review"), "slides": String(localized: "Slides"),
         "design": String(localized: "Design"), "dashboard": String(localized: "Dashboard")
     ]
+
+    /// A dashboard: View and Mark (nothing to change by hand), no Present, and when its figures were drawn.
+    private func showDashboard() {
+        _ = view   // built: its controls are set up before this changes them
+        markdown.isDashboard = true
+        if modes.segmentCount == 3 { modes.segmentCount = 2 }
+        present.isHidden = true
+        refresh.isHidden = false
+        if let time = item?.modified {
+            fresh.isHidden = false
+            fresh.stringValue = String(localized: "Data from \(Self.time(time))")
+        }
+    }
+
+    /// A doc's changes count from the version its agent's last turn started from: the one before the last kept, or
+    /// the last while a turn is writing the file (it differs from it).
+    private func followBaseline(versions: [ArtifactVersion], live: Bool) {
+        let n = (live ? versions.last : versions.dropLast().last)?.n
+        guard n != baselineN else { return }
+        baselineN = n
+        guard let n else { return markdown.baseline = nil }
+        Task {
+            let file = await app.quiet(FilesRead(path: Artifacts.versionPath(target: path, n)))
+            if baselineN == n { markdown.baseline = file?.text }
+        }
+    }
 
     private func step(_ by: Int) {
         let index = (shown ?? entries.count - 1) + by
@@ -279,16 +375,15 @@ final class ArtifactBar: NSObject {
         markdown.setCanvasMode(MarkdownTab.CanvasMode(rawValue: modes.selectedSegment) ?? .view)
     }
 
-    /// A canvas outside the workspace's list (opened from elsewhere) is named by its own record, as one in it is.
+    /// A page outside the workspace's list (opened from elsewhere) is named by its own record, as one in it is.
     private func nameFromRecord() {
         let record = (path as NSString).deletingLastPathComponent + "/artifact.json"
         Task {
             guard item == nil, let file = await app.quiet(FilesRead(path: record)) else { return }
-            let saved: ArtifactRecord
-            do { saved = try Artifacts.decoder.decode(ArtifactRecord.self, from: Data(file.text.utf8)) } catch {
-                return
-            }
-            if item == nil, !saved.title.isEmpty { markdown.onPageTitle?(saved.title) }
+            do {
+                recorded = try Artifacts.decoder.decode(ArtifactRecord.self, from: Data(file.text.utf8))
+            } catch { return }
+            update()
         }
     }
 
@@ -311,14 +406,16 @@ final class ArtifactBar: NSObject {
 
     private func showMore() {
         let menu = NSMenu(), app = self.app, path = self.path, md = markdown
-        for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
-            .enumerated()
-        {
-            let item = menu.add(title) { md.modeSegment = mode }
-            item.state = md.modeSegment == mode ? .on : .off
-            item.isEnabled = md.shownVersion == nil   // an older version is only read
+        if modes.isHidden {   // a review: its Markdown, beside or instead of the page (the others have View / Edit)
+            for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
+                .enumerated()
+            {
+                let item = menu.add(title) { md.modeSegment = mode }
+                item.state = md.modeSegment == mode ? .on : .off
+                item.isEnabled = md.shownVersion == nil   // an older version is only read
+            }
+            menu.addItem(.separator())
         }
-        menu.addItem(.separator())
         menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
         menu.addItem(.separator())
         menu.add(String(localized: "Show in Finder")) {
