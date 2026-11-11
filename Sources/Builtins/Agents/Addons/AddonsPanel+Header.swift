@@ -27,9 +27,8 @@ extension AddonsPanel {
 
     func showAdd() {
         let menu = NSMenu()
-        menu.add(String(localized: "Add an MCP Server…")) { [weak self] in self?.addServer() }
-        menu.add(String(localized: "Add a Skill…")) { [weak self] in self?.addSkill(new: false) }
-        menu.add(String(localized: "New Skill…")) { [weak self] in self?.addSkill(new: true) }
+        menu.add(String(localized: "Add a Skill or MCP Server…")) { [weak self] in self?.addAny() }
+        menu.add(String(localized: "New Skill…")) { [weak self] in self?.newSkill() }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: add.bounds.height + Metrics.lineGap * 2), in: add)
     }
 
@@ -63,28 +62,32 @@ extension AddonsPanel {
         app.projectName(app.worktree(app.workbench.workspaceId)?.repoId) ?? String(localized: "This Project")
     }
 
-    private func addServer() {
+    /// The sheet; then what it read is added, the list read again, and a new skill's SKILL.md opened in a tab.
+    private func addAny() {
         guard let workspace = app.workbench.workspaceId else { return }
-        let project = projectName
+        let sheet = AddonSheet(app: app, worktreeId: workspace, project: projectName, items: addons?.items ?? [])
         Task { [weak self, app] in
-            guard let server = await AddonAddForm(project: project).ask() else { return }
-            await app.call(
-                AddonsAdd(worktreeId: workspace, name: server.name, entry: server.entry, project: server.project))
-            self?.reload()
+            let added = await sheet.ask()
+            var made: [String]?
+            switch added {
+            case .server(let name, let entry, let project)?:
+                await app.call(AddonsAdd(worktreeId: workspace, name: name, entry: entry, project: project))
+            case .skills(let source, let project)?:
+                made = await app.call(AddonsInstall(worktreeId: workspace, source: source, project: project))
+            case nil: break
+            }
+            if added != nil || sheet.changed { self?.reload() }
+            if let first = made?.first { self?.open(first) }
         }
     }
 
-    /// Add a Skill or New Skill; then the list again, and the (first) new SKILL.md in a tab.
-    private func addSkill(new: Bool) {
+    /// A name, then its SKILL.md to fill in, in a tab.
+    private func newSkill() {
         guard let workspace = app.workbench.workspaceId else { return }
         let project = projectName
         Task { [weak self, app] in
-            guard let typed = await AddonSkillForm(new: new, project: project).ask() else { return }
-            let install =
-                new
-                ? AddonsInstall(worktreeId: workspace, name: typed.text, project: typed.project)
-                : AddonsInstall(worktreeId: workspace, source: typed.text, project: typed.project)
-            let made = await app.call(install)
+            guard let typed = await AddonSkillForm(new: true, project: project).ask() else { return }
+            let made = await app.call(AddonsInstall(worktreeId: workspace, name: typed.text, project: typed.project))
             self?.reload()
             if let first = made?.first { self?.open(first) }
         }

@@ -107,9 +107,11 @@ extension AddonMenu {
         let name = AddonGroups.serverName(addon), shared = addon.origin == ".mcp.json"
         Task { [app, worktreeId, done] in
             guard let entry = await app.call(AddonsEntry(worktreeId: worktreeId, key: key)) else { return }
-            let form = AddonAddForm(project: project, editing: (name, Self.json(name, entry), shared))
-            guard let server = await form.ask() else { return }
-            await app.call(AddonsAdd(worktreeId: worktreeId, name: name, entry: server.entry, project: shared))
+            let sheet = AddonSheet(
+                app: app, worktreeId: worktreeId, project: project, items: [],
+                editing: (name, Self.json(name, entry), shared))
+            guard case .server(_, let changed, _)? = await sheet.ask() else { return }
+            await app.call(AddonsAdd(worktreeId: worktreeId, name: name, entry: changed, project: shared))
             done()
         }
     }
