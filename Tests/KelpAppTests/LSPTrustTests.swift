@@ -3,6 +3,7 @@ import Core
 import Foundation
 import Testing
 import WorkbenchKit
+import os
 
 @testable import BuiltinActivity
 @testable import BuiltinAgents
@@ -38,8 +39,16 @@ extension OneAtATime {
         #expect(!lsp.asks(root, rust) && lsp.restricts(root, rust))   // put off: "Restricted" alone says it
         #expect(!lsp.askTrust(root, again: true) {})   // Format asks again
         #expect(lsp.asks(root, rust))
+        let followed = OSAllocatedUnfairLock(initialState: false)
+        withObservationTracking {
+            _ = lsp.asks(root, rust)
+        } onChange: {
+            followed.withLock { $0 = true }
+        }
         await lsp.trust(root)   // the banner's "Trust and Start"
         #expect(started == 2 && lsp.trusted(root))
+        #expect(followed.withLock { $0 } && !lsp.asks(root, rust))   // the bar that asked goes: it stayed, as if nothing was done
+        #expect(lsp.summary(root, rust) == nil)   // no server asked for yet: the status bar names none
         #expect(lsp.whenTrusted(root) { started += 1 } && started == 2)   // trusted from now on: no waiting
         #expect(!lsp.trusted(Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
     }

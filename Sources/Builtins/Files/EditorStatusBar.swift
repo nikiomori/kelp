@@ -16,6 +16,9 @@ final class EditorStatusBar: NSView {
     /// "Restricted" while the project isn't trusted to run its language server or formatter, as VS Code's Restricted Mode
     /// says: the banner that asked is long gone, this stays. A click offers Trust.
     private let restricted = PointerButton()
+    /// The file's language servers by name, or that none is installed: a click lists each, with how to install one.
+    private let servers = PointerButton()
+    var serversMenu: (() -> NSMenu)?
     private let row = NSStackView()
     var onTrust: (() -> Void)?
     /// How many problems the file has: a click lists those of every open file.
@@ -69,6 +72,13 @@ final class EditorStatusBar: NSView {
         restricted.toolTip = String(
             localized: "Language servers and formatters don't run in this project until you trust it")
         restricted.onClick = { [weak self] in self?.offerTrust() }
+        servers.font = .ui(TextSize.caption)
+        servers.padding = Metrics.gap
+        servers.isHidden = true
+        servers.onClick = { [weak self] in
+            guard let self, let menu = serversMenu?() else { return }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: servers.bounds.height + 2), in: servers)
+        }
         problems.font = .ui(TextSize.caption)
         problems.padding = Metrics.gap
         problems.isHidden = true
@@ -77,7 +87,7 @@ final class EditorStatusBar: NSView {
         problem.textColor = .secondaryLabelColor
         problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
-        row.setViews([kind, place, problems, problem, NSView(), restricted, wrap, indentButton], in: .leading)
+        row.setViews([kind, place, problems, problem, NSView(), restricted, servers, wrap, indentButton], in: .leading)
         row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox()
@@ -100,6 +110,11 @@ final class EditorStatusBar: NSView {
     }
 
     func show(restricted on: Bool) { restricted.isHidden = !on }
+    func show(servers summary: ServerSummary?) {
+        servers.isHidden = summary == nil
+        servers.title = summary?.title ?? ""
+        servers.contentTintColor = summary?.missing == true ? .textOrange : nil
+    }
     /// A Markdown file's Edit, Split, Preview, last in the bar.
     func show(modes: NSControl) {
         modes.controlSize = .mini

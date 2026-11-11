@@ -54,6 +54,13 @@ extension CodeEditor {
         {
             showCompletions()
         }
+        // A word begun, with a language server to ask: once per word, the list narrows by itself after.
+        if completionProvider != nil, completion.completing == nil, key.count == 1,
+            key.unicodeScalars.allSatisfy({ CharacterSet.letters.contains($0) || $0 == "_" }),
+            Self.word(at: cursor, in: before).location == cursor - 1
+        {
+            showCompletions()
+        }
         if key == ")" {
             hover.signatureCard?.close()
         } else if key == "(" || key == "," || hover.signatureCard?.isShown == true {

@@ -237,6 +237,7 @@ final class FileTab: SavableTab {
         } changed: { [weak bar] in
             bar?.show(restricted: $0)
         }
+        nameServers(in: bar)
         let filePath = path
         version.key = filePath
         track(owner: self) { [app] in

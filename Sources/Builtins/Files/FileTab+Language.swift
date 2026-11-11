@@ -42,6 +42,17 @@ extension FileTab {
         }
     }
 
+    /// The status bar names the file's language servers, and lists them with how to install one that's missing.
+    func nameServers(in bar: EditorStatusBar) {
+        let app = app
+        bar.serversMenu = { [weak self] in LSPManager.of(app).serversMenu(self?.language) }
+        track(owner: self) { [weak self] in
+            self.flatMap { LSPManager.of(app).summary($0.root, $0.language) }
+        } changed: { [weak bar] in
+            bar?.show(servers: $0)
+        }
+    }
+
     /// LSP: definition of the symbol at the cursor, opened as a tab.
     func jumpToDefinition() {
         guard let editor, let (line, column) = editor.cursor else { return }

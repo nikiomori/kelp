@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import TestSupport
 import Testing
+import os
 
 @testable import EditorKit
 @testable import KelpKit
@@ -277,6 +278,24 @@ extension OneAtATime {
         tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
         #expect(e.text == "obj.name()")
         #expect(e.completion.list?.isOpen == false)
+    }
+
+    /// A word begun asks the server by itself, once: the letters after it narrow what came.
+    @Test func aWordBegunOpensTheCompletionList() async throws {
+        let (e, tv) = editor("", selecting: [NSRange(location: 0, length: 0)])
+        let asked = OSAllocatedUnfairLock(initialState: 0)
+        e.completionProvider = { _, _ in
+            asked.withLock { $0 += 1 }
+            return [.init(label: "print", insert: "print"), .init(label: "private", insert: "private")]
+        }
+        for key in ["p", "r"] { tv.insertText(key, replacementRange: NSRange(location: NSNotFound, length: 0)) }
+        #expect(try await waitFor(5) { e.completion.list?.isOpen == true })
+        tv.insertText("in", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(e.completion.list?.items.map(\.label) == ["print"])
+        #expect(asked.withLock { $0 } == 1)
+        e.closeCompletions()
+        tv.insertText(" 1", replacementRange: NSRange(location: NSNotFound, length: 0))   // a number isn't a name
+        #expect(asked.withLock { $0 } == 1)
     }
 
     /// Esc closes it, the cursor leaving the word too, and keys go back to the text.

@@ -31,7 +31,11 @@ final class LSPManager {
     /// Projects whose language servers may run (the daemon's UI state: one list per KELP_HOME).
     static let trustKey = LSPOpen.trustKey
     /// The scratch workspace too is asked about once: something cloned into it is someone else's code like any other.
-    func trusted(_ root: String) -> Bool { app.uiState.strings(Self.trustKey).contains(root) }
+    func trusted(_ root: String) -> Bool {
+        justTrusted.contains(root) || app.uiState.strings(Self.trustKey).contains(root)
+    }
+    /// Trusted this run: what a tab's bar and its "Restricted" follow (`UIState` isn't observed).
+    private var justTrusted: Set<String> = []
     /// The project isn't trusted to run code, and a file of `language` has a language server or a formatter that would.
     func restricts(_ root: String, _ language: LanguageSpec?) -> Bool {
         guard let lang = language else { return false }
@@ -71,7 +75,23 @@ final class LSPManager {
                     Self.trustKey, .array((app.uiState.strings(Self.trustKey) + [root]).map(JSONValue.string)))
             else { return }
         }
+        justTrusted.insert(root)
         (waiting.removeValue(forKey: root) ?? []).forEach { $0() }
+    }
+
+    /// What the daemon said of a server command when a file was last given to it: installed, or not.
+    private(set) var installed: [String: Bool] = [:]
+
+    /// What a file's status bar says of its servers: those that took the file, by name, or that none is installed.
+    /// `missing`: one the language needs isn't. Nil while there's nothing to say (none, servers off, not trusted yet).
+    func summary(_ root: String, _ language: LanguageSpec?) -> ServerSummary? {
+        guard enabled(), let all = language?.allServers, trusted(root) else { return nil }
+        let up = all.filter { installed[$0.command] == true }.map(Self.name)
+        let absent = all.filter { installed[$0.command] == false }
+        guard !up.isEmpty || !absent.isEmpty else { return nil }
+        return ServerSummary(
+            title: up.isEmpty ? String(localized: "No Language Server") : up.joined(separator: ", "),
+            missing: absent.contains { $0.optional != true })
     }
 
     /// Gives a file a tab shows to its servers, which the daemon starts when they aren't running. False when there's
@@ -92,12 +112,15 @@ final class LSPManager {
                         root: root, path: path, languageId: lang.id, command: server.command, args: server.args,
                         text: text, rank: order, options: server.options, settings: server.settings))
                 opened = true
+                installed[server.command] = true
             } catch {
                 switch LSPRefusal(error) {
                 case .untrusted?:   // the daemon doesn't have it as trusted (another copy of Kelp recorded it)
                     _ = askTrust(root, retry)
                     return false
-                case .notInstalled?: if server.optional != true { reportMissing(server) }
+                case .notInstalled?:
+                    installed[server.command] = false
+                    if server.optional != true { reportMissing(server) }
                 case nil: break   // no daemon now: a reconnect opens it again
                 }
             }
@@ -138,17 +161,43 @@ final class LSPManager {
     /// Once per command and launch; the button runs the language's `install` in a terminal tab.
     private func reportMissing(_ server: LanguageSpec.Server) {
         guard reported.insert(server.command).inserted else { return }
-        let name = server.command, app = app
-        var install: (String, @MainActor @Sendable () -> Void)?
-        if let cmd = server.install {
-            install = (
-                String(localized: "Install"),
-                {
-                    if let workspace = app.workbench.workspaceId { app.workbench.show(workspace: workspace) }   // a page on screen gives way to it
-                    app.workbench.starter?.run(command: cmd, title: String(localized: "Install \(name)"))
-                }
-            )
+        let install = server.install.map { _ in
+            (String(localized: "Install"), { @MainActor @Sendable [weak self] in self?.install(server) ?? () })
         }
-        Banner.show(String(localized: "Language server \(name) isn't installed."), action: install)
+        Banner.show(String(localized: "Language server \(server.command) isn't installed."), action: install)
+    }
+
+    /// The language's `install` for it, in a terminal tab.
+    func install(_ server: LanguageSpec.Server) {
+        guard let cmd = server.install else { return }
+        if let workspace = app.workbench.workspaceId { app.workbench.show(workspace: workspace) }   // a page on screen gives way to it
+        app.workbench.starter?.run(command: cmd, title: String(localized: "Install \(server.command)"))
+    }
+}
+
+/// A file's language servers as its status bar names them.
+struct ServerSummary: Equatable {
+    var title: String, missing: Bool
+}
+
+extension LSPManager {
+    /// What a server is called: its program, not the `xcrun` that finds it.
+    static func name(_ server: LanguageSpec.Server) -> String {
+        server.command == "xcrun" ? server.args?.first ?? server.command : server.command
+    }
+
+    /// Each of the language's servers the daemon was asked for: running, or how to install it.
+    func serversMenu(_ language: LanguageSpec?) -> NSMenu {
+        let menu = NSMenu()
+        for server in language?.allServers ?? [] {
+            switch installed[server.command] {
+            case true?: menu.add(Self.name(server)) {}.state = .on
+            case false? where server.install != nil:
+                menu.add(String(localized: "Install \(Self.name(server))…")) { [weak self] in self?.install(server) }
+            case false?: menu.add(String(localized: "\(Self.name(server)) isn't installed")) {}.isEnabled = false
+            case nil: break
+            }
+        }
+        return menu
     }
 }
