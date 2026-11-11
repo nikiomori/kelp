@@ -346,7 +346,9 @@ app runs calls Kelp as the user. Agents, `kelpd`, `unknown` and
 reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
 `Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, `AgentRules.reads` aside,
-and one named another way, by the window or a path, says so with `inWorkspace`), make workspaces only in the project
+and one named another way, by the window, a path or a tab's address (`db:<workspace>/…`, `diff:<workspace>`), says so
+with `inWorkspace`), open web pages only with cookies of their own (`kelp browser open`; a plain page tab is the
+user's, logged in, and `kelp shot` would see it), make workspaces only in the project
 they work in (`makesInProject`), run only the app's commands that show something (`UICommand.forAgents`, ids no extension may take), start
 sessions only under their own account (`profile`), set no setting of the
 user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, until what

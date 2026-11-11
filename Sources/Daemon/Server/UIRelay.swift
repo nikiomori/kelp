@@ -21,8 +21,15 @@ extension UIOpen: Handled {
     /// Its scheme as the app reads it (`TabURI.scheme`: any case), not as it's spelled: `TERMINAL:` runs a command too.
     private var scheme: String { uri.firstIndex(of: ":").map { uri[..<$0].lowercased() } ?? "file" }
     var notForAgents: String? {
-        ["terminal", "agent"].contains(scheme)
-            ? "An agent starts terminals and agents with `kelp session new`, which keeps them its own." : nil
+        if ["terminal", "agent"].contains(scheme) {
+            return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
+        }
+        // A plain page tab has the user's cookies (and `kelp shot` sees it): an agent's page has its own.
+        if ["http", "https"].contains(scheme) {
+            return "A page tab opened this way is logged in as the user: open it with `kelp browser open <url>`, "
+                + "which gives it cookies of its own."
+        }
+        return nil
     }
     /// A session's tab shows its screen, a subagent's its journal: an agent's own, or one it started (`named(by:)` sees
     /// bare ids only).
@@ -30,7 +37,14 @@ extension UIOpen: Handled {
         guard ["session", "subagent"].contains(scheme) else { return nil }
         return String(uri.drop { $0 != ":" }.dropFirst().prefix { $0.isHexDigit || $0 == "-" })
     }
-    var inWorkspace: String? { worktreeId }   // none named: the one on screen, where it shows a file or a page
+    /// The workspace a tab of one names in its body (`db:<workspace>/<name>`, `diff:<workspace>?…`): the app opens it as
+    /// the user, so it's held as that field would be. Else `worktreeId` (none named: the one on screen, where it shows a
+    /// file or a page).
+    var inWorkspace: String? {
+        let lead = uri.drop { $0 != ":" }.dropFirst().prefix { $0.isHexDigit || $0 == "-" }
+        let named = shows == nil && UUID(uuidString: String(lead)) != nil ? String(lead) : nil
+        return named ?? worktreeId
+    }
     func handle(_ clients: Clients) throws -> Delivered {
         if let split, split != "right", split != "down" {
             throw RPCError.invalidParams("split must be \"right\" or \"down\"")
