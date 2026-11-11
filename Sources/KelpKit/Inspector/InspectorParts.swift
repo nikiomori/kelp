@@ -27,21 +27,24 @@ final class InspectorView: NSView {
 }
 
 extension InspectorController {
-    /// macOS 26: the row in a glass capsule (the capsule's own fill off); earlier, the row's soft fill alone.
+    /// macOS 26: the row on a glass capsule (the capsule's own fill off); earlier, the row's soft fill alone. The glass
+    /// sits behind the row, not around it: as its content, the row was clipped to it, and a column's count badges with it.
     static func glass(around row: CapsuleStack) -> NSView {
         guard #available(macOS 26, *) else { return row }
-        let capsule = NSGlassEffectView()
+        let bar = NSView(), capsule = NSGlassEffectView()
         capsule.cornerRadius = Metrics.segmentCapsule / 2
         row.filled = false
-        row.translatesAutoresizingMaskIntoConstraints = false
-        capsule.contentView = row
-        NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: capsule.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: capsule.trailingAnchor),
-            row.topAnchor.constraint(equalTo: capsule.topAnchor),
-            row.bottomAnchor.constraint(equalTo: capsule.bottomAnchor)
-        ])
-        return capsule
+        for v in [capsule, row] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            bar.addSubview(v)
+            NSLayoutConstraint.activate([
+                v.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+                v.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+                v.topAnchor.constraint(equalTo: bar.topAnchor),
+                v.bottomAnchor.constraint(equalTo: bar.bottomAnchor)
+            ])
+        }
+        return bar
     }
 }
 
@@ -51,6 +54,11 @@ final class CapsuleStack: NSStackView {
     var filled = true { didSet { needsDisplay = true } }
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() { layer?.backgroundColor = filled ? NSColor.fillRest.cgColor : nil }
+    /// A column's count badges hang past its edge (`PanelIcon` lets them out of the icon).
+    override var clipsToBounds: Bool {
+        get { false }
+        set {}
+    }
     override func layout() {
         super.layout()
         layer?.cornerRadius = min(bounds.width, bounds.height) / 2   // a row or a column

@@ -275,6 +275,9 @@ final class InspectorController: NSViewController {
         NSLayoutConstraint.activate([
             start,
             n.trailingAnchor.constraint(lessThanOrEqualTo: b.trailingAnchor, constant: nextGlyph - 3),
+            // In a column it hangs past the capsule's edge, into the inset, short of the window's edge.
+            n.trailingAnchor.constraint(
+                lessThanOrEqualTo: b.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
             n.centerYAnchor.constraint(equalTo: b.centerYAnchor, constant: Metrics.iconGap - half - 1)
         ])
     }
