@@ -37,6 +37,8 @@ final class ArtifactBar: NSObject {
     private var spentAt: Double?
     /// A canvas's Mark: a click on a board puts a mark on it, for the agent.
     private let mark = PointerButton()
+    /// A canvas's Edit: a click chooses an element to change by hand (its style, its text).
+    private let byHand = PointerButton()
     /// A canvas's Present: its boards one at a time, as large as the pane (a deck's slides).
     private let present = PointerButton()
     private var issues: [String] = []
@@ -89,10 +91,17 @@ final class ArtifactBar: NSObject {
         mark.font = .ui(TextSize.row)
         mark.padding = Metrics.gap
         mark.restFill = .fillRest
-        mark.title = String(localized: "Mark")
         mark.toolTip = String(localized: "Click elements on the boards to mark them, then send your notes to the agent")
         mark.isHidden = markdown.page != .canvas
         mark.onClick = { [weak self] in self?.toggleMarking() }
+        byHand.font = .ui(TextSize.row)
+        byHand.padding = Metrics.gap
+        byHand.restFill = .fillRest
+        byHand.toolTip = String(
+            localized: "Choose an element to change its style, or double-click its text to type over it")
+        byHand.isHidden = markdown.page != .canvas
+        byHand.onClick = { [weak self] in self?.toggleEditing() }
+        showModes()
         present.font = .ui(TextSize.row)
         present.padding = Metrics.gap
         present.restFill = .fillRest
@@ -102,7 +111,8 @@ final class ArtifactBar: NSObject {
         present.onClick = { [weak self] in self?.togglePresenting() }
         markdown.onPresentEnded = { [weak self] in self?.present.title = String(localized: "Present") }
         return Bar.content(
-            [kind, ring, status], [spent, latest, restore, present, mark, check, back, count, forward, author, more],
+            [kind, ring, status],
+            [spent, latest, restore, present, byHand, mark, check, back, count, forward, author, more],
             stretching: status
         )
     }()
@@ -284,7 +294,18 @@ final class ArtifactBar: NSObject {
 
     private func toggleMarking() {
         markdown.toggleMarking()
+        showModes()
+    }
+
+    private func toggleEditing() {
+        markdown.toggleEditing()
+        showModes()
+    }
+
+    /// Mark and Edit take turns: each says whether it's on.
+    private func showModes() {
         mark.title = markdown.marking ? String(localized: "Done Marking") : String(localized: "Mark")
+        byHand.title = markdown.editing ? String(localized: "Done Editing") : String(localized: "Edit")
     }
 
     private func showCheck() {

@@ -43,7 +43,8 @@ extension Artifacts {
                page: the user sees it beside you.
             4. Answer in two lines: what is on the canvas, what you assumed. The user's marks arrive as
                `Marks on <canvas>: boards/A.html 1 [data-id=title] «Welcome»: bigger | …`: edit those elements in
-               place, never rewrite a board. `Picked “A. …”` means: build that row out, drop the others from
+               place, never rewrite a board; the user may have changed a board by hand (its text, a style), so read
+               it again first. `Picked “A. …”` means: build that row out, drop the others from
                canvas.json.
 
             Before the first board, read `kelp artifact guide design craft` (once a session). In short: real content,

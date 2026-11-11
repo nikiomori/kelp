@@ -84,10 +84,12 @@ enum CanvasEdit {
           const frames = [...document.querySelectorAll('iframe[data-board]')];
           const light = b => frames.find(f => f.dataset.board === b && f.dataset.theme !== 'dark')
             || frames.find(f => f.dataset.board === b);
-          let marking = false;
-          window.kelpMark = on => {
-            marking = on; outline.style.display = 'none'; sheet.style.display = on ? 'block' : 'none';
+          // What a click on a board does: mark it (Mark), choose it for the properties panel (Edit), or nothing.
+          let mode = null;
+          const setMode = m => {
+            mode = m; outline.style.display = 'none'; sheet.style.display = m ? 'block' : 'none';
           };
+          window.kelpMark = on => setMode(on ? 'mark' : mode === 'mark' ? null : mode);
           const pointed = e => e.closest('[data-id]') || e;
           const describe = e => {
             const d = e.closest('[data-id]');
@@ -138,28 +140,29 @@ enum CanvasEdit {
               card.append(send);
             }
           }
-          function under(e) {
+          function under(e, raw) {
             for (const f of frames) {
               const r = f.getBoundingClientRect(), k = r.width / f.offsetWidth, doc = f.contentDocument;
               const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
               if (!doc || outside) continue;
               const hit = doc.elementFromPoint((e.clientX - r.left) / k, (e.clientY - r.top) / k);
-              return hit && hit !== doc.documentElement && hit !== doc.body ? { f, e: pointed(hit) } : null;
+              return hit && hit !== doc.documentElement && hit !== doc.body ? { f, e: raw ? hit : pointed(hit) } : null;
             }
             return null;
           }
           sheet.addEventListener('mousemove', e => {
-            const at = under(e);
+            const at = under(e, mode === 'edit');
             outline.style.display = at ? 'block' : 'none';
             if (at) place(outline, box(at.f, at.e));
           });
           sheet.addEventListener('click', e => {
-            const at = under(e); if (!at) return;
+            const at = mode === 'mark' && under(e); if (!at) return;
             marks.push(Object.assign({ board: at.f.dataset.board, note: '' }, describe(at.e)));
             keep(); draw();
             const inputs = card.querySelectorAll('input'); inputs[inputs.length - 1]?.focus();
           });
           for (const f of frames) f.addEventListener('load', draw);
+          window.kelpCanvas = { frames, light, box, place, el, post, sheet, layer, under, setMode, mode: () => mode };
           for (const h of document.querySelectorAll('.row h2')) {
             const b = el('button', 'kelp-pick', L.pick);
             b.onclick = () => post({ kind: 'pick', row: h.firstChild.textContent });

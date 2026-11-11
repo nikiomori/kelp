@@ -113,7 +113,7 @@ public enum DesignSystem {
         return (light.joined(separator: " "), dark.joined(separator: " "))
     }
 
-    private static func isName(_ s: String) -> Bool {
+    static func isName(_ s: String) -> Bool {
         !s.isEmpty && s.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
     private static func isValue(_ s: String) -> Bool { !s.contains(where: { ";{}<\n".contains($0) }) }

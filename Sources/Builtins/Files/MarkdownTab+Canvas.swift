@@ -47,6 +47,18 @@ extension MarkdownTab {
             send(
                 "Picked “\(row)” on \(Artifacts.projectPath(url.path)): build it out in full; take the other rows off "
                     + "canvas.json, keeping their files.", keep: nil)
+        case "selected":
+            chosen = (body["board"] as? String).flatMap { board in (body["id"] as? String).map { (board, $0) } }
+        case "text":
+            guard let board = body["board"] as? String, let old = body["old"] as? String,
+                let text = body["text"] as? String
+            else { return true }
+            rewrite(board) { BoardEdit.setText($0, id: body["id"] as? String, old: old, new: text) }
+        case "style":
+            guard let board = body["board"] as? String, let id = body["id"] as? String,
+                let property = body["property"] as? String
+            else { return true }
+            rewrite(board) { BoardEdit.setStyle($0, id: id, property: property, value: body["value"] as? String) }
         case "present":
             presentingBoards = false
             onPresentEnded?()
@@ -54,7 +66,7 @@ extension MarkdownTab {
             guard let board = body["board"] as? String, let name = body["name"] as? String,
                 let value = body["value"] as? String
             else { return true }
-            setTweak(board: board, name: name, value: value)
+            rewrite(board) { Tweak.set(name, to: value, in: $0) }
         default: return false
         }
         return true
@@ -71,6 +83,11 @@ extension MarkdownTab {
     /// Mark in the bar: a click on a board puts a mark on it.
     func toggleMarking() {
         marking.toggle()
+        if marking, editing {
+            editing = false
+            chosen = nil
+            runJS("kelpEdit(false)")
+        }
         runJS("kelpMark(\(marking))")
     }
 
@@ -107,15 +124,44 @@ extension MarkdownTab {
         Task { await app.call(SessionSend(id: author.id, text: line, enter: true)) }
     }
 
-    /// A tweak moved on the canvas: its line in the board's file says the new value (unless the board changed since).
-    private func setTweak(board: String, name: String, value: String) {
+    /// A board's file changed by hand (a tweak, a style, a text), unless it changed since the page was drawn: then the
+    /// edit can't be placed for sure, and the canvas draws again from the file.
+    private func rewrite(_ board: String, _ change: @escaping (String) -> String?) {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         Task {
-            guard let file = await app.call(FilesRead(path: path)),
-                let text = Tweak.set(name, to: value, in: file.text)
-            else { return }
+            guard let file = await app.call(FilesRead(path: path)) else { return }
+            guard let text = change(file.text) else {
+                Banner.show(String(localized: "Couldn't find that element in \(board) as it is now: drawn again."))
+                return rerender()
+            }
             await app.call(FilesWrite(path: path, text: text, base: file.stamp))
         }
+    }
+
+    /// Edit in the bar: a click chooses an element to change by hand. Mark and Edit take turns.
+    func toggleEditing() {
+        editing.toggle()
+        if editing, marking {
+            marking = false
+            runJS("kelpMark(false)")
+        }
+        if !editing { chosen = nil }
+        runJS("kelpEdit(\(editing))")
+    }
+
+    var canvasEditLabels: CanvasEditMode.Labels {
+        CanvasEditMode.Labels(
+            parent: String(localized: "Parent"), none: String(localized: "As drawn"),
+            noID: String(localized: "This element has no data-id: mark it and ask the agent to give it one."),
+            typeHint: String(localized: "Double-click it to change its text."))
+    }
+
+    /// What's turned on again once the canvas is drawn again: marking or editing, and the element chosen.
+    var canvasModeScripts: [String] {
+        if marking { return ["kelpMark(true)"] }
+        guard editing else { return [] }
+        let select = chosen.map { "kelpSelect(\(Self.jsString($0.board)), \(Self.jsString($0.id)))" }
+        return ["kelpEdit(true)"] + (select.map { [$0] } ?? [])
     }
 
     /// An older version of the canvas made the files again: each of its boards, then the canvas.

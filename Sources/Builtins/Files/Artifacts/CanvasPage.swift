@@ -17,6 +17,8 @@ enum CanvasPage {
         /// Each board's tweaks, and the marks not sent yet (`CanvasEdit`).
         var tweaks: [String: [Tweak]] = [:]
         var marks: [CanvasMark] = []
+        /// The design system's token names by group: the properties panel's choices (`CanvasEditMode`).
+        var tokens: [String: [String]] = [:]
     }
 
     /// The page for `snapshot` (the canvas and its boards' text), with the design system from `root` and the marks from
@@ -27,7 +29,8 @@ enum CanvasPage {
     ) -> Built {
         let json = snapshot.canvas
         let system = DesignSystem.dir(root: root)
-        let tokens = DesignSystem.css(tokens: read(system.appendingPathComponent("tokens.json")) ?? "")
+        let tokensJSON = read(system.appendingPathComponent("tokens.json")) ?? ""
+        let tokens = DesignSystem.css(tokens: tokensJSON)
         let kit = read(system.appendingPathComponent("kit.css")) ?? ""
         let hasSystem = !kit.isEmpty || !tokens.light.isEmpty
         var issues: [String] = [], tweaks: [String: [Tweak]] = [:]
@@ -69,7 +72,7 @@ enum CanvasPage {
         let marks = CanvasMark.read(Artifacts.small(folder.appendingPathComponent(CanvasMark.file).path))
         return Built(
             html: shell(ground, body: "<div id=\"kelp-canvas\">\(body)</div>"), issues: issues, tweaks: tweaks,
-            marks: marks)
+            marks: marks, tokens: DesignSystem.names(tokens: tokensJSON))
     }
 
     /// A board's own page: `vars` (the system's tokens for its theme, then its tweaks), the kit, then the fragment.
@@ -133,6 +136,7 @@ enum CanvasPage {
             iframe[data-theme="dark"] { background: #1c1c1e; }
             .note { padding: 24px; opacity: 0.6; font-size: 13px; }
             \(CanvasEdit.style)
+            \(CanvasEditMode.style)
             </style></head><body>\(body)</body></html>
             """
     }

@@ -73,6 +73,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// A canvas: whether a click on a board puts a mark on it (Mark in the bar), whether it's being presented, and who
     /// hears that the presenting ended (Esc on the page).
     var marking = false, presentingBoards = false
+    /// A canvas: whether a click chooses an element to change by hand (Edit in the bar), and the one chosen (its board
+    /// and data-id), chosen again once the canvas is drawn again.
+    var editing = false
+    var chosen: (board: String, id: String)?
     var onPresentEnded: (() -> Void)?
     /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
     private(set) var shownVersion: String?
@@ -345,6 +349,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 page = (colors.background.hexString, colors.text.hexString)
             }
             let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, marking = marking
+            let editLabels = canvasEditLabels, again = canvasModeScripts
             let themes = CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
             // A page of HTML (a design, a dashboard) may be a cloned repository's: its own scripts don't run (`PreviewLinks`),
             // Kelp's do, beside it.
@@ -360,10 +365,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                         ground: page
                     )
                     let edit = CanvasEdit.source(marks: built.marks, tweaks: built.tweaks, labels: labels)
-                    return (
-                        built.html,
-                        [CanvasScript.source(issues: built.issues), edit] + (marking ? ["kelpMark(true)"] : [])
-                    )
+                    let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
+                    return (built.html, [CanvasScript.source(issues: built.issues), edit, byHand] + again)
                 }
                 if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
