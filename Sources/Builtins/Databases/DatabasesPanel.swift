@@ -44,6 +44,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
     /// The folded group a drag rests on, and since when: it opens after a moment, as a folder does in Finder.
     var springGroup: (name: String, since: Date)?
+    /// The colour under the pointer in a row's menu, shown on the row until the menu closes.
+    var colorPreview: (name: String, group: Bool, color: ProjectColor?)? { didSet { table.reloadData() } }
     private var health: [String: DatabaseHealth] = [:]
     /// All My Databases' dots, read once the section is open.
     private var libraryHealth: [String: DatabaseHealth] = [:], libraryCheckedFor: [String] = []
@@ -289,11 +291,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .database(let db, let library):
             parts.database(
                 db, library: library, health: library ? libraryHealth[db.name] : health[db.name],
-                indent: library && db.groupName != nil)
+                indent: library && db.groupName != nil, color: color(of: db.name, group: false))
         case .problem(let db, let checked):
             parts.problem(db, checked, indent: rows[row - 1].inGroup)
         case .hint: parts.hint()
-        case .group(let name, let count): parts.group(name, count: count, open: !folded.contains(name))
+        case .group(let name, let count):
+            parts.group(name, count: count, open: !folded.contains(name), color: color(of: name, group: true))
         case .run(let run): parts.ran(run)
         }
     }
@@ -389,6 +392,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     // MARK: Menu
 
+    func menuDidClose(_ menu: NSMenu) { if colorPreview != nil { colorPreview = nil } }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let app = app, wid = workspace
@@ -413,7 +418,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             let picked = pickedLibrary(around: table.clickedRow)
             if picked.count > 1 { return fillMany(menu, picked) }
             DatabaseMenu.fill(menu, db, app: app, worktreeId: wid, library: library) { [weak self] in
-                self?.addGroupItems($0, [db])
+                if library { self?.addGroupItems($0, [db]) }
+                self?.addColorItem($0, db.name, group: false)
             }
         case .group(let name, _): fillGroup(menu, name)
         case .asks(let run), .run(let run):

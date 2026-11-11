@@ -50,8 +50,12 @@ struct DatabasePanelRows {
     /// The engine's mark with its dot, the name over "host : database", the environment at the right edge (a column
     /// down the list, not a mark in each name), a key while its password waits, what agents may do; one of All My
     /// Databases offers Use Here while the pointer is over it.
-    func database(_ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, indent: Bool = false) -> NSView {
-        var first: [NSView] = [label(Self.shownName(db), font: .ui(TextSize.row, weight: .medium)), NSView()]
+    func database(
+        _ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, indent: Bool = false, color: ProjectColor? = nil
+    ) -> NSView {
+        let name = label(
+            Self.shownName(db), font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
+        var first: [NSView] = [name, NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
             key.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -121,10 +125,11 @@ struct DatabasePanelRows {
     }
 
     /// A group of All My Databases: chevron, folder, name, how many.
-    func group(_ name: String, count: Int, open: Bool) -> NSView {
-        let folder = NSImageView(image: .symbol("folder"))
+    /// A coloured group's folder is filled with its colour, as Finder's tagged folders.
+    func group(_ name: String, count: Int, open: Bool, color: ProjectColor? = nil) -> NSView {
+        let folder = NSImageView(image: .symbol(color == nil ? "folder" : "folder.fill"))
         folder.symbolConfiguration = .chrome(Metrics.iconSmall)
-        folder.contentTintColor = .secondaryLabelColor
+        folder.contentTintColor = color?.color ?? .secondaryLabelColor
         let title = label(name, font: .ui(TextSize.row))
         return line(
             [chevron(open), folder, title, NSView(), digits(count)], inset: Metrics.inset,

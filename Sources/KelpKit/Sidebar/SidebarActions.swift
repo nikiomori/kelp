@@ -242,25 +242,11 @@ extension SidebarController {
 
     private func colorItem(_ menu: NSMenu, _ id: String) {
         let app = self.app, now = app.arrangement.projectColors[id]
-        func pick(_ color: ProjectColor?) { app.arrangement.projectColors[id] = color }
-        guard NSWorkspace.shared.isVoiceOverEnabled || NSApp.isFullKeyboardAccessEnabled else {
-            let row = menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: "")
-            let arrangement = app.arrangement
-            row.view = ColorSwatches(
-                chosen: now, previewing: { arrangement.colorPreview = (id, $0) },
-                left: { arrangement.colorPreview = nil }, pick: pick)
-            return
-        }
-        let shades = NSMenu()
-        shades.add(String(localized: "None")) { pick(nil) }.state = now == nil ? .on : .off
-        shades.addItem(.separator())
-        for color in ProjectColor.allCases {
-            let item = shades.add(color.title) { pick(color) }
-            item.show(color.dot)
-            item.state = now == color ? .on : .off
-        }
-        menu.setSubmenu(
-            shades, for: menu.addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
+        let arrangement = app.arrangement
+        menu.addColor(
+            chosen: now, previewing: { arrangement.colorPreview = (id, $0) },
+            left: { arrangement.colorPreview = nil }
+        ) { arrangement.projectColors[id] = $0 }
     }
 
     /// Mute Notifications ▸ for how long, or Unmute once these are. A new mute goes on the first: the row itself.

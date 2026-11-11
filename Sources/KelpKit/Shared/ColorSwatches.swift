@@ -66,6 +66,32 @@ final class ColorSwatches: NSView {
     override func rightMouseUp(with event: NSEvent) { choose(index(at: event)) }   // the menu came with a right-click, held and let go here
 }
 
+@MainActor
+extension NSMenu {
+    /// Color in a menu: this row of dots, or a submenu of names where VoiceOver or Full Keyboard Access is on (a view
+    /// in a menu takes no keys).
+    package func addColor(
+        chosen: ProjectColor?, previewing: @escaping (ProjectColor?) -> Void = { _ in },
+        left: @escaping () -> Void = {}, pick: @escaping (ProjectColor?) -> Void
+    ) {
+        guard NSWorkspace.shared.isVoiceOverEnabled || NSApp.isFullKeyboardAccessEnabled else {
+            let row = addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: "")
+            row.view = ColorSwatches(chosen: chosen, previewing: previewing, left: left, pick: pick)
+            return
+        }
+        let shades = NSMenu()
+        shades.add(String(localized: "None")) { pick(nil) }.state = chosen == nil ? .on : .off
+        shades.addItem(.separator())
+        for color in ProjectColor.allCases {
+            let item = shades.add(color.title) { pick(color) }
+            item.show(color.dot)
+            item.state = chosen == color ? .on : .off
+        }
+        setSubmenu(
+            shades, for: addItem(withTitle: String(localized: "Color"), action: nil, keyEquivalent: ""))
+    }
+}
+
 /// One dot: under the pointer it grows with a little spring and glows in its own colour. nil is None: an empty ring with
 /// a stroke through it. A layer of its own, so it scales about its centre.
 @MainActor

@@ -4,7 +4,7 @@ import DesignKit
 
 /// The colours a project can be given in its row's menu: `IconTile`'s own hues and two more, none of them orange or red,
 /// which beside a row's marks mean asking and failed. Kept by name in UIState; one a later build dropped reads as none.
-enum ProjectColor: String, CaseIterable {
+package enum ProjectColor: String, CaseIterable {
     case blue, indigo, purple, pink, teal, yellow, brown
 
     static let key = "sidebar.colors"
@@ -22,7 +22,7 @@ enum ProjectColor: String, CaseIterable {
     }
 
     /// As text or a mark: ≥ 4.5:1 on the sidebar's window ground in light, 3.5–4.7:1 in dark, as the tiles' letters are.
-    var color: NSColor { .dynamic(light: hue.ink(false), dark: hue.ink(true)) }
+    package var color: NSColor { .dynamic(light: hue.ink(false), dark: hue.ink(true)) }
 
     /// One shade for both appearances, between the two: a view's shadow keeps the colour it was set with.
     var glow: NSColor { hue.ink(true).blended(withFraction: 0.5, of: hue.ink(false)) ?? hue.ink(true) }
@@ -52,10 +52,10 @@ enum ProjectColor: String, CaseIterable {
     }
 
     /// As `uiState` keeps them: id → name.
-    static func value(_ colors: [String: ProjectColor]) -> JSONValue {
+    package static func value(_ colors: [String: ProjectColor]) -> JSONValue {
         .object(colors.mapValues { .string($0.rawValue) })
     }
-    static func read(_ json: JSONValue?) -> [String: ProjectColor] {
+    package static func read(_ json: JSONValue?) -> [String: ProjectColor] {
         guard case .object(let object)? = json else { return [:] }
         return object.compactMapValues { $0.string.flatMap(ProjectColor.init) }
     }

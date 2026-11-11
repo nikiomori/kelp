@@ -241,12 +241,49 @@ extension DatabasesPanel {
                 let named = await prompt(String(localized: "Rename Group"), "", initial: name)
                 guard let new = named?.trimmingCharacters(in: .whitespaces), !new.isEmpty, new != name else { return }
                 if self?.folded.remove(name) != nil { self?.folded.insert(new) }
+                if let color = self?.color(of: name, group: true) {
+                    self?.setColor(nil, of: name, group: true)
+                    self?.setColor(color, of: new, group: true)
+                }
                 self?.move(members, to: new)
             }
         }
-        menu.add(String(localized: "Ungroup")) { [weak self] in self?.move(members, to: nil) }
+        menu.add(String(localized: "Ungroup")) { [weak self] in
+            self?.setColor(nil, of: name, group: true)
+            self?.move(members, to: nil)
+        }
+        addColorItem(menu, name, group: true)
         menu.addItem(.separator())
         menu.add(String(localized: "Use All in \(project)")) { [weak self] in self?.use(members) }
+    }
+
+    // MARK: Colors
+
+    /// Colours picked in a row's menu, as a project's in the sidebar: databases' and groups' by name, in UIState.
+    private static func colorsKey(group: Bool) -> String { group ? "databases.groupColors" : "databases.colors" }
+
+    /// Its colour, or the one previewed under the pointer in its menu.
+    func color(of name: String, group: Bool) -> ProjectColor? {
+        if let preview = colorPreview, preview.name == name, preview.group == group { return preview.color }
+        return ProjectColor.read(app.uiState[Self.colorsKey(group: group)])[name]
+    }
+
+    func setColor(_ color: ProjectColor?, of name: String, group: Bool) {
+        var colors = ProjectColor.read(app.uiState[Self.colorsKey(group: group)])
+        colors[name] = color
+        app.uiState[Self.colorsKey(group: group)] = ProjectColor.value(colors)
+        table.reloadData()
+    }
+
+    func addColorItem(_ menu: NSMenu, _ name: String, group: Bool) {
+        let chosen = ProjectColor.read(app.uiState[Self.colorsKey(group: group)])[name]
+        menu.addColor(
+            chosen: chosen, previewing: { [weak self] in self?.colorPreview = (name, group, $0) },
+            left: { [weak self] in self?.colorPreview = nil }
+        ) { [weak self] in
+            self?.colorPreview = nil
+            self?.setColor($0, of: name, group: group)
+        }
     }
 }
 
