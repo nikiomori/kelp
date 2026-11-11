@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Artifacts panel's rows: a heading, or a page's kind, title (bold until opened), how many of its title there are,
-/// a second line when there's news, and when it last changed, which turns into ↗ under the pointer for a page that
-/// opens in the browser.
+/// The Artifacts panel's rows: a heading, or a page's kind, title (bold until opened), Claude's mark for a page on
+/// claude.ai, how many of its title there are, a second line when there's news, and when it last changed, which turns
+/// into ↗ under the pointer for a page that opens in the browser.
 @MainActor
 struct ArtifactCells {
     let panel: ArtifactsPanel
@@ -29,6 +29,13 @@ struct ArtifactCells {
         let name = label(
             panel.title(item, project), font: .ui(TextSize.row, weight: panel.isNew(item) ? .semibold : .regular))
         var title: [NSView] = [name]
+        if item.url != nil, let logo = panel.app.catalog.icon("claude", size: Metrics.iconSmall) {
+            // A page on claude.ai, not a file here: the mark of where it lives, beside the name.
+            let mark = NSImageView(image: logo)
+            mark.toolTip = String(localized: "On claude.ai: opens in your browser")
+            mark.setContentCompressionResistancePriority(.required, for: .horizontal)
+            title.append(mark)
+        }
         if earlier > 0 {
             let more = label("\(earlier + 1)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
             more.toolTip = String(localized: "\(earlier + 1) pages of this title: the latest opens")
