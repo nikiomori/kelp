@@ -169,9 +169,7 @@ final class IOSRuntime {
         }
         state = error == nil ? .running : .error
         lastUse = now()
-        let waiting = ready
-        ready = []
-        waiting.forEach { $0(error?.localizedDescription) }
+        ready.flush(error)
     }
 
     /// The runner gone and the simulator shut down: nothing of it runs. Off from the moment it's asked: a start that

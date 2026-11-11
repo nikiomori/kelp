@@ -231,9 +231,7 @@ final class AndroidRuntime {
         }
         state = error == nil ? .running : .error
         lastUse = now()
-        let waiting = ready
-        ready = []
-        waiting.forEach { $0(error?.localizedDescription) }
+        ready.flush(error)
     }
 
     /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was. Not saved, it says

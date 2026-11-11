@@ -5,17 +5,20 @@ import Foundation
 
 extension DatabaseFind {
     /// Services of a postgres or mysql image: their published port, user, password and database from `environment`.
-    /// `KEY=value` lines (export, quotes and comments as .env files have them).
+    /// `KEY=value` lines (export, quotes and comments as .env files have them), the last of a key kept.
     static func variables(_ text: String) -> [String: String] {
-        var found: [String: String] = [:]
-        for line in text.split(whereSeparator: \.isNewline) {
+        Dictionary(pairs(text), uniquingKeysWith: { $1 })
+    }
+
+    /// The same lines in their order.
+    static func pairs(_ text: String) -> [(String, String)] {
+        text.split(whereSeparator: \.isNewline).compactMap { line in
             var line = line.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("#") { continue }
+            if line.hasPrefix("#") { return nil }
             if line.hasPrefix("export ") { line = String(line.dropFirst(7)) }
-            guard let eq = line.firstIndex(of: "=") else { continue }
-            found[line[..<eq].trimmingCharacters(in: .whitespaces)] = unquoted(String(line[line.index(after: eq)...]))
+            guard let eq = line.firstIndex(of: "=") else { return nil }
+            return (line[..<eq].trimmingCharacters(in: .whitespaces), unquoted(String(line[line.index(after: eq)...])))
         }
-        return found
     }
 
     /// `${VAR}`, `${VAR:-default}`, `${VAR-default}` and `$VAR` filled in as compose does, from `env`.

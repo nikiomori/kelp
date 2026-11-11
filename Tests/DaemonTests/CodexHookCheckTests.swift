@@ -45,7 +45,7 @@ func theInstalledCodexTrustsKelpsHooks() throws {
     // The hooks a host's Codex gets, asked of this one: the same hash for their commands.
     let host = AgentUsage.askCodex(
         path: codex, args: CodexHooks.hostArgs, method: "hooks/list",
-        params: #"{"cwds":["# + CodexHooks.quoted(NSTemporaryDirectory()) + "]}", within: 5)
+        params: #"{"cwds":["# + ShellQuote.doubleQuoted(NSTemporaryDirectory()) + "]}", within: 5)
     #expect(
         CodexHookCheck.agrees(host, events: CodexHooks.hostEvents), "\(String(describing: host).prefix(600))")
 }

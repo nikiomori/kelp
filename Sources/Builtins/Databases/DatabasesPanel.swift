@@ -330,8 +330,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     /// A database dragged onto an agent's terminal: its name and where to read it.
     static func mention(database db: String) -> String { "the database \(db) (kelp db schema --db \(quoted(db)))" }
     private static func quoted(_ word: String) -> String {
-        word.allSatisfy { $0.isLetter || $0.isNumber || "_-.".contains($0) }
-            ? word : "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        word.allSatisfy { $0.isLetter || $0.isNumber || "_-.".contains($0) } ? word : ShellQuote.word(word)
     }
 
     // MARK: Clicks

@@ -7,8 +7,10 @@ import Foundation
 /// SELECT * | count(*) | columns FROM t [WHERE …] [ORDER BY …] [LIMIT n] [OFFSET n]; INSERT INTO t (…) VALUES (…), …;
 /// UPDATE t SET … WHERE …; DELETE FROM t WHERE …. A WHERE has =, <>, <, <=, >, >=, [NOT] LIKE ('%a%', 'a%', '%a'),
 /// IS [NOT] NULL, [NOT] IN (…), [NOT] BETWEEN, AND, OR and brackets. The user's edits go in one Appwrite transaction.
-struct AppwriteWire: Sendable {
+struct AppwriteWire: DatabaseRunner {
     let c: DatabaseConnection
+    /// Its change can't be tried and taken back, so its count is only what the rows matched when asked.
+    var holdsAllowed: Bool { false }
 
     struct Endpoint {
         var base: String, project: String, key: String, database: String
@@ -41,27 +43,27 @@ struct AppwriteWire: Sendable {
     // MARK: What the server says
 
     /// "Appwrite 1.8.1": asked without the key.
-    static func version(_ c: DatabaseConnection) async throws -> String {
-        let answer = try await call(try endpoint(c), "GET", "/health/version", signed: false)
+    func version() async throws -> String? {
+        let answer = try await Self.call(try Self.endpoint(c), "GET", "/health/version", signed: false)
         return "Appwrite " + (answer["version"] as? String ?? "")
     }
 
     /// The project's databases, by ID.
-    static func databases(_ c: DatabaseConnection) async throws -> [String] {
-        let answer = try await call(
-            try endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [100]]])
+    func databases() async throws -> [String] {
+        let answer = try await Self.call(
+            try Self.endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [100]]])
         return (answer["databases"] as? [[String: Any]] ?? []).compactMap { $0["$id"] as? String }
     }
 
-    static func schema(_ c: DatabaseConnection) async throws -> DatabaseSchema {
-        let server = try await withDatabase(try endpoint(c))
+    func schema() async throws -> DatabaseSchema {
+        let server = try await Self.withDatabase(try Self.endpoint(c))
         var tables: [DatabaseSchema.Table] = []
         while true {
-            let answer = try await call(
-                server, "GET", "/tablesdb/\(path(server.database))/tables",
+            let answer = try await Self.call(
+                server, "GET", "/tablesdb/\(Self.path(server.database))/tables",
                 queries: [["method": "limit", "values": [100]], ["method": "offset", "values": [tables.count]]])
             let page = answer["tables"] as? [[String: Any]] ?? []
-            tables += page.map(table)
+            tables += page.map(Self.table)
             if page.isEmpty || tables.count >= answer["total"] as? Int ?? 0 { break }
         }
         return DatabaseSchema(tables: tables)
@@ -89,18 +91,19 @@ struct AppwriteWire: Sendable {
 
     // MARK: Statements
 
-    static func read(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
+    func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         if sql == "SELECT 1" {   // the panel's "is it there?": the key and the project answer
-            _ = try await call(try endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [1]]])
+            _ = try await Self.call(
+                try Self.endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [1]]])
             return DatabaseRows(columns: ["?column?"], rows: [["1"]], total: 1)
         }
         guard case .select(let select) = try AppwriteSQL.parse(sql) else { throw DatabaseFailure.change }
-        let server = try await withDatabase(try endpoint(c))
-        let kinds = try await kinds(server, select.table)
+        let server = try await Self.withDatabase(try Self.endpoint(c))
+        let kinds = try await Self.kinds(server, select.table)
         var queries = select.condition.map { kinds.queries($0) } ?? []
         if select.count {
-            let answer = try await call(
-                server, "GET", rows(server, select.table), queries: queries + [["method": "limit", "values": [1]]])
+            let answer = try await Self.call(
+                server, "GET", Self.rows(server, select.table), queries: queries + [["method": "limit", "values": [1]]])
             return DatabaseRows(columns: ["count"], rows: [[String(answer["total"] as? Int ?? 0)]], total: 1)
         }
         if let names = select.columns { queries.append(["method": "select", "values": names]) }
@@ -109,50 +112,52 @@ struct AppwriteWire: Sendable {
         }
         queries.append(["method": "limit", "values": [min(select.limit ?? DatabaseEngines.keep, DatabaseEngines.keep)]])
         if let offset = select.offset { queries.append(["method": "offset", "values": [offset]]) }
-        let answer = try await call(server, "GET", rows(server, select.table), queries: queries)
+        let answer = try await Self.call(server, "GET", Self.rows(server, select.table), queries: queries)
         let found = answer["rows"] as? [[String: Any]] ?? []
         let columns = select.columns ?? kinds.columns
         let total =
             select.limit == nil ? min(answer["total"] as? Int ?? found.count, DatabaseEngines.countLimit) : found.count
         return DatabaseRows(
-            columns: columns, rows: found.map { row in columns.map { text(row[$0]) } }, total: max(total, found.count))
+            columns: columns, rows: found.map { row in columns.map { Self.text(row[$0]) } },
+            total: max(total, found.count))
     }
 
     /// Not run: what it would touch (Appwrite can't run a change and take it back to show it).
-    static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
+    func trial(_ sql: String) async throws -> DatabaseRows {
         let statement = try AppwriteSQL.parse(sql)
-        let server = try await withDatabase(try endpoint(c))
+        let server = try await Self.withDatabase(try Self.endpoint(c))
         switch statement {
         case .select: throw DatabaseFailure.failed("It doesn't change anything.")
         case .insert(let insert): return DatabaseRows(changed: insert.rows.count)
         case .update(let table, _, let condition), .delete(let table, let condition):
-            let kinds = try await kinds(server, table)
-            return DatabaseRows(changed: try await ids(server, table, condition, kinds).count)
+            let kinds = try await Self.kinds(server, table)
+            return DatabaseRows(changed: try await Self.ids(server, table, condition, kinds).count)
         }
     }
 
-    static func write(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        let changed = try await apply(c, [sql])
+    func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
+        let changed = try await apply([sql])
         return DatabaseRows(changed: changed)
     }
 
     /// All of them in one Appwrite transaction: committed together, or rolled back.
-    static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
+    func apply(_ statements: [String]) async throws -> Int {
         let parsed = try statements.map(AppwriteSQL.parse)
-        let server = try await withDatabase(try endpoint(c))
-        let started = try await call(server, "POST", "/tablesdb/transactions", body: ["ttl": 300])
+        let server = try await Self.withDatabase(try Self.endpoint(c))
+        let started = try await Self.call(server, "POST", "/tablesdb/transactions", body: ["ttl": 300])
         guard let tx = started["$id"] as? String else {
             throw DatabaseFailure.failed("Appwrite didn't start a transaction.")
         }
         do {
             var changed = 0
-            for statement in parsed { changed += try await run(server, statement, tx) }
-            _ = try await call(server, "PATCH", "/tablesdb/transactions/\(path(tx))", body: ["commit": true])
+            for statement in parsed { changed += try await Self.run(server, statement, tx) }
+            _ = try await Self.call(server, "PATCH", "/tablesdb/transactions/\(Self.path(tx))", body: ["commit": true])
             return changed
         } catch {
             // Not rolled back now: it lapses at its ttl, uncommitted. The error said is the statement's.
             do {
-                _ = try await call(server, "PATCH", "/tablesdb/transactions/\(path(tx))", body: ["rollback": true])
+                _ = try await Self.call(
+                    server, "PATCH", "/tablesdb/transactions/\(Self.path(tx))", body: ["rollback": true])
             } catch {}
             throw error
         }

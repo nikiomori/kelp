@@ -225,6 +225,6 @@ private func encrypt(_ data: Data, key: Data, iv: Data) -> Data {
         throws: DatabaseFailure.failed(
             "Can't find kelp-no-such-host.invalid on the network: is a VPN or SSH needed to reach it?")
     ) {
-        try await PostgresWire.read(DatabaseConnection(database: db), "SELECT 1", timeout: 3)
+        try await PostgresWire(c: DatabaseConnection(database: db)).read("SELECT 1", timeout: 3)
     }
 }

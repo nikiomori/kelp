@@ -17,4 +17,36 @@ public enum ShellQuote {
     public static func word(_ word: String) -> String {
         "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
+
+    /// A basic string, as both TOML and JSON write one (for text with no control characters).
+    public static func doubleQuoted(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
+    /// A command line split as a shell would: whitespace apart, '…' as it is, "…" with \" and \\ inside, \ before
+    /// one char.
+    public static func words(_ text: String) -> [String] {
+        var words: [String] = [], word = "", quote: Character?, escaped = false, started = false
+        for c in text {
+            if escaped {
+                word.append(c)
+                escaped = false
+            } else if c == "\\" && quote != "'" {
+                escaped = true
+            } else if let open = quote {
+                if c == open { quote = nil } else { word.append(c) }
+            } else if c == "\"" || c == "'" {
+                quote = c
+                started = true
+            } else if c.isWhitespace {
+                if started || !word.isEmpty { words.append(word) }
+                word = ""
+                started = false
+            } else {
+                word.append(c)
+            }
+        }
+        if started || !word.isEmpty { words.append(word) }
+        return words
+    }
 }

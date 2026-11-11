@@ -30,7 +30,7 @@ extension Main {
                     args = []
                     try await browse("eval", js: String(js), c, workspace, json: json)
                 } else {
-                    args = words(line)
+                    args = ShellQuote.words(line)
                     try await browse(args.removeFirst(), c, workspace, json: json)
                 }
             }
@@ -129,7 +129,7 @@ extension Main {
     static func browserText(_ action: BrowserAction, _ what: String, _ answer: JSONValue) -> String? {
         guard action != .eval, case .object(let f) = answer else { return nil }   // eval's value is the page's
         if action == .screenshot { return f["path"]?.string }
-        let page = "page \(quoted(f["title"]?.string ?? "")) \(f["url"]?.string ?? "")"
+        let page = "page \(ShellQuote.doubleQuoted(f["title"]?.string ?? "")) \(f["url"]?.string ?? "")"
         var lines: [String]
         switch action {
         case .open, .reload, .back, .info, .viewport, .wait:
@@ -137,7 +137,7 @@ extension Main {
             lines = [found + page + (f["viewport"]?.string.map { " · viewport \($0)" } ?? "")]
         default:
             let came = [
-                f["upload"]?.string, f["shows"]?.string.map { "shows " + quoted($0) },
+                f["upload"]?.string, f["shows"]?.string.map { "shows " + ShellQuote.doubleQuoted($0) },
                 f["scroll"]?.string.map { "at " + $0 },
                 f["change"]?.string.map { $0 == "new page" ? "new " + page : $0 }
             ].compactMap { $0 }
@@ -150,38 +150,6 @@ extension Main {
         lines += (f["downloads"]?.array ?? []).compactMap(\.string).map { "download: " + $0 }
         if let shown = f["page"]?.string ?? f["new"]?.string, !shown.isEmpty { lines.append(shown) }
         return lines.joined(separator: "\n")
-    }
-
-    static func quoted(_ s: String) -> String {
-        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
-    }
-
-    /// A line's words as a shell splits them: spaces apart, '…' as it is, "…" with \" and \\ inside, \ before one char.
-    static func words(_ line: String) -> [String] {
-        var out: [String] = [], word = "", inWord = false, quote: Character?, escaped = false
-        for ch in line {
-            if escaped {
-                word.append(ch)
-                escaped = false
-            } else if ch == "\\", quote != "'" {
-                escaped = true
-                inWord = true
-            } else if let q = quote {
-                if ch == q { quote = nil } else { word.append(ch) }
-            } else if ch == "'" || ch == "\"" {
-                quote = ch
-                inWord = true
-            } else if ch == " " || ch == "\t" {
-                if inWord { out.append(word) }
-                word = ""
-                inWord = false
-            } else {
-                word.append(ch)
-                inWord = true
-            }
-        }
-        if inWord { out.append(word) }
-        return out
     }
 
     /// A file for `browser upload`: its name, type and bytes in base64, read here, where the agent's files are.

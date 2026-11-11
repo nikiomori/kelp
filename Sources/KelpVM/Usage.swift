@@ -19,10 +19,8 @@ enum Usage {
     static func sample() -> (cpu: Double?, memoryMiB: Int)? {
         guard let responsible else { return nil }
         let me = getpid()
-        var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
-        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         var cpu: [pid_t: UInt64] = [:], bytes: UInt64 = 0
-        for pid in pids.prefix(max(0, count)) where pid > 0 && (pid == me || responsible(pid) == me) {
+        for pid in pids() where pid > 0 && (pid == me || responsible(pid) == me) {
             var info = rusage_info_v2()
             let ok =
                 withUnsafeMutablePointer(to: &info) {
@@ -49,10 +47,8 @@ enum Usage {
     /// kelp-vm's own: a machine's commands kelpd and agents run without kelp-vm. By name first: few are read whole.
     static func clients(of id: String, programs: Set<String>) -> Int {
         let me = getpid()
-        var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
-        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
         var name = [CChar](repeating: 0, count: 256)
-        return pids.prefix(max(0, count)).filter { pid in
+        return pids().filter { pid in
             guard pid > 0, pid != me, proc_name(pid, &name, UInt32(name.count)) > 0,
                 programs.contains(
                     String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)),
@@ -60,5 +56,12 @@ enum Usage {
             else { return false }
             return argv.dropFirst().contains { $0.contains(id) }
         }.count
+    }
+
+    /// Every process's id now.
+    private static func pids() -> ArraySlice<pid_t> {
+        var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
+        let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))
+        return pids.prefix(max(0, count))
     }
 }

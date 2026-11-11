@@ -25,6 +25,10 @@ let package = Package(
         // Postgres and MySQL spoken by kelpd itself: no psql or mysql needed on the Mac
         .package(url: "https://github.com/vapor/postgres-nio", from: "1.21.0"),
         .package(url: "https://github.com/vapor/mysql-nio", from: "1.7.0"),
+        // What their wire code imports itself (postgres-nio's bounds)
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.81.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.25.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.3"),
     ],
     targets: [
         .target(name: "Core", resources: [.copy("Resources/extensions.md"), .copy("Resources/rpc.json"),   // docs link to both
@@ -35,7 +39,9 @@ let package = Package(
         .target(name: "Agents", dependencies: ["Core"]),
         .target(name: "AgentData", dependencies: ["Core"]),
         .target(name: "Daemon", dependencies: ["Core", "GitKit", "Agents", "Integrations", "AgentData", "LSPKit", .product(name: "GRDB", package: "GRDB.swift"),
-                                               .product(name: "PostgresNIO", package: "postgres-nio"), .product(name: "MySQLNIO", package: "mysql-nio")]),
+                                               .product(name: "PostgresNIO", package: "postgres-nio"), .product(name: "MySQLNIO", package: "mysql-nio"),
+                                               .product(name: "NIOCore", package: "swift-nio"), .product(name: "NIOPosix", package: "swift-nio"),
+                                               .product(name: "NIOSSL", package: "swift-nio-ssl"), .product(name: "Logging", package: "swift-log")]),
         .target(name: "TerminalKit", dependencies: ["Core", "GhosttyKit"], linkerSettings: ghosttyLinks),
         .executableTarget(name: "kelpd", dependencies: ["Daemon"]),
         .executableTarget(name: "kelp", dependencies: ["Core"]),
@@ -88,7 +94,7 @@ let package = Package(
         .testTarget(name: "KelpGuestTests", dependencies: ["KelpGuest"]),   // its socket's requests and answers
         .testTarget(name: "AgentsTests", dependencies: ["Agents", "TestSupport"]),
         .testTarget(name: "AgentDataTests", dependencies: ["AgentData", "TestSupport"]),
-        .testTarget(name: "DaemonTests", dependencies: ["Daemon", "Agents", "TestSupport"]),
+        .testTarget(name: "DaemonTests", dependencies: ["Daemon", "Agents", "TestSupport", .product(name: "NIOCore", package: "swift-nio")]),
         .testTarget(name: "LSPKitTests", dependencies: ["LSPKit", "TestSupport"]),
         .testTarget(name: "IntegrationsTests", dependencies: ["Integrations", "TestSupport"]),
         .testTarget(name: "MarkdownTests", dependencies: ["Markdown"]),

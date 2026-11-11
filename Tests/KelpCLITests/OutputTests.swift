@@ -73,8 +73,8 @@ import Testing
     )
     #expect(Main.browserText(.snapshot, "", .string("- page")) == nil)
     #expect(Main.browserText(.eval, "", .object(["n": .int(1)])) == nil)   // eval's value, as the page gave it
-    #expect(Main.words(#"type e3 "a b" 'c "d"' e\ f"#) == ["type", "e3", "a b", #"c "d""#, "e f"])
-    #expect(Main.words("  drag e1   '#col'  ") == ["drag", "e1", "#col"])
+    #expect(ShellQuote.words(#"type e3 "a b" 'c "d"' e\ f"#) == ["type", "e3", "a b", #"c "d""#, "e f"])
+    #expect(ShellQuote.words("  drag e1   '#col'  ") == ["drag", "e1", "#col"])
 }
 
 /// A value given on the command line is JSON when it parses, else the text itself (`kelp settings set k dark`).

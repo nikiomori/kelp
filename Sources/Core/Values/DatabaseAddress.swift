@@ -23,7 +23,7 @@ public struct DatabaseAddress: Equatable, Sendable {
         if let value = envValue(text) { text = unquoted(value) }
         guard !text.isEmpty else { throw Problem(message: "Paste an address, or drop a database file.") }
         if text.hasPrefix("/") || text.hasPrefix("~") || text.hasPrefix("./") { return file(text) }
-        let words = shellWords(text)
+        let words = ShellQuote.words(text)
         if let program = words.first, ["psql", "mysql", "mariadb"].contains((program as NSString).lastPathComponent) {
             return try command(words)
         }
@@ -170,31 +170,5 @@ public struct DatabaseAddress: Equatable, Sendable {
             return String(text.dropFirst().dropLast())
         }
         return text
-    }
-
-    /// A command line split as a shell would: quotes group, backslash escapes.
-    static func shellWords(_ text: String) -> [String] {
-        var words: [String] = [], word = "", quote: Character?, escaped = false, started = false
-        for c in text {
-            if escaped {
-                word.append(c)
-                escaped = false
-            } else if c == "\\" && quote != "'" {
-                escaped = true
-            } else if let open = quote {
-                if c == open { quote = nil } else { word.append(c) }
-            } else if c == "\"" || c == "'" {
-                quote = c
-                started = true
-            } else if c.isWhitespace {
-                if started || !word.isEmpty { words.append(word) }
-                word = ""
-                started = false
-            } else {
-                word.append(c)
-            }
-        }
-        if started || !word.isEmpty { words.append(word) }
-        return words
     }
 }

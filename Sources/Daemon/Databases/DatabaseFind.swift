@@ -166,20 +166,13 @@ enum DatabaseFind {
 
     /// `DATABASE_URL=…`, `export PG_URL="…"`: a key ending URL that names a database, its value a database URL.
     static func env(_ text: String, source: String, root: String) -> [FoundDatabase] {
-        var found: [FoundDatabase] = []
-        for line in text.split(whereSeparator: \.isNewline) {
-            var line = line.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("#") { continue }
-            if line.hasPrefix("export ") { line = String(line.dropFirst(7)) }
-            guard let eq = line.firstIndex(of: "=") else { continue }
-            let key = line[..<eq].trimmingCharacters(in: .whitespaces).uppercased()
+        pairs(text).compactMap { key, value in
+            let key = key.uppercased()
             guard key.hasSuffix("URL"),
                 ["DATABASE", "DB", "POSTGRES", "PG", "MYSQL", "SQLITE"].contains(where: key.contains)
-            else { continue }
-            let value = unquoted(String(line[line.index(after: eq)...]))
-            if let db = url(value, source: source, root: root) { found.append(db) }
+            else { return nil }
+            return url(value, source: source, root: root)
         }
-        return found
     }
 
     static func unquoted(_ text: String) -> String {

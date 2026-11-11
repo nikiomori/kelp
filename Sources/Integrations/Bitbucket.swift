@@ -38,9 +38,9 @@ public struct BitbucketClient: Sendable {
                 "title": title, "description": body,
                 "source": ["branch": ["name": source]], "destination": ["branch": ["name": destination]]
             ])
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let html = ((object["links"] as? [String: Any])?["html"] as? [String: Any])?["href"] as? String
-        else { throw IntegrationError(description: "unexpected create response") }
+        guard let html = try JSONDecoder().decode(JSONValue.self, from: data)["links"]?["html"]?["href"]?.string else {
+            throw IntegrationError(description: "unexpected create response")
+        }
         return html
     }
 
@@ -57,20 +57,16 @@ public struct BitbucketClient: Sendable {
     }
 
     static func parsePullRequests(_ data: Data) throws -> [GitHub.PullRequest] {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let vals = object["values"] as? [[String: Any]]
-        else {
+        guard let vals = try JSONDecoder().decode(JSONValue.self, from: data)["values"]?.array else {
             throw IntegrationError(description: "unexpected pullrequests response")
         }
         return vals.compactMap { pr in
-            guard let id = pr["id"] as? Int else { return nil }
-            let html = ((pr["links"] as? [String: Any])?["html"] as? [String: Any])?["href"] as? String ?? ""
-            let branch = ((pr["source"] as? [String: Any])?["branch"] as? [String: Any])?["name"] as? String ?? ""
+            guard let id = pr["id"]?.int else { return nil }
             return GitHub.PullRequest(
-                number: id, title: pr["title"] as? String ?? "", url: html,
-                author: (pr["author"] as? [String: Any])?["display_name"] as? String ?? "", headRefName: branch,
-                isDraft: pr["draft"] as? Bool ?? false, state: pr["state"] as? String ?? "OPEN", reviewDecision: nil,
-                checks: .init())
+                number: id, title: pr["title"]?.string ?? "", url: pr["links"]?["html"]?["href"]?.string ?? "",
+                author: pr["author"]?["display_name"]?.string ?? "",
+                headRefName: pr["source"]?["branch"]?["name"]?.string ?? "", isDraft: pr["draft"]?.bool ?? false,
+                state: pr["state"]?.string ?? "OPEN", reviewDecision: nil, checks: .init())
         }
     }
 }

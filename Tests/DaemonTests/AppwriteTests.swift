@@ -54,9 +54,9 @@ func appwriteAnswersInItsOwnWords() async throws {
     var db = DatabaseInfo(name: "aw", engine: .appwrite, host: host, user: "kelp-no-such-project")
     db.database = "main"
     let c = DatabaseConnection(database: db, password: "not-a-key")
-    #expect(try await AppwriteWire.version(c).hasPrefix("Appwrite 1."))
+    #expect(try await AppwriteWire(c: c).version()?.hasPrefix("Appwrite 1.") == true)
     do {
-        _ = try await AppwriteWire.read(c, #"SELECT * FROM "t" WHERE "a" LIKE '%x+y%' LIMIT 5"#)
+        _ = try await AppwriteWire(c: c).read(#"SELECT * FROM "t" WHERE "a" LIKE '%x+y%' LIMIT 5"#, timeout: 10)
         Issue.record("a wrong key read rows")
     } catch let failure as DatabaseFailure { print("APPWRITE SAID:", failure.message) }
 }

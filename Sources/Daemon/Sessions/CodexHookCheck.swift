@@ -56,7 +56,7 @@ final class CodexHookCheck: Sendable {
     @Sendable static func hooksList(_ path: String) -> [String: Any]? {
         // Its own folder: a project's .codex hooks are another question, Kelp's are the same everywhere.
         let cwd = NSTemporaryDirectory()
-        let params = #"{"cwds":["# + CodexHooks.quoted(cwd) + "]}"
+        let params = #"{"cwds":["# + ShellQuote.doubleQuoted(cwd) + "]}"
         return AgentUsage.askCodex(path: path, args: CodexHooks.args, method: "hooks/list", params: params, within: 5)
     }
 
@@ -64,7 +64,7 @@ final class CodexHookCheck: Sendable {
     /// No terminal there and no password asked (BatchMode): one that would ask is a no, at once.
     @Sendable static func hooksList(on host: RemoteHost) -> [String: Any]? {
         let codex = host.command(["codex", "app-server"] + CodexHooks.hostArgs)
-        let params = #"{"cwds":["# + CodexHooks.quoted(host.path) + "]}"
+        let params = #"{"cwds":["# + ShellQuote.doubleQuoted(host.path) + "]}"
         return AgentUsage.askCodex(
             argv: [host.ssh] + host.sshArgs(tty: false) + [codex], method: "hooks/list", params: params, within: 10)
     }

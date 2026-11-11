@@ -3,68 +3,79 @@ import Foundation
 
 // Postgres inside a compose container: psql's reads, writes and schema.
 
-struct PostgresRun: Sendable {
+struct PostgresRun: DatabaseRunner {
     let c: DatabaseConnection, off: Slots
     /// Between a command's output and the next: what psql prints for `\echo`.
     static let marker = "--kelp-7f3e9c--"
     /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.
     static let null = "\u{1}NULL\u{1}"
 
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        let out = try run(
-            c, ["BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(timeout))s'", sql],
-            timeout: timeout + 10)
-        return section(out.last ?? "")
+    func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
+        return try await off.run {
+            let out = try Self.run(
+                c, ["BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(timeout))s'", sql],
+                timeout: timeout + 10)
+            return Self.section(out.last ?? "")
+        }
     }
 
-    static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        func attempt(_ statement: String) throws -> DatabaseRows {
-            let out = try run(
-                c,
-                [
-                    "BEGIN", "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'", statement,
-                    "ROLLBACK"
-                ],
-                timeout: DatabaseEngines.readTimeout + 10)
-            var rows = section(out.count >= 2 ? out[out.count - 2] : "")
-            if rows.changed == nil { rows.changed = rows.total }   // RETURNING: the rows are what it changed
-            return rows
+    func trial(_ sql: String) async throws -> DatabaseRows {
+        return try await off.run {
+            func attempt(_ statement: String) throws -> DatabaseRows {
+                let out = try Self.run(
+                    c,
+                    [
+                        "BEGIN", "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'", statement,
+                        "ROLLBACK"
+                    ],
+                    timeout: DatabaseEngines.readTimeout + 10)
+                var rows = Self.section(out.count >= 2 ? out[out.count - 2] : "")
+                if rows.changed == nil { rows.changed = rows.total }   // RETURNING: the rows are what it changed
+                return rows
+            }
+            if let returning = SQLText.returning(sql) {
+                // RETURNING may not fit it (a MERGE, a view): tried plain
+                do { return try attempt(returning) } catch {}
+            }
+            return try attempt(sql)
         }
-        if let returning = SQLText.returning(sql) {
-            do { return try attempt(returning) } catch {}   // RETURNING may not fit it (a MERGE, a view): tried plain
-        }
-        return try attempt(sql)
     }
 
     /// `allowed`: as over the wire (`PostgresWire.write`), in psql's one session: the ROW_COUNT psql keeps of the
     /// statement picks COMMIT or ROLLBACK. That choice is a script of Kelp's own on stdin; the statement still goes as
     /// `-c`, which psql sends as it is, never reading its own commands in it.
-    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
-        let limit = "statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'"
-        guard let allowed else {
-            let out = try run(c, ["SET " + limit, sql], timeout: DatabaseEngines.writeTimeout + 10)
-            return section(out.last ?? "")
+    func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
+        return try await off.run {
+            let limit = "statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'"
+            guard let allowed else {
+                let out = try Self.run(c, ["SET " + limit, sql], timeout: DatabaseEngines.writeTimeout + 10)
+                return Self.section(out.last ?? "")
+            }
+            let decide = """
+                \\echo \(Self.marker)
+                SELECT :ROW_COUNT = \(allowed) AS kelp_held \\gset
+                \\if :kelp_held
+                COMMIT;
+                \\else
+                ROLLBACK;
+                \\endif
+                """
+            let out = try Self.run(
+                c, ["BEGIN", "SET LOCAL " + limit, sql], then: decide, timeout: DatabaseEngines.writeTimeout + 10)
+            let rows = Self.section(out.count >= 2 ? out[out.count - 2] : "")
+            guard out.last?.hasPrefix("COMMIT") == true else {
+                throw DatabaseEngines.notAsAllowed(rows.changed, allowed)
+            }
+            return rows
         }
-        let decide = """
-            \\echo \(marker)
-            SELECT :ROW_COUNT = \(allowed) AS kelp_held \\gset
-            \\if :kelp_held
-            COMMIT;
-            \\else
-            ROLLBACK;
-            \\endif
-            """
-        let out = try run(
-            c, ["BEGIN", "SET LOCAL " + limit, sql], then: decide, timeout: DatabaseEngines.writeTimeout + 10)
-        let rows = section(out.count >= 2 ? out[out.count - 2] : "")
-        guard out.last?.hasPrefix("COMMIT") == true else { throw DatabaseEngines.notAsAllowed(rows.changed, allowed) }
-        return rows
     }
 
     /// BEGIN, the statements, COMMIT: ON_ERROR_STOP ends psql at the first failure, its session rolling back.
-    static func apply(_ c: DatabaseConnection, _ statements: [String]) throws -> Int {
-        let out = try run(c, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
-        return out.dropLast().map { section($0).changed ?? 0 }.reduce(0, +)
+    func apply(_ statements: [String]) async throws -> Int {
+        return try await off.run {
+            let out = try Self.run(c, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
+            return out.dropLast().map { Self.section($0).changed ?? 0 }.reduce(0, +)
+        }
     }
 
     private static let other = "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')"
@@ -107,14 +118,16 @@ struct PostgresRun: Sendable {
           indexname || ' ' || substring(indexdef from '\\((.*)\\)$')
         FROM pg_indexes WHERE schemaname \(other) ORDER BY indexname
         """
-    static func schema(_ c: DatabaseConnection) throws -> DatabaseSchema {
-        let out = try run(
-            c, ["BEGIN TRANSACTION READ ONLY", schemaColumns, schemaCounts, schemaIndexes],
-            timeout: DatabaseEngines.readTimeout + 10)
-        guard out.count >= 3 else { throw DatabaseFailure.failed("psql said nothing of the tables.") }
-        return DatabaseSchemaBuilder.build(
-            columns: section(out[out.count - 3]).rows, counts: section(out[out.count - 2]).rows,
-            indexes: section(out[out.count - 1]).rows)
+    func schema() async throws -> DatabaseSchema {
+        return try await off.run {
+            let out = try Self.run(
+                c, ["BEGIN TRANSACTION READ ONLY", Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
+                timeout: DatabaseEngines.readTimeout + 10)
+            guard out.count >= 3 else { throw DatabaseFailure.failed("psql said nothing of the tables.") }
+            return DatabaseSchemaBuilder.build(
+                columns: Self.section(out[out.count - 3]).rows, counts: Self.section(out[out.count - 2]).rows,
+                indexes: Self.section(out[out.count - 1]).rows)
+        }
     }
 
     /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them. `script`: psql's

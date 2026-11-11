@@ -13,6 +13,11 @@ import Testing
 private let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])
 
 /// `orders` with three pending rows, in the project's db/ folder.
+/// A file's database, for its engine called directly.
+func fileConnection(_ path: String, _ engine: DatabaseInfo.Engine) -> DatabaseConnection {
+    DatabaseConnection(database: DatabaseInfo(name: "shop", engine: engine, path: path))
+}
+
 private func ordersDB(in root: String) throws -> String {
     let dir = (root as NSString).appendingPathComponent("db")
     try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
@@ -140,13 +145,14 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
 }
 
 /// The schema's row counts have a time of their own: past it a table shows no count, but its columns all the same.
-@Test func aSQLiteSchemaCountsOnlyWhileItHasTime() throws {
+@Test func aSQLiteSchemaCountsOnlyWhileItHasTime() async throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
     defer { try? FileManager.default.removeItem(atPath: dir) }
     let path = try ordersDB(in: dir)
-    let counted = try SQLiteRun.schema(path)
+    let c = fileConnection(path, .sqlite)
+    let counted = try await SQLiteRun(c: c, off: Slots(1)).schema()
     #expect(counted.tables.first?.rows == 3)
-    let late = try SQLiteRun.schema(path, countingFor: 0)
+    let late = try await SQLiteRun(c: c, off: Slots(1), counting: 0).schema()
     #expect(late.tables.first?.rows == nil && late.tables.first?.columns.count == 2)
 }
 

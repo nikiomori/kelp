@@ -4,51 +4,61 @@ import Foundation
 /// A DuckDB file through the `duckdb` program (Homebrew's), as CSV: NULL written as `PostgresRun.null`, so an empty
 /// string stays one. A read opens the file read-only, so DuckDB refuses a change; a change counts its rows through
 /// RETURNING (DuckDB prints no count of its own), tried in a transaction it rolls back.
-struct DuckDBRun: Sendable {
+struct DuckDBRun: DatabaseRunner {
     let c: DatabaseConnection, off: Slots
     static let marker = "--kelp-7f3e9c--"
 
-    static func read(_ path: String, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        section(try run(path, readOnly: true, [sql], timeout: timeout).first ?? "")
+    func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            Self.section(try Self.run(path, readOnly: true, [sql], timeout: timeout).first ?? "")
+        }
     }
 
-    static func trial(_ path: String, _ sql: String) throws -> DatabaseRows {
-        let returning = SQLText.returning(sql)
-        let out = try run(
-            path, readOnly: false, ["BEGIN", returning ?? sql, "ROLLBACK"], timeout: DatabaseEngines.readTimeout)
-        var rows = section(out.count > 1 ? out[1] : "")
-        rows.changed = returning == nil ? nil : rows.total
-        return rows
+    func trial(_ sql: String) async throws -> DatabaseRows {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            let returning = SQLText.returning(sql)
+            let out = try Self.run(
+                path, readOnly: false, ["BEGIN", returning ?? sql, "ROLLBACK"], timeout: DatabaseEngines.readTimeout)
+            var rows = Self.section(out.count > 1 ? out[1] : "")
+            rows.changed = returning == nil ? nil : rows.total
+            return rows
+        }
     }
 
     /// `allowed`: as SQLite's (`SQLiteRun.write`), in one script: the changed rows kept in a temporary table, a check
     /// that fails (`error()`, and -bail stops before COMMIT) when they aren't as many, then the rows and COMMIT.
-    static func write(_ path: String, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
-        let returning = SQLText.returning(sql)
-        guard let allowed, let returning else {
-            let out = try run(path, readOnly: false, [returning ?? sql], timeout: DatabaseEngines.writeTimeout)
-            var rows = section(out.first ?? "")
-            rows.changed = returning == nil ? nil : rows.total
+    func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            let returning = SQLText.returning(sql)
+            guard let allowed, let returning else {
+                let out = try Self.run(path, readOnly: false, [returning ?? sql], timeout: DatabaseEngines.writeTimeout)
+                var rows = Self.section(out.first ?? "")
+                rows.changed = returning == nil ? nil : rows.total
+                return rows
+            }
+            let script = [
+                "BEGIN", "CREATE TEMP TABLE kelp_changed AS WITH kelp_rows AS (\(returning)\n) SELECT * FROM kelp_rows",
+                "SELECT CASE count(*) WHEN \(allowed) THEN NULL ELSE error('\(Self.notAllowed)' || count(*)) END "
+                    + "FROM kelp_changed",
+                "SELECT * FROM kelp_changed", "COMMIT"
+            ]
+            let out: [String]
+            do { out = try Self.run(path, readOnly: false, script, timeout: DatabaseEngines.writeTimeout) } catch let
+                failure
+                as DatabaseFailure where failure.message.contains(Self.notAllowed)
+            {
+                let count = failure.message.components(separatedBy: Self.notAllowed).last.flatMap {
+                    Int($0.prefix(while: \.isNumber))
+                }
+                throw DatabaseEngines.notAsAllowed(count, allowed)
+            }
+            var rows = Self.section(out.count > 3 ? out[3] : "")
+            rows.changed = rows.total
             return rows
         }
-        let script = [
-            "BEGIN", "CREATE TEMP TABLE kelp_changed AS WITH kelp_rows AS (\(returning)\n) SELECT * FROM kelp_rows",
-            "SELECT CASE count(*) WHEN \(allowed) THEN NULL ELSE error('\(notAllowed)' || count(*)) END "
-                + "FROM kelp_changed",
-            "SELECT * FROM kelp_changed", "COMMIT"
-        ]
-        let out: [String]
-        do { out = try run(path, readOnly: false, script, timeout: DatabaseEngines.writeTimeout) } catch let failure
-            as DatabaseFailure where failure.message.contains(notAllowed)
-        {
-            let count = failure.message.components(separatedBy: notAllowed).last.flatMap {
-                Int($0.prefix(while: \.isNumber))
-            }
-            throw DatabaseEngines.notAsAllowed(count, allowed)
-        }
-        var rows = section(out.count > 3 ? out[3] : "")
-        rows.changed = rows.total
-        return rows
     }
 
     /// The check's word when a change isn't the rows allowed, the count after it.
@@ -56,13 +66,16 @@ struct DuckDBRun: Sendable {
 
     /// The user's edits in one transaction (-bail stops before COMMIT): the rows each changed, as `.changes` prints
     /// them.
-    static func apply(_ path: String, _ statements: [String]) throws -> Int {
-        let out = try run(
-            path, readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout,
-            changes: true)
-        return out.compactMap { section in
-            section.firstMatch(of: /changes:\s+(\d+)/).flatMap { Int($0.1) }
-        }.reduce(0, +)
+    func apply(_ statements: [String]) async throws -> Int {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            let out = try Self.run(
+                path, readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout,
+                changes: true)
+            return out.compactMap { section in
+                section.firstMatch(of: /changes:\s+(\d+)/).flatMap { Int($0.1) }
+            }.reduce(0, +)
+        }
     }
 
     static let schemaColumns = """
@@ -82,12 +95,17 @@ struct DuckDBRun: Sendable {
         FROM duckdb_indexes() WHERE schema_name = 'main'
         """
 
-    static func schema(_ path: String) throws -> DatabaseSchema {
-        let out = try run(
-            path, readOnly: true, [schemaColumns, schemaCounts, schemaIndexes], timeout: DatabaseEngines.readTimeout)
-        guard out.count >= 3 else { throw DatabaseFailure.failed("duckdb said nothing of the tables.") }
-        return DatabaseSchemaBuilder.build(
-            columns: section(out[0]).rows, counts: section(out[1]).rows, indexes: section(out[2]).rows)
+    func schema() async throws -> DatabaseSchema {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            let out = try Self.run(
+                path, readOnly: true, [Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
+                timeout: DatabaseEngines.readTimeout)
+            guard out.count >= 3 else { throw DatabaseFailure.failed("duckdb said nothing of the tables.") }
+            return DatabaseSchemaBuilder.build(
+                columns: Self.section(out[0]).rows, counts: Self.section(out[1]).rows,
+                indexes: Self.section(out[2]).rows)
+        }
     }
 
     /// The statements as a script on stdin, a marker printed after each (its `;` on a line of its own: a statement's

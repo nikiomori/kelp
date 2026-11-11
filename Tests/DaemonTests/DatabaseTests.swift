@@ -399,7 +399,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     }
     // Kelp's own client, at a port nothing listens on, says it the same way
     await #expect(throws: said) {
-        try await DatabaseEngines.explained(c) { try await PostgresWire.read(c, "SELECT 1", timeout: 5) }
+        try await DatabaseEngines.explained(c) { try await PostgresWire(c: c).read("SELECT 1", timeout: 5) }
     }
 }
 
@@ -531,10 +531,11 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'y' WHERE id > 1"))
     #expect(change.changed == 2)
     // A change allowed for fewer rows than it changes now: none changed; allowed for as many, made, its rows kept.
-    #expect(throws: DatabaseEngines.notAsAllowed(3, 2)) {
-        try DuckDBRun.write(path, "UPDATE orders SET note = 'h'", allowed: 2)
+    let duck = DuckDBRun(c: fileConnection(path, .duckdb), off: Slots(1))
+    await #expect(throws: DatabaseEngines.notAsAllowed(3, 2)) {
+        try await duck.write("UPDATE orders SET note = 'h'", allowed: 2)
     }
-    let held = try DuckDBRun.write(path, "UPDATE orders SET note = 'h' WHERE id > 1", allowed: 2)
+    let held = try await duck.write("UPDATE orders SET note = 'h' WHERE id > 1", allowed: 2)
     #expect(held.changed == 2 && held.rows.count == 2)
     let notes = try await w.c.call(
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT count(*) FROM orders WHERE note = 'h'"))
@@ -555,15 +556,15 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT note FROM orders WHERE id = 1"))
     #expect(after.rows == [["z"]])
     // -safe: no file but this one, and no dot-command reaching past it.
-    #expect(throws: DatabaseFailure.self) {
-        try DuckDBRun.read(path, "SELECT * FROM read_csv('/etc/passwd')", timeout: 10)
+    await #expect(throws: DatabaseFailure.self) {
+        try await duck.read("SELECT * FROM read_csv('/etc/passwd')", timeout: 10)
     }
     #expect(throws: DatabaseFailure.self) {
         _ = try DuckDBRun.run(path, readOnly: true, [".shell echo ran"], timeout: 10)
     }
     // An answer past what Kelp reads is refused, not read as no rows.
-    #expect(throws: DatabaseFailure.self) {
-        try DuckDBRun.read(path, "SELECT repeat('x', 1000000) FROM range(40)", timeout: 30)
+    await #expect(throws: DatabaseFailure.self) {
+        try await duck.read("SELECT repeat('x', 1000000) FROM range(40)", timeout: 30)
     }
 
     var db = try #require(list.first)
@@ -578,12 +579,12 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
 }
 
 /// A runaway SQLite read stops at its time limit, its slot free again.
-@Test func aSQLiteReadStopsAtItsTimeLimit() throws {
+@Test func aSQLiteReadStopsAtItsTimeLimit() async throws {
     let path = try shopDB(in: NSTemporaryDirectory() + "kelp-slow-\(UUID().uuidString)")
     let started = Date()
-    #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
-        try SQLiteRun.read(
-            path, "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT count(*) FROM r",
+    await #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
+        try await SQLiteRun(c: fileConnection(path, .sqlite), off: Slots(1)).read(
+            "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT count(*) FROM r",
             timeout: 0.3)
     }
     #expect(Date().timeIntervalSince(started) < 60)   // stopped, not run to the end (it has none)

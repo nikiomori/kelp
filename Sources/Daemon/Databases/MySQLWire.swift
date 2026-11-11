@@ -7,81 +7,81 @@ import os
 // MySQL and MariaDB spoken by kelpd itself (MySQLNIO): reads, writes, schema, and a query's own time.
 
 /// MySQL and MariaDB over their text protocol: values come as the server writes them.
-struct MySQLWire: Sendable {
+struct MySQLWire: DatabaseRunner {
     let c: DatabaseConnection
 
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await with(c, within: timeout + 10) { conn in
-            try await limit(conn, timeout)
-            _ = try await run(conn, "START TRANSACTION READ ONLY")
-            return try await run(conn, sql)
+    func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
+        try await Self.with(c, within: timeout + 10) { conn in
+            try await Self.limit(conn, timeout)
+            _ = try await Self.run(conn, "START TRANSACTION READ ONLY")
+            return try await Self.run(conn, sql)
         }
     }
 
-    static func trial(_ c: DatabaseConnection, _ sql: String) async throws -> DatabaseRows {
-        try await with(c, within: DatabaseTimes.trial) { conn in
-            let tables = try await run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
+    func trial(_ sql: String) async throws -> DatabaseRows {
+        try await Self.with(c, within: DatabaseTimes.trial) { conn in
+            let tables = try await Self.run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
             guard tables == "0" else { throw MySQLRun.cantRollBack }
-            _ = try await run(conn, "START TRANSACTION")
-            var result = try await run(conn, sql)
-            result.changed = try await changed(conn)
-            _ = try await run(conn, "ROLLBACK")
+            _ = try await Self.run(conn, "START TRANSACTION")
+            var result = try await Self.run(conn, sql)
+            result.changed = try await Self.changed(conn)
+            _ = try await Self.run(conn, "ROLLBACK")
             return result
         }
     }
 
     /// `allowed`: as Postgres' (a row change only: MySQL's DDL isn't tried, so it has no count to hold it to).
-    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) async throws -> DatabaseRows {
-        try await with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
-            if allowed != nil { _ = try await run(conn, "START TRANSACTION") }
-            var result = try await run(conn, sql)
-            result.changed = try await changed(conn)
+    func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
+        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+            if allowed != nil { _ = try await Self.run(conn, "START TRANSACTION") }
+            var result = try await Self.run(conn, sql)
+            result.changed = try await Self.changed(conn)
             guard let allowed else { return result }
             guard result.changed == allowed else {
                 // A ROLLBACK that fails (the connection gone) rolls back all the same: the count is what's said
-                await DatabaseWire.close { _ = try await run(conn, "ROLLBACK") }
+                await DatabaseWire.close { _ = try await Self.run(conn, "ROLLBACK") }
                 throw DatabaseEngines.notAsAllowed(result.changed, allowed)
             }
-            _ = try await run(conn, "COMMIT")
+            _ = try await Self.run(conn, "COMMIT")
             return result
         }
     }
 
-    static func apply(_ c: DatabaseConnection, _ statements: [String]) async throws -> Int {
-        try await with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
-            _ = try await run(conn, "START TRANSACTION")
+    func apply(_ statements: [String]) async throws -> Int {
+        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+            _ = try await Self.run(conn, "START TRANSACTION")
             var changed = 0
             for sql in statements {
-                _ = try await run(conn, sql)
-                changed += try await self.changed(conn) ?? 0
+                _ = try await Self.run(conn, sql)
+                changed += try await Self.changed(conn) ?? 0
             }
-            _ = try await run(conn, "COMMIT")
+            _ = try await Self.run(conn, "COMMIT")
             return changed
         }
     }
 
-    static func schema(_ c: DatabaseConnection) async throws -> DatabaseSchema {
-        try await with(c) { conn in
+    func schema() async throws -> DatabaseSchema {
+        try await Self.with(c) { conn in
             var schema = DatabaseSchemaBuilder.build(
-                columns: try await run(conn, MySQLRun.schemaColumns).rows,
-                counts: try await run(conn, MySQLRun.schemaCounts).rows,
-                indexes: try await run(conn, MySQLRun.schemaIndexes).rows)
-            schema.functions = try await run(conn, MySQLRun.schemaFunctions).rows.compactMap { $0.first ?? nil }
+                columns: try await Self.run(conn, MySQLRun.schemaColumns).rows,
+                counts: try await Self.run(conn, MySQLRun.schemaCounts).rows,
+                indexes: try await Self.run(conn, MySQLRun.schemaIndexes).rows)
+            schema.functions = try await Self.run(conn, MySQLRun.schemaFunctions).rows.compactMap { $0.first ?? nil }
             return schema
         }
     }
 
-    static func databases(_ c: DatabaseConnection) async throws -> [String] {
-        try await with(c) { conn in
-            try await run(conn, "SHOW DATABASES").rows.compactMap { $0.first ?? nil }.filter {
+    func databases() async throws -> [String] {
+        try await Self.with(c) { conn in
+            try await Self.run(conn, "SHOW DATABASES").rows.compactMap { $0.first ?? nil }.filter {
                 !["information_schema", "performance_schema", "mysql", "sys"].contains($0)
             }
         }
     }
 
-    static func version(_ c: DatabaseConnection) async throws -> String {
-        try await with(c) { conn in
-            let banner = try await run(conn, "SELECT VERSION()").rows.first?.first ?? nil
+    func version() async throws -> String? {
+        try await Self.with(c) { conn in
+            let banner = try await Self.run(conn, "SELECT VERSION()").rows.first?.first ?? nil
             let number = banner?.split(separator: "-").first.map(String.init) ?? ""
             return (banner?.contains("MariaDB") == true ? "MariaDB " : "MySQL ") + number
         }

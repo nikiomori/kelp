@@ -103,15 +103,7 @@ enum PostgresText {
 
     private static func uuid(_ b: inout ByteBuffer) -> String {
         guard let bytes = b.readBytes(length: 16) else { return "" }
-        let hex = bytes.map { String(format: "%02x", $0) }.joined()
-        let parts = [0..<8, 8..<12, 12..<16, 16..<20, 20..<32].map { range in
-            String(
-                hex[
-                    hex.index(
-                        hex.startIndex, offsetBy: range.lowerBound)..<hex.index(
-                            hex.startIndex, offsetBy: range.upperBound)])
-        }
-        return parts.joined(separator: "-")
+        return UUID(uuid: bytes.withUnsafeBytes { $0.load(as: uuid_t.self) }).uuidString.lowercased()
     }
 
     /// Postgres counts from 2000-01-01.

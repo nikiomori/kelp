@@ -156,3 +156,12 @@ extension Control {
         }
     }
 }
+
+extension Array where Element == (String?) -> Void {
+    /// Each start waiting told how it went (nil: running): the list emptied first, so one asked again waits anew.
+    mutating func flush(_ error: Error?) {
+        let waiting = self
+        self = []
+        waiting.forEach { $0(error?.localizedDescription) }
+    }
+}

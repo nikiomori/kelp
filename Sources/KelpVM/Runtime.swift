@@ -407,9 +407,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
         state = error == nil ? .running : .error
         lastUse = now()
-        let waiting = ready
-        ready = []
-        waiting.forEach { $0(error?.localizedDescription) }
+        ready.flush(error)
         if error == nil { adjustMemory() }
     }
 

@@ -45,27 +45,26 @@ public enum ServerFiles {
     /// chat's environment by name (`env_vars`, `env_http_headers`), and `environment` is what to put there.
     public static func codex(_ servers: [String: ServerEntry]) -> (args: [String], environment: [String: String]) {
         var args: [String] = [], environment: [String: String] = [:]
-        func quoted(_ text: String) -> String {
-            "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
-        }
         for (name, entry) in servers.sorted(by: { $0.key < $1.key }) {
             var fields: [String] = []
             if let url = entry.url {
-                fields.append("url=\(quoted(url))")
+                fields.append("url=\(ShellQuote.doubleQuoted(url))")
                 let headers = (entry.headers ?? [:]).sorted { $0.key < $1.key }.map { header, value -> String in
                     let variable = variable(name, header)
                     environment[variable] = value
-                    return "\(quoted(header))=\(quoted(variable))"
+                    return "\(ShellQuote.doubleQuoted(header))=\(ShellQuote.doubleQuoted(variable))"
                 }
                 if !headers.isEmpty { fields.append("env_http_headers={\(headers.joined(separator: ","))}") }
             } else if let command = entry.command {
-                fields.append("command=\(quoted(command))")
+                fields.append("command=\(ShellQuote.doubleQuoted(command))")
                 if let list = entry.args, !list.isEmpty {
-                    fields.append("args=[\(list.map(quoted).joined(separator: ","))]")
+                    fields.append("args=[\(list.map(ShellQuote.doubleQuoted).joined(separator: ","))]")
                 }
                 let names = (entry.env ?? [:]).keys.sorted()
                 for key in names { environment[key] = entry.env?[key] }
-                if !names.isEmpty { fields.append("env_vars=[\(names.map(quoted).joined(separator: ","))]") }
+                if !names.isEmpty {
+                    fields.append("env_vars=[\(names.map(ShellQuote.doubleQuoted).joined(separator: ","))]")
+                }
             } else {
                 continue
             }

@@ -170,7 +170,7 @@ extension VMService {
         defer { handle.closeFile() }
         var sha = SHA512()
         while let chunk = try handle.read(upToCount: 8 << 20), !chunk.isEmpty { sha.update(data: chunk) }
-        return sha.finalize().map { String(format: "%02x", $0) }.joined()
+        return sha.finalize().hex
     }
 
     /// The machine's folder: its disk (an APFS clone of the image, grown), key, cloud-init seed, ssh_config.

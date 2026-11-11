@@ -226,7 +226,7 @@ public enum ExtensionFiles {
                 hasher.update(data: Data([0]))
             }
         }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return hasher.finalize().hex
     }
 
     /// `extensionDigest` of the folder as it is: read again only when a file's size, times or inode changed (ctime moves
@@ -295,5 +295,10 @@ public enum ExtensionFiles {
 
 extension Data {
     /// Its SHA-256, as hex.
-    public var sha256: String { SHA256.hash(data: self).map { String(format: "%02x", $0) }.joined() }
+    public var sha256: String { SHA256.hash(data: self).hex }
+}
+
+extension Digest {
+    /// As hex, as `shasum` writes it.
+    public var hex: String { map { String(format: "%02x", $0) }.joined() }
 }

@@ -1,4 +1,4 @@
-import CryptoKit
+import Core
 import Foundation
 
 /// Kelp's hooks for Codex, on its command line: `-c hooks.<Event>=…` for each, then `-c hooks.state={…}` trusting exactly
@@ -38,9 +38,10 @@ public enum CodexHooks {
     public static func hash(label: String, command: String) -> String {
         // Codex's JSON, keys in order, nothing escaped that serde_json leaves as is.
         let json =
-            #"{"event_name":"# + quoted(label) + #","hooks":[{"async":false,"command":"# + quoted(command)
+            #"{"event_name":"# + ShellQuote.doubleQuoted(label) + #","hooks":[{"async":false,"command":"#
+            + ShellQuote.doubleQuoted(command)
             + #","timeout":600,"type":"command"}]}"#
-        return "sha256:" + SHA256.hash(data: Data(json.utf8)).map { String(format: "%02x", $0) }.joined()
+        return "sha256:" + Data(json.utf8).sha256
     }
 
     /// The `-c` pairs: each hook, then their trust.
@@ -49,17 +50,14 @@ public enum CodexHooks {
 
     public static func args(_ events: [(name: String, label: String, command: String)]) -> [String] {
         let hooks = events.flatMap { event in
-            ["-c", "hooks.\(event.name)=[{hooks=[{type=\"command\",command=\(quoted(event.command))}]}]"]
+            let command = ShellQuote.doubleQuoted(event.command)
+            return ["-c", "hooks.\(event.name)=[{hooks=[{type=\"command\",command=\(command)}]}]"]
         }
         // One table: `-c` splits a dotted key at every ".", and the keys hold "config.toml".
-        let state = events.map {
-            "\(quoted(key($0.label)))={trusted_hash=\(quoted(hash(label: $0.label, command: $0.command)))}"
+        let state = events.map { event in
+            let trusted = ShellQuote.doubleQuoted(hash(label: event.label, command: event.command))
+            return "\(ShellQuote.doubleQuoted(key(event.label)))={trusted_hash=\(trusted)}"
         }
         return hooks + ["-c", "hooks.state={" + state.joined(separator: ",") + "}"]
-    }
-
-    /// A basic string, as both TOML and JSON write one (these commands hold no control characters).
-    public static func quoted(_ s: String) -> String {
-        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 }

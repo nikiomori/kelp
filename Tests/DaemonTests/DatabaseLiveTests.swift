@@ -293,19 +293,17 @@ private func heldThroughTheirClients(_ w: World, _ wt: Worktree) async throws {
     for name in ["shop", "app_dev"] {
         let table = name == "shop" ? "t" : "p"
         let c = try w.d.workspaces.databases.connection(wt.id, name, agent: false)
-        func write(_ sql: String, allowed: Int) throws -> DatabaseRows {
-            c.database.engine == .postgres
-                ? try PostgresRun.write(c, sql, allowed: allowed) : try MySQLRun.write(c, sql, allowed: allowed)
-        }
-        #expect(throws: DatabaseEngines.notAsAllowed(2, 1), "\(name)") {
-            try write("UPDATE \(table) SET v = 'n'", allowed: 1)
+        let run: any DatabaseRunner =
+            c.database.engine == .postgres ? PostgresRun(c: c, off: Slots(1)) : MySQLRun(c: c, off: Slots(1))
+        await #expect(throws: DatabaseEngines.notAsAllowed(2, 1), "\(name)") {
+            try await run.write("UPDATE \(table) SET v = 'n'", allowed: 1)
         }
         let same = try await w.c.call(
             DatabaseQuery(worktreeId: wt.id, database: name, sql: "SELECT count(*) FROM \(table) WHERE v = 'z'"))
         #expect(same.rows == [["2"]], "\(name): nothing changed")
         _ = try await w.c.call(
             DatabaseQuery(worktreeId: wt.id, database: name, sql: "INSERT INTO \(table) VALUES (3, 'y')"))
-        #expect(try write("DELETE FROM \(table) WHERE id = 3", allowed: 1).changed == 1, "\(name)")
+        #expect(try await run.write("DELETE FROM \(table) WHERE id = 3", allowed: 1).changed == 1, "\(name)")
     }
 }
 
@@ -353,7 +351,7 @@ private func composeDown(_ file: String, in dir: String) {
     let make = "CREATE TABLE IF NOT EXISTS many AS SELECT generate_series(1, 100005) AS i"
     _ = try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: make))
     let c = try w.d.workspaces.databases.connection(wt.id, "app_dev", agent: false)
-    let tried = try await PostgresWire.trial(c, "DELETE FROM many")
+    let tried = try await PostgresWire(c: c).trial("DELETE FROM many")
     #expect(tried.changed == 100_005)
     #expect(Databases.question("DELETE FROM many", database: "app_dev", changed: tried.changed).contains("100005 rows"))
 }

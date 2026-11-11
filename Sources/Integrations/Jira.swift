@@ -15,9 +15,9 @@ public struct JiraClient: Sendable {
 
     public func myself() async throws -> String {
         let data = try await request("GET", "/rest/api/3/myself")
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let name = object["displayName"] as? String
-        else { throw IntegrationError(description: "unexpected /myself response") }
+        guard let name = try JSONDecoder().decode(JSONValue.self, from: data)["displayName"]?.string else {
+            throw IntegrationError(description: "unexpected /myself response")
+        }
         return name
     }
 
@@ -61,47 +61,39 @@ public struct JiraClient: Sendable {
     // MARK: parsing
 
     static func parseSearch(_ data: Data, site: String) throws -> [JiraIssue] {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let issues = object["issues"] as? [[String: Any]]
-        else {
+        guard let issues = try JSONDecoder().decode(JSONValue.self, from: data)["issues"]?.array else {
             throw IntegrationError(description: "unexpected search response")
         }
         return issues.compactMap { issue in
-            guard let key = issue["key"] as? String, let fields = issue["fields"] as? [String: Any] else { return nil }
-            let st = fields["status"] as? [String: Any]
+            guard let key = issue["key"]?.string, let fields = issue["fields"], case .object = fields else {
+                return nil
+            }
+            let st = fields["status"]
             return JiraIssue(
-                key: key, title: fields["summary"] as? String ?? "", description: adfText(fields["description"]),
+                key: key, title: fields["summary"]?.string ?? "", description: adfText(fields["description"]),
                 url: site.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/browse/" + key,
-                status: st?["name"] as? String ?? "",
-                statusCategory: (st?["statusCategory"] as? [String: Any])?["key"] as? String ?? "",
-                type: (fields["issuetype"] as? [String: Any])?["name"] as? String ?? "",
-                project: (fields["project"] as? [String: Any])?["key"] as? String ?? "")
+                status: st?["name"]?.string ?? "", statusCategory: st?["statusCategory"]?["key"]?.string ?? "",
+                type: fields["issuetype"]?["name"]?.string ?? "", project: fields["project"]?["key"]?.string ?? "")
         }
     }
 
     static func parseTransitions(_ data: Data) throws -> [JiraTransition] {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let ts = object["transitions"] as? [[String: Any]]
-        else {
+        guard let ts = try JSONDecoder().decode(JSONValue.self, from: data)["transitions"]?.array else {
             throw IntegrationError(description: "unexpected transitions response")
         }
         return ts.compactMap { transition in
-            guard let id = transition["id"] as? String, let name = transition["name"] as? String else { return nil }
+            guard let id = transition["id"]?.string, let name = transition["name"]?.string else { return nil }
             return JiraTransition(
-                id: id, name: name,
-                toCategory: (((transition["to"] as? [String: Any])?["statusCategory"]) as? [String: Any])?["key"]
-                    as? String
-                    ?? "")
+                id: id, name: name, toCategory: transition["to"]?["statusCategory"]?["key"]?.string ?? "")
         }
     }
 
     /// Atlassian Document Format → plain text (paragraph breaks kept); plain strings pass through (API v2).
-    static func adfText(_ value: Any?) -> String {
-        if let text = value as? String { return text }
-        guard let node = value as? [String: Any] else { return "" }
-        if let text = node["text"] as? String { return text }
-        let kids = (node["content"] as? [Any] ?? []).map(adfText)
-        switch node["type"] as? String {
+    static func adfText(_ value: JSONValue?) -> String {
+        guard let node = value else { return "" }
+        if let text = node.string ?? node["text"]?.string { return text }
+        let kids = (node["content"]?.array ?? []).map(adfText)
+        switch node["type"]?.string {
         case "paragraph", "heading", "codeBlock", "blockquote": return kids.joined() + "\n"
         case "listItem": return "- " + kids.joined()
         case "hardBreak": return "\n"

@@ -64,10 +64,7 @@ protocol SessionInput: Handled where Service == Sessions {
 extension SessionInput {
     /// Off the reader thread (another handler, a test): here, in order with the session's other input.
     func handle(_ sessions: Sessions) throws -> Result {
-        if sessions.lanes.isClear(id), let ls = sessions.existing(id), let result = try ls.input({ try apply(to: ls) })
-        {
-            return result
-        }
+        if let result = try now(sessions) { return result }
         try sessions.mustWake(id)
         return try sessions.lanes.runHere(id) { try sessions.withInput(id) { try apply(to: $0) } }
     }
@@ -82,9 +79,7 @@ extension SessionInput {
         do {
             let method = try decoded(params)
             try allowed(method)
-            if sessions.lanes.isClear(method.id), let ls = sessions.existing(method.id),
-                let result = try ls.input({ try method.apply(to: ls) })
-            {
+            if let result = try method.now(sessions) {
                 done(.success(try JSONEncoder().encode(result)))
                 return true
             }
@@ -102,5 +97,11 @@ extension SessionInput {
             }
         } catch { done(.failure(error)) }
         return true
+    }
+
+    /// Applied right away when nothing waits on its lane and the session runs; nil when it has to wait.
+    private func now(_ sessions: Sessions) throws -> Result? {
+        guard sessions.lanes.isClear(id), let ls = sessions.existing(id) else { return nil }
+        return try ls.input({ try apply(to: ls) })
     }
 }

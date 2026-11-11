@@ -3,8 +3,11 @@ import Foundation
 import GRDB
 
 /// A SQLite file in kelpd itself (GRDB).
-struct SQLiteRun: Sendable {
+struct SQLiteRun: DatabaseRunner {
     let c: DatabaseConnection, off: Slots
+    /// How long the schema's row counts may take in all: past it a table's count is left out (nil), so a file of
+    /// many GB still shows its tables.
+    var counting: TimeInterval = 3
 
     static func open(_ path: String, readOnly: Bool) throws -> DatabaseQueue {
         var config = Configuration()
@@ -16,75 +19,87 @@ struct SQLiteRun: Sendable {
 
     /// Each stopped at its time (`interrupt`, from another thread): a runaway join or UPDATE doesn't keep its slot, nor
     /// outlast the call that waits for it. SQLite undoes a statement it stops.
-    static func read(_ path: String, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        try run {
-            let queue = try open(path, readOnly: true)
-            return try stopped(queue, after: timeout) {
-                try queue.read { db in
-                    let statement = try db.makeStatement(sql: sql)
-                    guard statement.isReadonly else { throw DatabaseFailure.change }
-                    return try rows(statement)
+    func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            try Self.run {
+                let queue = try Self.open(path, readOnly: true)
+                return try Self.stopped(queue, after: timeout) {
+                    try queue.read { db in
+                        let statement = try db.makeStatement(sql: sql)
+                        guard statement.isReadonly else { throw DatabaseFailure.change }
+                        return try Self.rows(statement)
+                    }
                 }
             }
         }
     }
 
-    static func trial(_ path: String, _ sql: String) throws -> DatabaseRows {
-        try run {
-            var result = DatabaseRows()
-            let queue = try open(path, readOnly: false)
-            try stopped(queue, after: DatabaseEngines.readTimeout) {
-                try queue.inDatabase { db in
-                    try db.inTransaction {
-                        let statement = try db.makeStatement(sql: SQLText.returning(sql) ?? sql)
-                        result = try rows(statement)
-                        result.changed = db.changesCount
-                        return .rollback
-                    }
-                }
-            }
-            return result
-        }
-    }
-
-    /// `allowed`: as Postgres' (`PostgresWire.write`).
-    static func write(_ path: String, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
-        try run {
-            let queue = try open(path, readOnly: false)
-            return try stopped(queue, after: DatabaseEngines.writeTimeout) {
-                guard let allowed else {
-                    return try queue.inDatabase { db in
-                        var result = try rows(try db.makeStatement(sql: sql))
-                        result.changed = db.changesCount
-                        return result
-                    }
-                }
+    func trial(_ sql: String) async throws -> DatabaseRows {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            try Self.run {
                 var result = DatabaseRows()
-                try queue.inTransaction { db in
-                    result = try rows(try db.makeStatement(sql: sql))
-                    result.changed = db.changesCount
-                    return result.changed == allowed ? .commit : .rollback
+                let queue = try Self.open(path, readOnly: false)
+                try Self.stopped(queue, after: DatabaseEngines.readTimeout) {
+                    try queue.inDatabase { db in
+                        try db.inTransaction {
+                            let statement = try db.makeStatement(sql: SQLText.returning(sql) ?? sql)
+                            result = try Self.rows(statement)
+                            result.changed = db.changesCount
+                            return .rollback
+                        }
+                    }
                 }
-                guard result.changed == allowed else { throw DatabaseEngines.notAsAllowed(result.changed, allowed) }
                 return result
             }
         }
     }
 
-    static func apply(_ path: String, _ statements: [String]) throws -> Int {
-        try run {
-            var changed = 0
-            let queue = try open(path, readOnly: false)
-            try stopped(queue, after: DatabaseEngines.writeTimeout) {
-                try queue.inTransaction { db in
-                    for sql in statements {
-                        try db.execute(sql: sql)
-                        changed += db.changesCount
+    /// `allowed`: as Postgres' (`PostgresWire.write`).
+    func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            try Self.run {
+                let queue = try Self.open(path, readOnly: false)
+                return try Self.stopped(queue, after: DatabaseEngines.writeTimeout) {
+                    guard let allowed else {
+                        return try queue.inDatabase { db in
+                            var result = try Self.rows(try db.makeStatement(sql: sql))
+                            result.changed = db.changesCount
+                            return result
+                        }
                     }
-                    return .commit
+                    var result = DatabaseRows()
+                    try queue.inTransaction { db in
+                        result = try Self.rows(try db.makeStatement(sql: sql))
+                        result.changed = db.changesCount
+                        return result.changed == allowed ? .commit : .rollback
+                    }
+                    guard result.changed == allowed else { throw DatabaseEngines.notAsAllowed(result.changed, allowed) }
+                    return result
                 }
             }
-            return changed
+        }
+    }
+
+    func apply(_ statements: [String]) async throws -> Int {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            try Self.run {
+                var changed = 0
+                let queue = try Self.open(path, readOnly: false)
+                try Self.stopped(queue, after: DatabaseEngines.writeTimeout) {
+                    try queue.inTransaction { db in
+                        for sql in statements {
+                            try db.execute(sql: sql)
+                            changed += db.changesCount
+                        }
+                        return .commit
+                    }
+                }
+                return changed
+            }
         }
     }
 
@@ -115,50 +130,51 @@ struct SQLiteRun: Sendable {
         return result
     }
 
-    /// How long the schema's row counts may take in all: past it a table's count is left out (nil), so a file of
-    /// many GB still shows its tables.
-    static let countingTime: TimeInterval = 3
-
-    static func schema(_ path: String, countingFor budget: TimeInterval = countingTime) throws -> DatabaseSchema {
-        try run {
-            let queue = try open(path, readOnly: true)
-            let until = Date().addingTimeInterval(budget)
-            return try queue.read { db in
-                let views = Set(
-                    try String.fetchAll(
-                        db, sql: "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite_%'"))
-                let names = try String.fetchAll(
-                    db,
-                    sql:
-                        "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')"
-                        + " AND name NOT LIKE 'sqlite_%' ORDER BY name"
-                )
-                return DatabaseSchema(
-                    tables: try names.map { name in
-                        let view = views.contains(name)   // a view has no keys or indexes of its own
-                        let keys = view ? [] : try db.foreignKeys(on: name)
-                        let all = try db.columns(in: name)
-                        // INTEGER PRIMARY KEY is the rowid: never NULL, NOT NULL said or not (another key type can be)
-                        let rowid = all.filter { $0.primaryKeyIndex > 0 }.count == 1
-                        let columns = all.map { column in
-                            DatabaseSchema.Column(
-                                name: column.name, type: column.type,
-                                nullable: !column.isNotNull
-                                    && !(rowid && column.primaryKeyIndex > 0 && column.type.uppercased() == "INTEGER"),
-                                primary: column.primaryKeyIndex > 0,
-                                references: keys.first { $0.originColumns.contains(column.name) }.map {
-                                    $0.destinationTable + "." + ($0.destinationColumns.first ?? "")
-                                })
-                        }
-                        let count = try counted(queue, db, name, until: until)
-                        return DatabaseSchema.Table(
-                            name: name, rows: count, columns: columns,
-                            indexes: view
-                                ? []
-                                : try db.indexes(on: name).map {
-                                    "\($0.name) (\($0.columns.joined(separator: ", ")))"
-                                }, kind: view ? "view" : nil)
-                    })
+    func schema() async throws -> DatabaseSchema {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            try Self.run {
+                let queue = try Self.open(path, readOnly: true)
+                let until = Date().addingTimeInterval(counting)
+                return try queue.read { db in
+                    let views = Set(
+                        try String.fetchAll(
+                            db, sql: "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite_%'"))
+                    let names = try String.fetchAll(
+                        db,
+                        sql:
+                            "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')"
+                            + " AND name NOT LIKE 'sqlite_%' ORDER BY name"
+                    )
+                    return DatabaseSchema(
+                        tables: try names.map { name in
+                            let view = views.contains(name)   // a view has no keys or indexes of its own
+                            let keys = view ? [] : try db.foreignKeys(on: name)
+                            let all = try db.columns(in: name)
+                            // INTEGER PRIMARY KEY is the rowid: never NULL, NOT NULL said or not (another key type
+                            // can be)
+                            let rowid = all.filter { $0.primaryKeyIndex > 0 }.count == 1
+                            let columns = all.map { column in
+                                DatabaseSchema.Column(
+                                    name: column.name, type: column.type,
+                                    nullable: !column.isNotNull
+                                        && !(rowid && column.primaryKeyIndex > 0
+                                            && column.type.uppercased() == "INTEGER"),
+                                    primary: column.primaryKeyIndex > 0,
+                                    references: keys.first { $0.originColumns.contains(column.name) }.map {
+                                        $0.destinationTable + "." + ($0.destinationColumns.first ?? "")
+                                    })
+                            }
+                            let count = try Self.counted(queue, db, name, until: until)
+                            return DatabaseSchema.Table(
+                                name: name, rows: count, columns: columns,
+                                indexes: view
+                                    ? []
+                                    : try db.indexes(on: name).map {
+                                        "\($0.name) (\($0.columns.joined(separator: ", ")))"
+                                    }, kind: view ? "view" : nil)
+                        })
+                }
             }
         }
     }

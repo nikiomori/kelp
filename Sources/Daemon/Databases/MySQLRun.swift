@@ -4,14 +4,16 @@ import Foundation
 // MySQL inside a compose container: its batch client's reads, writes and schema.
 
 /// mysql inside a compose container (`docker exec`): its batch output.
-struct MySQLRun: Sendable {
+struct MySQLRun: DatabaseRunner {
     let c: DatabaseConnection, off: Slots
     static let marker = "kelp_7f3e9c"
 
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval) throws -> DatabaseRows {
-        // The server stops it too: a client killed in a container (`docker exec`) leaves its query running there
-        let out = try run(c, limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
-        return section(out.last ?? "")
+    func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
+        return try await off.run {
+            // The server stops it too: a client killed in a container (`docker exec`) leaves its query running there
+            let out = try Self.run(c, Self.limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
+            return Self.section(out.last ?? "")
+        }
     }
 
     /// The session's time limit for a read: MySQL names it max_execution_time (ms), MariaDB max_statement_time (s),
@@ -34,40 +36,48 @@ struct MySQLRun: Sendable {
         """
     static let cantRollBack = DatabaseFailure.failed("some of its tables (MyISAM, MEMORY…) can't roll back")
 
-    static func trial(_ c: DatabaseConnection, _ sql: String) throws -> DatabaseRows {
-        let tables = try run(c, [unrollable], timeout: DatabaseEngines.readTimeout + 5)
-        guard (section(tables.last ?? "").rows.first?.first ?? nil) == "0" else { throw cantRollBack }
-        let out = try run(c, ["START TRANSACTION", counted(sql), "ROLLBACK"], timeout: 60)
-        guard out.count >= 2 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
-        return withCount(out[out.count - 2])
+    func trial(_ sql: String) async throws -> DatabaseRows {
+        return try await off.run {
+            let tables = try Self.run(c, [Self.unrollable], timeout: DatabaseEngines.readTimeout + 5)
+            guard (Self.section(tables.last ?? "").rows.first?.first ?? nil) == "0" else { throw Self.cantRollBack }
+            let out = try Self.run(c, ["START TRANSACTION", Self.counted(sql), "ROLLBACK"], timeout: 60)
+            guard out.count >= 2 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
+            return Self.withCount(out[out.count - 2])
+        }
     }
 
     /// `allowed`: as over the wire (`MySQLWire.write`), in the client's one session: the server itself commits or rolls
     /// back by the count it kept of the statement (a prepared COMMIT or ROLLBACK, as the mysql client has no `if`).
-    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil) throws -> DatabaseRows {
-        guard let allowed else {
-            let out = try run(c, [counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
-            return out.last.map(withCount) ?? DatabaseRows()
+    func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
+        return try await off.run {
+            guard let allowed else {
+                let out = try Self.run(c, [Self.counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
+                return out.last.map(Self.withCount) ?? DatabaseRows()
+            }
+            let decide = [
+                "SET @kelp_end = IF(@kelp_changed = \(allowed), 'COMMIT', 'ROLLBACK')",
+                "PREPARE kelp_end FROM @kelp_end",
+                "EXECUTE kelp_end", "SELECT @kelp_changed = \(allowed) AS kelp_held"
+            ]
+            let kept = sql + "\n;\nSET @kelp_changed = ROW_COUNT();\nSELECT @kelp_changed AS " + Self.changedColumn
+            let out = try Self.run(c, ["START TRANSACTION", kept] + decide, timeout: DatabaseEngines.writeTimeout + 10)
+            guard out.count == 6 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
+            let rows = Self.withCount(out[1])
+            guard Self.section(out[5]).rows.first?.first == "1" else {
+                throw DatabaseEngines.notAsAllowed(rows.changed, allowed)
+            }
+            return rows
         }
-        let decide = [
-            "SET @kelp_end = IF(@kelp_changed = \(allowed), 'COMMIT', 'ROLLBACK')", "PREPARE kelp_end FROM @kelp_end",
-            "EXECUTE kelp_end", "SELECT @kelp_changed = \(allowed) AS kelp_held"
-        ]
-        let kept = sql + "\n;\nSET @kelp_changed = ROW_COUNT();\nSELECT @kelp_changed AS " + changedColumn
-        let out = try run(c, ["START TRANSACTION", kept] + decide, timeout: DatabaseEngines.writeTimeout + 10)
-        guard out.count == 6 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
-        let rows = withCount(out[1])
-        guard section(out[5]).rows.first?.first == "1" else {
-            throw DatabaseEngines.notAsAllowed(rows.changed, allowed)
-        }
-        return rows
     }
 
     /// One script: mysql stops at the first error (no --force), so COMMIT never comes and its session rolls back.
-    static func apply(_ c: DatabaseConnection, _ statements: [String]) throws -> Int {
-        let out = try run(
-            c, ["START TRANSACTION"] + statements.map(counted) + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
-        return out.dropFirst().dropLast().map { withCount($0).changed ?? 0 }.reduce(0, +)
+    func apply(_ statements: [String]) async throws -> Int {
+        return try await off.run {
+            let out = try Self.run(
+                c, ["START TRANSACTION"] + statements.map(Self.counted) + ["COMMIT"],
+                timeout: DatabaseEngines.writeTimeout + 10)
+            return out.dropFirst().dropLast().map { Self.withCount($0).changed ?? 0 }.reduce(0, +)
+        }
     }
 
     /// The statement and, right after it (anything between would reset it), the rows it changed.
@@ -104,12 +114,16 @@ struct MySQLRun: Sendable {
         FROM information_schema.statistics WHERE \(here) GROUP BY table_name, index_name
         """
 
-    static func schema(_ c: DatabaseConnection) throws -> DatabaseSchema {
-        let out = try run(c, [schemaColumns, schemaCounts, schemaIndexes], timeout: DatabaseEngines.readTimeout + 10)
-        guard out.count >= 3 else { throw DatabaseFailure.failed("mysql said nothing of the tables.") }
-        return DatabaseSchemaBuilder.build(
-            columns: section(out[out.count - 3]).rows, counts: section(out[out.count - 2]).rows,
-            indexes: section(out[out.count - 1]).rows)
+    func schema() async throws -> DatabaseSchema {
+        return try await off.run {
+            let out = try Self.run(
+                c, [Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
+                timeout: DatabaseEngines.readTimeout + 10)
+            guard out.count >= 3 else { throw DatabaseFailure.failed("mysql said nothing of the tables.") }
+            return DatabaseSchemaBuilder.build(
+                columns: Self.section(out[out.count - 3]).rows, counts: Self.section(out[out.count - 2]).rows,
+                indexes: Self.section(out[out.count - 1]).rows)
+        }
     }
 
     /// The statements as one script on stdin, in binary mode (no client commands such as `system`), a marker between
