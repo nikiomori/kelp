@@ -12,8 +12,10 @@ extension InspectorController {
         let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0   // as showSelected picks it
         let order = selector.arrangedSubviews.compactMap { v in buttons.firstIndex { $0 === v } }
             .filter { !hidden.contains(panels[$0].id) }
-        let room = view.bounds.width - 2 * Metrics.insetTrailing - Metrics.iconGap
-        let fits = max(1, Int(room / (Metrics.segment.width + Metrics.iconGap)))
+        let column = selector.orientation == .vertical
+        let length = column ? view.bounds.height - WindowBar.height : view.bounds.width
+        let room = length - 2 * Metrics.insetTrailing - Metrics.iconGap
+        let fits = max(1, Int(room / ((column ? Metrics.segment.height : Metrics.segment.width) + Metrics.iconGap)))
         var shown = order
         if order.count > fits {
             shown = Array(order.prefix(fits - 1))   // and the »
@@ -54,28 +56,33 @@ extension InspectorController {
     func rowMenu(_ e: NSEvent) -> NSMenu? {
         let point = view.convert(e.locationInWindow, from: nil)
         let band = view.bounds.height - WindowBar.height
-        guard
-            (band - TabStrip.height(app.settings)...band).contains(point.y)
+        let settings = app.settings, column = settings[SettingKeys.inspectorIconsPosition] == "side"
+        let onRow =
+            column
+            ? selector.superview.map { $0.convert(selector.frame, to: view).contains(point) } ?? false
+            : (band - TabStrip.height(settings)...band).contains(point.y)
                 || (selector.frame.minY...selector.frame.maxY).contains(point.y)
-        else { return nil }
-        let settings = app.settings, hidden = Set(settings[SettingKeys.hiddenPanels] ?? []), menu = NSMenu()
+        guard onRow else { return nil }
+        let hidden = Set(settings[SettingKeys.hiddenPanels] ?? []), menu = NSMenu()
         menu.addItem(.sectionHeader(title: String(localized: "Icons")))
         for panel in panels {
             menu.addItem(item(loc(panel.title), #selector(toggleIcon(_:)), panel.id, on: !hidden.contains(panel.id)))
         }
-        let at = settings[SettingKeys.inspectorIconsPosition] == "bottom" ? "bottom" : "top"
+        let at = settings[SettingKeys.inspectorIconsPosition]
         menu.addItem(.sectionHeader(title: String(localized: "Position")))
-        for v in ["top", "bottom"] {
+        for v in ["top", "bottom", "side"] {
             let choice = (SettingKeys.inspectorIconsPosition.key, v)
             menu.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), choice, on: at == v))
         }
         let side =
             ["left", "right"].contains(settings[SettingKeys.inspectorIcons])
             ? settings[SettingKeys.inspectorIcons] : "center"
-        menu.addItem(.sectionHeader(title: String(localized: "Alignment")))
-        for v in ["left", "center", "right"] {
-            menu.addItem(
-                item(loc(v.capitalized), #selector(setChoice(_:)), (SettingKeys.inspectorIcons.key, v), on: side == v))
+        if !column {   // a column has none
+            menu.addItem(.sectionHeader(title: String(localized: "Alignment")))
+            for v in ["left", "center", "right"] {
+                let choice = (SettingKeys.inspectorIcons.key, v)
+                menu.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), choice, on: side == v))
+            }
         }
         menu.addItem(.separator())
         menu.addItem(

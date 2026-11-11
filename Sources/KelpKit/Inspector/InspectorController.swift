@@ -32,8 +32,9 @@ final class InspectorController: NSViewController {
     private var made: [String: NSViewController] = [:]
     /// Settings › Appearance › Inspector icons: one of these holds the row (left, centered, right).
     private var align: [String: NSLayoutConstraint] = [:]
-    /// Settings › Appearance › Inspector icons position: the row level with the tabs, or a bar under the panel.
-    private var top: [NSLayoutConstraint] = [], bottom: [NSLayoutConstraint] = []
+    /// Settings › Appearance › Inspector icons position: the row level with the tabs, a bar under the panel, or a
+    /// column down the inspector's right edge (room for every icon).
+    private var top: [NSLayoutConstraint] = [], bottom: [NSLayoutConstraint] = [], side: [NSLayoutConstraint] = []
     private let rowSep = NSBox()   // over the bar at the bottom
     /// The panel's name in the inspector's top band, level with the traffic lights: the icons alone don't say where you are.
     private let panelTitle = NSTextField(labelWithString: "")
@@ -85,19 +86,32 @@ final class InspectorController: NSViewController {
         } changed: { height in
             zip(band, [height / 2, -height / 2, -height, height]).forEach { $0.constant = $1 }
         }
-        top = [
-            band[0],
-            host.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            host.topAnchor.constraint(equalTo: sep.bottomAnchor)
+        let across = [
+            bar.heightAnchor.constraint(equalToConstant: Metrics.segmentCapsule),
+            host.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         ]
-        bottom = [
-            band[1], band[2],
-            host.bottomAnchor.constraint(equalTo: rowSep.topAnchor),
-            host.topAnchor.constraint(equalTo: under.topAnchor)
+        top =
+            across + [
+                band[0],
+                host.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+                host.topAnchor.constraint(equalTo: sep.bottomAnchor)
+            ]
+        bottom =
+            across + [
+                band[1], band[2],
+                host.bottomAnchor.constraint(equalTo: rowSep.topAnchor),
+                host.topAnchor.constraint(equalTo: under.topAnchor)
+            ]
+        side = [
+            bar.widthAnchor.constraint(equalToConstant: Metrics.segment.width + 2 * Metrics.iconGap),
+            bar.topAnchor.constraint(equalTo: under.topAnchor, constant: Metrics.insetTrailing),
+            bar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Metrics.insetTrailing),
+            host.trailingAnchor.constraint(equalTo: bar.leadingAnchor),
+            host.topAnchor.constraint(equalTo: under.topAnchor),
+            host.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ]
         NSLayoutConstraint.activate([
             bar.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor, constant: Metrics.insetTrailing),
-            bar.heightAnchor.constraint(equalToConstant: Metrics.segmentCapsule),
             bar.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -Metrics.insetTrailing),
             panelTitle.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Metrics.inset),
             panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -48),   // clear of the toggle
@@ -108,7 +122,6 @@ final class InspectorController: NSViewController {
             rowSep.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             rowSep.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             host.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: 240)
         ])
         empty.place(in: root, under: sep)
@@ -146,13 +159,9 @@ final class InspectorController: NSViewController {
             self?.rebuild()
         }
         track(owner: self) { [app] in
-            app.settings[SettingKeys.inspectorIconsPosition] == "bottom"
+            [app.settings[SettingKeys.inspectorIconsPosition], app.settings[SettingKeys.inspectorIcons]]
         } changed: { [weak self] in
-            guard let self else { return }
-            NSLayoutConstraint.deactivate($0 ? self.top : self.bottom)
-            NSLayoutConstraint.activate($0 ? self.bottom : self.top)
-            self.rowSep.isHidden = !$0
-            sep.isHidden = $0
+            self?.place(at: $0[0], align: $0[1], sep)
         }
         track(owner: self) { [app] in
             app.workbench.inspectorPanel
@@ -169,13 +178,19 @@ final class InspectorController: NSViewController {
         } changed: { [weak self] _ in
             self?.showCounts()
         }
-        track(owner: self) { [app] in
-            app.settings[SettingKeys.inspectorIcons]
-        } changed: { [weak self] in
-            guard let self else { return }
-            let want = self.align[$0] == nil ? "center" : $0
-            for (k, c) in self.align { c.isActive = k == want }
-        }
+    }
+
+    /// The row level with the tabs (`top`), under the panel (`bottom`) or a column at the right edge (`side`), which
+    /// has no alignment.
+    private func place(at position: String, align side: String, _ sep: NSBox) {
+        let column = position == "side"
+        NSLayoutConstraint.deactivate(top + bottom + self.side + align.values)
+        NSLayoutConstraint.activate(column ? self.side : position == "bottom" ? bottom : top)
+        let want = align[side] == nil ? "center" : side
+        if !column { align[want]?.isActive = true }
+        selector.orientation = column ? .vertical : .horizontal
+        rowSep.isHidden = position != "bottom"
+        sep.isHidden = position == "bottom" || column
     }
 
     private func rebuild() {
@@ -300,11 +315,14 @@ final class InspectorController: NSViewController {
         showSelected()   // the shown panel's icon again: its state stays on
     }
 
-    /// A dragged icon takes the slot under the pointer (`x` in the row); the others slide aside.
-    private func move(_ b: NSButton, to x: CGFloat) {
+    /// A dragged icon takes the slot under the pointer (`p` in the row or column); the others slide aside.
+    private func move(_ b: NSButton, to p: NSPoint) {
         var views = selector.arrangedSubviews
         views.removeAll { $0 === b || $0 === more }   // the » stays last
-        let next = views.first { !$0.isHidden && $0.frame.midX > x }
+        let down = selector.isFlipped ? 1.0 : -1.0   // a column's next slot is further down
+        let next = views.first { v in
+            !v.isHidden && (selector.orientation == .vertical ? (v.frame.midY - p.y) * down > 0 : v.frame.midX > p.x)
+        }
         let index = next.flatMap { slot in views.firstIndex { $0 === slot } } ?? views.count
         guard selector.arrangedSubviews.firstIndex(of: b) != index else { return }
         selector.removeArrangedSubview(b)

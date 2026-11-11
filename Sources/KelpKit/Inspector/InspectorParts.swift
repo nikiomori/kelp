@@ -53,14 +53,14 @@ final class CapsuleStack: NSStackView {
     override func updateLayer() { layer?.backgroundColor = filled ? NSColor.fillRest.cgColor : nil }
     override func layout() {
         super.layout()
-        layer?.cornerRadius = bounds.height / 2
+        layer?.cornerRadius = min(bounds.width, bounds.height) / 2   // a row or a column
     }
 }
 
 /// A panel's icon, a segment of the capsule: a click shows the panel, a drag moves the icon along the row (`moved`
 /// with the pointer's x in the row, `dropped` on release). The shown panel's icon sits on the grey of a chosen row.
 final class PanelIcon: NSButton {
-    var moved: ((CGFloat) -> Void)?
+    var moved: ((NSPoint) -> Void)?
     var dropped: (() -> Void)?
     var contextMenu: ((NSEvent) -> NSMenu?)?
     private var hover = false { didSet { needsDisplay = true } }
@@ -117,10 +117,10 @@ final class PanelIcon: NSButton {
         while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
             at = next.locationInWindow
             if next.type == .leftMouseUp { break }
-            guard dragging || abs(at.x - e.locationInWindow.x) > 3 else { continue }
+            guard dragging || hypot(at.x - e.locationInWindow.x, at.y - e.locationInWindow.y) > 3 else { continue }
             dragging = true
             isHighlighted = false
-            moved?(row.convert(at, from: nil).x)
+            moved?(row.convert(at, from: nil))
         }
         if dragging {
             dropped?()

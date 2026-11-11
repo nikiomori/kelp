@@ -126,8 +126,11 @@ extension Builtins {
             SettingKeys.hiddenPanels, "Panels", .panels, "Drag an icon in the inspector to move it.",
             group: "Inspector"),
         s(
-            SettingKeys.inspectorIconsPosition, "Panel icons", .enum, options: ["top", "bottom"],
-            labels: ["top": String(localized: "Beside the Tabs"), "bottom": String(localized: "Under the Panel")],
+            SettingKeys.inspectorIconsPosition, "Panel icons", .enum, options: ["top", "bottom", "side"],
+            labels: [
+                "top": String(localized: "Beside the Tabs"), "bottom": String(localized: "Under the Panel"),
+                "side": String(localized: "Down the Side")
+            ],
             look: .segments, group: "Inspector"),
         s(
             SettingKeys.inspectorIcons, "Icon alignment", .enum, options: ["left", "center", "right"],
