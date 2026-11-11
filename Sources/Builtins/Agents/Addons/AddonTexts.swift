@@ -63,7 +63,7 @@ extension AddonGroups {
             ? String(localized: "1 server isn’t signed in")
             : String(localized: "\(servers.count) servers aren’t signed in")
         guard let tokens = sum(servers) else { return (title, String(localized: "They do nothing until signed in")) }
-        return (title, String(localized: "They do nothing and cost \(k(tokens)) tokens"))
+        return (title, String(localized: "Idle, \(k(tokens)) tokens each chat"))
     }
 
     /// A row's tooltip: what it says about itself, where it is, its other copies.

@@ -112,7 +112,8 @@ private struct Lister {
     private var filtering: Bool { !view.filter.trimmingCharacters(in: .whitespaces).isEmpty }
 
     func needsLook() -> [AddonLine] {
-        let problems = items.filter { $0.problem != nil }, unsigned = AddonGroups.unsigned(items)
+        // What's off for the project is dealt with: it stays in its own section, grey, and leaves this one.
+        let problems = items.filter { $0.problem != nil && !$0.off }, unsigned = AddonGroups.unsigned(items)
         let lines = problems.map(AddonLine.problem) + (unsigned.isEmpty ? [] : [.unsigned(unsigned)])
         return lines.isEmpty ? [] : [.section(.needsLook, count: lines.count)] + lines
     }

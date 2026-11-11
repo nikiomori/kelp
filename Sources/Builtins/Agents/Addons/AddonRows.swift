@@ -134,7 +134,7 @@ struct AddonRows {
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [warning, words, NSView()]
         if !keys.isEmpty {
-            let button = PointerButton(title: String(localized: "Off Here")) { onOff(keys) }
+            let button = TextButton(String(localized: "Off Here")) { onOff(keys) }
             button.toolTip = String(localized: "Off in this project: new chats here don’t get it")
             button.setContentCompressionResistancePriority(.required, for: .horizontal)
             views.append(button)

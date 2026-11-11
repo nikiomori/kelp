@@ -129,7 +129,7 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     offOne.off = true
     #expect(AddonGroups.unsigned([one, two, server("x", .yours)]) == [one, two])
     #expect(
-        AddonGroups.unsignedText([one, two]) == ("2 servers aren’t signed in", "They do nothing and cost 1.9k tokens"))
+        AddonGroups.unsignedText([one, two]) == ("2 servers aren’t signed in", "Idle, 1.9k tokens each chat"))
     #expect(AddonGroups.unsignedText([server("y", .yours)]).title == "1 server isn’t signed in")
     var offTwo = two
     offTwo.off = true
@@ -181,4 +181,13 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
             "/h/.agents/skills", "/h/.claude/skills", "/repo/.claude/skills"
         ])
     #expect(AddonGroups.serverName(server("ctx", .yours)) == "ctx")
+}
+
+/// A problem switched off for the project is dealt with: Needs a Look lets it go, its own section keeps it.
+@Test func aProblemThatsOffLeavesNeedsALook() {
+    var broken = Addon(kind: .server, name: "definite", source: .plugin, problem: "Not found", key: "server:d")
+    #expect(AddonGroups.lines([broken], toggled: []).contains(.problem(broken)))
+    broken.off = true
+    let lines = AddonGroups.lines([broken], toggled: [])
+    #expect(!lines.contains(.problem(broken)) && !lines.contains { $0 == .section(.needsLook, count: 1) })
 }
