@@ -135,6 +135,7 @@ extension SidebarController {
     /// list under it doesn't move when the first agent starts.
     func placeSummary(over list: NSScrollView, beside add: NSView) {
         let summary = AgentSummary(app: app)
+        summary.light = { [weak self] ids in self?.light(sessions: ids) }
         summary.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(summary)
         NSLayoutConstraint.activate([   // in line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge
@@ -143,6 +144,25 @@ extension SidebarController {
             summary.trailingAnchor.constraint(equalTo: add.leadingAnchor),
             list.topAnchor.constraint(equalTo: add.bottomAnchor)   // the list opens with a little air of its own
         ])
+    }
+
+    /// The rows of these chats lit as if the pointer were on them; one in a folded project or group lights that row.
+    func light(sessions ids: Set<String>) {
+        var rows = IndexSet()
+        for id in ids { if let row = shownRow("a:" + id) { rows.insert(row) } }
+        outline.enumerateAvailableRowViews { view, row in (view as? SidebarRowView)?.lit = rows.contains(row) }
+    }
+
+    /// The row a node shows in: its own, or the nearest folded one over it.
+    private func shownRow(_ key: String) -> Int? {
+        func path(_ nodes: [Node]) -> [Node]? {
+            for node in nodes {
+                if node.key == key { return [node] }
+                if let below = path(node.children) { return [node] + below }
+            }
+            return nil
+        }
+        return path(roots)?.reversed().lazy.map { self.outline.row(forItem: $0) }.first { $0 >= 0 }
     }
 
     /// The built-ins' sidebar blocks as the registry has them now: each made afresh, in their order, the feet last.

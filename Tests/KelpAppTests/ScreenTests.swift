@@ -322,8 +322,8 @@ extension OneAtATime {
         }
     }
 
-    /// Who needs you, works and finished, too many for a narrow sidebar: the words that don't fit go (into the tooltip), and
-    /// what stays ends a gap short of Add Project.
+    /// Who needs you, works and finished, too many for a narrow sidebar: the counts shorten to numbers or go, who works
+    /// stays, and what stays ends a gap short of Add Project (the words are in each count's card).
     @Test func theLineOverTheListStaysClearOfAddProject() throws {
         func agent(_ w: String, _ status: AgentStatus) -> Session {
             var s = Session(
@@ -342,7 +342,8 @@ extension OneAtATime {
             let shown = textFields(line).filter { !$0.isHiddenOrHasHiddenAncestor && !$0.stringValue.isEmpty }
             let end = shown.map { $0.convert($0.bounds, to: line).maxX }.max() ?? 0
             #expect(end <= line.bounds.width - Metrics.gap)
-            #expect(line.toolTip == "1 need you · 1 working · 1 done")
+            #expect(shown.contains { $0.stringValue == "1 need you" })
+            #expect(shown.contains { $0.stringValue == "1" || $0.stringValue.hasPrefix("1 working") })
         }
     }
 
@@ -542,7 +543,7 @@ extension OneAtATime {
         try withSidebar(
             repos: [project], worktrees: [own("w1")], sessions: [agent(.waiting), agent(.working), agent(.working)]
         ) { vc, _ in
-            #expect(texts(vc.view).contains("1 need you") && texts(vc.view).contains("2 working"))
+            #expect(texts(vc.view).contains("1 need you") && texts(vc.view).contains { $0.hasPrefix("2 working") })
         }
     }
 

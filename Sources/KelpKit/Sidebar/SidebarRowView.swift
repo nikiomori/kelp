@@ -73,9 +73,12 @@ final class SidebarRowView: NSTableRowView {
     /// Its menu is open (right-click): the row keeps the hover pill, as the place the menu is about, instead of the
     /// table's own outline drawn around it, which matched neither the pill nor the card.
     var menuTarget = false { didSet { if menuTarget != oldValue { showHover() } } }
+    /// One the summary over the list points at (the count under the pointer): the hover pill, as if the pointer were
+    /// here.
+    var lit = false { didSet { if lit != oldValue { showHover() } } }
 
     private func showHover() {
-        let to: Float = (hovering || menuTarget) && !isSelected ? 1 : 0
+        let to: Float = (hovering || menuTarget || lit) && !isSelected ? 1 : 0
         let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
         // Without the layer's own 0.25 s change, which showed again under the fade below once that ended.
         CATransaction.begin()

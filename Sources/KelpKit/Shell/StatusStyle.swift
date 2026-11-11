@@ -281,8 +281,10 @@ struct AttentionQueue {
     }
 
     /// The one after `current` (wrapping), so pressing again walks the whole queue.
-    func next(after current: String?) -> Session? {
-        let queue = sessions
+    func next(after current: String?) -> Session? { Self.next(in: sessions, after: current) }
+
+    /// The one after `current` in `queue` (wrapping); the first when `current` isn't in it, nil when it's alone there.
+    static func next(in queue: [Session], after current: String?) -> Session? {
         guard let index = queue.firstIndex(where: { $0.id == current }) else { return queue.first }
         return queue.count > 1 ? queue[(index + 1) % queue.count] : nil
     }
