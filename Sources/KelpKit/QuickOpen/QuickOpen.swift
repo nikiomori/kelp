@@ -29,6 +29,9 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     /// Fading away (`hide`).
     var hiding = false
     var prSearch: Task<Void, Never>?
+    /// The project's open pull requests, asked once per opening: each "#" keystroke filters them (`searchPullRequests`).
+    /// Nil `list`: being asked.
+    var pullRequests: (repo: String, list: [GitHub.PullRequest]?)?
     var filesLoad: Task<Void, Never>?
     /// The typed query's matches being scored; the next keystroke cancels it.
     var scoring: Task<Void, Never>?
@@ -49,6 +52,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         if panel == nil { build() }
         self.commandsOnly = commandsOnly
         symbols = nil
+        pullRequests = nil
         list(query: "")
         if !text.isEmpty {
             field.stringValue = text

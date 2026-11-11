@@ -42,6 +42,7 @@ extension QuickOpen {
         stopChoosing()
         filesLoad?.cancel()
         prSearch?.cancel()
+        pullRequests = nil
         tmuxLoad?.cancel()
         commandsOnly = false
         recents = []

@@ -143,25 +143,37 @@ extension QuickOpen {
         return out
     }
 
-    /// "#123" or "#login": the project's open pull requests (gh), opened in the browser tab.
+    /// "#123" or "#login": the project's open pull requests (gh), opened in the browser tab. Asked once per opening
+    /// (each keystroke would run `gh` again, and say again that it's missing); what's typed filters them here.
     func searchPullRequests(_ q: String) {
         let app = self.app
-        prSearch?.cancel()
         guard let repo = app.worktree(app.workbench.workspaceId)?.repoId else { return }
+        if let pullRequests, pullRequests.repo == repo {   // asked: shown now, or once they come
+            if let list = pullRequests.list { showPullRequests(list, q) }
+            return
+        }
+        prSearch?.cancel()
+        pullRequests = (repo, nil)
         prSearch = Task { [weak self] in
             let prs = await app.call(GitHubPRs(repoId: repo, filter: "open")) ?? []   // gh missing or signed out: says so
-            guard let self, !Task.isCancelled, field.stringValue == q else { return }
-            let term = String(q.dropFirst()).lowercased()
-            setRows(
-                prs.filter { pr in
-                    term.isEmpty || "\(pr.number)".hasPrefix(term) || pr.title.lowercased().contains(term)
-                }
-                .map { pr in
-                    Item(
-                        kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(pr.number) \(pr.title)",
-                        detail: "\(pr.author) · \(pr.headRefName)", action: { app.workbench.open(pr.url) })
-                }, grouped: false)
+            guard let self, !Task.isCancelled, pullRequests?.repo == repo else { return }
+            pullRequests = (repo, prs)
+            let typed = field.stringValue
+            if typed.hasPrefix("#") { showPullRequests(prs, typed) }   // what's typed by now
         }
+    }
+
+    private func showPullRequests(_ prs: [GitHub.PullRequest], _ q: String) {
+        let app = self.app, term = String(q.dropFirst()).lowercased()
+        setRows(
+            prs.filter { pr in
+                term.isEmpty || "\(pr.number)".hasPrefix(term) || pr.title.lowercased().contains(term)
+            }
+            .map { pr in
+                Item(
+                    kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(pr.number) \(pr.title)",
+                    detail: "\(pr.author) · \(pr.headRefName)", action: { app.workbench.open(pr.url) })
+            }, grouped: false)
     }
 
     /// A title matches when it contains the query, or each query word starts a word of the title.
