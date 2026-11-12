@@ -16,9 +16,9 @@ final class EditorStatusBar: NSView {
     /// "Restricted" while the project isn't trusted to run its language server or formatter, as VS Code's Restricted Mode
     /// says: the banner that asked is long gone, this stays. A click offers Trust.
     private let restricted = PointerButton()
-    /// The file's language servers by name, or that none is installed: a click lists each, with how to install one.
+    /// The file's language servers by name, or that none is installed: a click lists each, with Restart and Install.
     private let servers = PointerButton()
-    var serversMenu: (() -> NSMenu)?
+    var onServers: ((NSView) -> Void)?
     private let row = NSStackView()
     var onTrust: (() -> Void)?
     /// How many problems the file has: a click lists those of every open file.
@@ -75,10 +75,7 @@ final class EditorStatusBar: NSView {
         servers.font = .ui(TextSize.caption)
         servers.padding = Metrics.gap
         servers.isHidden = true
-        servers.onClick = { [weak self] in
-            guard let self, let menu = serversMenu?() else { return }
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: servers.bounds.height + 2), in: servers)
-        }
+        servers.onClick = { [weak self] in self.map { $0.onServers?($0.servers) } }
         problems.font = .ui(TextSize.caption)
         problems.padding = Metrics.gap
         problems.isHidden = true

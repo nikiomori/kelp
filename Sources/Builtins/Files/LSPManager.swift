@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import KelpKit
 import Observation
 import WorkbenchKit
@@ -13,7 +14,7 @@ final class LSPManager {
     /// The app's language servers' side (one per app).
     static func of(_ app: AppModel) -> LSPManager { app.part { LSPManager(app) } }
     /// The app it belongs to: one of its parts, so it lives as long.
-    @ObservationIgnored private unowned let app: AppModel
+    @ObservationIgnored unowned let app: AppModel
     private init(_ app: AppModel) { self.app = app }
     /// Server commands already reported missing this launch.
     @ObservationIgnored private var reported: Set<String> = []
@@ -81,6 +82,25 @@ final class LSPManager {
 
     /// What the daemon said of a server command when a file was last given to it: installed, or not.
     private(set) var installed: [String: Bool] = [:]
+    /// What the daemon last said of every server command, by the project asked about ("": none).
+    private(set) var states: [String: [String: LSPServerState]] = [:]
+    /// Commands whose install was started here and isn't seen done yet.
+    private(set) var installing: Set<String> = []
+    /// The languages a project has files of, by its folder (`scan`).
+    var used: [String: Set<String>] = [:]
+    /// Tabs whose file a server that isn't installed would take, by its command and the file: opened again once it is.
+    @ObservationIgnored private var absent: [String: [String: @MainActor () -> Void]] = [:]
+
+    /// The daemon's word on the servers: one that has come since a tab asked for it gets that tab's file.
+    func heard(_ found: [LSPServerState], of root: String?) {
+        states[root ?? ""] = Dictionary(found.map { ($0.command, $0) }, uniquingKeysWith: { first, _ in first })
+        for state in found where state.installed {
+            installing.remove(state.command)
+            if installed[state.command] == false { installed[state.command] = nil }
+            (absent.removeValue(forKey: state.command) ?? [:]).values.forEach { $0() }
+        }
+    }
+    func gaveUp(on command: String) { installing.remove(command) }
 
     /// What a file's status bar says of its servers: those that took the file, by name, or that none is installed.
     /// `missing`: one the language needs isn't. Nil while there's nothing to say (none, servers off, not trusted yet).
@@ -120,6 +140,7 @@ final class LSPManager {
                     return false
                 case .notInstalled?:
                     installed[server.command] = false
+                    absent[server.command, default: [:]][path] = retry
                     if server.optional != true { reportMissing(server) }
                 case nil: break   // no daemon now: a reconnect opens it again
                 }
@@ -171,7 +192,16 @@ final class LSPManager {
     func install(_ server: LanguageSpec.Server) {
         guard let cmd = server.install else { return }
         if let workspace = app.workbench.workspaceId { app.workbench.show(workspace: workspace) }   // a page on screen gives way to it
-        app.workbench.starter?.run(command: cmd, title: String(localized: "Install \(server.command)"))
+        let command = server.command, app = app
+        installing.insert(command)
+        app.workbench.starter?.run(command: cmd, title: String(localized: "Install \(command)")) { [weak self] made in
+            // Its terminal's session ending is the install ending.
+            track(owner: self, now: false) {
+                app.session(made.id).map { $0.status == .exited } ?? true
+            } changed: { [weak self] ended in
+                if ended { Task { await self?.installEnded(command) } }
+            }
+        }
     }
 }
 
@@ -184,20 +214,5 @@ extension LSPManager {
     /// What a server is called: its program, not the `xcrun` that finds it.
     static func name(_ server: LanguageSpec.Server) -> String {
         server.command == "xcrun" ? server.args?.first ?? server.command : server.command
-    }
-
-    /// Each of the language's servers the daemon was asked for: running, or how to install it.
-    func serversMenu(_ language: LanguageSpec?) -> NSMenu {
-        let menu = NSMenu()
-        for server in language?.allServers ?? [] {
-            switch installed[server.command] {
-            case true?: menu.add(Self.name(server)) {}.state = .on
-            case false? where server.install != nil:
-                menu.add(String(localized: "Install \(Self.name(server))…")) { [weak self] in self?.install(server) }
-            case false?: menu.add(String(localized: "\(Self.name(server)) isn't installed")) {}.isEnabled = false
-            case nil: break
-            }
-        }
-        return menu
     }
 }

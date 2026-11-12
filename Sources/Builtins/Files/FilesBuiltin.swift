@@ -157,7 +157,7 @@ extension Builtins {
                     if let tab = fileTab(app) { Task { await tab.format() } }
                 }
             ],
-            settings: [editorSettings],
+            settings: [editorSettings, languagesSettings(app)],
             tabs: [
                 TabProvider(
                     schemes: ["file"], make: { FileTab(uri: $0, app: app) },

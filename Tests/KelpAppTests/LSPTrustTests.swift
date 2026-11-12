@@ -53,6 +53,42 @@ extension OneAtATime {
         #expect(!lsp.trusted(Paths.scratch.path))   // the scratch workspace is asked about like any project: a clone may land there
     }
 
+    /// Settings › Languages: languages of the same servers share a row, a project's own are found from its files, and
+    /// a server is what the daemon last said of it, in the project asked about.
+    @Test func languagesAreListedWithWhatTheDaemonSaysOfTheirServers() async throws {
+        _ = NSApplication.shared
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let rows = LanguageRows.rows(Languages.all)
+        let c = try #require(rows.first { $0.languages.contains("c") })
+        #expect(c.name == "C, C++, Objective-C, Objective-C++" && c.files.hasPrefix(".c, .h, .cpp"))
+        #expect(rows.first { $0.languages == ["python"] }?.servers.map(\.command) == ["pyright-langserver", "ruff"])
+        #expect(LanguageRows.matching(rows, "ruff").map(\.name) == ["Python"])
+        #expect(LanguageRows.matching(rows, ".tsx").count == 1 && LanguageRows.matching(rows, "nothing").isEmpty)
+        let used = LanguageRows.used(Languages.all, in: ["Sources/a.swift", "Dockerfile", "docs/x.md", "web/b.tsx"])
+        #expect(used == ["swift", "dockerfile", "typescriptreact"])
+
+        let lsp = LSPManager.of(rig.app), root = "/tmp/languages-\(UUID().uuidString.prefix(6))"
+        let gopls = LanguageSpec.Server(command: "gopls"), ruff = LanguageSpec.Server(command: "ruff")
+        #expect(lsp.status(gopls, in: root) == .unknown)
+        lsp.heard(
+            [
+                LSPServerState(command: "gopls", installed: true, running: true, files: 2),
+                LSPServerState(command: "ruff", installed: false),
+                LSPServerState(command: "clangd", installed: true),
+                LSPServerState(command: "zls", installed: true, failed: true)
+            ], of: root)
+        #expect(lsp.status(gopls, in: root) == .running(files: 2) && lsp.status(ruff, in: root) == .missing)
+        #expect(lsp.status(.init(command: "zls"), in: root) == .failed)
+        #expect(lsp.status(.init(command: "clangd"), in: root) == .installed)
+        #expect(lsp.status(.init(command: "clangd"), in: root, asks: true) == .untrusted)   // the project's own, not trusted
+        #expect(lsp.status(gopls, in: nil) == .unknown)   // another project's answer isn't this one's
+        await lsp.refresh(root)   // the daemon's own word: nothing runs there
+        #expect(
+            lsp.status(.init(command: "no-such-server"), in: root) == .unknown
+                && lsp.status(gopls, in: root) != .running(files: 2))
+    }
+
     /// Only Kelp's own window may record trust (the daemon checks who's asking): refused, the project stays untrusted and
     /// nothing starts. It used to be written without an answer and taken as given.
     @Test func trustTheDaemonRefusesIsntTakenAsGiven() async throws {

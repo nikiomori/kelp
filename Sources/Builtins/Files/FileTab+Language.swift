@@ -4,6 +4,7 @@ import Core
 import DesignKit
 import EditorKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 // MARK: its project and language server
@@ -31,6 +32,10 @@ extension FileTab {
         guard LSPManager.of(app).language(filePath)?.allServers.isEmpty == false,
             LSPManager.of(app).whenTrusted(projectRoot, { [weak self] in self?.startLSP() })
         else { return }   // asked once per project
+        if lspOpenedOn != nil {   // again (a server installed since): what was open at the others is closed first
+            LSPManager.of(app).close(root: projectRoot, path: filePath)
+            lspOpenedOn = nil
+        }
         Task { [weak self] in
             guard let text = self?.editor?.text,
                 await LSPManager.of(app).open(
@@ -45,7 +50,14 @@ extension FileTab {
     /// The status bar names the file's language servers, and lists them with how to install one that's missing.
     func nameServers(in bar: EditorStatusBar) {
         let app = app
-        bar.serversMenu = { [weak self] in LSPManager.of(app).serversMenu(self?.language) }
+        bar.onServers = { [weak self] button in
+            guard let self, let language else { return }
+            let popover = NSPopover()
+            popover.behavior = .transient
+            popover.contentViewController = NSHostingController(
+                rootView: FileServers(app: app, language: language, root: root, file: url.lastPathComponent))
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
         track(owner: self) { [weak self] in
             self.flatMap { LSPManager.of(app).summary($0.root, $0.language) }
         } changed: { [weak bar] in
