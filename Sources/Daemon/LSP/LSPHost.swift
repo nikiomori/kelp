@@ -204,6 +204,58 @@ final class LSPHost: Sendable {
         return first
     }
 
+    /// Each of `commands` in `root` (every project when nil): whether a server of it runs or is starting, how many
+    /// files are open at it, and whether one didn't start or died.
+    func states(_ root: String?, _ commands: [String]) -> [String: (running: Bool, files: Int, failed: Bool)] {
+        state.withLock { state in
+            var all: [String: (running: Bool, files: Int, failed: Bool)] = [:]
+            for (key, server) in state.servers where root == nil || key.root == root {
+                guard let command = key.argv.first, commands.contains(command) else { continue }
+                var one = all[command] ?? (false, 0, false)
+                switch server {
+                case .running(let client) where client.isRunning: one.running = true
+                case .starting: one.running = true
+                default: one.failed = true
+                }
+                one.files += state.docs.keys.count { $0.key == key }
+                all[command] = one
+            }
+            return all
+        }
+    }
+
+    /// `root`'s servers of `command` stop and start again, each with the files open at it as last sent. One still
+    /// starting is left to.
+    func restart(_ root: String, _ command: String) {
+        let (old, again, paths, changed) = state.withLock { state in
+            var old: [LSPClient] = [], again: [Key] = [], paths: Set<String> = []
+            for (key, server) in state.servers where key.root == root && key.argv.first == command {
+                if case .starting = server { continue }
+                if case .running(let client) = server { old.append(client) }
+                let docs = state.docs.filter { $0.key.key == key }
+                for id in docs.keys where state.problems[id.path]?.removeValue(forKey: key) != nil {
+                    paths.insert(id.path)   // the new one says them again
+                }
+                state.started[key] = docs.isEmpty ? nil : Date()
+                guard !docs.isEmpty else {
+                    state.servers[key] = nil
+                    continue
+                }
+                let opens = docs.flatMap { id, doc in
+                    Array(
+                        repeating: DocOp.open(path: id.path, text: doc.text, languageId: doc.languageId),
+                        count: doc.count)
+                }
+                state.servers[key] = .starting(pending: opens, ready: nil)
+                again.append(key)
+            }
+            return (old, again, paths, state.problemsChanged)
+        }
+        old.forEach { $0.terminate() }
+        again.forEach(start)
+        paths.forEach { changed?($0) }
+    }
+
     /// The daemon is stopping: so do its servers.
     func stopAll() {
         let all = state.withLock { state in

@@ -2618,6 +2618,34 @@
         ],
         "type" : "object"
       },
+      "LSPServerState" : {
+        "description" : "A language server command on this Mac: whether it's there to run, and for the project asked about whether it runs (or is starting), how many open files it has, and whether it didn't start or died.",
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "type" : "boolean"
+          },
+          "files" : {
+            "type" : "integer"
+          },
+          "installed" : {
+            "type" : "boolean"
+          },
+          "running" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "command",
+          "failed",
+          "files",
+          "installed",
+          "running"
+        ],
+        "type" : "object"
+      },
       "LimitHit" : {
         "description" : "A plan limit that stopped a session's turn.",
         "properties" : {
@@ -9292,6 +9320,68 @@
         "schema" : {
           "items" : {
             "$ref" : "#/components/schemas/CodeFileEdit"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Stops the project's servers of `command` and starts them again with the files open at them, as last sent.",
+      "name" : "lsp.restart",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "command",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "What's known of each of `commands`, as the languages name them: for Settings › Languages and a file's own list. `root`: the project whose servers count as running; every project's when nil.",
+      "name" : "lsp.servers",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "commands",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "root",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/LSPServerState"
           },
           "type" : "array"
         }

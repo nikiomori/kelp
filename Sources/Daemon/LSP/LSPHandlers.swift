@@ -157,8 +157,30 @@ extension LSPActions: AsyncHandled {
     }
 }
 
+extension LSPServers: AsyncHandled {
+    /// The login shell's PATH is waited for off the pool: the first ask after the daemon starts takes seconds.
+    func handle(_ lsp: LSPHost) async throws -> [LSPServerState] {
+        let commands = commands, known = lsp.states(root, commands)
+        let found = try await lsp.offloads.run { commands.map { LoginPath.find($0) != nil } }
+        return zip(commands, found).map { command, installed in
+            let state = known[command]
+            return LSPServerState(
+                command: command, installed: installed, running: state?.running ?? false, files: state?.files ?? 0,
+                failed: state?.failed ?? false)
+        }
+    }
+}
+
+extension LSPRestart: Handled {
+    func handle(_ lsp: LSPHost) throws -> Done {
+        lsp.restart(root, command)
+        return Done()
+    }
+}
+
 extension Methods {
     static let lspMethods: [any Answered.Type] = [
+        LSPServers.self, LSPRestart.self,
         LSPOpen.self, LSPChange.self, LSPClose.self, LSPProblems.self, LSPDefinition.self, LSPCompletion.self,
         LSPSymbol.self, LSPSymbols.self, LSPWorkspaceSymbols.self, LSPHover.self, LSPSignature.self, LSPReferences.self,
         LSPRename.self, LSPActions.self

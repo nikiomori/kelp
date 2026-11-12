@@ -152,6 +152,39 @@ public struct LSPOpen: InternalMethod {
         self.settings = settings
     }
 }
+/// A language server command on this Mac: whether it's there to run, and for the project asked about whether it runs
+/// (or is starting), how many open files it has, and whether it didn't start or died.
+public struct LSPServerState: Codable, Sendable, Equatable {
+    public var command: String, installed: Bool, running: Bool, files: Int, failed: Bool
+    public init(command: String, installed: Bool, running: Bool = false, files: Int = 0, failed: Bool = false) {
+        self.command = command
+        self.installed = installed
+        self.running = running
+        self.files = files
+        self.failed = failed
+    }
+}
+/// What's known of each of `commands`, as the languages name them: for Settings › Languages and a file's own list.
+/// `root`: the project whose servers count as running; every project's when nil.
+public struct LSPServers: InternalMethod {
+    public static let name = "lsp.servers"
+    public typealias Result = [LSPServerState]
+    public var root: String?, commands: [String]
+    public init(root: String? = nil, commands: [String]) {
+        self.root = root
+        self.commands = commands
+    }
+}
+/// Stops the project's servers of `command` and starts them again with the files open at them, as last sent.
+public struct LSPRestart: InternalMethod {
+    public static let name = "lsp.restart"
+    public typealias Result = Done
+    public var root: String, command: String
+    public init(root: String, command: String) {
+        self.root = root
+        self.command = command
+    }
+}
 /// The file's whole text now (sent as a notification while typing).
 public struct LSPChange: InternalMethod {
     public static let name = "lsp.change"

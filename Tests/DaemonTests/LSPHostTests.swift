@@ -463,3 +463,29 @@ private func fakeLinter(_ name: String, can: String, line: Int, in dir: String) 
             #"settings [["E"], null, {"lint": {"select": ["E"]}}]"#
         ])
 }
+
+/// Settings › Languages asks what's on this Mac and what runs in a project; Restart stops a project's server and
+/// starts it again with the files open at it.
+@Test func aProjectsServersAreListedAndRestarted() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let root = tmp().path, file = root + "/main.py", lint = try fakeLinter("lint", can: "{}", line: 2, in: root)
+    try d.store.setDaemonState(LSPOpen.trustKey, JSONValue.array([.string(root)]))
+    let python = "/usr/bin/python3", ask = LSPServers(root: root, commands: [python, "no-such-server"])
+    #expect(
+        try await c.call(ask) == [
+            LSPServerState(command: python, installed: true),
+            LSPServerState(command: "no-such-server", installed: false)
+        ])
+    _ = try await c.call(
+        LSPOpen(root: root, path: file, languageId: "python", command: python, args: lint.args, text: "x"))
+    #expect(try await waitFor(5) { (try? await c.call(LSPProblems(path: file)))?.count == 1 })
+    #expect(try await c.call(ask).first == LSPServerState(command: python, installed: true, running: true, files: 1))
+    #expect(try await c.call(LSPServers(root: "/elsewhere", commands: [python])).first?.running == false)
+    let before = await d.lsp.clients(root, file).first
+    _ = try await c.call(LSPRestart(root: root, command: python))
+    #expect(try await c.call(LSPProblems(path: file)).isEmpty)   // the old one's, gone with it
+    #expect(try await waitFor(5) { (try? await c.call(LSPProblems(path: file)))?.count == 1 })   // the file, open again
+    let after = await d.lsp.clients(root, file).first
+    #expect(before != nil && after != nil && before !== after && before?.isRunning == false)
+}
