@@ -194,6 +194,7 @@ extension Sessions {
         }
         familyHeard(session)
         events.heard(session)
+        phone.hear(.session(session))
     }
 
     /// Its commands changed: whoever watches them reads them again.

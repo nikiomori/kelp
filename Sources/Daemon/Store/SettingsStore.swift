@@ -128,6 +128,7 @@ final class SettingsEvents: Sendable {
         { [self] in
             clients.notify(SettingsEvent(settings: store.values))
             sessions.applyKeepAwake()
+            sessions.phone.hear(.settings)
         }
     }
 

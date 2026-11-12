@@ -1,0 +1,299 @@
+import Agents
+import Core
+import CryptoKit
+import Foundation
+import Testing
+
+@testable import Daemon
+
+// The phone bridge: the envelope as the page seals it, no call twice, a push as RFC 8291 seals one, a session as the
+// page's agent, and a phone's calls from pairing to Allow.
+
+private func key(_ text: String) throws -> SymmetricKey { SymmetricKey(data: try #require(Data(base64URL: text))) }
+private func json(_ text: String) throws -> JSONValue {
+    try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))
+}
+
+/// kelp_lending's relay/vectors.json: boxes Node sealed (mock/server.mjs `seal`).
+@Test func boxesNodeSealedOpen() throws {
+    let key = try key("BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc")
+    let asked: PhoneBridge.Ask = try PhoneSeal.open(
+        "mL5BiWc0_hy6QJcwHPsC7sXLLMQgJ9g-BOWfvcnNMxKaV_N3yDMYX836zxZ0dk0VUNmvATRdtoQ1mt7HFnqcv25F1vR4BXJEQrHKQes14qYGD3KQ348GA0adR4fWyRM1eTGbjU8eIgI5Yk9m-JYQejKZvtT-42KMos6xKZMp-uS7s0mHADp42nHgggQ6UI4T2KX4NIuuIjZNlmMs05A",
+        about: "q", key: key)
+    #expect(asked.n == 7_357_000_000_000_001 && asked.method == "POST" && asked.path == "agents/a%20b/choose")
+    #expect(asked.body == (try json(#"{"answer":"allow","question":"Allow Bash: swift test?"}"#)))
+    let answered: PhoneBridge.Reply = try PhoneSeal.open(
+        "aGxSJMprXKKVvuKfUCKsChbE0o-nFYVx9dLUuSz2f83wnRt_X_i4TbVfty5zHTjeRZqniMUWp6uxtj_CGQ",
+        about: "r7357000000000001", key: key)
+    #expect(answered == PhoneBridge.Reply(status: 200, body: try json(#"{"ok":true}"#)))
+    let event: JSONValue = try PhoneSeal.open(
+        "Buvnh8_TW93_C61NHeNWfpHcDrfKJVTtW32EB3vTbbvCqMop41CIaGY0mb-k1j_Clmmz68-N_GaQHjHP6fxolSMqWGW_aAra_ehzRNYcnWompP3PsgSfmHi081USTV6yrcV8VQ-E-sLPCu31oYwG2bj7CYc",
+        about: "e7357000000000001.0", key: key)
+    #expect(event == (try json(#"{"event":"agent","data":{"id":"perm","title":"Привет, мир","status":"waiting"}}"#)))
+}
+
+/// What's sealed says which way it goes: an answer doesn't open as a request, nor under another key, nor changed.
+@Test func aBoxOpensOnlyAsWhatItWasSealedAs() throws {
+    let key = SymmetricKey(size: .bits256), reply = PhoneBridge.Reply(status: 204)
+    let box = try PhoneSeal.seal(reply, about: "r5", key: key)
+    let bytes = try #require(Data(base64URL: box))
+    #expect(bytes.count == 12 + #"{"status":204}"#.utf8.count + 16)   // nonce, the JSON, tag: as Node's side reads it
+    #expect(try PhoneSeal.open(box, about: "r5", key: key) == reply)
+    #expect(throws: (any Error).self) { let _: PhoneBridge.Reply = try PhoneSeal.open(box, about: "r6", key: key) }
+    #expect(throws: (any Error).self) { let _: PhoneBridge.Reply = try PhoneSeal.open(box, about: "q", key: key) }
+    #expect(throws: (any Error).self) {
+        let _: PhoneBridge.Reply = try PhoneSeal.open(box, about: "r5", key: SymmetricKey(size: .bits256))
+    }
+    var bent = bytes
+    bent[20] ^= 1
+    #expect(throws: (any Error).self) {
+        let _: PhoneBridge.Reply = try PhoneSeal.open(bent.base64URL, about: "r5", key: key)
+    }
+    #expect(throws: (any Error).self) { let _: PhoneBridge.Reply = try PhoneSeal.open("x", about: "r5", key: key) }
+}
+
+@Test func noNumberCountsTwice() {
+    let now = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
+    var phone = PhoneDevice(key: SymmetricKey(size: .bits256), name: "A")
+    func admit(_ number: Double) -> Bool { phone.admit(number) }
+    #expect(admit(now))
+    #expect(!admit(now), "the same call twice")
+    #expect(admit(now + 1) && admit(now - 1), "a later one, and one that arrived late")
+    #expect(!admit(now - Double(PhoneDevice.window)), "more than five minutes behind the newest")
+    #expect(!admit(0) && !admit(-1) && !admit(1.5) && !admit(.nan) && !admit(1e300))
+    phone.wasSaved()   // a phone is written down as it pairs
+    #expect(!phone.needsSaving)
+    #expect(admit(now + Double(PhoneDevice.second) + 2) && phone.needsSaving)
+    phone.wasSaved()
+    #expect(!phone.needsSaving)
+}
+
+/// After a restart the seen numbers are forgotten: nothing passes that could have been seen, which is the newest
+/// written down and a second over it.
+@Test func afterARestartNothingPassesThatCouldHaveBeenSeen() throws {
+    let key = SymmetricKey(size: .bits256), saved: Int64 = 7_000_000_000_000_000
+    var phone = PhoneDevice(key: key, kept: PhoneKept(name: "A", last: saved, push: nil))
+    func admit(_ number: Double) -> Bool { phone.admit(number) }
+    #expect(!admit(Double(saved)) && !admit(Double(saved + 5)))
+    #expect(!admit(Double(saved + PhoneDevice.second)))
+    #expect(admit(Double(saved + PhoneDevice.second + 1)))
+    #expect(phone.kept == PhoneKept(name: "A", last: saved + PhoneDevice.second + 1, push: nil))
+    let kept = try JSONDecoder().decode(PhoneKept.self, from: try JSONEncoder().encode(phone.kept))
+    #expect(kept == phone.kept)
+}
+
+/// RFC 8291, Appendix A.
+@Test func aPushIsSealedAsRFC8291Says() throws {
+    let to = try #require(
+        PushSubscription(
+            try json(
+                #"{"endpoint":"https://web.push.apple.com/x","keys":{"p256dh":"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4","auth":"BTBZMqHH6r4Tts7J_aSIgg"}}"#
+            )))
+    let mine = try P256.KeyAgreement.PrivateKey(
+        rawRepresentation: try #require(Data(base64URL: "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw")))
+    let body = try WebPush.body(
+        Data("When I grow up, I want to be a watermelon".utf8), to: to, mine: mine,
+        salt: try #require(Data(base64URL: "DGv6ra1nlYgDCS1FRnbzlw")))
+    #expect(
+        body.base64URL
+            == "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN"
+    )
+    #expect(try WebPush.body(Data("x".utf8), to: to) != (try WebPush.body(Data("x".utf8), to: to)))   // a new key and salt each
+}
+
+/// The push service takes the post as this Mac's: a token for that service alone, signed by the key the phone was given.
+@Test func aPushIsSignedForItsService() throws {
+    let key = P256.Signing.PrivateKey(), now = Date(timeIntervalSince1970: 1_800_000_000)
+    let url = try #require(URL(string: "https://fcm.googleapis.com/fcm/send/abc"))
+    let header = try WebPush.authorization(for: url, key: key, now: now)
+    let match = try #require(header.wholeMatch(of: /vapid t=([\w-]+)\.([\w-]+)\.([\w-]+), k=([\w-]+)/))
+    #expect(Data(base64URL: String(match.4)) == key.publicKey.x963Representation)
+    #expect(
+        try json(String(decoding: try #require(Data(base64URL: String(match.1))), as: UTF8.self))
+            == (try json(#"{"typ":"JWT","alg":"ES256"}"#)))
+    #expect(
+        try json(String(decoding: try #require(Data(base64URL: String(match.2))), as: UTF8.self))
+            == (try json(#"{"aud":"https://fcm.googleapis.com","exp":1800043200,"sub":"https://kelpide.com"}"#)))
+    let signature = try P256.Signing.ECDSASignature(rawRepresentation: try #require(Data(base64URL: String(match.3))))
+    #expect(key.publicKey.isValidSignature(signature, for: Data("\(match.1).\(match.2)".utf8)))
+}
+
+/// A phone names where its pushes go: only the browsers' own push services, so it can't aim this Mac elsewhere.
+@Test func onlyABrowsersPushServiceIsASubscription() throws {
+    let point = Data(repeating: 4, count: 65).base64URL, auth = Data(repeating: 1, count: 16).base64URL
+    func subscription(_ endpoint: String, _ p256dh: String = point, _ auth: String = auth) throws -> PushSubscription? {
+        PushSubscription(try json(#"{"endpoint":"\#(endpoint)","keys":{"p256dh":"\#(p256dh)","auth":"\#(auth)"}}"#))
+    }
+    #expect(try subscription("https://web.push.apple.com/QGk")?.endpoint == "https://web.push.apple.com/QGk")
+    #expect(try subscription("https://fcm.googleapis.com/fcm/send/a") != nil)
+    #expect(try subscription("https://updates.push.services.mozilla.com/wpush/v2/a") != nil)
+    #expect(try subscription("https://db5p.notify.windows.com/w/?token=a") != nil)
+    #expect(try subscription("http://web.push.apple.com/a") == nil)
+    #expect(try subscription("https://push.apple.com.evil.example/a") == nil)
+    #expect(try subscription("https://evilpush.apple.com/a") == nil)
+    #expect(try subscription("https://localhost:8080/a") == nil)
+    #expect(try subscription("https://evil.example/@web.push.apple.com") == nil)
+    #expect(try subscription("https://web.push.apple.com/a", Data(count: 64).base64URL) == nil)
+    #expect(try subscription("https://web.push.apple.com/a", point, Data(count: 15).base64URL) == nil)
+    #expect(PushSubscription(nil) == nil && PushSubscription(.object([:])) == nil)
+}
+
+/// As kelp_lending's mock/server.mjs `fromKelp` makes one of `session.list`'s record.
+@Test func aSessionIsThePagesAgent() throws {
+    var s = Session(
+        id: "S1", worktreeId: "W", cwd: "/", command: "claude", agent: "claude", status: .waiting, unread: true,
+        createdAt: Date(timeIntervalSince1970: 1_800_000_000.25), title: "Fix the flaky sync test",
+        summary: "Allow Bash: swift test --filter SyncTests?")
+    s.running = "swift build"
+    #expect(PhoneAgent.shown(s))
+    #expect(
+        JSONValue.object(PhoneAgent.from(s, name: "Claude Code", project: "kelp", workspace: "fix/sync-retry"))
+            == (try json(
+                #"""
+                {"id":"S1","title":"Fix the flaky sync test","agent":"claude","agentName":"Claude Code","project":"kelp",
+                 "workspace":"fix/sync-retry","status":"waiting","statusAt":"2027-01-15T08:00:00.250Z","unread":true,
+                 "summary":"Allow Bash: swift test --filter SyncTests?",
+                 "ask":{"kind":"permission","text":"Allow Bash: swift test --filter SyncTests?"},
+                 "running":"swift build","limit":null,"continueAt":null}
+                """#)))
+    // A question cut short is answered where it shows whole, and one that asks no permission by text.
+    s.summary = "Allow Bash: swift test --filter…?"
+    #expect(PhoneAgent.from(s, name: "", project: "", workspace: "")["ask"]?["kind"]?.string == "question")
+    s.summary = "CSV or JSON by default?"
+    #expect(PhoneAgent.from(s, name: "", project: "", workspace: "")["ask"]?["kind"]?.string == "question")
+
+    s.status = .paused
+    s.title = ""
+    s.limitHit = LimitHit(kind: "5-hour", resets: nil)
+    s.continueAt = Date(timeIntervalSince1970: 1_800_003_600)
+    let paused = PhoneAgent.from(s, name: "Claude Code", project: "", workspace: "")
+    #expect(paused["status"]?.string == "hibernated" && paused["title"]?.string == "claude" && paused["ask"] == .null)
+    #expect(paused["limit"] == (try json(#"{"kind":"5-hour","resets":null}"#)))
+    #expect(paused["continueAt"]?.string == "2027-01-15T09:00:00.000Z")
+
+    // The sidebar's agents: not one that ended, a terminal, a plain command, or a command under an agent.
+    s.status = .exited
+    #expect(!PhoneAgent.shown(s))
+    #expect(!PhoneAgent.shown(Session(cwd: "/", command: "zsh", agent: "shell")))
+    #expect(!PhoneAgent.shown(Session(cwd: "/", command: "npm run dev", agent: "custom")))
+    var under = Session(cwd: "/", command: "claude", agent: "claude")
+    under.startedBy = "S1"
+    #expect(!PhoneAgent.shown(under))
+}
+
+/// A phone as the page is one (phone/js/api.js): it seals each call under the key from its pairing link.
+private struct Phone {
+    let bridge: PhoneBridge
+    var device = PhoneSeal.random(16).base64URL
+    let key: SymmetricKey
+    func sent(_ method: String, _ path: String, _ body: JSONValue? = nil, n: Double) throws -> PhoneBridge.Sent {
+        let ask = PhoneBridge.Ask(n: n, method: method, path: path, body: body)
+        return PhoneBridge.Sent(id: "c", device: device, box: try PhoneSeal.seal(ask, about: "q", key: key))
+    }
+    /// The call's answer, or the status it was refused with.
+    func ask(_ method: String, _ path: String, _ body: JSONValue? = nil, n: Double) async throws -> PhoneBridge.Reply {
+        switch await bridge.admit(try sent(method, path, body, n: n)) {
+        case .refused(let status): return PhoneBridge.Reply(status: -status)
+        case .answer(let box): return try PhoneSeal.open(box, about: "r\(Int64(n))", key: key)
+        case .events: return PhoneBridge.Reply(status: 200)
+        case .ask(let ask, let device, _): return await bridge.answer(ask, from: device)
+        }
+    }
+}
+
+/// Off until Settings turns it on; then a phone pairs with the link's key, once, sees the agents and answers one.
+@Test func aPhonePairsSeesTheAgentsAndAllows() async throws {
+    let script =
+        #"stty -icanon -echo; printf 'Do you want to proceed?\n\xe2\x9d\xaf 1. Yes\n  2. No\n'; IFS= read -rsn1 k; [[ -z "$k" ]] && echo ALLOWED; sleep 30"#
+    let p = try await world(agents: [
+        AgentManifest(id: "menu", name: "Menu", command: "/bin/bash", args: ["-c", script])
+    ])
+    defer { p.d.stop() }
+    let bridge = p.d.sessions.phone
+    #expect(try await p.c.call(PhoneStatus()) == PhoneState())
+    await #expect(throws: RPCError.self) { _ = try await p.c.call(PhonePair()) }
+
+    // An address nothing answers at: pairing and the calls need no relay, only its name.
+    _ = try await p.c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
+    #expect(try await waitFor { try await p.c.call(PhoneStatus()).relay != nil })
+    let state = try await p.c.call(PhonePair())
+    let text = try #require(state.link)
+    let link = try #require(text.wholeMatch(of: /http:\/\/127\.0\.0\.1:9\/#pair=([\w-]{22})\.([\w-]{43})/))
+    #expect(try #require(state.linkUntil).timeIntervalSinceNow > 590 && !state.connected)
+    let phone = Phone(bridge: bridge, key: try key(String(link.2)))
+    var n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
+    func next() -> Double {
+        n += 1
+        return n
+    }
+
+    #expect(try await phone.ask("GET", "agents", n: next()).status == -401, "nothing before pairing")
+    #expect(
+        try await Phone(bridge: bridge, key: SymmetricKey(size: .bits256)).ask("POST", "pair", n: next()).status == -401
+    )
+    #expect(try await phone.ask("POST", "pair", .object(["name": .string("Niko’s iPhone")]), n: next()).status == 204)
+    let other = Phone(bridge: bridge, key: phone.key)
+    #expect(try await other.ask("POST", "pair", n: next()).status == -401, "a pairing key works once")
+    let paired = try await p.c.call(PhoneStatus())
+    #expect(paired.phones == [PairedPhone(id: phone.device, name: "Niko’s iPhone", push: false)] && paired.link == nil)
+
+    let w = try await firstWorkspace(p), s = try await p.c.call(SessionCreate(worktreeId: w.id, agent: "menu"))
+    _ = try await p.c.call(SessionCreate(worktreeId: w.id, command: "cat"))   // a terminal isn't an agent
+    #expect(try await waitFor(5) { try await p.c.call(SessionRead(id: s.id)).contains("2. No") })
+    try #require(p.d.sessions.existing(s.id)).hook(.waiting, message: "Allow rm -rf build?", asker: "")
+    let listed = try await phone.ask("GET", "agents", n: next())
+    let agents = try #require(listed.body?["agents"]?.array)
+    #expect(agents.map { $0["id"]?.string } == [s.id] && agents.first?["agentName"]?.string == "Menu")
+    #expect(agents.first?["ask"] == .object(["kind": .string("permission"), "text": .string("Allow rm -rf build?")]))
+    #expect(agents.first?["project"]?.string == p.repo.name && listed.body?["mac"]?.string?.isEmpty == false)
+    #expect(try await phone.ask("GET", "agents", n: n).status == -409, "the same call twice")
+
+    let one = try await phone.ask("GET", "agents/\(s.id)", n: next())
+    #expect(one.status == 200 && one.body?["id"]?.string == s.id && one.body?["lastReply"] == .null)
+    #expect(try await phone.ask("GET", "agents/nobody", n: next()).status == 404)
+    #expect(try await phone.ask("GET", "nowhere", n: next()).status == 404)
+    #expect(try await phone.ask("POST", "agents/\(s.id)/read", n: next()).status == 204)
+    func choose(_ answer: String, _ question: String) async throws -> JSONValue? {
+        try await phone.ask(
+            "POST", "agents/\(s.id)/choose", .object(["answer": .string(answer), "question": .string(question)]),
+            n: next()
+        ).body?["ok"]
+    }
+    #expect(try await choose("allow", "Allow npm test?") == .bool(false), "only the question the phone showed")
+    #expect(try await choose("always", "Allow rm -rf build?") == .bool(false))
+    #expect(try await choose("allow", "Allow rm -rf build?") == .bool(true))
+    #expect(try await waitFor(5) { try await p.c.call(SessionRead(id: s.id)).contains("ALLOWED") })
+
+    // The page's link and phones are the user's: an agent's program gets none of it, nor watches it.
+    let agent = Caller.session(s.id)
+    try expectRows(
+        p.d,
+        [
+            (agent, PhonePair(), false, "a link would answer its own questions"),
+            (agent, PhoneStatus(), false, "nor the link that's shown"),
+            (agent, PhoneUnpair(device: phone.device), false, "nor the user's phones"),
+            (agent, WatchStart(.phone), false, "nor as Settings follows it"),
+            (.user, PhonePair(), true, "the user's own")
+        ])
+
+    let push = try await phone.ask("GET", "push/key", n: next())
+    #expect(Data(base64URL: try #require(push.body?["key"]?.string))?.count == 65)
+    #expect(
+        try await phone.ask(
+            "POST", "push/subscribe", .object(["endpoint": .string("https://evil.example/")]), n: next()
+        ).status == 400)
+
+    // A restart keeps the pairing and refuses what the phone sent before it.
+    p.d.stop()
+    let again = try await restarted(p.root)
+    defer { again.stop() }
+    var back = Phone(bridge: again.sessions.phone, key: phone.key)
+    back.device = phone.device
+    #expect(try await waitFor { await again.sessions.phone.state().phones.count == 1 })
+    #expect(try await back.ask("GET", "agents", n: n).status == -409, "what it sent before")
+    #expect(try await back.ask("GET", "agents", n: n + 1).status == -409, "or could have")
+    let later = n + Double(PhoneDevice.second) * 2
+    #expect(try await back.ask("GET", "agents", n: later).status == 200)
+    #expect(try await client(p.root).call(PhoneUnpair(device: phone.device)).phones.isEmpty)
+    #expect(try await back.ask("GET", "agents", n: later + 1).status == -401)
+}

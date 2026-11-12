@@ -109,6 +109,9 @@ extension SourceControl: DaemonService {
 extension Forges: DaemonService { static func of(_ daemon: Daemon) -> Forges { daemon.forges } }
 extension Databases: DaemonService { static func of(_ daemon: Daemon) -> Databases { daemon.workspaces.databases } }
 extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
+extension PhoneBridge: DaemonService {
+    static func of(_ daemon: Daemon) -> PhoneBridge { daemon.sessions.phone }
+}
 extension Clients: DaemonService { static func of(_ daemon: Daemon) -> Clients { daemon.clients } }
 extension LSPHost: DaemonService { static func of(_ daemon: Daemon) -> LSPHost { daemon.lsp } }
 extension SettingsEvents: DaemonService { static func of(_ daemon: Daemon) -> SettingsEvents { daemon.settingsEvents } }
@@ -265,7 +268,8 @@ extension Daemon {
             + Methods.databaseMethods + Methods.databaseHealthMethods + Methods.databaseImportMethods
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
             + Methods.hostStatsMethods + Methods.integrationMethods + Methods.lspMethods + Methods.launchMethods
-            + Methods.cloneMethods + Methods.portMethods + Methods.processMethods + Methods.recapMethods
+            + Methods.cloneMethods + Methods.phoneMethods + Methods.portMethods + Methods.processMethods
+            + Methods.recapMethods
             + Methods.remoteMethods + Methods.routineMethods + Methods.runMethods + Methods.scriptMethods
             + Methods.artifactMethods + Methods.sessionEditMethods + Methods.sessionMethods + Methods.hookMethods
             + Methods.skillMethods + Methods.settingsMethods + Methods.tmuxMethods + Methods.trackerMethods

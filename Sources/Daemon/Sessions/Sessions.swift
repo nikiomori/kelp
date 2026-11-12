@@ -51,7 +51,8 @@ final class Sessions: Sendable {
             root: root, socketPath: socketPath, store: store, settings: settings, remotes: remotes,
             agentUsage: agentUsage)
         events = ExtensionEvents(
-            root: root, live: live, store: store, settings: settings, clients: clients, setup: setup)
+            root: root, live: live, store: store, settings: settings, clients: clients, setup: setup,
+            phone: PhoneBridge(store: store, settings: settings, setup: setup, live: live))
         processes = SessionProcesses(live: live, store: store, remotes: remotes)
         turns = Turns(live: live, store: store, remotes: remotes)
         updates = AgentUpdates(live: live, settings: settings)
@@ -64,6 +65,9 @@ final class Sessions: Sendable {
     }
 
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
+
+    /// The agents on a phone, through a relay (PhoneBridge.swift).
+    var phone: PhoneBridge { events.phone }
 
     /// A running session, without waking a paused one.
     func existing(_ id: String) -> LiveSession? { live[id] }

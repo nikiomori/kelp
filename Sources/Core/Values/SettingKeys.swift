@@ -50,6 +50,10 @@ public enum SettingKeys {
     public static let dockIcon = Setting("agents.dockIcon", "icon")
     public static let phoneURL = Setting("phone.url", "")
     public static let phoneDetails = Setting("phone.details", false)
+    /// The relay that passes phones' calls to this Mac (Settings › Phone); empty: off.
+    public static let phoneRelay = Setting("phone.relay", "")
+    /// Kelp's own relay: what the switch in Settings › Phone writes.
+    public static let phoneRelayAddress = "https://phone.kelpide.com"
 
     // Terminal
     public static let terminalFontFamily = Setting("terminal.fontFamily", "")

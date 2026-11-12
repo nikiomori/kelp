@@ -73,3 +73,13 @@ extension Hooks {
         return path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
     }
 }
+
+extension Session {
+    /// "Claude needs your permission to use Bash", a blocked OSC report of kind permission…
+    /// Only one whose question shows all of it gets Allow / Deny where it's shown (`Hooks.shownWhole`).
+    public var asksPermission: Bool {
+        let summary = summary.lowercased()
+        return status == .waiting && ["permission", "approve", "allow"].contains { summary.contains($0) }
+            && Hooks.shownWhole(self.summary)
+    }
+}

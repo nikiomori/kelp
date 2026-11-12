@@ -9,19 +9,24 @@ import os
 final class ExtensionEvents: Sendable {
     let root: URL, live: SessionTable, store: Store, settings: SettingsStore, clients: Clients
     let setup: SessionSetup   // which extensions the user allowed, and an agent's name
+    let phone: PhoneBridge   // the phones that take pushes
     private let told = OSAllocatedUnfairLock(initialState: [String: AgentStatus]())
     /// One thread however many fire. Limit: a command that hangs holds the next back for its 30 s.
     let queue = DispatchQueue(label: "dev.kelp.extension-events", qos: .utility)
     /// A status from before this daemon was told before it.
     private let started = Date()
 
-    init(root: URL, live: SessionTable, store: Store, settings: SettingsStore, clients: Clients, setup: SessionSetup) {
+    init(
+        root: URL, live: SessionTable, store: Store, settings: SettingsStore, clients: Clients, setup: SessionSetup,
+        phone: PhoneBridge
+    ) {
         self.root = root
         self.live = live
         self.store = store
         self.settings = settings
         self.clients = clients
         self.setup = setup
+        self.phone = phone
     }
 
     /// The event a saved session is, once per stop. A child's result is its parent's to read, as it is for notifications.

@@ -45,6 +45,8 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     /// A workspace's databases and what was run on them (`DatabasesEvent`): read when one runs, or when a file that
     /// names one changes. Key: worktree id.
     case databases
+    /// The bridge to phones (`PhoneEvent`): read every 2 s while Settings › Phone shows. No key. Not for agents.
+    case phone
 }
 
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching

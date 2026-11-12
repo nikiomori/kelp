@@ -47,9 +47,9 @@ import Testing
     m.extensions.reload()
     let sections = m.extensions.all.settings.sorted { $0.order < $1.order }
     #expect(
-        sections.prefix(12).map(\.id) == [
-            "general", "appearance", "agents", "catalog", "notifications", "terminal", "editor", "languages",
-            "databases", "git", "integrations", "keyboard"
+        sections.prefix(13).map(\.id) == [
+            "general", "appearance", "agents", "catalog", "notifications", "phone", "terminal", "editor",
+            "languages", "databases", "git", "integrations", "keyboard"
         ])
     let window = sections.first { $0.id == "appearance" }
     #expect(window?.specs.contains { $0.key == "workbench.inspectorIcons" } == true)   // its menu is made from it
@@ -118,6 +118,7 @@ import Testing
     let noRow = [
         "accounts.profiles": "the accounts are a list of their own, under Settings › Agents",
         "extensions.disabled": "Settings › Extensions' switches",
+        "phone.relay": "Settings › Phone's switch: the relay's address, another only in settings.json",
         "editor.languageServers": "a language server's own options and settings, by its command: settings.json only",
         "keys": "the shortcuts set by hand: Settings › Keyboard is a page of its own",
         "extensions.library": "where the library's index is: settings.json only, for someone running their own",

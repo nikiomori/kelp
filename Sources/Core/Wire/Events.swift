@@ -15,7 +15,7 @@ public let rpcEvents: [any RPCEvent.Type] = [
     GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
     LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self, SubagentsEvent.self, HostEvent.self,
     RoutinesEvent.self, ArtifactsEvent.self, MachinesEvent.self, MachineEvent.self, DatabasesEvent.self,
-    ArtifactCheckEvent.self
+    ArtifactCheckEvent.self, PhoneEvent.self
 ]
 
 /// A session's record changed: the record is the event.

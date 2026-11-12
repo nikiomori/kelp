@@ -89,6 +89,7 @@ extension Daemon {
                     return (line(SubagentsEvent(session: key, steps: try await ask(SessionSubagentSteps(id: key)))), 3)
                 } catch { return (nil, 3) }
             }
+        case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:
             // From memory (the probes read the plans on their own clock): cheap.
             return Watches.Topic { [self] _ in
@@ -239,6 +240,11 @@ extension Daemon {
         }
     }
 
+    /// The bridge to phones, every 2 s while Settings › Phone shows.
+    private func phoneRead() async -> (Data?, TimeInterval?) {
+        do { return (line(PhoneEvent(state: try await ask(PhoneStatus()))), 2) } catch { return (nil, 2) }
+    }
+
     private func line(_ event: some RPCEvent) -> Data? {
         let enc = JSONEncoder()
         enc.outputFormatting = .sortedKeys
@@ -254,7 +260,9 @@ extension Daemon {
         case .worktree(let worktree): notify(worktree)
         case .repoRemoved(let id): notify(RemovedEvent(repo: id))
         case .worktreeRemoved(let id): notify(RemovedEvent(worktree: id))
-        case .sessionRemoved(let id): notify(RemovedEvent(session: id))
+        case .sessionRemoved(let id):
+            notify(RemovedEvent(session: id))
+            sessions.phone.hear(.removed(id))
         }
     }
 }
@@ -264,7 +272,11 @@ extension WatchStart: Handled {
     /// A project's databases as the window sees them: hidden ones, All My Projects (hosts, users, keychain items)
     /// and the user's own statements. An agent asks `db.list` and `db.query`, which say what it may see.
     var notForAgents: String? {
-        topic == .databases ? "The databases' activity is the user's: `kelp db list` says which an agent may use." : nil
+        switch topic {
+        case .databases: "The databases' activity is the user's: `kelp db list` says which an agent may use."
+        case .phone: "The phones and their pairing link are the user's."
+        default: nil
+        }
     }
     func handle(_ watches: Watches, conn: Int) throws -> Done {
         watches.start(.init(topic: topic, key: key), conn: conn)

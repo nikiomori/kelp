@@ -192,6 +192,12 @@ public final class Daemon: Sendable {
             }
         }
         settingsEvents.watch()
+        // Its calls are answered as the daemon's own (`conn` -1): the user's, as a phone's Allow has to be.
+        sessions.phone.hear(
+            .started { [weak self] method, params in
+                guard let self else { throw RPCError.internalError("The background service stopped.") }
+                return try await answer(method, params, conn: -1)
+            })
         let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
         ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
         ticker.setEventHandler { [self] in tick() }
@@ -231,6 +237,7 @@ public final class Daemon: Sendable {
         // hangup), each recorded as pausing records it: a resumable agent comes back paused, not as a second copy.
         workspaces.routines.stop()
         let probes = agentUsage.openProbes.endAll()   // a usage probe half done: its agent would outlive us
+        sessions.phone.hear(.stop)
         sessions.pauseAll()
         Sessions.waitGone(probes)
         lsp.stopAll()
@@ -256,6 +263,7 @@ public final class Daemon: Sendable {
         previous.ticker?.cancel()
         previous.prune?.cancel()
         workspaces.routines.stop()
+        sessions.phone.hear(.stop)
         let handover = Handover(socket: socket, lock: dup(previous.instanceLock), sessions: sessions.handOver())
         Sessions.waitGone(agentUsage.openProbes.endAll())   // a probe's terminal doesn't go over: its agent would be left
         lsp.stopAll()

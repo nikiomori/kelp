@@ -6,9 +6,9 @@ import KelpKit
 import SwiftUI
 
 extension Builtins {
-    /// Settings › Agents, Notifications, Agent Catalog and Terminal.
+    /// Settings › Agents, Notifications, Phone, Agent Catalog and Terminal.
     static func agentsSettings(_ app: AppModel) -> [SettingsSection] {
-        [agentsSection(app), notificationsSection(app), catalogSection(app), terminalSection]
+        [agentsSection(app), notificationsSection(app), phoneSection(app), catalogSection(app), terminalSection]
     }
 
     /// Settings › Agents.
@@ -227,8 +227,8 @@ extension Builtins {
                     group: "Phone", placeholder: "https://ntfy.sh/your-topic"),
                 s(
                     SettingKeys.phoneDetails, "Show what the agent says on the phone", .boolean,
-                    "Off: the agent's and the workspace's names only.",
-                    group: "Phone", requires: SettingKeys.phoneURL.key)
+                    "Off: the agent's and the workspace's names only. For the address above and for paired phones.",
+                    group: "Phone")
             ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50, tint: NSColor(hex: 0xFF3B30))
     }
 

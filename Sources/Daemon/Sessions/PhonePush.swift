@@ -6,6 +6,7 @@ import os
 /// A push to a phone through a service like ntfy (Settings › Agents, off until it has an address), when an agent needs you
 /// and you're away from the Mac. In the daemon: closing Kelp's window is when it's needed. It only tells: answering stays on
 /// the Mac, so that knowing the channel's address never lets anyone approve a command. A failed send is tried once more.
+/// The paired phones (PhoneBridge.swift) hear by the same rules, each through its browser's push service.
 enum PhonePush {
     /// No input for this long is being away.
     static let awayAfter: TimeInterval = 300
@@ -60,7 +61,9 @@ extension ExtensionEvents {
 
     /// Told once per stop by `heard`.
     func phoneHeard(_ session: Session) {
-        guard PhonePush.worthTelling(session), PhonePush.url(settings[SettingKeys.phoneURL]) != nil else { return }
+        guard PhonePush.worthTelling(session),
+            PhonePush.url(settings[SettingKeys.phoneURL]) != nil || phone.takesPushes
+        else { return }
         if phoneAway {
             phoneSend(session)
             return
@@ -74,7 +77,8 @@ extension ExtensionEvents {
     }
 
     private func phoneSend(_ session: Session) {
-        guard let url = PhonePush.url(settings[SettingKeys.phoneURL]) else { return }
+        let url = PhonePush.url(settings[SettingKeys.phoneURL])
+        guard url != nil || phone.takesPushes else { return }
         let worktree = session.worktreeId.flatMap { id in
             Log.session.attempt("reading a workspace") { try store.worktree(id) } ?? nil
         }
@@ -91,7 +95,8 @@ extension ExtensionEvents {
         let (title, body) = PhonePush.message(
             session, name: name, place: worktree?.displayName ?? session.displayTitle,
             details: settings[SettingKeys.phoneDetails])
-        guard let request = PhonePush.request(url, title: title, body: body) else { return }
+        phone.hear(.push(title: title, body: body, agent: session.id))
+        guard let url, let request = PhonePush.request(url, title: title, body: body) else { return }
         Task.detached {
             // Once more a little later: right after a wake the network often isn't back yet, and being away is that.
             for wait in [0, 30] {

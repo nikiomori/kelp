@@ -2870,6 +2870,70 @@
         ],
         "type" : "object"
       },
+      "PairedPhone" : {
+        "description" : "A phone paired with this Mac. `push`: it takes notifications.",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "push" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "id",
+          "name",
+          "push"
+        ],
+        "type" : "object"
+      },
+      "PhoneEvent" : {
+        "description" : "The bridge as it is now, to whoever watches `phone`.",
+        "properties" : {
+          "state" : {
+            "$ref" : "#/components/schemas/PhoneState"
+          }
+        },
+        "required" : [
+          "state"
+        ],
+        "type" : "object"
+      },
+      "PhoneState" : {
+        "description" : "The bridge now. `relay`: its address, nil while it's off. `connected`: the relay holds this Mac's connection, else `error` says why not. `link`: what a new phone opens to pair, until `linkUntil` or the first phone that does.",
+        "properties" : {
+          "connected" : {
+            "type" : "boolean"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "link" : {
+            "type" : "string"
+          },
+          "linkUntil" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "phones" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PairedPhone"
+            },
+            "type" : "array"
+          },
+          "relay" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "connected",
+          "phones"
+        ],
+        "type" : "object"
+      },
       "PortBusyEvent" : {
         "description" : "A run couldn't start: what it printed says `port` is taken.",
         "properties" : {
@@ -5048,7 +5112,8 @@
           "machines",
           "machineDetail",
           "artifacts",
-          "databases"
+          "databases",
+          "phone"
         ],
         "type" : "string"
       },
@@ -9563,6 +9628,57 @@
       "x-internal" : true
     },
     {
+      "description" : "A new pairing link, for one phone and ten minutes; the one before it stops working.",
+      "name" : "phone.pair",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/PhoneState"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The bridge to phones as it is now.",
+      "name" : "phone.status",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/PhoneState"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Forgets the phone `device`: its key stops opening anything.",
+      "name" : "phone.unpair",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "device",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/PhoneState"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "\"pong\".",
       "name" : "ping",
       "paramStructure" : "by-name",
@@ -12971,6 +13087,13 @@
       "name" : "event.output",
       "params" : {
         "$ref" : "#/components/schemas/OutputEvent"
+      }
+    },
+    {
+      "description" : "The bridge as it is now, to whoever watches `phone`.",
+      "name" : "event.phone",
+      "params" : {
+        "$ref" : "#/components/schemas/PhoneEvent"
       }
     },
     {
