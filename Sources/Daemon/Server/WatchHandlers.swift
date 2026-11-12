@@ -23,6 +23,20 @@ extension Daemon {
         }
     }
 
+    /// What only a branch group's folder holds (`GitEvent.only`, `dirty`); nothing to say for a project's own folder.
+    private func ownWork(_ worktree: Worktree) async throws -> (Int?, Bool?) {
+        guard let repo = try store.repo(worktree.repoId), repo.path != worktree.path else { return (nil, nil) }
+        let remotes = remotes, workspaces = workspaces
+        return try await offload {
+            let branch = workspaces.branchNow(of: worktree, in: repo)
+            return (
+                Git.branchExists(repo.path, branch, remotes: remotes)
+                    ? try Git.onlyOnBranch(repo: repo.path, branch, remotes: remotes) : 0,
+                try Git.isDirty(worktree.path, remotes: remotes)
+            )
+        }
+    }
+
     /// What a watch topic is, all of it here: which folder's file events can change it and which of them do (none: it
     /// goes by its clock; a remote project's folder here holds only its marker), how it's read now (the event as sent,
     /// nil when there's nothing to say, a failure that stays quiet; and when to read it again with nothing else saying
@@ -176,7 +190,10 @@ extension Daemon {
             let changes = try await ask(GitStatus(id: key))
             event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
             event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
-            if !remote, let worktree { event.branchFiles = try await branchFiles(worktree) }
+            if !remote, let worktree {
+                event.branchFiles = try await branchFiles(worktree)
+                (event.only, event.dirty) = try await ownWork(worktree)
+            }
         } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
         return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
     }

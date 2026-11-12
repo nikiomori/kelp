@@ -15,6 +15,9 @@ public struct SidebarItem: Equatable, Sendable {
     public var children: [SidebarItem] = []
     /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
     public var workspace: String?
+    /// On a group: the chat that made it (`Worktree.madeBy`, a branch for its helpers), when it stands right under
+    /// that chat's row, a step further in, rather than among the project's groups.
+    public var under: String?
 }
 
 public struct SidebarTree {
@@ -53,9 +56,23 @@ public struct SidebarTree {
         let live = workspaces.filter { !$0.archived }
         let listed = projects.map { r -> SidebarItem in
             let own = mainWorkspace(of: r, among: live)
-            let groups = live.filter { $0.repoId == r.id && $0.id != own?.id }.map(workspace)
+            let chats = own.map(workspace)?.children ?? []
+            // A group an agent made stands under its chat. Only a chat on the project's own screen: a group can't hold a
+            // group, so one made from inside a group stays among the project's groups.
+            let makers = Set(chats.compactMap { if case .agent(let id) = $0.kind { id } else { nil } })
+            func maker(_ w: Worktree) -> String? { Self.maker(w).flatMap { makers.contains($0) ? $0 : nil } }
+            let groups = live.filter { $0.repoId == r.id && $0.id != own?.id }
+            let rows = chats.flatMap { chat -> [SidebarItem] in
+                [chat]
+                    + groups.filter { .agent(maker($0) ?? "") == chat.kind }.map {
+                        var made = workspace($0)
+                        made.under = maker($0)
+                        return made
+                    }
+            }
             return SidebarItem(
-                kind: .project(r.id), children: (own.map(workspace)?.children ?? []) + groups, workspace: own?.id)
+                kind: .project(r.id), children: rows + groups.filter { maker($0) == nil }.map(workspace),
+                workspace: own?.id)
         }
         func busy(_ i: SidebarItem) -> Bool {
             i.children.contains { if case .agent = $0.kind { true } else { busy($0) } }
@@ -67,6 +84,11 @@ public struct SidebarTree {
         }
         return all.filter { !isPinned($0) } + (away.isEmpty ? [] : [SidebarItem(kind: .parked, children: away)])
             + all.filter(isPinned)
+    }
+
+    /// The session that made a workspace: the agent itself, or the terminal an agent was typed into (`typed:<id>`).
+    public static func maker(_ w: Worktree) -> String? {
+        w.madeBy.map { $0.hasPrefix("typed:") ? String($0.dropFirst(6)) : $0 }
     }
 
     private func sections(_ listed: [SidebarItem]) -> [SidebarItem] {

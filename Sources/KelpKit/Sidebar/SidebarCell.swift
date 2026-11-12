@@ -69,6 +69,16 @@ final class SidebarCell: NSTableCellView {
         return badge
     }()
     var add: NSButton?
+    /// A group on a branch that holds nothing of its own and has nobody on it: it can simply go (`showGroupLine`).
+    lazy var remove: TextButton = {
+        let button = TextButton(String(localized: "Remove")) { [weak self] in
+            guard let self, case .workspace(let id) = node.kind, let worktree = app.worktree(id) else { return }
+            WorkspaceActions(app).close(worktree)
+        }
+        button.toolTip = String(localized: "Everything on this branch is on another branch or a remote too")
+        button.isHidden = true
+        return button
+    }()
     /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
     /// A heading's: the branch its folder is on, when it has code of its own.
     let detail = NSTextField(labelWithString: "")
@@ -132,7 +142,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(TextSize.body, weight: .medium)
             styleBranch()
             fillSlot(icon)
-            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, trailing])
+            layout(row: [slot, title, detail, muted, stack, changes, pr, ci, remove, trailing])
         case .agent:
             title.font = .ui(TextSize.body)
             glyph.imageScaling = .scaleProportionallyUpOrDown
@@ -254,14 +264,15 @@ final class SidebarCell: NSTableCellView {
             // A branch splits the code, a group the screen: the slot tells them apart, always.
             let onBranch = worktree.path != app.repo(worktree.repoId)?.path
             icon.image = .symbol(onBranch ? "arrow.triangle.branch" : "rectangle.stack")
-            detail.stringValue = onBranch && worktree.branch != worktree.displayName ? worktree.branch : ""
-            detail.isHidden = detail.stringValue.isEmpty
+            showGroupLine(worktree, onBranch: onBranch)
             showFold()
             // Expanded, its agents show their own state; collapsed, the workspace sums them up.
             let collapsed = owner?.isCollapsed(node) ?? false
             let lead = app.lead(in: id)
             trailing.stringValue =
-                collapsed ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt }) : "\(node.children.count)"
+                collapsed
+                ? shortAgo(lead.map { $0.statusAt ?? $0.createdAt })
+                : node.children.isEmpty ? "" : "\(node.children.count)"
             stack.show(collapsed ? AgentStack.chats(under: node, app) : [], app)
             fitBadges()
             toolTip = nil   // the hover card shows the workspace in full

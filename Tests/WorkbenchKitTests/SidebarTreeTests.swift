@@ -127,3 +127,26 @@ private func workspace(_ id: String, _ r: Repo, at t: TimeInterval = 0) -> Workt
     #expect(kinds(out[0].children.flatMap(\.children)) == [.agent("a1")])
     #expect(kinds(out[1].children) == [.agent("a2")])
 }
+
+/// A group a chat made (a branch for its helpers) stands right under that chat, its own chats under it; one made from
+/// inside a group, or whose maker is gone, stays among the project's groups.
+@Test func aGroupAnAgentMadeStandsUnderItsChat() {
+    var made = wt("w2", "r1", "helper"), typed = wt("w3", "r1", "typed"), orphan = wt("w4", "r1", "orphan")
+    var deep = wt("w5", "r1", "deep")
+    made.madeBy = "a1"
+    typed.madeBy = "typed:a2"
+    orphan.madeBy = "gone"
+    deep.madeBy = "kid"   // a chat on a group's screen: a group can't hold a group
+    let own = Worktree(id: "w1", repoId: "r1", branch: "main", path: "/a")
+    let ss = [
+        agent("a1", in: "w1", .working), agent("a2", in: "w1", .idle), agent("kid", in: "w2", .working)
+    ]
+    let rows = tree([own, made, typed, orphan, deep], ss).build()[0].children
+    #expect(
+        kinds(rows) == [
+            .agent("a1"), .workspace("w2"), .agent("a2"), .workspace("w3"), .workspace("w4"), .workspace("w5")
+        ]
+    )
+    #expect(rows.map(\.under) == [nil, "a1", nil, "a2", nil, nil])
+    #expect(kinds(rows[1].children) == [.agent("kid")])
+}

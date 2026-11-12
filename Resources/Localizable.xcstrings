@@ -21896,6 +21896,220 @@
           }
         }
       }
+    },
+    "Project Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка проекта"
+          }
+        }
+      }
+    },
+    "Own Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Своя ветка"
+          }
+        }
+      }
+    },
+    "Shares the project’s files with its other chats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы общие с остальными чатами проекта"
+          }
+        }
+      }
+    },
+    "A new branch from %@ in a folder of its own": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая ветка от %@ в своей папке"
+          }
+        }
+      }
+    },
+    "Choose Branch…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать ветку…"
+          }
+        }
+      }
+    },
+    "A branch with a name, one that’s there, or a pull request": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветка с именем, уже существующая или пул-реквест"
+          }
+        }
+      }
+    },
+    "On its own branch %@, from %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На своей ветке %1$@, от %2$@"
+          }
+        }
+      }
+    },
+    "New Group on Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая группа на ветке"
+          }
+        }
+      }
+    },
+    "New Group on Branch…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая группа на ветке…"
+          }
+        }
+      }
+    },
+    "Everything on this branch is on another branch or a remote too": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё с этой ветки есть и в другой ветке или на сервере"
+          }
+        }
+      }
+    },
+    "Only on %@: commits no other branch or remote has, and files not committed. Closing it asks first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только на %@: коммиты, которых нет ни в одной другой ветке и ни на одном сервере, и незакоммиченные файлы. При закрытии Kelp спросит."
+          }
+        }
+      }
+    },
+    "%lld commits": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld commit"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld commits"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld коммит"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld коммита"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld коммитов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld коммита"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld terminals": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld terminal"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld terminals"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld терминал"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld терминала"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld терминалов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld терминала"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.0"

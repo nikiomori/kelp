@@ -41,8 +41,10 @@ extension Workbench {
 
     private func show(workspace id: String, remember: Bool) {
         guard workspaceId != id || page != nil || window?.editors.current == nil else { return }
+        let left = workspaceId
         page = nil
         workspaceId = id
+        if let left, left != id { WorkspaceActions(app).left(left) }
         noteShown()
         if remember { history.visit(id) }
         window?.showWorkspace(id)
@@ -323,26 +325,28 @@ extension Workbench {
         }
     }
 
-    /// ⇧⌘N: a screen of its own under a heading, named by its first prompt, with an agent on it.
+    /// ⇧⌘N: a screen of its own under a heading, with nothing on it yet: its empty screen offers an agent, a terminal,
+    /// a file, as "+" does. It lives while it's on screen (`WorkspaceActions.left`); its first prompt names it.
     func newGroup(repo: String? = nil) {
         Task {
             guard let rid = await project(repo) else { return }
-            if let id = await app.call(WorkspaceCreate(repoId: rid))?.id { await startChat(on: id) }
+            if let id = await app.call(WorkspaceCreate(repoId: rid))?.id { show(workspace: id) }
         }
     }
 
-    /// ⌃⌘N: the same with code of its own, a new branch from the project's base in its own folder. The first prompt names
-    /// both. A .kelp.yaml not yet trusted asks once the chat is there, so its setup waits for nobody.
+    /// ⌃⌘N, and Own Branch on a group's empty screen: the same with code of its own, a new branch from the
+    /// project's base in its own folder. The first prompt names both. A .kelp.yaml not yet trusted asks once the screen
+    /// is there, so its setup waits for nobody.
     func newBranch(repo: String? = nil) {
         Task {
             guard let rid = await project(repo), let made = await app.call(WorktreeCreate(repoId: rid)) else { return }
             let id = made.worktree.id
-            await startChat(on: id)
+            show(workspace: id)
             if made.setupNeedsTrust == true { await app.extensions.all.runs?.setup(id, nil) }
         }
     }
 
-    /// ⌥⌃⌘N, "New Chat on Branch…": the sheet (`NewChatSheet`) for a branch with a name, one that's there, or a pull
+    /// ⌥⌃⌘N, "New Group on Branch…": the sheet (`NewChatSheet`) for a branch with a name, one that's there, or a pull
     /// request, and the agent to start on it.
     func newBranchAsking(repo: String? = nil) {
         Task {

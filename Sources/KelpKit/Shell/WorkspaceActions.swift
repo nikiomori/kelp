@@ -247,9 +247,16 @@ package struct WorkspaceActions {
         for wid in from { app.workbench.editors?.chatsLeft(wid) }
     }
 
-    /// Its last tab was closed: its row goes too, with nothing to ask. One on a branch with work of its own stays, and says
+    /// The screen moved on from a group: one with nothing open lived only while it was on screen.
+    func left(_ id: String) {
+        if app.workbench.layouts[id].allTabs.isEmpty { closeEmpty(id, ended: nil) }
+    }
+
+    /// Its last tab was closed: its row goes too, with nothing to ask, unless it's the one on screen, which then offers
+    /// what to open next and goes when the screen moves on (`left`). One on a branch with work of its own stays, and says
     /// so: nothing there is decided by closing a tab. `ended`: that tab's session, still on its way out.
     func closeEmpty(_ id: String, ended: String?) {
+        guard app.workbench.workspaceId != id else { return }
         // Its children end with it, a moment later: they have no tab, and nothing would come back to close this.
         var ending = Set([ended].compactMap { $0 })
         while case let more = Set(app.sessions.filter { $0.parent.map(ending.contains) == true }.map(\.id)).subtracting(

@@ -24,12 +24,14 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
 - **Workspace**: what the code, RPCs and CLI call one screen of a project: its own tabs, splits and agents, with nothing
   on disk (`workspace.create`, stored as worktree records whose path is the repo path). In the window a project's
   oldest workspace is the project's own screen: its agents are chats, listed under the project with no heading, and it
-  doesn't close. Every other workspace is a group, made on purpose (⇧⌘N), a row of its own with its chats a step further in; closing its last tab
-  closes it, ending its agents and leaving the files. ⌘N starts the default agent on the screen you're on.
+  doesn't close. Every other workspace is a group, made on purpose (⇧⌘N), a row of its own with its chats a step further in. It
+  opens empty, offering what "+" does, and lives while it's on screen: with its last tab closed it goes when the
+  screen moves on, ending nothing and leaving the files. A group an agent made for its helpers (`kelp worktree create`)
+  stands under that agent's chat and goes with its last session, unless something is only there. ⌘N starts the default agent on the screen you're on.
   A group splits the screen, not the code: chats in a project's workspaces share its folder, and one can move between
   them with its agent running (`session.move`).
-  A branch splits the code: New Chat on Branch (⌃⌘N) is a group on a git worktree, cut from the project's base branch,
-  and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there. What exists
+  A branch splits the code: a group's empty screen offers Own Branch (⌃⌘N makes one at once), a group on a git
+  worktree cut from the project's base branch, and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there. What exists
   only on a branch never goes by itself: closing such a group asks (Archive by default) and its last tab leaves it open;
   with nothing of its own it closes like any group, folder to the Trash and branch removed.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.

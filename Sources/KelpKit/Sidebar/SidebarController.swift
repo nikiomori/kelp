@@ -21,6 +21,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         var children: [Node] = []
         /// A project's own screen, which its row stands for (SidebarItem.workspace).
         var workspace: String?
+        /// A group under the chat that made it (SidebarItem.under): its row and its chats' stand a step further in.
+        var under: String?
         init(_ kind: SidebarItem.Kind) { self.kind = kind }
         var key: String {
             switch kind {
@@ -111,6 +113,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.selectionHighlightStyle = .none   // SidebarRowView draws the selection as a pill
         outline.floatsGroupRows = false
         outline.indentationPerLevel = 14
+        outline.steps = { [weak self] row in
+            guard let self, let node = outline.item(atRow: row) as? Node else { return 0 }
+            return node.under ?? (outline.parent(forItem: node) as? Node)?.under == nil ? 0 : 1
+        }
         outline.pads = { [weak self] row in
             (self?.outline.item(atRow: row) as? Node).flatMap { self?.pads($0) } ?? (0, 0)
         }
@@ -266,6 +272,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.updateVisibleCells()
         }
         followRowLooks()
+        followGroupLines()
         track(owner: self) { [app] in
             app.themes.chromeText
         } changed: { [weak self] _ in

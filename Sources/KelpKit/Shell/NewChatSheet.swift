@@ -2,7 +2,7 @@ import AppKit
 import Core
 import DesignKit
 
-/// ⌥⌃⌘N, "New Chat on Branch…": a new branch with a name of your choosing, a branch that's there already, or a pull
+/// ⌥⌃⌘N, "New Group on Branch…": a new branch with a name of your choosing, a branch that's there already, or a pull
 /// request, each in a folder of its own, and the agent to start there. ⌃⌘N stays one keystroke, named by the first prompt.
 @MainActor
 final class NewChatSheet: NSObject {

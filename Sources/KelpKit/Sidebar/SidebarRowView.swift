@@ -6,6 +6,8 @@ import DesignKit
 /// name: the card says what's in it), then a group's chats 12 pt further in.
 final class SidebarOutline: NSOutlineView {
     static let lead: CGFloat = 14, step: CGFloat = 12
+    /// Steps further in than its level puts a row: a group under the chat that made it, and that group's chats.
+    var steps: (Int) -> Int = { _ in 0 }
     /// Room over and under a row's content, where its project's card opens and closes (SidebarRowView.group).
     var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
     /// No disclosure triangles: projects and groups fold from the chevron their slot shows under the pointer (SidebarCell).
@@ -14,7 +16,7 @@ final class SidebarOutline: NSOutlineView {
         var cellFrame = padded(super.frameOfCell(atColumn: column, row: row), row)
         // The content ends as far inside its card on the right as a project's icon starts on the left (SidebarRowView.band).
         // Under a heading a step further in than the rows beside the heading: the group ends where the indent does.
-        let left = Self.lead + (level(forRow: row) >= 2 ? Self.step : 0)
+        let left = Self.lead + Self.step * CGFloat((level(forRow: row) >= 2 ? 1 : 0) + steps(row))
         cellFrame.origin.x = left
         cellFrame.size.width = bounds.width - 8 - left
         return cellFrame

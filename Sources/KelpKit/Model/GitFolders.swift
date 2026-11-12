@@ -55,6 +55,15 @@ package final class GitFolders {
         return worktree
     }
 
+    /// What only a branch group's folder holds, as the daemon read it (`GitEvent.only`, `dirty`): commits no other
+    /// branch or remote has, files not committed. Nil: not a branch's folder, or not read yet.
+    func ownWork(_ id: String) -> (commits: Int, files: Int)? {
+        guard let git = app.latest(GitEvent.self).byKey[id], let only = git.only, let dirty = git.dirty else {
+            return nil
+        }
+        return (only, dirty ? max(1, git.changes?.count ?? 1) : 0)
+    }
+
     /// Files folder `id` changes (not committed yet, or on its branch since it left the base) that another folder of
     /// its project changes too, each with those folders' branches: two chats building one thing two ways meet here,
     /// before their merge does. Only folders the sidebar watches count (Settings › Appearance › Changes and pull

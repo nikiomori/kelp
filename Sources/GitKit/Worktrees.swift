@@ -224,7 +224,8 @@ extension Git {
         return changes.split(separator: "\n").contains { line in
             guard local, line.hasPrefix("?? ") else { return true }
             let file = (path as NSString).appendingPathComponent(String(line.dropFirst(3)))
-            return (try? FileManager.default.destinationOfSymbolicLink(atPath: file)) == nil
+            var info = stat()
+            return lstat(file, &info) != 0 || info.st_mode & S_IFMT != S_IFLNK
         }
     }
 

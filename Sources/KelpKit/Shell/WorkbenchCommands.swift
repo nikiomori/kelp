@@ -65,8 +65,8 @@ extension Builtins {
             cmd("editor.reopenTab", "Reopen Closed Tab", "shift+cmd+t") { app.workbench.reopenClosedTab() },
             cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newChat() },
             cmd("workspace.newGroup", "New Group", "shift+cmd+n") { app.workbench.newGroup() },
-            cmd("workspace.newBranch", "New Chat on Branch", "ctrl+cmd+n") { app.workbench.newBranch() },
-            cmd("workspace.newBranchAsking", "New Chat on Branch…", "opt+ctrl+cmd+n") {
+            cmd("workspace.newBranch", "New Group on Branch", "ctrl+cmd+n") { app.workbench.newBranch() },
+            cmd("workspace.newBranchAsking", "New Group on Branch…", "opt+ctrl+cmd+n") {
                 app.workbench.newBranchAsking()
             },
             cmd("workspace.addProject", "Add Project…", "cmd+o") { app.workbench.addProject() },

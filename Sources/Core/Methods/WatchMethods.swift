@@ -80,6 +80,9 @@ public struct GitEvent: RPCEvent, Equatable {
     /// What its branch committed since it left the project's base branch (nil on the base itself): with `changes`,
     /// every file it would bring in, which another folder of the project may be changing too.
     public var branchFiles: [String]?
+    /// A branch group's folder only (nil elsewhere): what closing it would lose. `only`: its branch's commits that no
+    /// other branch or remote has; `dirty`: files not committed, by the rule its removal goes by (a new link isn't one).
+    public var only: Int?, dirty: Bool?
     public init(
         worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil,
         error: String? = nil

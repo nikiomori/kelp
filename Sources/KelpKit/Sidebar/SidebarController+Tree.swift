@@ -31,6 +31,7 @@ extension SidebarController {
             let built = Node(item.kind)
             built.children = item.children.map(node)
             built.workspace = item.workspace
+            built.under = item.under
             return built
         }
         return tree.build().map(node)
@@ -56,7 +57,9 @@ extension SidebarController {
         // A project's row also stands for its one workspace: when that arrives after the project (or changes), the nodes
         // must be new, or the row the workspace on screen is looked up by (workspaceNode) isn't found and nothing is picked.
         func flat(_ ns: [Node]) -> [String] {
-            ns.flatMap { [$0.key + ($0.workspace.map { "=" + $0 } ?? "")] + flat($0.children) }
+            ns.flatMap {
+                [$0.key + ($0.workspace.map { "=" + $0 } ?? "") + ($0.under.map { "<" + $0 } ?? "")] + flat($0.children)
+            }
         }
         let nextShape = flat(next)
         if nextShape == shape {

@@ -55,7 +55,14 @@ final class StartView: NSView {
         title.lineBreakMode = .byTruncatingTail
         title.alignment = .center
         // The window bar shows the folder; a remote project's host and path are said here, the bar has the local stand-in.
-        let folder = NSTextField(labelWithString: RemoteHost.of(w.path).map { "\($0.host):\($0.path)" } ?? "")
+        // A group on a branch says so: its code isn't the project's.
+        let onBranch =
+            repo.map { $0.path != w.path } == true
+            ? String(
+                localized: "On its own branch \(w.branch), from \(w.base.isEmpty ? repo?.baseBranch ?? "" : w.base)")
+            : ""
+        let folder = NSTextField(
+            labelWithString: RemoteHost.of(w.path).map { "\($0.host):\($0.path)" } ?? onBranch)
         folder.font = .ui(TextSize.body)
         folder.textColor = .secondaryLabelColor
         folder.lineBreakMode = .byTruncatingMiddle
@@ -67,6 +74,8 @@ final class StartView: NSView {
         hint.textColor = .secondaryLabelColor
 
         var views: [NSView] = [icon, title, folder]
+        let code = codeChoice(w, repo)
+        if let code { views.append(code) }
         let field = agents.contains { $0.id == def } ? promptField() : nil
         if let field { views += [field, planBar] }
         let agentsHead = Self.heading(String(localized: "Agents")), openHead = Self.heading(String(localized: "Open"))
@@ -90,7 +99,8 @@ final class StartView: NSView {
         stack.spacing = 4
         stack.detachesHiddenViews = true
         stack.setCustomSpacing(14, after: icon)
-        stack.setCustomSpacing(24, after: folder.isHidden ? title : folder)
+        stack.setCustomSpacing(code == nil ? 24 : Metrics.inset, after: folder.isHidden ? title : folder)
+        if let code { stack.setCustomSpacing(24, after: code) }
         if let field { stack.setCustomSpacing(22, after: field) }
         for (head, after) in [(agentsHead, 6), (openHead, 6)] as [(NSView, CGFloat)] {
             stack.setCustomSpacing(after, after: head)
@@ -135,6 +145,46 @@ final class StartView: NSView {
         followPlans(in: stack, after: field)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// A group in the project's folder, with nothing on it yet: where its code is. The folder, shared with the project
+    /// (a group splits the screen), or a branch of its own in its own folder (a branch splits the code), which is made
+    /// when picked: this empty group goes as the screen moves to that one. Beside it, a branch that's there or a pull
+    /// request. Nil for the project's own screen, a group on a branch already, and a project on a host.
+    private func codeChoice(_ w: Worktree, _ repo: Repo?) -> NSView? {
+        guard let repo, app.groupName(w) != nil, w.path == repo.path, RemoteHost.of(repo.path) == nil else {
+            return nil
+        }
+        let app = self.app
+        let label = NSTextField(labelWithString: String(localized: "Code"))
+        label.font = .ui(TextSize.row)
+        label.textColor = .secondaryLabelColor
+        let place = NSSegmentedControl(
+            labels: [String(localized: "Project Folder"), String(localized: "Own Branch")],
+            trackingMode: .selectOne, target: nil, action: nil)
+        place.segmentDistribution = .fit
+        place.controlSize = .small
+        place.selectedSegment = 0
+        place.setToolTip(String(localized: "Shares the project’s files with its other chats"), forSegment: 0)
+        place.setToolTip(
+            String(localized: "A new branch from \(repo.baseBranch) in a folder of its own"), forSegment: 1)
+        // Picked once: the screen moves to the branch's group.
+        let pick = ClosureTarget { [weak place] in
+            guard place?.selectedSegment == 1 else { return }
+            place?.isEnabled = false
+            app.workbench.newBranch(repo: repo.id)
+        }
+        place.target = pick
+        place.action = #selector(ClosureTarget.fire)
+        codePick = pick
+        let other = TextButton(String(localized: "Choose Branch…")) {
+            app.workbench.newBranchAsking(repo: repo.id)
+        }
+        other.toolTip = String(localized: "A branch with a name, one that’s there, or a pull request")
+        let row = NSStackView(views: [label, place, other])
+        row.spacing = Metrics.gapWide
+        return row
+    }
+    private var codePick: ClosureTarget?   // a control doesn't keep its target
 
     /// Where a group's heading starts: over the icons of its rows.
     static let headInset = StartCard.inset + StartRow.inset

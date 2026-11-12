@@ -11,7 +11,8 @@ extension SidebarController {
 
     /// Projects and a project's groups move.
     func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        guard let node = item as? Node, node.id != nil else { return nil }
+        // A group under the chat that made it stays there: its place is that chat's.
+        guard let node = item as? Node, node.id != nil, node.under == nil else { return nil }
         if case .project(let id) = node.kind, NoProject.holds(app.repo(id)) { return nil }   // always last
         let pasteboardItem = NSPasteboardItem()
         pasteboardItem.setString(node.key, forType: Self.rowType)
