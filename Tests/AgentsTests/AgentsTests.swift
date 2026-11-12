@@ -189,6 +189,7 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(b.first?.kind == "session" && b.first?.percent == 93 && b.first?.resets == "3pm")
     #expect(LimitScreens.parse("5-hour limit reached ∙ resets 11pm").first?.percent == 100)
     #expect(LimitScreens.parse("You've used 82.5% of your weekly limit").first?.percent == 82.5)
+    #expect(LimitScreens.parse("Over 90% of your weekly limit used · resets 3pm").first?.resets == "3pm")
     #expect(LimitScreens.parse("nothing to see").isEmpty)
 }
 

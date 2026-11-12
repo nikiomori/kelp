@@ -168,6 +168,7 @@ public enum Hooks {
               case "session.status":
                 if (p.status?.type === "busy") report("working");
                 if (p.status?.type === "idle") report("done");   // newer versions send only this
+                if (p.status?.type === "offline") report("waiting");   // Kilo: no network, the person retries
                 break;
               case "permission.asked": case "question.asked": report("waiting"); break;
               case "permission.replied": case "question.replied": case "question.rejected": report("working"); break;

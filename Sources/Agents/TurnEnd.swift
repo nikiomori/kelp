@@ -55,6 +55,7 @@ public struct TurnEnd: Codable, Sendable {
 }
 
 /// A /goal's state as Claude Code writes it into its transcript (a `goal_status` attachment, after each check).
+/// `met`: settled, also when Claude gave it up (`failed`): either way it no longer holds the turn open.
 public struct GoalStatus: Equatable, Sendable {
     public var met: Bool, condition: String, id: String
     public init(met: Bool, condition: String, id: String) {
@@ -71,7 +72,8 @@ public struct GoalStatus: Equatable, Sendable {
                 attachment["type"]?.string == "goal_status"
             else { continue }
             return GoalStatus(
-                met: attachment["met"]?.bool ?? false, condition: attachment["condition"]?.string ?? "",
+                met: attachment["met"]?.bool == true || attachment["failed"]?.bool == true,
+                condition: attachment["condition"]?.string ?? "",
                 id: entry["uuid"]?.string ?? String(line.hashValue))
         }
         return nil

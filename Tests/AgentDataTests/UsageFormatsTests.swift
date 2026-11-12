@@ -183,6 +183,18 @@ private func iso(_ t: Date) -> String { ISO8601DateFormatter().string(from: t) }
     #expect(
         q.first?.tally.tokens == TokenCounts(input: 400, output: 50, cacheWrite: 0, cacheRead: 600)
             && q.first?.cwd == "/p/q")
+    // An archived chat (chats/archive/) counts too.
+    try write(
+        dir.appendingPathComponent("-p-q/chats/archive/a.jsonl"),
+        [
+            [
+                "type": "assistant", "uuid": "u2", "cwd": "/p/q", "model": "qwen3-coder", "timestamp": now,
+                "usageMetadata": ["promptTokenCount": 100, "totalTokenCount": 110]
+            ]
+        ])
+    let archived = UsageIndex(cache: dir.appendingPathComponent("q2.json"), format: .qwen).rows(
+        roots: [dir], since: Date() - 86400)
+    #expect(archived.map(\.tally.tokens.input).reduce(0, +) == 500)
 
     let gem = try scratch()
     try write(gem.appendingPathComponent("projects.json"), [["projects": ["/p/g": "g-app"]]])

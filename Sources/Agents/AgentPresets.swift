@@ -28,7 +28,7 @@ extension AgentManifest {
     public static let presets: [AgentManifest] = [
         .init(
             id: "claude", name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings"),
-            modelFlag: "--model", models: ["opus", "sonnet", "haiku"],
+            modelFlag: "--model", models: ["opus", "sonnet", "haiku", "fable"],
             autoAnswers: [trust], resumeArgs: ["--continue"], pluginDirFlag: "--plugin-dir",
             contextFlag: "--append-system-prompt",
             sessionIdFlag: "--session-id", resumeIdFlag: "--resume",
@@ -42,7 +42,7 @@ extension AgentManifest {
         .init(
             id: "codex", name: "Codex", command: "codex",
             args: ["--no-daemon", "-c", "check_for_update_on_startup=false"], hooks: .codexConfig,
-            modelFlag: "-m", models: ["gpt-5-codex", "gpt-5"],
+            modelFlag: "-m", models: ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"],
             effortArgs: [
                 "low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
                 "high": ["-c", "model_reasoning_effort=high"]
@@ -119,15 +119,18 @@ extension AgentManifest {
             hooks: .settingsFile(
                 env: "QWEN_CODE_SYSTEM_SETTINGS_PATH", replaces: "/Library/Application Support/QwenCode/settings.json"),
             modelFlag: "--model", resumeArgs: ["--continue"],
-            install: "npm install -g @qwen-code/qwen-code", update: "npm install -g @qwen-code/qwen-code@latest",
+            install: "npm install -g @qwen-code/qwen-code", update: "qwen update",
             npm: "@qwen-code/qwen-code", about: "Alibaba’s open source agent", site: "qwen.ai"),
         .init(
-            id: "kimi", name: "Kimi", command: "kimi", modelFlag: "--model",
+            // OSC 7501 as Pi's (the same terminal code): reported even when the terminal's DA reply comes first.
+            id: "kimi", name: "Kimi", command: "kimi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
             autoAnswers: [trust], resumeArgs: ["--continue"],
             install: "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash", update: "kimi upgrade",
             about: "Moonshot AI’s coding agent", apps: ["Kimi"], site: "kimi.com"),
         .init(
-            id: "kilo", name: "Kilo Code", command: "kilo", hooks: .pluginDir(env: "KILO_CONFIG_DIR"),
+            // Not on a running `kilo daemon`: its server, and so Kelp's plugin, would run in the daemon's environment.
+            id: "kilo", name: "Kilo Code", command: "kilo", env: ["KILO_NO_DAEMON": "1"],
+            hooks: .pluginDir(env: "KILO_CONFIG_DIR"),
             modelFlag: "--model",
             resumeArgs: ["--continue"],
             install: "npm install -g @kilocode/cli", update: "kilo upgrade", npm: "@kilocode/cli",

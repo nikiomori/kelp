@@ -36,7 +36,11 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         case .grok: file.lastPathComponent == "updates.jsonl"
         case .kimi: file.lastPathComponent == "wire.jsonl"
         case .pi, .omp: file.pathExtension == "jsonl"
-        case .qwen: file.pathExtension == "jsonl" && file.deletingLastPathComponent().lastPathComponent == "chats"
+        // An archived chat is in chats/archive/.
+        case .qwen:
+            file.pathExtension == "jsonl"
+                && (file.deletingLastPathComponent().lastPathComponent == "chats"
+                    || file.deletingLastPathComponent().path.hasSuffix("/chats/archive"))
         case .gemini:
             file.pathExtension == "jsonl"
                 && (file.lastPathComponent.hasPrefix("session-")

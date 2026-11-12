@@ -50,4 +50,7 @@ private func task(_ id: String, _ type: String = "shell", _ command: String = "n
         """
     #expect(GoalStatus.last(in: tail) == GoalStatus(met: true, condition: "a.txt exists", id: "u2"))
     #expect(GoalStatus.last(in: "{\"type\":\"user\"}") == nil)
+    // One Claude gave up on is settled too.
+    let failed = #"{"type":"attachment","uuid":"u3","attachment":{"type":"goal_status","met":false,"failed":true}}"#
+    #expect(GoalStatus.last(in: failed)?.met == true)
 }
