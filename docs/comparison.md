@@ -38,7 +38,7 @@ None of the other apps was run for this page, except for the weight table, which
 | Comment on a diff line, sent to the agent | yes | yes [^orca-readme] | through a plugin (see below) | not in the public release [^cmux-next] | yes [^paradev-readme] | yes, Send Review to Agent [^zed-review] |
 | A second agent reviews the first | yes, **Review with** in the diff header [^review-with] | not checked | not checked | not checked | not checked | not checked |
 | Pull request with review threads in the app | no: create, CI, merge; threads are read and sent to an agent, not answered | not checked | not checked | not checked | yes [^paradev-readme] | not checked |
-| Phone | `kelp agents` over SSH | iOS and Android apps [^orca-readme] | community apps [^herdr-phone] | not checked | iPhone and iPad, paid plan [^paradev-readme] | not checked |
+| Phone | a web page Kelp serves itself, over Tailscale or your own address (docs/phone.md); `kelp agents` over SSH | iOS and Android apps [^orca-readme] | community apps [^herdr-phone] | not checked | iPhone and iPad, paid plan [^paradev-readme] | not checked |
 | Other machines | Open over SSH, tmux on the host | SSH worktrees [^orca-readme] | several SSH machines in one window [^herdr-readme] | `cmux ssh` [^cmux-readme] | remote hosts, paid plan [^paradev-readme] | remote projects [^zed-terminal] |
 | GitHub stars | 4 | 115,847 | 48,170 (app: 1,995) | 28,705 | 15,944 | 92,748 |
 
