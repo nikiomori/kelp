@@ -340,6 +340,30 @@ final class Workspaces: Sendable {
         notify(ChangedEvent.worktree)
     }
 
+    /// A branch an agent made for its helpers (`kelp worktree create`), once no session is left on it: it goes as a user
+    /// would close it, unless something is only there (uncommitted files, commits no other branch has). Then it stays,
+    /// and its row says what. The user's own branches are theirs to close.
+    func tidyAgentBranch(_ id: String) {
+        Log.store.attempt("tidying an agent's branch") {
+            guard let workspace = try store.worktree(id), !workspace.archived,
+                Caller.session(of: workspace.madeBy) != nil, let repo = try store.repo(workspace.repoId),
+                !isMain(workspace, repo), try !store.sessions().contains(where: { $0.worktreeId == id })
+            else { return }
+            do { try removeWorkspace(workspace, repo, force: false, dropCommits: false) } catch GitError.refused {
+                // work that's only there: kept
+            }
+        }
+    }
+
+    /// Those left from before (a daemon that stopped first, a version that didn't tidy). Not one just made: its agent
+    /// starts a moment after its branch.
+    func tidyAgentBranches(olderThan age: TimeInterval = 300) {
+        let made = store.look("the workspaces") { try $0.worktrees(repo: nil) } ?? []
+        for workspace in made where workspace.madeBy != nil && workspace.createdAt.timeIntervalSinceNow < -age {
+            tidyAgentBranch(workspace.id)
+        }
+    }
+
     /// The project's other worktrees at `paths` (ones Kelp didn't make), each to the Trash, unless it's in use, holds
     /// work or isn't one of them: what was kept says why. A removed one's branch goes too if another branch has its
     /// commits.

@@ -217,7 +217,15 @@ extension Git {
 
     public static func isDirty(_ path: String, remotes: Remotes) throws -> Bool {
         // Whatever `status.showUntrackedFiles` says: new files count, it decides what's asked before a folder goes.
-        !(try run(["status", "--porcelain", "--untracked-files=normal"], cwd: path, remotes: remotes)).isEmpty
+        let changes = try run(["status", "--porcelain", "--untracked-files=normal"], cwd: path, remotes: remotes)
+        // A new link is no work: what it points at isn't in this folder (an agent links the project's Vendor in, and
+        // `Vendor/` in .gitignore doesn't match a link). A host's folder isn't read from here: there, it counts.
+        let local = remotes.of(path) == nil
+        return changes.split(separator: "\n").contains { line in
+            guard local, line.hasPrefix("?? ") else { return true }
+            let file = (path as NSString).appendingPathComponent(String(line.dropFirst(3)))
+            return (try? FileManager.default.destinationOfSymbolicLink(atPath: file)) == nil
+        }
     }
 
     /// Remove worktree and its branch. Refuses dirty worktrees unless `force`, and a branch with commits that are on no

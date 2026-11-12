@@ -15,7 +15,8 @@ final class Store: Sendable {
     /// A project or workspace record written (as it is now) or deleted, or a session deleted (its writes are pushed as
     /// `event.session` where its live state is known).
     enum Change: Sendable {
-        case repo(Repo), worktree(Worktree), repoRemoved(String), worktreeRemoved(String), sessionRemoved(String)
+        case repo(Repo), worktree(Worktree), repoRemoved(String), worktreeRemoved(String)
+        case sessionRemoved(String, workspace: String?)
     }
     /// Told of every one, after its write: every write goes through here, so the daemon pushes them from one place.
     /// In a struct: a lock holding the function itself got it back wrapped once more on every read (the generic inout's
@@ -30,7 +31,9 @@ final class Store: Sendable {
         guard let tell = changed.withLock({ $0.tell }) else { return }
         if let repo = record as? Repo { tell(removed ? .repoRemoved(repo.id) : .repo(repo)) }
         if let worktree = record as? Worktree { tell(removed ? .worktreeRemoved(worktree.id) : .worktree(worktree)) }
-        if let session = record as? Session, removed { tell(.sessionRemoved(session.id)) }
+        if let session = record as? Session, removed {
+            tell(.sessionRemoved(session.id, workspace: session.worktreeId))
+        }
     }
 
     init(path: String? = nil) throws {

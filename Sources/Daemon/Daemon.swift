@@ -94,6 +94,9 @@ public final class Daemon: Sendable {
                 self?.recordChanged(c)   // records go to the clients as they change
                 switch c {   // and a project added, moved or removed is followed (watchHeads) from then on
                 case .repo, .repoRemoved: if let ws = self?.workspaces { ws.headQueue.async { ws.watchHeads() } }
+                // The last agent of a branch an agent made is gone: nobody else is there to close it.
+                case .sessionRemoved(_, let workspace?):
+                    if let ws = self?.workspaces { ws.headQueue.async { ws.tidyAgentBranch(workspace) } }
                 default: break
                 }
             }
@@ -216,7 +219,10 @@ public final class Daemon: Sendable {
         workspaces.routines.start(workspaces: workspaces)
         // not once stopped
         workspaces.headQueue.async { [weak self] in
-            if self?.isServing == true { self?.workspaces.followHeads() }
+            if self?.isServing == true {
+                self?.workspaces.followHeads()
+                self?.workspaces.tidyAgentBranches()
+            }
         }
         FileManager.default.removeIfAny(Paths.daemonError(in: root))   // an earlier failure is over
         Log.start.info("kelpd \(getpid()) serves \(self.socketPath, privacy: .public)")

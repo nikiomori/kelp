@@ -260,7 +260,7 @@ extension Daemon {
         case .worktree(let worktree): notify(worktree)
         case .repoRemoved(let id): notify(RemovedEvent(repo: id))
         case .worktreeRemoved(let id): notify(RemovedEvent(worktree: id))
-        case .sessionRemoved(let id):
+        case .sessionRemoved(let id, _):
             notify(RemovedEvent(session: id))
             sessions.phone.hear(.removed(id))
         }

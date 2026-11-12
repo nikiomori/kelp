@@ -35,7 +35,9 @@ import Testing
     let wt = try await workspace(w, "half-gone")
     try FileManager.default.moveItem(atPath: wt.path, toPath: tmp().path + "/trashed")
     _ = try await w.c.call(WorktreeRemove(id: wt.id))
-    #expect(try Git.linkedWorktrees(w.repo.path, remotes: .none).isEmpty && !Git.branchExists(w.repo.path, "half-gone", remotes: .none))
+    #expect(
+        try Git.linkedWorktrees(w.repo.path, remotes: .none).isEmpty
+            && !Git.branchExists(w.repo.path, "half-gone", remotes: .none))
     // Its own commit: refused, the record stays, until told to drop it.
     let own = try await workspace(w, "own-commit")
     try Git.run(["commit", "-q", "--allow-empty", "-m", "only here"], cwd: own.path, remotes: .none)
@@ -43,7 +45,9 @@ import Testing
     await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: own.id)) }
     #expect(try Git.branchExists(w.repo.path, "own-commit", remotes: .none) && w.d.store.worktree(own.id) != nil)
     _ = try await w.c.call(WorktreeRemove(id: own.id, dropCommits: true))
-    #expect(try Git.linkedWorktrees(w.repo.path, remotes: .none).isEmpty && !Git.branchExists(w.repo.path, "own-commit", remotes: .none))
+    #expect(
+        try Git.linkedWorktrees(w.repo.path, remotes: .none).isEmpty
+            && !Git.branchExists(w.repo.path, "own-commit", remotes: .none))
 }
 
 /// A new workspace in a remote project whose host is slow to answer: every other project's workspaces sync meanwhile.
@@ -106,4 +110,29 @@ import Testing
     try Data().write(to: w.d.sourceControl.discards)
     await #expect(throws: RPCError.self) { try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"])) }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
+}
+
+/// A branch an agent made for a helper goes when its last session does and nothing is only there; a new link in it (the
+/// project's Vendor) is no work, a new file is. The user's own branch stays whatever its agents do.
+@Test func anAgentsBranchGoesWithItsLastSession() async throws {
+    let w = try await world(agents: [
+        AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"])
+    ])
+    defer { w.d.stop() }
+    var clean = try await workspace(w, "helper/clean"), work = try await workspace(w, "helper/work")
+    let mine = try await workspace(w, "mine")
+    clean.madeBy = "AGENT"
+    work.madeBy = "AGENT"
+    try w.d.store.save(clean)
+    try w.d.store.save(work)
+    try FileManager.default.createSymbolicLink(atPath: clean.path + "/Vendor", withDestinationPath: w.repo.path)
+    try "notes".write(toFile: work.path + "/notes.txt", atomically: true, encoding: .utf8)
+    #expect(try !Git.isDirty(clean.path, remotes: .none) && Git.isDirty(work.path, remotes: .none))
+    for workspace in [clean, work, mine] {
+        w.d.sessions.discard(try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "sleepy")))
+    }
+    for _ in 0..<100 where try w.d.store.worktree(clean.id) != nil { try await Task.sleep(for: .milliseconds(50)) }
+    w.d.workspaces.headQueue.sync {}   // the other two were looked at as well
+    #expect(try w.d.store.worktree(clean.id) == nil && !Git.branchExists(w.repo.path, "helper/clean", remotes: .none))
+    #expect(try w.d.store.worktree(work.id) != nil && w.d.store.worktree(mine.id) != nil)
 }
