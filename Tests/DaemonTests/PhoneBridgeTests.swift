@@ -418,3 +418,78 @@ private func size(_ png: Data) -> [Int] {
                 """#)))
     #expect(read.body?["lastReply"] == .null)   // it isn't running: the turns are what there is
 }
+
+/// A Claude Code in a remote project keeps its conversation on the host: the end of the file its id names is read
+/// there, the newest one for an agent started before it had an id, and nothing that isn't there.
+@Test func aHostsConversationIsFoundByItsIdOrTheNewest() throws {
+    let host = tmp(), project = tmp().path, real = try #require(Paths.real(project))
+    let folder = host.appendingPathComponent("projects/" + real.replacing(/[^A-Za-z0-9]/, with: "-"))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try "old\n".write(to: folder.appendingPathComponent("aaa.jsonl"), atomically: true, encoding: .utf8)
+    try "new\n".write(to: folder.appendingPathComponent("bbb.jsonl"), atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSinceNow: -60)],
+        ofItemAtPath: folder.appendingPathComponent("aaa.jsonl").path)
+    func read(_ path: String, _ id: String?) throws -> String {
+        let script = Conversations.remoteTailScript(path: path, id: id, claude: ShellQuote.word(host.path))
+        return String(
+            decoding: try Subprocess.output(["/bin/sh", "-c", script], cwd: "/", timeLimit: 10), as: UTF8.self)
+    }
+    #expect(try read(project, "aaa") == "old\n")
+    #expect(try read(project, nil) == "new\n", "no id: the newest there")
+    #expect(try read(project, "ccc").isEmpty, "its own isn't written yet: not another agent's")
+    #expect(try read(project, "x\"; echo pwned; \"") == "new\n", "what isn't an id names no file")
+    #expect(try read("/nowhere/at/all", "aaa").isEmpty)
+    #expect(try read(tmp().path, nil).isEmpty)
+}
+
+/// An agent in an SSH project: its turns and last reply come from the host (here an ssh stand-in that runs the
+/// command on this Mac), and it's started with an id of its own, so its file there is known.
+@Test func aRemoteProjectsConversationReachesThePhone() async throws {
+    _ = localSSH
+    var claude = AgentManifest(id: "claude", name: "Claude Code", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
+    claude.sessionIdFlag = "--session-id"
+    claude.resumeIdFlag = "--resume"
+    let (d, c, _) = try daemon(agents: [claude])
+    defer { d.stop() }
+    let there = try makeRepo(), host = tmp()
+    d.agentUsage.conversations.hostClaude.withLock { $0 = ShellQuote.word(host.path) }
+    let repo: Repo = try await c.call("repo.addRemote", .obj(["host": "box", "path": .string(there)]), as: Repo.self)
+    let workspace = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
+    let session = try await c.call(SessionCreate(worktreeId: workspace.id, agent: "claude"))
+    let pin = try #require(session.argv.firstIndex(of: "--session-id"))
+    #expect(session.argv[pin + 1] == session.id.lowercased(), "a remote agent has its id too")
+
+    let folder = host.appendingPathComponent(
+        "projects/" + (try #require(Paths.real(there))).replacing(/[^A-Za-z0-9]/, with: "-"))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try #"""
+    {"type":"user","timestamp":"2026-11-12T05:00:00.000Z","message":{"content":"Why is it slow?"}}
+    {"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"top"}}]}}
+    {"type":"assistant","message":{"content":[{"type":"text","text":"The loop."}]}}
+    """#.write(to: folder.appendingPathComponent(session.id.lowercased() + ".jsonl"), atomically: true, encoding: .utf8)
+    try #"{"type":"assistant","message":{"content":[{"type":"text","text":"Another agent's."}]}}"#
+        .write(to: folder.appendingPathComponent("newer.jsonl"), atomically: true, encoding: .utf8)
+
+    #expect(try await c.call(SessionLastReply(id: session.id)) == "The loop.")
+    _ = try await c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
+    #expect(try await waitFor { try await c.call(PhoneStatus()).relay != nil })
+    let link = try #require(try await c.call(PhonePair()).link)
+    let phone = Phone(bridge: d.sessions.phone, key: try key(String(try #require(link.split(separator: ".").last))))
+    let n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
+    #expect(try await phone.ask("POST", "pair", n: n).status == 204)
+    let read = try await phone.ask("GET", "agents/\(session.id)", n: n + 1)
+    #expect(read.body?["lastReply"]?.string == "The loop.")
+    #expect(
+        read.body?["turns"]
+            == (try json(
+                #"""
+                [{"role":"user","text":"Why is it slow?","at":"2026-11-12T05:00:00.000Z"},
+                 {"role":"did","text":"Ran 1 command"},{"role":"agent","text":"The loop."}]
+                """#)))
+    // No connection to the host: nothing is dialled for a phone, and the answer is there at once.
+    var down = try #require(d.remotes.of(repo.path))
+    down.ssh = "/usr/bin/false"
+    #expect(d.agentUsage.conversations.remoteTail(of: session, on: down) == nil)
+    _ = try await c.call(SessionKill(id: session.id))   // its tmux session on the "host" ends with it
+}

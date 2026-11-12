@@ -21,7 +21,11 @@ public enum ConversationTurns {
     /// megabytes are read, not all of a long one; a turn longer than a quarter of the limit keeps its end (what the
     /// agent said) or its start (what was asked).
     public static func last(in url: URL, limit: Int = 256 << 10) -> [Turn] {
-        guard let data = Data(tail: 4 << 20, of: url) else { return [] }
+        Data(tail: 4 << 20, of: url).map { last(inTail: $0, limit: limit) } ?? []
+    }
+
+    /// The same from a conversation file's last bytes, wherever they were read (a remote project's, on its host).
+    public static func last(inTail data: Data, limit: Int = 256 << 10) -> [Turn] {
         var reader = Reader()
         for line in JSONL.lines(data) { if let entry = JSONL.object(line) { reader.read(entry) } }
         reader.endRun()

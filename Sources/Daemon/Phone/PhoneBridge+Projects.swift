@@ -115,7 +115,7 @@ extension PhoneBridge {
         guard ["claude", "codex"].contains(session.agent) else { return nil }
         let conversations = conversations, running = live[session.id]
         let turns = await offloaded {
-            conversations.conversationFile(of: session, live: running).map { ConversationTurns.last(in: $0) } ?? []
+            conversations.turns(of: session, live: running)
         }
         guard let turns, !turns.isEmpty else { return nil }
         return turns.map { turn in

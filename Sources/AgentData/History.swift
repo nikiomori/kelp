@@ -8,7 +8,11 @@ public enum ClaudeHistory {
 
     /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).
     public static func lastReply(transcript url: URL) -> String? {
-        guard let data = Data(tail: 262_144, of: url) else { return nil }
+        Data(tail: 262_144, of: url).flatMap(lastReply(tail:))
+    }
+
+    /// The same from a transcript's last bytes, wherever they were read (a remote project's, on its host).
+    public static func lastReply(tail data: Data) -> String? {
         for line in data.split(separator: 0x0A).reversed() {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
                 entry["type"] as? String == "assistant",

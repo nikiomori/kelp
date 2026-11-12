@@ -196,8 +196,9 @@ final class Sessions: Sendable {
         if local, manifest.pluginDirFlag == nil, !["shell", "custom"].contains(manifest.id) {
             rec.browser = setup.writeProjectSkills(worktreeId: worktreeId, cwd: cwd)
         }
-        // Its own id, unless it resumes one (a restart's argv carries none: see session.restart).
-        if local, let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) {
+        // Its own id, unless it resumes one (a restart's argv carries none: see session.restart). A remote project's too:
+        // the flag needs no file here, and it names the conversation on the host (`Conversations.remoteTail`).
+        if let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) {
             argv += [flag, rec.id.lowercased()]
         }
         rec.argv = argv
