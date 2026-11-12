@@ -20,6 +20,7 @@ final class SessionSetup: Sendable {
     )
     /// Whether this Codex takes Kelp's hooks (`CodexHooks`), once per binary.
     let codexHooks = CodexHookCheck()
+    let openCode2 = OpenCode2()
 
     init(
         root: URL, socketPath: String, store: Store, settings: SettingsStore, remotes: Remotes, agentUsage: AgentUsage
@@ -128,7 +129,13 @@ final class SessionSetup: Sendable {
             case .settingsFlag, .codexConfig: break
             case .pluginDir(let key):
                 try Hooks.writePlugin(dir: dir)
-                env[key] = dir.path
+                if manifest.id == "opencode", openCode2.runs(rec.argv) {
+                    guard env[OpenCode2.cliConfig] == nil else { return }
+                    env[OpenCode2.cliConfig] = OpenCode2.cliConfig(
+                        plugin: Hooks.tuiPlugin(in: dir), config: OpenCode2.configDir(env))
+                } else {
+                    env[key] = dir.path
+                }
             case .settingsFile(let key, let base):
                 try base.map { try Hooks.writeSettings(to: file, over: URL(fileURLWithPath: $0)) }
                     ?? Hooks.writeSettings(to: file)
@@ -185,7 +192,8 @@ final class SessionSetup: Sendable {
         let wired =
             switch manifest.hooks {
             case .settingsFlag(let flag)?: argv.contains { $0 == flag || $0.hasPrefix(flag + "=") }
-            case .pluginDir(let key)?: env[key] == dir.path
+            case .pluginDir(let key)?:
+                env[key] == dir.path || env[OpenCode2.cliConfig]?.contains(Hooks.tuiPlugin(in: dir).path) == true
             case .settingsFile(let key, _)?: env[key] == dir.appendingPathExtension("json").path
             case .herdr?: env["HERDR_PANE_ID"] != nil
             case .codexConfig?: cwd.map { codexHooksOn(manifest, argv: argv, cwd: $0) } ?? false

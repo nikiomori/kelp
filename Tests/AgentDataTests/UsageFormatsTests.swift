@@ -213,6 +213,33 @@ private func iso(_ t: Date) -> String { ISO8601DateFormatter().string(from: t) }
     #expect(rows.first?.tally.cost == 0.25)
 }
 
+/// OpenCode 2: `session_message` with the old messages copied in, so the old table isn't counted on top.
+@Test func openCode2ReadsItsOwnTablesOnly() throws {
+    let dir = try scratch(), db = dir.appendingPathComponent("opencode.db"),
+        ms = Int(Date().timeIntervalSince1970 * 1000)
+    let reply =
+        #"{"time":{"created":\#(ms),"completed":\#(ms + 900)},"model":{"id":"glm-5.2"},"cost":0.5,"#
+        + #""tokens":{"input":10,"output":5,"reasoning":3,"cache":{"read":70,"write":2}}}"#
+    try sql(
+        db,
+        """
+        CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT NOT NULL);
+        CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, time_created INTEGER NOT NULL,
+            data TEXT NOT NULL);
+        CREATE TABLE session_v2 (id TEXT PRIMARY KEY, directory TEXT NOT NULL);
+        CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT NOT NULL,
+            time_created INTEGER NOT NULL, data TEXT NOT NULL);
+        INSERT INTO session VALUES ('s', '/p/oc');
+        INSERT INTO session_v2 VALUES ('s', '/p/oc');
+        INSERT INTO message VALUES ('a', 's', \(ms), '{"role":"assistant",\(reply.dropFirst())');
+        INSERT INTO session_message VALUES ('a', 's', 'assistant', \(ms), '\(reply)');
+        INSERT INTO session_message VALUES ('b', 's', 'user', \(ms), '\(reply)');
+        """)
+    let rows = AgentDatabases.rows("opencode", copies: [db], since: Date() - 86400)
+    #expect(rows.count == 1 && rows.first?.model == "glm-5.2" && rows.first?.cwd == "/p/oc")
+    #expect(rows.first?.tally.tokens == TokenCounts(input: 10, output: 8, cacheWrite: 2, cacheRead: 70))
+}
+
 /// Antigravity: protobuf per call; the time from its steps, the folder from the conversation; a call cut short (no usage)
 /// counts for nothing.
 @Test func antigravityCallsDecodeFromProtobuf() throws {

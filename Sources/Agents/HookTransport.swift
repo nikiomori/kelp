@@ -5,6 +5,7 @@ public enum HookTransport: Sendable, Equatable {
     /// `{flag} <file>` on its command line; the file holds Claude Code-style hooks (`Hooks.settingsJSON`).
     case settingsFlag(String)
     /// An OpenCode-style config dir in `{env}` with Kelp's plugin in it (Kilo Code, OpenCode); its own dir is still read.
+    /// OpenCode 2 would read only that dir: its terminal UI gets the plugin in that dir's `tui` folder instead.
     case pluginDir(env: String)
     /// The same hooks file in `{env}`, standing in for the file it names by default (`replaces`), whose settings it
     /// carries over: Qwen Code's system settings are an admin's policy.

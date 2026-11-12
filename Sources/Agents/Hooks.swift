@@ -178,12 +178,58 @@ public enum Hooks {
 
         """
 
-    /// The config dir for `HookTransport.pluginDir`, with the plugin in it.
+    /// OpenCode 2's: a plugin of its terminal UI, whose process is the session's (its server may be shared by every
+    /// terminal, started with the first one's environment). Only the session it shows counts: the server sends every
+    /// terminal's events. A subagent's run ends before its parent's: only the shown session's own start and end count,
+    /// a subagent's questions do.
+    public static let tuiPluginJS = """
+        // Kelp's status hooks, for Kelp's sessions only (written by Kelp; changes are overwritten).
+        import { spawn } from "node:child_process";
+        let last, queue = Promise.resolve();
+        const report = (state) => {
+          if (state === last) return;
+          last = state;
+          queue = queue.then(() => new Promise((done) => {
+            const c = spawn("kelp", ["hook", state], { stdio: "ignore" });
+            c.on("exit", done); c.on("error", done);
+          }));
+        };
+        export default {
+          id: "kelp.status",
+          setup(api) {
+            if (!process.env.KELP_SESSION) return;
+            return api.data.listen(({ details: event }) => {
+              const route = api.ui.router.current(), d = event?.data ?? {};
+              const id = event?.type === "form.created" ? d.form?.sessionID : d.sessionID;
+              if (route?.type !== "session" || !id) return;
+              const shown = api.data.session.root(route.sessionID), own = id === shown;
+              if (!own && api.data.session.root(id) !== shown) return;
+              switch (event.type) {
+                case "session.execution.started": if (own) report("working"); break;
+                case "session.execution.succeeded": case "session.execution.interrupted":
+                case "session.execution.failed": if (own) report("done"); break;
+                case "permission.asked": case "form.created": report("waiting"); break;
+                case "permission.replied": case "permission.rejected": case "form.replied": case "form.cancelled":
+                  report("working"); break;
+              }
+            });
+          },
+        };
+
+        """
+
+    /// The config dir for `HookTransport.pluginDir`, with the plugin in it, and OpenCode 2's in `tuiPlugin(in:)`.
     public static func writePlugin(dir: URL) throws {
-        let plugins = dir.appendingPathComponent("plugin")
+        let plugins = dir.appendingPathComponent("plugin"), tui = tuiPlugin(in: dir)
         try Paths.ensure(plugins)
+        try Paths.ensure(tui)
         try pluginJS.write(to: plugins.appendingPathComponent("kelp.js"), atomically: true, encoding: .utf8)
+        try tuiPluginJS.write(to: tui.appendingPathComponent("tui.js"), atomically: true, encoding: .utf8)
     }
+
+    /// OpenCode 2 loads a folder's `tui.js` as a plugin of its terminal UI (no `index.js` or `server.js`: not its
+    /// server's).
+    public static func tuiPlugin(in dir: URL) -> URL { dir.appendingPathComponent("tui") }
 
     public static func writeSettings(to url: URL) throws {
         try Paths.ensure(url.deletingLastPathComponent())

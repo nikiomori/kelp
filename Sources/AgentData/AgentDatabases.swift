@@ -82,15 +82,20 @@ public enum AgentDatabases {
     }
 
     /// OpenCode and Kilo: an assistant message's JSON once it's complete: `tokens` (input without the cache, output without
-    /// the reasoning) and what it cost by its own account.
+    /// the reasoning) and what it cost by its own account. OpenCode 2 keeps them in `session_message`, the older ones
+    /// copied over too: where that table is, the old one isn't read (it would count them twice).
     static func openCode(_ db: URL, since: Date) -> [UsageEntry] {
         var out: [UsageEntry] = []
-        query(
-            db,
-            "SELECT m.data, s.directory FROM message m JOIN session s ON s.id = m.session_id WHERE m.time_created >= ?",
-            Int64(since.timeIntervalSince1970 * 1000)
-        ) { st in
-            guard let message = JSONL.object(Data(text(st, 0).utf8)), message["role"] as? String == "assistant",
+        let ms = Int64(since.timeIntervalSince1970 * 1000)
+        let v2 = """
+            SELECT m.data, s.directory FROM session_message m JOIN session_v2 s ON s.id = m.session_id
+            WHERE m.type = 'assistant' AND m.time_created >= ?
+            """
+        let v1 =
+            "SELECT m.data, s.directory FROM message m JOIN session s ON s.id = m.session_id WHERE m.time_created >= ?"
+        let read = { (st: OpaquePointer) in
+            guard let message = JSONL.object(Data(text(st, 0).utf8)),
+                message["role"] as? String ?? "assistant" == "assistant",
                 let time = message["time"] as? [String: Any], time["completed"] != nil,
                 let created = (time["created"] as? NSNumber)?.doubleValue,
                 let counts = message["tokens"] as? [String: Any]
@@ -104,10 +109,13 @@ public enum AgentDatabases {
             let cost = (message["cost"] as? NSNumber)?.doubleValue ?? 0
             out.append(
                 UsageEntry(
-                    time: created / 1000, model: message["modelID"] as? String ?? "opencode",
+                    time: created / 1000,
+                    model: message["modelID"] as? String ?? (message["model"] as? [String: Any])?["id"] as? String
+                        ?? "opencode",
                     cwd: (message["path"] as? [String: Any])?["cwd"] as? String ?? text(st, 1), id: nil, tokens: tokens,
                     cost: cost > 0 ? cost : nil))
         }
+        if !query(db, v2, ms, row: read) { query(db, v1, ms, row: read) }
         return out
     }
 
@@ -142,7 +150,9 @@ public enum AgentDatabases {
         return out
     }
 
-    private static func query(_ db: URL, _ sql: String, _ arg: Int64? = nil, row: (OpaquePointer) -> Void) {
+    /// False when the statement doesn't prepare (no such table).
+    @discardableResult
+    private static func query(_ db: URL, _ sql: String, _ arg: Int64? = nil, row: (OpaquePointer) -> Void) -> Bool {
         var handle: OpaquePointer?, st: OpaquePointer?
         defer {
             sqlite3_finalize(st)
@@ -150,9 +160,10 @@ public enum AgentDatabases {
         }
         guard sqlite3_open_v2(db.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK,
             sqlite3_prepare_v2(handle, sql, -1, &st, nil) == SQLITE_OK, let st
-        else { return }
+        else { return false }
         if let arg { sqlite3_bind_int64(st, 1, arg) }
         while sqlite3_step(st) == SQLITE_ROW { row(st) }
+        return true
     }
     private static func text(_ st: OpaquePointer, _ column: Int32) -> String {
         sqlite3_column_text(st, column).map { String(cString: $0) } ?? ""
