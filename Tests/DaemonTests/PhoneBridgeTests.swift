@@ -365,8 +365,16 @@ private func size(_ png: Data) -> [Int] {
                 .object(["id": .string(other.id), "name": .string(other.name), "icon": .bool(false)]),
                 .object(["id": .string(p.repo.id), "name": .string(p.repo.name), "icon": .bool(true)])
             ]))
-    let kinds = try #require(listed.body?["kinds"]?.array)
-    #expect(kinds.contains(.object(["id": .string("menu"), "name": .string("Menu")])))
+    // Starting agents is off until Settings says so: no kinds for the page's "+", and a start is refused.
+    #expect(listed.body?["kinds"] == .array([]) && listed.body?["stops"] == .bool(true))
+    let refused = try await phone.ask(
+        "POST", "projects/\(p.repo.id)/agents", .object(["agent": .string("menu"), "prompt": .string("hi")]), n: next())
+    #expect(refused.status == 403)
+    _ = try await p.c.call(SettingsSet(key: SettingKeys.phoneStartAgents.key, value: .bool(true)))
+    _ = try await p.c.call(SettingsSet(key: SettingKeys.defaultAgent.key, value: .string("menu")))
+    let kinds = try #require(try await phone.ask("GET", "agents", n: next()).body?["kinds"]?.array)
+    #expect(kinds.contains(.object(["id": .string("menu"), "name": .string("Menu"), "default": .bool(true)])))
+    #expect(kinds.filter { $0["default"] == .bool(true) }.count == 1)
     #expect(!kinds.contains { ["shell", "custom"].contains($0["id"]?.string) })
 
     let icon = try await phone.ask("GET", "projects/\(p.repo.id)/icon", n: next())
@@ -393,6 +401,9 @@ private func size(_ png: Data) -> [Int] {
     let agents = try #require(try await phone.ask("GET", "agents", n: next()).body?["agents"]?.array)
     #expect(agents.first { $0["id"]?.string == id }?["projectId"]?.string == p.repo.id)
     #expect(try await phone.ask("GET", "agents/\(id)", n: next()).body?["turns"] == nil, "its last reply alone")
+    // Stop is the user's Esc in its terminal: the agent stays.
+    #expect(try await phone.ask("POST", "agents/\(id)/stop", n: next()).status == 204)
+    #expect(try await p.c.call(SessionList()).first { $0.id == id }?.status != .exited)
 
     // A Claude Code agent's conversation, from its transcript.
     var chat = Session(

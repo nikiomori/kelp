@@ -52,6 +52,8 @@ public enum SettingKeys {
     public static let phoneDetails = Setting("phone.details", false)
     /// The relay that passes phones' calls to this Mac (Settings › Phone); empty: off.
     public static let phoneRelay = Setting("phone.relay", "")
+    /// Whether a paired phone may start a new agent (Settings › Phone); answering the ones that run needs no switch.
+    public static let phoneStartAgents = Setting("phone.startAgents", false)
     /// Kelp's own relay: what the switch in Settings › Phone writes.
     public static let phoneRelayAddress = "https://phone.kelpide.com"
 

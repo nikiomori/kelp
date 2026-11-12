@@ -25,9 +25,8 @@ struct PhoneSettings: View {
         } footer: {
             Text(
                 """
-                See your agents, answer Allow or Deny, reply and start a new agent in a project from a phone’s \
-                browser. What passes between the phone and this Mac is sealed with a key only the two hold: the \
-                relay on the way can’t read it.
+                See your agents, answer Allow or Deny and reply from a phone’s browser. What passes between the \
+                phone and this Mac is sealed with a key only the two hold: nothing on the way can read it.
                 """)
         }
         .task {
@@ -36,6 +35,17 @@ struct PhoneSettings: View {
             let watching = Watched(.phone, in: app)
             watching.key = ""
             watched = watching
+        }
+        if isOn {
+            Section {
+                Toggle(
+                    "Start agents from the phone",
+                    isOn: Binding(
+                        get: { app.settings[SettingKeys.phoneStartAgents] },
+                        set: { app.settings.set(SettingKeys.phoneStartAgents, $0) }))
+            } footer: {
+                Text("Off: a phone reads, answers, writes to and stops the agents that run, and starts none.")
+            }
         }
         if isOn, let state, state.relay != nil {
             Section("Pair a Phone") {

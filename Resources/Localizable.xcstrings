@@ -21747,12 +21747,12 @@
         }
       }
     },
-    "See your agents, answer Allow or Deny, reply and start a new agent in a project from a phone’s browser. What passes between the phone and this Mac is sealed with a key only the two hold: the relay on the way can’t read it.": {
+    "See your agents, answer Allow or Deny and reply from a phone’s browser. What passes between the phone and this Mac is sealed with a key only the two hold: nothing on the way can read it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Смотрите на агентов, отвечайте «Разрешить» или «Запретить», пишите им и запускайте нового агента в проекте из браузера телефона. Всё, что идёт между телефоном и этим Mac, зашифровано ключом, который есть только у них двоих: ретранслятор по пути прочитать это не может."
+            "value": "Смотрите на агентов, отвечайте «Разрешить» или «Запретить» и пишите им из браузера телефона. Всё, что идёт между телефоном и этим Mac, зашифровано ключом, который есть только у них двоих: никто по пути прочитать это не может."
           }
         }
       }
@@ -22107,6 +22107,26 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Start agents from the phone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать агентов с телефона"
+          }
+        }
+      }
+    },
+    "Off: a phone reads, answers, writes to and stops the agents that run, and starts none.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено: телефон читает работающих агентов, отвечает и пишет им, останавливает их, но новых не запускает."
           }
         }
       }

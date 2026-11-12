@@ -11,6 +11,8 @@ extension PhoneBridge {
     /// An agent a phone may start: one whose program is on this Mac.
     struct Kind: Equatable, Sendable {
         var id: String, name: String
+        /// The one new chats start with (`agents.default`): what the page's sheet opens on.
+        var isDefault = false
     }
 
     /// What reads a disk or asks the login shell, off the bridge's own thread; nil once the daemon stops taking work.
@@ -39,12 +41,14 @@ extension PhoneBridge {
         return rows.enumerated().sorted { (rank[$0.1.id] ?? .max, $0.0) < (rank[$1.1.id] ?? .max, $1.0) }.map(\.1)
     }
 
+    /// None while Settings › Phone keeps starting agents off: the page then offers no "+", and a start is refused.
     /// Limit: found on the login shell's PATH, not asked whether it runs (a shim whose program is gone counts).
     func kinds() async -> [Kind] {
-        let agents = root.appendingPathComponent("agents")
+        guard settings[SettingKeys.phoneStartAgents] else { return [] }
+        let agents = root.appendingPathComponent("agents"), usual = settings[SettingKeys.defaultAgent]
         let found = await offloaded {
             AgentManifest.load(dir: agents).filter { Session.isAgent($0.id) && LoginPath.find($0.command) != nil }
-                .map { Kind(id: $0.id, name: $0.name) }
+                .map { Kind(id: $0.id, name: $0.name, isDefault: $0.id == usual) }
         }
         return found ?? []
     }
@@ -61,7 +65,12 @@ extension PhoneBridge {
                         "icon": .bool(iconFiles[$0.path]?.file != nil)
                     ])
                 }),
-            "kinds": .array(kinds.map { .object(["id": .string($0.id), "name": .string($0.name)]) })
+            "kinds": .array(
+                kinds.map { kind in
+                    var fields: [String: JSONValue] = ["id": .string(kind.id), "name": .string(kind.name)]
+                    if kind.isDefault { fields["default"] = .bool(true) }
+                    return .object(fields)
+                })
         ]
     }
 
@@ -95,6 +104,9 @@ extension PhoneBridge {
                 status: 200,
                 body: .object(["type": .string("image/png"), "data": .string(png.base64EncodedString())]))
         case ("POST", "agents"):
+            guard settings[SettingKeys.phoneStartAgents] else {
+                return .failed(403, "Starting agents from a phone is turned off in Kelp's Settings.")
+            }
             let prompt = sent?["prompt"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard let kind = sent?["agent"]?.string, !prompt.isEmpty, await kinds().contains(where: { $0.id == kind })
             else { return .failed(400, "Send {\"agent\", \"prompt\"}.") }

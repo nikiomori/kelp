@@ -420,7 +420,8 @@ extension PhoneBridge {
             shown = sessions().filter(PhoneAgent.shown).reduce(into: [:]) { $0[$1.id] = agent($1) }
             let agents = shown.values.sorted { ($0["statusAt"]?.string ?? "") > ($1["statusAt"]?.string ?? "") }
             var body: [String: JSONValue] = [
-                "mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object))
+                "mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object)),
+                "stops": .bool(true)   // `agents/<id>/stop` is answered: the page shows its Stop
             ]
             body.merge(await projectsAndKinds()) { _, new in new }
             return Reply(status: 200, body: .object(body))
@@ -440,7 +441,8 @@ extension PhoneBridge {
             return await answer(method, project: project, parts[2], sent)
         }
         guard parts.count == 2 || parts.count == 3, parts[0] == "agents", let id = parts[1].removingPercentEncoding,
-            parts.count == 2 ? method == "GET" : method == "POST" && ["choose", "reply", "read"].contains(parts[2])
+            parts.count == 2
+                ? method == "GET" : method == "POST" && ["choose", "reply", "read", "stop"].contains(parts[2])
         else { return .failed(404, "No such path.") }
         guard let session = session(id), PhoneAgent.shown(session) else { return .failed(404, "This agent is gone.") }
         guard asker != nil else { return .failed(503, "The Mac is not answering.") }
@@ -448,6 +450,10 @@ extension PhoneBridge {
             switch parts.count == 3 ? parts[2] : "" {
             case "read":
                 _ = try await call(SessionMarkRead(id: id))
+                return Reply(status: 204)
+            case "stop":
+                // Esc, as the user's own in the agent's terminal: it stops what it does and waits. Nothing ends.
+                _ = try await call(SessionWrite(id: id, text: "\u{1B}"))
                 return Reply(status: 204)
             case "choose":
                 guard let answer = sent?["answer"]?.string, ["allow", "deny"].contains(answer) else {
