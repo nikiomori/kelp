@@ -22,12 +22,14 @@ actor PhoneBridge {
         case push(title: String, body: String, agent: String)
     }
 
-    private let store: Store, settings: SettingsStore, setup: SessionSetup, live: SessionTable
+    let store: Store, settings: SettingsStore, setup: SessionSetup, live: SessionTable
+    /// Where the agents keep their conversations, what waits on a disk or a program, and Kelp's home.
+    let conversations: Conversations, offloads: Slots, root: URL
     private let news: AsyncStream<News>.Continuation
     /// Whether any phone takes pushes, for `ExtensionEvents`, which asks from its own queue.
     private let pushes = OSAllocatedUnfairLock(initialState: false)
     private let http = URLSession(configuration: .ephemeral)
-    private var asker: Asker?   // while the daemon serves
+    var asker: Asker?   // while the daemon serves
 
     private struct Relay: Equatable {
         var base: URL, mac: String, secret: String
@@ -52,8 +54,16 @@ actor PhoneBridge {
     private var streams: [String: Stream] = [:]
     /// The agents as the phones were last told.
     private var shown: [String: [String: JSONValue]] = [:]
+    /// Each project's icon file by its folder, nil for none, and when it was looked for (PhoneBridge+Projects.swift).
+    var iconFiles: [String: (file: String?, found: Date)] = [:]
 
-    init(store: Store, settings: SettingsStore, setup: SessionSetup, live: SessionTable) {
+    init(
+        store: Store, settings: SettingsStore, setup: SessionSetup, live: SessionTable, conversations: Conversations,
+        offloads: Slots, root: URL
+    ) {
+        self.conversations = conversations
+        self.offloads = offloads
+        self.root = root
         self.store = store
         self.settings = settings
         self.setup = setup
@@ -378,7 +388,20 @@ extension PhoneBridge {
         let number = Int64(ask.n), key = device.key
         let done = Self.sealed { try PhoneSeal.seal(Reply(status: 204), about: "r\(number)", key: key) }
         switch ask.path {
-        case "pair": return done.map(Admitted.answer) ?? .refused(401)
+        case "pair":
+            // The phone names the key it keeps (the link may stay in an address, or on a clipboard): the link's
+            // sealed this one answer and opens nothing after it.
+            guard fresh, let mine = ask.body?["key"]?.string.flatMap(Data.init(base64URL:)), mine.count == 32,
+                let rekeyed = Self.sealed({
+                    try PhoneSeal.seal(
+                        Reply(status: 200, body: .object(["rekeyed": .bool(true)])), about: "r\(number)", key: key)
+                }),
+                Log.session.attempt(
+                    "keeping a phone's own key", { try Keychain.set(mine.base64URL, account: "phone.device.\(id)") })
+                    != nil
+            else { return done.map(Admitted.answer) ?? .refused(401) }
+            devices[id]?.key = SymmetricKey(data: mine)
+            return .answer(rekeyed)
         case "unpair":
             forget(id)
             return done.map(Admitted.answer) ?? .refused(401)
@@ -396,9 +419,11 @@ extension PhoneBridge {
         case ("GET", "agents"):
             shown = sessions().filter(PhoneAgent.shown).reduce(into: [:]) { $0[$1.id] = agent($1) }
             let agents = shown.values.sorted { ($0["statusAt"]?.string ?? "") > ($1["statusAt"]?.string ?? "") }
-            return Reply(
-                status: 200,
-                body: .object(["mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object))]))
+            var body: [String: JSONValue] = [
+                "mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object))
+            ]
+            body.merge(await projectsAndKinds()) { _, new in new }
+            return Reply(status: 200, body: .object(body))
         case ("GET", "push/key"):
             guard let key = vapid() else { return .failed(503, "The Mac's keychain is locked.") }
             return Reply(status: 200, body: .object(["key": .string(key.publicKey.x963Representation.base64URL)]))
@@ -411,15 +436,14 @@ extension PhoneBridge {
         default: break
         }
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        if parts.count == 3, parts[0] == "projects", let project = parts[1].removingPercentEncoding {
+            return await answer(method, project: project, parts[2], sent)
+        }
         guard parts.count == 2 || parts.count == 3, parts[0] == "agents", let id = parts[1].removingPercentEncoding,
             parts.count == 2 ? method == "GET" : method == "POST" && ["choose", "reply", "read"].contains(parts[2])
         else { return .failed(404, "No such path.") }
         guard let session = session(id), PhoneAgent.shown(session) else { return .failed(404, "This agent is gone.") }
-        guard let asker else { return .failed(503, "The Mac is not answering.") }
-        func call<Method: RPCMethod>(_ method: Method) async throws -> Method.Result {
-            let result = try await asker(Method.name, try method.params() ?? .null)
-            return try JSONDecoder().decode(Method.Result.self, from: result)
-        }
+        guard asker != nil else { return .failed(503, "The Mac is not answering.") }
         do {
             switch parts.count == 3 ? parts[2] : "" {
             case "read":
@@ -440,6 +464,7 @@ extension PhoneBridge {
                 // Limit: the end of a reply longer than this; the relay passes a megabyte at most.
                 let reply = try await call(SessionLastReply(id: id)).map { String($0.suffix(200_000)) }
                 agent["lastReply"] = reply.map(JSONValue.string) ?? .null
+                if let turns = await turns(of: session) { agent["turns"] = .array(turns) }
                 return Reply(status: 200, body: .object(agent))
             }
         } catch {
@@ -451,6 +476,13 @@ extension PhoneBridge {
 // MARK: - Agents
 
 extension PhoneBridge {
+    /// A method of the daemon's, asked as the user.
+    func call<Method: RPCMethod>(_ method: Method) async throws -> Method.Result {
+        guard let asker else { throw RPCError.internalError("The Mac is not answering.") }
+        let result = try await asker(Method.name, try method.params() ?? .null)
+        return try JSONDecoder().decode(Method.Result.self, from: result)
+    }
+
     private static var macName: String { SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac" }
 
     private func sessions() -> [Session] {
@@ -472,7 +504,8 @@ extension PhoneBridge {
                 try setup.manifest(session.agent, command: nil, fallbackArgv: session.argv).name
             } ?? session.agent ?? ""
         return PhoneAgent.from(
-            session, name: name, project: repo?.name ?? "", workspace: worktree?.displayName ?? "")
+            session, name: name, project: repo?.name ?? "", projectId: repo?.id,
+            workspace: worktree?.displayName ?? "")
     }
 
     /// A session's saved change: the phones hear of an agent that looks different now, or went.

@@ -25,8 +25,9 @@ struct PhoneSettings: View {
         } footer: {
             Text(
                 """
-                See your agents, answer Allow or Deny and reply from a phone’s browser. What passes between the phone \
-                and this Mac is sealed with a key from the pairing code: the relay on the way can’t read it.
+                See your agents, answer Allow or Deny, reply and start a new agent in a project from a phone’s \
+                browser. What passes between the phone and this Mac is sealed with a key only the two hold: the \
+                relay on the way can’t read it.
                 """)
         }
         .task {

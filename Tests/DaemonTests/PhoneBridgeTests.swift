@@ -1,7 +1,9 @@
+import AgentData
 import Agents
 import Core
 import CryptoKit
 import Foundation
+import ImageIO
 import Testing
 
 @testable import Daemon
@@ -147,11 +149,12 @@ private func json(_ text: String) throws -> JSONValue {
     s.running = "swift build"
     #expect(PhoneAgent.shown(s))
     #expect(
-        JSONValue.object(PhoneAgent.from(s, name: "Claude Code", project: "kelp", workspace: "fix/sync-retry"))
+        JSONValue.object(
+            PhoneAgent.from(s, name: "Claude Code", project: "kelp", projectId: "P", workspace: "fix/sync-retry"))
             == (try json(
                 #"""
                 {"id":"S1","title":"Fix the flaky sync test","agent":"claude","agentName":"Claude Code","project":"kelp",
-                 "workspace":"fix/sync-retry","status":"waiting","statusAt":"2027-01-15T08:00:00.250Z","unread":true,
+                 "projectId":"P","workspace":"fix/sync-retry","status":"waiting","statusAt":"2027-01-15T08:00:00.250Z","unread":true,
                  "summary":"Allow Bash: swift test --filter SyncTests?",
                  "ask":{"kind":"permission","text":"Allow Bash: swift test --filter SyncTests?"},
                  "running":"swift build","limit":null,"continueAt":null}
@@ -185,7 +188,7 @@ private func json(_ text: String) throws -> JSONValue {
 private struct Phone {
     let bridge: PhoneBridge
     var device = PhoneSeal.random(16).base64URL
-    let key: SymmetricKey
+    var key: SymmetricKey
     func sent(_ method: String, _ path: String, _ body: JSONValue? = nil, n: Double) throws -> PhoneBridge.Sent {
         let ask = PhoneBridge.Ask(n: n, method: method, path: path, body: body)
         return PhoneBridge.Sent(id: "c", device: device, box: try PhoneSeal.seal(ask, about: "q", key: key))
@@ -296,4 +299,122 @@ private struct Phone {
     #expect(try await back.ask("GET", "agents", n: later).status == 200)
     #expect(try await client(p.root).call(PhoneUnpair(device: phone.device)).phones.isEmpty)
     #expect(try await back.ask("GET", "agents", n: later + 1).status == -401)
+}
+
+/// A square (or `wide`) picture of one colour, as a PNG.
+private func png(_ width: Int, _ height: Int) throws -> Data {
+    let context = try #require(
+        CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.setFillColor(red: 0.1, green: 0.6, blue: 0.4, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let out = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, try #require(context.makeImage()), nil)
+    #expect(CGImageDestinationFinalize(destination))
+    return out as Data
+}
+private func size(_ png: Data) -> [Int] {
+    let image = CGImageSourceCreateWithData(png as CFData, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }
+    return [image?.width ?? 0, image?.height ?? 0]
+}
+
+/// The sidebar's icon at the phone's size: a large one drawn smaller, a small one as it is; a wordmark and what
+/// isn't a picture are no icon.
+@Test func aProjectsIconIsDrawnForThePhone() throws {
+    #expect(size(try #require(PhoneIcon.png(from: try png(512, 512)))) == [128, 128])
+    #expect(size(try #require(PhoneIcon.png(from: try png(64, 64)))) == [64, 64])
+    #expect(size(try #require(PhoneIcon.png(from: try png(300, 200)))) == [128, 85])
+    #expect(PhoneIcon.png(from: try png(400, 100)) == nil)
+    #expect(PhoneIcon.png(from: Data("<svg/>".utf8)) == nil)
+}
+
+/// A phone that names its own key at pairing is known by that one; it sees every project in the sidebar's order with
+/// its icon, starts an agent the Mac lists in a project the Mac lists, and reads a conversation's turns.
+@Test func aPhoneKeepsItsOwnKeySeesProjectsAndStartsAnAgent() async throws {
+    let p = try await world(agents: [AgentManifest(id: "menu", name: "Menu", command: "/bin/cat")])
+    defer { p.d.stop() }
+    let claude = tmp()
+    p.d.agentUsage.conversations.homes.withLock { $0 = (claude, tmp()) }
+    try png(512, 512).write(to: URL(fileURLWithPath: p.repo.path + "/icon.png"))
+    let other = try await p.c.call("repo.add", .obj(["path": .string(try makeRepo())]), as: Repo.self)
+    _ = try await p.c.call(StateSet(key: "sidebar.order", value: .array([.string(other.id)])))   // dragged first
+    let bridge = p.d.sessions.phone
+    _ = try await p.c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
+    #expect(try await waitFor { try await p.c.call(PhoneStatus()).relay != nil })
+    let text = try #require(try await p.c.call(PhonePair()).link)
+    var phone = Phone(bridge: bridge, key: try key(String(try #require(text.split(separator: ".").last))))
+    var n = Double(Int64(Date().timeIntervalSince1970 * 1000) * 4096)
+    func next() -> Double {
+        n += 1
+        return n
+    }
+
+    let own = SymmetricKey(size: .bits256), mine = own.withUnsafeBytes { Data($0).base64URL }
+    let paired = try await phone.ask(
+        "POST", "pair", .object(["name": .string("C"), "key": .string(mine)]), n: next())
+    #expect(paired == PhoneBridge.Reply(status: 200, body: .object(["rekeyed": .bool(true)])))
+    #expect(try await phone.ask("GET", "agents", n: next()).status == -401, "the link's key is done")
+    phone.key = own
+    let listed = try await phone.ask("GET", "agents", n: next())
+    #expect(listed.status == 200)
+    #expect(
+        listed.body?["projects"]
+            == .array([
+                .object(["id": .string(other.id), "name": .string(other.name), "icon": .bool(false)]),
+                .object(["id": .string(p.repo.id), "name": .string(p.repo.name), "icon": .bool(true)])
+            ]))
+    let kinds = try #require(listed.body?["kinds"]?.array)
+    #expect(kinds.contains(.object(["id": .string("menu"), "name": .string("Menu")])))
+    #expect(!kinds.contains { ["shell", "custom"].contains($0["id"]?.string) })
+
+    let icon = try await phone.ask("GET", "projects/\(p.repo.id)/icon", n: next())
+    #expect(icon.body?["type"]?.string == "image/png")
+    let drawn = try #require(icon.body?["data"]?.string)
+    #expect(size(try #require(Data(base64Encoded: drawn))) == [128, 128])
+    #expect(try await phone.ask("GET", "projects/\(other.id)/icon", n: next()).status == 404)
+    #expect(try await phone.ask("GET", "projects/nobody/icon", n: next()).status == 404)
+
+    func start(_ project: String, _ agent: String, _ prompt: String) async throws -> PhoneBridge.Reply {
+        try await phone.ask(
+            "POST", "projects/\(project)/agents", .object(["agent": .string(agent), "prompt": .string(prompt)]),
+            n: next())
+    }
+    #expect(try await start(p.repo.id, "shell", "ls").status == 400, "only an agent the Mac lists")
+    #expect(try await start(p.repo.id, "nobody", "ls").status == 400)
+    #expect(try await start(p.repo.id, "menu", "  ").status == 400)
+    #expect(try await start("nobody", "menu", "hello").status == 404, "only in a project the Mac lists")
+    let started = try await start(p.repo.id, "menu", " Fix the login. ")
+    let id = try #require(started.body?["id"]?.string)
+    let session = try #require(try await p.c.call(SessionList()).first { $0.id == id })
+    let first = try await firstWorkspace(p)
+    #expect(session.agent == "menu" && session.worktreeId == first.id)
+    let agents = try #require(try await phone.ask("GET", "agents", n: next()).body?["agents"]?.array)
+    #expect(agents.first { $0["id"]?.string == id }?["projectId"]?.string == p.repo.id)
+    #expect(try await phone.ask("GET", "agents/\(id)", n: next()).body?["turns"] == nil, "its last reply alone")
+
+    // A Claude Code agent's conversation, from its transcript.
+    var chat = Session(
+        worktreeId: session.worktreeId, cwd: p.repo.path, command: "claude", agent: "claude",
+        argv: ["claude", "--session-id", "abc"])
+    chat.status = .done
+    try p.d.sessions.store.save(chat)
+    let transcript = ClaudeHistory.folder(cwd: p.repo.path, root: claude).appendingPathComponent("abc.jsonl")
+    try FileManager.default.createDirectory(
+        at: transcript.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try #"""
+    {"type":"user","timestamp":"2026-11-12T05:00:00.000Z","message":{"content":"Why is it slow?"}}
+    {"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a"}}]}}
+    {"type":"assistant","message":{"content":[{"type":"text","text":"The loop."}]}}
+    """#.write(to: transcript, atomically: true, encoding: .utf8)
+    let read = try await phone.ask("GET", "agents/\(chat.id)", n: next())
+    #expect(
+        read.body?["turns"]
+            == (try json(
+                #"""
+                [{"role":"user","text":"Why is it slow?","at":"2026-11-12T05:00:00.000Z"},
+                 {"role":"did","text":"Read 1 file"},{"role":"agent","text":"The loop."}]
+                """#)))
+    #expect(read.body?["lastReply"] == .null)   // it isn't running: the turns are what there is
 }

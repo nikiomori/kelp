@@ -11,12 +11,15 @@ enum PhoneAgent {
     }
 
     /// `name`: the agent's, as its manifest says. `place`: its project and workspace (`Worktree.displayName`).
-    static func from(_ session: Session, name: String, project: String, workspace: String) -> [String: JSONValue] {
+    static func from(
+        _ session: Session, name: String, project: String, projectId: String? = nil, workspace: String
+    ) -> [String: JSONValue] {
         let waiting = session.status == .waiting
         return [
             "id": .string(session.id), "title": .string(session.displayTitle),
             "agent": .string(session.agent ?? ""), "agentName": .string(name),
-            "project": .string(project), "workspace": .string(workspace),
+            "project": .string(project), "projectId": projectId.map(JSONValue.string) ?? .null,
+            "workspace": .string(workspace),
             "status": .string(session.status.rawValue), "statusAt": iso(session.statusAt),
             "unread": .bool(session.unread), "summary": .string(session.summary),
             // Allow / Deny only for a question shown whole, as Kelp's own banner tells; anything else is answered by text.

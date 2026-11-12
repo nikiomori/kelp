@@ -52,7 +52,9 @@ final class Sessions: Sendable {
             agentUsage: agentUsage)
         events = ExtensionEvents(
             root: root, live: live, store: store, settings: settings, clients: clients, setup: setup,
-            phone: PhoneBridge(store: store, settings: settings, setup: setup, live: live))
+            phone: PhoneBridge(
+                store: store, settings: settings, setup: setup, live: live,
+                conversations: agentUsage.conversations, offloads: offloads, root: root))
         processes = SessionProcesses(live: live, store: store, remotes: remotes)
         turns = Turns(live: live, store: store, remotes: remotes)
         updates = AgentUpdates(live: live, settings: settings)

@@ -21747,12 +21747,12 @@
         }
       }
     },
-    "See your agents, answer Allow or Deny and reply from a phone’s browser. What passes between the phone and this Mac is sealed with a key from the pairing code: the relay on the way can’t read it.": {
+    "See your agents, answer Allow or Deny, reply and start a new agent in a project from a phone’s browser. What passes between the phone and this Mac is sealed with a key only the two hold: the relay on the way can’t read it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Смотрите на агентов, отвечайте «Разрешить» или «Запретить» и пишите им из браузера телефона. Всё, что идёт между телефоном и этим Mac, зашифровано ключом из кода подключения: ретранслятор по пути прочитать это не может."
+            "value": "Смотрите на агентов, отвечайте «Разрешить» или «Запретить», пишите им и запускайте нового агента в проекте из браузера телефона. Всё, что идёт между телефоном и этим Mac, зашифровано ключом, который есть только у них двоих: ретранслятор по пути прочитать это не может."
           }
         }
       }
