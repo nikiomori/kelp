@@ -360,7 +360,8 @@ final class NoteBox: @unchecked Sendable {
     // An agent's leftovers: one where main is, one with a commit of its own, one with a file git doesn't track yet.
     // And one on a detached HEAD with a commit no branch has.
     for n in ["same", "ahead", "untracked"] {
-        try Git.run(["worktree", "add", "-q", "-b", "agent-" + n, ".claude/worktrees/" + n], cwd: repoPath, remotes: .none)
+        try Git.run(
+            ["worktree", "add", "-q", "-b", "agent-" + n, ".claude/worktrees/" + n], cwd: repoPath, remotes: .none)
     }
     try Git.run(["worktree", "add", "-q", "--detach", ".claude/worktrees/detached"], cwd: repoPath, remotes: .none)
     let wt = repoPath + "/.claude/worktrees/"
@@ -376,7 +377,9 @@ final class NoteBox: @unchecked Sendable {
     #expect(
         FileManager.default.fileExists(atPath: wt + "untracked/new.txt")
             && !FileManager.default.fileExists(atPath: wt + "same"))
-    #expect(!Git.branchExists(repoPath, "agent-same", remotes: .none) && Git.branchExists(repoPath, "agent-ahead", remotes: .none))   // its commit lives on
+    #expect(
+        !Git.branchExists(repoPath, "agent-same", remotes: .none)
+            && Git.branchExists(repoPath, "agent-ahead", remotes: .none))   // its commit lives on
 }
 
 /// OSC 7501: a hookless agent probes, the daemon answers as the terminal, and its own report sets the status.
@@ -494,6 +497,15 @@ final class NoteBox: @unchecked Sendable {
         PiHistory.newest(cwd: cwd.path, since: Date(timeIntervalSinceNow: -60), root: root)?.lastPathComponent
             == "b.jsonl")
     #expect(PiHistory.newest(cwd: cwd.path, since: Date(timeIntervalSinceNow: 60), root: root) == nil)
+    // oh-my-pi's: a folder in the home folder by its path from there.
+    let home = try #require(Paths.real(cwd.deletingLastPathComponent().path))
+    let omp = root.appendingPathComponent("-" + cwd.lastPathComponent)
+    try Paths.ensure(omp)
+    try "{}".write(to: omp.appendingPathComponent("c.jsonl"), atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -30)], ofItemAtPath: new.path)
+    #expect(
+        PiHistory.newest(cwd: cwd.path, since: Date(timeIntervalSinceNow: -60), root: root, home: home)?
+            .lastPathComponent == "c.jsonl")
 }
 
 /// A server a workspace's terminal started shows up as that workspace's port, and only there.

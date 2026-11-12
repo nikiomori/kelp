@@ -197,23 +197,30 @@ public enum CodexHistory {
 }
 
 /// pi's (and oh-my-pi's) conversations: `root/--<real cwd, "/" as "-">--/<time>_<id>.jsonl`, as pi names them.
+/// oh-my-pi names a folder in the home folder by its path from there: `-projects-app` (its old `--…--` ones it moves).
 public enum PiHistory {
     /// The one of `cwd` written to last, if that was since `since`.
-    /// Limit: two pi chats in one folder read as the one written to last.
-    public static func newest(cwd: String, since: Date, root: URL) -> URL? {
-        let real = Paths.real(cwd) ?? cwd
-        let name = "--" + String(real.dropFirst(real.hasPrefix("/") ? 1 : 0)).replacing(/[\/:]/, with: "-") + "--"
+    /// Limit: two pi chats in one folder read as the one written to last; oh-my-pi's in $TMPDIR (`-tmp-…`) aren't
+    /// found.
+    public static func newest(
+        cwd: String, since: Date, root: URL, home: String = FileManager.default.homeDirectoryForCurrentUser.path
+    ) -> URL? {
+        let real = Paths.real(cwd) ?? cwd, ownHome = (Paths.real(home) ?? home) + "/"
+        func dashed(_ path: Substring) -> String { String(path).replacing(/[\/:]/, with: "-") }
+        var names = ["--" + dashed(real.dropFirst(real.hasPrefix("/") ? 1 : 0)) + "--"]
+        if real.hasPrefix(ownHome) { names.append("-" + dashed(real.dropFirst(ownHome.count))) }
         func modified(_ url: URL) -> Date {
             var info = stat()
             return stat(url.path, &info) == 0
                 ? Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)) : .distantPast
         }
         // No folder: no conversation of pi's here yet.
-        let files =
+        let files = names.flatMap { name in
             FileManager.default.enumerator(
                 at: root.appendingPathComponent(name), includingPropertiesForKeys: nil,
                 options: .skipsSubdirectoryDescendants)?
-            .allObjects as? [URL] ?? []
+                .allObjects as? [URL] ?? []
+        }
         return files.filter { $0.pathExtension == "jsonl" && modified($0) >= since }.max { modified($0) < modified($1) }
     }
 }

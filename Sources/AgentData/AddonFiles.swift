@@ -3,7 +3,8 @@ import Foundation
 
 /// The skills and MCP servers the agents' own files name, and the folders the agents share: read only. Which agent
 /// reads which folder is each agent's documented behaviour (2026-11): `~/.agents/skills` is the shared standard,
-/// Claude Code reads only its own, and Cursor, opencode and Grok read Claude Code's too.
+/// Claude Code reads only its own, Cursor, opencode and Grok read Claude Code's too, and Copilot a project's
+/// `.claude/skills` and CLAUDE.md.
 public struct AddonFiles: Sendable {
     public var home: URL, claude: URL, codex: URL
 
@@ -16,8 +17,9 @@ public struct AddonFiles: Sendable {
         self.codex = codex
     }
 
-    static let sharedReaders = ["codex", "cursor", "pi", "copilot", "kimi", "opencode"]
+    static let sharedReaders = ["codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
     static let claudeReaders = ["claude", "cursor", "opencode", "grok"]
+    static let claudeProjectReaders = claudeReaders + ["copilot"]
 
     /// A skill folder: its SKILL.md's name and description, where it is, and where it really is (a link's target).
     public struct Skill: Sendable, Equatable {
@@ -42,7 +44,7 @@ public struct AddonFiles: Sendable {
             (home.appendingPathComponent(".agents/skills"), Self.sharedReaders, false),
             (claude.appendingPathComponent("skills"), Self.claudeReaders, false),
             (project.appendingPathComponent(".agents/skills"), Self.sharedReaders, true),
-            (project.appendingPathComponent(".claude/skills"), Self.claudeReaders, true)
+            (project.appendingPathComponent(".claude/skills"), Self.claudeProjectReaders, true)
         ]
         return places.flatMap { dir, agents, inProject in
             Self.folders(dir).compactMap { folder -> Skill? in
@@ -91,7 +93,7 @@ public struct AddonFiles: Sendable {
         }
         let claudeFile = chars("CLAUDE.md")
         var out: [(String, Int, [String])] = []
-        if let claudeFile { out.append(("CLAUDE.md", claudeFile, ["claude"])) }
+        if let claudeFile { out.append(("CLAUDE.md", claudeFile, ["claude", "copilot"])) }
         if let agents = chars("AGENTS.md") {
             out.append(("AGENTS.md", agents, (claudeFile == nil ? ["claude"] : []) + Self.sharedReaders))
         }

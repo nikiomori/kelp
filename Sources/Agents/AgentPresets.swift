@@ -62,28 +62,33 @@ extension AgentManifest {
             id: "gemini", name: "Gemini CLI", command: "gemini", modelFlag: "-m",
             models: ["gemini-2.5-pro", "gemini-2.5-flash"], autoAnswers: [trust],
             install: "npm install -g @google/gemini-cli", update: "npm install -g @google/gemini-cli@latest",
-            npm: "@google/gemini-cli", about: "Retired by Google in June 2026: Antigravity takes its place",
+            npm: "@google/gemini-cli",
+            about: "Google’s agent for Code Assist and API keys: Antigravity took over free and AI Pro plans",
             color: "#007AFF", site: "gemini.google.com", providers: geminiProviders),
         .init(
-            id: "cursor", name: "Cursor Agent", command: "cursor-agent", modelFlag: "--model", autoAnswers: [trust],
+            // Its permission dialogs ("Run this command?", "Write to this file?"…) end on "Skip (esc or n)".
+            id: "cursor", name: "Cursor Agent", command: "cursor-agent",
+            waitingPatterns: defaultWaiting + [#"\(esc or n\)"#], modelFlag: "--model", autoAnswers: [trust],
             resumeArgs: ["resume"],
             install: "curl https://cursor.com/install -fsS | bash", update: "cursor-agent update",
             about: "Cursor’s agent in the terminal", color: "#262626", apps: ["Cursor"], site: "cursor.com",
             featured: 4,
             limitScreen: .cursor),
+        // Kelp's skills by `--skill <plugin folder>` (it finds SKILL.md below): in the project's `.agents/skills` they
+        // made Pi ask whether to trust every folder it opened.
         // Pi and Antigravity report through OSC 7501 only if Kelp's reply to their probe beats the terminal's DA reply;
         // their variables make them report anyway. Pi's installer runs again as the update; it fetches Node when it's
         // missing, which npm wouldn't.
         .init(
             id: "pi", name: "Pi", command: "pi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
-            resumeArgs: ["--continue"], resumeIdFlag: "--session",
+            resumeArgs: ["--continue"], pluginDirFlag: "--skill", resumeIdFlag: "--session",
             install: "curl -fsSL https://pi.dev/install.sh | sh", update: "curl -fsSL https://pi.dev/install.sh | sh",
             npm: "@earendil-works/pi-coding-agent", about: "A minimal, extensible terminal agent, any model",
             site: "pi.dev", transcript: .pi),
         .init(
             id: "amp", name: "Amp", command: "amp",
-            install: "npm install -g @sourcegraph/amp", update: "npm install -g @sourcegraph/amp@latest",
-            npm: "@sourcegraph/amp", about: "Sourcegraph’s agent", site: "ampcode.com"),
+            install: "npm install -g @ampcode/cli", update: "npm install -g @ampcode/cli@latest",
+            npm: "@ampcode/cli", about: "Sourcegraph’s agent", site: "ampcode.com"),
         // A hand-off opens a session file (`--session` / `--resume <file>`): a wake goes on in it, not in "latest here".
         .init(
             id: "omp", name: "oh-my-pi", command: "omp", modelFlag: "--model", resumeArgs: ["--continue"],
@@ -134,7 +139,8 @@ extension AgentManifest {
         .init(
             id: "droid", name: "Droid", command: "droid", hooks: .settingsFlag("--settings"),
             resumeArgs: ["--resume", "--last"],
-            install: "curl -fsSL https://app.factory.ai/cli | sh", about: "Factory’s agent", apps: ["Factory"],
+            install: "curl -fsSL https://app.factory.ai/cli | sh", update: "droid update", npm: "droid",
+            about: "Factory’s agent", apps: ["Factory"],
             site: "factory.ai"),
         .init(
             id: "hermes", name: "Hermes", command: "hermes",
@@ -142,11 +148,11 @@ extension AgentManifest {
             about: "Nous Research’s self-improving agent", color: "#408CD9", site: "hermes-agent.nousresearch.com"),
         .init(
             id: "copilot", name: "GitHub Copilot", command: "copilot", modelFlag: "--model", resumeArgs: ["--continue"],
-            install: "npm install -g @github/copilot", update: "npm install -g @github/copilot@latest",
+            install: "npm install -g @github/copilot", update: "copilot update",
             npm: "@github/copilot", about: "GitHub Copilot in the terminal", site: "github.com"),
         .init(
             id: "aider", name: "Aider", command: "aider",
-            install: "python3 -m pip install aider-install && aider-install",
+            install: "curl -LsSf https://aider.chat/install.sh | sh",
             about: "Pair programming in git, any model", site: "aider.chat"),
         // CONFIGURE=false: no provider questions in the installer's tab; goose asks on its first run.
         .init(

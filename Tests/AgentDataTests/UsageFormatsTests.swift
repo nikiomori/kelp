@@ -148,6 +148,19 @@ private func iso(_ t: Date) -> String { ISO8601DateFormatter().string(from: t) }
     #expect(rows.map(\.cwd) == ["/p/app"] && rows.first?.model == "glm-5.3")
     #expect(rows.first?.tally.tokens == TokenCounts(input: 100, output: 20, cacheWrite: 0, cacheRead: 300))
     #expect(abs((rows.first?.tally.cost ?? 0) - 0.01) < 1e-9)
+    // oh-my-pi's calls outside the conversation (a title, auto-thinking): a line of their own.
+    try write(
+        dir.appendingPathComponent("-p-omp/b.jsonl"),
+        [
+            ["type": "session", "cwd": "/p/omp"],
+            [
+                "type": "model_usage", "timestamp": iso(Date()), "purpose": "auto-thinking", "model": "jev-1",
+                "usage": ["input": 40, "output": 5, "cacheRead": 0, "cacheWrite": 0, "cost": ["total": 0.002]]
+            ]
+        ])
+    let omp = UsageIndex(cache: dir.appendingPathComponent("o.json"), format: .omp).rows(
+        roots: [dir.appendingPathComponent("-p-omp")], since: Date() - 86400)
+    #expect(omp.first?.model == "jev-1" && omp.first?.tally.tokens.input == 40 && omp.first?.cwd == "/p/omp")
 }
 
 /// Qwen Code and Gemini CLI write Gemini's numbers: the prompt (Gemini: input) counts the cache; Gemini writes a reply
@@ -185,6 +198,11 @@ private func iso(_ t: Date) -> String { ISO8601DateFormatter().string(from: t) }
     #expect(
         g.first?.tally.tokens == TokenCounts(input: 400, output: 40, cacheWrite: 0, cacheRead: 500)
             && g.first?.cwd == "/p/g")
+    // A subagent's conversation, a folder further down: counted too, in the same project.
+    try write(gem.appendingPathComponent("tmp/g-app/chats/1/sub.jsonl"), [reply.merging(["id": "s1"]) { $1 }])
+    let both = UsageIndex(cache: gem.appendingPathComponent("c2.json"), format: .gemini).rows(
+        roots: [gem.appendingPathComponent("tmp")], since: Date() - 86400)
+    #expect(Set(both.map(\.cwd)) == ["/p/g"] && both.map(\.tally.tokens.input).reduce(0, +) == 800)
 }
 
 /// OpenCode and Kilo: complete assistant messages, reasoning counted as output; what it says it cost.

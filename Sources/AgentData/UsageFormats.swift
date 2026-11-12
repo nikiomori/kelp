@@ -37,8 +37,18 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         case .kimi: file.lastPathComponent == "wire.jsonl"
         case .pi, .omp: file.pathExtension == "jsonl"
         case .qwen: file.pathExtension == "jsonl" && file.deletingLastPathComponent().lastPathComponent == "chats"
-        case .gemini: file.pathExtension == "jsonl" && file.lastPathComponent.hasPrefix("session-")
+        case .gemini:
+            file.pathExtension == "jsonl"
+                && (file.lastPathComponent.hasPrefix("session-")
+                    || Self.geminiChats(file) != file.deletingLastPathComponent())
         }
+    }
+
+    /// Gemini's `tmp/<project>/chats/`: a subagent's conversation is a folder further down,
+    /// `chats/<parent id>/<id>.jsonl`.
+    static func geminiChats(_ file: URL) -> URL {
+        let up = file.deletingLastPathComponent()
+        return up.lastPathComponent == "chats" ? up : up.deletingLastPathComponent()
     }
 
     /// A line with none of these isn't parsed (gigabytes of Claude transcripts).
@@ -76,10 +86,10 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             return ["cwd": state?["cwd"] as? String ?? ""]
         // tmp/<project>/chats/session-….jsonl; projects.json says which folder a project's name stands for.
         case .gemini:
-            let project = file.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+            let folder = Self.geminiChats(file).deletingLastPathComponent(), project = folder.lastPathComponent
             let list = FileManager.default.contents(
-                atPath: file.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent().appendingPathComponent("projects.json").path
+                atPath: folder.deletingLastPathComponent().deletingLastPathComponent()
+                    .appendingPathComponent("projects.json").path
             ).flatMap(JSONL.object)
             let names = list?["projects"] as? [String: String] ?? [:]
             return ["cwd": names.first { $0.value == project }?.key ?? project]
@@ -179,8 +189,13 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             context["cwd"] = object["cwd"] as? String
             return nil
         }
-        guard object["type"] as? String == "message", let message = object["message"] as? [String: Any],
-            message["role"] as? String == "assistant",
+        // A call outside the conversation is a line of its own: oh-my-pi's `model_usage` (titles, thinking), pi's
+        // `usage`.
+        let type = object["type"] as? String
+        let assistant = (object["message"] as? [String: Any]).flatMap {
+            $0["role"] as? String == "assistant" ? $0 : nil
+        }
+        guard let message = type == "message" ? assistant : ["model_usage", "usage"].contains(type) ? object : nil,
             let usage = message["usage"] as? [String: Any],
             let time = (message["timestamp"] as? NSNumber).map({ $0.doubleValue / 1000 })
                 ?? JSONL.date(object["timestamp"])?.timeIntervalSince1970

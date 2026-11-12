@@ -213,7 +213,9 @@ extension AgentUsage {
                 [path, "--resume", id], [path, "--session-id", id],
                 [path, "--session-id", UUID().uuidString.lowercased()]
             ]
-        case "copilot": [[path, "--session-id", id], [path]]   // resumes that session, or starts it under that id
+        // Resumes that session, or starts it under that id. No bare `copilot` after it: each failed reading left a
+        // session.
+        case "copilot": [[path, "--session-id", id]]
         default: [[path, "--trust", "--resume", id], [path, "--trust"]]   // Cursor: an id it doesn't know becomes the new chat's
         }
     }
