@@ -2934,8 +2934,11 @@
         "type" : "object"
       },
       "PhoneState" : {
-        "description" : "The bridge now. `relay`: its address, nil while it's off. `connected`: the relay holds this Mac's connection, else `error` says why not. `link`: what a new phone opens to pair, until `linkUntil` or the first phone that does.",
+        "description" : "The bridge now. `relay`: its address, nil while it's off. `connected`: the relay holds this Mac's connection, else `error` says why not. `link`: what a new phone opens to pair, until `linkUntil` or the first phone that does. `via`: how a phone reaches this Mac (\"relay\", \"tailscale\", \"address\"), nil while it's off; then `connected` is the relay's connection, or this Mac's own server being up (and Tailscale serving it). `address`: where a phone opens the page, once known.",
         "properties" : {
+          "address" : {
+            "type" : "string"
+          },
           "connected" : {
             "type" : "boolean"
           },
@@ -2956,6 +2959,9 @@
             "type" : "array"
           },
           "relay" : {
+            "type" : "string"
+          },
+          "via" : {
             "type" : "string"
           }
         },

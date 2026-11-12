@@ -1,0 +1,490 @@
+/* Kelp on the phone, laid out as iOS 26 lays out an app: a large title, projects as inset grouped sections, the
+   conversation filling the screen, Liquid Glass only on the controls that float over it, sheets that rise from the
+   foot. Kelp stays in the content: its status marks, the "Asks:" and "Failed:" leads, commands and code in mono, and
+   one orange signal where an agent calls you. */
+:root {
+  color-scheme: light dark;
+  --window: #eef0f2;         /* the ground */
+  --cell: #fff;              /* an inset group */
+  --label: #000;
+  --quiet: #3c3c43a8;        /* secondary label, 4.5:1 on the ground and on a cell */
+  --faint: #3c3c4352;        /* tertiary: chevrons, placeholders */
+  --separator: #3c3c4324;
+  --fill: #78788024;         /* a plain button, a field */
+  --bubble: #e3e6ea;         /* what you asked */
+  --code: #f3f5f8;
+  --glass: #ffffff9e;
+  --glass-solid: #f6f6f6;
+  --rim: #ffffffe6;
+  --lift: 0 8px 28px #0000001f;
+  --glass-shadow: inset 0 0 0 0.5px var(--rim), inset 0 1px 0 #ffffff2e, 0 0 0 0.5px #0000000f, var(--lift);
+  --scrim: #00000040;
+  --banner: #fffffff0;
+  --banner-shadow: 0 2px 8px #0000001f, inset 0 0 0 0.5px #0000000f;
+  --accent: #0064e1;
+  --accent-fill: #0a6fe0;
+  --waiting: #ff9500;
+  --waiting-text: #9a5000;
+  --call: #ff95001f;
+  --failed: #ff3b30;
+  --failed-text: #cc0014;
+  --green: #34c759;
+  --text: #000;
+  --comment: #3c3c43a8;
+  --type: #0b4f79;
+  --tile-light: 32%;
+  --agent: #c8603f;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --tap: 2.75rem;            /* 44 pt */
+  --fast: 120ms;
+  --base: 180ms;
+  --push: 420ms cubic-bezier(0.32, 0.72, 0, 1);   /* iOS's push and sheet curve */
+  --seen: 100dvh;            /* app.js keeps it at the height above the keyboard */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --window: #1f2226;
+    --cell: #2c3035;
+    --label: #fff;
+    --quiet: #ebebf59e;
+    --faint: #ebebf552;
+    --separator: #ffffff1a;
+    --fill: #78788052;
+    --bubble: #3b4047;
+    --code: #16181b;
+    --glass: #3a3e4480;
+    --glass-solid: #34383d;
+    --rim: #ffffff33;
+    --lift: 0 10px 30px #00000059;
+    --glass-shadow: inset 0 0 0 0.5px var(--rim), inset 0 1px 0 #ffffff1f, var(--lift);
+    --scrim: #00000073;
+    --banner: #34383df0;
+    --banner-shadow: 0 2px 8px #00000040, inset 0 0 0 0.5px #ffffff1a;
+    --accent: #0a84ff;
+    --accent-fill: #0a7aff;
+    --waiting: #ff9f0a;
+    --waiting-text: #ffb340;
+    --call: #ff9f0a24;
+    --failed: #ff453a;
+    --failed-text: #ff6961;
+    --green: #30d158;
+    --text: #fff;
+    --comment: #ebebf59e;
+    --type: #5dd8ff;
+    --tile-light: 72%;
+    --agent: #e0785a;
+  }
+}
+
+html { font: 100%/1.3 system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+/* iOS only: the body text style, so every rem follows the phone's text size (17 pt at the default). */
+@supports (-webkit-touch-callout: none) { html { font: -apple-system-body; } }
+
+*, ::before, ::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; height: var(--seen); overflow: hidden;
+  background: var(--window); color: var(--label); letter-spacing: -0.01em;
+  -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; overflow-wrap: anywhere;
+}
+h1, h2, h3, p, ul { margin: 0; padding: 0; }
+.quiet { color: var(--quiet); }
+/* The icons come from icons/marks.svg by <use>, and take their paint from here. */
+svg {
+  display: block; width: 1rem; height: 1rem; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Buttons: capsules; the accent for the one that matters. */
+button {
+  min-height: 2.75rem; min-width: var(--tap); padding: 0 1.125rem;
+  border: 0; border-radius: 1.375rem; background: var(--fill); color: var(--label);
+  font: inherit; font-weight: 600; letter-spacing: inherit; touch-action: manipulation;
+  transition: opacity var(--fast), transform var(--fast), background-color var(--base);
+}
+button.primary { background: var(--accent-fill); color: #fff; box-shadow: inset 0 1px 0 #ffffff47, 0 6px 18px #0a7aff40; }
+button.danger { color: var(--failed-text); }
+button.icon {
+  display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0; border-radius: 50%;
+  background: none; color: var(--quiet);
+}
+button.icon svg { width: 1.25rem; height: 1.25rem; stroke-width: 1.8; }
+button.icon.glass { color: var(--label); }
+button.icon.primary { background: var(--accent-fill); color: #fff; }
+button:active:not(:disabled) { opacity: 0.6; transform: scale(0.97); }
+button.glass:active:not(:disabled), #quick button:active:not(:disabled) { opacity: 1; transform: scale(0.94); background-image: radial-gradient(circle at 50% 0%, #ffffff59, #fff0 75%); }
+button:disabled { opacity: 0.4; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- Liquid Glass: the layer of controls that floats over what scrolls. Never the content itself. */
+
+.glass, button.glass, #quick button {
+  background: linear-gradient(#ffffff1f, #fff0 55%) var(--glass); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
+}
+/* The rim: bright where the light falls and gone where it doesn't, as a thick edge is. */
+:is(.glass, #quick button) { position: relative; }
+:is(.glass, #quick button)::before {
+  content: ""; position: absolute; inset: 0; padding: 1px; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(135deg, #fff0 0%, #ffffffb3 22%, #ffffff29 48%, #fff0 62%, #ffffff66 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass, button.glass, #quick button { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .bar::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--window); }
+}
+/* A pane with a lens (app.js): the copy of what lies under it, bent by the filter, then the tint and the lit rim. */
+.lensed { isolation: isolate; overflow: hidden; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.lens { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; background: var(--under, var(--window)); pointer-events: none; }
+.lens > div { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+/* Safari drops an SVG filter over anything it composites: nothing in the copy may spin or scroll by itself. */
+.lens * { animation: none !important; transition: none !important; }
+.lens > div > *, .lens pre { overflow: hidden !important; }
+.lensed::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(#ffffff1f, #fff0 55%) var(--glass); box-shadow: var(--glass-shadow);
+}
+
+/* A banner floats over the window. */
+.strip {
+  display: flex; align-items: flex-start; gap: 0.625rem;
+  margin: 0 1rem 0.75rem; padding: 0.75rem 0.875rem;
+  border-radius: 1.375rem; background: var(--banner); box-shadow: var(--banner-shadow); font-size: 0.9375rem;
+}
+.strip > svg { margin-top: 0.125rem; color: var(--quiet); }
+.strip.warn > svg { color: var(--waiting); }
+.strip span { flex: 1; }
+.strip .icon { margin: -0.75rem -0.75rem -0.75rem -0.25rem; }
+.strip .icon svg { width: 0.875rem; height: 0.875rem; }
+.note { color: var(--failed-text); font-size: 0.8125rem; }
+.note:empty { display: none; }
+
+/* ---- screens, and the push between them */
+
+.screen {
+  display: none; position: fixed; inset: 0 0 auto; height: var(--seen); flex-direction: column;
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  background: var(--window);
+}
+[data-screen="pair"] #pair, [data-screen="list"] #list,
+[data-screen="agent"] #list, [data-screen="agent"] #agent, .popping #agent { display: flex; }
+/* Pushed, the list slides a third of the way under the agent; popped, the agent slides back out. */
+#list { transition: transform var(--push); }
+[data-screen="agent"] #list { transform: translateX(-30%); }
+#agent { z-index: 1; box-shadow: -1px 0 0 var(--separator), -12px 0 32px #00000014; transition: transform var(--push); }
+[data-screen="agent"] #agent { animation: arrive var(--push); }
+.popping #agent { animation: leave var(--push) forwards; pointer-events: none; }
+@keyframes arrive { from { transform: translateX(100%); } }
+@keyframes leave { to { transform: translateX(100%); } }
+
+#pair { align-items: center; justify-content: center; gap: 0.75rem; padding: calc(env(safe-area-inset-top) + 2rem) 2rem 2.5rem; text-align: center; }
+#pair img { border-radius: 22.5%; box-shadow: 0 8px 24px #00000026; }
+#pair h1 { margin-top: 0.5rem; font-size: 1.75rem; font-weight: 700; letter-spacing: 0.01em; }
+#pair p { color: var(--quiet); line-height: 1.4; }
+#pair ol { margin: 0.25rem 0 0.5rem; padding: 0.875rem 1rem 0.875rem 2.25rem; display: grid; gap: 0.5rem; border-radius: 1.625rem; background: var(--cell); text-align: left; line-height: 1.35; }
+#pair button { align-self: stretch; min-height: 3.125rem; border-radius: 1.5625rem; }
+#pair form { align-self: stretch; display: grid; gap: 0.625rem; }
+#pair input { min-height: 3.125rem; padding: 0 1rem; border: 0; border-radius: 1rem; background: var(--cell); color: inherit; font: inherit; font-size: max(1rem, 16px); }
+#pair .note { color: var(--quiet); overflow-wrap: anywhere; }
+
+/* ---- status marks: colour only for waiting and error, the rest said by shape and motion */
+
+.mark { color: var(--quiet); }
+[data-mark="waiting"] .mark { color: var(--waiting); }
+[data-mark="error"] .mark { color: var(--failed); }
+[data-mark=""] .mark { visibility: hidden; }
+[data-mark="working"] .mark { color: var(--agent); animation: turn 2.4s linear infinite; }
+@keyframes turn { to { transform: rotate(1turn); } }
+
+/* ---- the list */
+
+#list { overflow-y: auto; overscroll-behavior-y: contain; }
+#list > * { flex: none; }
+/* The bar floats: the rows scroll under it and soften at its edge, as iOS 26's scroll edge does. */
+.bar {
+  position: sticky; top: 0; z-index: 2; flex: none;
+  display: flex; align-items: center; gap: 0.75rem; min-height: 3.5rem;
+  padding: calc(env(safe-area-inset-top) + 0.375rem) 1rem 0.375rem;
+}
+.bar::before {
+  content: ""; position: absolute; inset: 0 0 -1.25rem; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--window) 30%, color-mix(in srgb, var(--window) 70%, transparent) 65%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent);
+  opacity: 0; transition: opacity var(--base);
+}
+.scrolled .bar::before { opacity: 1; }
+.spacer { width: var(--tap); flex: none; }
+.inline-title {
+  flex: 1; min-width: 0; text-align: center; font-size: 1.0625rem; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  opacity: 0; transform: translateY(0.25rem); transition: opacity var(--base), transform var(--base);
+}
+.scrolled .inline-title { opacity: 1; transform: none; }
+/* The large title: the Mac's name. */
+#mac { padding: 0 1.25rem; font-size: 2.125rem; line-height: 1.2; font-weight: 700; letter-spacing: 0.012em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Its subtitle: how many need you, work and are done. */
+#counts { display: flex; flex-wrap: wrap; gap: 0.125rem 0.875rem; padding: 0.125rem 1.25rem 0; color: var(--quiet); font-size: 0.9375rem; }
+#counts span { display: inline-flex; align-items: center; gap: 0.3125rem; }
+#counts b { margin-right: -0.0625rem; color: var(--label); font-weight: 600; }
+#counts svg { width: 0.875rem; height: 0.875rem; }
+#list > .strip { margin-top: 1rem; }
+
+#scroll { padding: 1.375rem 0 calc(env(safe-area-inset-bottom) + 2rem); transition: opacity var(--base); }
+.stale #scroll { opacity: 0.45; }
+#rows { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+#rows:empty { display: none; }
+#empty { padding: 3rem 2rem; text-align: center; }
+
+/* A project: a section header (its tile, its name, a button to start an agent), then its agents in an inset group. */
+.project { display: flex; align-items: center; gap: 0.625rem; padding: 0 1rem 0.5rem 1.25rem; font-size: 1.25rem; font-weight: 700; letter-spacing: 0; }
+.project .tile { width: 1.625rem; height: 1.625rem; border-radius: 0.4375rem; font-size: 0.6875rem; }
+.project .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project button.icon { width: 2rem; height: 2rem; min-height: 0; min-width: 0; margin: -0.25rem 0; background: var(--fill); color: var(--accent); }
+.project button.icon svg { width: 1rem; height: 1rem; stroke-width: 2.2; }
+.group ul { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 1rem; border-radius: 1.625rem; background: var(--cell); overflow: hidden; }
+/* Each row after the first starts with a hairline from its text, as iOS insets a separator. */
+.group ul > li + li { background: linear-gradient(var(--separator), var(--separator)) no-repeat 3.125rem 0 / 100% 0.5px; }
+/* A project with no agent: one quiet line to start one from. */
+.group.idle + .group.idle { margin-top: -1.25rem; }
+.idle .project { padding-top: 0.375rem; padding-bottom: 0.375rem; color: var(--quiet); font-size: 1.0625rem; font-weight: 400; }
+.idle .project button.icon { background: none; }
+.idle ul { display: none; }
+.tile {
+  display: grid; place-items: center; flex: none; width: 0.9375rem; height: 0.9375rem; border-radius: 22%;
+  background: hsl(var(--hue, 210) 60% 50% / 0.22); color: hsl(var(--hue, 210) 85% var(--tile-light)); font-size: 0.5rem; font-weight: 700; line-height: 1;
+}
+.tile.icon { background: none; }
+.tile img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+
+/* An agent's row: its mark, its title and time and a chevron; under them where it works and what it says. */
+.open {
+  display: grid; grid-template-columns: 1.375rem minmax(0, 1fr) auto auto auto; column-gap: 0.75rem; row-gap: 0.1875rem; align-items: baseline;
+  min-height: var(--tap); padding: 0.6875rem 1rem 0.75rem; color: inherit; text-decoration: none;
+  transition: background-color var(--fast);
+}
+.open:active { background: var(--fill); }
+.open .mark { grid-row: span 4; align-self: start; justify-self: center; width: 1.125rem; height: 1.125rem; margin-top: 0.125rem; }
+.open::after {   /* the chevron */
+  content: ""; grid-column: 5; grid-row: 1; align-self: center; width: 0.4375rem; height: 0.4375rem; margin: 0 0.125rem 0 0.125rem;
+  border: solid var(--faint); border-width: 2px 2px 0 0; transform: rotate(45deg);
+}
+.title { font-size: 1.0625rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unread .title { font-weight: 600; }
+:is([data-status="hibernated"], [data-status="exited"]) .title { color: var(--quiet); }
+.dot { align-self: center; width: 0.5625rem; height: 0.5625rem; border-radius: 50%; background: var(--accent); }
+.time { grid-column: 4; color: var(--quiet); font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+
+/* Where the agent works: the branch, where it isn't the main one. */
+.place { grid-column: 2 / -1; display: flex; align-items: center; gap: 0.375rem; min-width: 0; color: var(--quiet); font-size: 0.8125rem; white-space: nowrap; overflow: hidden; }
+.place svg { width: 0.75rem; height: 0.75rem; margin-right: -0.1875rem; }
+/* What it says: "Asks: …", "Failed: …", or the command it runs. */
+.says { grid-column: 2 / -1; color: var(--quiet); font-size: 0.9375rem; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.lead.asks { color: var(--waiting-text); }
+.lead.failed { color: var(--failed-text); }
+.chip {
+  grid-column: 2 / -1; justify-self: start; display: flex; align-items: center; gap: 0.375rem; max-width: 100%;
+  color: var(--quiet); font: 0.8125rem/1.4 var(--mono); letter-spacing: 0; white-space: nowrap; overflow: hidden;
+}
+.chip svg { width: 0.75rem; height: 0.75rem; stroke-width: 1.7; }
+.row .note { padding: 0 1rem 0.75rem 3.125rem; }
+/* What a permission would run, whole: you see what you allow before you allow it. */
+.command {
+  grid-column: 2 / -1; margin-top: 0.375rem; padding: 0.5625rem 0.6875rem; border-radius: 0.75rem;
+  background: var(--code); color: var(--text); font: 0.875rem/1.4 var(--mono); letter-spacing: 0; white-space: pre-wrap;
+}
+.go { grid-column: 2 / -1; margin-top: 0.125rem; color: var(--accent); font-size: 0.9375rem; font-weight: 600; }
+.go::after { content: " ›"; }
+/* The quiet agents of a project, folded into one line. */
+.more button {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: var(--tap); padding: 0 1rem;
+  border-radius: 0; background: none; box-shadow: none; color: var(--quiet); font-size: 0.9375rem; font-weight: 400; text-align: left;
+}
+.more svg { width: 1.375rem; height: 0.9375rem; transform: rotate(-90deg); transition: transform var(--base); }
+.more [aria-expanded="true"] svg { transform: rotate(90deg); }
+
+/* An agent that needs you: its question in full, in the label's colour; Allow and Deny under it. */
+[data-status="waiting"] .title { font-weight: 600; }
+[data-status="waiting"] .says { color: var(--label); -webkit-line-clamp: 4; }
+[data-status="waiting"] .open::after { display: none; }
+.answer { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+.answer button { min-height: 2.75rem; font-size: 1.0625rem; }
+.row .answer { padding: 0 1rem 0.875rem 3.125rem; }
+
+/* ---- the agent */
+
+/* The bar floats over the conversation, which softens under it. */
+#agent .bar { position: absolute; inset: 0 0 auto; padding-left: 1rem; padding-right: 1rem; }
+#agent .bar::before { opacity: 1; }
+.who { flex: 1; min-width: 0; display: grid; gap: 0.0625rem; justify-items: center; margin-right: var(--tap); text-align: center; }
+#agent .bar:has(#stop:not([hidden])) .who { margin-right: 0; }
+.who > * { max-width: 100%; }
+.who h1 { font-size: 1.0625rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Its state, then who and where: "◉ Needs you · Claude Code · kelp". Orange only while it calls you. */
+#a-where { display: flex; align-items: center; gap: 0.3125rem; color: var(--quiet); font-size: 0.8125rem; white-space: nowrap; overflow: hidden; }
+#a-state { display: inline-flex; align-items: center; gap: 0.3125rem; flex: none; }
+#a-state .mark { width: 0.75rem; height: 0.75rem; }
+#a-place { overflow: hidden; text-overflow: ellipsis; }
+.calls #a-word { color: var(--waiting-text); }
+[data-mark="error"] #a-word { color: var(--failed-text); }
+#stop svg { width: 0.875rem; height: 0.875rem; }
+#a-offline { position: absolute; z-index: 3; top: calc(env(safe-area-inset-top) + 4rem); left: 0; right: 0; }
+
+#a-card { flex: 1; min-height: 0; position: relative; overflow: hidden; color: var(--text); --under: var(--window); }
+
+/* The conversation, in the system's text: what you asked in a bubble, what the agent did in a quiet mono block,
+   what it said as plain text. Mono stays where it means something: commands, paths, code. */
+#a-body {
+  height: 100%; overflow-y: auto; overscroll-behavior: contain;
+  padding: calc(env(safe-area-inset-top) + 4.75rem) 1.25rem calc(var(--dock, 4rem) + max(env(safe-area-inset-bottom), 0.75rem) + 1rem);
+  scroll-padding-bottom: var(--dock, 4rem); font-size: 1.0625rem; line-height: 1.45;
+}
+#a-body > * + * { margin-top: 0.875rem; }
+.dim { color: var(--comment); font-size: 0.9375rem; }
+#a-reply:empty { display: none; }
+#a-reply, .said { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 0.625rem; }
+:is(#a-reply, .said) > * { margin: 0; }
+.talk { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.875rem; }
+.asked {
+  justify-self: end; max-width: 80%; padding: 0.5625rem 0.875rem; border-radius: 1.25rem;
+  background: var(--bubble); white-space: pre-wrap;
+}
+.asked + .asked { margin-top: -0.625rem; }
+/* What it did, one line a step; steps in a row join into one block. */
+.did {
+  padding: 0.3125rem 0.75rem; background: var(--fill); border-radius: 0.875rem;
+  color: var(--quiet); font: 0.8125rem/1.45 var(--mono); letter-spacing: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.did:not(.did + .did) { padding-top: 0.5625rem; }
+.did:not(:has(+ .did)) { padding-bottom: 0.5625rem; }
+.did + .did { margin-top: -0.875rem; border-top-left-radius: 0; border-top-right-radius: 0; }
+.did:has(+ .did) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+#a-reply :is(h2, h3, h4, h5, h6) { margin-top: 0.375rem; font-size: 1.0625rem; font-weight: 700; }
+#a-reply :is(ul, ol) { padding-left: 1.375rem; }
+#a-reply li + li { margin-top: 0.25rem; }
+#a-reply li::marker { color: var(--quiet); }
+#a-reply a { color: var(--accent); }
+#a-reply code { font: 0.9375em var(--mono); letter-spacing: 0; color: var(--type); }
+#a-reply pre {
+  overflow-x: auto; padding: 0.75rem 0.875rem; border-radius: 0.875rem; background: var(--code);
+  font: 0.8125rem/1.5 var(--mono); letter-spacing: 0; overflow-wrap: normal;
+}
+#a-reply pre code { font-size: inherit; color: inherit; white-space: pre; }
+#a-reply .table { overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem; }
+#a-reply table { border-collapse: collapse; font-size: 0.875rem; }
+#a-reply :is(th, td) { padding: 0.375rem 1rem 0.375rem 0; border-bottom: 0.5px solid var(--separator); text-align: left; white-space: nowrap; }
+#a-reply th { color: var(--quiet); font-weight: 600; }
+/* What it asks, as the conversation's last word, set off in the call's own fill. */
+#a-question { display: flex; gap: 0.375rem; padding: 0.75rem 0.875rem; border-radius: 1.125rem; background: var(--call); font-weight: 600; }
+#a-question > span:first-child { color: var(--waiting-text); }
+
+/* The dock: the live line, the question and the field, glass over the conversation. */
+#dock { position: absolute; inset: auto 0.75rem max(env(safe-area-inset-bottom), 0.75rem); display: grid; gap: 0.625rem; }
+/* What it runs now, with how long it has been at it. */
+#a-live { display: flex; align-items: center; gap: 0.5625rem; min-height: 2.5rem; padding: 0 1rem; border-radius: 1.25rem; font-size: 0.875rem; }
+#a-live .mark { width: 0.9375rem; height: 0.9375rem; color: var(--agent); animation: turn 2.4s linear infinite; }
+#a-live-text { flex: 1; min-width: 0; color: var(--quiet); font-family: var(--mono); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#a-live.running #a-live-text { color: var(--text); }
+#a-live-time { color: var(--quiet); font-variant-numeric: tabular-nums; }
+/* The one orange thing on screen while it asks: this pane's ring. */
+#a-ask { display: grid; gap: 0.75rem; padding: 1rem; border-radius: 1.875rem; }
+.calls #a-ask, .calls #a-ask.lensed::after { box-shadow: var(--glass-shadow), inset 0 0 0 1.5px var(--waiting); }
+#a-ask-lead { font-size: 1.0625rem; font-weight: 600; }
+#a-ask-text {
+  display: block; max-height: 9rem; overflow-y: auto; padding: 0.6875rem 0.8125rem; border-radius: 0.875rem;
+  background: var(--code); font: 0.9375rem/1.4 var(--mono); letter-spacing: 0; white-space: pre-wrap;
+}
+#a-ask .answer button { min-height: 3.125rem; border-radius: 1.5625rem; }
+#a-ask #a-deny { background: var(--fill); }
+
+/* The field. */
+#quick { display: flex; flex-wrap: wrap; gap: 0.5rem; padding-bottom: 0.625rem; }
+#quick button { min-height: 2.375rem; padding: 0 1rem; border-radius: 1.1875rem; font-size: 0.9375rem; font-weight: 500; }
+#send-form { display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.3125rem 0.3125rem 0.3125rem 1.125rem; border-radius: 1.5rem; }
+/* Answering a question: the field takes the call's ring, and says whom the answer goes to. */
+#answer-lead { display: flex; align-items: center; gap: 0.375rem; padding: 0 0.5rem 0.5rem; color: var(--waiting-text); font-size: 0.8125rem; font-weight: 600; }
+#answer-lead svg { width: 0.8125rem; height: 0.8125rem; }
+.answering #send-form, .answering #send-form.lensed::after { box-shadow: var(--glass-shadow), inset 0 0 0 1.5px var(--waiting); }
+#text {
+  flex: 1; min-height: 2.375rem; max-height: 8rem; resize: none; padding: 0.5rem 0;
+  border: 0; outline: 0; background: none; color: inherit;
+  font: max(1.0625rem, 16px)/1.35 system-ui, -apple-system, sans-serif; letter-spacing: -0.01em;   /* under 16 px iOS zooms on focus */
+}
+#text::placeholder { color: var(--faint); }
+#send { display: grid; place-items: center; width: 2.375rem; min-width: 2.375rem; min-height: 2.375rem; padding: 0; border-radius: 50%; }
+#send svg { width: 1.125rem; height: 1.125rem; }
+/* Nothing to send: the button rests. */
+#send-form:has(#text:placeholder-shown) #send { background: var(--fill); color: var(--faint); box-shadow: none; }
+#send-error { padding: 0.375rem 1rem 0; }
+
+/* ---- sheets: they rise from the foot, float clear of the edges, and close by a tap outside */
+
+/* A sheet stands on what is seen: above the keyboard when one is up, and no taller than the room over it. */
+.sheet {
+  width: calc(100% - 1rem); max-width: 30rem;
+  margin: auto auto calc(100dvh - var(--seen) + max(env(safe-area-inset-bottom), 0.5rem));
+  max-height: calc(var(--seen) - env(safe-area-inset-top) - 1rem); overflow-y: auto;
+  padding: 0.5rem 1rem 1.25rem; border: 0; border-radius: 2.375rem;
+  background: var(--window); color: inherit; box-shadow: 0 20px 60px #00000040;
+}
+.sheet[open] { display: grid; gap: 0; animation: rise var(--push); }
+.sheet::before { content: ""; justify-self: center; width: 2.25rem; height: 0.3125rem; margin-bottom: 0.375rem; border-radius: 1rem; background: var(--faint); }
+.sheet::backdrop { background: var(--scrim); animation: fade var(--push); }
+@keyframes rise { from { transform: translateY(100%); } }
+@keyframes fade { from { opacity: 0; } }
+.sheet h2 { font-size: 1.0625rem; font-weight: 600; }
+.sheet h3 { font-size: 1.0625rem; font-weight: 400; }
+/* The sheet's bar: cancel on the left in glass, the title in the middle, confirm on the right in the accent. */
+.sheet-head { display: flex; align-items: center; gap: 0.5rem; margin: 0 -0.375rem 0.875rem; }
+.sheet-head h2 { flex: 1; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A cell in an inset group: the Mac, notifications, leaving. */
+.cell { display: flex; align-items: center; gap: 0.75rem; min-height: 3.25rem; padding: 0.625rem 1rem; border-radius: 1.625rem; background: var(--cell); }
+.cell + .cell { margin-top: 1.5rem; }
+.cell > div { flex: 1; min-width: 0; display: grid; gap: 0.125rem; }
+.cell p { font-size: 0.8125rem; }
+.badge { display: grid; place-items: center; width: 1.875rem; height: 1.875rem; flex: none; border-radius: 0.5rem; color: #fff; }
+.badge svg { width: 1.125rem; height: 1.125rem; stroke-width: 1.5; }
+.badge.mac { background: linear-gradient(#8e9399, #5f6469); }
+.badge.bell { background: linear-gradient(#ff6b5f, #ff3b30); }
+#menu-link { display: flex; align-items: center; gap: 0.375rem; }
+.light { width: 0.4375rem; height: 0.4375rem; flex: none; border-radius: 50%; background: var(--green); }
+#menu-link.off .light { background: var(--waiting); }
+button.cell { width: 100%; justify-content: flex-start; font-weight: 400; text-align: left; }
+button.cell:active:not(:disabled) { transform: none; }
+/* The switch: Safari draws <input switch> as iOS's own; elsewhere it is a checkbox. */
+#push-toggle { flex: none; margin: 0; accent-color: var(--green); }
+
+/* Start an agent: the agent as a row with the system's menu, the task in its own group. */
+#start-form { display: grid; }
+#start-form .cell { justify-content: space-between; }
+#start-kind {
+  min-width: 0; max-width: 60%; min-height: var(--tap); padding: 0 1.25rem 0 0.5rem; border: 0;
+  background: none; color: var(--quiet); font: inherit; text-align: right; -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 0.375rem center, right 0 center; background-size: 0.375rem 0.375rem; background-repeat: no-repeat;
+}
+.caption { margin: 1.5rem 1rem 0.4375rem; color: var(--quiet); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.02em; }
+#start-text {
+  min-height: 8rem; padding: 0.75rem 1rem; border: 0; border-radius: 1.625rem; resize: none;
+  background: var(--cell); color: inherit; font: inherit; font-size: max(1.0625rem, 16px);
+}
+#start-text:focus { outline: 0; box-shadow: inset 0 0 0 1.5px var(--accent); }
+#start-error { padding: 0.5rem 1rem 0; }
+
+/* Leaving: the question, then the red choice and Cancel apart, as an action sheet has them. */
+#confirm { padding-top: 1.25rem; }
+#confirm::before { content: none; }
+#confirm-text { padding: 0 0.5rem 1rem; color: var(--quiet); font-size: 0.9375rem; text-align: center; }
+#confirm-error { padding: 0 0.5rem 0.75rem; text-align: center; }
+.ends { display: grid; gap: 0.625rem; }
+.ends button { min-height: 3.25rem; border-radius: 1.625rem; background: var(--cell); font-size: 1.0625rem; }
+#confirm .ends { grid-template-areas: "yes" "no"; }
+#confirm-yes { grid-area: yes; }
+#confirm-no { grid-area: no; font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation: none !important; transition: none !important; }
+}

@@ -40,18 +40,38 @@ actor PhoneBridge {
             return request
         }
     }
-    /// An event stream a phone holds open: its lines go out one at a time, in order.
+    /// An event stream a phone holds open: its lines go out one at a time, in order, to the relay or down the phone's
+    /// own connection to this Mac. `end`: the phone is told it's over (`telling`), and nothing more is written.
     struct Stream {
         var device: String, key: SymmetricKey, number: Int64, sent = 0
-        var lines: AsyncStream<[String: JSONValue]>.Continuation
+        var write: @Sendable (String) -> Void = { _ in }
+        var end: @Sendable (_ telling: Bool) -> Void = { _ in }
     }
+    /// How a phone reaches this Mac (`phone.via`): through a relay, or straight to the page kelpd serves itself, over
+    /// Tailscale or at an address of the user's own.
+    enum Way: Equatable {
+        case relay(URL)
+        case tailscale(port: Int)
+        case address(String?, port: Int)
+        var name: String {
+            switch self {
+            case .relay: "relay"
+            case .tailscale: "tailscale"
+            case .address: "address"
+            }
+        }
+    }
+    var way: Way?   // nil: off
     private var relay: Relay?
     private var following: Task<Void, Never>?
-    private var connected = false, failure: String?
+    var server: PhoneServer?
+    /// This Mac's name in its tailnet once Tailscale serves the page ("https://mac.tail1234.ts.net:8443").
+    var tailnet: String?
+    var connected = false, failure: String?
     private var record: PhoneRecord?
     private var devices: [String: PhoneDevice] = [:]
     private var pairing: (key: SymmetricKey, link: String, until: Date)?
-    private var streams: [String: Stream] = [:]
+    var streams: [String: Stream] = [:]
     /// The agents as the phones were last told.
     private var shown: [String: [String: JSONValue]] = [:]
     /// Each project's icon file by its folder, nil for none, and when it was looked for (PhoneBridge+Projects.swift).
@@ -104,19 +124,44 @@ actor PhoneBridge {
 // MARK: - On and off, what's kept
 
 extension PhoneBridge {
-    /// Follows `phone.relay`: connected to the address it names, and to nothing once it's empty or the daemon stops.
+    /// The way Settings › Phone names. Nothing chosen but a relay's address there: a relay, as Kelp 0.14 kept it.
+    private func wanted() -> Way? {
+        let port = Int(settings[SettingKeys.phonePort])
+        let relay = PhonePush.url(settings[SettingKeys.phoneRelay])
+        switch settings[SettingKeys.phoneVia] {
+        case "tailscale": return .tailscale(port: port)
+        case "address":
+            return .address(PhonePush.url(settings[SettingKeys.phoneAddress])?.absoluteString, port: port)
+        case "relay": return (relay ?? URL(string: SettingKeys.phoneRelayAddress)).map(Way.relay)
+        default: return relay.map(Way.relay)
+        }
+    }
+
+    /// Follows Settings › Phone: the relay's connection or this Mac's own server, and nothing once it's off or the
+    /// daemon stops.
     private func apply() {
-        let base = asker == nil ? nil : PhonePush.url(settings[SettingKeys.phoneRelay])
-        guard base != relay?.base else { return }
+        let want = asker == nil ? nil : wanted()
+        guard want != way else { return }
         following?.cancel()
         following = nil
+        server?.stop()
+        server = nil
         cut(streams.keys)
-        (relay, connected, failure, pairing, shown) = (nil, false, nil, nil, [:])
-        guard let base, let identity = load() else { return }
-        let relay = Relay(base: base, mac: identity.mac, secret: identity.secret)
-        self.relay = relay
+        if case .tailscale = way { PhoneTailscale.stopServing(offloads) }
+        (way, relay, connected, failure, pairing, shown, tailnet) = (nil, nil, false, nil, nil, [:], nil)
+        guard let want, let identity = load() else { return }
+        way = want
         for session in sessions() where PhoneAgent.shown(session) { shown[session.id] = agent(session) }
-        following = Task { await follow(relay) }
+        switch want {
+        case .relay(let base):
+            let relay = Relay(base: base, mac: identity.mac, secret: identity.secret)
+            self.relay = relay
+            following = Task { await follow(relay) }
+        case .tailscale(let port):
+            serve(port)
+            following = Task { await followTailscale(port) }
+        case .address(_, let port): serve(port)
+        }
     }
 
     /// This Mac's id and secret at the relay and the phones paired before; made on the first turn-on. A Mac whose
@@ -174,21 +219,34 @@ extension PhoneBridge {
         if let until = pairing?.until, until < Date() { pairing = nil }
         return PhoneState(
             relay: relay?.base.absoluteString, connected: connected, error: failure, link: pairing?.link,
-            linkUntil: pairing?.until,
+            linkUntil: pairing?.until, via: way?.name, address: address,
             phones: devices.map { PairedPhone(id: $0.key, name: $0.value.name, push: $0.value.push != nil) }
                 .sorted { ($0.name, $0.id) < ($1.name, $1.id) })
     }
 
     /// The link carries a key, for one phone and ten minutes. The phone that seals "pair" with it keeps it.
     func pair() throws -> PhoneState {
-        guard let relay else { throw RPCError.invalidParams("Turn Phone on first.") }
+        guard way != nil, let mac = record?.mac else { throw RPCError.invalidParams("Turn Phone on first.") }
+        guard let address else {
+            throw RPCError.invalidParams(failure ?? "Kelp doesn't know yet at what address a phone finds this Mac.")
+        }
         let key = PhoneSeal.random(32)
-        let address = relay.base.absoluteString.trimmingCharacters(in: ["/"])
         pairing = (
-            SymmetricKey(data: key), "\(address)/#pair=\(relay.mac).\(key.base64URL)",
-            Date().addingTimeInterval(600)
+            SymmetricKey(data: key), "\(address)/#pair=\(mac).\(key.base64URL)", Date().addingTimeInterval(600)
         )
         return state()
+    }
+
+    /// Where a phone opens the page: the relay, this Mac's name in its tailnet, or the address the user gave.
+    private var address: String? {
+        let found: String? =
+            switch way {
+            case .relay(let base): base.absoluteString
+            case .tailscale: tailnet
+            case .address(let address, _): address
+            case nil: nil
+            }
+        return found?.trimmingCharacters(in: ["/"])
     }
 
     func unpair(_ device: String) -> PhoneState {
@@ -201,7 +259,7 @@ extension PhoneBridge {
 
 extension PhoneBridge {
     /// What JSON or a seal made, nil with the reason in the log when it couldn't: nothing a phone can be told.
-    private static func sealed<Value>(_ make: () throws -> Value) -> Value? {
+    static func sealed<Value>(_ make: () throws -> Value) -> Value? {
         Log.session.attempt("sealing for a phone", make)
     }
 
@@ -254,7 +312,7 @@ extension PhoneBridge {
     private func keepStreamsOpen() async {
         while true {
             do { try await Task.sleep(for: .seconds(15)) } catch { return }
-            for (id, stream) in streams { stream.lines.yield(["id": .string(id), "line": .string("\n")]) }
+            for stream in streams.values { stream.write("\n") }
         }
     }
 
@@ -297,18 +355,21 @@ extension PhoneBridge {
     private func open(_ stream: Stream, as id: String, _ relay: Relay) {
         let (lines, sending) = AsyncStream.makeStream(of: [String: JSONValue].self)
         var stream = stream
-        stream.lines = sending
+        stream.write = { sending.yield(["id": .string(id), "line": .string($0)]) }
+        stream.end = { telling in
+            if telling { sending.yield(["id": .string(id), "end": .bool(true)]) }
+            sending.finish()
+        }
         streams[id] = stream
         sending.yield(["id": .string(id), "stream": .bool(true)])
         Task { for await line in lines { await send(line, relay) } }
     }
 
     /// `telling`: the relay still holds them open (a phone that left closed its own).
-    private func cut(_ ids: some Sequence<String>, telling: Bool = true) {
+    func cut(_ ids: some Sequence<String>, telling: Bool = true) {
         for id in Array(ids) {
             guard let stream = streams.removeValue(forKey: id) else { continue }
-            if telling, connected { stream.lines.yield(["id": .string(id), "end": .bool(true)]) }
-            stream.lines.finish()
+            stream.end(telling && connected)
         }
     }
 
@@ -325,7 +386,7 @@ extension PhoneBridge {
             else { continue }
             stream.sent += 1
             streams[id] = stream
-            stream.lines.yield(["id": .string(id), "line": .string(String(decoding: line, as: UTF8.self) + "\n")])
+            stream.write(String(decoding: line, as: UTF8.self) + "\n")
         }
     }
 }
@@ -406,8 +467,7 @@ extension PhoneBridge {
             forget(id)
             return done.map(Admitted.answer) ?? .refused(401)
         case "events":
-            let (_, none) = AsyncStream.makeStream(of: [String: JSONValue].self)
-            return .events(Stream(device: id, key: device.key, number: number, lines: none))
+            return .events(Stream(device: id, key: device.key, number: number))
         default: return .ask(ask, device: id, key: device.key)
         }
     }
@@ -516,7 +576,7 @@ extension PhoneBridge {
 
     /// A session's saved change: the phones hear of an agent that looks different now, or went.
     private func tell(_ session: Session) {
-        guard relay != nil else { return }
+        guard way != nil else { return }
         guard PhoneAgent.shown(session) else {
             if shown.removeValue(forKey: session.id) != nil { say("removed", .object(["id": .string(session.id)])) }
             return
@@ -548,7 +608,7 @@ extension PhoneBridge {
     /// To every phone that takes pushes; when to tell and what the words may say is `ExtensionEvents`' (PhonePush).
     private func push(title: String, body: String, agent: String) {
         let to = devices.compactMapValues(\.push)
-        guard relay != nil, !to.isEmpty, let key = vapid() else { return }
+        guard way != nil, !to.isEmpty, let key = vapid() else { return }
         let waiting = shown.values.filter { $0["status"]?.string == AgentStatus.waiting.rawValue }.count
         let payload: [String: JSONValue] = [
             "title": .string(title), "body": .string(body), "agent": .string(agent), "waiting": .int(waiting)

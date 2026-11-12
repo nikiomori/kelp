@@ -52,6 +52,13 @@ public enum SettingKeys {
     public static let phoneDetails = Setting("phone.details", false)
     /// The relay that passes phones' calls to this Mac (Settings › Phone); empty: off.
     public static let phoneRelay = Setting("phone.relay", "")
+    /// How a phone reaches this Mac: "tailscale", "address" (the user's own, `phone.address`), "relay"; empty: off,
+    /// or a relay when `phone.relay` names one (as Kelp 0.14 kept it).
+    public static let phoneVia = Setting("phone.via", "")
+    /// The address the user's own tunnel or proxy shows this Mac's phone page at.
+    public static let phoneAddress = Setting("phone.address", "")
+    /// The port of localhost kelpd serves the phone's page on, for Tailscale or a tunnel to point at.
+    public static let phonePort = Setting<Double>("phone.port", 47611)
     /// Whether a paired phone may start a new agent (Settings › Phone); answering the ones that run needs no switch.
     public static let phoneStartAgents = Setting("phone.startAgents", false)
     /// Kelp's own relay: what the switch in Settings › Phone writes.

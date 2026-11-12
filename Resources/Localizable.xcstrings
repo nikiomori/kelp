@@ -22130,6 +22130,96 @@
           }
         }
       }
+    },
+    "How the phone reaches this Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как телефон доходит до этого Mac"
+          }
+        }
+      }
+    },
+    "Tailscale": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tailscale"
+          }
+        }
+      }
+    },
+    "Your Own Address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой адрес"
+          }
+        }
+      }
+    },
+    "Kelp’s Relay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ретранслятор Kelp"
+          }
+        }
+      }
+    },
+    "The phone opens this Mac by its name in your tailnet, straight from Kelp. Both need Tailscale, signed in to the same account.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон открывает этот Mac по его имени в вашей сети Tailscale, напрямую из Kelp. На обоих нужен Tailscale с одной учётной записью."
+          }
+        }
+      }
+    },
+    "Kelp serves the phone’s page itself at http://127.0.0.1:%lld. Point your tunnel or proxy there and give the HTTPS address the phone opens.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp сам отдаёт страницу телефона по адресу http://127.0.0.1:%lld. Направьте туда свой туннель или прокси и укажите HTTPS-адрес, который откроет телефон."
+          }
+        }
+      }
+    },
+    "The page and the sealed calls go through Kelp’s server at phone.kelpide.com. It can’t read the calls, but the page your phone runs comes from it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница и зашифрованные вызовы идут через сервер Kelp phone.kelpide.com. Вызовы он прочитать не может, но страницу, которую открывает телефон, отдаёт он."
+          }
+        }
+      }
+    },
+    "Give the address the phone opens.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Укажите адрес, который откроет телефон."
+          }
+        }
+      }
+    },
+    "Ready at %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

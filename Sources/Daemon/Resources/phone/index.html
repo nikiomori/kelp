@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kelp</title>
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef0f2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1f2226">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kelp">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/192.png">
+<link rel="apple-touch-icon" href="/icons/180.png">
+<link rel="stylesheet" href="/app.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body data-screen="boot">
+
+<!-- The lens of the glass: it bends what lies under a pane toward its rim. The map comes from the pane's own
+     shape (its blurred edge, then its slope by x and y), so no image is loaded. -->
+<svg width="0" height="0" aria-hidden="true" focusable="false"><filter id="lens" color-interpolation-filters="sRGB">
+  <feGaussianBlur in="SourceAlpha" stdDeviation="5"/>
+  <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="height"/>
+  <feConvolveMatrix in="height" order="3" kernelMatrix="-1 0 1 -2 0 2 -1 0 1" divisor="0.5" bias="0.5" edgeMode="duplicate" preserveAlpha="true"/>
+  <feColorMatrix values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0 1" result="x"/>
+  <feConvolveMatrix in="height" order="3" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" divisor="0.5" bias="0.5" edgeMode="duplicate" preserveAlpha="true"/>
+  <feColorMatrix values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 0 1"/>
+  <feComposite in2="x" operator="arithmetic" k2="1" k3="1"/>
+  <feGaussianBlur stdDeviation="1.5" result="map"/>
+  <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="soft"/>
+  <!-- Each colour bends a little more than the last: the fringe a thick rim has. -->
+  <feDisplacementMap in="soft" in2="map" scale="32" xChannelSelector="R" yChannelSelector="G"/>
+  <feColorMatrix values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red"/>
+  <feDisplacementMap in="soft" in2="map" scale="37" xChannelSelector="R" yChannelSelector="G"/>
+  <feColorMatrix values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green"/>
+  <feDisplacementMap in="soft" in2="map" scale="42" xChannelSelector="R" yChannelSelector="G"/>
+  <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
+  <feBlend in2="green" mode="screen"/>
+  <feBlend in2="red" mode="screen"/>
+</filter></svg>
+
+<main id="pair" class="screen">
+  <img src="/icons/192.png" alt="" width="80" height="80">
+  <h1>Kelp</h1>
+  <p id="pair-text" role="status"></p>
+  <ol id="pair-steps" hidden></ol>
+  <button id="pair-copy" type="button" class="primary" hidden></button>
+  <button id="pair-here" type="button" hidden></button>
+  <button id="pair-paste" type="button" class="primary" hidden></button>
+  <form id="pair-form" hidden>
+    <input id="pair-link" type="url" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false">
+    <button id="pair-go" type="submit" class="primary"></button>
+  </form>
+  <p id="pair-note" class="note" role="status"></p>
+</main>
+
+<!-- The list, as iOS lays one out: the Mac's name as the large title, how many need you under it, then each project
+     as a section with its agents. The name moves into the bar once it scrolls away. -->
+<main id="list" class="screen">
+  <header class="bar">
+    <span class="spacer"></span>
+    <p id="mac-inline" class="inline-title" aria-hidden="true"></p>
+    <button id="menu-open" class="icon glass" type="button" aria-haspopup="dialog">
+      <svg aria-hidden="true"><use href="/icons/marks.svg#more"/></svg>
+    </button>
+  </header>
+  <h1 id="mac"></h1>
+  <p id="counts" hidden></p>
+  <p id="offline" class="strip warn" role="status" hidden>
+    <svg aria-hidden="true"><use href="/icons/marks.svg#warn"/></svg>
+    <span id="offline-text"></span>
+  </p>
+  <p id="home-hint" class="strip" hidden>
+    <svg aria-hidden="true"><use href="/icons/marks.svg#bell"/></svg>
+    <span id="home-hint-text"></span>
+    <button id="home-hint-close" class="icon" type="button">
+      <svg aria-hidden="true"><use href="/icons/marks.svg#close"/></svg>
+    </button>
+  </p>
+  <div id="scroll"><ul id="rows"></ul></div>
+  <p id="empty" class="quiet" hidden></p>
+</main>
+
+<!-- An agent: its state in the bar, the conversation under it, the glass dock (live line, ask, field) at its foot. -->
+<main id="agent" class="screen">
+  <header class="bar">
+    <button id="back" class="icon glass" type="button">
+      <svg aria-hidden="true"><use href="/icons/marks.svg#back"/></svg>
+    </button>
+    <div class="who">
+      <h1 id="a-title"></h1>
+      <p id="a-where">
+        <span id="a-state"><svg class="mark" aria-hidden="true"><use id="a-mark"/></svg><span id="a-word" aria-live="polite"></span></span>
+        <span id="a-place"></span>
+      </p>
+    </div>
+    <button id="stop" class="icon glass" type="button" hidden>
+      <svg aria-hidden="true"><use href="/icons/marks.svg#stop"/></svg>
+    </button>
+  </header>
+  <p id="a-offline" class="strip warn" role="status" hidden>
+    <svg aria-hidden="true"><use href="/icons/marks.svg#warn"/></svg>
+    <span id="a-offline-text"></span>
+  </p>
+  <section id="a-card">
+    <div id="a-body">
+      <p id="a-limit" class="dim" hidden></p>
+      <article id="a-reply"></article>
+      <!-- What it asks you, as the last line of the terminal: answered in the prompt below. -->
+      <p id="a-question" hidden><span aria-hidden="true">?</span><span id="a-question-text"></span></p>
+      <p id="a-ended" class="dim" hidden></p>
+    </div>
+    <div id="dock">
+    <!-- What it runs now, and for how long. -->
+    <p id="a-live" class="glass" hidden>
+      <svg class="mark" aria-hidden="true"><use href="/icons/marks.svg#working"/></svg>
+      <span id="a-live-text"></span><time id="a-live-time"></time>
+    </p>
+    <section id="a-ask" class="glass" hidden>
+      <p id="a-ask-lead"></p>
+      <code id="a-ask-text"></code>
+      <div id="a-ask-buttons" class="answer">
+        <button id="a-deny" type="button"></button>
+        <button id="a-allow" type="button" class="primary"></button>
+      </div>
+      <p id="a-ask-note" class="note" role="status"></p>
+    </section>
+    <footer id="composer">
+      <div id="quick" hidden>
+        <button id="quick-continue" type="button"></button>
+        <button id="quick-good" type="button"></button>
+      </div>
+      <p id="answer-lead" hidden>
+        <svg aria-hidden="true"><use href="/icons/marks.svg#send"/></svg><span id="answer-lead-text"></span>
+      </p>
+      <form id="send-form" class="glass">
+        <textarea id="text" rows="1" enterkeyhint="enter" autocapitalize="sentences" placeholder=" "></textarea>
+        <button id="send" type="submit" class="primary">
+          <svg aria-hidden="true"><use href="/icons/marks.svg#send"/></svg>
+        </button>
+      </form>
+      <p id="send-error" class="note" role="alert"></p>
+    </footer>
+    </div>
+  </section>
+</main>
+
+<!-- This phone, as an iOS 26 sheet: a check to close it, the Mac it talks to, notifications, and leaving at the foot. -->
+<dialog id="menu" class="sheet" aria-labelledby="menu-title">
+  <header class="sheet-head">
+    <span class="spacer"></span>
+    <h2 id="menu-title"></h2>
+    <button id="menu-close" class="icon primary" type="button" autofocus>
+      <svg aria-hidden="true"><use href="/icons/marks.svg#check"/></svg>
+    </button>
+  </header>
+  <section class="cell">
+    <span class="badge mac"><svg aria-hidden="true"><use href="/icons/marks.svg#mac"/></svg></span>
+    <div>
+      <h3 id="menu-mac"></h3>
+      <p id="menu-link" class="quiet"><span class="light"></span><span id="menu-link-text"></span></p>
+    </div>
+  </section>
+  <section class="cell">
+    <span class="badge bell"><svg aria-hidden="true"><use href="/icons/marks.svg#bell"/></svg></span>
+    <div>
+      <h3 id="push-title"></h3>
+      <p id="push-state" class="quiet"></p>
+    </div>
+    <!-- Safari draws this as the iOS switch, haptics included. -->
+    <input id="push-toggle" type="checkbox" switch aria-labelledby="push-title" hidden>
+  </section>
+  <button id="disconnect" type="button" class="cell danger"></button>
+</dialog>
+
+<dialog id="start" class="sheet" aria-labelledby="start-title">
+  <form id="start-form">
+    <header class="sheet-head">
+      <button id="start-no" class="icon glass" type="button">
+        <svg aria-hidden="true"><use href="/icons/marks.svg#close"/></svg>
+      </button>
+      <h2 id="start-title"></h2>
+      <button id="start-yes" class="icon primary" type="submit">
+        <svg aria-hidden="true"><use href="/icons/marks.svg#send"/></svg>
+      </button>
+    </header>
+    <label class="cell" for="start-kind">
+      <span id="start-kind-label"></span>
+      <select id="start-kind"></select>
+    </label>
+    <label for="start-text" id="start-text-label" class="caption"></label>
+    <textarea id="start-text" rows="4" enterkeyhint="enter" autocapitalize="sentences" required></textarea>
+    <p id="start-error" class="note" role="alert"></p>
+  </form>
+</dialog>
+
+<dialog id="confirm" class="sheet">
+  <p id="confirm-text"></p>
+  <p id="confirm-error" class="note" role="alert"></p>
+  <div class="ends">
+    <button id="confirm-no" type="button" autofocus></button>
+    <button id="confirm-yes" type="button" class="danger"></button>
+  </div>
+</dialog>
+
+</body>
+</html>

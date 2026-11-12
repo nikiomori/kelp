@@ -118,6 +118,9 @@ import Testing
     let noRow = [
         "accounts.profiles": "the accounts are a list of their own, under Settings › Agents",
         "extensions.disabled": "Settings › Extensions' switches",
+        "phone.via": "Settings › Phone's switch and its way to this Mac",
+        "phone.address": "Settings › Phone's address, under Your Own Address",
+        "phone.port": "the port Kelp serves the phone's page on: settings.json only",
         "phone.startAgents": "Settings › Phone's second switch, under the first",
         "phone.relay": "Settings › Phone's switch: the relay's address, another only in settings.json",
         "editor.languageServers": "a language server's own options and settings, by its command: settings.json only",

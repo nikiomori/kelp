@@ -41,7 +41,8 @@ let package = Package(
         .target(name: "Daemon", dependencies: ["Core", "GitKit", "Agents", "Integrations", "AgentData", "LSPKit", .product(name: "GRDB", package: "GRDB.swift"),
                                                .product(name: "PostgresNIO", package: "postgres-nio"), .product(name: "MySQLNIO", package: "mysql-nio"),
                                                .product(name: "NIOCore", package: "swift-nio"), .product(name: "NIOPosix", package: "swift-nio"),
-                                               .product(name: "NIOSSL", package: "swift-nio-ssl"), .product(name: "Logging", package: "swift-log")]),
+                                               .product(name: "NIOSSL", package: "swift-nio-ssl"), .product(name: "Logging", package: "swift-log")],
+                resources: [.copy("Resources/phone")]),   // the phone's page, which kelpd serves itself (PhoneServer)
         .target(name: "TerminalKit", dependencies: ["Core", "GhosttyKit"], linkerSettings: ghosttyLinks),
         .executableTarget(name: "kelpd", dependencies: ["Daemon"]),
         .executableTarget(name: "kelp", dependencies: ["Core"]),

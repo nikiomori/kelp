@@ -6,14 +6,20 @@ import KelpKit
 import SwiftUI
 
 /// Settings › Phone: the agents on a phone's browser. The switch, the code a phone scans to pair (one phone, ten
-/// minutes), the phones paired and whether the relay is reached. Watched (`phone`) while the page shows.
+/// minutes), how the phone reaches this Mac and whether it's ready, the phones paired. Watched (`phone`) while the
+/// page shows.
 struct PhoneSettings: View {
     let app: AppModel
     @State private var watched: Watched?
 
     private var state: PhoneState? { app.latest(PhoneEvent.self)?.state }
 
-    private var isOn: Bool { !app.settings[SettingKeys.phoneRelay].isEmpty }
+    /// How the phone reaches this Mac: what `phone.via` says, else a relay when one is named (as Kelp 0.14 kept it).
+    private var via: String {
+        let via = app.settings[SettingKeys.phoneVia]
+        return via.isEmpty && !app.settings[SettingKeys.phoneRelay].isEmpty ? "relay" : via
+    }
+    private var isOn: Bool { !via.isEmpty }
 
     var body: some View {
         Section {
@@ -21,7 +27,10 @@ struct PhoneSettings: View {
                 "Agents on your phone",
                 isOn: Binding(
                     get: { isOn },
-                    set: { app.settings.set(SettingKeys.phoneRelay, $0 ? SettingKeys.phoneRelayAddress : "") }))
+                    set: { on in
+                        app.settings.set(SettingKeys.phoneVia, on ? "tailscale" : "")
+                        if !on { app.settings.set(SettingKeys.phoneRelay, "") }
+                    }))
         } footer: {
             Text(
                 """
@@ -37,6 +46,7 @@ struct PhoneSettings: View {
             watched = watching
         }
         if isOn {
+            way
             Section {
                 Toggle(
                     "Start agents from the phone",
@@ -47,13 +57,13 @@ struct PhoneSettings: View {
                 Text("Off: a phone reads, answers, writes to and stops the agents that run, and starts none.")
             }
         }
-        if isOn, let state, state.relay != nil {
+        if isOn, let state, state.via != nil {
             Section("Pair a Phone") {
                 reached(state)
                 if let link = state.link {
                     code(link, until: state.linkUntil)
                 } else {
-                    Button("Show Pairing Code") { Task { await pair() } }
+                    Button("Show Pairing Code") { Task { await pair() } }.disabled(state.address == nil)
                 }
             }
             Section("Paired Phones") {
@@ -82,14 +92,61 @@ struct PhoneSettings: View {
 
     private func pair() async { if await app.call(PhonePair()) != nil { app.watchAgain(.phone) } }
 
+    /// Tailscale, an address of the user's own, or Kelp's relay; each says what it needs.
+    @ViewBuilder private var way: some View {
+        let port = Int(app.settings[SettingKeys.phonePort])
+        Section {
+            Picker(
+                "How the phone reaches this Mac",
+                selection: Binding(get: { via }, set: { app.settings.set(SettingKeys.phoneVia, $0) })
+            ) {
+                Text("Tailscale").tag("tailscale")
+                Text("Your Own Address").tag("address")
+                Text("Kelp’s Relay").tag("relay")
+            }
+            if via == "address" {
+                TextField(
+                    "Address",
+                    text: Binding(
+                        get: { app.settings[SettingKeys.phoneAddress] },
+                        set: { app.settings.set(SettingKeys.phoneAddress, $0) }),
+                    prompt: Text(verbatim: "https://mac.example.com"))
+            }
+        } footer: {
+            switch via {
+            case "tailscale":
+                Text(
+                    """
+                    The phone opens this Mac by its name in your tailnet, straight from Kelp. Both need Tailscale, \
+                    signed in to the same account.
+                    """)
+            case "address":
+                Text(
+                    """
+                    Kelp serves the phone’s page itself at http://127.0.0.1:\(port). Point your tunnel or proxy \
+                    there and give the HTTPS address the phone opens.
+                    """)
+            default:
+                Text(
+                    """
+                    The page and the sealed calls go through Kelp’s server at phone.kelpide.com. It can’t read the \
+                    calls, but the page your phone runs comes from it.
+                    """)
+            }
+        }
+    }
+
     private func reached(_ state: PhoneState) -> some View {
-        let host = state.relay.flatMap { URL(string: $0)?.host } ?? ""
+        let host = (state.address ?? state.relay).flatMap { URL(string: $0)?.host } ?? ""
         return HStack(spacing: Metrics.gap) {
-            Circle().fill(state.connected ? Color(nsColor: .systemGreen) : .secondary).frame(width: 7, height: 7)
-            if state.connected {
-                Text("Connected to \(host)")
-            } else if let error = state.error {
-                Text("Can’t reach \(host): \(error)").foregroundStyle(Color.textRed)
+            Circle().fill(state.connected && state.address != nil ? Color(nsColor: .systemGreen) : .secondary)
+                .frame(width: 7, height: 7)
+            if let error = state.error {
+                Text(error).foregroundStyle(Color.textRed)
+            } else if state.address == nil {
+                Text("Give the address the phone opens.").foregroundStyle(.secondary)
+            } else if state.connected {
+                Text("Ready at \(host)")
             } else {
                 Text("Connecting to \(host)…").foregroundStyle(.secondary)
             }

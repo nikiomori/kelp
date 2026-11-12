@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <!-- Kelp's status marks (StatusStyle.swift): the shape says the state. Stroke and fill come from app.css. -->
+  <symbol id="waiting" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><circle cx="8" cy="8" r="2.7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="error" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor" stroke="none"/><path d="M8 4.4v4.3" stroke="#fff" stroke-width="1.7"/><circle cx="8" cy="11.4" r="1" fill="#fff" stroke="none"/></symbol>
+  <symbol id="working" viewBox="0 0 16 16"><path d="M8 1.8v3.4M8 10.8v3.4M1.8 8h3.4M10.8 8h3.4M3.6 3.6L6 6M10 10l2.4 2.4M12.4 3.6L10 6M6 10l-2.4 2.4"/></symbol>
+  <symbol id="done" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M5.2 8.3l2 2 3.7-4.3"/></symbol>
+  <symbol id="limit" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.3 1.5"/></symbol>
+  <symbol id="hibernated" viewBox="0 0 16 16"><path d="M12.6 9.6A5.2 5.2 0 0 1 6.4 3.4a5.3 5.3 0 1 0 6.2 6.2z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="exited" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M5.9 5.9l4.2 4.2M10.1 5.9l-4.2 4.2"/></symbol>
+  <symbol id="idle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/></symbol>
+  <symbol id="plus" viewBox="0 0 16 16"><path d="M8 3.2v9.6M3.2 8h9.6"/></symbol>
+  <symbol id="branch" viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="1.7"/><circle cx="4.5" cy="12.5" r="1.7"/><circle cx="11.5" cy="5.5" r="1.7"/><path d="M4.5 5.2v5.6M11.5 7.2c0 2.6-7 1.6-7 3.6"/></symbol>
+  <symbol id="term" viewBox="0 0 16 16"><path d="M3 4.5l3.5 3.5L3 11.5M8.5 12h4.5"/></symbol>
+  <symbol id="warn" viewBox="0 0 16 16"><path d="M8 2.2l6.3 11H1.7z"/><path d="M8 6.5v3.2"/><circle cx="8" cy="11.6" r=".6" fill="currentColor"/></symbol>
+  <symbol id="bell" viewBox="0 0 16 16"><path d="M4 11.5V7a4 4 0 0 1 8 0v4.5l1 1H3zM6.7 14h2.6"/></symbol>
+  <symbol id="send" viewBox="0 0 16 16"><path d="M8 13V3.5M4 7.3l4-4 4 4" stroke-width="2"/></symbol>
+  <symbol id="back" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></symbol>
+  <symbol id="more" viewBox="0 0 16 16"><g fill="currentColor" stroke="none"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></g></symbol>
+  <symbol id="stop" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="mac" viewBox="0 0 16 16"><rect x="1.8" y="2.8" width="12.4" height="8.4" rx="1.2"/><path d="M5.5 13.6h5M8 11.2v2.4"/></symbol>
+  <symbol id="check" viewBox="0 0 16 16"><path d="M3.5 8.4l3 3 6-6.8" stroke-width="2.2"/></symbol>
+  <symbol id="close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+</svg>

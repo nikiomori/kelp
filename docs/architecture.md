@@ -209,9 +209,10 @@ else a `NotificationCenter` name.
   `SessionProcesses` (what runs under the sessions: ports, CPU and memory, a remote project's forwarded ports, a host's
   load), `Turns` (the snapshot each agent's turn began with, for its diff, undo and redo), `PermissionWaits` (a
   permission question's hook waiting for Allow or Deny); and `Callers` (who calls), `ExtensionEvents` (what extensions
-  run and the phone hears when an agent asks, finishes or fails), `PhoneBridge` (the agents on a paired phone: it keeps
-  a connection to a relay that passes the phone's sealed calls, answers them as the user (the agents and their
-  conversations, Allow, a reply, starting an agent in a project it lists), and sends Web Push itself;
+  run and the phone hears when an agent asks, finishes or fails), `PhoneBridge` (the agents on a paired phone: it serves
+  the phone's page itself on a port of localhost (`PhoneServer`, which Tailscale or the user's own tunnel brings the
+  phone to), or keeps a connection to a relay that passes the phone's sealed calls; it answers them as the user (the
+  agents and their conversations, Allow, a reply, Stop, starting an agent where Settings allow it), and sends Web Push itself;
   off until `phone.relay` is set), `AgentUpdates` (Claude Code restarted into its update),
   and in `Workspaces`, `Databases` (a project's databases, found in its files or added by hand, and what ran on them).
   A method's handler is handed one service (`Handled.Service`: `handle(_ sessions: Sessions)`), never the daemon, so it
