@@ -2653,6 +2653,30 @@
         ],
         "type" : "object"
       },
+      "LandedEvent" : {
+        "description" : "A branch group done with by itself (`Workspaces.tidyBranch`): its work is in the base branch now. `archived`: chats were left on it, so it was put away with them (Window › Archived Groups) rather than removed.",
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "base" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "worktree" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "archived",
+          "base",
+          "name",
+          "worktree"
+        ],
+        "type" : "object"
+      },
       "LimitHit" : {
         "description" : "A plan limit that stopped a session's turn.",
         "properties" : {
@@ -13068,6 +13092,13 @@
       "name" : "event.host",
       "params" : {
         "$ref" : "#/components/schemas/HostEvent"
+      }
+    },
+    {
+      "description" : "A branch group done with by itself (`Workspaces.tidyBranch`): its work is in the base branch now. `archived`: chats were left on it, so it was put away with them (Window › Archived Groups) rather than removed.",
+      "name" : "event.landed",
+      "params" : {
+        "$ref" : "#/components/schemas/LandedEvent"
       }
     },
     {

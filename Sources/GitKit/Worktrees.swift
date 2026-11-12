@@ -338,6 +338,31 @@ extension Git {
         return Int(out ?? "") ?? 0
     }
 
+    /// Whether `branch` was made with a group made at `since` and has moved since: its oldest reflog entry, its making, is
+    /// from then (a minute either side) and not where it is now. A branch that was there before (one opened to look at)
+    /// or that git didn't log the making of says no: what it holds isn't the group's own work.
+    public static func moved(repo: String, _ branch: String, since: Date, remotes: Remotes) throws -> Bool {
+        let ref = "refs/heads/" + branch
+        guard isRevision(branch), succeeds(["rev-parse", "--verify", "--quiet", ref], cwd: repo, remotes: remotes)
+        else {
+            return false
+        }
+        let tip = try line(["rev-parse", ref], cwd: repo, remotes: remotes)
+        let log = try run(["reflog", "show", "--format=%H %ct", ref], cwd: repo, remotes: remotes)
+        guard let oldest = log.split(separator: "\n").last?.split(separator: " "), oldest.count == 2,
+            let made = TimeInterval(String(oldest[1]))
+        else { return false }
+        return abs(made - since.timeIntervalSince1970) < 60 && String(oldest[0]) != tip
+    }
+
+    /// Whether the commit `branch` is on now is in `base` (merged or fast-forwarded there).
+    public static func isIn(repo: String, _ branch: String, base: String, remotes: Remotes) -> Bool {
+        isRevision(branch) && isRevision(base) && branch != base
+            && succeeds(
+                ["merge-base", "--is-ancestor", "refs/heads/" + branch, "refs/heads/" + base], cwd: repo,
+                remotes: remotes)
+    }
+
     /// Commits on `branch` that no other local branch and no remote branch has: what deleting it would lose.
     public static func onlyOnBranch(repo: String, _ branch: String, remotes: Remotes) throws -> Int {
         // --exclude before --branches takes the branch's name without refs/heads/ (with it, nothing is excluded).

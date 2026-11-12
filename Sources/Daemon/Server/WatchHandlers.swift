@@ -23,6 +23,17 @@ extension Daemon {
         }
     }
 
+    /// A folder's pull request. Merged on the forge (a squash leaves the branch's commits out of the base): its group
+    /// may be done with.
+    private func prRead(_ key: String) async -> Data? {
+        let pr = (try? await ask(GitHubBranchPR(worktreeId: key))) ?? nil
+        if let pr, pr.state == "MERGED" {
+            let workspaces = workspaces
+            workspaces.headQueue.async { workspaces.tidyBranch(key, merged: pr) }
+        }
+        return pr.flatMap { line(PREvent(worktree: key, pr: $0)) }
+    }
+
     /// What only a branch group's folder holds (`GitEvent.only`, `dirty`); nothing to say for a project's own folder.
     private func ownWork(_ worktree: Worktree) async throws -> (Int?, Bool?) {
         guard let repo = try store.repo(worktree.repoId), repo.path != worktree.path else { return (nil, nil) }
@@ -78,12 +89,7 @@ extension Daemon {
                 }
             }
         case .pr:
-            return Watches.Topic(backsOffFrom: 10) { [self] _ in
-                (
-                    (try? await ask(GitHubBranchPR(worktreeId: key))).flatMap { line(PREvent(worktree: key, pr: $0)) },
-                    60
-                )
-            }
+            return Watches.Topic(backsOffFrom: 10) { [self] _ in (await prRead(key), 60) }
         case .context:
             // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
             return Watches.Topic { [self] _ in
@@ -280,6 +286,7 @@ extension Daemon {
         case .sessionRemoved(let id, _):
             notify(RemovedEvent(session: id))
             sessions.phone.hear(.removed(id))
+        case .sessionEnded: break   // its record went out as it was saved
         }
     }
 }

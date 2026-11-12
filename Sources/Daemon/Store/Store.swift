@@ -17,6 +17,8 @@ final class Store: Sendable {
     enum Change: Sendable {
         case repo(Repo), worktree(Worktree), repoRemoved(String), worktreeRemoved(String)
         case sessionRemoved(String, workspace: String?)
+        /// Saved as ended (it stays a week, `keepEnded`): its workspace may have nobody left in it.
+        case sessionEnded(workspace: String)
     }
     /// Told of every one, after its write: every write goes through here, so the daemon pushes them from one place.
     /// In a struct: a lock holding the function itself got it back wrapped once more on every read (the generic inout's
@@ -31,8 +33,12 @@ final class Store: Sendable {
         guard let tell = changed.withLock({ $0.tell }) else { return }
         if let repo = record as? Repo { tell(removed ? .repoRemoved(repo.id) : .repo(repo)) }
         if let worktree = record as? Worktree { tell(removed ? .worktreeRemoved(worktree.id) : .worktree(worktree)) }
-        if let session = record as? Session, removed {
-            tell(.sessionRemoved(session.id, workspace: session.worktreeId))
+        if let session = record as? Session {
+            if removed {
+                tell(.sessionRemoved(session.id, workspace: session.worktreeId))
+            } else if session.status == .exited, let workspace = session.worktreeId {
+                tell(.sessionEnded(workspace: workspace))
+            }
         }
     }
 

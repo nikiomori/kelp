@@ -27,7 +27,9 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
   doesn't close. Every other workspace is a group, made on purpose (⇧⌘N), a row of its own with its chats a step further in. It
   opens empty, offering what "+" does, and lives while it's on screen: with its last tab closed it goes when the
   screen moves on, ending nothing and leaving the files. A group an agent made for its helpers (`kelp worktree create`)
-  stands under that agent's chat and goes with its last session, unless something is only there. ⌘N starts the default agent on the screen you're on.
+  stands under that agent's chat and goes with its last session, unless something is only there. Any group on a
+  branch made with it goes by itself once the work done there is in the base branch (merged there, or its pull request
+  merged) and nobody there works or asks: removed, or archived with its chats if it has some, and a banner says so. ⌘N starts the default agent on the screen you're on.
   A group splits the screen, not the code: chats in a project's workspaces share its folder, and one can move between
   them with its agent running (`session.move`).
   A branch splits the code: a group's empty screen offers Own Branch (⌃⌘N makes one at once), a group on a git

@@ -228,6 +228,19 @@ public struct ArtifactsEvent: RPCEvent, Equatable {
 extension Repo: RPCEvent { public static let name = "event.repo" }
 extension Worktree: RPCEvent { public static let name = "event.worktree" }
 
+/// A branch group done with by itself (`Workspaces.tidyBranch`): its work is in the base branch now. `archived`: chats
+/// were left on it, so it was put away with them (Window › Archived Groups) rather than removed.
+public struct LandedEvent: RPCEvent, Equatable {
+    public static let name = "event.landed"
+    public var worktree: String, name: String, base: String, archived: Bool
+    public init(worktree: String, name: String, base: String, archived: Bool) {
+        self.worktree = worktree
+        self.name = name
+        self.base = base
+        self.archived = archived
+    }
+}
+
 /// A project, workspace or session record that's gone (a project takes its workspaces with it; their sessions each say so).
 public struct RemovedEvent: RPCEvent, Equatable {
     public static let name = "event.removed"

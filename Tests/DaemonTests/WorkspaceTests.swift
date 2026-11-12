@@ -136,3 +136,33 @@ import Testing
     #expect(try w.d.store.worktree(clean.id) == nil && !Git.branchExists(w.repo.path, "helper/clean", remotes: .none))
     #expect(try w.d.store.worktree(work.id) != nil && w.d.store.worktree(mine.id) != nil)
 }
+
+/// A branch group whose work is in the base branch goes by itself: removed with nobody on it, archived with its chat.
+/// One opened on a branch that was there already, one with uncommitted files and one with nothing done stay.
+@Test func aBranchWhoseWorkLandedGoesByItself() async throws {
+    let w = try await world(agents: [
+        AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"])
+    ])
+    defer { w.d.stop() }
+    try Git.run(["branch", "old"], cwd: w.repo.path, remotes: .none)   // there before any group
+    let done = try await workspace(w, "done"), chatted = try await workspace(w, "chatted")
+    let dirty = try await workspace(w, "dirty"), idle = try await workspace(w, "idle")
+    var asked = WorktreeCreate(repoId: w.repo.id, branch: "old", setup: false)
+    asked.existing = true
+    let old = try await w.c.call(asked).worktree
+    func commit(_ ws: Worktree, _ name: String) throws {
+        try name.write(toFile: ws.path + "/" + name, atomically: true, encoding: .utf8)
+        try Git.run(["add", name], cwd: ws.path, remotes: .none)
+        try Git.run(["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", name], cwd: ws.path, remotes: .none)
+    }
+    for ws in [done, chatted, dirty] { try commit(ws, ws.branch + ".txt") }
+    try "wip".write(toFile: dirty.path + "/wip.txt", atomically: true, encoding: .utf8)
+    _ = try await w.c.call(SessionCreate(worktreeId: chatted.id, agent: "sleepy"))
+    for branch in ["done", "chatted", "dirty", "old"] {
+        try Git.run(["merge", "-q", "--no-edit", branch], cwd: w.repo.path, remotes: .none)
+    }
+    w.d.workspaces.headQueue.sync { w.d.workspaces.tidyBranches(in: w.repo.id) }
+    #expect(try w.d.store.worktree(done.id) == nil && !Git.branchExists(w.repo.path, "done", remotes: .none))
+    #expect(try w.d.store.worktree(chatted.id)?.archived == true)
+    for kept in [dirty, idle, old] { #expect(try w.d.store.worktree(kept.id)?.archived == false) }
+}

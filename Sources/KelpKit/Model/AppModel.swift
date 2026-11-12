@@ -342,6 +342,16 @@ package final class AppModel {
         case let repo as Repo: record(repo, in: \.repos)
         case let worktree as Worktree: record(worktree, in: \.worktrees)
         case let removal as RemovedEvent: removed(removal)
+        // Said where the row was: it went with nobody asking.
+        case let landed as LandedEvent:
+            Banner.show(
+                landed.archived
+                    ? String(
+                        localized:
+                            "“\(landed.name)” is in \(landed.base) now: put away with its chats. Window › Archived Groups brings it back."
+                    )
+                    : String(
+                        localized: "“\(landed.name)” is in \(landed.base) now: its folder and branch were removed."))
         case let clone as CloneEvent: CloneSheet.cloneProgress(id: clone.id, line: clone.line)
         case let change as SettingsEvent: settings.received(change.settings)
         case let request as UIEvent: UIRequests(self).handle(request)
