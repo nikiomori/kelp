@@ -1,0 +1,18 @@
+# A phone relay of your own (README.md). Put HTTPS in front of it (Caddy, nginx, a tunnel): a phone's page needs it.
+services:
+  relay:
+    image: node:22-alpine
+    restart: unless-stopped
+    user: "1000:1000"
+    mem_limit: 384m        # about 25 KB a connected Mac over 50 MB
+    working_dir: /app
+    command: node relay/server.mjs
+    environment:
+      PORT: "8080"
+      PHONE: /app/phone
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ../Sources/Daemon/Resources/phone:/app/phone:ro
+      - ./server.mjs:/app/relay/server.mjs:ro
+      - ./data:/app/relay/data
