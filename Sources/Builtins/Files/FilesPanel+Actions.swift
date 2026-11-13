@@ -5,7 +5,6 @@ import DesignKit
 import KelpKit
 import Markdown
 import Quartz
-import WorkbenchKit
 
 extension FilesPanel {
     // MARK: rename in place

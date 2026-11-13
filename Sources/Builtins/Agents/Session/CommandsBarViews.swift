@@ -4,7 +4,6 @@ import Core
 import DesignKit
 import KelpKit
 import TerminalKit
-import WorkbenchKit
 
 /// The bar's own line: the last command or the count, what can be done to a run under the pointer, and a chevron. A click
 /// folds or unfolds.

@@ -4,7 +4,6 @@ import Core
 import DesignKit
 import EditorKit
 import KelpKit
-import WorkbenchKit
 
 /// The order a diff's reads and row builds come in: one read at a time, and an answer or rows for what's no longer asked
 /// are dropped. Only `load` and the builds change it.

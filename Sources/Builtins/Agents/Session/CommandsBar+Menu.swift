@@ -3,8 +3,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import TerminalKit
-import WorkbenchKit
 
 extension CommandsBar {
     @objc func clickedRow() { showItem(table.clickedRow) }

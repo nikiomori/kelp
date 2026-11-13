@@ -3,7 +3,6 @@ import Core
 import DesignKit
 import KelpKit
 import UniformTypeIdentifiers
-import WorkbenchKit
 
 /// Under a code file, like Xcode's and BBEdit's: what kind of file it is, where the cursor is, and the indentation the
 /// file uses (no encoding: Kelp opens UTF-8 only, so naming it would say nothing).

@@ -1,6 +1,5 @@
 import AppKit
 import DesignKit
-import KelpKit
 
 /// Finder's keys in the tree: Space previews, ↩ renames, ⌘⌫ moves to the Trash.
 final class FilesOutline: ListOutlineView {

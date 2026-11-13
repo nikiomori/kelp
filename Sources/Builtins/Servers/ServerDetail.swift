@@ -3,7 +3,6 @@ import Core
 import DesignKit
 import KelpKit
 import SwiftUI
-import WorkbenchKit
 
 /// A connected server: the meters over the processes, and Kelp's side of it on the right.
 struct ServerDetail: View {

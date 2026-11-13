@@ -2,7 +2,6 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 
 /// A file (or lines in it) handed to an agent or copied as a link.
 @MainActor

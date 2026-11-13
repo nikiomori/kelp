@@ -1,9 +1,6 @@
 import AppKit
 import Core
-import KelpKit
-import Markdown
 import Quartz
-import WorkbenchKit
 
 final class FileNode: NSObject {
     let name: String, path: String   // path relative to worktree root

@@ -2,7 +2,6 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 
 extension WorkspaceActions {
     private static let editors = [

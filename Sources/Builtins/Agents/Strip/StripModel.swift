@@ -1,7 +1,6 @@
 // The agent strip's values and the pure logic behind them: its items, corners and place, what it shows.
 import AppKit
 import Core
-import DesignKit
 import KelpKit
 
 /// One workspace on the strip: the state that wants you most among its agents, and the agent that is about.

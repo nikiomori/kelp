@@ -4,7 +4,6 @@ import Core
 import DesignKit
 import KelpKit
 import WebKit
-import WorkbenchKit
 
 extension BrowserTab {
     // MARK: Design Mode

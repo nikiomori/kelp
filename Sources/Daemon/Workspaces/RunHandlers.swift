@@ -1,6 +1,5 @@
 import Core
 import Foundation
-import GitKit
 
 // run.detect and run.start: what a workspace offers to run, read where its files are, and starting one.
 

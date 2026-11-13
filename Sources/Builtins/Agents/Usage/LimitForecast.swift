@@ -1,7 +1,6 @@
 import Core
 import DesignKit
 import Foundation
-import KelpKit
 
 /// When a plan limit will be full at the pace it's filling, and whether that comes before it resets. Readings arrive every
 /// ten minutes or so; the pace is the rise over the last two hours (a window that reset starts again), or, until there are

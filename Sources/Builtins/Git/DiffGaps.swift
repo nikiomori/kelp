@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import WorkbenchKit
 
 /// The unchanged lines between two changes: a capsule saying how many and in which function (git's own guess, from the
 /// next hunk's header); a click shows them in place, read from the file as the diff shows it.

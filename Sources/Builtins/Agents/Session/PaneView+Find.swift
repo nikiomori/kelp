@@ -4,7 +4,6 @@ import Core
 import DesignKit
 import KelpKit
 import TerminalKit
-import WorkbenchKit
 
 extension PaneView {
     // MARK: find (Edit › Find reaches the pane through the responder chain)

@@ -1,5 +1,4 @@
 import AppKit
-import KelpKit
 import Quartz
 
 /// Quick Look (Space) for the tree's selection.

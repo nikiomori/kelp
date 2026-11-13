@@ -1,9 +1,7 @@
 // The page scripts behind kelp browser: snapshot, find, click, type, upload, drag, wait, hover, press, scroll.
 import AppKit
 import Core
-import DesignKit
 import WebKit
-import WorkbenchKit
 
 extension BrowserTab {
     /// Counts what changes in the page (and the site's own frames in it), so an action can say whether it did anything:

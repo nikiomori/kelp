@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import Sparkle
-import WorkbenchKit
 
 /// The menu bar under construction: what's placed so far, and adding commands by id.
 @MainActor

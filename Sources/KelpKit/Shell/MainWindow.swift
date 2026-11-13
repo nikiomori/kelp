@@ -3,7 +3,6 @@ import Core
 import DesignKit
 import SwiftUI
 import TerminalKit
-import WorkbenchKit
 
 /// The window, as Arc and Safari are: one surface — projects & agents in the sidebar (the traffic lights sit in it), the
 /// window bar (where you are, ⌘P), the inspector — wrapped round the editor area, a card with rounded corners. The

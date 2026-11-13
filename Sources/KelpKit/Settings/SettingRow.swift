@@ -1,10 +1,8 @@
 // One setting's row, typed by its spec, and the controls it's made of.
-import Agents
 import AppKit
 import Core
 import DesignKit
 import SwiftUI
-import WorkbenchKit
 
 /// One row, typed by its spec; reads and writes settings.json through the daemon. The description is the control's own
 /// label, so macOS sets it, keeps it left of the control and reads it out with it.

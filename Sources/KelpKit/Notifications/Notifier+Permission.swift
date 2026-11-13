@@ -1,5 +1,4 @@
 // Whether macOS lets Kelp post notifications: said once when it doesn't, and Settings' test notification.
-import Agents
 import AppKit
 import Core
 @preconcurrency import UserNotifications   // its center and settings aren't marked Sendable

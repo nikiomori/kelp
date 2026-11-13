@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import WorkbenchKit
 
 struct RowAction {
     let symbol: String, title: String, run: @MainActor () -> Void

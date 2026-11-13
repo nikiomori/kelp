@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import SwiftUI
-import WorkbenchKit
 
 /// The window's split: its dividers aren't drawn (the panels and the gap round the card are one surface), and each can
 /// be dragged across that gap too, not only at the panel's edge.

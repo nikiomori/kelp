@@ -1,6 +1,5 @@
 import AppKit
 import Core
-import KelpKit
 import Quartz
 
 /// Quick Look (Space, or the row's menu) for the picked page: its file, or Kelp's copy of a page on a service.

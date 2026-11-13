@@ -1,7 +1,6 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 
 // MARK: tmux and built-ins' lists
 

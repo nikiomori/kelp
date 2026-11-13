@@ -3,7 +3,6 @@ import Core
 import DesignKit
 import EditorKit
 import KelpKit
-import WorkbenchKit
 
 final class DiffTable: NSTableView {
     var onKey: ((NSEvent) -> Bool)?

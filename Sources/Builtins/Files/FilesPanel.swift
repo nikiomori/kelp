@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import Markdown
 import Quartz
 import WorkbenchKit
 

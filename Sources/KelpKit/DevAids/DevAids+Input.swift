@@ -1,9 +1,7 @@
 // Developer aids, debug builds: the keys KELP_TYPE sends, the hovers KELP_HOVER sends, and the snapshot's end.
 import AppKit
 import Core
-import TerminalKit
 import WebKit
-import WorkbenchKit
 
 #if DEBUG
 

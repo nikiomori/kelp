@@ -1,9 +1,7 @@
-import Agents
 import AppKit
 import Core
 import DesignKit
 import SwiftUI
-import WorkbenchKit
 
 /// Settings: every section comes from an extension's settings schema (plus custom views), searchable, like VS Code.
 @MainActor

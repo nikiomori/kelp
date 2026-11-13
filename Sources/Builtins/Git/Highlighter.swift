@@ -1,6 +1,4 @@
 import AppKit
-import EditorKit
-import KelpKit
 
 /// A diff line's colours: the editor's tree-sitter captures where the diff has them (`DiffColors`); without, it's plain.
 enum Highlighter {

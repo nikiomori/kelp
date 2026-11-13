@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import WorkbenchKit
 
 /// What the Viewed boxes keep: the marks, each file's print, and the write under way.
 struct ViewedMarks {

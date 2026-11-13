@@ -1,9 +1,7 @@
 // What a contribution is: the IDE's context, a panel, an editor, a command, a setting and its section, an icon theme.
-import Agents
 import AppKit
 import Core
 import SwiftUI
-import WorkbenchKit
 
 /// What the IDE knows when a contribution runs: the workspace on screen and what has focus.
 @MainActor

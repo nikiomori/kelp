@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import WorkbenchKit
 
 /// The card a commit shows while the pointer rests on its row, in place of a tooltip: the whole subject and body, who
 /// and when, how big the change is, and the hash to copy. It stays while the pointer is on it.

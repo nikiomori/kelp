@@ -3,7 +3,6 @@ import Core
 import DesignKit
 import EditorKit
 import KelpKit
-import WorkbenchKit
 
 /// How one file is indented and what Save tidies. A choice made in the status bar comes first, then the project's
 /// `.editorconfig`, then what the file itself does, then the settings for its language.

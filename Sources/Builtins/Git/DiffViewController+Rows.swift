@@ -2,9 +2,7 @@
 import AppKit
 import Core
 import DesignKit
-import EditorKit
 import KelpKit
-import WorkbenchKit
 
 extension DiffViewController {
     /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.

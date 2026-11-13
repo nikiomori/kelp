@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import WorkbenchKit
 
 /// A comment being written: where it goes, and its field, kept across the diff being read again (an agent at work).
 @MainActor

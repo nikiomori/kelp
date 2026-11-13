@@ -2,7 +2,6 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 
 extension QuickOpen {
     func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {

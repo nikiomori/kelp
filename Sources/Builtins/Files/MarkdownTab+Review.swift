@@ -1,10 +1,8 @@
 // A review page's answers in the Markdown preview: a point's answer written back, a quote asked about.
 import AppKit
 import Core
-import DesignKit
 import EditorKit
 import KelpKit
-import Markdown
 import WebKit
 
 extension MarkdownTab {

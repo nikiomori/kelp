@@ -1,7 +1,6 @@
 import AppKit
 import Core
 import DesignKit
-import WorkbenchKit
 
 /// What ⌘F in a diff found: the text, the rows holding it, the one stepped to, and its card.
 struct DiffFinding {

@@ -2,7 +2,6 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
-import WorkbenchKit
 
 /// Review comments as findings to pick from (a reviewer agent's or the user's): each open one has a box saying whether
 /// it goes to the agent with Send to Agent (Space flips it on the selected comment), "Fix This One" sends it alone, and
