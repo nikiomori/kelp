@@ -737,3 +737,14 @@ private func standIn(for repo: String) throws -> (folder: String, remotes: Remot
     let link = try Git.webURL(path: folder + "/sub/новый.txt", lines: nil, remotes: remotes)
     #expect(link.hasPrefix("https://github.com/o/r/blob/") && link.contains("/sub/"))
 }
+
+/// A remote project is searched on its host and finds what a search here finds.
+@Test func aRemoteProjectIsSearchedOnItsHost() throws {
+    let repo = try Paths.real(tempRepo()) ?? ""
+    try "needle in a haystack\nanother needle\n".write(toFile: repo + "/n.txt", atomically: true, encoding: .utf8)
+    let (folder, remotes) = try standIn(for: repo)
+    let here = try ProjectFiles.search(repo, query: "needle", remotes: .none)
+    let there = try ProjectFiles.search(folder, query: "needle", remotes: remotes)
+    #expect(there.map(\.path) == here.map(\.path) && there.count == 2)
+    #expect(try ProjectFiles.search(folder, query: "nothing like it", remotes: remotes).isEmpty)
+}

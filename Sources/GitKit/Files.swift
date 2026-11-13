@@ -101,21 +101,26 @@ extension ProjectFiles {
     ) throws -> [SearchMatch] {
         guard !query.isEmpty else { return [] }
         var args: [String], output: (data: Data, truncated: Bool)
-        if let rg = ripgrep, remotes.of(root) == nil {   // remote: git grep runs on the host
-            args = ["--line-number", "--no-heading", "--null", "--color=never", "--max-columns=300", "--max-count=200"]
-            if !regex { args.append("--fixed-strings") }
-            // Like git grep -i below (smart-case would honour capitals).
-            if !caseSensitive { args.append("--ignore-case") }
-            if wholeWord { args.append("--word-regexp") }
+        var rgArgs = [
+            "--line-number", "--no-heading", "--null", "--color=never", "--max-columns=300", "--max-count=200"
+        ]
+        if !regex { rgArgs.append("--fixed-strings") }
+        // Like git grep -i below (smart-case would honour capitals).
+        if !caseSensitive { rgArgs.append("--ignore-case") }
+        if wholeWord { rgArgs.append("--word-regexp") }
+        var gitArgs = ["grep", "-n", "-z", "--untracked", "-I"]
+        gitArgs.append(regex ? "-E" : "-F")   // the same patterns as rg's, near enough: ( is a group, not a character
+        if !caseSensitive { gitArgs.append("-i") }
+        if wholeWord { gitArgs.append("-w") }
+        if let host = remotes.of(root) {
+            output = try searchOnHost(host, rg: rgArgs + ["--", query, "."], git: gitArgs + ["-e", query])
+        } else if let rg = ripgrep {
             // 1 = no matches
             let found = try Subprocess.checked(
-                [rg] + args + ["--", query, "."], cwd: root, ok: [0, 1], limit: searchOutput)
+                [rg] + rgArgs + ["--", query, "."], cwd: root, ok: [0, 1], limit: searchOutput)
             output = (found.stdout, found.truncated)
         } else {
-            args = ["grep", "-n", "-z", "--untracked", "-I"]
-            args.append(regex ? "-E" : "-F")   // the same patterns as rg's, near enough: ( is a group, not a character
-            if !caseSensitive { args.append("-i") }
-            if wholeWord { args.append("-w") }
+            args = gitArgs
             do {
                 output = try Git.runPart(
                     args + ["-e", query], cwd: root, ok: [0, 1], limit: searchOutput, remotes: remotes)
@@ -134,6 +139,21 @@ extension ProjectFiles {
             throw GitError.refused("Too much matched to show: search for something longer.")
         }
         return found
+    }
+
+    /// A search on a remote project's host: its rg when it has one, as here, else git grep (1 = no matches either way).
+    private static func searchOnHost(_ host: RemoteHost, rg: [String], git: [String]) throws -> (Data, Bool) {
+        let quoted = { (args: [String]) in args.map(ShellQuote.word).joined(separator: " ") }
+        let script =
+            "cd \(RemoteHost.cdArg(host.path)) && if command -v rg >/dev/null 2>&1; then rg \(quoted(rg)); "
+            + "else git -c core.quotePath=false \(quoted(git)); fi; s=$?; [ $s -le 1 ] || exit $s"
+        let argv = [host.ssh] + host.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(script)]
+        let out = try Subprocess.run(
+            argv, cwd: NSHomeDirectory(), env: ProcessInfo.processInfo.environment, timeLimit: 120, limit: searchOutput)
+        guard out.status == 0, !out.timedOut else {
+            throw GitError.failed(args: git, status: out.status, stderr: String(decoding: out.stderr, as: UTF8.self))
+        }
+        return (out.stdout, out.truncated)
     }
 
     /// 2000 matches of rg's 300 columns and a long path fit several times over.
