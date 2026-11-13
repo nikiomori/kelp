@@ -234,7 +234,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             view = stacked(split)
         }
         view.addSubview(selectionBar)   // over the text, placed by frame
-        editor.onSelection = { [weak self] in self?.placeSelectionBar() }
+        let before = editor.onSelection   // the breadcrumbs and the conflicts' bar follow it too
+        editor.onSelection = { [weak self] in
+            before?()
+            self?.placeSelectionBar()
+        }
         if let clip = (editor.view as? NSScrollView)?.contentView {
             clip.postsBoundsChangedNotifications = true
             NotificationCenter.default.addObserver(

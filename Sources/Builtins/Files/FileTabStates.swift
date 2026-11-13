@@ -1,5 +1,6 @@
 import AppKit
 import DesignKit
+import EditorKit
 import KelpKit
 
 /// What a file tab shows besides its text: the trust question over code, and the way out when the file is gone.
@@ -27,6 +28,18 @@ extension FileTab {
         column.detachesHiddenViews = true
         for part in [crumbs, trust] { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         return column
+    }
+
+    /// The merge conflicts' bar over `editor`, its label following the caret.
+    func withConflictBar(_ editor: CodeEditor) -> NSView {
+        let conflictBar = ConflictBar(editor: editor)
+        conflicts = conflictBar
+        let before = editor.onSelection
+        editor.onSelection = { [weak conflictBar] in
+            before?()
+            conflictBar?.caretMoved()
+        }
+        return conflictBar.bar
     }
 
     /// Moved or deleted: a way out of the tab, and to where the file was.

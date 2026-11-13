@@ -16,6 +16,8 @@ final class FileTab: SavableTab {
     let app: AppModel
     let view: NSView
     private(set) var editor: CodeEditor?
+    /// Over the text while it holds merge conflicts.
+    var conflicts: ConflictBar?
     private(set) var markdown: MarkdownTab?
     /// A page an agent made is named by its title, not "doc.md", and shows what kind it is.
     private var pageTitle: String?
@@ -169,6 +171,7 @@ final class FileTab: SavableTab {
         bar.onProblems = { [app] in app.extensions.run("files.showProblems") }
         statusBar = bar
         let crumbs = Breadcrumbs(app: app, path: inside, root: root, editor: codeEditor)
+        let conflictBar = withConflictBar(codeEditor)
         let language = codeEditor.languageId
         // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
         track(owner: self) {
@@ -189,13 +192,13 @@ final class FileTab: SavableTab {
             markdown = md
             // An agent's page has no status bar: its own bar says what it is, and its lines mean nothing in the page.
             if ArtifactBar.isPage(path) {
-                box.pin(stacked(md.header(else: crumbs), md.view))
+                box.pin(stacked(md.header(else: crumbs), conflictBar, md.view))
             } else {
-                box.pin(stacked(md.header(else: crumbs), md.view, bar))
+                box.pin(stacked(md.header(else: crumbs), conflictBar, md.view, bar))
             }
             md.attach(bar)
         } else {
-            box.pin(stacked(withTrustBar(crumbs), codeEditor.view, bar))
+            box.pin(stacked(withTrustBar(crumbs), conflictBar, codeEditor.view, bar))
         }
         let before = codeEditor.onSelection   // Markdown's selection bar follows the selection too
         codeEditor.onSelection = { [weak bar, weak codeEditor] in

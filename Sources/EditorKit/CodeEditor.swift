@@ -287,6 +287,9 @@ public final class CodeEditor: NSObject {
 
     public func focus() { textView.window?.makeFirstResponder(textView) }
 
+    /// Whole lines filled behind the text: each range's lines, the editor's width. Empty: none.
+    public func tint(_ tints: [(range: NSRange, color: NSColor)]) { textView.lineTints = tints }
+
     // MARK: Colors
 
     @objc private func scrolled() {

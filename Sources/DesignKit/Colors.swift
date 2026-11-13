@@ -86,6 +86,8 @@ extension NSColor {
     public static let diffRemovedWord = tint(.systemRed, 0.32)
     public static let diffHunk = NSColor(name: nil) { _ in NSColor.themeAccent.withAlphaComponent(0.08) }
     public static let diffGap = tint(.quaternaryLabelColor, 0.06)
+    /// A merge conflict's sides in the editor, as VS Code shows them: the current one as `diffAdded`, the incoming blue.
+    public static let conflictIncoming = tint(.systemBlue, 0.14)
     /// `color` at `alpha`, read in each appearance (`withAlphaComponent` alone keeps the one it was first read in).
     private static func tint(_ color: NSColor, _ alpha: CGFloat) -> NSColor {
         NSColor(name: nil) { appearance in

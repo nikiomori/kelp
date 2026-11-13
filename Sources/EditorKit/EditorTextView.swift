@@ -4,6 +4,8 @@ import AppKit
 /// and spelling come with it), with the current line marked and more than one cursor.
 public final class EditorTextView: NSTextView {
     var lineHighlight = NSColor.clear
+    /// Whole lines filled behind the text, the window's width (a merge conflict's sides): set by `CodeEditor.tint`.
+    var lineTints: [(range: NSRange, color: NSColor)] = [] { didSet { needsDisplay = true } }
     /// What Tab inserts and indenting adds: the file's own (a tab, or its spaces), else four spaces.
     var indentUnit = "    "
     /// Python and YAML: a line ending in `:` opens a block, the next one goes in a level.
@@ -306,10 +308,29 @@ public final class EditorTextView: NSTextView {
 
     public override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
+        drawLineTints(in: rect)
         drawLineHighlight(in: rect)
         drawRulers(in: rect)
         drawIndentGuides(in: rect)
         drawFindMarks(in: rect)
+    }
+
+    private func drawLineTints(in rect: NSRect) {
+        guard !lineTints.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
+        let text = string as NSString
+        for tint in lineTints where tint.range.length > 0 && NSMaxRange(tint.range) <= text.length {
+            // Its last line break left out: at the end of the file it would fill the empty line after it too.
+            var range = tint.range
+            if text.character(at: NSMaxRange(range) - 1) == 10 { range.length -= 1 }
+            let glyphs = lm.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            var band = lm.boundingRect(forGlyphRange: glyphs, in: tc)
+            band.origin.x = 0
+            band.origin.y += textContainerOrigin.y
+            band.size.width = bounds.width
+            guard band.intersects(rect) else { continue }
+            tint.color.setFill()
+            band.intersection(rect).fill()
+        }
     }
 
     private func drawLineHighlight(in rect: NSRect) {

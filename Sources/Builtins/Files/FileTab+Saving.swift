@@ -49,6 +49,7 @@ extension FileTab {
         if autosave { autosaving.after(0.6) { [weak self] in Task { await self?.autosaveNow() } } }
         editedStateMayHaveChanged()
         markdown?.textChanged()
+        conflicts?.refresh()
         guard lspOpenedOn != nil else { return }   // no language server for it (or for a file on another machine)
         lspTask?.cancel()
         lspUnsent = text
@@ -262,6 +263,7 @@ extension FileTab {
             editor.setText(text)
             saved(text, at: edits)
             markdown?.textChanged()
+            conflicts?.refresh()
         case .conflict(let text): askKeepMine(disk: text)
         case .missing where !wasGone && isEdited:
             Banner.show(String(localized: "\(title) was moved or deleted. ⌘S asks before writing it there again."))

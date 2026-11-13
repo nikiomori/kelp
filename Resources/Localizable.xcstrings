@@ -101,6 +101,36 @@
         }
       }
     },
+    "Accept Both": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принять оба"
+          }
+        }
+      }
+    },
+    "Accept Current": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принять текущее"
+          }
+        }
+      }
+    },
+    "Accept Incoming": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принять входящее"
+          }
+        }
+      }
+    },
     "At API prices": {
       "localizations": {
         "ru": {
@@ -201,6 +231,32 @@
         }
       }
     },
+    "Merge conflict %lld of %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Merge conflict %1$lld of %2$lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфликт слияния %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Next Conflict": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующий конфликт"
+          }
+        }
+      }
+    },
     "No usage": {
       "localizations": {
         "ru": {
@@ -257,6 +313,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Планы"
+          }
+        }
+      }
+    },
+    "Previous Conflict": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущий конфликт"
           }
         }
       }
