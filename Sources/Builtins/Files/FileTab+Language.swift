@@ -108,9 +108,11 @@ extension FileTab {
                 ?? LanguageSpec.word(in: editor?.text ?? "", line: line, column: column)
         }
         let relative = path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path
+        // A remote project's command runs on its host: its paths are the host's.
+        let top = RemoteHost.of(root)?.path ?? root, file = path.hasPrefix(root + "/") ? top + "/" + relative : path
         let vars = [
-            "file": path, "relativeFile": relative, "dir": url.deletingLastPathComponent().path,
-            "line": String(line), "symbol": symbol, "workspace": root
+            "file": file, "relativeFile": relative, "dir": (file as NSString).deletingLastPathComponent,
+            "line": String(line), "symbol": symbol, "workspace": top
         ]
         return ShellTemplate.fill(template) { vars[$0] }
     }
