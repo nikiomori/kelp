@@ -59,6 +59,40 @@ enum ServerReading {
         guard let used, let total, total > 0 else { return nil }
         return "\(bytes(used)) / \(bytes(total))"
     }
+    /// Bytes in the unit `total` is said in, so the two read together: "0.99 GB" of "1.93 GB", not "1,014.3 MB".
+    static func amount(_ n: Int, like total: Int) -> String {
+        let units: [(String, Int, Int)] = [("TB", 40, 2), ("GB", 30, 2), ("MB", 20, 1), ("KB", 10, 0)]
+        guard let (name, shift, digits) = units.first(where: { total >= 1 << $0.1 }) else { return bytes(n) }
+        let value = Double(n) / Double(1 << shift)
+        return value.formatted(.number.precision(.fractionLength(digits))) + " " + name
+    }
+    /// Bytes a second, "14 KB/s".
+    static func rate(_ perSecond: Double) -> String {
+        perSecond < 1000 ? "\(Int(perSecond.rounded())) B/s" : bytes(Int(perSecond), file: true) + "/s"
+    }
+    /// A share 0–100 as ps says it, "0.4%".
+    static func percent(_ value: Double) -> String { String(format: "%.1f%%", value) }
+
+    /// What follows the program on its command line ("worker process", "/usr/bin/fail2ban-server -xf start"); empty for a
+    /// kernel thread.
+    static func arguments(_ process: HostStats.Process) -> String {
+        guard !process.args.hasPrefix("[") else { return "" }
+        let words = process.args.split(separator: " ", maxSplits: 1)
+        return words.count == 2 ? String(words[1]) : ""
+    }
+
+    /// What a process is part of, as a symbol and a name: its Docker container, else its systemd unit (a service by its
+    /// name, a login's scope as one). Its Kelp agent comes first, but that's the row's to show.
+    static func place(_ process: HostStats.Process) -> (symbol: String, name: String)? {
+        if let container = process.container { return ("shippingbox", container) }
+        guard let unit = process.unit else { return nil }
+        if unit.hasPrefix("session-") { return ("terminal", String(localized: "Login session")) }
+        for suffix in [".service", ".scope"] where unit.hasSuffix(suffix) {
+            return ("gearshape", String(unit.dropLast(suffix.count)))
+        }
+        return ("gearshape", unit)
+    }
+
     /// The load averages, "0.52 0.40 0.31" (`separator` between them).
     static func load(_ stats: HostStats, separator: String = " ") -> String? {
         stats.load.map { $0.map { String(format: "%.2f", $0) }.joined(separator: separator) }

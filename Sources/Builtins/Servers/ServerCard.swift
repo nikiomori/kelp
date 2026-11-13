@@ -43,7 +43,7 @@ func serverLine(_ stats: HostStats?) -> String {
         return stats.error.map { String(localized: "Can't reach: \($0)") }
             ?? String(localized: "Not connected. Opening it connects.")
     }
-    let cores = stats.cores.map { String(localized: "\($0) cores") }
+    let cores = stats.cores.map { $0 == 1 ? String(localized: "1 core") : String(localized: "\($0) cores") }
     return [stats.os, cores, stats.uptime.map { String(localized: "up \(shortSpan($0, units: 2, smallest: .second))") }]
         .compactMap { $0 }
         .joined(

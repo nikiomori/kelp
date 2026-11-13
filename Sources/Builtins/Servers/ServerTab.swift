@@ -18,8 +18,8 @@ func serverTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not Swif
 
 struct ServerView: View {
     let app: AppModel, host: String
-    /// CPU and memory shares of the last two minutes, a reading every 2 s.
-    @State private var history: [(cpu: Double, memory: Double)] = []
+    /// The last hour's readings: what the daemon kept, then each one pushed while the tab is open.
+    @State private var history: [HostStats.Sample] = []
     @State private var dialing = false
 
     private var stats: HostStats? { app.latest(HostEvent.self, host)?.stats }
@@ -28,6 +28,10 @@ struct ServerView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let stats, stats.connected, !attention(stats).isEmpty {
+                attentionLine(stats)
+                Divider()
+            }
             if let stats, stats.connected {
                 ServerDetail(app: app, host: host, stats: stats, history: history)
             } else if stats == nil || dialing {
@@ -38,6 +42,10 @@ struct ServerView: View {
             }
         }
         .onAppear { dial() }
+        .task(id: host) {
+            let kept = await app.quiet(HostHistoryRead(host: host)) ?? []
+            history = kept + history.filter { $0.at > (kept.last?.at ?? 0) }
+        }
         .onChange(of: stats) { _, s in remember(s) }
     }
 
@@ -101,9 +109,55 @@ struct ServerView: View {
         }
     }
 
+    /// A reading pushed joins the hour (the daemon kept the same one a moment ago: one within a second is it).
     private func remember(_ stats: HostStats?) {
-        guard let stats, stats.connected, let cpu = stats.cpu else { return }
-        let memory = HostStats.percent(stats.memory, stats.memoryTotal).map { Double($0) / 100 } ?? 0
-        history = Array((history + [(cpu / 100, memory)]).suffix(60))
+        guard let stats, stats.connected else { return }
+        let now = Date().timeIntervalSince1970
+        guard now - (history.last?.at ?? 0) >= 1 else { return }
+        let sample = HostStats.Sample(
+            at: now, cpu: stats.cpu.map { $0 / 100 },
+            memory: HostStats.percent(stats.memory, stats.memoryTotal).map { Double($0) / 100 },
+            received: stats.network?.received, sent: stats.network?.sent)
+        history = history.filter { now - $0.at < 3600 } + [sample]
+    }
+
+    /// What wants a look, worst first: services that failed, a disk, memory or CPU strained, a restart asked for.
+    private func attention(_ stats: HostStats) -> [(text: String, unit: String?)] {
+        let failed = (stats.failedUnits ?? []).map { (String(localized: "\($0) failed"), Optional($0)) }
+        let word = ServerActions.serverWord(app, host).map { ($0.text, String?.none) }
+        let restart = stats.rebootRequired == true ? (String(localized: "Reboot required"), String?.none) : nil
+        return failed + [word, restart].compactMap { $0 }
+    }
+
+    /// A line under the bar while something on the server wants a look; a failed service's status a click away.
+    private func attentionLine(_ stats: HostStats) -> some View {
+        let items = attention(stats)
+        return HStack(spacing: Metrics.gapWide) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.symbol(Metrics.iconSmall))
+                .foregroundStyle(Color.textOrange)
+            ForEach(Array(items.prefix(4).enumerated()), id: \.offset) { index, item in
+                if index > 0 { Text(verbatim: "·").foregroundStyle(.tertiary) }
+                Text(item.text).foregroundStyle(Color.textOrange).lineLimit(1)
+                if let unit = item.unit {
+                    Button(String(localized: "Show Status")) {
+                        ServerActions.runOnServer(
+                            app, host, command: "systemctl status --no-pager -n 50 \(ShellQuote.word(unit))",
+                            title: unit)
+                    }
+                    .controlSize(.small)
+                }
+            }
+            if items.count > 4 {
+                Text("and \(items.count - 4) more").foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.ui(TextSize.caption))
+        .padding(.horizontal, Metrics.inset)
+        .frame(height: Metrics.row + Metrics.gapWide)
+        .background(Color(nsColor: .fillTint(.systemOrange)))
+        .help(
+            stats.rebootRequired == true
+                ? String(localized: "An update asks for a restart (/run/reboot-required).") : "")
     }
 }
