@@ -76,3 +76,17 @@ private final class OSAllocatedUnfairLockBox: @unchecked Sendable {
     func bump() { lock.withLock { n += 1 } }
     var count: Int { lock.withLock { n } }
 }
+
+/// A host whose Codex says no isn't asked again at each start (up to 10 s each), only once that no is old.
+@Test func aHostsNoStandsAWhile() {
+    let asked = OSAllocatedUnfairLockBox()
+    let check = CodexHookCheck(
+        ask: { _ in nil },
+        askHost: { _ in
+            asked.bump()
+            return nil
+        })
+    let host = RemoteHost(host: "box", path: "/srv/app")
+    #expect(!check.agrees(on: host) && !check.agrees(on: host))
+    #expect(asked.count == 1)
+}

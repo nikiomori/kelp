@@ -9,7 +9,7 @@ import os
 /// with would stop the start at its "review these hooks" question, where the prompt Kelp types would land. Until then,
 /// and with a Codex that has no hooks, its status comes from its screen as before.
 final class CodexHookCheck: Sendable {
-    private let known = OSAllocatedUnfairLock<[String: Bool]>(initialState: [:])
+    private let known = OSAllocatedUnfairLock<[String: (answer: Bool, at: Date)]>(initialState: [:])
     private let ask: @Sendable (String) -> [String: Any]?
     private let askHost: @Sendable (RemoteHost) -> [String: Any]?
 
@@ -26,19 +26,22 @@ final class CodexHookCheck: Sendable {
     }
 
     /// The Codex on a remote project's host, with the hooks it gets there: asked over ssh, once per host while this
-    /// kelpd runs (up to 10 s, at its first Codex session). None there, or none that knows hooks: its screen is read.
-    /// Limit: a Codex updated on the host meanwhile isn't asked again until kelpd restarts.
+    /// kelpd runs (up to 10 s, at its first Codex session). None there, or none that knows hooks: its screen is read,
+    /// and the host is asked again ten minutes on (Codex installed or updated there meanwhile).
     func agrees(on host: RemoteHost) -> Bool {
-        check("ssh:" + host.host, "codex on \(host.host)") {
+        check("ssh:" + host.host, "codex on \(host.host)", noFor: 600) {
             Self.agrees(askHost(host), events: CodexHooks.hostEvents)
         }
     }
 
-    private func check(_ id: String, _ what: String, _ ask: () -> Bool) -> Bool {
-        if let answer = known.withLock({ $0[id] }) { return answer }
+    /// `noFor`: how long a no stands before it's asked again; a yes stands.
+    private func check(_ id: String, _ what: String, noFor: TimeInterval = .infinity, _ ask: () -> Bool) -> Bool {
+        if let known = known.withLock({ $0[id] }), known.answer || Date().timeIntervalSince(known.at) < noFor {
+            return known.answer
+        }
         let answer = ask()
         if !answer { Log.session.error("\(what, privacy: .public) doesn't take Kelp's hooks: its screen is read") }
-        known.withLock { $0[id] = answer }
+        known.withLock { $0[id] = (answer, Date()) }
         return answer
     }
 
