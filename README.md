@@ -244,6 +244,8 @@ Superset / Paradev, Emdash, JetBrains Air, Supacode, cmux, an `.agents/` folder 
 are linked from the main checkout). Their setup runs in each new worktree, their run and named
 commands go in the Run menu, and the teardown is the `archive` command there. Scripts get the variables they expect
 (`$CONDUCTOR_ROOT_PATH`, `$CONDUCTOR_PORT`…). VS Code's and Zed's tasks are in the Run menu as well.
+Past chats come along: Claude Code and Codex keep them in their own folders whichever app ran them, so Session History
+(⇧⌘H) lists a Conductor workspace's chats and resumes one while its folder is still there.
 
 ## Extensions
 
