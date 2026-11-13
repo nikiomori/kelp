@@ -190,7 +190,7 @@ extension SourceControlController {
         let undo = run.hint
         if plan.commits.isEmpty {
             notes[wid] = AgentNote(
-                agentId: run.agentId, text: String(localized: "\(run.agent) proposed no commits"), hint: nil)
+                agentId: run.agentId, text: String(localized: "No commits from \(run.agent)"), hint: nil)
         } else if plan.commits.count == 1, Set(plan.files) == Set(scope), let only = plan.commits.first {
             notes[wid] = AgentNote(agentId: run.agentId, text: String(localized: "Written by \(run.agent)"), hint: undo)
             if wid == worktreeId {

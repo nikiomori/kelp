@@ -95,3 +95,10 @@ import Testing
     args = ["query", "--db"]
     #expect(flag("--db") == nil && args == ["query", "--db"])
 }
+
+/// `kelp commit add`: the files, and each -m a paragraph of the message, as git joins them.
+@Test func aProposedCommitsArgumentsAreItsFilesAndParagraphs() {
+    let (files, message) = Main.planned(["a.swift", "b c.md", "-m", "feat: a", "-m", "Why."])
+    #expect(files == ["a.swift", "b c.md"] && message == "feat: a\n\nWhy.")
+    #expect(Main.planned(["a.swift"]).message.isEmpty)   // no -m: refused with its usage, never a commit of everything
+}

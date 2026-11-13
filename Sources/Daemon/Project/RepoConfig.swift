@@ -67,7 +67,8 @@ enum Recipes {
             "Plan commits for {scope}; `{command}` shows them. Don't commit, stage or change any file. "
             + "Write the messages the way this repository's history does (`git log -20 --format=%B`). "
             + "Split only changes that are unrelated; one commit is fine. For each commit, oldest first, run "
-            + "`kelp commit add <file>… -m \"<subject>\" -m \"<body>\"` with every file it takes, whole. "
+            + "`kelp commit add <file>… -m \"<subject>\" -m \"<body>\"` with every file it takes, whole: it only "
+            + "records the proposal, which the user edits and commits in Kelp. If it fails, say why in one line. "
             + "Leave out files that shouldn't be committed (secrets, logs, build output). "
             + "Stop when every commit is added.{hint}",
         "fixCommit":

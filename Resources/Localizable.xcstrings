@@ -22551,16 +22551,6 @@
         }
       }
     },
-    "%@ proposed no commits": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@: ни одного коммита не предложено"
-          }
-        }
-      }
-    },
     "Written by %@": {
       "localizations": {
         "ru": {
@@ -22777,6 +22767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Git: написать коммит с помощью агента"
+          }
+        }
+      }
+    },
+    "No commits from %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не предложил коммитов"
           }
         }
       }

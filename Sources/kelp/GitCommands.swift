@@ -11,8 +11,17 @@ extension Main {
                     "\(f.path)  "
                         + (f.tooLarge == true ? "(too large to count here)" : "+\(f.additions) -\(f.deletions)"))
             }
-        case ("commit", "add") where args.contains("-m"):   // without -m, "add …" is a message, as it always was
+        // Asking how a command works never runs it: "kelp commit --help" once committed everything as "--help".
+        case ("commit", _) where has("--help") || has("-h"):
+            print(
+                """
+                kelp commit <message>                         commit every change in this workspace (the user's)
+                kelp commit add <file>… -m <subject> [-m <body>]   propose one commit of these files, whole; the user
+                                                                 looks it over in Kelp's Source Control and makes it
+                """)
+        case ("commit", "add"):
             let (files, message) = planned(args)
+            guard !files.isEmpty, !message.isEmpty else { fail("commit add <file>… -m <subject> [-m <body>]") }
             let count = try await c.call(
                 CommitPlanAdd(
                     worktreeId: try await currentWorktreeID(c), files: files, message: message,
