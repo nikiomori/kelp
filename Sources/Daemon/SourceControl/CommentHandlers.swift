@@ -40,7 +40,48 @@ extension CommentAdd: Handled {
     }
 }
 extension CommentList: Handled {
-    func handle(_ scm: SourceControl) throws -> Result { try scm.store.comments(worktree: id) }
+    func handle(_ scm: SourceControl) throws -> Result {
+        let workspace = try scm.store.worktree(named: id)
+        return try CommentPlaces.follow(try scm.store.comments(worktree: workspace.id), in: workspace.path, scm)
+    }
+}
+
+/// A comment on the folder's changes stays on the lines it quotes: an agent's edit above them moves them down, and the
+/// comment goes with them (to their nearest place where they're there more than once), the move kept. Lines no longer
+/// there leave it where it was. Limit: a project here only; a remote one's files would be read over ssh on every look.
+enum CommentPlaces {
+    static func follow(_ comments: [DiffComment], in folder: String, _ scm: SourceControl) throws -> [DiffComment] {
+        guard scm.remotes.of(folder) == nil else { return comments }
+        var files: [String: [String]] = [:], out: [DiffComment] = []
+        for var comment in comments {
+            defer { out.append(comment) }
+            guard comment.state != .resolved, comment.onCommit == nil, comment.side != "old", !comment.quote.isEmpty
+            else { continue }
+            if files[comment.file] == nil {
+                let text = Log.store.attempt("reading \(comment.file) for its comments") {
+                    try FileService(remotes: scm.remotes).read(folder + "/" + comment.file).text
+                }
+                files[comment.file] = text.map { $0.components(separatedBy: "\n") } ?? []
+            }
+            let quote = comment.quote.components(separatedBy: "\n")
+            guard let start = place(of: quote, near: comment.startLine, in: files[comment.file] ?? []),
+                start != comment.startLine
+            else { continue }
+            comment.startLine = start
+            comment.endLine = start + quote.count - 1
+            try scm.store.save(comment)
+        }
+        return out
+    }
+
+    /// Where `quote`'s lines start in `lines` (1-based): at `near` if they're there, else the nearest place; nil:
+    /// nowhere.
+    static func place(of quote: [String], near: Int, in lines: [String]) -> Int? {
+        guard !quote.isEmpty, lines.count >= quote.count else { return nil }
+        let at = { (start: Int) in Array(lines[(start - 1)..<(start - 1 + quote.count)]) == quote }
+        if near >= 1, near + quote.count - 1 <= lines.count, at(near) { return near }
+        return (1...(lines.count - quote.count + 1)).filter(at).min { abs($0 - near) < abs($1 - near) }
+    }
 }
 extension CommentSetState: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
@@ -65,6 +106,8 @@ extension CommentSend: Handled {
         else {
             throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
         }
+        // Sent with the lines' numbers now.
+        _ = try CommentPlaces.follow(try scm.store.comments(worktree: workspace.id), in: workspace.path, scm)
         let wanted = only.map(Set.init)
         // Taken as it's marked sent, in one write: a second send at once (a double click, the CLI beside the window) finds
         // none of these open and types them in no second time. Put back if the send fails.

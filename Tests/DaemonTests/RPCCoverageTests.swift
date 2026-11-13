@@ -116,6 +116,21 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     }
 }
 
+/// A comment follows the lines it quotes when an edit above moves them, and stays when they're gone.
+@Test func aCommentFollowsItsLinesWhenTheyMove() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let file = r.wt.path + "/a.txt"
+    try "one\ntwo\nthree\n".write(toFile: file, atomically: true, encoding: .utf8)
+    _ = try await r.c.call(CommentAdd(id: r.wt.id, file: "a.txt", start: 2, end: 3, quote: "two\nthree", text: "fix"))
+    try "new\nlines\none\ntwo\nthree\n".write(toFile: file, atomically: true, encoding: .utf8)
+    let moved = try #require(try await r.c.call(CommentList(id: r.wt.id)).first)
+    #expect(moved.startLine == 4 && moved.endLine == 5)
+    try "one\n".write(toFile: file, atomically: true, encoding: .utf8)
+    #expect(try await r.c.call(CommentList(id: r.wt.id)).first?.startLine == 4, "gone: left where it was")
+    #expect(CommentPlaces.place(of: ["x"], near: 5, in: ["x", "a", "b", "c", "d", "x", "e"]) == 6, "the nearest")
+}
+
 @Test func projectSearchFindsTextInTheWorkspace() async throws {
     let r = try await rig()
     defer { r.d.stop() }
@@ -375,7 +390,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(!fm.fileExists(atPath: old.folder.path + "/.git"))
     try Git.run(["init", "-q"], cwd: old.folder.path, remotes: .none)
     try Git.run(
-        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], cwd: old.folder.path, remotes: .none)
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"], cwd: old.folder.path,
+        remotes: .none)
     old.dropUnusedRepo(remotes: .none)
     #expect(fm.fileExists(atPath: old.folder.path + "/.git"))
 }
@@ -427,7 +443,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     try Git.run(["add", "n.txt"], cwd: r.wt.path, remotes: .none)
     try Git.run(["commit", "-qm", "more"], cwd: r.wt.path, remotes: .none)
     _ = try await r.call("git.push")
-    #expect(try Git.run(["rev-parse", "feat/x"], cwd: bare, remotes: .none) == (try Git.run(["rev-parse", "HEAD"], cwd: r.wt.path, remotes: .none)))
+    #expect(
+        try Git.run(["rev-parse", "feat/x"], cwd: bare, remotes: .none)
+            == (try Git.run(["rev-parse", "HEAD"], cwd: r.wt.path, remotes: .none)))
 }
 
 @Test func cloneNamesAndNewFoldersAreChecked() throws {
