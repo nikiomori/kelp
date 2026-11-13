@@ -520,3 +520,23 @@ private func onHost() -> LiveSession.State {
     _ = try await w.c.call(SessionAnnotate(id: s.id, summary: "Added the test", ifStatus: "done"))
     #expect(summary() == "Allow rm?")
 }
+
+/// A dialog on a host says what it asks, as a hook here does: a permission gets Allow / Deny where it's shown, a question
+/// its answers; the turn going on clears them.
+@Test func aHostsDialogIsWordedAsHere() throws {
+    var s = onHost()
+    func json(_ text: String) throws -> JSONValue { try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8)) }
+    s.apply(
+        .init(
+            state: "blocked", kind: "permission",
+            hook: try json(#"{"tool_name":"Bash","tool_input":{"command":"rm -rf build"}}"#)))
+    _ = s.sync()
+    #expect(s.record.summary == "Allow rm -rf build?" && s.record.asksPermission)
+    s.apply(.init(state: "working"))
+    let question =
+        #"{"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Which one?","options":[{"label":"A"},{"label":"B"}]}]}}"#
+    s.apply(.init(state: "blocked", kind: "question", hook: try json(question)))
+    #expect(s.record.summary == "Which one?" && s.record.choices == ["A", "B"])
+    s.apply(.init(state: "working"))
+    #expect(s.record.choices == nil && s.record.summary == "")
+}

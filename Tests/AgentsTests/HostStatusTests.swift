@@ -33,7 +33,20 @@ import Testing
     let wrapped = { (r: String) in "\u{1B}Ptmux;\u{1B}\u{1B}]7501;\(r)\u{07}\u{1B}\\" }
     #expect(try run("Stop", #"{"background_tasks":[]}"#) == wrapped("state=done"))
     #expect(try String(contentsOf: kept, encoding: .utf8) == "set-option -q @kelp_status state=done\n")
-    #expect(try run("PermissionRequest", "{}") == wrapped("state=blocked:kind=permission"))
+    // A dialog says what it asks, so Kelp offers Allow / Deny; one too long for a report, its tool and file.
+    let ask = #"{"tool_name":"Bash","tool_input":{"command":"rm -rf build"}}"#
+    #expect(
+        try run("PermissionRequest", ask)
+            == wrapped("state=blocked:kind=permission:hook=" + Data(ask.utf8).base64EncodedString()))
+    let long =
+        #"{"tool_name":"Edit","tool_input":{"file_path":"/srv/app/a.swift","old_string":"\#(String(repeating: "x", count: 4000))"}}"#
+    let short = #"{"tool_name":"Edit","tool_input":{"file_path":"/srv/app/a.swift"}}"#
+    #expect(
+        try run("PermissionRequest", long)
+            == wrapped("state=blocked:kind=permission:hook=" + Data(short.utf8).base64EncodedString()))
+    // A tool's end doesn't end a dialog; its batch does, unless it's a subagent's.
+    #expect(try run("PostToolBatch", #"{"agent_id":"a1"}"#) == "")
+    #expect(try run("PostToolBatch", "{}") == wrapped("state=working"))
     #expect(try run("Stop", #"{"background_tasks":[{"id":"a","type":"subagent"}]}"#) == "")   // the turn isn't over
     #expect(try run("Stop", #"{"background_tasks": [{"id": "a", "type": "workflow"}]}"#) == "")
     #expect(

@@ -13,7 +13,16 @@ extension LiveSession.State {
         // Hooks on a host say nothing of a turn but its state, so a new one has to clear what the last one left.
         let fresh =
             report.state == "idle" || report.state == "clear" || (report.state == "working" && record.tmux != nil)
-        if let msg = report.msg, !msg.isEmpty { record.summary = msg } else if fresh { record.summary = "" }
+        // A host's dialog says what it asks as a hook here would: Allow / Deny, or its answers, where it's shown.
+        let asked = report.hook.map { hook in
+            JSONValue.object([
+                "notification_type": "permission_request", "tool_name": hook["tool_name"] ?? .null,
+                "tool_input": hook["tool_input"] ?? .null, "cwd": hook["cwd"] ?? .null
+            ])
+        }
+        let msg = report.msg ?? asked.map(Hooks.permissionAsk)
+        if let msg, !msg.isEmpty { record.summary = msg } else if fresh { record.summary = "" }
+        if report.state != "blocked" || asked != nil { record.choices = asked.flatMap(Hooks.choices) }
         record.progress = report.progress
     }
 

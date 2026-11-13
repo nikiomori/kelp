@@ -29,16 +29,14 @@ public enum Hooks {
         .init(hook: "Notification", here: "waiting"),
         .init(hook: "UserPromptSubmit", here: "working", host: hostReport("state=working")),
         .init(hook: "StopFailure", here: "done", host: hostReport("state=error")),
-        .init(
-            hook: "PreToolUse", matcher: "AskUserQuestion", here: "waiting",
-            host: hostReport("state=blocked:kind=question")),
+        .init(hook: "PreToolUse", matcher: "AskUserQuestion", here: "waiting", host: hostAsk("question")),
         .init(hook: "PreToolUse", here: "command"),
-        .init(hook: "PostToolUse", matcher: "AskUserQuestion", here: "working"),
-        .init(hook: "PostToolUse", here: "command", host: hostReport("state=working")),
+        .init(hook: "PostToolUse", matcher: "AskUserQuestion", here: "working", host: hostReport("state=working")),
+        .init(hook: "PostToolUse", here: "command"),
         .init(hook: "PostToolUseFailure", here: "command"),
-        .init(hook: "PostToolBatch", here: "command"),
-        .init(
-            hook: "PermissionRequest", here: "waiting", host: hostReport("state=blocked:kind=permission"), wait: 610),
+        // A tool's end isn't the end of a dialog: another of its batch may be asking still, or a subagent's tool ended.
+        .init(hook: "PostToolBatch", here: "command", host: hostReport("state=working", unless: hostSubagentsOwn)),
+        .init(hook: "PermissionRequest", here: "waiting", host: hostAsk("permission"), wait: 610),
         .init(hook: "Elicitation", here: "waiting", host: hostReport("state=blocked:kind=question")),
         .init(hook: "ElicitationResult", here: "working", host: hostReport("state=working")),
         .init(
@@ -81,6 +79,20 @@ public enum Hooks {
     /// own quotes, so one quoting these can't pass for it.
     static let hostStopUnless =
         #"p=$(tr -d ' ');case "$p" in *'"type":"subagent"'*|*'"type":"workflow"'*|*'"type":"teammate"'*)exit;;esac;"#
+    /// What a subagent's tools do isn't its agent's: their hooks say nothing for it.
+    static let hostSubagentsOwn = #"p=$(cat);case "$p" in *'"agent_id"'*)exit;;esac;"#
+
+    /// A dialog's report (`kind`: permission, question) with what the hook was told (`hook=`, its JSON in base64), so Kelp
+    /// words it as it does here (`permissionAsk`) and offers Allow / Deny or its answers. Too long for one report: the
+    /// tool and its file alone.
+    static func hostAsk(_ kind: String) -> String {
+        hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};"#
+            + #"h=$(printf %s "$p"|base64|tr -d '\n');[ ${#h} -le 2700 ]||h=$(printf '{"tool_name":"%s","tool_input":"#
+            + #"{"file_path":"%s"}}' "$(f tool_name)" "$(f file_path)"|base64|tr -d '\n');"#
+            + "r=\"state=blocked:kind=\(kind):hook=$h\";tmux set-option -q \(RemoteHost.statusOption) \"$r\";"
+            + hostSend
+    }
+
     /// A subagent's report goes on a line of its own: `agent_type` as its title, the one thing the hook knows of it.
     static func hostSubagent(_ report: String) -> String {
         hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"#
