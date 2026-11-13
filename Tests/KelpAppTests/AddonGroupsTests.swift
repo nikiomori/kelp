@@ -217,3 +217,17 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     let after = AddonGroups.lines([], toggled: [], tidied: tidied)
     #expect(after == [.section(.needsLook, count: 1), .instructions([], tidied)])
 }
+
+/// A chat that read an instruction file before it changed holds the old weight until it restarts: the row shows the
+/// weight now and waits for the restart; a small difference or no chat is no reason.
+@Test func aChatThatReadTheOldInstructionsIsBehind() {
+    var memory = Addon(
+        kind: .instructions, name: "MEMORY.md", source: .yours, loaded: true, tokens: 10_600,
+        check: InstructionCheck(lines: 113, bytes: 12_745, tokens: 5_100))
+    #expect(AddonGroups.behind(memory) == 5_100)
+    memory.check?.tokens = 10_550
+    #expect(AddonGroups.behind(memory) == nil)
+    memory.loaded = nil
+    memory.check?.tokens = 5_100
+    #expect(AddonGroups.behind(memory) == nil)
+}

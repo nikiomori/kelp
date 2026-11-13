@@ -2696,6 +2696,10 @@
             "description" : "A memory index: its lines whose memory file is missing, and memory files no line of it names.",
             "type" : "integer"
           },
+          "tokens" : {
+            "description" : "What an agent reads of it now, in tokens: a chat that started before it changed still holds what it read then.",
+            "type" : "integer"
+          },
           "unlisted" : {
             "type" : "integer"
           }

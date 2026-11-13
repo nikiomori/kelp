@@ -22781,26 +22781,6 @@
         }
       }
     },
-    "Tidied up": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Порядок наведён"
-          }
-        }
-      }
-    },
-    "%@ tokens every chat": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ токенов в каждом чате"
-          }
-        }
-      }
-    },
     "Every change, file by file": {
       "localizations": {
         "ru": {
@@ -22817,16 +22797,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вернуть файлы как были"
-          }
-        }
-      }
-    },
-    "Instructions every chat reads: %@ tokens": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Инструкции, которые читает каждый чат: %@ токенов"
           }
         }
       }
@@ -22897,6 +22867,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отменить…"
+          }
+        }
+      }
+    },
+    "Keep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставить"
+          }
+        }
+      }
+    },
+    "The changes stay: close this": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменения остаются: закрыть это"
+          }
+        }
+      }
+    },
+    "%@ tokens in new chats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ токенов в новых чатах"
+          }
+        }
+      }
+    },
+    "The instruction files are saved: new chats read %@ tokens. A chat open now keeps what it read until it restarts.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы инструкций сохранены: новые чаты читают %@ токенов. Открытый сейчас чат помнит прочитанное до перезапуска."
+          }
+        }
+      }
+    },
+    "This chat read %@ when it started: new chats read %@. Restart it to read them too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот чат при старте прочитал %1$@, новые чаты читают %2$@. Перезапустите его, чтобы он прочитал новое."
           }
         }
       }

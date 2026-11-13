@@ -172,7 +172,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         // Something waits for a restart, and there's a chat to restart.
         shownChat = known ? chat : nil
         let gone = value?.gone ?? []
-        foot.isHidden = shownChat == nil || (gone.isEmpty && !items.contains(where: AddonGroups.waits))
+        let behind = items.contains { AddonGroups.behind($0) != nil }
+        foot.isHidden = shownChat == nil || (gone.isEmpty && !behind && !items.contains(where: AddonGroups.waits))
         footNote.stringValue = AddonGroups.footNote(gone: gone)
         footNote.toolTip = gone.isEmpty ? nil : gone.joined(separator: "\n")
         relist()
@@ -275,6 +276,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         rows.onTidy = { tidy.run() }
         rows.onReview = { tidy.review() }
         rows.onUndo = { [weak self] in Task { await tidy.undo { self?.reload() } } }
+        rows.onKeep = { [weak self] in Task { await tidy.keep { self?.reload() } } }
         return switch lines[row] {
         case .section(let section, let count): rows.section(section, count: count)
         case .group(let g, let count, let tokens, let open):

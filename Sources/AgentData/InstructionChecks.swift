@@ -20,6 +20,8 @@ public enum InstructionChecks {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         let count = text.hasSuffix("\n") ? lines.count - 1 : lines.count
         var check = InstructionCheck(lines: count, bytes: text.utf8.count)
+        let seen = name == "MEMORY.md" ? String(decoding: Data(text.utf8).prefix(memoryBytes), as: UTF8.self) : text
+        check.tokens = ClaudeLoaded.tokens(seen.count)
         switch name {
         case "MEMORY.md":
             (check.maxLines, check.maxBytes) = (memoryLines, memoryBytes)

@@ -20,6 +20,8 @@ private func put(_ text: String, _ url: URL) throws {
     let check = try #require(InstructionChecks.check(memory.appendingPathComponent("MEMORY.md").path, cwd: root.path))
     #expect(check.lines == 230)
     #expect(check.cut == 30)
+    let index = try String(contentsOf: memory.appendingPathComponent("MEMORY.md"), encoding: .utf8)
+    #expect(check.tokens == ClaudeLoaded.tokens(index.count))   // under 25 000 bytes: all of it is read
     #expect(check.missing == 229)
     #expect(check.unlisted == 1)
     #expect(check.needsLook)

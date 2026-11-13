@@ -96,10 +96,12 @@ public struct InstructionCheck: Codable, Sendable, Equatable {
     public var missing: Int, unlisted: Int
     /// Its copy from before the last Tidy Up (a memory index: its whole folder), while Kelp keeps one.
     public var before: String?
+    /// What an agent reads of it now, in tokens: a chat that started before it changed still holds what it read then.
+    public var tokens: Int?
 
     public init(
         lines: Int, bytes: Int, maxLines: Int? = nil, maxBytes: Int? = nil, cut: Int = 0, dead: [String] = [],
-        missing: Int = 0, unlisted: Int = 0, before: String? = nil
+        missing: Int = 0, unlisted: Int = 0, before: String? = nil, tokens: Int? = nil
     ) {
         self.lines = lines
         self.bytes = bytes
@@ -110,6 +112,7 @@ public struct InstructionCheck: Codable, Sendable, Equatable {
         self.missing = missing
         self.unlisted = unlisted
         self.before = before
+        self.tokens = tokens
     }
 
     /// How full it is against its limit, the fuller measure (1 = at the limit); nil without one.

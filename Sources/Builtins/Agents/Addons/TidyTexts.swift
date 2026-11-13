@@ -8,6 +8,15 @@ extension AddonGroups {
         items.filter { $0.kind == .instructions && ($0.source == .project || $0.name == "MEMORY.md") }
     }
 
+    /// What an instruction file holds now, in tokens, when the chat shown read another amount at its start (a Tidy Up
+    /// since, an edit): the chat keeps what it read until it restarts. nil: no chat, or the same.
+    static func behind(_ addon: Addon) -> Int? {
+        guard addon.kind == .instructions, addon.loaded == true, let then = addon.tokens, let now = addon.check?.tokens,
+            abs(now - then) > max(50, then / 10)
+        else { return nil }
+        return now
+    }
+
     /// What's wrong with an instruction file, as what it means for the person, the worst first.
     static func findings(_ check: InstructionCheck, name: String) -> [String] {
         var out: [String] = []

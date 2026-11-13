@@ -18,6 +18,7 @@ struct AddonRows {
     var onTidy: () -> Void = {}
     var onReview: () -> Void = {}
     var onUndo: () -> Void = {}
+    var onKeep: () -> Void = {}
     private static let most = 3
 
     func section(_ section: AddonLine.Section, count: Int) -> NSView {
@@ -60,13 +61,22 @@ struct AddonRows {
             title ?? addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
         var held: [NSView] = []
         if AddonGroups.waits(addon) { held.append(waiting()) }
+        let now = AddonGroups.behind(addon)
+        if let now, let then = addon.tokens {
+            held.append(
+                waiting(
+                    String(
+                        localized:
+                            "This chat read \(shortTokens(then)) when it started: new chats read \(shortTokens(now)). Restart it to read them too."
+                    )))
+        }
         // A plugin's skill goes with its plugin: the switch is on the plugin's line.
         if let key = addon.key, !key.hasPrefix("plugin:") {
             held.append(toggle(key, on: !addon.off, name: addon.name))
         }
         // What a narrow panel drops, last first: who gets it, what it weighs.
         var extras: [NSView] = []
-        if let tokens = addon.tokens { extras.append(digits(shortTokens(tokens))) }
+        if let tokens = now ?? addon.tokens { extras.append(digits(shortTokens(tokens))) }
         if let faces = faces(addon.agents) { extras.append(faces) }
         let inset = Self.inset(depth)
         let mark = mark(addon)
@@ -90,11 +100,11 @@ struct AddonRows {
     }
 
     /// The switch and the chat disagree until it restarts: a mark that fits the narrowest panel, its words in the tip.
-    private func waiting() -> NSView {
+    private func waiting(_ tip: String = String(localized: "This chat follows the switch after a restart")) -> NSView {
         let mark = NSImageView(image: .symbol("arrow.clockwise", String(localized: "After restart")))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
         mark.contentTintColor = .textOrange
-        mark.toolTip = String(localized: "This chat follows the switch after a restart")
+        mark.toolTip = tip
         mark.setContentCompressionResistancePriority(.required, for: .horizontal)
         return mark
     }
@@ -135,16 +145,20 @@ struct AddonRows {
                 symbol: "ellipsis.circle", mark: .secondaryLabelColor)
         }
         if let tidied {
-            // Two buttons leave a narrow panel little room: the saving says it, "Instructions" is in the tip.
+            // Saved already: Keep closes this, Review shows it, Undo takes it back.
             let saved = "\(shortTokens(tidied.tokensBefore)) → \(shortTokens(tidied.tokensNow))"
+            let keep = button(String(localized: "Keep"), String(localized: "The changes stay: close this"), onKeep)
             let review = button(String(localized: "Review"), String(localized: "Every change, file by file"), onReview)
             let undo = button(String(localized: "Undo"), String(localized: "Put the files back as they were"), onUndo)
             let row = twoLines(
-                tidied.changed == 0 ? String(localized: "Nothing changed") : String(localized: "Tidied up"),
-                String(localized: "\(saved) tokens every chat"),
-                color: .secondaryLabelColor, buttons: [review, undo], symbol: "checkmark.circle",
-                mark: .secondaryLabelColor, buttonsUnder: true)
-            row.toolTip = String(localized: "Instructions every chat reads: \(saved) tokens")
+                tidied.changed == 0 ? String(localized: "Nothing changed") : String(localized: "Saved"),
+                String(localized: "\(saved) tokens in new chats"), color: .secondaryLabelColor,
+                buttons: [keep, review, undo], symbol: "checkmark.circle", mark: .secondaryLabelColor,
+                buttonsUnder: true)
+            row.toolTip = String(
+                localized:
+                    "The instruction files are saved: new chats read \(saved) tokens. A chat open now keeps what it read until it restarts."
+            )
             return row
         }
         let text = AddonGroups.instructionsText(files)
