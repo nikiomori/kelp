@@ -102,6 +102,8 @@ import Testing
               8       2 root          0.0     0 76-18:36:24 -   [kworker/R-netns]
         3293888 3293880 vangerserte   0.0  1900       00:00 0::/user.slice/user-1000.slice/session-9.scope   sh -c s() {
         3293901 3293888 vangerserte   0.0  4600       00:00 0::/user.slice/user-1000.slice/session-9.scope   ps -axo pid=
+        3300299 3300290 vangerserte   0.0  1800       00:00 0::/user.slice/user-1000.slice/session-9.scope   sh -c s() { printf
+        3300305 3300299 vangerserte   0.0  2000       00:00 0::/user.slice/user-1000.slice/session-9.scope   sleep 0.3
         """
 
     @Test func readsADockerHost() throws {
@@ -121,7 +123,7 @@ import Testing
                 .init(name: "vangersert", ports: [3000], cpu: 0.8, memory: 596752 * 1024, seconds: 4 * 86400 + 78778),
                 .init(name: "vangersert-nginx", ports: [80], cpu: 0.1, memory: 15356 * 1024, seconds: 6 * 86400 + 40878)
             ])
-        // The reading's own shell and ps aren't listed.
+        // The reading's own shell and ps aren't listed, nor another reading going on at the same time.
         #expect(s.processCount == 5)
         let p = try #require(s.processes)
         #expect(p.first { $0.pid == 1846070 }?.container == "vangersert")

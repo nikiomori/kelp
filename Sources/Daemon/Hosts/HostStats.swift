@@ -134,11 +134,11 @@ enum HostStatsReader {
         stats.tmux = panes.map(\.0).filter { Tmux.isOwn($0) && seen.insert($0).inserted }.map {
             HostStats.TmuxSession(name: $0, session: owner[$0])
         }
-        let me = first("self").flatMap { Int($0) }
-        let all =
-            (sections["psc"].map { $0.compactMap { process($0, cgroup: true) } }
-            ?? (sections["ps"] ?? []).compactMap { process($0, cgroup: false) })
-            .filter { $0.0.pid != me && $0.ppid != me }
+        let read =
+            sections["psc"].map { $0.compactMap { process($0, cgroup: true) } }
+            ?? (sections["ps"] ?? []).compactMap { process($0, cgroup: false) }
+        let mine = readings(read.map { ($0.0, $0.ppid) }, me: first("self").flatMap { Int($0) })
+        let all = read.filter { !mine.contains($0.0.pid) }
             .map { entry, ppid, id in
                 var entry = entry
                 entry.container = id.flatMap { id in docker.first { $0.id == id }?.name }
@@ -155,6 +155,19 @@ enum HostStatsReader {
             }
         }
         return stats
+    }
+
+    /// This reading and any other going on (the sidebar's and the server tab's can meet), with all they started: the
+    /// shell running `script` (`me`, or its first line on a command line) and what's under it.
+    static func readings(_ all: [(HostStats.Process, ppid: Int)], me: Int?) -> Set<Int> {
+        var mine = Set(all.filter { $0.0.pid == me || $0.0.args.contains("s() { printf") }.map { $0.0.pid })
+        var grew = true
+        while grew {
+            let more = all.filter { !mine.contains($0.0.pid) && mine.contains($0.ppid) }.map { $0.0.pid }
+            mine.formUnion(more)
+            grew = !more.isEmpty
+        }
+        return mine
     }
 
     /// Two `cpu` lines of /proc/stat a moment apart: the shares, 0–100, not idle (idle and iowait), waiting on the disk,
