@@ -6,17 +6,16 @@ extension Git {
     /// later diff shows exactly what changed since. A copy of the index is updated, never the real one; files whose
     /// stat didn't change aren't hashed again.
     public static func snapshotTree(_ cwd: String, remotes: Remotes) throws -> String {
-        try onIndexCopy(cwd, remotes: remotes) { env, quiet in
-            // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good,
-            // and `git push --mirror` send them.
-            let secrets = try run(
-                ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
-            )
-            .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
-            try run(
-                quiet + ["add", "-A"]
-                    + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 }),
-                cwd: cwd, env: env, remotes: remotes)
+        // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good,
+        // and `git push --mirror` send them.
+        let secrets = try run(
+            ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
+        )
+        .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
+        let add = ["add", "-A"] + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 })
+        if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [add, ["write-tree"]]) }
+        return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
+            try run(quiet + add, cwd: cwd, env: env, remotes: remotes)
             return try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
         }
     }
@@ -53,9 +52,8 @@ extension Git {
     /// lock, which an agent's `git add` then finds taken). nil when there is none to write: unresolved conflicts (git
     /// writes no tree of those), a remote project. A file added with `git add -N` isn't in it.
     public static func indexTree(_ cwd: String, remotes: Remotes) throws -> String? {
-        guard remotes.of(cwd) == nil, try run(["ls-files", "-u"], cwd: cwd, remotes: remotes).isEmpty else {
-            return nil
-        }
+        guard try run(["ls-files", "-u"], cwd: cwd, remotes: remotes).isEmpty else { return nil }
+        if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [["write-tree"]]) }
         return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
             try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
         }
@@ -67,9 +65,9 @@ extension Git {
         _ cwd: String, remotes: Remotes, _ body: (_ env: [String: String], _ quiet: [String]) throws -> T
     ) throws -> T {
         // On a remote project git runs on the host, where neither GIT_INDEX_FILE nor this Mac's copy of the index reach:
-        // `add -A` would stage everything in the host's real index.
+        // `add -A` would stage everything in the host's real index (`onHostIndexCopy` is its way).
         if remotes.of(cwd) != nil {
-            throw GitError.refused("Snapshots aren't taken in remote projects.")
+            throw GitError.refused("A remote project's index is copied on its host.")
         }
         let rel = try line(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes)
         let real = URL(fileURLWithPath: rel, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).path
@@ -81,6 +79,25 @@ extension Git {
         var env = ["GIT_INDEX_FILE": copy]
         env.merge(configEnv(RepoFilters.off(cwd), after: ProcessInfo.processInfo.environment)) { $1 }
         return try body(env, ["-c", "core.hooksPath=/dev/null"])
+    }
+
+    /// `runs` of git on a remote project's host, one after another, on a copy of its index in the host's temporary
+    /// folder (never the real one) with the repository's hooks off: what the last printed. One round trip.
+    private static func onHostIndexCopy(_ host: RemoteHost, _ runs: [[String]]) throws -> String {
+        let quiet = "git -c core.quotePath=false -c core.fsmonitor=false -c core.hooksPath=/dev/null "
+        let git = runs.map { quiet + $0.map(ShellQuote.word).joined(separator: " ") }.joined(separator: " && ")
+        let script =
+            "cd \(RemoteHost.cdArg(host.path)) && "
+            + #"i=$(git rev-parse --git-path index) && t=$(mktemp "${TMPDIR:-/tmp}/kelp-index-XXXXXX") && "#
+            + #"{ if [ -f "$i" ]; then cp "$i" "$t"; else rm -f "$t"; fi; } && "#
+            + #"export GIT_INDEX_FILE="$t" GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 && "# + git
+            + #"; r=$?; rm -f "$t"; exit $r"#
+        do {
+            let out = String(decoding: try host.run(script, timeLimit: 300), as: UTF8.self)
+            return out.split(whereSeparator: \.isNewline).last.map(String.init) ?? ""
+        } catch let error as ProgramError {
+            throw GitError.failed(args: runs.last ?? [], status: error.status, stderr: error.stderr)
+        }
     }
 
     /// Files changed since a snapshot, with line counts ("Changed 3 files +40 −5" after an agent's turn).
@@ -166,7 +183,16 @@ extension Git {
             try run(
                 ["restore", "--source=" + rev(tree), "--worktree", "--"] + literal(back), cwd: cwd, remotes: remotes)
         }
-        for file in files where !had.contains(file) && FileManager.default.fileExists(atPath: cwd + "/" + file) {
+        let new = files.filter { !had.contains($0) }
+        if let host = remotes.of(cwd), !new.isEmpty {
+            // On a host: into the repository's own .git/kelp-trash (git doesn't list it), as the Files panel trashes.
+            let quoted = new.map(ShellQuote.word).joined(separator: " ")
+            try host.run(
+                "cd \(RemoteHost.cdArg(host.path)) && "
+                    + #"d=".git/kelp-trash/$(date +%s)-$$"; for f in \#(quoted); do [ -e "$f" ] || [ -L "$f" ] || continue; "#
+                    + #"mkdir -p "$d/$(dirname -- "$f")" && mv -- "$f" "$d/$f" || exit 1; done"#, timeLimit: 120)
+        }
+        for file in new where remotes.of(cwd) == nil && FileManager.default.fileExists(atPath: cwd + "/" + file) {
             try Trash.move(URL(fileURLWithPath: cwd + "/" + file))
         }
         let left = Set(try changed(since: tree, cwd: cwd, remotes: remotes).files).intersection(files)

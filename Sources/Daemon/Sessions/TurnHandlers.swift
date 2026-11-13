@@ -115,7 +115,7 @@ struct Turns: Sendable {
                 Log.store.attempt("reading what's staged") {
                     try Git.indexTree(mark.folder, remotes: remotes)
                 } ?? nil
-            guard let dropped = try store.addTurn(mark), remotes.of(mark.folder) == nil else { return }   // no snapshots on a host
+            guard let dropped = try store.addTurn(mark) else { return }
             try Git.setRef("refs/kelp/turns/" + mark.id, to: mark.tree, cwd: mark.folder, remotes: remotes)
             if let staged { try Git.setRef(Self.stagedRef(mark.id), to: staged, cwd: mark.folder, remotes: remotes) }
             delete(
@@ -144,7 +144,7 @@ struct Turns: Sendable {
     /// stops none of the others.
     private func delete(_ refs: [(ref: String, folder: String)]) {
         for (folder, group) in Dictionary(grouping: refs, by: \.folder)
-        where remotes.of(folder) == nil && FileManager.default.fileExists(atPath: folder) {
+        where FileManager.default.fileExists(atPath: folder) {
             Log.store.attempt("dropping turn refs in \(folder)") {
                 try Git.deleteRefs(group.map(\.ref), cwd: folder, remotes: remotes)
             }

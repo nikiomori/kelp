@@ -748,3 +748,25 @@ private func standIn(for repo: String) throws -> (folder: String, remotes: Remot
     #expect(there.map(\.path) == here.map(\.path) && there.count == 2)
     #expect(try ProjectFiles.search(folder, query: "nothing like it", remotes: remotes).isEmpty)
 }
+
+/// A remote project's turn is snapshotted on its host as here (the same tree, the real index untouched), and undone
+/// there: changed files put back, new ones into the repository's own .git/kelp-trash.
+@Test func aRemoteProjectsTurnIsSnapshottedAndUndoneOnItsHost() throws {
+    let repo = try Paths.real(tempRepo()) ?? ""
+    try Git.run(["add", "-A"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "a"], cwd: repo, remotes: .none)
+    let (folder, remotes) = try standIn(for: repo)
+    let before = try Git.snapshotTree(folder, remotes: remotes)
+    #expect(before == (try Git.snapshotTree(repo, remotes: .none)))
+    try "changed\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
+    try "new\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
+    #expect(try Git.run(["diff", "--cached", "--name-only"], cwd: repo, remotes: .none).isEmpty, "its index untouched")
+    let (files, now) = try Git.changed(since: before, cwd: folder, remotes: remotes)
+    #expect(Set(files) == ["f.txt", "new.txt"])
+    try Git.restore(files, from: before, now: now, cwd: folder, remotes: remotes)
+    #expect(try String(contentsOfFile: repo + "/f.txt", encoding: .utf8) == "a\nb\nc\n")
+    #expect(!FileManager.default.fileExists(atPath: repo + "/new.txt"))
+    let trash = try FileManager.default.subpathsOfDirectory(atPath: repo + "/.git/kelp-trash")
+    #expect(trash.contains { $0.hasSuffix("/new.txt") })
+    #expect(try Git.indexTree(folder, remotes: remotes) == (try Git.indexTree(repo, remotes: .none)))
+}

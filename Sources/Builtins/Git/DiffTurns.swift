@@ -12,7 +12,7 @@ extension DiffViewController {
         return (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.id
     }
 
-    /// The picker's turns read again, the one picked kept; hidden with no history (a remote project, none yet).
+    /// The picker's turns read again, the one picked kept; hidden with no history (none yet).
     func readTurns(_ session: String?) async {
         var marks: [SessionTurns.Mark] = []
         if let session { marks = await app.quiet(SessionTurns(id: session)) ?? [] }
