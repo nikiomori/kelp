@@ -112,9 +112,6 @@ extension SessionRestart: Handled {
 extension SessionFork: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
-        if sessions.remotes.of(old.cwd) != nil {
-            throw RPCError.invalidParams("Fork isn't available for remote projects yet.")
-        }
         let manifest = try sessions.setup.manifest(old.agent, command: nil, fallbackArgv: old.argv)
         var launch = Sessions.Launch()
         launch.argv = try Self.argv(old, manifest, sessions)
@@ -148,24 +145,25 @@ extension SessionFork: Handled {
 extension SessionHandoff: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
-        // The brief is a file on this Mac: an agent on a remote host couldn't read it.
-        if sessions.remotes.of(old.cwd) != nil {
-            throw RPCError.invalidParams("Handoff isn't available for remote projects yet.")
-        }
-        let target = agent ?? old.agent
+        let target = agent ?? old.agent, remote = sessions.remotes.of(old.cwd)
         var manifest = try sessions.setup.manifest(target, command: nil)
-        let file = sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
+        // A remote agent's conversation is on its host: the end of it, brought here to write the brief from.
+        let file =
+            remote.map { Self.hostCopy(of: old, on: $0, sessions) }
+            ?? sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
         let uncommitted = Self.uncommitted(old.cwd, sessions)
         let ask = prompt ?? "Continue the task where the previous agent left off."
         var launch = Sessions.Launch(self)
         launch.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
-        if let opened = try native(old, manifest, file: file, uncommitted: uncommitted, sessions) {
+        if remote == nil, let opened = try native(old, manifest, file: file, uncommitted: uncommitted, sessions) {
             manifest.args += opened
             launch.prompt = ask
         } else {
             let conversation = file.flatMap(Conversation.init(file:))
             let brief = try Self.brief(of: old, conversation, limit: limit, uncommitted: uncommitted, sessions)
-            launch.prompt = "Read \(brief.path) — the transcript of the previous agent session in this project. " + ask
+            // The next agent runs where the last one did: on a host, the brief goes there for it to read.
+            let path = try remote.map { try Self.upload(brief, to: $0) } ?? brief.path
+            launch.prompt = "Read \(path) — the transcript of the previous agent session in this project. " + ask
         }
         return try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
     }
@@ -219,6 +217,28 @@ extension SessionHandoff: Handled {
         try ("# Previous session (\(session.agent ?? "agent"), \(session.cwd))\n\n" + body + "\n").write(
             to: file, atomically: true, encoding: .utf8)
         return file
+    }
+
+    /// The end of a remote Claude Code's conversation (`Conversations.remoteTail`, over the open connection), in a file
+    /// here; nil without one, and the brief is its screen.
+    private static func hostCopy(of session: Session, on remote: RemoteHost, _ sessions: Sessions) -> URL? {
+        guard let tail = sessions.agentUsage.conversations.remoteTail(of: session, on: remote) else { return nil }
+        return Log.session.attempt("keeping \(session.id)'s conversation from its host") {
+            let file = try handoffFile("\(session.id)-host.jsonl", sessions)
+            try tail.write(to: file, options: .atomic)
+            return file
+        }
+    }
+
+    /// The brief, copied into the repository's own .git/kelp-handoff on the host (git doesn't list it), where the agent
+    /// there reads it: its path there.
+    private static func upload(_ brief: URL, to remote: RemoteHost) throws -> String {
+        let name = ShellQuote.word(brief.lastPathComponent)
+        let out = try remote.run(
+            "cd \(RemoteHost.cdArg(remote.path)) && "
+                + #"d="$(pwd -P)/.git/kelp-handoff"; mkdir -p "$d" && cat > "$d/"\#(name) && printf %s "$d/"\#(name)"#,
+            stdin: try Data(contentsOf: brief), timeLimit: 60)
+        return String(decoding: out, as: UTF8.self)
     }
 
     private static func handoffFile(_ name: String, _ sessions: Sessions) throws -> URL {

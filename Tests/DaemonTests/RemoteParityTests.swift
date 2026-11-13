@@ -136,3 +136,34 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     _ = try await c.call(FilesMove(pairs: [FileMove(from: gone.to, to: gone.from)]))   // Undo
     #expect(fm.fileExists(atPath: there + "/src/a b copy.md"))
 }
+
+/// A remote chat is forked and handed off on its host, as here: the fork goes on from its conversation there, and the
+/// brief the next agent reads is copied to the host.
+@Test func aRemoteChatIsForkedAndHandedOffOnItsHost() async throws {
+    _ = localSSH
+    var claude = AgentManifest(id: "claude", name: "Claude Code", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
+    claude.sessionIdFlag = "--session-id"
+    claude.resumeIdFlag = "--resume"
+    claude.transcript = .claude
+    let (d, c, _) = try daemon(agents: [claude])
+    defer { d.stop() }
+    let host = tmp()
+    d.agentUsage.conversations.hostClaude.withLock { $0 = ShellQuote.word(host.path) }
+    let (_, workspace, there) = try await remoteProject(c)
+    let session = try await c.call(SessionCreate(worktreeId: workspace.id, agent: "claude"))
+    let folder = host.appendingPathComponent(
+        "projects/" + (try #require(Paths.real(there))).replacing(/[^A-Za-z0-9]/, with: "-"))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try #"""
+    {"type":"user","message":{"role":"user","content":"Make the loop faster"}}
+    {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done: it caches now."}]}}
+    """#.write(to: folder.appendingPathComponent(session.id.lowercased() + ".jsonl"), atomically: true, encoding: .utf8)
+
+    let fork = try await c.call(SessionFork(id: session.id))
+    #expect(fork.argv.contains("--fork-session") && fork.argv.contains(session.id.lowercased()))
+    let next = try await c.call(SessionHandoff(id: session.id, agent: "claude", full: false, prompt: "Go on."))
+    let brief = try String(
+        contentsOfFile: try #require(Paths.real(there)) + "/.git/kelp-handoff/\(session.id).md", encoding: .utf8)
+    #expect(brief.contains("Make the loop faster") && brief.contains("it caches now"))
+    for id in [session.id, fork.id, next.id] { _ = try await c.call(SessionKill(id: id)) }
+}

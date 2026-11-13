@@ -132,7 +132,7 @@ final class LimitStrip: NSView {
         detail.stringValue = LimitStop.detail(session, now: now)
         let reset = hit.resetAt, waiting = session.continueAt != nil, passed = reset.map { $0 <= now } ?? false
         let takers =
-            waiting || RemoteHost.of(session.cwd) != nil
+            waiting
             ? []
             : LimitStop.takers(
                 app.catalog.installed(app.catalog.all).map { ($0.id, $0.name) },
