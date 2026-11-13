@@ -16,12 +16,23 @@ extension Workspaces {
         if let other = ImportedConfig.find(repoPath) { return (repoPath + "/" + other.file, other.text, other.config) }
         return (own, "", RepoConfig())
     }
+
+    /// `configFile`; a remote project's own .kelp.yaml is read on its host, when someone asks for its commands (its
+    /// folder here holds only the marker), and another tool's isn't looked for there. Unread (the host away): none.
+    func configFile(_ repoPath: String) -> (path: String, text: String, config: RepoConfig) {
+        guard let remote = remotes.of(repoPath) else { return Self.configFile(repoPath) }
+        let read = Log.store.attempt("reading \(remote.host)'s .kelp.yaml") {
+            try remote.run("cd \(RemoteHost.cdArg(remote.path)) && cat .kelp.yaml 2>/dev/null; exit 0", timeLimit: 20)
+        }
+        let text = read.map { String(decoding: $0, as: UTF8.self) } ?? ""
+        return (repoPath + "/.kelp.yaml", text, RepoConfig.parse(text))
+    }
     static func digest(_ text: String) -> String { Data(text.utf8).sha256 }
 
     /// The file read once, its parsed config and whether the user trusts exactly that text: checking one read and using
     /// another would let a write in between (an agent, a pull) slip in unseen.
     func configAndTrust(_ repoPath: String) -> (text: String, config: RepoConfig, trusted: Bool, path: String) {
-        let (path, text, cfg) = Self.configFile(repoPath)
+        let (path, text, cfg) = configFile(repoPath)
         guard !Self.asksNothing(cfg) else { return (text, cfg, true, path) }
         return (text, cfg, trustLock.withLock { knownDigests() }[repoPath] == Self.digest(text), path)
     }
@@ -81,7 +92,7 @@ extension ScriptsTrust: Handled {
     }
     func handle(_ workspaces: Workspaces) throws -> Done {
         let (_, repo) = try workspaces.configRepo(worktreeId)
-        let now = Workspaces.digest(Workspaces.configFile(repo).text)
+        let now = Workspaces.digest(workspaces.configFile(repo).text)
         // The digest from scripts.list: a file changed since it was shown (an agent, a pull) isn't what was trusted.
         guard let digest else {
             throw RPCError.invalidParams("scripts.trust needs the digest of the .kelp.yaml that was shown.")
