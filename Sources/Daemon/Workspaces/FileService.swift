@@ -79,6 +79,9 @@ struct FileService: Sendable {
 
     func move(_ pairs: [FileMove], unique: Bool) -> FilesMove.Result {
         let (done, error) = each(pairs) { pair in
+            if let host = try onHost(pair.from, pair.to) {
+                return FileMove(from: pair.from, to: try host.move(pair.from, pair.to, unique: unique))
+            }
             let from = try here(pair.from), named = try here(pair.to), to = unique ? Self.free(named) : named
             try FileManager.default.moveItem(atPath: from, toPath: to)
             return FileMove(from: from, to: to)
@@ -88,6 +91,7 @@ struct FileService: Sendable {
 
     func trash(_ paths: [String]) -> FilesMove.Result {
         let (done, error) = each(paths) { path in
+            if let host = try onHost(path) { return FileMove(from: path, to: try host.trash(path)) }
             let from = try here(path)
             return FileMove(from: from, to: try Trash.move(URL(fileURLWithPath: from)).path)
         }
@@ -96,6 +100,7 @@ struct FileService: Sendable {
 
     func copy(_ paths: [String], into: String) -> FilesCopy.Result {
         let (made, error) = each(paths) { path in
+            if let host = try onHost(path, into) { return try host.copy(path, into: into) }
             let from = try here(path), dir = try here(into),
                 to = Self.free(dir + "/" + (from as NSString).lastPathComponent)
             try FileManager.default.copyItem(atPath: from, toPath: to)
@@ -114,6 +119,7 @@ struct FileService: Sendable {
     }
 
     func create(_ path: String, folder: Bool, text: String?, unique: Bool) throws -> String {
+        if let host = try onHost(path) { return try host.create(path, folder: folder, text: text, unique: unique) }
         let named = try here(path), path = unique ? Self.free(named, word: nil) : named, fm = FileManager.default
         try fm.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         // A taken name fails: never an existing file written over, or a folder taken for a new one.
@@ -129,16 +135,20 @@ struct FileService: Sendable {
     static func free(_ path: String, word: String? = "copy") -> String {
         let fm = FileManager.default
         guard fm.fileExists(atPath: path) else { return path }
-        let url = URL(fileURLWithPath: path), ext = url.pathExtension,
-            base = url.deletingPathExtension().lastPathComponent,
-            dir = url.deletingLastPathComponent()
         var number = word == nil ? 2 : 1
         while true {
-            let stem = [base, word].compactMap { $0 }.joined(separator: " ") + (number > 1 ? " \(number)" : "")
-            let candidate = dir.appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext).path
+            let candidate = Self.named(path, word: word, number)
             if !fm.fileExists(atPath: candidate) { return candidate }
             number += 1
         }
+    }
+
+    /// "name copy 2.ext" (`number` 1: "name copy.ext"; `word` nil: "name 2.ext") beside `path`.
+    static func named(_ path: String, word: String?, _ number: Int) -> String {
+        let url = URL(fileURLWithPath: path), ext = url.pathExtension,
+            base = url.deletingPathExtension().lastPathComponent
+        let stem = [base, word].compactMap { $0 }.joined(separator: " ") + (number > 1 ? " \(number)" : "")
+        return url.deletingLastPathComponent().appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext).path
     }
 
     /// A version on a host: its bytes' SHA-256.
@@ -175,15 +185,23 @@ struct FileService: Sendable {
         return URL(fileURLWithPath: path).standardizedFileURL.path
     }
 
-    /// Moving, copying and making files is done here only: a remote project's folder here stands for the one on its host.
+    /// A path on this Mac, for moving, copying and making files here (a remote project's go to `HostFiles`).
     private func here(_ path: String) throws -> String {
         let path = try absolute(path)
         if let located = remotes.containing(path) {
             throw RPCError.invalidParams(
-                "\((path as NSString).lastPathComponent) is in a remote project: move, copy or make files there on \(located.remote.host)."
+                "\((path as NSString).lastPathComponent) is in a remote project: move or copy it there on \(located.remote.host), not between it and this Mac."
             )
         }
         return path
+    }
+
+    /// The remote project all of `paths` are in (`HostFiles`); nil when they're all on this Mac. Between a host and this
+    /// Mac, or two projects there, is refused (`here`).
+    private func onHost(_ paths: String...) throws -> HostFiles? {
+        let found = try paths.map { HostFiles.of(try absolute($0), remotes) }
+        guard let first = found.first ?? nil else { return nil }
+        return found.allSatisfy { $0?.folder == first.folder } ? first : nil
     }
 
     private func message(_ error: Error) -> String { (error as? RPCError)?.message ?? error.localizedDescription }

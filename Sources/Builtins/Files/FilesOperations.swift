@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// File operations, done by the daemon (`files.*`: the same rules for every client, and a remote project's refused there
-/// instead of acting on the folder that stands for it here), each undoable with ⌘Z.
+/// File operations, done by the daemon (`files.*`: the same rules for every client, and a remote project's on its host,
+/// never on the folder that stands for it here), each undoable with ⌘Z.
 extension FilesPanel {
     // ⌘Z is registered as the operation starts, not when the daemon answers: one registered while an undo runs is that
     // undo's redo, one registered later would be a new action (and clear the redo). What it undoes is the answer, awaited.

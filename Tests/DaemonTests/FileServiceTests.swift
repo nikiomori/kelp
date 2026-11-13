@@ -124,7 +124,7 @@ import Testing
 }
 
 /// A remote project's file is read and written on its host through the same methods, its stamp the bytes' digest: an
-/// agent's edit there is asked about; moving or making files there is refused rather than done to the folder here.
+/// agent's edit there is asked about; a file made there is made on the host, not in the folder here.
 @Test func aRemoteFileIsWrittenOnlyOverTheVersionRead() async throws {
     _ = localSSH
     let (d, c, _) = try daemon()
@@ -144,7 +144,9 @@ import Testing
     // The old method, as an older app calls it: a file that's gone is written again.
     #expect(try await c.call(FilesWriteRemote(path: file, text: "again\n", base: "édité ✓\n")) == nil)
     #expect(try String(contentsOfFile: there + "/a.txt", encoding: .utf8) == "again\n")
-    await #expect(throws: (any Error).self) { _ = try await c.call(FilesCreate(path: repo.path + "/new.txt")) }
+    // Made there, never in the folder here (`aRemoteProjectsFilesAreChangedOnItsHost`).
+    _ = try await c.call(FilesCreate(path: repo.path + "/new.txt"))
+    #expect(FileManager.default.fileExists(atPath: there + "/new.txt"))
     #expect(!FileManager.default.fileExists(atPath: repo.path + "/new.txt"))
 }
 

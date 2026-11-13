@@ -105,3 +105,34 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(terminal.tmux.map(Tmux.isOwn) == true && Tmux.session(terminal.argv) == nil)
     _ = try await c.call(SessionKill(id: terminal.id))
 }
+
+/// A remote project's files are made, renamed, copied and thrown away on its host as here: a taken name is never written
+/// over, a copy gets a free name, and what's trashed comes back by moving it again (Undo).
+@Test func aRemoteProjectsFilesAreChangedOnItsHost() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let here = repo.path, fm = FileManager.default
+    let made = try await c.call(FilesCreate(path: here + "/docs/a b.md", text: "hi\n"))
+    #expect(made == here + "/docs/a b.md")
+    #expect(try String(contentsOfFile: there + "/docs/a b.md", encoding: .utf8) == "hi\n")
+    await #expect(throws: RPCError.self) { try await c.call(FilesCreate(path: made, text: "over")) }
+    #expect(try String(contentsOfFile: there + "/docs/a b.md", encoding: .utf8) == "hi\n", "not written over")
+    #expect(try await c.call(FilesCreate(path: made, text: "x", unique: true)) == here + "/docs/a b 2.md")
+    #expect(try await c.call(FilesCreate(path: here + "/src", folder: true)) == here + "/src")
+
+    let moved = try await c.call(FilesMove(pairs: [FileMove(from: made, to: here + "/src/a b.md")]))
+    #expect(
+        moved.error == nil && fm.fileExists(atPath: there + "/src/a b.md")
+            && !fm.fileExists(atPath: there + "/docs/a b.md"))
+    let copied = try await c.call(FilesCopy(paths: [here + "/src/a b.md"], into: here + "/src"))
+    #expect(copied.made == [here + "/src/a b copy.md"])
+
+    let trashed = try await c.call(FilesTrash(paths: [here + "/src/a b copy.md"]))
+    let gone = try #require(trashed.done.first)
+    #expect(!fm.fileExists(atPath: there + "/src/a b copy.md") && gone.to.hasPrefix(here + "/.git/kelp-trash/"))
+    #expect(try Git.run(["status", "--porcelain"], cwd: there, remotes: .none).contains("kelp-trash") == false)
+    _ = try await c.call(FilesMove(pairs: [FileMove(from: gone.to, to: gone.from)]))   // Undo
+    #expect(fm.fileExists(atPath: there + "/src/a b copy.md"))
+}
