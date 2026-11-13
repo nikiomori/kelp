@@ -674,3 +674,34 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     p.waitUntilExit()
     #expect(try String(contentsOf: said, encoding: .utf8) == "-l\n")
 }
+
+/// A program on a host gets Kelp's own variables in its command and its agent's secrets from a file it reads and
+/// removes as it starts: never in the command, which the host's `ps` shows. Kept in tmux or not.
+@Test func aHostsProgramGetsItsEnvironmentWithoutItsSecretsOnItsCommandLine() throws {
+    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: bin) }
+    let shell = bin.appendingPathComponent("shell"), out = bin.appendingPathComponent("out")
+    try "#!/bin/sh\n[ \"$1\" = -ilc ] && exec /bin/sh -c \"$2\"\nexec /bin/sh\n".write(
+        to: shell, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: shell.path)
+    let host = RemoteHost(host: "box", path: bin.path), program = ["sh", "-c", #"echo "$SECRET $COLORTERM" > out"#]
+    for tmux in [false, true] {
+        let name = UUID().uuidString.lowercased(), file = bin.appendingPathComponent("kelp-env-" + name)
+        try "export SECRET='s3 cr3t'\n".write(to: file, atomically: true, encoding: .utf8)
+        let command =
+            tmux
+            ? host.command(program, inTmux: "kelp-tab-1", envFile: name, exports: ["COLORTERM": "truecolor"])
+            : host.command(program, envFile: name, exports: ["COLORTERM": "truecolor"])
+        #expect(!command.contains("s3 cr3t"))
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", command]
+        // No tmux on this PATH: kept in tmux, it runs alone.
+        p.environment = ["PATH": "/usr/bin:/bin", "SHELL": shell.path, "HOME": bin.path, "TMPDIR": bin.path]
+        try p.run()
+        p.waitUntilExit()
+        #expect(try String(contentsOf: out, encoding: .utf8) == "s3 cr3t truecolor\n", "tmux: \(tmux)")
+        #expect(!FileManager.default.fileExists(atPath: file.path), "read once, then gone")
+    }
+}

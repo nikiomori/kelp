@@ -75,27 +75,49 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// What the host's shell runs: `argv` in the project's folder, through an interactive login shell so the host's PATH
     /// applies (interactive too: nvm and npm's global bin go in .bashrc, which `bash -lc` skips);
     /// nil argv is an interactive login shell.
-    public func command(_ argv: [String]?) -> String {
-        let cd = "cd \(Self.cdArg(path))"
-        guard let argv, !argv.isEmpty else { return cd + " && exec \"$SHELL\" -l" }
+    public func command(_ argv: [String]?, envFile: String? = nil, exports: [String: String] = [:]) -> String {
+        let cd = "cd \(Self.cdArg(path)) && " + Self.prelude(envFile, exports)
+        guard let argv, !argv.isEmpty else { return cd + "exec \"$SHELL\" -l" }
         // A local absolute path means nothing there: the host finds the program by name.
         let words = [(argv[0] as NSString).lastPathComponent] + argv.dropFirst()
-        return cd + " && exec \"$SHELL\" -ilc " + ShellQuote.word(words.map(ShellQuote.word).joined(separator: " "))
+        return cd + "exec \"$SHELL\" -ilc " + ShellQuote.word(words.map(ShellQuote.word).joined(separator: " "))
     }
+
+    /// Where a program's environment waits on the host for its start (`prelude`), as sh names it: its user's alone
+    /// (written with umask 077), under a name nobody can guess.
+    public static func envFile(_ name: String) -> String { #""${TMPDIR:-/tmp}/kelp-env-\#(name)""# }
+
+    /// sh that sets the program's environment: `exports` (Kelp's own, nothing secret), then what file `name`
+    /// (`envFile`) holds, which it removes: the agent's settings and secrets, never on its command line, where the
+    /// host's `ps` shows them. A key that isn't a name, or a file name that isn't one, is left out.
+    static func prelude(_ name: String?, _ exports: [String: String]) -> String {
+        let set = exports.sorted { $0.key < $1.key }.filter { isName($0.key) }.map {
+            "export \($0.key)=\(ShellQuote.word($0.value)); "
+        }.joined()
+        guard let name, name.wholeMatch(of: /[A-Za-z0-9-]+/) != nil else { return set }
+        return set + "f=\(envFile(name)); " + #"[ -f "$f" ] && { . "$f"; rm -f "$f"; }; "#
+    }
+
+    /// An environment variable's name, as sh takes it.
+    public static func isName(_ key: String) -> Bool { key.wholeMatch(of: /[A-Za-z_][A-Za-z0-9_]*/) != nil }
 
     /// `argv` as `command` runs it, inside tmux session `name` on the host, or attached to that session again while it still
     /// runs there. The session shows no status line (its clock would read as output), the mouse wheel scrolls back through
     /// tmux's history, and the program's title comes through, with what agents report (`allow-passthrough`, last: a tmux before
     /// 3.3 has no such option, and lets it through anyway). A connection starts with the report it missed while there was
     /// none. Without tmux on the host, `argv` runs as it is.
-    public func command(_ argv: [String], inTmux name: String) -> String {
+    public func command(
+        _ argv: [String], inTmux name: String, envFile: String? = nil, exports: [String: String] = [:]
+    ) -> String {
         // None: the host's login shell (a terminal kept in tmux, `terminal.tmux`).
         let words =
             argv.isEmpty
             ? "\"$SHELL\" -l"
             : ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(ShellQuote.word).joined(separator: " ")
         // tmux runs a pane's one-string command in a shell
-        let pane = "exec " + (argv.isEmpty ? words : "\"$SHELL\" -ilc " + ShellQuote.word(words))
+        let pane =
+            Self.prelude(envFile, exports) + "exec "
+            + (argv.isEmpty ? words : "\"$SHELL\" -ilc " + ShellQuote.word(words))
         // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
         let options = [
             ["status", "off"], ["mouse", "on"], ["set-titles", "on"],
@@ -110,10 +132,16 @@ public struct RemoteHost: Codable, Sendable, Equatable {
             "s=$(tmux show-options -qv -t \(ShellQuote.word("=" + name + ":")) \(Self.statusOption) 2>/dev/null); "
             + #"[ -z "$s" ] || printf '\033]7501;%s\007' "$s"; "#
         let cd = "cd \(Self.cdArg(path))"
+        // Attached to a session still running there, the environment that waited for its start isn't wanted.
+        let left =
+            envFile.map {
+                "tmux has-session -t \(ShellQuote.word("=" + name)) 2>/dev/null && rm -f \(Self.envFile($0)); "
+            } ?? ""
         return cd + " && exec \"$SHELL\" -ilc "
             + ShellQuote.word(
-                missed + "command -v tmux >/dev/null 2>&1 && exec " + tmux.map(ShellQuote.word).joined(separator: " ")
-                    + " || exec " + words)
+                missed + left + "command -v tmux >/dev/null 2>&1 && exec "
+                    + tmux.map(ShellQuote.word).joined(separator: " ")
+                    + " || { " + Self.prelude(envFile, exports) + "exec " + words + "; }")
     }
 
     /// `cd`'s argument: quoted, with a leading ~ left outside the quotes so the host's shell expands it.

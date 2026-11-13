@@ -219,7 +219,7 @@ final class Sessions: Sendable {
         let env = setup.launchEnv(manifest, rec)
         let ls = try LiveSession(
             record: rec, manifest: setup.liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
-            argv: try setup.launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux), env: env,
+            argv: try setup.launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux, env: env), env: env,
             historyDir: root.appendingPathComponent("history"), cols: launch.cols, rows: launch.rows,
             // A dev server's URL opens in the workspace's browser (e.g. Jupyter Lab's).
             callbacks: callbacks(

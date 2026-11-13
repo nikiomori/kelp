@@ -35,9 +35,12 @@ final class SessionSetup: Sendable {
 
     /// What runs: `argv` itself, or for a remote project ssh running it in the project's folder on the host. Records
     /// keep the plain argv, so a restart or a wake wraps it once (older records kept the ssh line: that runs as it is).
-    func launchArgv(_ argv: [String], cwd: String, manifest: AgentManifest, tmux: String? = nil) throws -> [String] {
+    func launchArgv(
+        _ argv: [String], cwd: String, manifest: AgentManifest, tmux: String? = nil, env: [String: String] = [:]
+    ) throws -> [String] {
         var run = argv
         if let remote = remotes.of(cwd), argv.first != remote.ssh {
+            let (own, secret) = Self.hostEnv(manifest, env), envFile = try Self.sendEnv(secret, to: remote)
             // A command line (`.custom`: zsh -lc "…") goes to sh there: the host may have no zsh.
             var onHost = manifest.id == "custom" && argv.count == 3 && argv[1] == "-lc" ? ["sh", "-c", argv[2]] : argv
             // Here, not in the record: every start gets this kelpd's, and a title or a restart never sees it.
@@ -49,8 +52,8 @@ final class SessionSetup: Sendable {
             }
             let loginShell = manifest.id == "shell" && Tmux.session(argv) == nil
             let command =
-                tmux.map { remote.command(loginShell ? [] : onHost, inTmux: $0) }
-                ?? remote.command(loginShell ? nil : onHost)
+                tmux.map { remote.command(loginShell ? [] : onHost, inTmux: $0, envFile: envFile, exports: own) }
+                ?? remote.command(loginShell ? nil : onHost, envFile: envFile, exports: own)
             run = [remote.ssh] + remote.sshArgs(tty: true) + [command]
         }
         guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
@@ -58,6 +61,32 @@ final class SessionSetup: Sendable {
         // Codex's hooks: here, not in the record, as the host's are, so a wake gets this kelpd's.
         let hooks = tmux == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
         return [resolved] + hooks + run.dropFirst()
+    }
+
+    /// What a program on a host gets of its environment here: its agent's settings and secrets (`secret`, sent apart),
+    /// and Kelp's own (the port block, colour, links). Not this Mac's paths (a profile's folder, the socket, PATH): they
+    /// mean nothing there.
+    static func hostEnv(_ manifest: AgentManifest, _ env: [String: String]) -> (
+        own: [String: String], secret: [String: String]
+    ) {
+        var own = ["COLORTERM": "truecolor", "FORCE_HYPERLINK": "1"]
+        for key in ["KELP_PORT", "COLORTERM", "FORCE_HYPERLINK"] { own[key] = env[key] ?? own[key] }
+        return (own, manifest.resolvedEnv.filter { !$0.value.isEmpty && RemoteHost.isName($0.key) })
+    }
+
+    /// `env` into a file of its own on the host (`RemoteHost.envFile`, readable by its user alone), which the program's
+    /// command reads and removes as it starts (`RemoteHost.prelude`): never on a command line there. Its name; nil for
+    /// nothing to send.
+    static func sendEnv(_ env: [String: String], to remote: RemoteHost) throws -> String? {
+        guard !env.isEmpty else { return nil }
+        let name = UUID().uuidString.lowercased()
+        let text = env.sorted { $0.key < $1.key }.filter { RemoteHost.isName($0.key) }
+            .map { "export \($0.key)=\(ShellQuote.word($0.value))\n" }.joined()
+        // One a start never read goes five minutes on (its user's only: the others' can't be removed).
+        let left = #"find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'kelp-env-*' -mmin +5 -exec rm -f {} + 2>/dev/null; "#
+        try remote.run(
+            left + "umask 077; set -C; cat > \(RemoteHost.envFile(name))", stdin: Data(text.utf8), timeLimit: 20)
+        return name
     }
 
     /// A local Codex that agrees on Kelp's hooks gets them on its command line (`CodexHookCheck`).

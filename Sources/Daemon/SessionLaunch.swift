@@ -88,7 +88,7 @@ extension Sessions {
         let ls = try LiveSession(
             record: rec,
             manifest: setup.liveManifest(manifest, cwd: rec.cwd, worktreeId: rec.worktreeId, env: env, argv: argv),
-            argv: try setup.launchArgv(argv, cwd: rec.cwd, manifest: manifest, tmux: rec.tmux), env: env,
+            argv: try setup.launchArgv(argv, cwd: rec.cwd, manifest: manifest, tmux: rec.tmux, env: env), env: env,
             historyDir: root.appendingPathComponent("history"), cols: cols, rows: rows,
             callbacks: callbacks(for: rec, limits: manifest.limitScreen))
         if rec.tmux != nil { ls.attachedToRunning() }

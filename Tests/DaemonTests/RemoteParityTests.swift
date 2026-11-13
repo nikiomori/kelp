@@ -167,3 +167,19 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(brief.contains("Make the loop faster") && brief.contains("it caches now"))
     for id in [session.id, fork.id, next.id] { _ = try await c.call(SessionKill(id: id)) }
 }
+
+/// A remote agent gets its Environment settings on the host, as here.
+@Test func aRemoteAgentGetsItsEnvironment() async throws {
+    _ = localSSH
+    let out = tmp().appendingPathComponent("env")
+    let agent = AgentManifest(
+        id: "bot", name: "Bot", command: "/bin/sh",
+        args: ["-c", #"echo "$GREETING $COLORTERM" > \#(out.path); sleep 30"#],
+        env: ["GREETING": "hello there"])
+    let (d, c, _) = try daemon(agents: [agent])
+    defer { d.stop() }
+    let (_, workspace, _) = try await remoteProject(c)
+    let session = try await c.call(SessionCreate(worktreeId: workspace.id, agent: "bot"))
+    #expect(try await waitFor(10) { (try? String(contentsOf: out, encoding: .utf8)) == "hello there truecolor\n" })
+    _ = try await c.call(SessionKill(id: session.id))
+}
