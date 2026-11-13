@@ -57,8 +57,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         track(owner: self) { [app] in
             app.sessions.contains { Self.readOnSight($0) }
         } changed: { [weak self] any in
-            self?.timeGlances(any)
+            self?.unreadToGlance = any
+            self?.timeGlances()
         }
+        followSight()
         track(owner: self) { [app] in
             MenuSources(
                 revision: app.extensions.revision, agents: app.availability.ids, keys: app.settings[SettingKeys.keys],
@@ -205,17 +207,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? { dockIcon.menu() }
 
+    /// Kelp going behind or coming forward (the glance clock), and its window seen or not (`AppModel.setAway`: hidden,
+    /// minimized or covered, what only the window shows isn't read).
+    private func followSight() {
+        let center = NotificationCenter.default
+        for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
+            _ = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.timeGlances() }   // queue: .main
+            }
+        }
+        let seen = NSWindow.didChangeOcclusionStateNotification
+        _ = center.addObserver(forName: seen, object: main.window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {   // queue: .main
+                guard let self, let window = self.main.window else { return }
+                self.app.setAway(!window.occlusionState.contains(.visible))
+            }
+        }
+    }
+
     /// Finished agents read at a glance (`Glances`): timed only while one is unread, so no clock runs the rest of the time.
     private var glances = Glances()
     private var glanceClock: Timer?
     private static func readOnSight(_ s: Session) -> Bool {
         s.unread && (s.status == .done || (s.status == .exited && !s.endedWithError))
     }
-    private func timeGlances(_ on: Bool) {
+    /// Some finished agent is unread: glances are timed while Kelp is the app in front (behind, none can be).
+    private var unreadToGlance = false
+    private func timeGlances() {
         glanceClock?.invalidate()
         glanceClock = nil
         glances = Glances()
-        guard on else { return }
+        guard unreadToGlance, NSApp.isActive else { return }
         // Main run loop: AppKit runs the timer on the main thread.
         glanceClock = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.trackGlances() }

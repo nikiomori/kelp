@@ -253,15 +253,17 @@ final class ExtBadge {
 
     func poll(_ def: ExtManifest.BadgeDef, folder: URL, app: AppModel) async {
         while !Task.isCancelled {
-            let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
-            let result = await Shell.run(
-                app, cmd, cwd: IDEContext.of(app).workspace?.path ?? folder.path, extension: folder.lastPathComponent)
-            // A command that fails is a red dot, its error the key: looked at once, it stays quiet until the error changes.
-            let next =
-                result.code == 0
-                ? PanelBadge(result.stdout) : PanelBadge(alert: true, key: String(result.stderr.prefix(200)))
-            if next != value { value = next }
-            try? await Task.sleep(for: .seconds(max(def.refresh ?? 60, 5)))
+            if !app.away {   // nobody sees the badge while the window isn't: its command waits
+                let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
+                let cwd = IDEContext.of(app).workspace?.path ?? folder.path
+                let result = await Shell.run(app, cmd, cwd: cwd, extension: folder.lastPathComponent)
+                // A command that fails is a red dot, its error the key: looked at once, it stays quiet until the error changes.
+                let next =
+                    result.code == 0
+                    ? PanelBadge(result.stdout) : PanelBadge(alert: true, key: String(result.stderr.prefix(200)))
+                if next != value { value = next }
+            }
+            try? await Task.sleep(for: .seconds(app.away ? 5 : max(def.refresh ?? 60, 5)))
         }
     }
 }

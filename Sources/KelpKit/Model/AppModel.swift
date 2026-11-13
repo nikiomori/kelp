@@ -187,7 +187,7 @@ package final class AppModel {
                     error: $0.error)
             },
             commands: reg.all.commands.map { ShownUI.Item(id: $0.id, title: $0.title) },
-            panels: reg.all.panels.map { ShownUI.Item(id: $0.id, title: $0.title) })
+            panels: reg.all.panels.map { ShownUI.Item(id: $0.id, title: $0.title) }, away: away ? true : nil)
         guard state != published else { return }
         published = state
         // A call (applied in order all the same): a daemon that isn't this app's own copy refuses it, and agents' `kelp open`
@@ -332,6 +332,8 @@ package final class AppModel {
         sessions.forEach(handle)
     }
     @ObservationIgnored private(set) var held: [Session] = []
+    /// Kelp's window isn't seen (`setAway`).
+    @ObservationIgnored var away = false
     /// How long session news is gathered: well under what a row's change is seen in, a burst's worth.
     static let gathers: TimeInterval = 0.05
 

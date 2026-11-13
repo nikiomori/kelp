@@ -89,7 +89,12 @@ public struct UsageGet: InternalMethod {
         }
     }
     public var force: Bool?
-    public init(force: Bool? = nil) { self.force = force }
+    /// The token totals as last read, not read again (a scan reads every transcript): Kelp's window isn't seen.
+    public var cachedTokens: Bool?
+    public init(force: Bool? = nil, cachedTokens: Bool? = nil) {
+        self.force = force
+        self.cachedTokens = cachedTokens
+    }
 }
 /// What Claude Code used over `days`, by day, model and project, priced as the API would.
 public struct UsageReport: InternalMethod {

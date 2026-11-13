@@ -4540,6 +4540,10 @@
       "ShownUI" : {
         "description" : "What the app shows, as agents read it back (`kelp ui state`): nothing at all when no app is connected.",
         "properties" : {
+          "away" : {
+            "description" : "Kelp's window isn't seen (hidden, minimized or covered): what only it shows isn't read meanwhile.",
+            "type" : "boolean"
+          },
           "commands" : {
             "description" : "The palette's commands and the inspector's panels: what `kelp ui command` and `kelp open ext:` take.",
             "items" : {
@@ -13161,6 +13165,14 @@
       "name" : "usage.get",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "The token totals as last read, not read again (a scan reads every transcript): Kelp's window isn't seen.",
+          "name" : "cachedTokens",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
         {
           "name" : "force",
           "required" : false,

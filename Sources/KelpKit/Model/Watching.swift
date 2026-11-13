@@ -7,7 +7,30 @@ extension AppModel {
     package func watch(_ topic: WatchTopic, _ key: String = "") {
         let start = WatchStart(topic, key)
         watching[start, default: 0] += 1
-        if watching[start] == 1, let client { tell(start, client) }
+        if watching[start] == 1, let client, !paused(start) { tell(start, client) }
+    }
+
+    /// What only the window shows, polled for it alone (ports, CPU, machines, hosts, subagents' steps): not read while the
+    /// window isn't seen. CI, git, sessions and the limits go on (the Dock, notifications and parked agents follow them).
+    static let seenOnly: Set<WatchTopic> = [
+        .ports, .activity, .machines, .machineDetail, .host, .hostDetail, .subagents
+    ]
+    private func paused(_ start: WatchStart) -> Bool { away && Self.seenOnly.contains(start.topic) }
+
+    /// Kelp's window was hidden, minimized or covered (`away`), or seen again: what only it shows stops or starts again,
+    /// and the daemon hears it (its token scan waits too).
+    func setAway(_ now: Bool) {
+        guard now != away else { return }
+        away = now
+        for start in watching.keys where Self.seenOnly.contains(start.topic) {
+            if now {
+                told.remove(start)
+                notify { WatchStop(start.topic, start.key) }
+            } else if let client {
+                tell(start, client)
+            }
+        }
+        publishUIState()
     }
 
     /// `start` sent on `connection`, unless that connection heard it already.
@@ -22,7 +45,7 @@ extension AppModel {
     /// What the views watch, told to a connection that hasn't heard it: all of it for a new daemon, and nothing twice for
     /// the first one, whose lists' refresh and first views watched over it already. Returns what it sent.
     @discardableResult func tellWatches(_ connection: RPCClient) -> [WatchStart] {
-        let unheard = watching.keys.filter { toldTo !== connection || !told.contains($0) }
+        let unheard = watching.keys.filter { (toldTo !== connection || !told.contains($0)) && !paused($0) }
         for start in unheard { tell(start, connection) }
         return unheard
     }

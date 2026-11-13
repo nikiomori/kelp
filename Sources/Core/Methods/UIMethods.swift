@@ -18,6 +18,8 @@ public struct ShownUI: Codable, Sendable, Equatable {
     public let extensions: [Extension]?
     /// The palette's commands and the inspector's panels: what `kelp ui command` and `kelp open ext:` take.
     public let commands: [Item]?, panels: [Item]?
+    /// Kelp's window isn't seen (hidden, minimized or covered): what only it shows isn't read meanwhile.
+    public let away: Bool?
 
     public struct Workspace: Codable, Sendable, Equatable {
         public let id: String, name: String, path: String, branch: String
@@ -64,7 +66,7 @@ public struct ShownUI: Codable, Sendable, Equatable {
 
     public init(
         workspace: Workspace? = nil, focusedSession: String? = nil, focusedFile: String? = nil, editor: Editor? = nil,
-        extensions: [Extension]? = nil, commands: [Item]? = nil, panels: [Item]? = nil
+        extensions: [Extension]? = nil, commands: [Item]? = nil, panels: [Item]? = nil, away: Bool? = nil
     ) {
         self.workspace = workspace
         self.focusedSession = focusedSession
@@ -73,6 +75,7 @@ public struct ShownUI: Codable, Sendable, Equatable {
         self.extensions = extensions
         self.commands = commands
         self.panels = panels
+        self.away = away
     }
 }
 

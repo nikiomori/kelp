@@ -122,9 +122,11 @@ extension Daemon {
             }
         case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:
-            // From memory (the probes read the plans on their own clock): cheap.
+            // From memory (the probes read the plans on their own clock): cheap. The token totals are read again only
+            // while Kelp's window is seen: the limits still are, for their notifications and the Dock.
             return Watches.Topic { [self] _ in
-                ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)
+                let away = clients.uiState.away == true ? true : nil
+                return ((try? await ask(UsageGet(cachedTokens: away))).flatMap { line(LimitsEvent(usage: $0)) }, 10)
             }
         case .file:
             guard key.hasPrefix("/") else { return Watches.Topic { _ in (nil, nil) } }

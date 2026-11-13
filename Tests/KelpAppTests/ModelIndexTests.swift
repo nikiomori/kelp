@@ -132,3 +132,22 @@ import Testing
     m.arrived(agent("c", in: "w1"))
     #expect(try await waitFor(2) { m.session("c") != nil })
 }
+
+/// Kelp's window not seen: what only it shows isn't read (ports here), what notifications and the Dock follow is (CI),
+/// and both are told again once it's seen.
+@MainActor @Test func whatOnlyTheWindowShowsWaitsWhileItIsntSeen() async throws {
+    let rig = try await AppRig(files: [:])
+    defer { rig.done() }
+    let m = rig.app
+    let ports = WatchStart(.ports, rig.workspace.id), ci = WatchStart(.ci, rig.workspace.id)
+    m.watch(.ports, rig.workspace.id)
+    m.watch(.ci, rig.workspace.id)
+    await m.refresh()
+    m.setAway(true)
+    #expect(!m.told.contains(ports) && m.told.contains(ci))
+    #expect(!m.tellWatches(rig.client).contains(ports))   // a reconnect meanwhile doesn't start it either
+    m.watch(.ports, "other")
+    #expect(!m.told.contains(WatchStart(.ports, "other")))
+    m.setAway(false)
+    #expect(m.told.contains(ports) && m.told.contains(WatchStart(.ports, "other")))
+}

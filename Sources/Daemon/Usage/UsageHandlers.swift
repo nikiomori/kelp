@@ -9,7 +9,9 @@ extension UsageGet: Handled {
     func handle(_ usage: AgentUsage) throws -> Result {
         // Limit: one cached answer for 60 s (a scan reads GBs of transcripts); per-file incremental parsing if it gets slow
         let cached = usage.usageCache.withLock { $0 }
-        if let cached, Date().timeIntervalSince(cached.at) < 60, force != true { return usage.withLimits(cached.value) }
+        if let cached, cachedTokens == true || Date().timeIntervalSince(cached.at) < 60, force != true {
+            return usage.withLimits(cached.value)
+        }
         let roots = usage.agentRoots()
         var claude: [Claude] = [], codex: [Codex] = []
         let names = ["Default"] + usage.settings[SettingKeys.accounts].compactMap { $0["name"]?.string }
