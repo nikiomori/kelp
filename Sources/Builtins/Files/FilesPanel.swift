@@ -113,7 +113,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             self?.listed($0)
         }
         track(owner: self) { [app] in
-            app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes
+            app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.changes
         } changed: { [weak self] in
             self?.badges($0)
         }
@@ -198,7 +198,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         results.show([])
         watchShown()
         if let next {
-            badges(app.latest(GitEvent.self, next.id)?.changes)
+            badges(app.latest(GitEvent.self, app.gitKey(next.id))?.changes)
             listed(app.latest(FilesEvent.self, next.id))
         }
     }
@@ -215,7 +215,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     }
     private func watchShown() {
         filesWatch.key = shown ? worktree?.id : nil
-        gitWatch.key = shown ? worktree?.id : nil
+        gitWatch.key = shown ? worktree.map { app.gitKey($0.id) } : nil
     }
 
     /// The files listed now, then `done`: after an operation of its own, which selects or renames what it made (the

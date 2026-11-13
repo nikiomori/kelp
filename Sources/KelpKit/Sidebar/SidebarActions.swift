@@ -247,7 +247,7 @@ extension SidebarController {
     /// Whether new chats here get Kelp's browser skill: as Settings say (the daemon says why, a moment after the menu
     /// opens), or always or never in this project.
     private func browserItem(_ menu: NSMenu, _ id: String) {
-        guard let worktree = app.gitState.folder(project: id), RemoteHost.of(worktree.path) == nil else { return }
+        guard let worktree = app.gitFolder(project: id), RemoteHost.of(worktree.path) == nil else { return }
         let app = self.app, key = BrowserSkill.choiceKey(id), own = app.uiState[key]?.string
         let list = NSMenu()
         list.add(String(localized: "Automatic")) { app.uiState[key] = nil }.state = own == nil ? .on : .off

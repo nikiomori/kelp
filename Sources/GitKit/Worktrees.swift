@@ -223,10 +223,18 @@ extension Git {
         let local = remotes.of(path) == nil
         return changes.split(separator: "\n").contains { line in
             guard local, line.hasPrefix("?? ") else { return true }
-            let file = (path as NSString).appendingPathComponent(String(line.dropFirst(3)))
-            var info = stat()
-            return lstat(file, &info) != 0 || info.st_mode & S_IFMT != S_IFLNK
+            return !isLink((path as NSString).appendingPathComponent(String(line.dropFirst(3))))
         }
+    }
+
+    /// The same rule over a local folder's `status` already read (every new file listed): no second status.
+    public static func isDirty(_ changes: [FileChange], in path: String) -> Bool {
+        changes.contains { !$0.untracked || !isLink((path as NSString).appendingPathComponent($0.path)) }
+    }
+
+    private static func isLink(_ file: String) -> Bool {
+        var info = stat()
+        return lstat(file, &info) == 0 && info.st_mode & S_IFMT == S_IFLNK
     }
 
     /// Remove worktree and its branch. Refuses dirty worktrees unless `force`, and a branch with commits that are on no

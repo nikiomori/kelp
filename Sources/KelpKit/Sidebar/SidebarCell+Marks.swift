@@ -105,8 +105,8 @@ extension SidebarCell {
     /// The folder this row stands for, if any (GitFolders.folder).
     var folder: Worktree? {
         switch node.kind {
-        case .project(let id): app.gitState.folder(project: id)
-        case .workspace(let id): app.gitState.folder(workspace: id)
+        case .project(let id): app.gitFolder(project: id)
+        case .workspace(let id): app.gitFolder(workspace: id)
         case .agent, .host, .parked: nil
         }
     }

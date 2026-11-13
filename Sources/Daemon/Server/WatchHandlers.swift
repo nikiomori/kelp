@@ -42,18 +42,44 @@ extension Daemon {
         }
     }
 
-    /// What only a branch group's folder holds (`GitEvent.only`, `dirty`); nothing to say for a project's own folder.
-    private func ownWork(_ worktree: Worktree) async throws -> (Int?, Bool?) {
-        guard let repo = try store.repo(worktree.repoId), repo.path != worktree.path else { return (nil, nil) }
+    /// What only a branch group's folder holds (`GitEvent.only`); nothing to say for a project's own folder.
+    private func ownWork(_ worktree: Worktree, in repo: Repo?) async throws -> Int? {
+        guard let repo, repo.path != worktree.path else { return nil }
         let remotes = remotes, workspaces = workspaces
         return try await offload {
             let branch = workspaces.branchNow(of: worktree, in: repo)
-            return (
-                Git.branchExists(repo.path, branch, remotes: remotes)
-                    ? try Git.onlyOnBranch(repo: repo.path, branch, remotes: remotes) : 0,
-                try Git.isDirty(worktree.path, remotes: remotes)
-            )
+            return Git.branchExists(repo.path, branch, remotes: remotes)
+                ? try Git.onlyOnBranch(repo: repo.path, branch, remotes: remotes) : 0
         }
+    }
+
+    /// A local folder's `branchFiles`, `only` and `dirty`. The first two are read again only once its branches read
+    /// otherwise than last time (`memo`): an agent writing files moves neither. `dirty` is the status just read.
+    /// Limit: another branch's tip isn't in `BranchInfo`: the base taking this branch in is seen at its next commit.
+    private func branchWork(
+        _ worktree: Worktree, _ branches: BranchInfo, _ changes: [FileChange], _ memo: BranchMemo
+    ) async throws -> (files: [String]?, only: Int?, dirty: Bool?) {
+        let repo = try store.repo(worktree.repoId)
+        let dirty = repo.map { $0.path != worktree.path } == true ? Git.isDirty(changes, in: worktree.path) : nil
+        let seen = BranchMemo.Seen(branches: branches, base: repo?.baseBranch, branch: worktree.branch)
+        if let known = memo.known(seen) { return (known.files, known.only, dirty) }
+        async let files = branchFiles(worktree)
+        let only = try await ownWork(worktree, in: repo)
+        let work = (files: try await files, only: only)
+        memo.keep(seen, work)
+        return (work.files, work.only, dirty)
+    }
+
+    /// Lines added and removed. A local folder's new files are the ones its status just listed, unless it listed only
+    /// its first `FileChange.limit`.
+    private func lineStats(_ key: String, local worktree: Worktree?, _ changes: [FileChange]) async -> LineStats? {
+        guard !changes.isEmpty else { return LineStats() }
+        let remotes = remotes
+        let untracked = changes.count < FileChange.limit ? changes.filter(\.untracked).map(\.path) : nil
+        do {
+            guard let path = worktree?.path else { return try await ask(GitLineStats(id: key)) }
+            return try await offload { try Git.lineStats(path, untracked: untracked, remotes: remotes) }
+        } catch { return nil }   // the counts are a decoration: none rather than a failed read
     }
 
     /// What a watch topic is, all of it here: which folder's file events can change it and which of them do (none: it
@@ -65,9 +91,9 @@ extension Daemon {
         let key = watch.key
         switch watch.topic {
         case .git:
-            let first = FirstRead()
+            let first = FirstRead(), memo = BranchMemo()
             return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesStatus), backsOffFrom: 10) {
-                [self] _ in await gitRead(key, first: first.take())
+                [self] _ in await gitRead(key, first: first.take(), memo: memo)
             }
         case .ports:
             return Watches.Topic(backsOffFrom: 10) { [self] _ in
@@ -199,20 +225,23 @@ extension Daemon {
         }
     }
 
-    private func gitRead(_ key: String, first: Bool) async -> (Data?, TimeInterval?) {
+    /// Status and branches at once, then the lines and what the branch holds from them.
+    private func gitRead(_ key: String, first: Bool, memo: BranchMemo) async -> (Data?, TimeInterval?) {
         // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
         let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
         let remote = worktree.map { remotes.of($0.path) != nil } ?? false
         guard await mayRead(worktree, first: first) else { return (nil, 10) }
         var event: GitEvent
         do {
+            async let branchesRead = ask(GitBranches(id: key))
             let changes = try await ask(GitStatus(id: key))
-            event = GitEvent(worktree: key, changes: changes, branches: try await ask(GitBranches(id: key)))
-            event.stats = changes.isEmpty ? LineStats() : try? await ask(GitLineStats(id: key))
+            async let stats = lineStats(key, local: remote ? nil : worktree, changes)
+            let branches = try await branchesRead
+            event = GitEvent(worktree: key, changes: changes, branches: branches)
             if !remote, let worktree {
-                event.branchFiles = try await branchFiles(worktree)
-                (event.only, event.dirty) = try await ownWork(worktree)
+                (event.branchFiles, event.only, event.dirty) = try await branchWork(worktree, branches, changes, memo)
             }
+            event.stats = await stats
             // A remote project's branch has no file events to follow: its workspace takes the one git just read.
             if remote, let worktree, let current = event.branches?.current, current != worktree.branch {
                 let store = store
@@ -397,4 +426,15 @@ private final class FirstRead: Sendable {
             return $0
         }
     }
+}
+
+/// A git watch's last `branchWork`, and the branches it was read for.
+final class BranchMemo: Sendable {
+    struct Seen: Equatable, Sendable {
+        var branches: BranchInfo, base: String?, branch: String
+    }
+    typealias Work = (files: [String]?, only: Int?)
+    private let last = OSAllocatedUnfairLock<(seen: Seen, work: Work)?>(initialState: nil)
+    func known(_ seen: Seen) -> Work? { last.withLock { $0.flatMap { $0.seen == seen ? $0.work : nil } } }
+    func keep(_ seen: Seen, _ work: Work) { last.withLock { $0 = (seen, work) } }
 }

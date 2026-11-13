@@ -25,10 +25,12 @@ final class WindowBar: NSView {
     let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
     let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
     /// The branch chip: the workspace on screen's git, as the daemon pushes it (ChangedFiles watches it).
-    private var info: BranchInfo? { app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.branches }
+    private var info: BranchInfo? { app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.branches }
 
     /// Uncommitted changes in the workspace on screen (a dot on the chip), and what a sync running there says.
-    private var dirty: Bool { !(app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes ?? []).isEmpty }
+    private var dirty: Bool {
+        !(app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.changes ?? []).isEmpty
+    }
     private var syncing: String? { app.workbench.workspaceId.flatMap { app.extensions.all.branch?.running($0) } }
     private let popover = NSPopover()
     private var closedAt = Date.distantPast
@@ -36,7 +38,7 @@ final class WindowBar: NSView {
     /// None over a page: the project and branch beside it would be the workspace's behind it.
     var worktree: Worktree? { app.workbench.page == nil ? app.worktree(app.workbench.workspaceId) : nil }
     /// The folder the sidebar keeps the pull request and CI for: a workspace shares its project's.
-    private var badgeFolder: Worktree? { app.gitState.folder(of: app.workbench.workspaceId) }
+    private var badgeFolder: Worktree? { app.gitFolder(of: app.workbench.workspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
     private let ciMark = CIMark()
     /// Centred on the glyph's slot (the chip's padding, then 13 pt) or on the room left at the title's end (12 pt).
@@ -326,7 +328,7 @@ final class WindowBar: NSView {
         ciMark.state = atEnd || inPlace ? ci : nil
         ciAtStart.isActive = inPlace
         ciAtEnd.isActive = atEnd
-        let changed = app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes?.count ?? 0
+        let changed = app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.changes?.count ?? 0
         let parts =
             [info.current ?? info.head ?? "HEAD"] + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
             + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])

@@ -126,10 +126,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             self?.worktree = $0
             self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
             self?.loadPages()
-            if app.latest(CIEvent.self, $0 ?? "") == nil { self?.loading.show(String(localized: "Loading…")) }
+            if app.latest(CIEvent.self, app.gitKey($0)) == nil { self?.loading.show(String(localized: "Loading…")) }
         }
         track(owner: self) { [weak self, app] in
-            app.latest(CIEvent.self, self?.worktree ?? "")
+            app.latest(CIEvent.self, app.gitKey(self?.worktree))
         } changed: { [weak self] in
             self?.apply($0)
         }
@@ -188,10 +188,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     }
 
     /// Refresh, and after starting runs: the daemon reads them now, and keeps looking for a while.
-    func reload() { if let worktree { app.watchAgain(.ci, worktree) } }
+    func reload() { if let worktree { app.watchAgain(.ci, app.gitKey(worktree)) } }
 
     private func apply(_ event: CIEvent?) {
-        guard let event, event.worktree == worktree else { return }
+        guard let event, event.worktree == app.gitKey(worktree) else { return }
         loading.show(nil)
         // A newer list replaces the rows the last one's jobs were being opened in: that one stops at its next step.
         applying?.cancel()

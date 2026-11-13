@@ -29,12 +29,15 @@ extension SourceControlController {
         showWork()
         rebuild()
         followWatches()
-        apply(app.latest(GitEvent.self, wid ?? ""))
+        apply(app.latest(GitEvent.self, gitKey ?? ""))
     }
+
+    /// What its git and CI are watched and pushed under: the folder, which other workspaces may share.
+    var gitKey: String? { worktreeId.map(app.gitKey) }
 
     /// Watched only while on screen: swapped out of the inspector, it reads no git.
     func followWatches() {
-        let shown = view.window != nil ? worktreeId : nil
+        let shown = view.window != nil ? gitKey : nil
         gitWatch.key = shown
         ciWatch.key = info?.upstream != nil ? shown : nil   // no upstream: no CI line
     }
@@ -46,11 +49,11 @@ extension SourceControlController {
     }
 
     /// Refresh, and after an action: read git again now rather than on the next file event.
-    func reloadAll() { if let wid = worktreeId { app.watchAgain(.git, wid) } }
+    func reloadAll() { if let gitKey { app.watchAgain(.git, gitKey) } }
 
     /// What the daemon read: the lists, the header, and the graph when the branches moved.
     func apply(_ event: GitEvent?) {
-        guard let event, event.worktree == worktreeId else { return }
+        guard let event, event.worktree == gitKey else { return }
         if let error = event.error {
             changes = []
             info = nil
@@ -119,7 +122,7 @@ extension SourceControlController {
     /// The CI line under Commit, as the daemon pushes it (it looks again while a run goes on, and for a while after a
     /// push). No upstream, no gh / glab, no runs: no line.
     func applyCI(_ event: CIEvent?) {
-        guard let event, event.worktree == worktreeId else { return }
+        guard let event, event.worktree == gitKey else { return }
         ciRuns = event.result?.runs ?? []
         let latest = CIRuns.latest(ciRuns)
         ciRow.show(latest, failure: nil)

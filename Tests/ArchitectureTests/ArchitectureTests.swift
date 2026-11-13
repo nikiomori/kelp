@@ -153,8 +153,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `HostedTab` under it is the shell's again.
     // +4: a panel the inspector hides redraws once it shows, not on every change meanwhile (`WhenShown`: Artifacts,
     // Source Control, Files, Activity).
-    #expect(declared <= 346, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 346, "fewer now (\(declared)): lower the ceiling")
+    // +1: a workspace's git and CI are watched and read under its folder's key (`gitKey`), as the sidebar's, so
+    // workspaces sharing a folder share one watch.
+    #expect(declared <= 347, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 347, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -576,7 +578,7 @@ func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 58, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 8, "Agents": 13, "kelp": 10,
+        "Daemon": 57, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 8, "Agents": 13, "kelp": 10,
         "Builtins": 8,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 0, "DesignKit": 0

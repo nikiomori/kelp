@@ -26,13 +26,13 @@ final class ChangeBars {
         self.worktree = worktree
         self.file = file
         git = Watched(.git, in: app)
-        git.key = worktree.id
+        git.key = app.gitKey(worktree.id)
         editor.onChangeMark = { [weak self] m, at, view in self?.show(m, at: at, in: view) }
         let id = worktree.id, mine = file
         // This file's line in the status and the branch: a change to other files says nothing about its bars (the disk's
         // changes to it come through `refresh` from its tab).
         track(owner: self) { [app] in
-            let git = app.latest(GitEvent.self, id)
+            let git = app.latest(GitEvent.self, app.gitKey(id))
             return Seen(changes: git?.changes?.filter { $0.path == mine } ?? [], branches: git?.branches)
         } changed: { [weak self] _ in
             self?.refresh()
@@ -132,7 +132,7 @@ final class ChangeBars {
     private func stage(_ hunk: Hunk) {
         let request = GitHunk(id: worktree.id, file: file, header: hunk.header, fingerprint: hunk.fingerprint),
             id = worktree.id
-        Task { [app] in if await app.call(request) != nil { app.watchAgain(.git, id) } }
+        Task { [app] in if await app.call(request) != nil { app.watchAgain(.git, app.gitKey(id)) } }
     }
 
     /// The change goes at once: the banner's Undo brings it back.

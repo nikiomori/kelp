@@ -68,7 +68,7 @@ extension Arrangement {
     /// and the marks read the branch's CI (`CIRuns.latest`), not only the newest run of them all.
     func followParked(_ e: CIEvent) {
         guard CIRuns.latest(e.result?.runs ?? []).contains(where: { $0.conclusion == "failure" }) else { return }
-        for s in app.sessions where s.worktreeId == e.worktree && isParked(s.id) {
+        for s in app.sessions where app.gitKey(s.worktreeId) == e.worktree && isParked(s.id) {
             unpark(s.id, back: String(localized: "CI failed"))
         }
     }

@@ -195,20 +195,25 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             self?.bind($0)
         }
         track(owner: self) { [weak self, app] in
-            app.latest(GitEvent.self, self?.worktreeId ?? "")
+            app.latest(GitEvent.self, self?.gitKey ?? "")
         } changed: { [weak self] event in
             self?.whenShown.run { self?.apply(event) }
         }
         track(owner: self) { [weak self, app] in
-            app.sharedFiles(self?.worktreeId)
+            app.sharedFiles(self?.gitKey)
         } changed: { [weak self] in
             self?.shared = $0
             self?.rebuildChanges()
         }
         track(owner: self) { [weak self, app] in
-            app.latest(CIEvent.self, self?.worktreeId ?? "")
+            app.latest(CIEvent.self, self?.gitKey ?? "")
         } changed: { [weak self] in
             self?.applyCI($0)
+        }
+        track(owner: self, now: false) { [weak self] in
+            self?.gitKey
+        } changed: { [weak self] _ in
+            self?.followWatches()   // its folder's workspace went: the watch follows the one it shares now
         }
         track(owner: self, now: false) { [weak self, app] in
             self?.worktreeId.flatMap { GitSync.state(app).running[$0] }

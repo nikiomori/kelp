@@ -22,7 +22,7 @@ extension DiffViewController {
             await app.call(
                 GitHunk(id: wid, file: path, hunk: i, reverse: staged, header: h.header, fingerprint: h.fingerprint))
             await load()
-            app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
+            app.watchAgain(.git, app.gitKey(wid))   // Source Control and the badges now, not on the next file event
         }
     }
     /// A hunk goes at once: the banner's Undo brings it back.

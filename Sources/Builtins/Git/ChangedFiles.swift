@@ -11,13 +11,13 @@ final class ChangedFiles {
     private let watched: Watched
 
     /// Files changed in the workspace on screen.
-    var count: Int { app.latest(GitEvent.self, app.workbench.workspaceId ?? "")?.changes?.count ?? 0 }
+    var count: Int { app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.changes?.count ?? 0 }
 
     init(app: AppModel) {
         self.app = app
         watched = Watched(.git, in: app)
         track(owner: self) { [app] in
-            app.workbench.workspaceId
+            app.workbench.workspaceId.map(app.gitKey)
         } changed: { [weak self] in
             self?.watched.key = $0
         }

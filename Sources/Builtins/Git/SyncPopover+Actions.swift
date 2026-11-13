@@ -22,7 +22,8 @@ extension SyncPopover {
 
     func sync(_ ops: [String]) {
         guard GitSync.state(app).running[wid] == nil else { return }
-        let before = app.latest(GitEvent.self, wid)?.branches, ahead = before?.ahead ?? 0, behind = before?.behind ?? 0
+        let before = app.latest(GitEvent.self, folder)?.branches
+        let ahead = before?.ahead ?? 0, behind = before?.behind ?? 0
         let published = before?.upstream != nil, branch = before?.current ?? "HEAD"
         result = nil
         Task {
@@ -85,7 +86,7 @@ extension SyncPopover {
         Task {
             defer {
                 committing = false
-                app.watchAgain(.git, wid)
+                app.watchAgain(.git, folder)
                 update()
             }
             // Source Control's commit, the one way to commit: what's staged, else every change; a failure offers a fix.
@@ -100,7 +101,7 @@ extension SyncPopover {
 
     /// The local branches to switch to, and a new one; the remote ones are in Source Control.
     @objc func switchMenu() {
-        guard let info = app.latest(GitEvent.self, wid)?.branches else { return }
+        guard let info = app.latest(GitEvent.self, folder)?.branches else { return }
         let menu = NSMenu(), wid = wid
         for branch in info.local {
             menu.add(branch) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: branch)) }.state =
@@ -120,7 +121,7 @@ extension SyncPopover {
     private func switchBranch(_ request: GitSwitch) {
         Task {
             await app.call(request)
-            app.watchAgain(.git, request.id)   // the chip now, not on the next file event
+            app.watchAgain(.git, folder)   // the chip now, not on the next file event
         }
     }
 }

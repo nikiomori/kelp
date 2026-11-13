@@ -8,7 +8,7 @@ extension SyncPopover {
     // MARK: state
 
     func update() {
-        let info = app.latest(GitEvent.self, wid)?.branches, running = GitSync.state(app).running[wid]?.title
+        let info = app.latest(GitEvent.self, folder)?.branches, running = GitSync.state(app).running[wid]?.title
         let ahead = info?.ahead ?? 0, behind = info?.behind ?? 0, published = info?.upstream != nil
         let hasRemote = published || !(info?.remote.isEmpty ?? true)
         name.attributedTitle = NSAttributedString(
@@ -262,7 +262,7 @@ extension SyncPopover {
     }
 
     func showChanges() {
-        let git = app.latest(GitEvent.self, wid), list = git?.changes ?? [], changed = list.count
+        let git = app.latest(GitEvent.self, folder), list = git?.changes ?? [], changed = list.count
         let hasRemote = git?.branches.map { $0.upstream != nil || !$0.remote.isEmpty } ?? false
         changes.attributedStringValue = NSAttributedString(
             string: String(localized: "Changes") + (changed > 0 ? " · \(changed)" : ""),

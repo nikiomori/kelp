@@ -24,8 +24,8 @@ final class SyncPopover: NSViewController {
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
     let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView(), files = NSStackView()
-    /// The folder whose CI the section shows (a workspace shares its project's): the one the branch chip's mark reads.
-    var folder: String { app.gitFolder(of: wid)?.id ?? wid }
+    /// The folder whose git and CI it shows (a workspace shares its project's): the one the branch chip reads.
+    var folder: String { app.gitKey(wid) }
     let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
         message = NSTextField()
     let nothing = NSTextField(labelWithString: String(localized: "Nothing to commit"))
@@ -155,8 +155,8 @@ final class SyncPopover: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        track(owner: self) { [app, wid] in
-            app.latest(GitEvent.self, wid)
+        track(owner: self) { [weak self] in
+            self.flatMap { $0.app.latest(GitEvent.self, $0.folder) }
         } changed: { [weak self] _ in
             self?.update()
         }

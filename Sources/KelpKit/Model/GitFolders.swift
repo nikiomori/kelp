@@ -27,32 +27,14 @@ package final class GitFolders {
     /// Every folder the sidebar lists: each project's own and each workspace's on a branch of its own.
     var folders: Set<String> {
         Set(
-            app.repos.compactMap { folder(project: $0.id)?.id }
-                + app.worktrees.compactMap { folder(workspace: $0.id)?.id })
+            app.repos.compactMap { app.gitFolder(project: $0.id)?.id }
+                + app.worktrees.compactMap { app.gitFolder(workspace: $0.id)?.id })
     }
 
     private func follow(_ now: Set<String>) {
         for id in now.subtracting(following) { app.watch(.git, id) }
         for id in following.subtracting(now) { app.unwatch(.git, id) }
         following = now
-    }
-
-    /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace) its project's.
-    func folder(of workspace: String?) -> Worktree? {
-        app.worktree(workspace).flatMap { folder(workspace: $0.id) ?? folder(project: $0.repoId) }
-    }
-
-    /// The worktree whose folder a row stands for (nil: the row has none of its own).
-    func folder(project id: String) -> Worktree? {
-        let model = app
-        guard let repo = model.repo(id) else { return nil }
-        return model.worktrees.first { $0.repoId == id && $0.path == repo.path && !$0.archived }
-    }
-    func folder(workspace id: String) -> Worktree? {
-        let model = app
-        guard let worktree = model.worktree(id), !worktree.archived, worktree.path != model.repo(worktree.repoId)?.path
-        else { return nil }
-        return worktree
     }
 
     /// What only a branch group's folder holds, as the daemon read it (`GitEvent.only`, `dirty`): commits no other
@@ -124,9 +106,25 @@ package final class GitFolders {
 
 extension AppModel {
     /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace of a project) the project's.
-    package func gitFolder(of workspace: String?) -> Worktree? { gitState.folder(of: workspace) }
+    /// Read from the lists alone: asking doesn't start the sidebar's watches (`gitState`).
+    package func gitFolder(of workspace: String?) -> Worktree? {
+        worktree(workspace).flatMap { gitFolder(workspace: $0.id) ?? gitFolder(project: $0.repoId) }
+    }
+    /// The key a workspace's git and CI are watched, read and asked again by (`watch(.git, …)`, `latest(GitEvent.self, …)`):
+    /// its folder's, so workspaces sharing one folder share one watch, as the sidebar's; its own when it has none.
+    package func gitKey(_ workspace: String?) -> String { gitFolder(of: workspace)?.id ?? workspace ?? "" }
     /// The folder a project's row stands for: its own worktree's (nil: a project that isn't a git folder).
-    package func gitFolder(project id: String) -> Worktree? { gitState.folder(project: id) }
+    package func gitFolder(project id: String) -> Worktree? {
+        guard let repo = repo(id) else { return nil }
+        return worktrees.first { $0.repoId == id && $0.path == repo.path && !$0.archived }
+    }
+    /// A workspace's own folder: one on a branch of its own (nil: it shares its project's).
+    func gitFolder(workspace id: String) -> Worktree? {
+        guard let worktree = worktree(id), !worktree.archived, worktree.path != repo(worktree.repoId)?.path else {
+            return nil
+        }
+        return worktree
+    }
     /// Every folder the sidebar lists, whose git, PR and CI its rows show.
     package var gitFolders: Set<String> { gitState.folders }
     /// Its files that another folder of the project changes too, with that folder's branch (`GitFolders.shared`).

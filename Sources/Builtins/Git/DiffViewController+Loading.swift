@@ -100,13 +100,13 @@ extension DiffViewController {
         }
         if single == nil { await readTurns(sourcePicked == .turn ? agent : nil) }
         let asked = loads.asking, request = diffRequest()
-        loads.basis = request.basis(app.latest(GitEvent.self, wid))
+        loads.basis = request.basis(app.latest(GitEvent.self, app.gitKey(wid)))
         let result = await app.tryCall(request)
         let newDiffs = result.value ?? []
         var ch: [FileChange] = [], cm: [DiffComment] = []
         if single == nil, result.error == nil {   // the files' letters and the comments: the diff above already said what failed
             // The letters as pushed for this workspace (a review tab watches it), else asked.
-            if let pushed = app.latest(GitEvent.self, wid)?.changes {
+            if let pushed = app.latest(GitEvent.self, app.gitKey(wid))?.changes {
                 ch = pushed
             } else {
                 ch = await app.quiet(GitStatus(id: wid)) ?? []

@@ -361,8 +361,18 @@ private final class Heard: Sendable {
     w.c.notify(WatchStart(.git, base.id))
     func event(_ id: String) -> GitEvent? { heard.events(GitEvent.self).last { $0.worktree == id } }
     #expect(try await waitFor(10) { event(fix.id)?.branchFiles == ["login.swift"] })
+    #expect(event(fix.id)?.only == 1 && event(fix.id)?.dirty == false)
     #expect(try await waitFor(10) { event(base.id)?.changes != nil })
-    #expect(event(base.id)?.branchFiles == nil)
+    #expect(event(base.id)?.branchFiles == nil && event(base.id)?.dirty == nil)
+    // A new file: dirty, its lines counted, from the one status; the branch read as it was. Committed, it's the branch's.
+    try "a\nb\n".write(toFile: fix.path + "/new.swift", atomically: true, encoding: .utf8)
+    #expect(try await waitFor(10) { event(fix.id)?.dirty == true })
+    #expect(event(fix.id)?.stats?.totalAdded == 2 && event(fix.id)?.branchFiles == ["login.swift"])
+    try Git.run(["add", "new.swift"], cwd: fix.path, remotes: .none)
+    try Git.run(["commit", "-qm", "new"], cwd: fix.path, remotes: .none)
+    w.c.notify(WatchStart(.git, fix.id))   // as the app asks after its commit: the refs moved outside this folder
+    #expect(try await waitFor(10) { event(fix.id)?.branchFiles == ["login.swift", "new.swift"] })
+    #expect(event(fix.id)?.only == 2 && event(fix.id)?.dirty == false)
 }
 
 /// A remote project's Claude Code publishes on the host, where no hook of Kelp's runs: the pages its conversation there

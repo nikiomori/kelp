@@ -57,10 +57,10 @@ final class DiffTab: TabContent {
         // Its workspace's git, pushed when its files change (a commit's diff doesn't change): read the diff again if it
         // changed what the diff is read from.
         guard commit == nil else { return }
-        gitWatch.key = worktreeId
+        gitWatch.key = app.gitKey(worktreeId)
         var shown = false   // the first value is what was just loaded
         track(owner: self) { [weak self, app] in
-            app.latest(GitEvent.self, self?.worktreeId ?? "")
+            app.latest(GitEvent.self, app.gitKey(self?.worktreeId))
         } changed: { [weak self] e in
             guard let self, shown else {
                 shown = true

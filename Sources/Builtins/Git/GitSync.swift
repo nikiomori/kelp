@@ -30,12 +30,12 @@ enum GitSync {
         }
         defer {
             state(app).running[wid] = nil
-            app.watchAgain(.git, wid)
+            app.watchAgain(.git, app.gitKey(wid))
         }
         for op in ops {
             state(app).running[wid] = .init(title: title ?? Self.title(op), op: op)
             if let error = await app.tryCall(GitRemoteOp(id: wid, op: op)).error { return error }
-            if op == "push" { app.watchAgain(.ci, app.gitFolder(of: wid)?.id ?? wid) }
+            if op == "push" { app.watchAgain(.ci, app.gitKey(wid)) }
         }
         return nil
     }

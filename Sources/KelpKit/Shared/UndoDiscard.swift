@@ -18,10 +18,10 @@ package func discardWithUndo<Method: RPCMethod>(
                 {
                     Task {
                         if await app.call(GitUndoDiscard(id: wid, undo: undo)) != nil { await reload() }
-                        app.watchAgain(.git, wid)
+                        app.watchAgain(.git, app.gitKey(wid))
                     }
                 }
             ), lasts: 60)
     }
-    app.watchAgain(.git, wid)   // Source Control and the badges now, not on the next file event
+    app.watchAgain(.git, app.gitKey(wid))   // Source Control and the badges now, not on the next file event
 }

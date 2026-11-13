@@ -31,7 +31,7 @@ struct SwitcherRow {
         where part.map({ $0 != title && $0 != worktree.displayName && !place.contains($0) }) == true {
             place.append(part ?? "")
         }
-        let folder = app.gitState.folder(of: worktree.id)
+        let folder = app.gitFolder(of: worktree.id)
         let badges = [
             folder.flatMap { GitFolders.changes(app.gitState.stats[$0.id], compact: true) },
             folder.flatMap { app.extensions.all.ci?.pr($0.id)?.title }
