@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import KelpKit
@@ -118,4 +119,16 @@ import Testing
     let runs = [run(3, "Lint", "success"), run(2, "CI", "failure"), run(1, "Lint", "failure")]
     m.land(CIEvent(worktree: "w1", result: CIRunsList.Result(branch: "main", runs: runs, workflows: [])))
     #expect(!m.arrangement.isParked("a") && m.arrangement.parkedBack["a"] == "CI failed")
+}
+
+/// Session news that comes together is applied together, and never after an event sent behind it.
+@MainActor @Test func sessionNewsIsAppliedTogetherInOrder() async throws {
+    let m = AppModel(builtins: [])
+    m.arrived(agent("a", in: "w1"))
+    m.arrived(agent("b", in: "w1"))
+    #expect(m.session("a") == nil && m.held.count == 2)   // held for the turn
+    m.arrived(RemovedEvent(session: "a"))   // another kind: what's held lands first, then it
+    #expect(m.session("a") == nil && m.session("b") != nil && m.held.isEmpty)
+    m.arrived(agent("c", in: "w1"))
+    #expect(try await waitFor(2) { m.session("c") != nil })
 }

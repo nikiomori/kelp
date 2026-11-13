@@ -308,11 +308,32 @@ package final class AppModel {
     func listen(_ c: RPCClient) -> @Sendable () -> Void {
         let (events, feed) = AsyncStream<any RPCEvent>.makeStream()
         c.onEvent = { feed.yield($0) }
-        Task { @MainActor [weak self] in for await e in events { self?.handle(e) } }
+        Task { @MainActor [weak self] in for await e in events { self?.arrived(e) } }
         let stop: @Sendable () -> Void = { feed.finish() }
         stopListening = stop
         return stop
     }
+
+    /// An agent's session changes a few times a second while it works (each command, each subagent), and every view that
+    /// reads `sessions` looks again after each: what comes within 50 ms is applied in one turn, so they look once. Any
+    /// other event applies what's held first, so everything still lands in the order it was sent.
+    func arrived(_ e: any RPCEvent) {
+        guard let session = e as? Session else {
+            applyHeld()
+            return handle(e)
+        }
+        held.append(session)
+        guard held.count == 1 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.gathers) { [weak self] in self?.applyHeld() }
+    }
+    func applyHeld() {
+        let sessions = held
+        held = []
+        sessions.forEach(handle)
+    }
+    @ObservationIgnored private(set) var held: [Session] = []
+    /// How long session news is gathered: well under what a row's change is seen in, a burst's worth.
+    static let gathers: TimeInterval = 0.05
 
     /// Ends the reader of the connection last listened to (`listen`).
     @ObservationIgnored private var stopListening: (@Sendable () -> Void)?
