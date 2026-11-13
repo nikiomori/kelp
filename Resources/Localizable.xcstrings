@@ -309,6 +309,16 @@
         }
       }
     },
+    "Moving the chat to %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чат переезжает на %@…"
+          }
+        }
+      }
+    },
     "Next Conflict": {
       "localizations": {
         "ru": {
@@ -445,6 +455,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свернуть"
+          }
+        }
+      }
+    },
+    "This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот Mac"
           }
         }
       }

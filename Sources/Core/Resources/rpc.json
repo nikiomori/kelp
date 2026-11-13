@@ -12168,6 +12168,34 @@
       }
     },
     {
+      "description" : "A chat moved to another copy of its project, one on a server or one on this Mac, as a new chat there: its branch's commits and its uncommitted changes go into a new worktree of that copy, and an agent there goes on from a brief of the conversation, as Hand Off does. The chat here is paused, its folder left as it is. → the new chat.",
+      "name" : "session.moveAcross",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/Session"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "A permission question's hook (Claude Code's PermissionRequest) waits here for Allow or Deny given in Kelp: \"allow\", \"deny\", or nil once it was answered in the terminal or ten minutes passed. The agent's own menu stays on screen meanwhile (Claude Code shows it while the hook runs), so the terminal can answer too.",
       "name" : "session.permissionWait",
       "paramStructure" : "by-name",

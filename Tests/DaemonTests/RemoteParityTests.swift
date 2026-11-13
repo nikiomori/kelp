@@ -309,3 +309,45 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(!Git.branchExists(there, "feature/x", remotes: .none))
     #expect(try await c.call(WorktreeList(repoId: repo.id)).count == 1)
 }
+
+/// A chat moved to its project's copy on a server and back: each time its branch's commits, its uncommitted changes and
+/// new files go into a new worktree there, an agent there goes on from a brief, and the chat it came from pauses. A
+/// project that isn't a copy is refused.
+@Test func aChatMovesToItsProjectsCopyOnAServerAndBack() async throws {
+    _ = localSSH
+    let agent = AgentManifest(id: "claude-like", name: "Agent", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
+    let (d, c, _) = try daemon(agents: [agent])
+    defer { d.stop() }
+    let here = try makeRepo()
+    let local = try await c.call(RepoAdd(path: here))
+    let clone = tmp().path
+    try Git.run(["clone", "-q", here, clone], cwd: "/", remotes: .none)
+    let remote = try await c.call(RepoAddRemote(host: "box", path: clone))
+    let made = try await c.call(WorktreeCreate(repoId: local.id, branch: "fix", setup: false))
+    let wt = made.worktree.path
+    try "two\n".write(toFile: wt + "/b.txt", atomically: true, encoding: .utf8)
+    try Git.run(["add", "b.txt"], cwd: wt, remotes: .none)
+    try Git.run(["-c", "user.name=t", "-c", "user.email=t@x", "commit", "-qm", "b"], cwd: wt, remotes: .none)
+    try "changed\n".write(toFile: wt + "/a.txt", atomically: true, encoding: .utf8)
+    try "new\n".write(toFile: wt + "/n.txt", atomically: true, encoding: .utf8)
+    let chat = try await c.call(SessionCreate(worktreeId: made.worktree.id, agent: "claude-like"))
+
+    let there = try await c.call(SessionMoveAcross(id: chat.id, repoId: remote.id))
+    let moved = try #require(d.remotes.of(there.cwd)?.path)
+    #expect(moved.hasSuffix("-worktrees/fix"))
+    for (file, text) in [("a.txt", "changed\n"), ("b.txt", "two\n"), ("n.txt", "new\n")] {
+        #expect(try String(contentsOfFile: moved + "/" + file, encoding: .utf8) == text, "\(file)")
+    }
+    #expect(d.sessions.existing(chat.id) == nil, "the chat here paused")
+    #expect(
+        FileManager.default.fileExists(atPath: try #require(Paths.real(clone)) + "/.git/kelp-handoff/\(chat.id).md"))
+
+    try "back\n".write(toFile: moved + "/a.txt", atomically: true, encoding: .utf8)
+    let back = try await c.call(SessionMoveAcross(id: there.id, repoId: local.id))
+    #expect(try back.cwd != wt && String(contentsOfFile: back.cwd + "/a.txt", encoding: .utf8) == "back\n")
+    #expect(try Git.run(["branch", "--show-current"], cwd: back.cwd, remotes: .none) == "fix-2\n", "fix is taken here")
+
+    let other = try await c.call(RepoAdd(path: try makeRepo()))
+    await #expect(throws: RPCError.self) { _ = try await c.call(SessionMoveAcross(id: back.id, repoId: other.id)) }
+    for id in [there.id, back.id] { _ = try await c.call(SessionKill(id: id)) }
+}

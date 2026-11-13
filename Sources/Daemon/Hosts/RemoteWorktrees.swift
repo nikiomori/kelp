@@ -3,10 +3,10 @@ import Foundation
 import GitKit
 
 extension Workspaces {
-    /// A branch's worktree in a remote project: on its host, beside the project's folder (`<folder>-worktrees/<branch>`),
-    /// and a stand-in here like the project's own (its `.kelp-remote` names that folder), through which its git, files,
-    /// agents and terminals reach the host. Answers the stand-in's path. `existing`: the branch as it is ("origin/x" a
-    /// local "x" that follows it); else a new one from `base`.
+    /// A branch's worktree in a remote project: on its host, beside the project's folder
+    /// (`<folder>-worktrees/<branch>`), and a stand-in here like the project's own (its `.kelp-remote` names that
+    /// folder), through which its git, files, agents and terminals reach the host. Answers the stand-in's path.
+    /// `existing`: the branch as it is ("origin/x" a local "x" that follows it); else a new one from `base`.
     func remoteWorktree(_ repo: Repo, _ host: RemoteHost, branch: String, base: String, existing: Bool) throws -> String
     {
         let name = existing && branch.hasPrefix("origin/") ? String(branch.dropFirst("origin/".count)) : branch

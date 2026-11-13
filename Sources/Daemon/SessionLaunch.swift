@@ -302,6 +302,14 @@ extension Sessions {
         }
     }
 
+    /// One session paused, as its workspace's are: it comes back with its conversation when shown (a chat moved away).
+    func pauseOne(_ id: String) {
+        let manifests = AgentManifest.load(dir: root.appendingPathComponent("agents"))
+        wakeLocks.withLocks([id]) {
+            if let ls = live.remove(id) { Self.waitGone(pause(ls, manifests)) }
+        }
+    }
+
     /// A session already out of `live`: recorded as paused (a resumable agent) or ended — said here and saved now, since
     /// nothing records its exit any more — then stopped with all it started. Its pids, for `waitGone`.
     func pause(_ ls: LiveSession, _ manifests: [AgentManifest]) -> [pid_t] {

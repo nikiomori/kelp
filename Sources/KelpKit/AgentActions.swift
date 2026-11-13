@@ -57,6 +57,7 @@ package struct AgentActions {
         if app.session(sid)?.agent != "shell" {   // a terminal has no conversation to copy or hand over
             m.add(String(localized: "Hand Off to"), submenu: handoffMenu(sid))
             addFork(to: m, sid)
+            addMove(to: m, sid)
             m.add(String(localized: "Copy Context")) { copyContext(sid) }
             if let lastTurn { m.add(String(localized: "Changes in Its Last Turn"), lastTurn) }
             if lastTurn != nil, AgentFollow.can(app, sid) {
@@ -104,6 +105,32 @@ package struct AgentActions {
     func addFork(to m: NSMenu, _ sid: String) {
         guard app.catalog.manifest(app.session(sid)?.agent)?.forks == true else { return }
         m.add(String(localized: "Fork Chat")) { fork(sid) }
+    }
+
+    /// "Move to ▸ box": the chat goes on in its project's copy on another machine (a server, or this Mac), a branch
+    /// worktree there with its commits and uncommitted changes, briefed as Hand Off does; the one here pauses. The
+    /// copies are the projects of the same name; the daemon checks they share their first commit.
+    func addMove(to m: NSMenu, _ sid: String) {
+        guard let worktree = app.worktree(app.session(sid)?.worktreeId), let mine = app.repo(worktree.repoId) else {
+            return
+        }
+        let copies = app.repos.filter { $0.id != mine.id && $0.name == mine.name }
+        guard !copies.isEmpty else { return }
+        let menu = NSMenu()
+        for repo in copies {
+            let place = RemoteHost.of(repo.path)?.host ?? String(localized: "This Mac")
+            menu.add(place) { move(sid, to: repo.id, place: place) }
+        }
+        m.add(String(localized: "Move to"), submenu: menu)
+    }
+
+    func move(_ sid: String, to repoId: String, place: String) {
+        Banner.show(String(localized: "Moving the chat to \(place)…"))
+        Task {
+            guard let session = await app.call(SessionMoveAcross(id: sid, repoId: repoId)) else { return }
+            app.upsert(session)
+            app.workbench.open(TabURI.session(session.id), workspace: session.worktreeId)
+        }
     }
 
     func fork(_ sid: String) {

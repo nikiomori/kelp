@@ -91,6 +91,9 @@ extension AgentUsage: DaemonService { static func of(_ daemon: Daemon) -> AgentU
 extension SettingsStore: DaemonService { static func of(_ daemon: Daemon) -> SettingsStore { daemon.settings } }
 extension Remotes: DaemonService { static func of(_ daemon: Daemon) -> Remotes { daemon.remotes } }
 extension Sessions: DaemonService { static func of(_ daemon: Daemon) -> Sessions { daemon.sessions } }
+extension ChatMoves: DaemonService {
+    static func of(_ daemon: Daemon) -> ChatMoves { .init(workspaces: daemon.workspaces) }
+}
 extension AgentAddons: DaemonService {
     static func of(_ daemon: Daemon) -> AgentAddons { AgentAddons(sessions: daemon.sessions) }
 }

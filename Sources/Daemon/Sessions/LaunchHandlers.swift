@@ -145,7 +145,13 @@ extension SessionFork: Handled {
 extension SessionHandoff: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
         guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
-        let target = agent ?? old.agent, remote = sessions.remotes.of(old.cwd)
+        return try start(from: old, in: old.cwd, worktreeId: old.worktreeId, sessions)
+    }
+
+    /// The next agent, briefed with `old`'s work, started in `cwd`: its own folder, or where a moved chat goes on
+    /// (here or on a host, `session.moveAcross`).
+    func start(from old: Session, in cwd: String, worktreeId: String?, _ sessions: Sessions) throws -> Session {
+        let target = agent ?? old.agent, remote = sessions.remotes.of(old.cwd), there = sessions.remotes.of(cwd)
         var manifest = try sessions.setup.manifest(target, command: nil)
         // A remote agent's conversation is on its host: the end of it, brought here to write the brief from.
         let file =
@@ -155,17 +161,19 @@ extension SessionHandoff: Handled {
         let ask = prompt ?? "Continue the task where the previous agent left off."
         var launch = Sessions.Launch(self)
         launch.title = (old.title.isEmpty ? (old.agent ?? "agent") : old.title) + " (handoff)"
-        if remote == nil, let opened = try native(old, manifest, file: file, uncommitted: uncommitted, sessions) {
+        if remote == nil, there == nil,
+            let opened = try native(old, manifest, file: file, at: (cwd, uncommitted), sessions)
+        {
             manifest.args += opened
             launch.prompt = ask
         } else {
             let conversation = file.flatMap(Conversation.init(file:))
             let brief = try Self.brief(of: old, conversation, limit: limit, uncommitted: uncommitted, sessions)
-            // The next agent runs where the last one did: on a host, the brief goes there for it to read.
-            let path = try remote.map { try Self.upload(brief, to: $0) } ?? brief.path
+            // The next agent runs in `cwd`: on a host, the brief goes there for it to read.
+            let path = try there.map { try Self.upload(brief, to: $0) } ?? brief.path
             launch.prompt = "Read \(path) — the transcript of the previous agent session in this project. " + ask
         }
-        return try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
+        return try sessions.spawn(cwd: cwd, manifest: manifest, worktreeId: worktreeId, launch)
     }
 
     private var limit: Int { full == true ? 400_000 : 40_000 }
@@ -174,11 +182,13 @@ extension SessionHandoff: Handled {
     /// Codex imports a Claude Code transcript itself, as a thread it resumes (only into the default account: another
     /// account's Codex wouldn't find it). pi and oh-my-pi open a session of theirs Kelp writes, which they go on in.
     private func native(
-        _ old: Session, _ manifest: AgentManifest, file: URL?, uncommitted: String, _ sessions: Sessions
+        _ old: Session, _ manifest: AgentManifest, file: URL?, at place: (cwd: String, uncommitted: String),
+        _ sessions: Sessions
     ) throws -> [String]? {
+        let (cwd, uncommitted) = place
         switch manifest.transcript {
         case .codex? where sessions.setup.transcript(of: old.agent) == .claude && profile == nil:
-            return file.flatMap { sessions.agentUsage.conversations.codexThread(importing: $0, cwd: old.cwd) }.map {
+            return file.flatMap { sessions.agentUsage.conversations.codexThread(importing: $0, cwd: cwd) }.map {
                 ["resume", $0]
             }
         case .pi?:
@@ -186,7 +196,7 @@ extension SessionHandoff: Handled {
                 return nil
             }
             let session = try conversation.piSession(
-                cwd: old.cwd, agent: old.agent ?? "agent", limit: limit, uncommitted: uncommitted)
+                cwd: cwd, agent: old.agent ?? "agent", limit: limit, uncommitted: uncommitted)
             // One per hand-off: the agent writes on in it, and an earlier one may still be open.
             let path = try Self.handoffFile("\(old.id)-\(UUID().uuidString.prefix(8).lowercased()).jsonl", sessions)
             try session.write(to: path, atomically: true, encoding: .utf8)
@@ -230,13 +240,14 @@ extension SessionHandoff: Handled {
         }
     }
 
-    /// The brief, copied into the repository's own .git/kelp-handoff on the host (git doesn't list it), where the agent
-    /// there reads it: its path there.
+    /// The brief, copied into the repository's own .git/kelp-handoff on the host (git doesn't list it; a worktree's is
+    /// its project's), where the agent there reads it: its path there.
     private static func upload(_ brief: URL, to remote: RemoteHost) throws -> String {
         let name = ShellQuote.word(brief.lastPathComponent)
         let out = try remote.run(
             "cd \(RemoteHost.cdArg(remote.path)) && "
-                + #"d="$(pwd -P)/.git/kelp-handoff"; mkdir -p "$d" && cat > "$d/"\#(name) && printf %s "$d/"\#(name)"#,
+                + #"d="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)/kelp-handoff"; mkdir -p "$d" && "#
+                + #"cat > "$d/"\#(name) && printf %s "$d/"\#(name)"#,
             stdin: try Data(contentsOf: brief), timeLimit: 60)
         return String(decoding: out, as: UTF8.self)
     }
@@ -413,6 +424,6 @@ extension TaskFromIssue: AsyncHandled {
 extension Methods {
     static let launchMethods: [any Answered.Type] = [
         SessionCreate.self, SessionRestart.self, SessionFork.self, SessionHandoff.self, HistoryResume.self,
-        RecipeRender.self, AgentsVersions.self, TaskFromIssue.self
+        RecipeRender.self, AgentsVersions.self, TaskFromIssue.self, SessionMoveAcross.self
     ]
 }

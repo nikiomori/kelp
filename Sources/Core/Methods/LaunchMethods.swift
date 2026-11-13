@@ -125,6 +125,19 @@ public struct SessionHandoff: RPCMethod, LaunchOptions {
     }
 }
 
+/// A chat moved to another copy of its project, one on a server or one on this Mac, as a new chat there: its branch's
+/// commits and its uncommitted changes go into a new worktree of that copy, and an agent there goes on from a brief of
+/// the conversation, as Hand Off does. The chat here is paused, its folder left as it is. → the new chat.
+public struct SessionMoveAcross: InternalMethod {
+    public static let name = "session.moveAcross"
+    public typealias Result = Session
+    public var id: String, repoId: String
+    public init(id: String, repoId: String) {
+        self.id = id
+        self.repoId = repoId
+    }
+}
+
 /// An issue or task → a branch with its number, a worktree, an agent briefed with its text → {worktree, session, setupNeedsTrust}.
 /// (`title` is the issue's: the session's is "ref title".) The brief is typed, not sent, unless `draft` is false: the issue's
 /// text is whoever filed it.

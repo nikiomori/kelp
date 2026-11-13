@@ -42,6 +42,23 @@ extension OneAtATime {
         #expect(area.layout.focusedGroup?.selectedTab?.uri == TabURI.session(mine.id))
     }
 
+    /// A chat offers Move to the copies of its project, by where they are; a project with none offers nothing.
+    @Test func aChatOffersItsProjectsCopiesToMoveTo() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let chat = Session(worktreeId: rig.workspace.id, cwd: rig.workspace.path, command: "claude", agent: "claude")
+        rig.app.sessions = [chat]
+        func moves() -> [String]? {
+            let menu = NSMenu()
+            AgentActions(rig.app).addMove(to: menu, chat.id)
+            return menu.items.first { $0.title == "Move to" }?.submenu?.items.map(\.title)
+        }
+        #expect(moves() == nil)
+        rig.app.repos.append(
+            Repo(name: rig.project.name, path: "/tmp/elsewhere/" + rig.project.name, baseBranch: "main"))
+        #expect(moves() == ["This Mac"])
+    }
+
     /// Follow Edits: an edited file shows in a pane beside the agent, which stays in front and focused; the next file
     /// takes that tab, one the user edited meanwhile stays.
     @Test func followedEditsShowBesideTheAgentInOneTab() async throws {
