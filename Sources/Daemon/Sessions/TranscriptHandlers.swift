@@ -6,7 +6,11 @@ import Foundation
 
 extension SessionContextWindow: Handled {
     func handle(_ sessions: Sessions) throws -> Usage? {
-        guard let transcript = sessions.existing(id).flatMap(sessions.agentUsage.conversations.transcript(of:)),
+        // A remote one's: the end of its conversation on the host, where its last turn's usage is.
+        let conversations = sessions.agentUsage.conversations, ls = sessions.existing(id)
+        guard
+            let transcript = ls.flatMap(conversations.transcript(of:))
+                ?? ls.flatMap({ conversations.hostTail(of: $0.snapshot, bytes: Conversations.remoteTailBytes) }),
             let context = ClaudeContext.usage(transcript: transcript)
         else { return nil }
         return Usage(

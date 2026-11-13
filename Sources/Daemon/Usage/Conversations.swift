@@ -111,6 +111,21 @@ final class Conversations: Sendable {
         return out.flatMap { $0.isEmpty ? nil : $0 }
     }
 
+    /// The end of a remote Claude Code's conversation (`bytes` of it, over the open connection), in a file here that
+    /// what reads a transcript reads: the newest for each session. Nil without a connection or a conversation there.
+    func hostTail(of session: Session, bytes: Int) -> URL? {
+        guard let remote = remotes.of(session.cwd),
+            let tail = remoteConversation(of: session, on: remote, read: "tail -c \(bytes)")
+        else { return nil }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-host-transcripts")
+        let file = dir.appendingPathComponent(session.id + ".jsonl")
+        return Log.session.attempt("keeping \(session.id)'s conversation from its host") {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try tail.write(to: file, options: .atomic)
+            return file
+        }
+    }
+
     /// Whether Claude Code's conversation `id` is surely not on `remote`'s host (asked over ssh, which connects if it
     /// must: a wake or a restart does anyway); false when that can't be told.
     func hostLacks(_ id: String, on remote: RemoteHost) -> Bool {

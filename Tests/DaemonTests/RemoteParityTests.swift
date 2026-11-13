@@ -202,3 +202,26 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     try FileManager.default.removeItem(atPath: there + "/a.txt")
     #expect(try await stamp() == .some(nil))
 }
+
+/// A remote chat's context meter reads the end of its conversation on the host, over the connection its tab has open.
+@Test func aRemoteChatsContextIsReadOnItsHost() async throws {
+    _ = localSSH
+    var claude = AgentManifest(id: "claude", name: "Claude Code", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
+    claude.sessionIdFlag = "--session-id"
+    claude.resumeIdFlag = "--resume"
+    let (d, c, _) = try daemon(agents: [claude])
+    defer { d.stop() }
+    let host = tmp()
+    d.agentUsage.conversations.hostClaude.withLock { $0 = ShellQuote.word(host.path) }
+    let (_, workspace, there) = try await remoteProject(c)
+    let session = try await c.call(SessionCreate(worktreeId: workspace.id, agent: "claude"))
+    let folder = host.appendingPathComponent(
+        "projects/" + (try #require(Paths.real(there))).replacing(/[^A-Za-z0-9]/, with: "-"))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try
+        #"{"type":"assistant","message":{"model":"m","usage":{"input_tokens":2,"cache_read_input_tokens":250000,"cache_creation_input_tokens":8,"output_tokens":90}}}"#
+        .write(to: folder.appendingPathComponent(session.id.lowercased() + ".jsonl"), atomically: true, encoding: .utf8)
+    let usage = try await c.call(SessionContextWindow(id: session.id))
+    #expect(usage?.used == 250_010)
+    _ = try await c.call(SessionKill(id: session.id))
+}

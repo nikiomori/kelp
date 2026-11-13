@@ -32,16 +32,21 @@ extension SessionRecap: AsyncHandled {
     }
 
     func handle(_ sessions: Sessions) async throws -> String? {
-        // Claude Code's conversation, which a fork of goes on from (`AgentManifest.Transcript.claude`).
-        guard let ls = sessions.existing(id), let transcript = ls.transcriptPath,
-            let manifest = sessions.setup.agent(ls.snapshot.agent), manifest.transcript == .claude
+        // Claude Code's conversation, which a fork of goes on from (`AgentManifest.Transcript.claude`). On a host it runs
+        // there, in the project's folder, on the conversation its id names (its hooks there say no path).
+        guard let ls = sessions.existing(id), let manifest = sessions.setup.agent(ls.snapshot.agent),
+            manifest.transcript == .claude
         else { return nil }
+        let rec = ls.snapshot, remote = sessions.remotes.of(rec.cwd)
+        let pinned = rec.argv.lastIndex { $0 == "--session-id" || $0 == "--resume" }.flatMap {
+            $0 + 1 < rec.argv.count ? rec.argv[$0 + 1] : nil
+        }
+        guard let transcript = remote == nil ? ls.transcriptPath : pinned.map({ $0 + ".jsonl" }) else { return nil }
         guard sessions.recaps.withLock({ $0.insert(id).inserted }) else { return nil }
         defer { _ = sessions.recaps.withLock { $0.remove(id) } }
         // Claude Code finds a conversation by the folder it began in, which its transcript's folder names.
-        let rec = ls.snapshot,
-            cwd = Self.folder(of: transcript, among: [rec.cwd, ls.turnDir].compactMap { $0 }) ?? rec.cwd
-        guard sessions.remotes.of(cwd) == nil else { return nil }
+        let cwd = Self.folder(of: transcript, among: [rec.cwd, ls.turnDir].compactMap { $0 }) ?? rec.cwd
+        guard remote != nil || sessions.remotes.of(cwd) == nil else { return nil }
         let conversation = ((transcript as NSString).lastPathComponent as NSString).deletingPathExtension
         // Not as a child of this session (KELP_*), nor of a Claude Code that started kelpd (its marker turns the transcript off).
         var env = ProcessInfo.processInfo.environment.filter {
@@ -51,10 +56,18 @@ extension SessionRecap: AsyncHandled {
         if let name = rec.profile, let profile = sessions.setup.profile(name, agent: manifest.id) {
             env[profile.key] = profile.dir
         }   // its own account
-        let claude = try LoginPath.resolve(manifest.command)
-        let out = try await Subprocess.run(
-            Self.arguments(claude, conversation: conversation), cwd: cwd, env: env,
-            stdin: Data(), timeLimit: 90)   // -p waits 3 s for stdin otherwise
+        let out: Subprocess.Output
+        if let remote {
+            let run = remote.command(Self.arguments(manifest.command, conversation: conversation))
+            out = try await Subprocess.run(
+                [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(run)], cwd: NSHomeDirectory(),
+                env: env, stdin: Data(), timeLimit: 90)
+        } else {
+            let claude = try LoginPath.resolve(manifest.command)
+            out = try await Subprocess.run(
+                Self.arguments(claude, conversation: conversation), cwd: cwd, env: env,
+                stdin: Data(), timeLimit: 90)   // -p waits 3 s for stdin otherwise
+        }
         let line =
             String(decoding: out.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).first
             .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
