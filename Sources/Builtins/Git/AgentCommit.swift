@@ -11,7 +11,7 @@ import WorkbenchKit
 /// plan over the button, edited before Kelp makes its commits one by one.
 struct AgentCommit {
     let agentId: String, agent: String
-    /// What the user had written: it goes to the agent as a note, and Undo brings it back.
+    /// What the user had written: it goes to the agent as a note.
     let hint: String
     /// How many files it reads, for the words in the field.
     let files: Int
@@ -22,10 +22,10 @@ struct AgentCommit {
     var shown = false
 }
 
-/// After it's done: the words under the field (who wrote the message, or that it proposed none).
+/// The words under the field when it proposed nothing; a message it wrote needs none, being in the field (⌘Z takes it
+/// back, the logo asks again).
 struct AgentNote {
     let agentId: String, text: String
-    let hint: String?   // Undo: back to what the user had written
 }
 
 extension SourceControlController {
@@ -89,7 +89,7 @@ extension SourceControlController {
         UserDefaults.standard.set(a.id, forKey: "scm.commitAgent")
         UserDefaults.standard.set(model ?? "", forKey: "scm.commitModel.\(a.id)")
         let all = GitCommit.takesEverything(changes)
-        let hint = notes[wid]?.hint ?? message.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hint = message.string.trimmingCharacters(in: .whitespacesAndNewlines)
         agentCommits[wid] = AgentCommit(
             agentId: a.id, agent: a.name, hint: hint, files: all ? changes.count : changes.filter(\.staged).count)
         plans[wid] = nil
@@ -187,38 +187,37 @@ extension SourceControlController {
     }
 
     private func took(_ plan: CommitPlan, from run: AgentCommit, scope: [String], in wid: String) {
-        let undo = run.hint
         if plan.commits.isEmpty {
-            notes[wid] = AgentNote(
-                agentId: run.agentId, text: String(localized: "No commits from \(run.agent)"), hint: nil)
+            notes[wid] = AgentNote(agentId: run.agentId, text: String(localized: "No commits from \(run.agent)"))
         } else if plan.commits.count == 1, Set(plan.files) == Set(scope), let only = plan.commits.first {
-            notes[wid] = AgentNote(agentId: run.agentId, text: String(localized: "Written by \(run.agent)"), hint: undo)
-            if wid == worktreeId {
-                message.string = only.message
-                messageChanged()   // the field grows to the message
-            } else {
+            guard wid == worktreeId else {
                 drafts[wid] = only.message
+                return
             }
+            showAgentCommit()   // the field back on screen first: measured hidden, it kept one line
+            write(only.message)
+            return
         } else {
             plans[wid] = plan
         }
         showAgentCommit(in: wid)
     }
 
-    @objc func undoAgentMessage() {
-        guard let wid = worktreeId, let hint = notes.removeValue(forKey: wid)?.hint else { return }
-        message.string = hint
-        messageChanged()
-        showAgentCommit()
+    /// The message in the field as if typed over what was there: ⌘Z brings the user's words back.
+    private func write(_ text: String) {
+        let all = NSRange(location: 0, length: (message.string as NSString).length)
+        guard message.shouldChangeText(in: all, replacementString: text) else { return }
+        message.replaceCharacters(in: all, with: text)
+        message.didChangeText()   // the field grows to it (onChange)
+        message.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        message.window?.makeFirstResponder(message)
+        DispatchQueue.main.async { [weak self] in self?.messageChanged() }   // once the field has its width again
     }
 
-    /// The same agent once more, from what the user had written.
+    /// The same agent once more, from what the field says now.
     @objc func askAgainForCommits() {
         guard let wid = worktreeId else { return }
-        if let hint = notes.removeValue(forKey: wid)?.hint {
-            message.string = hint
-            messageChanged()
-        }
+        notes[wid] = nil
         askLastAgent()
     }
 

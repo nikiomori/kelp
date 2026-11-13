@@ -15,7 +15,7 @@ final class AgentCommitControls {
     let work: NSStackView
     let noteLogo = NSImageView()
     let noteText = NSTextField(labelWithString: "")
-    let undo: PointerButton, again: PointerButton
+    let again: PointerButton
     /// Its tab, while it waits for an answer there.
     let watch: PointerButton
     let note: NSStackView
@@ -48,9 +48,8 @@ final class AgentCommitControls {
         noteText.textColor = .secondaryLabelColor
         noteText.lineBreakMode = .byTruncatingTail
         noteText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        undo = Self.link(String(localized: "Undo"), c, #selector(SourceControlController.undoAgentMessage))
         again = Self.link(String(localized: "Ask Again"), c, #selector(SourceControlController.askAgainForCommits))
-        note = NSStackView(views: [noteLogo, noteText, undo, again])
+        note = NSStackView(views: [noteLogo, noteText, again])
         note.spacing = Metrics.gap
         plan.onEdit = { [weak c] i, text in
             guard let c, let wid = c.worktreeId, c.plans[wid]?.commits.indices.contains(i) == true else { return }
@@ -87,6 +86,7 @@ extension SourceControlController {
         messageScroll?.isHidden = run != nil
         placeholder.isHidden = run != nil || !message.string.isEmpty
         ui.corner.isHidden = run != nil || commitAgentsEmpty
+        message.corner = ui.corner.isHidden ? 0 : ui.corner.fittingSize.width + Metrics.gap
         ui.work.isHidden = run == nil
         if let run {
             ui.mark.status = run.status == .waiting ? .waiting : .working
@@ -100,7 +100,6 @@ extension SourceControlController {
         if let note {
             ui.noteLogo.image = icon
             ui.noteText.stringValue = note.text
-            ui.undo.isHidden = note.hint == nil
         }
         ui.plan.isHidden = plan == nil
         if plan != ui.shown {

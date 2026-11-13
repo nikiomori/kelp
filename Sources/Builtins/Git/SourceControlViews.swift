@@ -288,6 +288,18 @@ final class CommitTextView: NSTextView {
     var onCommit: (() -> Void)?
     /// ⌥⌘↩: the agent writes it.
     var onAgent: (() -> Void)?
+    /// Room kept free in the top-right corner, where the agent's logo sits over the field: the first line wraps before
+    /// it, the lines under it run the whole width.
+    var corner: CGFloat = 0 { didSet { if corner != oldValue { exclude() } } }
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        exclude()
+    }
+    private func exclude() {
+        guard let container = textContainer else { return }
+        let rect = NSRect(x: container.size.width - corner, y: 0, width: corner, height: 14)   // the first line's
+        container.exclusionPaths = corner > 0 ? [NSBezierPath(rect: rect)] : []
+    }
     var onChange: (() -> Void)?
     private func isCommitKey(_ e: NSEvent) -> Bool {
         (e.keyCode == 36 || e.keyCode == 76) && e.modifierFlags.contains(.command)

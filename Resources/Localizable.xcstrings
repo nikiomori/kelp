@@ -22401,16 +22401,6 @@
         }
       }
     },
-    "Written by %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Написано: %@"
-          }
-        }
-      }
-    },
     "Write a message for each commit first.": {
       "localizations": {
         "ru": {
