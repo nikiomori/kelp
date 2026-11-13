@@ -154,7 +154,12 @@ func currentWorktree(_ c: RPCClient) async throws -> Worktree {
 }
 /// nil outside every workspace: for a command with somewhere else to go then. A daemon that didn't answer is an error.
 func worktreeHere(_ c: RPCClient) async throws -> Worktree? {
-    try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c)
+    if let here = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c) { return here }
+    // A chat started outside its workspace's folder (a remote project's commit agent, which runs here) is still its.
+    guard let own = ProcessInfo.processInfo.environment["KELP_SESSION"],
+        let id = try await c.call(SessionList()).first(where: { $0.id == own })?.worktreeId
+    else { return nil }
+    return try await c.call(WorktreeList()).first { $0.id == id }
 }
 func currentWorktreeID(_ c: RPCClient) async throws -> String { try await currentWorktree(c).id }
 func currentRepoID(_ c: RPCClient) async throws -> String {

@@ -95,16 +95,26 @@ extension SourceControlController {
         plans[wid] = nil
         notes[wid] = nil
         showAgentCommit()
+        // A remote project's agent runs here, where `kelp` is, and reads the changes on the host over Kelp's own
+        // connection to it (no login asked).
+        let remote = app.worktree(wid).flatMap { RemoteHost.of($0.path) }
+        var command = all ? "git status --short; git diff HEAD" : "git diff --cached"
+        if let remote {
+            command =
+                ([remote.ssh] + remote.sshArgs(tty: false) + ["cd \(RemoteHost.cdArg(remote.path)) && \(command)"])
+                .map(ShellQuote.word).joined(separator: " ")
+        }
         let vars = [
             "scope": all ? "the uncommitted changes, new files included" : "the staged changes",
-            "command": all ? "git status --short; git diff HEAD" : "git diff --cached",
+            "command": command,
             "hint": hint.isEmpty ? "" : "\n\nWhat the user wrote about them: \(hint)"
         ]
         Task {
             guard let prompt = await app.call(RecipeRender(id: wid, name: "commitPlan", vars: vars)),
                 let session = await app.call(
                     SessionCreate(
-                        worktreeId: wid, agent: a.id, model: model, prompt: prompt,
+                        cwd: remote == nil ? nil : NSHomeDirectory(), worktreeId: wid, agent: a.id, model: model,
+                        prompt: prompt,
                         title: String(localized: "Commit: \(a.name)")))
             else {
                 agentCommits[wid] = nil
