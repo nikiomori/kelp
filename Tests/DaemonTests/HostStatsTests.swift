@@ -68,6 +68,88 @@ import Testing
         #expect(s.alert == nil)
     }
 
+    /// vangerserte's answer (Debian 13 with Docker, 2026-11-13), cut short: ps with cgroups, two containers, a restart due.
+    static let debian = """
+        \u{1E}os
+        Debian GNU/Linux 13 (trixie)
+        \u{1E}cpu
+        cpu  12995059 25148 4591461 642155369 429189 0 288255 6698579 0 0
+        cpu  12995061 25148 4591462 642155374 429190 0 288255 6698580 0 0
+        \u{1E}net
+        ens3
+        6633000.10   ens3: 77153549074 47200347    0    0    0     0          0         0 36752134872 63412602    0    0    0     0       0          0
+        6633000.40   ens3: 77153552074 47200350    0    0    0     0          0         0 36752135772 63412605    0    0    0     0       0          0
+        \u{1E}ports
+        127.0.0.1:3000
+        0.0.0.0:80
+        0.0.0.0:22
+        [::]:80
+        127.0.0.1:8080 users:(("node",pid=900,fd=21))
+        \u{1E}docker
+        d95fb4665ed0945f06e7447b531afa9adf030b5f51347be647cd68dde858adad\tvangersert\t127.0.0.1:3000->3000/tcp
+        4a7b0586bc08df1a3c62a3e4e5848b4d9f646b7c9e72eff59907b41a8947712e\tvangersert-nginx\t0.0.0.0:80->80/tcp, [::]:80->80/tcp
+        \u{1E}failed
+        nginx.service
+        \u{1E}reboot
+        yes
+        \u{1E}self
+        3293888
+        \u{1E}psc
+        1846070 1846046 1001          0.8 596752 4-21:52:58 0::/system.slice/docker-d95fb4665ed0945f06e7447b531afa9adf030b5f51347be647cd68dde858adad.scope   next-server (v15.1.0)
+           3352       1 root          0.1 32600 76-17:34:15 0::/system.slice/fail2ban.service   /usr/bin/python3 /usr/bin/fail2ban-server -xf start
+        1488721 1488642 dhcpcd        0.1 15356  6-11:21:18 0::/system.slice/docker-4a7b0586bc08df1a3c62a3e4e5848b4d9f646b7c9e72eff59907b41a8947712e.scope   nginx: worker process
+           2888476     1 vangerserte  0.0 12084  1-08:00:00 0::/user.slice/user-1000.slice/user@1000.service/init.scope   /usr/lib/systemd/systemd --user
+              8       2 root          0.0     0 76-18:36:24 -   [kworker/R-netns]
+        3293888 3293880 vangerserte   0.0  1900       00:00 0::/user.slice/user-1000.slice/session-9.scope   sh -c s() {
+        3293901 3293888 vangerserte   0.0  4600       00:00 0::/user.slice/user-1000.slice/session-9.scope   ps -axo pid=
+        """
+
+    @Test func readsADockerHost() throws {
+        let s = HostStatsReader.parse(Self.debian, host: "vangerserte", owner: [:])
+        #expect(s.os == "Debian 13 (trixie)" && s.rebootRequired == true && s.failedUnits == ["nginx.service"])
+        // 10 ticks: 4 busy (1 of them stolen), 1 waiting on the disk.
+        #expect(abs((s.cpu ?? 0) - 40) < 0.01 && abs((s.iowait ?? 0) - 10) < 0.01 && abs((s.steal ?? 0) - 10) < 0.01)
+        let net = try #require(s.network)
+        #expect(net.interface == "ens3" && abs(net.received - 10000) < 1 && abs(net.sent - 3000) < 1)
+        #expect(
+            s.ports == [
+                .init(port: 22, local: false), .init(port: 80, local: false, container: "vangersert-nginx"),
+                .init(port: 3000, local: true, container: "vangersert"), .init(port: 8080, local: true, process: "node")
+            ])
+        #expect(
+            s.containers == [
+                .init(name: "vangersert", ports: [3000], cpu: 0.8, memory: 596752 * 1024, seconds: 4 * 86400 + 78778),
+                .init(name: "vangersert-nginx", ports: [80], cpu: 0.1, memory: 15356 * 1024, seconds: 6 * 86400 + 40878)
+            ])
+        // The reading's own shell and ps aren't listed.
+        #expect(s.processCount == 5)
+        let p = try #require(s.processes)
+        #expect(p.first { $0.pid == 1846070 }?.container == "vangersert")
+        #expect(p.first { $0.pid == 3352 }?.unit == "fail2ban.service")
+        #expect(p.first { $0.pid == 2888476 }?.unit == "user@1000.service")
+        #expect(p.first { $0.pid == 2888476 }?.user == "vangerserte")
+        #expect(p.first { $0.pid == 8 }?.unit == nil)
+    }
+
+    @Test func unitsFromCgroups() {
+        #expect(HostStatsReader.unit("0::/init.scope").unit == "init.scope")
+        #expect(HostStatsReader.unit("0::/").unit == nil)
+        let v1 = HostStatsReader.unit("12:pids:/docker/abc;1:name=systemd:/docker/abc")
+        #expect(v1.unit == nil && v1.docker == "abc")
+    }
+
+    @Test func keepsTheLastHour() {
+        let history = HostHistory(initialState: [:])
+        var s = HostStats(host: "h", connected: true)
+        s.cpu = 50
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        HostStatsReader.remember(s, in: history, at: start)
+        HostStatsReader.remember(s, in: history, at: start.addingTimeInterval(1800))
+        HostStatsReader.remember(s, in: history, at: start.addingTimeInterval(3700))
+        let kept = history.withLock { $0["h"] ?? [] }
+        #expect(kept.map(\.at) == [1_001_800, 1_003_700] && kept.first?.cpu == 0.5)
+    }
+
     @Test func saysWhatStrainsIt() {
         var s = HostStats(host: "h", connected: true)
         s.disk = 92
@@ -107,6 +189,8 @@ import Testing
     let (d, c, _) = try daemon()
     defer { d.stop() }
     #expect(try await c.call(HostStatsRead(host: " nowhere.invalid ")).host == "nowhere.invalid")
+    // Its history holds that one reading at most (none when it read as not connected).
+    #expect(try await c.call(HostHistoryRead(host: "nowhere.invalid")).count <= 1)
     _ = try await c.call(HostDisconnect(host: "nowhere.invalid"))
     for bad in ["", "-oProxyCommand=x", "a b"] {
         await #expect(throws: (any Error).self) { _ = try await c.call(HostStatsRead(host: bad)) }

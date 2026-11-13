@@ -2392,6 +2392,13 @@
           "connected" : {
             "type" : "boolean"
           },
+          "containers" : {
+            "description" : "The Docker containers running, when the user may ask docker.",
+            "items" : {
+              "$ref" : "#/components/schemas/HostStats.Container"
+            },
+            "type" : "array"
+          },
           "cores" : {
             "type" : "integer"
           },
@@ -2409,8 +2416,19 @@
             "description" : "Why the last connection failed, in ssh's words; nil once one worked.",
             "type" : "string"
           },
+          "failedUnits" : {
+            "description" : "systemd units that failed (\"nginx.service\"). Linux with systemd only.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "host" : {
             "type" : "string"
+          },
+          "iowait" : {
+            "description" : "Of that moment, the share spent waiting on the disk, and the share the machine under a VM took (steal), 0–100. Linux only.",
+            "type" : "number"
           },
           "load" : {
             "items" : {
@@ -2424,6 +2442,10 @@
           },
           "memoryTotal" : {
             "type" : "integer"
+          },
+          "network" : {
+            "$ref" : "#/components/schemas/HostStats.Network",
+            "description" : "Bytes a second in and out on the interface the default route takes, over the same moment. Linux only."
           },
           "os" : {
             "description" : "\"Ubuntu 24.04.5 LTS\", else `uname -sr`.",
@@ -2445,6 +2467,13 @@
               "$ref" : "#/components/schemas/HostStats.Process"
             },
             "type" : "array"
+          },
+          "rebootRequired" : {
+            "description" : "The system asks for a restart (Debian and Ubuntu, after an update that needs one).",
+            "type" : "boolean"
+          },
+          "steal" : {
+            "type" : "number"
           },
           "swap" : {
             "type" : "integer"
@@ -2470,14 +2499,70 @@
         ],
         "type" : "object"
       },
+      "HostStats.Container" : {
+        "properties" : {
+          "cpu" : {
+            "description" : "What its processes take together, and how long its oldest has run; nil when ps can't tell whose they are.",
+            "type" : "number"
+          },
+          "memory" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "ports" : {
+            "description" : "The host's ports it's published on.",
+            "items" : {
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "seconds" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "name",
+          "ports"
+        ],
+        "type" : "object"
+      },
+      "HostStats.Network" : {
+        "properties" : {
+          "interface" : {
+            "type" : "string"
+          },
+          "received" : {
+            "description" : "Bytes a second.",
+            "type" : "number"
+          },
+          "sent" : {
+            "type" : "number"
+          }
+        },
+        "required" : [
+          "interface",
+          "received",
+          "sent"
+        ],
+        "type" : "object"
+      },
       "HostStats.Port" : {
         "properties" : {
+          "container" : {
+            "type" : "string"
+          },
           "local" : {
             "description" : "Reached only from the server itself (127.0.0.1, ::1): forward it to use it here.",
             "type" : "boolean"
           },
           "port" : {
             "type" : "integer"
+          },
+          "process" : {
+            "description" : "What listens: the program (`ss` tells only for the user's own), and the Docker container it's published from.",
+            "type" : "string"
           }
         },
         "required" : [
@@ -2493,6 +2578,9 @@
           },
           "command" : {
             "description" : "The program's name, and its whole command line.",
+            "type" : "string"
+          },
+          "container" : {
             "type" : "string"
           },
           "cpu" : {
@@ -2512,6 +2600,10 @@
             "description" : "The Kelp session it runs under (its tmux pane's), if any.",
             "type" : "string"
           },
+          "unit" : {
+            "description" : "The systemd unit it runs in (\"nginx.service\", \"session-4.scope\"), and the Docker container, by name. Linux only.",
+            "type" : "string"
+          },
           "user" : {
             "type" : "string"
           }
@@ -2524,6 +2616,30 @@
           "pid",
           "seconds",
           "user"
+        ],
+        "type" : "object"
+      },
+      "HostStats.Sample" : {
+        "description" : "One reading, for the history: when (seconds since 1970), the CPU and memory shares 0–1, the network's bytes a second.",
+        "properties" : {
+          "at" : {
+            "type" : "number"
+          },
+          "cpu" : {
+            "type" : "number"
+          },
+          "memory" : {
+            "type" : "number"
+          },
+          "received" : {
+            "type" : "number"
+          },
+          "sent" : {
+            "type" : "number"
+          }
+        },
+        "required" : [
+          "at"
         ],
         "type" : "object"
       },
@@ -9224,6 +9340,30 @@
         "name" : "result",
         "schema" : {
           "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The host's readings of the last hour, oldest first: what the daemon read while its server was listed (every 10 s) or on screen (every 2 s). Empty for a host it hasn't read since it started.",
+      "name" : "host.history",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "host",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/HostStats.Sample"
+          },
+          "type" : "array"
         }
       },
       "x-internal" : true

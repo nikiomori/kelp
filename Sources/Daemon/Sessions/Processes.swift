@@ -11,6 +11,8 @@ final class SessionProcesses: Sendable {
     let forwards: Forwards
     /// Remote hosts whose last connection failed, and ssh's reason (`host.stats`).
     let hostErrors = HostErrors(initialState: [:])
+    /// Each host's readings of the last hour (`host.history`).
+    let hostHistory = HostHistory(initialState: [:])
 
     init(live: SessionTable, store: Store, remotes: Remotes) {
         self.live = live

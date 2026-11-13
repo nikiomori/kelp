@@ -13,6 +13,15 @@ public struct HostStatsRead: InternalMethod {
     }
 }
 
+/// The host's readings of the last hour, oldest first: what the daemon read while its server was listed (every 10 s)
+/// or on screen (every 2 s). Empty for a host it hasn't read since it started.
+public struct HostHistoryRead: InternalMethod {
+    public static let name = "host.history"
+    public typealias Result = [HostStats.Sample]
+    public var host: String
+    public init(host: String) { self.host = host }
+}
+
 /// Closes the host's shared connection (`ssh -O exit`): agents in tmux there go on.
 public struct HostDisconnect: InternalMethod {
     public static let name = "host.disconnect"
@@ -33,6 +42,11 @@ public struct HostStats: Codable, Sendable, Equatable {
     public var uptime: Double?, load: [Double]?
     /// Busy share of all cores, 0–100, over a moment of the read. Linux only.
     public var cpu: Double?
+    /// Of that moment, the share spent waiting on the disk, and the share the machine under a VM took (steal), 0–100.
+    /// Linux only.
+    public var iowait: Double?, steal: Double?
+    /// Bytes a second in and out on the interface the default route takes, over the same moment. Linux only.
+    public var network: Network?
     /// Bytes used and in all. Memory and swap: Linux only.
     public var memory: Int?, memoryTotal: Int?, swap: Int?, swapTotal: Int?, disk: Int?, diskTotal: Int?
     public var processCount: Int?
@@ -42,6 +56,12 @@ public struct HostStats: Codable, Sendable, Equatable {
     public var ports: [Port]?
     /// Kelp's tmux sessions there (`Tmux.isOwn`), with the Kelp session each belongs to, if one does.
     public var tmux: [TmuxSession]?
+    /// The Docker containers running, when the user may ask docker.
+    public var containers: [Container]?
+    /// systemd units that failed ("nginx.service"). Linux with systemd only.
+    public var failedUnits: [String]?
+    /// The system asks for a restart (Debian and Ubuntu, after an update that needs one).
+    public var rebootRequired: Bool?
 
     public init(host: String, connected: Bool, error: String? = nil) {
         self.host = host
@@ -57,9 +77,11 @@ public struct HostStats: Codable, Sendable, Equatable {
         public var command: String, args: String
         /// The Kelp session it runs under (its tmux pane's), if any.
         public var session: String?
+        /// The systemd unit it runs in ("nginx.service", "session-4.scope"), and the Docker container, by name. Linux only.
+        public var unit: String?, container: String?
         public init(
             pid: Int, user: String, cpu: Double, memory: Int, seconds: Int, command: String, args: String,
-            session: String? = nil
+            session: String? = nil, unit: String? = nil, container: String? = nil
         ) {
             self.pid = pid
             self.user = user
@@ -69,6 +91,8 @@ public struct HostStats: Codable, Sendable, Equatable {
             self.command = command
             self.args = args
             self.session = session
+            self.unit = unit
+            self.container = container
         }
     }
 
@@ -76,9 +100,52 @@ public struct HostStats: Codable, Sendable, Equatable {
         public var port: Int
         /// Reached only from the server itself (127.0.0.1, ::1): forward it to use it here.
         public var local: Bool
-        public init(port: Int, local: Bool) {
+        /// What listens: the program (`ss` tells only for the user's own), and the Docker container it's published from.
+        public var process: String?, container: String?
+        public init(port: Int, local: Bool, process: String? = nil, container: String? = nil) {
             self.port = port
             self.local = local
+            self.process = process
+            self.container = container
+        }
+    }
+
+    public struct Network: Codable, Sendable, Equatable {
+        public var interface: String
+        /// Bytes a second.
+        public var received: Double, sent: Double
+        public init(interface: String, received: Double, sent: Double) {
+            self.interface = interface
+            self.received = received
+            self.sent = sent
+        }
+    }
+
+    public struct Container: Codable, Sendable, Equatable {
+        public var name: String
+        /// The host's ports it's published on.
+        public var ports: [Int]
+        /// What its processes take together, and how long its oldest has run; nil when ps can't tell whose they are.
+        public var cpu: Double?, memory: Int?, seconds: Int?
+        public init(name: String, ports: [Int], cpu: Double? = nil, memory: Int? = nil, seconds: Int? = nil) {
+            self.name = name
+            self.ports = ports
+            self.cpu = cpu
+            self.memory = memory
+            self.seconds = seconds
+        }
+    }
+
+    /// One reading, for the history: when (seconds since 1970), the CPU and memory shares 0–1, the network's bytes a second.
+    public struct Sample: Codable, Sendable, Equatable {
+        public var at: Double
+        public var cpu: Double?, memory: Double?, received: Double?, sent: Double?
+        public init(at: Double, cpu: Double?, memory: Double?, received: Double?, sent: Double?) {
+            self.at = at
+            self.cpu = cpu
+            self.memory = memory
+            self.received = received
+            self.sent = sent
         }
     }
 
