@@ -98,6 +98,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var renaming: (id: String, project: Bool)?
     lazy var card = HoverCard(app: app)
     var rowHeights: [CGFloat] = []
+    /// The sessions the rows last showed (`sessionsChanged`).
+    var shownBefore: [String: Session] = [:]
     /// A server's header is folding or opening: its projects move, however many (`fewRows`).
     var foldingHost = false
 
@@ -196,6 +198,21 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         followModel()
     }
 
+    /// The tree is built again only when a row comes, goes or moves; an agent's news (a few a second while it works)
+    /// updates the rows that show it.
+    private func followSessions() {
+        track(owner: self) { [app] in
+            app.workbench.shownSessions.map(Self.place)
+        } changed: { [weak self] _ in
+            self?.refresh()
+        }
+        track(owner: self) { [app] in
+            app.workbench.shownSessions
+        } changed: { [weak self] in
+            self?.sessionsChanged($0)
+        }
+    }
+
     /// What the rows follow: the model's projects, sessions and settings, and the clock that moves their times on.
     private func followModel() {
         track(owner: self) { [app] in
@@ -213,11 +230,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.refresh()
         }
-        track(owner: self) { [app] in
-            app.workbench.shownSessions
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
+        followSessions()
         track(owner: self) { [app] in
             app.arrangement.order
         } changed: { [weak self] _ in

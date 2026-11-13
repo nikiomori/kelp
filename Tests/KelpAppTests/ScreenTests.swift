@@ -34,7 +34,7 @@ import WorkbenchKit
     (0..<o.numberOfRows).map { r in (o.view(atColumn: 0, row: r, makeIfNecessary: true)).map(texts) ?? [] }
 }
 
-@MainActor private func withSidebar(
+@MainActor func withSidebar(
     repos: [Repo], worktrees: [Worktree], sessions: [Session], settings: [String: JSONValue] = [:],
     _ check: @MainActor (SidebarController, NSOutlineView) throws -> Void
 ) throws {

@@ -113,7 +113,7 @@ extension SidebarController {
         func put(_ key: String, _ frame: NSRect, _ shows: ProjectCard.Look) {
             shown.insert(key)
             if let card = cards[key] {
-                card.animator().frame = frame
+                if card.frame != frame { card.animator().frame = frame }   // most news moves no row
                 card.look = shows
                 return
             }

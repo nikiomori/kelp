@@ -17,9 +17,9 @@ final class SidebarCell: NSTableCellView {
         guard let glowColor else { return }
         ProjectIcon.glow(glow, color: glowColor, on)
     }
-    let title = NSTextField(labelWithString: "")
+    let title = RowLabel(labelWithString: "")
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
-    let trailing = NSTextField(labelWithString: "")
+    let trailing = RowLabel(labelWithString: "")
     let mark = StatusMark(size: 12)
     /// A chat's logo with its state in the corner, in the slot where the mark would be (Agent icons: Always): the name
     /// starts where the project's does, as it would with the mark alone.
@@ -60,6 +60,8 @@ final class SidebarCell: NSTableCellView {
     /// Under an agent that asks or failed: what it asks, or what went wrong (Settings › Appearance › What agents ask).
     let ask = NSTextField(labelWithString: "")
     var rowY: NSLayoutConstraint?
+    /// What the second line last showed (`setAsk`).
+    var askShown: [String] = []
     /// What an agent goes on with by itself: its /goal, or a command it started in the background.
     let chip = Chip()
     /// An agent's: the agents it started.
@@ -386,6 +388,10 @@ extension SidebarCell {
         ask.isHidden = line == nil
         rowY?.constant = line == nil ? 0 : -TextSize.of(8)
         guard let line else { return }
+        // The same line on the same pill (most news doesn't change it): not styled and measured again.
+        let key = [line.prefix?.0, line.prefix?.1.description, line.text, "\(selected)"].map { $0 ?? "" }
+        guard key != askShown else { return }
+        askShown = key
         let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(TextSize.caption)
         let styled = NSMutableAttributedString()
         // On the pill too: the text shades hold 4.5:1 on it (light 5.5, dark 4.9), and the row it marks is the one you're on.
@@ -399,5 +405,22 @@ extension SidebarCell {
         styled.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: styled.length))
         ask.attributedStringValue = styled
         ask.toolTip = line.text
+    }
+}
+
+/// A row's label: told what it shows already, it stays as it is. Set again, a field measures itself and lays its row out
+/// anew, and rows are told again on every agent's news.
+final class RowLabel: NSTextField {
+    override var stringValue: String {
+        get { super.stringValue }
+        set { if newValue != super.stringValue { super.stringValue = newValue } }
+    }
+    override var font: NSFont? {
+        get { super.font }
+        set { if newValue != super.font { super.font = newValue } }
+    }
+    override var textColor: NSColor? {
+        get { super.textColor }
+        set { if newValue != super.textColor { super.textColor = newValue } }
     }
 }

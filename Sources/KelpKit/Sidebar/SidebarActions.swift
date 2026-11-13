@@ -61,8 +61,42 @@ extension SidebarController {
     }
     func refreshCell(_ key: String) {
         guard let node = node(key) else { return }
+        refreshCell(node)
+    }
+    private func refreshCell(_ node: Node) {
         let row = outline.row(forItem: node)
         if row >= 0 { (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarCell)?.update() }
+    }
+
+    /// What decides the rows a session has (`SidebarTree.build`): the same for all of a session's news but where it is,
+    /// whose it is and whether it ended.
+    static func place(_ s: Session) -> String {
+        [s.id, s.worktreeId ?? "", s.parent ?? "", s.agent == "shell" ? "sh" : "", s.status == .exited ? "x" : ""]
+            .joined(separator: "|")
+    }
+
+    /// Sessions changed without moving a row: the rows showing them are updated, an agent's own, its parent's and the rows
+    /// above it (its workspace and project sum their agents up), not every row in the list.
+    func sessionsChanged(_ now: [Session]) {
+        let changed = now.filter { shownBefore[$0.id] != $0 }
+        shownBefore = Dictionary(now.map { ($0.id, $0) }) { _, last in last }
+        guard !changed.isEmpty else { return }
+        rows(showing: changed).forEach(refreshCell)
+        updateCard()   // a row's second line (what it asks) changes its height
+        updateHeaders()
+    }
+    /// An agent's row, its parent's, and the rows above it.
+    func rows(showing sessions: [Session]) -> Set<Node> {
+        var nodes: Set<Node> = []
+        for s in sessions {
+            for id in [s.id, s.parent].compactMap({ $0 }) { if let n = node("a:" + id) { nodes.insert(n) } }
+            var above = s.worktreeId.flatMap(workspaceNode)
+            while let n = above {
+                nodes.insert(n)
+                above = outline.parent(forItem: n) as? Node
+            }
+        }
+        return nodes
     }
 
     /// Inline rename, like Finder: a workspace's name, or with `project` its project's own.
