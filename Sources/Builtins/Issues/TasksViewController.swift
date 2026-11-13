@@ -166,14 +166,20 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     }
 
     private var laidOutWidth: CGFloat = 0
+    private let resized = Debounce()
     override func viewDidLayout() {
         super.viewDidLayout()
         placeDivider()
-        // Titles wrap at the panel's width: another width, other heights.
-        if abs(table.bounds.width - laidOutWidth) > 1 {
-            laidOutWidth = table.bounds.width
-            table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<lines.count))
-        }
+        // Titles wrap at the panel's width: another width, other heights. Dragging the inspector's edge, once it rests:
+        // each step of the drag measured every title again.
+        guard abs(table.bounds.width - laidOutWidth) > 1 else { return }
+        if laidOutWidth == 0 { return remeasure() }
+        resized.after(0.1) { [weak self] in self?.remeasure() }
+    }
+    private func remeasure() {
+        guard abs(table.bounds.width - laidOutWidth) > 1 else { return }
+        laidOutWidth = table.bounds.width
+        table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<lines.count))
     }
 
     /// A tracker's task, which shows below the list: the details' half of the split; anything else, the list alone.

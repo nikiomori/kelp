@@ -13,11 +13,17 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
-    private struct Row {
+    private struct Row: Equatable {
         var session: Session
         var cpu: Double
         var memory: Int
         var processes: Int
+        /// Drawn alike: the figures as the row writes them (a measure two seconds on mostly moves a digit no one sees).
+        static func == (a: Row, b: Row) -> Bool {
+            a.session == b.session && a.processes == b.processes && (a.cpu > 80) == (b.cpu > 80)
+                && ActivityController.percent(a.cpu) == ActivityController.percent(b.cpu)
+                && bytes(a.memory) == bytes(b.memory)
+        }
     }
     private let table = NSTableView()
     private let total = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
@@ -50,13 +56,15 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         watched.key = nil
     }
     private lazy var watched = Watched(.activity, in: app)
+    /// Measures pushed while a collapsed inspector hides it: the latest shows when it does.
+    private lazy var whenShown = WhenShown(view)
 
     override func viewDidLoad() {
         super.viewDidLoad()
         track(owner: self) { [app] in
             app.latest(ActivityEvent.self)
-        } changed: { [weak self] in
-            self?.show($0)
+        } changed: { [weak self] event in
+            self?.whenShown.run { self?.show(event) }
         }
     }
 
@@ -64,6 +72,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         guard let event else { return }
         let model = app
         // Couldn't measure: say why where "No sessions running." would be, not that nothing runs.
+        let was = rows
         rows = (event.usage ?? []).compactMap { usage in
             guard let session = model.session(usage.session) else { return nil }
             return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
@@ -79,10 +88,15 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
                 rows.isEmpty ? String(localized: "No Sessions Running") : nil,
                 symbol: "gauge.with.dots.needle.33percent")
         }
-        table.reloadData()
+        // The same sessions in the same order: only the rows whose figures moved are drawn again.
+        guard was.map(\.session.id) == rows.map(\.session.id) else { return table.reloadData() }
+        let moved = IndexSet(rows.indices.filter { rows[$0] != was[$0] })
+        table.reloadData(forRowIndexes: moved, columnIndexes: [0])
     }
 
-    static func percent(_ cpu: Double) -> String { cpu < 10 ? String(format: "%.1f%%", cpu) : "\(Int(cpu.rounded()))%" }
+    nonisolated static func percent(_ cpu: Double) -> String {
+        cpu < 10 ? String(format: "%.1f%%", cpu) : "\(Int(cpu.rounded()))%"
+    }
 
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
     func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }

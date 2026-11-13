@@ -45,6 +45,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     private lazy var filesWatch = Watched(.files, in: app)
     private lazy var gitWatch = Watched(.git, in: app)
     private var shown = false
+    /// Badges redrawn while hidden wait for it to show.
+    private lazy var whenShown = WhenShown(view)
     var worktree: Worktree?
     var root: String { worktree?.path ?? "/" }
 
@@ -118,7 +120,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         track(owner: self) {
             app.fileIcons.revision
         } changed: { [weak self] _ in
-            self?.reloadIcons()
+            self?.whenShown.run { self?.reloadIcons() }
         }
     }
 
@@ -280,11 +282,19 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     }
 
     /// Git's letters on the rows (only the letters: Source Control says what failed), and folders holding a change.
+    /// The status is kept at once (menus and the name filter read it); only the rows whose badge or dot changed are
+    /// drawn again, and a hidden panel's all of them once it shows.
     private func badges(_ changes: [FileChange]?) {
+        let was = (status, changedFolders)
         status = Dictionary((changes ?? []).map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
         changedFolders = Set(
             status.keys.flatMap { path in path.indices.filter { path[$0] == "/" }.map { String(path[..<$0]) } })
-        reloadIcons()
+        let moved = Set(status.keys.filter { status[$0] != was.0[$0] } + was.0.keys.filter { status[$0] == nil })
+            .union(changedFolders.symmetricDifference(was.1))
+        guard !moved.isEmpty else { return }
+        guard whenShown.onScreen else { return whenShown.run { [weak self] in self?.reloadIcons() } }
+        let rows = IndexSet((0..<outline.numberOfRows).filter { rowKey($0).map(moved.contains) ?? false })
+        outline.reloadData(forRowIndexes: rows, columnIndexes: [0])
     }
 
     func openFile(_ rel: String, line: Int? = nil, focus: Bool = true) {

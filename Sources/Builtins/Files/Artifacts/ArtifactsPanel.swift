@@ -32,6 +32,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private lazy var watched = Watched(.artifacts, in: app)
     private lazy var card = ArtifactCard(app: app)
     private var shown = false
+    private lazy var whenShown = WhenShown(view)
     /// What Quick Look shows (`quickLook`).
     var looked: String?
 
@@ -109,7 +110,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     // MARK: Rows
 
-    private func reload() {
+    /// Rebuilt while on screen; hidden, once when it shows again.
+    private func reload() { whenShown.run { [weak self] in self?.rebuild() } }
+
+    private func rebuild() {
         let list = app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
         let items = list ?? []
         seedSeen(items)

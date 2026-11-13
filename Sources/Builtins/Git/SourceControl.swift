@@ -111,6 +111,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// The workspace's git and its branch's CI, watched while the panel is on screen (the daemon pushes changes).
     lazy var gitWatch = Watched(.git, in: app)
     lazy var ciWatch = Watched(.ci, in: app)
+    /// What git said while the panel was hidden: applied when it shows (`apply`).
+    lazy var whenShown = WhenShown(view)
     let stats = NSTextField(labelWithString: "")
     let ciRow = CIStatusRow()
     var ciRuns: [CIRuns.Run] = []
@@ -194,8 +196,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         }
         track(owner: self) { [weak self, app] in
             app.latest(GitEvent.self, self?.worktreeId ?? "")
-        } changed: { [weak self] in
-            self?.apply($0)
+        } changed: { [weak self] event in
+            self?.whenShown.run { self?.apply(event) }
         }
         track(owner: self) { [weak self, app] in
             app.sharedFiles(self?.worktreeId)

@@ -47,6 +47,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private var pending: [String: Bool] = [:]
     private let foot = NSStackView()
     private var laidOut: CGFloat = 0
+    private let resized = Debounce()
     private let footNote = NSTextField(labelWithString: "")
     private(set) var shownChat: Session?
     /// The order, and whether what's off shows: this Mac's view of the list.
@@ -121,9 +122,15 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
             self?.reload()
         }
     }
-    /// Rows lay themselves out for the panel's width: drawn again when it changes.
+    /// Rows lay themselves out for the panel's width: drawn again when it changes. Dragging the inspector's edge, once
+    /// it rests: each step of the drag built every row again.
     override func viewDidLayout() {
         super.viewDidLayout()
+        guard abs(table.bounds.width - laidOut) >= 1 else { return }
+        if laidOut == 0 { return relayout() }
+        resized.after(0.1) { [weak self] in self?.relayout() }
+    }
+    private func relayout() {
         guard abs(table.bounds.width - laidOut) >= 1 else { return }
         laidOut = table.bounds.width
         table.reloadData()

@@ -151,8 +151,10 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // own.
     // +5: a SwiftUI tab (`HostedTabContent`), which Servers, Routines and Machines each wrote as a class of their own;
     // `HostedTab` under it is the shell's again.
-    #expect(declared <= 342, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 342, "fewer now (\(declared)): lower the ceiling")
+    // +4: a panel the inspector hides redraws once it shows, not on every change meanwhile (`WhenShown`: Artifacts,
+    // Source Control, Files, Activity).
+    #expect(declared <= 346, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 346, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
