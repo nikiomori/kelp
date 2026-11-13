@@ -31,11 +31,13 @@ public struct ForgeError: Error, CustomStringConvertible, Sendable {
 /// GitHub via the `gh` CLI; auth is whatever `gh auth` has. Every call takes the repo checkout `cwd`
 /// so gh resolves owner/repo from its remotes. Blocking — call off the main thread. Its values are Core's.
 extension GitHub {
-    public enum PRFilter: Sendable { case open, mine, reviewRequested }
+    public enum PRFilter: Sendable { case open, mine, reviewRequested, closed }
     public enum MergeMethod: String, Sendable { case squash, merge, rebase }
 
     static let prFields =
-        "number,title,url,author,headRefName,headRefOid,isDraft,state,reviewDecision,statusCheckRollup,mergeStateStatus"
+        "number,title,url,author,headRefName,headRefOid,isDraft,state,reviewDecision,statusCheckRollup,mergeStateStatus,"
+        + "updatedAt,reviewRequests"
+    static let issueFields = "number,title,body,url,labels,assignees,state,author,updatedAt"
 
     /// Where the user's shell finds it (MacPorts, nix, mise… too), not only in the daemon's own PATH.
     /// `KELP_GH` names another program (tests use a stand-in that answers with canned JSON), like `KELP_SSH`.
@@ -55,8 +57,9 @@ extension GitHub {
     /// For Settings: is gh installed, and who is signed in (nil: not signed in, or no network to ask).
     public static func account() -> (installed: Bool, user: String?) {
         guard let exe = ghPath else { return (false, nil) }
-        let login = (try? Subprocess.output(
-            [exe, "api", "user", "--jq", ".login"], cwd: NSHomeDirectory(), env: Git.toolEnv))
+        let login =
+            (try? Subprocess.output(
+                [exe, "api", "user", "--jq", ".login"], cwd: NSHomeDirectory(), env: Git.toolEnv))
             .map { String(decoding: $0, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) }
         return (true, login?.isEmpty == false ? login : nil)
     }
@@ -93,8 +96,10 @@ extension GitHub {
             case .open: []
             case .mine: ["--author", "@me"]
             case .reviewRequested: ["--search", "review-requested:@me"]
+            case .closed: ["--state", "closed"]
             }
-        return try parsePullRequests(gh(["pr", "list", "-L", "100", "--json", prFields] + extra, cwd: cwd))
+        let limit = filter == .closed ? "30" : "100"
+        return try parsePullRequests(gh(["pr", "list", "-L", limit, "--json", prFields] + extra, cwd: cwd))
     }
 
     /// The newest PR whose head is `branch` (open, merged or closed), or nil.
@@ -108,8 +113,21 @@ extension GitHub {
         let extra = mine ? ["--assignee", "@me"] : []
         return try parseIssues(
             gh(
-                ["issue", "list", "-L", "100", "--json", "number,title,body,url,labels,assignees,state"] + extra,
+                ["issue", "list", "-L", "100", "--json", issueFields] + extra,
                 cwd: cwd))
+    }
+
+    /// One pull request with its description, files and conversation, for its tab.
+    public static func pullRequestView(cwd: String, number: Int) throws -> PRView {
+        try parsePRView(
+            gh(
+                ["pr", "view", String(number), "--json", prFields + ",body,baseRefName,files,comments,reviews"],
+                cwd: cwd))
+    }
+
+    /// One issue with its conversation, for its tab.
+    public static func issueView(cwd: String, number: Int) throws -> IssueView {
+        try parseIssueView(gh(["issue", "view", String(number), "--json", issueFields + ",comments"], cwd: cwd))
     }
 
     public static func checks(cwd: String, pr: Int) throws -> [Check] {
@@ -170,22 +188,58 @@ extension GitHub {
         var name: String?, context: String?, workflowName: String?, startedAt: String?
         var status: String?, conclusion: String?, state: String?
     }
+    /// A person (login) or a team (name) asked for a review.
+    private struct Reviewer: Decodable { var login: String?, name: String? }
     private struct RawPR: Decodable {
         var number: Int, title: String, url: String, author: Login, headRefName: String, headRefOid: String?
         var isDraft: Bool, state: String, reviewDecision: String?, statusCheckRollup: [RawRollup]?,
-            mergeStateStatus: String?
+            mergeStateStatus: String?, updatedAt: String?, reviewRequests: [Reviewer]?
+
+        var pullRequest: PullRequest {
+            var pr = PullRequest(
+                number: number, title: title, url: url, author: author.login, headRefName: headRefName,
+                isDraft: isDraft, state: state,
+                reviewDecision: reviewDecision?.isEmpty == false ? reviewDecision : nil,
+                checks: summarize(statusCheckRollup ?? []), headRefOid: headRefOid)
+            pr.mergeState = mergeStateStatus
+            pr.updatedAt = updatedAt
+            pr.reviewRequests = reviewRequests?.compactMap { $0.login ?? $0.name }
+            return pr
+        }
     }
 
     static func parsePullRequests(_ data: Data) throws -> [PullRequest] {
-        try JSONDecoder().decode([RawPR].self, from: data).map {
-            var pr = PullRequest(
-                number: $0.number, title: $0.title, url: $0.url, author: $0.author.login, headRefName: $0.headRefName,
-                isDraft: $0.isDraft, state: $0.state,
-                reviewDecision: $0.reviewDecision?.isEmpty == false ? $0.reviewDecision : nil,
-                checks: summarize($0.statusCheckRollup ?? []), headRefOid: $0.headRefOid)
-            pr.mergeState = $0.mergeStateStatus
-            return pr
+        try JSONDecoder().decode([RawPR].self, from: data).map(\.pullRequest)
+    }
+
+    private struct RawThreadComment: Decodable {
+        var author: Login?, body: String, createdAt: String?, submittedAt: String?, state: String?
+        var comment: Comment {
+            Comment(
+                author: author?.login ?? "ghost", body: body, createdAt: createdAt ?? submittedAt ?? "",
+                review: state)
         }
+    }
+    private struct RawPRView: Decodable {
+        var body: String?, baseRefName: String, files: [ChangedFile]?, comments: [RawThreadComment]?,
+            reviews: [RawThreadComment]?
+    }
+
+    /// Comments and the reviews that said something or decided, oldest first.
+    static func parsePRView(_ data: Data) throws -> PRView {
+        let pr = try JSONDecoder().decode(RawPR.self, from: data).pullRequest
+        let view = try JSONDecoder().decode(RawPRView.self, from: data)
+        let reviews = (view.reviews ?? []).filter { !$0.body.isEmpty || $0.state != "COMMENTED" }
+        let said = ((view.comments ?? []) + reviews).map(\.comment).sorted { $0.createdAt < $1.createdAt }
+        return PRView(
+            pr: pr, body: view.body ?? "", baseRefName: view.baseRefName, files: view.files ?? [], comments: said)
+    }
+
+    private struct RawIssueView: Decodable { var comments: [RawThreadComment]? }
+    static func parseIssueView(_ data: Data) throws -> IssueView {
+        let issue = try JSONDecoder().decode(RawIssue.self, from: data).issue
+        let comments = try JSONDecoder().decode(RawIssueView.self, from: data).comments ?? []
+        return IssueView(issue: issue, comments: comments.map(\.comment))
     }
 
     /// The rollup keeps check runs from superseded workflow runs; count only the latest per workflow/name.
@@ -211,14 +265,19 @@ extension GitHub {
 
     private struct RawIssue: Decodable {
         var number: Int, title: String, body: String?, url: String, labels: [Name], assignees: [Login], state: String
+        var author: Login?, updatedAt: String?
+        var issue: Issue {
+            var issue = Issue(
+                number: number, title: title, body: body ?? "", url: url, labels: labels.map(\.name),
+                assignees: assignees.map(\.login), state: state)
+            issue.author = author?.login
+            issue.updatedAt = updatedAt
+            return issue
+        }
     }
 
     static func parseIssues(_ data: Data) throws -> [Issue] {
-        try JSONDecoder().decode([RawIssue].self, from: data).map {
-            Issue(
-                number: $0.number, title: $0.title, body: $0.body ?? "", url: $0.url,
-                labels: $0.labels.map(\.name), assignees: $0.assignees.map(\.login), state: $0.state)
-        }
+        try JSONDecoder().decode([RawIssue].self, from: data).map(\.issue)
     }
 
     static func parseChecks(_ data: Data) throws -> [Check] {

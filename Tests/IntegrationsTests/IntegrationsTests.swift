@@ -32,6 +32,25 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
     #expect(prs[1].reviewDecision == nil && prs[1].isDraft && prs[1].checks == .init() && prs[1].mergeState == "DRAFT")
 }
 
+@Test func parsePRViewKeepsConversationInOrder() throws {
+    let json = """
+        {"author":{"login":"ada"},"headRefName":"fix/x","isDraft":false,"number":49,"state":"OPEN","title":"Fix",
+         "url":"https://github.com/o/r/pull/49","updatedAt":"2026-11-10T06:32:08Z","mergeStateStatus":"DIRTY",
+         "reviewRequests":[{"__typename":"User","login":"bob"},{"__typename":"Team","name":"core","slug":"core"}],
+         "body":"Steps","baseRefName":"main",
+         "files":[{"path":"A.swift","additions":2,"deletions":1,"changeType":"MODIFIED"}],
+         "comments":[{"author":{"login":"bob"},"body":"Later","createdAt":"2026-11-11T00:00:00Z"}],
+         "reviews":[{"author":{"login":"cy"},"body":"","state":"APPROVED","submittedAt":"2026-11-10T08:00:00Z"},
+                    {"author":{"login":"dee"},"body":"","state":"COMMENTED","submittedAt":"2026-11-10T09:00:00Z"}]}
+        """
+    let view = try GitHub.parsePRView(d(json))
+    #expect(view.pr.updatedAt == "2026-11-10T06:32:08Z" && view.pr.reviewRequests == ["bob", "core"])
+    #expect(view.pr.mergeState == "DIRTY" && view.body == "Steps" && view.baseRefName == "main")
+    #expect(view.files == [GitHub.ChangedFile(path: "A.swift", additions: 2, deletions: 1)])
+    // An empty COMMENTED review says nothing; an approval says something without words.
+    #expect(view.comments.map(\.author) == ["cy", "bob"] && view.comments[0].review == "APPROVED")
+}
+
 @Test func parseIssuesFlattensLabelsAndAssignees() throws {
     let json = """
         [{"assignees":[{"id":"U_1","login":"alice","name":"Alice"}],"body":"Steps","labels":[{"id":"L","name":"bug","description":"","color":"D6393F"}],
@@ -195,11 +214,14 @@ private func d(_ s: String) -> Data { Data(s.utf8) }
         ForgeError(tool: "gh", args: ["pr", "list"], status: 1, stderr: "no git remotes found").description
             == "This project has no GitHub remote.")
     #expect(
-        ForgeError(tool: "gh", args: [], status: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login")
-            .description.contains("gh auth login"))
+        ForgeError(
+            tool: "gh", args: [], status: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login"
+        )
+        .description.contains("gh auth login"))
     #expect(
-        !ForgeError(tool: "gh", args: ["pr", "list", "--json", "number"], status: 1, stderr: "boom\nmore").description.contains(
-            "--json"))
+        !ForgeError(tool: "gh", args: ["pr", "list", "--json", "number"], status: 1, stderr: "boom\nmore").description
+            .contains(
+                "--json"))
 }
 
 @Test func workflowDispatchInputs() {

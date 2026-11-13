@@ -1894,6 +1894,26 @@
         ],
         "type" : "object"
       },
+      "GitHub.ChangedFile" : {
+        "description" : "A file a pull request changes, and by how many lines.",
+        "properties" : {
+          "additions" : {
+            "type" : "integer"
+          },
+          "deletions" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "additions",
+          "deletions",
+          "path"
+        ],
+        "type" : "object"
+      },
       "GitHub.Check" : {
         "properties" : {
           "bucket" : {
@@ -1925,6 +1945,30 @@
         ],
         "type" : "object"
       },
+      "GitHub.Comment" : {
+        "description" : "A comment, or a review that said something, on a pull request or an issue.",
+        "properties" : {
+          "author" : {
+            "description" : "`review`: APPROVED, CHANGES_REQUESTED or COMMENTED for a review; nil for a plain comment.",
+            "type" : "string"
+          },
+          "body" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          },
+          "review" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "author",
+          "body",
+          "createdAt"
+        ],
+        "type" : "object"
+      },
       "GitHub.Issue" : {
         "properties" : {
           "assignees" : {
@@ -1932,6 +1976,9 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "author" : {
+            "type" : "string"
           },
           "body" : {
             "type" : "string"
@@ -1951,6 +1998,9 @@
           "title" : {
             "type" : "string"
           },
+          "updatedAt" : {
+            "type" : "string"
+          },
           "url" : {
             "type" : "string"
           }
@@ -1963,6 +2013,59 @@
           "state",
           "title",
           "url"
+        ],
+        "type" : "object"
+      },
+      "GitHub.IssueView" : {
+        "description" : "An issue as its own tab reads it.",
+        "properties" : {
+          "comments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/GitHub.Comment"
+            },
+            "type" : "array"
+          },
+          "issue" : {
+            "$ref" : "#/components/schemas/GitHub.Issue"
+          }
+        },
+        "required" : [
+          "comments",
+          "issue"
+        ],
+        "type" : "object"
+      },
+      "GitHub.PRView" : {
+        "description" : "A pull request as its own tab reads it: the list's line, and what is said and changed on it.",
+        "properties" : {
+          "baseRefName" : {
+            "type" : "string"
+          },
+          "body" : {
+            "type" : "string"
+          },
+          "comments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/GitHub.Comment"
+            },
+            "type" : "array"
+          },
+          "files" : {
+            "items" : {
+              "$ref" : "#/components/schemas/GitHub.ChangedFile"
+            },
+            "type" : "array"
+          },
+          "pr" : {
+            "$ref" : "#/components/schemas/GitHub.PullRequest"
+          }
+        },
+        "required" : [
+          "baseRefName",
+          "body",
+          "comments",
+          "files",
+          "pr"
         ],
         "type" : "object"
       },
@@ -2035,10 +2138,21 @@
           "reviewDecision" : {
             "type" : "string"
           },
+          "reviewRequests" : {
+            "description" : "The people asked for a review who haven't given one yet (logins; a team request names the team).",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "state" : {
             "type" : "string"
           },
           "title" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "description" : "ISO 8601, when anything on it last changed (a commit, a check, a comment): the list's age and \"new since\".",
             "type" : "string"
           },
           "url" : {
@@ -8280,6 +8394,33 @@
       }
     },
     {
+      "description" : "Issue `issue` with its conversation (GitHub).",
+      "name" : "github.issueView",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "issue",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/GitHub.IssueView"
+        }
+      }
+    },
+    {
       "description" : "`filter`: mine, else open.",
       "name" : "github.issues",
       "paramStructure" : "by-name",
@@ -8399,6 +8540,33 @@
       }
     },
     {
+      "description" : "Pull request `pr` with its description, changed files and conversation (GitHub).",
+      "name" : "github.prView",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "pr",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/GitHub.PRView"
+        }
+      }
+    },
+    {
       "description" : "Project `number` of `owner`: its items.",
       "name" : "github.projectItems",
       "paramStructure" : "by-name",
@@ -8459,7 +8627,7 @@
       }
     },
     {
-      "description" : "`filter`: mine | review, else open.",
+      "description" : "`filter`: mine | review | closed (the latest closed or merged), else open.",
       "name" : "github.prs",
       "paramStructure" : "by-name",
       "params" : [

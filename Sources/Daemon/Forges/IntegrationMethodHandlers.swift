@@ -205,6 +205,16 @@ extension GitHubReviewComments: Handled {
         try GitHub.reviewComments(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, pr: pr ?? 0)
     }
 }
+extension GitHubPRView: Handled {
+    func handle(_ forges: Forges) throws -> GitHub.PRView {
+        try GitHub.pullRequestView(cwd: forges.store.repoPath(worktreeId: nil, repoId: repoId).1, number: pr)
+    }
+}
+extension GitHubIssueView: Handled {
+    func handle(_ forges: Forges) throws -> GitHub.IssueView {
+        try GitHub.issueView(cwd: forges.store.repoPath(worktreeId: nil, repoId: repoId).1, number: issue)
+    }
+}
 extension GitHubProjects: Handled {
     func handle(_ forges: Forges) throws -> [GitHub.Project] {
         try GitHub.projects(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1)
@@ -260,7 +270,13 @@ extension GitHubPRs: AsyncHandled {
         case .gitlab:
             return try await forges.offloads.run { try GitLab.mergeRequests(cwd: path, mine: filter == "mine") }
         case .github:
-            let prFilter: GitHub.PRFilter = filter == "mine" ? .mine : filter == "review" ? .reviewRequested : .open
+            let prFilter: GitHub.PRFilter =
+                switch filter {
+                case "mine": .mine
+                case "review": .reviewRequested
+                case "closed": .closed
+                default: .open
+                }
             return try await forges.offloads.run { try GitHub.pullRequests(cwd: path, filter: prFilter) }
         }
     }
@@ -326,6 +342,7 @@ extension Methods {
         CIFailures.self, CIRerun.self, CIRerunAll.self, CIRerunJob.self, CIRunCancel.self, CIDispatch.self,
         GitHubStatus.self, GitLabStatus.self, GitHubIssues.self, GitHubChecks.self, GitHubFailedLog.self,
         GitHubReviewComments.self, GitHubProjects.self, GitHubProjectItems.self, GitAuthorAvatar.self, GitHubPRs.self,
+        GitHubPRView.self, GitHubIssueView.self,
         GitHubPRCreate.self, GitHubPRMerge.self, BitbucketSetCredentials.self, BitbucketStatus.self
     ]
 }

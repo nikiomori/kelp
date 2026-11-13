@@ -26,6 +26,10 @@ public enum GitHub {
         public var headRefOid: String?
         /// GitHub's word for whether it can merge: CLEAN, BLOCKED, BEHIND, DIRTY (conflicts), UNSTABLE, DRAFT, UNKNOWN.
         public var mergeState: String?
+        /// ISO 8601, when anything on it last changed (a commit, a check, a comment): the list's age and "new since".
+        public var updatedAt: String?
+        /// The people asked for a review who haven't given one yet (logins; a team request names the team).
+        public var reviewRequests: [String]?
         public init(
             number: Int, title: String, url: String, author: String, headRefName: String, isDraft: Bool, state: String,
             reviewDecision: String? = nil, checks: Checks, headRefOid: String? = nil
@@ -45,6 +49,7 @@ public enum GitHub {
     public struct Issue: Codable, Sendable, Equatable {
         public var number: Int, title: String, body: String, url: String
         public var labels: [String], assignees: [String], state: String
+        public var author: String?, updatedAt: String?
         public init(
             number: Int, title: String, body: String, url: String, labels: [String], assignees: [String], state: String
         ) {
@@ -89,6 +94,46 @@ public enum GitHub {
             self.number = number
             self.title = title
             self.url = url
+        }
+    }
+    /// A comment, or a review that said something, on a pull request or an issue.
+    public struct Comment: Codable, Sendable, Equatable {
+        /// `review`: APPROVED, CHANGES_REQUESTED or COMMENTED for a review; nil for a plain comment.
+        public var author: String, body: String, createdAt: String, review: String?
+        public init(author: String, body: String, createdAt: String, review: String? = nil) {
+            self.author = author
+            self.body = body
+            self.createdAt = createdAt
+            self.review = review
+        }
+    }
+    /// A file a pull request changes, and by how many lines.
+    public struct ChangedFile: Codable, Sendable, Equatable {
+        public var path: String, additions: Int, deletions: Int
+        public init(path: String, additions: Int, deletions: Int) {
+            self.path = path
+            self.additions = additions
+            self.deletions = deletions
+        }
+    }
+    /// A pull request as its own tab reads it: the list's line, and what is said and changed on it.
+    public struct PRView: Codable, Sendable, Equatable {
+        public var pr: PullRequest, body: String, baseRefName: String
+        public var files: [ChangedFile], comments: [Comment]
+        public init(pr: PullRequest, body: String, baseRefName: String, files: [ChangedFile], comments: [Comment]) {
+            self.pr = pr
+            self.body = body
+            self.baseRefName = baseRefName
+            self.files = files
+            self.comments = comments
+        }
+    }
+    /// An issue as its own tab reads it.
+    public struct IssueView: Codable, Sendable, Equatable {
+        public var issue: Issue, comments: [Comment]
+        public init(issue: Issue, comments: [Comment]) {
+            self.issue = issue
+            self.comments = comments
         }
     }
     public struct ProjectItem: Codable, Sendable, Equatable {

@@ -102,7 +102,7 @@ public struct GitHubProjectItems: RPCMethod {
         self.number = number
     }
 }
-/// `filter`: mine | review, else open.
+/// `filter`: mine | review | closed (the latest closed or merged), else open.
 public struct GitHubPRs: RPCMethod {
     public static let name = "github.prs"
     public typealias Result = [GitHub.PullRequest]
@@ -111,6 +111,26 @@ public struct GitHubPRs: RPCMethod {
         self.worktreeId = worktreeId
         self.repoId = repoId
         self.filter = filter
+    }
+}
+/// Pull request `pr` with its description, changed files and conversation (GitHub).
+public struct GitHubPRView: RPCMethod {
+    public static let name = "github.prView"
+    public typealias Result = GitHub.PRView
+    public var repoId: String, pr: Int
+    public init(repoId: String, pr: Int) {
+        self.repoId = repoId
+        self.pr = pr
+    }
+}
+/// Issue `issue` with its conversation (GitHub).
+public struct GitHubIssueView: RPCMethod {
+    public static let name = "github.issueView"
+    public typealias Result = GitHub.IssueView
+    public var repoId: String, issue: Int
+    public init(repoId: String, issue: Int) {
+        self.repoId = repoId
+        self.issue = issue
     }
 }
 /// Push, title and body from the commits if not given, open the PR (a draft with `draft`), link it → {url, title}.
