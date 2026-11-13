@@ -316,7 +316,8 @@ final class FileTab: SavableTab {
     ) {
         let path = TabURI.filePath(uri).path
         menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
-        if ["html", "htm"].contains((path as NSString).pathExtension.lowercased()) {
+        // A host's page isn't on this Mac for the browser to load.
+        if ["html", "htm"].contains((path as NSString).pathExtension.lowercased()), RemoteHost.containing(path) == nil {
             menu.add(String(localized: "Open Preview to the Side")) { openBeside("preview:" + path) }
         }
         menu.addItem(.separator())

@@ -17,7 +17,7 @@ extension FileTab {
     func contextMenu(_ menu: NSMenu) {
         let app = self.app, path = self.path
         let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }
-        if language?.server != nil {
+        if language?.server != nil, !remote {   // a host's file has no language server here
             menu.add(String(localized: "Jump to Definition")) { [weak self] in self?.jumpToDefinition() }
             menu.add(String(localized: "Find References")) { [weak self] in self?.server.findReferences() }
             menu.add(String(localized: "Rename Symbol…")) { [weak self] in self?.server.rename() }

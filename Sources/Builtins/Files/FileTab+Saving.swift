@@ -89,7 +89,8 @@ extension FileTab {
     /// would move the line being typed).
     func tidy() async {
         rules?.cleanUpForSave()
-        if app.settings[SettingKeys.formatOnSave, language: editor?.languageId], language?.format != nil {
+        // A host's file: its formatter would run here, not there (`format`).
+        if app.settings[SettingKeys.formatOnSave, language: editor?.languageId], language?.format != nil, !remote {
             await format()
         }
     }
