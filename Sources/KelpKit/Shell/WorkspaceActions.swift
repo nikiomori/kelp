@@ -10,15 +10,13 @@ package struct WorkspaceActions {
 
     /// The file in the focused tab, else the workspace's folder (Xcode's "Show in Finder" works on the selection).
     func revealCurrent() {
-        if let url = app.workbench.editor?.focusedContent?.fileURL {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-            return
-        }
-        guard let worktree = app.worktree(app.workbench.workspaceId) else {
+        // A remote project's: nothing of it is in the Finder (its folder here holds only its marker).
+        let path = app.workbench.editor?.focusedContent?.fileURL?.path ?? app.worktree(app.workbench.workspaceId)?.path
+        guard let path, Self.onHost(path) == nil else {
             NSSound.beep()
             return
         }
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: worktree.path)])
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
     /// What exists only in a branch's folder: nothing about it may go without being asked.

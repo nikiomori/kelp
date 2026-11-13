@@ -264,3 +264,15 @@ import Testing
     #expect(PreviewLinks.target(other) == .file(other.standardizedFileURL.path))
     #expect(PreviewLinks.target(folder.appendingPathComponent("../elsewhere.md")) == .refused)
 }
+
+/// Where a remote project's file is: its host and path there (Copy Path, Open In over SSH), never a folder here.
+@MainActor @Test func aRemoteProjectsFileIsOnItsHost() throws {
+    let folder = URL(fileURLWithPath: Paths.root.path).appendingPathComponent("remote/box/app-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try JSONEncoder().encode(RemoteHost(host: "box", path: "/srv/app"))
+        .write(to: folder.appendingPathComponent(RemoteHost.marker))
+    #expect(WorkspaceActions.onHost(folder.path)! == ("box", "/srv/app"))
+    #expect(WorkspaceActions.onHost(folder.path + "/src/x.ts")! == ("box", "/srv/app/src/x.ts"))
+    #expect(WorkspaceActions.onHost(NSHomeDirectory()) == nil)
+}

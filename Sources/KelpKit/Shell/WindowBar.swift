@@ -278,11 +278,14 @@ final class WindowBar: NSView {
         let menu = NSMenu()
         WorkspaceActions.addOpenIn(to: menu, path: { path })
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        menu.add(String(localized: "Reveal in Finder")) {
-            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        let host = WorkspaceActions.onHost(path)
+        if host == nil {   // a remote project's folder here holds only its marker
+            menu.add(String(localized: "Reveal in Finder")) {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            }
         }
         menu.add(String(localized: "Copy Path")) {
-            copyText(path)
+            copyText(host.map { "\($0.host):\($0.path)" } ?? path)
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: folder.bounds.height + 4), in: folder)
     }
