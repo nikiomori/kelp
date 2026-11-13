@@ -653,3 +653,24 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     // A file that includes itself stops, and names each host once.
     #expect(RemoteHost.configHosts(dir.appendingPathComponent("config").path) == ["b", "c", "a"])
 }
+
+/// A terminal kept in tmux on a host is the host's login shell, in tmux when the host has it and alone when not.
+@Test func aHostsTerminalInTmuxIsItsLoginShell() throws {
+    let bin = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: bin) }
+    let said = bin.appendingPathComponent("said"), shell = bin.appendingPathComponent("shell")
+    // The host's $SHELL: -ilc runs what it's given; anything else is the login shell the terminal gets.
+    try "#!/bin/sh\n[ \"$1\" = -ilc ] && exec /bin/sh -c \"$2\"\necho \"$@\" > \(said.path)\n".write(
+        to: shell, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: shell.path)
+    let command = RemoteHost(host: "box", path: bin.path).command([], inTmux: "kelp-tab-1")
+    #expect(command.contains(#"exec "$SHELL" -l"#))
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/sh")
+    p.arguments = ["-c", command]
+    p.environment = ["PATH": "/usr/bin:/bin", "SHELL": shell.path, "HOME": bin.path]   // no tmux there
+    try p.run()
+    p.waitUntilExit()
+    #expect(try String(contentsOf: said, encoding: .utf8) == "-l\n")
+}

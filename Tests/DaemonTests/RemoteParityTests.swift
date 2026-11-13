@@ -92,3 +92,16 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
         (error as? RPCError)?.message == "Can't reach \(host): ssh: Could not resolve hostname \(host)"
     }
 }
+
+/// With terminals kept in tmux, a remote project's terminal is kept in a tmux session of its own on the host, as its
+/// agents are: a dropped connection leaves it there to come back to.
+@Test func aRemoteTerminalIsKeptInTmuxOnItsHost() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (_, workspace, _) = try await remoteProject(c)
+    _ = try await c.call(SettingsSet(key: SettingKeys.tmux.key, value: true))
+    let terminal = try await c.call(SessionCreate(worktreeId: workspace.id))
+    #expect(terminal.tmux.map(Tmux.isOwn) == true && Tmux.session(terminal.argv) == nil)
+    _ = try await c.call(SessionKill(id: terminal.id))
+}

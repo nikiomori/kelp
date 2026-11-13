@@ -89,11 +89,13 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// 3.3 has no such option, and lets it through anyway). A connection starts with the report it missed while there was
     /// none. Without tmux on the host, `argv` runs as it is.
     public func command(_ argv: [String], inTmux name: String) -> String {
-        guard !argv.isEmpty else { return command(nil) }
-        let words = ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(ShellQuote.word).joined(
-            separator: " ")
+        // None: the host's login shell (a terminal kept in tmux, `terminal.tmux`).
+        let words =
+            argv.isEmpty
+            ? "\"$SHELL\" -l"
+            : ([(argv[0] as NSString).lastPathComponent] + argv.dropFirst()).map(ShellQuote.word).joined(separator: " ")
         // tmux runs a pane's one-string command in a shell
-        let pane = "exec \"$SHELL\" -ilc " + ShellQuote.word(words)
+        let pane = "exec " + (argv.isEmpty ? words : "\"$SHELL\" -ilc " + ShellQuote.word(words))
         // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
         let options = [
             ["status", "off"], ["mouse", "on"], ["set-titles", "on"],

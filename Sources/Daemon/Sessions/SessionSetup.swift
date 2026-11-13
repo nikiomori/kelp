@@ -48,7 +48,9 @@ final class SessionSetup: Sendable {
                 onHost.insert(contentsOf: CodexHooks.hostArgs, at: 1)
             }
             let loginShell = manifest.id == "shell" && Tmux.session(argv) == nil
-            let command = tmux.map { remote.command(onHost, inTmux: $0) } ?? remote.command(loginShell ? nil : onHost)
+            let command =
+                tmux.map { remote.command(loginShell ? [] : onHost, inTmux: $0) }
+                ?? remote.command(loginShell ? nil : onHost)
             run = [remote.ssh] + remote.sshArgs(tty: true) + [command]
         }
         guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
