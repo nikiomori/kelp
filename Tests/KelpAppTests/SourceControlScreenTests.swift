@@ -30,9 +30,10 @@ import Testing
 
 extension AppOfItsOwn {
     @Test func sourceControlListsStagedAndChangedFilesFromTheDaemon() async throws {
-        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        let rig = try await AppRig(files: ["kept.txt": "a\n", "gone.txt": "x\n"])
         defer { rig.done() }
         try rig.write("kept.txt", "b\n")   // changed, not staged
+        try rig.git("rm", "-q", "gone.txt")
         try rig.write("staged.txt", "new\n")
         try rig.git("add", "staged.txt")
         let vc = SourceControlController(app: rig.app)
@@ -48,12 +49,13 @@ extension AppOfItsOwn {
         }
         #expect(try await waitFor(5) { rows().contains("staged.txt") })
         let shown = rows()
-        #expect(shown.contains("staged.txt") && shown.contains("kept.txt"), "\(shown)")
+        #expect(shown.contains("staged.txt") && shown.contains("kept.txt") && shown.contains("gone.txt"), "\(shown)")
         #expect(shown.contains { $0.localizedCaseInsensitiveContains("Staged") })   // its section header
         let staged = try #require(shown.firstIndex(of: "staged.txt")),
             changed = try #require(shown.firstIndex(of: "kept.txt"))
         #expect(staged < changed)   // staged first, then the rest, as VS Code lists them
-        // A changed file's row drags out as the file itself (into an agent's terminal, Finder); a section doesn't.
+        // A changed file's row drags out as the file itself (into an agent's terminal, Finder); a section or a deleted
+        // file doesn't.
         let urls = (0..<outline.numberOfRows).compactMap {
             vc.outlineView(outline, pasteboardWriterForItem: outline.item(atRow: $0) as Any) as? URL
         }

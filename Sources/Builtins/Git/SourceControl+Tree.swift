@@ -128,8 +128,8 @@ extension SourceControlController {
         guard case .file(let file, _)? = (item as? Node)?.kind, let root = app.worktree(worktreeId)?.path else {
             return nil
         }
-        let url = URL(fileURLWithPath: root).appendingPathComponent(file.path)
-        return FileManager.default.fileExists(atPath: url.path) ? url as NSURL : nil
+        let gone = file.worktree == "D" || (file.index == "D" && file.worktree == ".")
+        return gone ? nil : URL(fileURLWithPath: root).appendingPathComponent(file.path) as NSURL
     }
 
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
