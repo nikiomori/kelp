@@ -74,12 +74,14 @@ extension Sessions {
         return false
     }
 
-    /// Bring a paused session back under the same id (layout and links stay), resuming its conversation.
+    /// Bring a paused session back under the same id (layout and links stay), resuming its conversation; and one whose
+    /// connection to its host dropped (`connectionLost`), attached again to its tmux session there, its turns kept.
     func wake(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
         wakeTries.withLock { $0 += 1 }
-        guard var rec = try store.session(id), isPaused(rec) else {
+        guard var rec = try store.session(id), isPaused(rec) || rec.connectionLost else {
             throw RPCError.invalidParams("no live session \(id)")
         }
+        rec.exitCode = nil
         let manifest = try setup.manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
         let argv = setup.resumeArgv(rec, manifest)
         rec.argv = argv   // the conversation it found is this session's from now on

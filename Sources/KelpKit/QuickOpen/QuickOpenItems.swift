@@ -43,7 +43,7 @@ extension QuickOpen {
                         kind: s.agent == "shell" ? "Terminal" : "Agent", icon: "terminal",
                         title: app.catalog.displayName(s),
                         detail: [
-                            s.status.words, shortAgo(s.statusAt ?? s.createdAt),
+                            s.statusWords, shortAgo(s.statusAt ?? s.createdAt),
                             app.groupName(wt) ?? app.projectName(wt?.repoId) ?? ""
                         ]
                         .joined(separator: " · "),
@@ -142,7 +142,7 @@ extension QuickOpen {
         var out = (queue + rest).prefix(6).map { s -> Item in
             let worktree = model.worktree(s.worktreeId)
             return Item(
-                kind: s.status.words, icon: "terminal", title: app.catalog.displayName(s),
+                kind: s.statusWords, icon: "terminal", title: app.catalog.displayName(s),
                 detail: [model.groupName(worktree), model.projectName(worktree?.repoId)].compactMap { $0 }.joined(
                     separator: " · "),
                 action: { app.workbench.focus(session: s.id) },

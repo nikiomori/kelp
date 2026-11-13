@@ -247,7 +247,9 @@ extension Session {
     /// bright mark.
     package var shownStatus: AgentStatus { status == .paused && unread ? .done : markStatus }
     /// "Working · 40 %" when it says how far it got.
+    /// One whose connection to its host dropped says so, where "Ended" would read as finished.
     package var statusWords: String {
+        if connectionLost { return String(localized: "Connection lost") }
         let shown = markStatus
         return shown == .working ? progress.map { "\(shown.words) · \($0) %" } ?? shown.words : shown.words
     }

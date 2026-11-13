@@ -201,7 +201,7 @@ extension SidebarCell {
     static func askLine(_ session: Session, mode: String, plans: PlanWords? = nil) -> (
         prefix: (String, NSColor)?, text: String
     )? {
-        let st = shownStatus(session), text = session.summary.isEmpty ? st.words : session.summary
+        let st = shownStatus(session), text = session.summary.isEmpty ? session.statusWords : session.summary
         if mode != "never", let limit = plans?.rowLine(session) { return ((limit.word, .textOrange), limit.text) }
         switch (mode, st) {
         case ("never", _): return nil

@@ -39,7 +39,7 @@ final class AgentStack: NSView {
         }
         .map(\.element)
         let now = sorted.map { "\($0.agent ?? "") \(Self.badge($0).map { "\($0)" } ?? "") \($0.status == .paused)" }
-        toolTip = sorted.map { app.catalog.displayName($0) + " · " + SidebarCell.shownStatus($0).words }.joined(
+        toolTip = sorted.map { app.catalog.displayName($0) + " · " + $0.statusWords }.joined(
             separator: "\n")
         setAccessibilityLabel(toolTip)
         guard now != shown else { return }

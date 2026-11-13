@@ -17,7 +17,10 @@ extension SessionList: Handled {
 
 extension SessionAttach: Handled {
     func handle(_ sessions: Sessions, conn: Int) throws -> Result {
-        if sessions.existing(id) == nil, try sessions.store.session(id)?.status == .exited {   // ended: what it last printed, from its log
+        // Ended: what it last printed, from its log. One whose host dropped is attached to it again (`wake`).
+        if sessions.existing(id) == nil, let rec = try sessions.store.session(id), rec.status == .exited,
+            !rec.connectionLost
+        {
             return Result(
                 history: TerminalReplies.withoutQueries(try sessions.liveSessionOrLog(id, bytes: LiveSession.ringLimit))
                     .base64EncodedString())
@@ -34,10 +37,10 @@ extension SessionAttach: Handled {
         _ checked: () throws -> Self, _ sessions: Sessions, conn: Int,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
     ) async -> Bool {
+        let wakes: (Session) -> Bool = { sessions.isPaused($0) || $0.connectionLost }
         guard let method = try? checked(),
             sessions.existing(method.id) != nil
-                || sessions.store.look("session \(method.id)", { try $0.session(method.id) }).map(sessions.isPaused)
-                    == true
+                || sessions.store.look("session \(method.id)", { try $0.session(method.id) }).map(wakes) == true
         else { return false }
         let sid = method.id
         // A wake that fails says why, once: falling through would wake it a second time, in the slow lane.

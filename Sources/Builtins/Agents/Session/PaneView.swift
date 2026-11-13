@@ -176,7 +176,9 @@ final class PaneView: NSView {
         let session = app.session(sessionId), model = app
         if session?.status == .paused, let was = lastStatus, was != .paused { attached = false }
         lastStatus = session?.status
-        if let session, session.status != .exited, model.connected, window != nil,
+        // One whose connection to its host dropped (a sleep, a network change) attaches again when it's shown, as a
+        // paused one does: to its agent still in tmux there, under the same session.
+        if let session, session.status != .exited || session.connectionLost && shown, model.connected, window != nil,
             model.connections != attachedTo || shown && !attached
         {
             reattach(session)
@@ -383,9 +385,10 @@ final class PaneView: NSView {
     }
 
     @objc private func closeTapped() { onClose?(self) }
-    /// Resume on a paused pane attaches again (and so wakes the agent); otherwise the session starts over.
+    /// Resume on a paused pane, and Reconnect on one whose host dropped, attach again (and so wake the agent); otherwise
+    /// the session starts over.
     @objc private func restartTapped() {
-        if !attached, let session = app.session(sessionId), session.status == .paused {
+        if !attached, let session = app.session(sessionId), session.status == .paused || session.connectionLost {
             reattach(session)
             settle()
         } else {

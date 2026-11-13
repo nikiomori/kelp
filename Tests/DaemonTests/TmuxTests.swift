@@ -191,3 +191,35 @@ private func end(_ session: String) {
     }
     #expect(try await waitFor(10) { try await stopped() })
 }
+
+/// A remote agent whose connection dropped (a sleep, a network change) is attached to again when its tab is shown: the
+/// same session, its agent still at work in tmux on the host, nothing started over.
+@Test(.enabled(if: tmux != nil, "tmux isn't installed")) func aLostAgentIsAttachedToAgain() async throws {
+    _ = localSSH
+    let worker = AgentManifest(id: "worker", name: "Worker", command: "/bin/sh", args: ["-c", "sleep 60"])
+    let (d, c, _) = try daemon(agents: [worker])
+    defer { d.stop() }
+    let repo: Repo = try await c.call(
+        "repo.addRemote", .obj(["host": "box", "path": .string(try makeRepo())]), as: Repo.self)
+    let wt = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
+    let name = Tmux.own()
+    defer { end(name) }
+    _ = try await Subprocess.run(
+        [tmux ?? "", "new-session", "-d", "-s", name, "echo still at work; sleep 60"], cwd: "/",
+        env: ProcessInfo.processInfo.environment, timeLimit: 10)
+    var s = Session(
+        worktreeId: wt.id, cwd: wt.path, command: "/bin/sh", agent: "worker", status: .exited)
+    s.argv = ["/bin/sh", "-c", "sleep 60"]
+    s.tmux = name
+    s.exitCode = 255   // ssh's: the connection dropped
+    try d.store.save(s)
+    #expect(s.connectionLost)
+    _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
+    #expect(
+        try await waitFor(15) {
+            try await c.call("session.read", .obj(["id": .string(s.id)])).string?.contains("still at work") == true
+        })
+    let now = try #require(try await c.call("session.list", as: [Session].self).first { $0.id == s.id })
+    #expect(now.status != .exited && now.tmux == name)
+    _ = try await c.call("session.kill", .obj(["id": .string(s.id)]))
+}
