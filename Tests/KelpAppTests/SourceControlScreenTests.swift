@@ -53,6 +53,12 @@ extension AppOfItsOwn {
         let staged = try #require(shown.firstIndex(of: "staged.txt")),
             changed = try #require(shown.firstIndex(of: "kept.txt"))
         #expect(staged < changed)   // staged first, then the rest, as VS Code lists them
+        // A changed file's row drags out as the file itself (into an agent's terminal, Finder); a section doesn't.
+        let urls = (0..<outline.numberOfRows).compactMap {
+            vc.outlineView(outline, pasteboardWriterForItem: outline.item(atRow: $0) as Any) as? URL
+        }
+        #expect(urls.map(\.lastPathComponent).sorted() == ["kept.txt", "staged.txt"], "\(urls)")
+        #expect(urls.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
     }
 
     /// Each workspace has its own commit message and its own running action: a switch leaves them where they were, and what

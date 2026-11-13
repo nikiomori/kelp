@@ -122,6 +122,15 @@ extension SourceControlController {
         return true
     }
     func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
+    /// A changed file drags out as itself: into a terminal (an agent's prompt), Finder, another app. A deleted one
+    /// has nothing to drag.
+    func outlineView(_ o: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
+        guard case .file(let file, _)? = (item as? Node)?.kind, let root = app.worktree(worktreeId)?.path else {
+            return nil
+        }
+        let url = URL(fileURLWithPath: root).appendingPathComponent(file.path)
+        return FileManager.default.fileExists(atPath: url.path) ? url as NSURL : nil
+    }
 
     func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let node = item as? Node else { return nil }
