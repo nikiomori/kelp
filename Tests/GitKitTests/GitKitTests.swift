@@ -19,7 +19,8 @@ func tempRepo() throws -> String {
 @Test func worktreeLifecycle() throws {
     let repo = try tempRepo()
     let dir = URL(fileURLWithPath: repo + "-wt")
-    let p = try Git.addWorktree(repo: repo, branch: "feat/x", base: "main", into: dir, copyFiles: [".env"], remotes: .none)
+    let p = try Git.addWorktree(
+        repo: repo, branch: "feat/x", base: "main", into: dir, copyFiles: [".env"], remotes: .none)
     #expect(FileManager.default.fileExists(atPath: p + "/.env"))
     #expect(try Git.run(["worktree", "list"], cwd: repo, remotes: .none).contains("[feat/x]"))
     #expect(try Git.linkedWorktrees(repo, remotes: .none).map { ($0.path as NSString).lastPathComponent } == ["feat-x"])   // the main checkout isn't one
@@ -30,7 +31,9 @@ func tempRepo() throws -> String {
     try Git.run(["worktree", "unlock", p], cwd: repo, remotes: .none)
     #expect(try Git.linkedWorktrees(repo, remotes: .none).first?.locked == false)
     try "dirty".write(toFile: p + "/n.txt", atomically: true, encoding: .utf8)
-    #expect(throws: GitError.self) { try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: false, remotes: .none) }
+    #expect(throws: GitError.self) {
+        try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: false, remotes: .none)
+    }
     try ".env.local\n".write(toFile: repo + "/.git/info/exclude", atomically: true, encoding: .utf8)
     try "local\n".write(toFile: p + "/.env.local", atomically: true, encoding: .utf8)   // ignored: no check sees it
     try Git.removeWorktree(repo: repo, path: p, branch: "feat/x", force: true, remotes: .none)
@@ -267,12 +270,17 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(d[0].hunks[0].lines.filter { $0.noNewline == true }.count == 2)   // the old "b" and the new "c"
     try Git.applyHunk(repo, diff: d[0], hunk: 0, reverse: false, remotes: .none)
     #expect(try Git.diff(repo, source: .unstaged, file: "n.txt", remotes: .none).isEmpty)
-    try Git.applyHunk(repo, diff: try Git.diff(repo, source: .staged, file: "n.txt", remotes: .none)[0], hunk: 0, reverse: true, remotes: .none)
-    try Git.discardHunk(repo, diff: try Git.diff(repo, source: .unstaged, file: "n.txt", remotes: .none)[0], hunk: 0, remotes: .none)
+    try Git.applyHunk(
+        repo, diff: try Git.diff(repo, source: .staged, file: "n.txt", remotes: .none)[0], hunk: 0, reverse: true,
+        remotes: .none)
+    try Git.discardHunk(
+        repo, diff: try Git.diff(repo, source: .unstaged, file: "n.txt", remotes: .none)[0], hunk: 0, remotes: .none)
     #expect(try String(contentsOfFile: repo + "/n.txt", encoding: .utf8) == "a\nb")
     // A new file without a final newline is staged as it is: nothing left over.
     try "x\ny".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
-    try Git.applyHunk(repo, diff: try Git.diff(repo, source: .unstaged, file: "new.txt", remotes: .none)[0], hunk: 0, reverse: false, remotes: .none)
+    try Git.applyHunk(
+        repo, diff: try Git.diff(repo, source: .unstaged, file: "new.txt", remotes: .none)[0], hunk: 0, reverse: false,
+        remotes: .none)
     #expect(try Git.diff(repo, source: .unstaged, file: "new.txt", remotes: .none).isEmpty)
 }
 
@@ -340,10 +348,12 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     try "new\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
     try Git.commit(repo, message: "all", all: true, remotes: .none)
     #expect(try Git.status(repo, remotes: .none).isEmpty)
-    #expect(Set(try Git.commitFiles(repo, commit: "HEAD", remotes: .none).map(\.path)).isSuperset(of: ["f.txt", "new.txt"]))
+    #expect(
+        Set(try Git.commitFiles(repo, commit: "HEAD", remotes: .none).map(\.path)).isSuperset(of: ["f.txt", "new.txt"]))
 
     let p = try Git.addWorktree(
-        repo: repo, branch: "feat", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [], remotes: .none)
+        repo: repo, branch: "feat", base: "main", into: URL(fileURLWithPath: repo + "-wt"), copyFiles: [],
+        remotes: .none)
     try "feat\n".write(toFile: p + "/f.txt", atomically: true, encoding: .utf8)
     try Git.commit(p, message: "feat", all: true, remotes: .none)
     try "main\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)
@@ -493,7 +503,9 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 @Test func aSnapshotShowsExactlyWhatChangedAndLeavesTheRealIndexAlone() throws {
     let repo = try tempRepo()
     let before = try Git.snapshotTree(repo, remotes: .none)
-    #expect(try Git.snapshotTree(repo, remotes: .none) == before && Git.changesSince(tree: before, cwd: repo, remotes: .none).isEmpty)   // nothing changed, same tree
+    #expect(
+        try Git.snapshotTree(repo, remotes: .none) == before
+            && Git.changesSince(tree: before, cwd: repo, remotes: .none).isEmpty)   // nothing changed, same tree
     try "a\nb\nc\nd\n".write(toFile: repo + "/f.txt", atomically: true, encoding: .utf8)   // +1 line in a tracked file
     try "x\ny\n".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)   // a new file counts too
     let changes = try Git.changesSince(tree: before, cwd: repo, remotes: .none).sorted { $0.path < $1.path }
@@ -569,7 +581,10 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 @Test func searchFindsAFileWithAColonInItsName() throws {
     let repo = try tempRepo()
     try "a needle\n".write(toFile: repo + "/a:b.txt", atomically: true, encoding: .utf8)
-    #expect(try ProjectFiles.search(repo, query: "needle", remotes: .none) == [SearchMatch(path: "a:b.txt", line: 1, text: "a needle")])
+    #expect(
+        try ProjectFiles.search(repo, query: "needle", remotes: .none) == [
+            SearchMatch(path: "a:b.txt", line: 1, text: "a needle")
+        ])
     // git grep -z (remote projects, or no ripgrep) writes NUL after the line number too.
     #expect(ProjectFiles.parseGrep("a:b.txt\u{0}3\u{0}x: y\n") == [SearchMatch(path: "a:b.txt", line: 3, text: "x: y")])
 }
@@ -630,5 +645,32 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     try Git.setRef("refs/kelp/b", to: head, cwd: repo, remotes: .none)
     #expect(try Git.resolve("refs/kelp/a", cwd: repo, remotes: .none) == head)
     try Git.deleteRefs(["refs/kelp/a", "refs/kelp/gone", "refs/kelp/b"], cwd: repo, remotes: .none)
-    #expect(try Git.resolve("refs/kelp/a", cwd: repo, remotes: .none) == nil && Git.resolve("refs/kelp/b", cwd: repo, remotes: .none) == nil)
+    #expect(
+        try Git.resolve("refs/kelp/a", cwd: repo, remotes: .none) == nil
+            && Git.resolve("refs/kelp/b", cwd: repo, remotes: .none) == nil)
+}
+
+/// Git on a host runs in sh whatever the login shell there is, with Kelp's environment in the command (ssh leaves this
+/// side's here); one that runs the repository's hooks, in the login shell a terminal there gets.
+@Test func gitOnAHostGetsItsEnvironmentAndItsHooksTheirPath() throws {
+    let repo = try tempRepo(), bin = tmp(), marker = bin.appendingPathComponent("login")
+    let shell = bin.appendingPathComponent("shell")
+    try "#!/bin/sh\necho \"$1\" > \(marker.path)\nshift\nexec /bin/sh -c \"$1\"\n".write(
+        to: shell, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: shell.path)
+    func run(hooks: Bool) throws -> String {
+        let script = Git.onHost(["-c", "alias.e=!env", "e"], env: Git.gitEnv, path: repo, hooks: hooks)
+        let out = try Subprocess.output(
+            [
+                "/usr/bin/env", "-i", "PATH=/usr/bin:/bin", "HOME=\(bin.path)", "SHELL=\(shell.path)", "/bin/sh", "-c",
+                script
+            ],
+            cwd: "/")
+        return String(decoding: out, as: UTF8.self)
+    }
+    let plain = try run(hooks: false)
+    #expect(plain.contains("GIT_OPTIONAL_LOCKS=0") && plain.contains("GIT_TERMINAL_PROMPT=0"))
+    #expect(!FileManager.default.fileExists(atPath: marker.path), "a read needs no login shell")
+    #expect(try run(hooks: true).contains("GIT_OPTIONAL_LOCKS=0"))
+    #expect(try String(contentsOf: marker, encoding: .utf8) == "-ilc\n")
 }

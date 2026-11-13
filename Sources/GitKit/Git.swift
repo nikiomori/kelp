@@ -90,6 +90,7 @@ extension Git {
         // error). Five minutes: far past any real fetch or push, short of a thread lost for good.
         // Paths as they are, not C-quoted ("\321\204…" for "ф"). No fsmonitor: a folder's own .git/config (one that
         // came in a download, not a clone) would otherwise have every status Kelp runs start its program.
+        let hooks = args.first.map(runsHooks.contains) ?? false
         var args = ["-c", "core.quotePath=false", "-c", "core.fsmonitor=false"] + args
         var argv0 = "/usr/bin/git", cwd = cwd
         var off: [(String, String)] = []
@@ -103,15 +104,12 @@ extension Git {
             args = Self.noSignatures + args
             if remote == nil { off = RepoFilters.off(cwd) }
         }
+        var env = gitEnv.merging(extra) { $1 }
         if let host = remote {   // a remote project: the same git, on its host
-            args =
-                host.sshArgs(tty: false) + [
-                    "cd \(RemoteHost.cdArg(host.path)) && git " + args.map(ShellQuote.word).joined(separator: " ")
-                ]
+            args = host.sshArgs(tty: false) + [Self.onHost(args, env: env, path: host.path, hooks: hooks)]
             argv0 = host.ssh
             cwd = NSHomeDirectory()
         }
-        var env = gitEnv.merging(extra) { $1 }
         env.merge(configEnv(off, after: ProcessInfo.processInfo.environment.merging(env) { $1 })) { $1 }
         // A host that drops packets or a credential helper waiting on nobody is stopped at the time limit, with its children.
         do {
@@ -122,6 +120,19 @@ extension Git {
             throw GitError.failed(args: args, status: error.status, stderr: error.stderr)
         }
     }
+
+    /// `git args` on a host, as ssh hands it to the login shell there: in sh whatever that shell is, with `env` (this
+    /// side's environment stays here). A commit, a push or a switch runs the repository's hooks (husky, pre-commit): in
+    /// the login shell as a terminal there has it, whose PATH has nvm's and npm's (`RemoteHost.command`).
+    static func onHost(_ args: [String], env: [String: String], path: String, hooks: Bool) -> String {
+        let git =
+            (["env"] + env.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" } + ["git"] + args)
+            .map(ShellQuote.word).joined(separator: " ")
+        return "sh -c "
+            + ShellQuote.word(
+                "cd \(RemoteHost.cdArg(path)) && exec " + (hooks ? "\"$SHELL\" -ilc " + ShellQuote.word(git) : git))
+    }
+    static let runsHooks: Set<String> = ["commit", "merge", "pull", "push", "switch", "checkout", "rebase", "am"]
 
     /// No password prompt nobody would see, and a status doesn't rewrite the index (which would wake the file watchers
     /// again).
