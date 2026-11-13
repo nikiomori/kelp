@@ -4,8 +4,10 @@ import GitKit
 
 extension Forge {
     /// The forge of the checkout's origin; GitHub when it has none.
+    /// A remote project on GitHub (its folder here is no checkout, whose git would walk up into another): GitHub.
     public static func of(cwd: String, remotes: Remotes) -> Forge {
-        of(remote: (try? Git.origin(cwd, remotes: remotes)) ?? "")
+        if HostRepo.github(cwd) != nil { return .github }
+        return of(remote: (try? Git.origin(cwd, remotes: remotes)) ?? "")
     }
 }
 

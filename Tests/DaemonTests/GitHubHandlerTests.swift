@@ -11,6 +11,7 @@ private let fakeGh: (log: String, script: String) = {
     let body = """
         #!/bin/sh
         echo "$@" >> '\(log)'
+        [ -n "$GH_REPO" ] && echo "GH_REPO=$GH_REPO in $(pwd -P): $*" >> '\(log)'
         case "$1 $2" in
           "pr list") echo '[{"author":{"login":"ada"},"headRefName":"feat/x","isDraft":false,"number":7,"reviewDecision":"APPROVED","state":"OPEN","title":"Add login","url":"https://github.com/o/r/pull/7","statusCheckRollup":[]}]';;
           "issue list") echo '[{"assignees":[{"login":"ada"}],"body":"Steps","labels":[{"name":"bug"}],"number":3,"state":"OPEN","title":"Crash","url":"https://github.com/o/r/issues/3"}]';;
@@ -310,4 +311,19 @@ private let fakeGlab: String = {
     } throws: {
         "\($0)".contains("new commits since you looked")
     }
+}
+
+/// A remote project on GitHub gets its pull requests and CI as here: gh runs on this Mac, with its login, on the
+/// repository the project's origin on the host names, never in the project's folder here.
+@Test func aRemoteProjectsPullRequestsComeFromGitHub() async throws {
+    _ = fakeGh
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c, host: "gh-\(UUID().uuidString.prefix(6))")
+    try Git.run(["remote", "add", "origin", "git@github.com:o/r.git"], cwd: there, remotes: .none)
+    let prs = try await c.call("github.prs", .obj(["repoId": .string(repo.id)])).array ?? []
+    #expect(prs.first?["number"]?.int == 7)
+    let ran = calls().filter { $0.hasPrefix("GH_REPO=o/r in ") && $0.contains(": pr list") }
+    #expect(!ran.isEmpty && !ran.contains { $0.contains(" in " + repo.path) }, "not in its folder here")
 }

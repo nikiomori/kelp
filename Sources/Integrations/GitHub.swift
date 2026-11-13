@@ -49,7 +49,13 @@ extension GitHub {
         guard let exe = ghPath else {
             throw ForgeError.notInstalled("gh", args)
         }
-        do { return try Subprocess.output([exe] + args, cwd: cwd, env: Git.toolEnv) } catch let error as ProgramError {
+        // A remote project's: on the repository its origin on the host names, from a folder of no repository.
+        var env = Git.toolEnv, dir = cwd
+        if let repo = HostRepo.github(cwd) {
+            env["GH_REPO"] = repo
+            dir = NSTemporaryDirectory()
+        }
+        do { return try Subprocess.output([exe] + args, cwd: dir, env: env) } catch let error as ProgramError {
             throw ForgeError(tool: "gh", args: args, status: error.status, stderr: error.stderr)
         }
     }
@@ -144,12 +150,19 @@ extension GitHub {
         return try parseReviews(gh(["pr", "view", String(pr), "--json", "reviews"], cwd: cwd)) + inline
     }
 
+    /// The GitHub repository a remote project (its folder here) works on; nil for one elsewhere (`HostRepo`).
+    public static func repo(onHost folder: String) -> String? { HostRepo.github(folder) }
+
     /// Returns the new PR's URL. The current branch must already be pushed.
     public static func createPR(cwd: String, title: String, body: String, base: String, draft: Bool = false) throws
         -> String
     {
+        // A remote project's branch is the one checked out on its host: gh has no checkout to read it from.
+        let head =
+            try HostRepo.project(cwd).map { ["--head", try Git.currentBranch($0.folder, remotes: $0.remotes)] } ?? []
         let out = try gh(
-            ["pr", "create", "--title", title, "--body", body, "--base", base] + (draft ? ["--draft"] : []), cwd: cwd)
+            ["pr", "create", "--title", title, "--body", body, "--base", base] + head + (draft ? ["--draft"] : []),
+            cwd: cwd)
         return String(decoding: out, as: UTF8.self).split(separator: "\n").last.map(String.init) ?? ""
     }
 

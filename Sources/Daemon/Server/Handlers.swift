@@ -319,11 +319,12 @@ extension Daemon {
     }
 
     /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to
-    /// whatever repository holds it (a dotfiles home). Until they run on the host, they don't run at all: a `LocalForge`
-    /// method is refused for one, or answers null when the sidebar asked by itself.
+    /// whatever repository holds it (a dotfiles home). One on GitHub runs gh on the repository its origin names
+    /// (`HostRepo`); on GitLab or elsewhere, a `LocalForge` method is refused, or answers null when the sidebar asked.
     private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) throws -> Data? {
         guard Methods.localForge.contains(methodType.name),
-            (try? store.repoPath(params)).map({ remotes.of($0.1) != nil }) == true
+            let path = (try? store.repoPath(params)).map({ $0.1 }), remotes.of(path) != nil,
+            !methodType.name.hasPrefix("gitlab."), GitHub.repo(onHost: path) == nil
         else { return nil }
         if Methods.quietOnRemote.contains(methodType.name) { return Data("null".utf8) }
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")

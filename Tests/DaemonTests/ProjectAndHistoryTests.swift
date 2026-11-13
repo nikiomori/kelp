@@ -82,7 +82,8 @@ import Testing
     await #expect(throws: (any Error).self) {
         _ = try await c.call("files.readRemote", .obj(["path": .string(repo.path + "/../outside.txt")]))
     }
-    // gh / glab would run in the local marker folder (and its git walk up to ~): refused, said plainly.
+    // No GitHub origin there: gh / glab would run in the local marker folder (and its git walk up to ~), so they're
+    // refused, said plainly (one on GitHub: `aRemoteProjectsPullRequestsComeFromGitHub`).
     do {
         _ = try await c.call("github.prs", .obj(["worktreeId": .string(w.id)]))
         Issue.record("ran gh for a remote project")
