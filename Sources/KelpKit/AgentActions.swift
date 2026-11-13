@@ -59,6 +59,10 @@ package struct AgentActions {
             addFork(to: m, sid)
             m.add(String(localized: "Copy Context")) { copyContext(sid) }
             if let lastTurn { m.add(String(localized: "Changes in Its Last Turn"), lastTurn) }
+            if lastTurn != nil, AgentFollow.can(app, sid) {
+                m.add(String(localized: "Follow Edits")) { AgentFollow.of(app).toggle(sid) }.state =
+                    AgentFollow.of(app).follows(sid) ? .on : .off
+            }
         }
         guard lastTurn == nil else {
             m.add(String(localized: "Restart")) { restart(sid) }

@@ -36,6 +36,10 @@ extension SessionHook: Handled {
             sessions.touchCommands(ls)
         }
         if let endedTasks, ls.tasksEnded(endedTasks) { sessions.publish(ls) }
+        if let edited {   // for whoever follows its edits
+            ls.edited(edited)
+            sessions.touchEdits(ls)
+        }
         if event == .subagent {   // who runs says nothing of the turn: its Stop does
             ls.trail.add(trailLine)
             if ls.subagent(agentId, kind: hookName == "SubagentStart" ? agentType ?? "" : nil) { sessions.publish(ls) }

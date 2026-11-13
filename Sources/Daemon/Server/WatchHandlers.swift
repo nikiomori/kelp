@@ -134,11 +134,7 @@ extension Daemon {
                 let working = sessions.existing(key)?.snapshot.status == .working
                 return (line(ContextEvent(session: key, usage: usage ?? nil)), working ? 15 : nil)
             }
-        case .commands:
-            // From memory; read again when one starts or ends (`Sessions.touchCommands`).
-            return Watches.Topic { [self] _ in
-                (line(CommandsEvent(session: key, commands: sessions.existing(key)?.commands ?? [])), nil)
-            }
+        case .commands, .edits: return agentTools(watch)
         case .subagents:
             // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
             return Watches.Topic { [self] _ in
@@ -363,6 +359,19 @@ extension Daemon {
     /// The bridge to phones, every 2 s while Settings › Phone shows.
     private func phoneRead() async -> (Data?, TimeInterval?) {
         do { return (line(PhoneEvent(state: try await ask(PhoneStatus()))), 2) } catch { return (nil, 2) }
+    }
+
+    /// What an agent's tools did, from memory: read again when its hooks tell more (`Sessions.touchCommands`,
+    /// `touchEdits`).
+    private func agentTools(_ watch: Watches.Key) -> Watches.Topic {
+        let key = watch.key
+        return Watches.Topic { [self] _ in
+            guard watch.topic == .edits else {
+                return (line(CommandsEvent(session: key, commands: sessions.existing(key)?.commands ?? [])), nil)
+            }
+            let last = sessions.existing(key)?.lastEdit
+            return (line(EditsEvent(session: key, path: last?.path, count: last?.count ?? 0)), nil)
+        }
     }
 
     private func line(_ event: some RPCEvent) -> Data? {

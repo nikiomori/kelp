@@ -203,6 +203,16 @@
         }
       }
     },
+    "Follow Edits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следить за правками"
+          }
+        }
+      }
+    },
     "From each agent's own logs and /usage on this Mac": {
       "localizations": {
         "ru": {

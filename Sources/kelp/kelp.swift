@@ -233,6 +233,7 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
                     hook.notification = SessionHook.notification(of: payload)
                     hook.goal = SessionHook.goal(of: payload)
                     hook.endedTasks = SessionHook.endedTasks(of: payload)
+                    hook.edited = SessionHook.edited(of: payload)
                     if hook.hookName == "Stop" { hook.reply = payload["last_assistant_message"]?.string }
                 }
                 try await hook.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)

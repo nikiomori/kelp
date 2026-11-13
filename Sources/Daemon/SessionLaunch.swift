@@ -200,6 +200,10 @@ extension Sessions {
     }
 
     /// Its commands changed: whoever watches them reads them again.
+    func touchEdits(_ ls: LiveSession) {
+        watches.touched(.init(topic: .edits, key: ls.snapshot.id), tag: "\(ls.lastEdit.count)")
+    }
+
     func touchCommands(_ ls: LiveSession) {
         watches.touched(.init(topic: .commands, key: ls.snapshot.id), tag: "\(ls.commandChanges)")
     }

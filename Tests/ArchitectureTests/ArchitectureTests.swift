@@ -155,8 +155,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // Source Control, Files, Activity).
     // +1: a workspace's git and CI are watched and read under its folder's key (`gitKey`), as the sidebar's, so
     // workspaces sharing a folder share one watch.
-    #expect(declared <= 347, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 347, "fewer now (\(declared)): lower the ceiling")
+    // +2: what an agent edited is pushed as the commands are (`EditsEvent`'s `key`, `forgottenWith`).
+    #expect(declared <= 349, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 349, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

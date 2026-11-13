@@ -102,6 +102,8 @@ extension LiveSession {
         /// What its shell tool ran (`ran`), the last `commandLimit`; `commandChanges` counts the changes, for the watchers.
         /// Limit: in memory, so a restarted background service starts the list over; the transcript keeps them all.
         var commands: [AgentCommand] = [], commandChanges = 0
+        /// The file its tools changed last, and how many edits so far (`edits` watchers).
+        var lastEdit: String?, edits = 0
         /// Esc / ⌃C / an answer while it works or asks: Claude Code sends no hook when a turn is cut short, so the
         /// screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
         var interruptArmed: (at: Date, seen: String)?

@@ -41,6 +41,28 @@ extension OneAtATime {
         #expect(area.layout.root?.sessions.count == 2)
         #expect(area.layout.focusedGroup?.selectedTab?.uri == TabURI.session(mine.id))
     }
+
+    /// Follow Edits: an edited file shows in a pane beside the agent, which stays in front and focused; the next file
+    /// takes that tab, one the user edited meanwhile stays.
+    @Test func followedEditsShowBesideTheAgentInOneTab() async throws {
+        let rig = try await AppRig(files: ["a.txt": "a\n", "b.txt": "b\n", "c.txt": "c\n"])
+        defer { rig.done() }
+        let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
+        area.arrangedByHand()
+        let mine = try await session(rig, SessionCreate(worktreeId: rig.workspace.id, command: "sleep 30"))
+        let agent = TabURI.session(mine.id)
+        area.open(agent)
+        let a = TabURI.file(rig.workspace.path + "/a.txt"), b = TabURI.file(rig.workspace.path + "/b.txt")
+        area.showBeside(a, of: agent, replacing: nil)
+        #expect(area.layout.root?.sessions.count == 2)
+        #expect(area.layout.focusedGroup?.selectedTab?.uri == agent)
+        #expect(
+            area.layout.group(of: area.layout.tab(uri: a)?.id ?? "")
+                != area.layout.group(of: area.layout.tab(uri: agent)?.id ?? ""))
+        area.showBeside(b, of: agent, replacing: a)
+        #expect(area.layout.tab(uri: a) == nil && area.layout.tab(uri: b) != nil)
+        #expect(area.layout.root?.sessions.count == 2 && area.layout.focusedGroup?.selectedTab?.uri == agent)
+    }
 }
 
 extension OneAtATime {

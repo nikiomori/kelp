@@ -368,6 +368,14 @@ extension LiveSession {
         }
     }
     var commandChanges: Int { state.withLock { $0.commandChanges } }
+    /// The file its tools changed last, and how many edits so far.
+    var lastEdit: (path: String?, count: Int) { state.withLock { ($0.lastEdit, $0.edits) } }
+    func edited(_ path: String) {
+        state.withLock {
+            $0.lastEdit = path
+            $0.edits += 1
+        }
+    }
 
     /// A hook's `cwd`: where the agent works now. The record when that changed.
     func workIn(_ dir: String) -> Session? {

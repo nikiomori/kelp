@@ -1563,6 +1563,25 @@
         ],
         "type" : "string"
       },
+      "EditsEvent" : {
+        "description" : "The file an agent's tools changed last; `count` counts its edits, so the same file again is news too.",
+        "properties" : {
+          "count" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "session" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "count",
+          "session"
+        ],
+        "type" : "object"
+      },
       "ExtensionFetch.Result" : {
         "properties" : {
           "folder" : {
@@ -5599,6 +5618,7 @@
           "limits",
           "commands",
           "subagents",
+          "edits",
           "file",
           "files",
           "host",
@@ -11923,6 +11943,14 @@
           }
         },
         {
+          "description" : "The file a tool of the agent's just changed (Claude Code's Edit, Write, MultiEdit, NotebookEdit; PostToolUse).",
+          "name" : "edited",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "name" : "ended_tasks",
           "required" : false,
           "schema" : {
@@ -13941,6 +13969,13 @@
       "name" : "event.devserver",
       "params" : {
         "$ref" : "#/components/schemas/DevServerEvent"
+      }
+    },
+    {
+      "description" : "The file an agent's tools changed last; `count` counts its edits, so the same file again is news too.",
+      "name" : "event.edits",
+      "params" : {
+        "$ref" : "#/components/schemas/EditsEvent"
       }
     },
     {

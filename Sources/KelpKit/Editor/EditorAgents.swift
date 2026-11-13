@@ -71,6 +71,27 @@ extension EditorArea {
         select(tab.id, focus: focus)
     }
 
+    /// Follow Edits: `uri` shown beside `owner`'s tab, the keys left where they are. It takes the place of `last`, the
+    /// file shown before for the same agent, while that's open and unedited: following leaves one tab, not one a file.
+    func showBeside(_ uri: String, of owner: String, replacing last: String?) {
+        let typing = (view.window?.firstResponder as? NSView)?.isDescendant(of: view) == true
+        let keep = layout.focused
+        if let last, last != uri, layout.tab(uri: uri) == nil, let tab = layout.tab(uri: last),
+            contents[tab.id]?.isEdited != true
+        {
+            replace(last, with: uri, focus: false)
+        } else if layout.tab(uri: uri) == nil, let mine = layout.tab(uri: owner), let gid = layout.group(of: mine.id) {
+            let target = layout.groups.keys.sorted().first { $0 != gid } ?? layout.newGroup(beside: gid, vertical: true)
+            layout.add(uri, to: target)
+        } else {
+            return showAside(uri)   // open already: brought forward where it is
+        }
+        layout.focused = keep
+        arrange()   // side by side, files go to the pane the agents share
+        render()
+        if typing { focusSelected() }
+    }
+
     func focus(session sid: String) {
         if let tab = layout.tab(uri: TabURI.session(sid)) { select(tab.id) } else { open(TabURI.session(sid)) }
     }

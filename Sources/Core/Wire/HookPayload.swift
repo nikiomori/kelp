@@ -26,6 +26,15 @@ extension SessionHook {
         }
     }
 
+    /// The file a file tool changed, from its PostToolUse: nil for any other tool or event.
+    public static func edited(of payload: JSONValue) -> String? {
+        guard payload["hook_event_name"]?.string == "PostToolUse",
+            ["Edit", "Write", "MultiEdit", "NotebookEdit"].contains(payload["tool_name"]?.string)
+        else { return nil }
+        let input = payload["tool_input"]
+        return (input?["file_path"]?.string ?? input?["notebook_path"]?.string).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     /// What a prompt sets as a /goal. `/goal` alone shows the one set and `/goal clear` ends it.
     public static func goal(of payload: JSONValue) -> String? {
         guard payload["hook_event_name"]?.string == "UserPromptSubmit", let prompt = payload["prompt"]?.string,

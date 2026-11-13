@@ -14,7 +14,8 @@ public let rpcEvents: [any RPCEvent.Type] = [
     SettingsEvent.self, UIEvent.self, UIBrowserEvent.self, Repo.self, Worktree.self, RemovedEvent.self,
     LandedEvent.self,
     GitEvent.self, PortsEvent.self, ActivityEvent.self, CIEvent.self, PREvent.self, ContextEvent.self,
-    LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self, SubagentsEvent.self, HostEvent.self,
+    LimitsEvent.self, FileEvent.self, FilesEvent.self, CommandsEvent.self, SubagentsEvent.self, EditsEvent.self,
+    HostEvent.self,
     RoutinesEvent.self, ArtifactsEvent.self, MachinesEvent.self, MachineEvent.self, DatabasesEvent.self,
     ArtifactCheckEvent.self, PhoneEvent.self, PRsEvent.self
 ]

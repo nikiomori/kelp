@@ -282,6 +282,34 @@ private final class Heard: Sendable {
     #expect(list.first?.exitCode == 1 && list.first?.output == "1 failed")
 }
 
+/// The file an agent's tools changed, as its PostToolUse names it: pushed to whoever follows its edits, the same file
+/// again too (its count moves).
+@Test func anAgentsEditsArePushedToWhoeverFollowsThem() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
+    let heard = Heard()
+    heard.listen(w.c)
+    w.c.notify(WatchStart(.edits, s.id))
+    #expect(try await waitFor(10) { heard.events(EditsEvent.self).last?.count == 0 })
+    let payload: JSONValue = .obj([
+        "hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_input": .obj(["file_path": "/p/a.swift"])
+    ])
+    #expect(SessionHook.edited(of: payload) == "/p/a.swift")
+    #expect(SessionHook.edited(of: .obj(["hook_event_name": "PostToolUse", "tool_name": "Bash"])) == nil)
+    for _ in 0..<2 {
+        var hook = SessionHook(id: s.id, event: "command", hookName: "PostToolUse")
+        hook.edited = SessionHook.edited(of: payload)
+        _ = try await w.c.call(hook)
+    }
+    #expect(
+        try await waitFor(10) {
+            heard.events(EditsEvent.self).last == EditsEvent(session: s.id, path: "/p/a.swift", count: 2)
+        })
+}
+
 /// What's asked over the network slows down while nothing changes, up to a ceiling; a CI run going on and the local
 /// clocks don't.
 @Test func pollsOfTheNetworkSlowDownWhileNothingChanges() throws {
