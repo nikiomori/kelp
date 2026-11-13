@@ -2,7 +2,12 @@ import * as kelp from './js/api.js';
 import { follow, tuneLens } from './js/glass.js';
 
 // An iPhone keeps a Home Screen app's data apart from Safari's: pairing in Safari pairs Safari alone.
-const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+// An iPad's Safari names itself a Mac: it has a touch screen, which a Mac hasn't.
+const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+// A tablet or a computer's browser: the list stays beside the agent, as Mail lays them out (app.css, the same width).
+const wide = matchMedia('(min-width: 768px)');
+// A keyboard with a pointer: Return sends, Shift-Return starts a new line.
+const keyboard = matchMedia('(pointer: fine)');
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
 // The pairing link's code. It leaves the address when it is used (`forget`), and is kept nowhere.
@@ -78,6 +83,7 @@ const EN = {
   disconnectAsk: mac => `Disconnect this phone from ${mac || 'your Mac'}? To connect again, scan a new code in Kelp.`,
   disconnectYes: 'Disconnect',
   cancel: 'Cancel',
+  pick: 'Choose an agent on the left',
   units: { m: 'm', h: 'h', d: 'd' },
 };
 const one = n => n % 10 === 1 && n % 100 !== 11;
@@ -149,6 +155,7 @@ const RU = {
   disconnectAsk: mac => `Отключить этот телефон от ${mac || 'вашего Mac'}? Чтобы подключить снова, отсканируйте новый код в Kelp.`,
   disconnectYes: 'Отключить',
   cancel: 'Отменить',
+  pick: 'Выберите агента слева',
   units: { m: ' мин', h: ' ч', d: ' д' },
 };
 const russian = /^ru\b/i.test(navigator.language ?? '');
@@ -236,7 +243,7 @@ const rowEls = new Map();
 function screen(name) {
   const body = document.body, was = body.dataset.screen;
   // Back to the list: the agent slides out to the right as iOS pops a view, then leaves the layout.
-  if (was === 'agent' && name === 'list' && !reduceMotion.matches && !swiped) {
+  if (was === 'agent' && name === 'list' && !reduceMotion.matches && !swiped && !wide.matches) {
     body.classList.add('popping');
     clearTimeout(screen.popped);
     screen.popped = setTimeout(() => body.classList.remove('popping'), 420);
@@ -244,7 +251,7 @@ function screen(name) {
     body.classList.remove('popping');
   }
   body.dataset.screen = name;
-  $('list').inert = name === 'agent';
+  $('list').inert = name === 'agent' && !wide.matches;
   if (name === 'agent') for (const wake of lenses) wake();
   if (swiped) {   // the swipe left both panes where it ended: they go back to their places now the agent is gone
     swiped = false;
@@ -553,6 +560,7 @@ function row(a) {
 }
 
 function renderList() {
+  for (const [id, li] of rowEls) li.classList.toggle('current', open?.id === id);   // the one beside the list
   set($('mac'), mac || 'Kelp');
   set($('mac-inline'), mac || 'Kelp');
   $('offline').hidden = online;
@@ -767,6 +775,17 @@ text.addEventListener('input', () => {
   else sessionStorage.removeItem('draft:' + open.id);
 });
 $('send-form').addEventListener('submit', e => { e.preventDefault(); send(text.value, true); });
+text.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.shiftKey || e.isComposing || !keyboard.matches) return;
+  e.preventDefault();
+  $('send-form').requestSubmit();
+});
+// Escape goes back to the list, as the back button does, unless a sheet is open (it closes that itself).
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' && open && !document.querySelector('dialog[open]')) location.hash = '';
+});
+// The window crossed the width: the list beside the agent, or under it again.
+wide.addEventListener('change', () => screen(document.body.dataset.screen));
 $('quick-continue').onclick = () => send(S.quickContinue[1]);
 $('quick-good').onclick = () => send(S.quickGood[1]);
 $('a-allow').onclick = () => open && choose(open.id, 'allow');
@@ -981,7 +1000,7 @@ for (const [id, words] of Object.entries({
   'menu-title': S.thisPhone, 'push-title': S.notifications, 'disconnect': S.disconnect,
   'confirm-no': S.cancel, 'confirm-yes': S.disconnectYes, 'home-hint-text': S.addToHome,
   'start-kind-label': S.agentKind, 'start-text-label': S.whatToDo,
-  'pair-copy': S.copy, 'pair-here': S.here, 'pair-paste': S.paste, 'pair-go': S.connect,
+  'pair-copy': S.copy, 'pair-here': S.here, 'pair-paste': S.paste, 'pair-go': S.connect, 'pick': S.pick,
 })) $(id).textContent = words;
 for (const [id, words] of Object.entries({
   'menu-open': S.menu, 'back': S.back, 'send': S.send, 'home-hint-close': S.close, 'text': S.message, 'stop': S.stop,

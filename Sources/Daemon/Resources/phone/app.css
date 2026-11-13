@@ -517,3 +517,33 @@ button.cell:active:not(:disabled) { transform: none; }
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after { animation: none !important; transition: none !important; }
 }
+
+/* ---- a wide screen (a tablet, a Mac's browser): the list beside the agent, as Mail lays them out. No push: a row
+   opens its agent on the right, which stays until another is chosen. app.js says the same width (`wide`). */
+
+#pick { display: none; }
+@media (min-width: 768px) {
+  :root { --side: clamp(20rem, 34vw, 25rem); }
+  #list { right: auto; width: var(--side); transition: none; border-right: 1px solid var(--separator); }
+  [data-screen="agent"] #list { transform: none; }
+  [data-screen="agent"] #agent { left: var(--side); animation: none; box-shadow: none; }
+  .popping #agent { display: none; }
+  [data-screen="list"] #pick {
+    display: grid; place-items: center; position: fixed; inset: 0 0 0 var(--side);
+    background: var(--window); color: var(--quiet);
+  }
+  #back { visibility: hidden; }   /* the list is right there; it keeps its place so the title stays centred */
+  .row.current { background-color: var(--fill); }   /* the whole row, in its card's corners */
+  /* The conversation and the dock read at a line's length, not the window's. */
+  #a-body > * { max-width: 46rem; margin-left: auto; margin-right: auto; }
+  #dock { left: 0; right: 0; width: min(46rem, calc(100% - 1.5rem)); margin-inline: auto; }
+  /* The first screen's buttons don't stretch across a desk. */
+  #pair { padding-left: max(2rem, calc(50% - 14rem)); padding-right: max(2rem, calc(50% - 14rem)); }
+  /* A sheet stands in the middle, as a Mac's or an iPad's does, without the grabber. */
+  .sheet { margin: auto; max-height: calc(var(--seen) - 4rem); }
+  .sheet::before { display: none; }
+  .sheet[open] { animation: settle var(--base) ease-out; }
+}
+@keyframes settle { from { opacity: 0; transform: scale(0.96); } }
+/* A pointer shows what a click would open. */
+@media (hover: hover) { .row:not(.current):hover { background-color: var(--fill); } }
