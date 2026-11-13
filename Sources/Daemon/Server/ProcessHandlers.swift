@@ -25,7 +25,15 @@ extension ProcessRun: Handled {
         env["PATH"] = Sessions.childPath
         env["KELP_HOME"] = setup.root.path
         env["KELP_SOCKET"] = setup.socketPath
-        let dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil } ?? NSHomeDirectory()
+        var dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil } ?? NSHomeDirectory()
+        // A remote project's folder here holds only its marker (its git would walk up into another repository): run
+        // from the home folder, told where the project is, for a command that goes there (`ssh "$KELP_REMOTE_HOST"`).
+        let remotes = setup.remotes
+        if let cwd, let remote = remotes.of(cwd) ?? remotes.containing(cwd)?.remote {
+            env["KELP_REMOTE_HOST"] = remote.host
+            env["KELP_REMOTE_PATH"] = remotes.containing(cwd)?.remotePath ?? remote.path
+            dir = NSHomeDirectory()
+        }
         let result = try Subprocess.run(
             argv, cwd: dir, env: env, stdin: stdin.map { Data($0.utf8) },
             timeLimit: max(0.1, min(timeLimit ?? 60, 86400)),

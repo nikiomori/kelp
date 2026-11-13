@@ -81,13 +81,16 @@ enum Machines {
     }
 
     /// A terminal in the machine (nil `command`: its shell), in this screen's project folder, shared at the same path; in
-    /// its home folder when that folder can't be shared.
+    /// its home folder when that folder can't be shared or is a remote project's.
     static func runInMachine(_ app: AppModel, _ name: String, command: String? = nil) {
         let folder = app.workbench.workspaceId.flatMap(app.worktree)?.path
-        let home = folder.map { !VMs.mayShare($0) } ?? true
+        // A remote project's folder is on its host, not here to share: the machine's home, run from this Mac (`kelp`
+        // isn't on the host).
+        let remote = folder.map { RemoteHost.of($0) != nil } ?? false
+        let home = remote || (folder.map { !VMs.mayShare($0) } ?? true)
         var line = "kelp vm run " + ShellQuote.word(name) + (home ? " --home" : "")
         if let command { line += " -- " + command }
-        app.workbench.starterForNewTab?.run(command: line, title: name)
+        app.workbench.starterForNewTab?.run(command: line, title: name, cwd: remote ? NSHomeDirectory() : nil)
     }
 
     /// The machines as the daemon last told (`WatchTopic.machines`).

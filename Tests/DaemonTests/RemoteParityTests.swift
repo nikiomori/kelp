@@ -260,3 +260,18 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
         try await c.call(SessionCreate(worktreeId: workspace.id, agent: "bot", profile: "work"))
     } throws: { ($0 as? RPCError)?.message.contains("Account profiles are for agents on this Mac") == true }
 }
+
+/// An extension's command in a remote project runs here from the home folder, never in the project's folder here (its
+/// git would walk up into another repository), and is told where the project is.
+@Test func anExtensionsCommandIsToldWhereARemoteProjectIs() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let ran = try await c.call(
+        ProcessRun(
+            argv: ["/bin/sh", "-c", #"pwd; echo "$KELP_REMOTE_HOST $KELP_REMOTE_PATH""#], cwd: repo.path + "/src"))
+    let real = try #require(Paths.real(there))
+    #expect(ran.stdout == (Paths.real(NSHomeDirectory()) ?? NSHomeDirectory()) + "\nbox \(real)/src\n")
+    #expect(!ran.stdout.contains(repo.path))
+}

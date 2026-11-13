@@ -74,6 +74,9 @@ Both take the same view definitions; `editors` also appear in the editor area's 
 - Plainest of all: every field of the row and each value above is also exported by name, `KELP_<name>` (`.` and other
   signs as `_`: `$KELP_title`, `$KELP_workspace_path`). Write `"$KELP_title"` in a command, or read it from the
   environment in any program, and nothing has to be quoted. Over `ssh` the host doesn't get them: use `${Field}` there.
+- In a project opened over SSH, `command` runs on this Mac from the home folder (the project's folder here holds only
+  its marker), with `$KELP_REMOTE_HOST` and `$KELP_REMOTE_PATH` saying where it is: `ssh "$KELP_REMOTE_HOST" "cd
+  ${workspace.path} && …"` would be wrong, `ssh "$KELP_REMOTE_HOST" "cd $KELP_REMOTE_PATH && docker ps"` is right.
 - A row shows `icon` only when it reads a field (`"${kind}"`): a fixed icon is the panel's, already on its tab.
   A `subtitle` that comes out empty takes no line.
   The icon may also be an app's, `app:<bundle id>`, or a file's, its path (`/…`); an app not on this Mac shows an empty frame.
