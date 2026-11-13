@@ -225,7 +225,15 @@ final class FileTab: SavableTab {
         } changed: { [weak self] _ in
             self?.followProject()
         }
-        guard !remote else { return }   // a host's file: no events (nothing pushes them), no language server here
+        // Its version on disk, here or on its host (where the daemon reads its digest now and then).
+        let filePath = path
+        version.key = filePath
+        track(owner: self) { [app] in
+            app.latest(FileEvent.self, filePath)
+        } changed: { [weak self] _ in
+            self?.diskChanged()
+        }
+        guard !remote else { return }   // a host's file: no language server here
         bar.onTrust = { [weak self] in
             Task { [weak self] in
                 guard let self else { return }
@@ -238,13 +246,6 @@ final class FileTab: SavableTab {
             bar?.show(restricted: $0)
         }
         nameServers(in: bar)
-        let filePath = path
-        version.key = filePath
-        track(owner: self) { [app] in
-            app.latest(FileEvent.self, filePath)
-        } changed: { [weak self] _ in
-            self?.diskChanged()
-        }
         startLSP()
         track(owner: self) { [app] in
             app.connections

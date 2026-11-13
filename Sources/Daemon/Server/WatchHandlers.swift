@@ -127,7 +127,13 @@ extension Daemon {
                 ((try? await ask(UsageGet())).flatMap { line(LimitsEvent(usage: $0)) }, 10)
             }
         case .file:
-            guard key.hasPrefix("/"), remotes.containing(key) == nil else { return Watches.Topic { _ in (nil, nil) } }
+            guard key.hasPrefix("/") else { return Watches.Topic { _ in (nil, nil) } }
+            if let located = remotes.containing(key) {   // no file events from a host: its file's digest, read there
+                let first = FirstRead()
+                return Watches.Topic(backsOffFrom: 10) { [self] _ in
+                    await hostFileRead(key, located.remote, located.remotePath, first: first.take())
+                }
+            }
             return Watches.Topic(folder: Self.fileFolder(key)) { [self] _ in await fileRead(key) }
         case .files:
             let first = FirstRead()
@@ -264,6 +270,27 @@ extension Daemon {
             $0.contains { $0.contains("/\(Artifacts.folder)/") || $0.contains("/\(DesignSystem.folder)/") }
         }
         return Watches.Topic(folder: root.map { ($0, matters) }) { [self] _ in (await artifacts(key), nil) }
+    }
+
+    /// A remote project's open file: its version is its bytes' digest (`FileService.digest`), read on the host every
+    /// 10 s (60 s once it's quiet), only over a connection already open after the first; gone, none.
+    private func hostFileRead(_ key: String, _ remote: RemoteHost, _ path: String, first: Bool) async
+        -> (Data?, TimeInterval?)
+    {
+        let script =
+            "f=\(ShellQuote.word(path)); "
+            + #"[ -f "$f" ] || { echo missing; exit 0; }; { sha256sum -- "$f" 2>/dev/null || shasum -a 256 -- "$f"; } | cut -d' ' -f1"#
+        let out: String?
+        do {
+            out = try await offload { () -> String? in
+                guard first || remote.connection != nil else { return nil }
+                return String(decoding: try remote.run(script, timeLimit: 20), as: UTF8.self)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        } catch { out = nil }
+        guard let said = out, !said.isEmpty else { return (nil, 10) }   // not asked, or the host away: as shown
+        let stamp = said == "missing" ? nil : "sha256:" + said
+        return (line(FileEvent(path: key, stamp: stamp)), 10)
     }
 
     /// A workspace's artifacts, as its folder here keeps them; a remote project's chats are asked on the host first for

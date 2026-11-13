@@ -183,3 +183,22 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(try await waitFor(10) { (try? String(contentsOf: out, encoding: .utf8)) == "hello there truecolor\n" })
     _ = try await c.call(SessionKill(id: session.id))
 }
+
+/// An open file of a remote project follows its host: an agent's edit there comes as a new version (its digest, as
+/// files.read says it), and a file gone as none.
+@Test func aRemoteFilesVersionFollowsItsHost() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let path = repo.path + "/a.txt", read = d.topic(Watches.Key(topic: .file, key: path)).read
+    func stamp() async throws -> FileStamp?? {   // nil: nothing read; .some(nil): gone
+        guard let line = await read(false).0 else { return nil }
+        return .some(try JSONDecoder().decode(JSONValue.self, from: line)["params"]?["stamp"]?.string)
+    }
+    #expect(try await stamp() == .some(try await c.call(FilesRead(path: path)).stamp))
+    try "an agent's\n".write(toFile: there + "/a.txt", atomically: true, encoding: .utf8)
+    #expect(try await stamp() == .some(FileService.digest(Data("an agent's\n".utf8))))
+    try FileManager.default.removeItem(atPath: there + "/a.txt")
+    #expect(try await stamp() == .some(nil))
+}
