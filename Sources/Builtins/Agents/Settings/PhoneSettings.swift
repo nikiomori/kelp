@@ -172,7 +172,9 @@ struct PhoneSettings: View {
         return HStack(spacing: Metrics.gap) {
             Circle().fill(state.connected && state.address != nil ? Color(nsColor: .systemGreen) : .secondary)
                 .frame(width: 7, height: 7)
-            if let error = state.error {
+            if let steps = state.tailscale, !steps.serving {
+                Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // they say what's missing
+            } else if let error = state.error {
                 Text(error).foregroundStyle(Color.textRed)
             } else if state.address == nil {
                 Text("Give the address the phone opens.").foregroundStyle(.secondary)

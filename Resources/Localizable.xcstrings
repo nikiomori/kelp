@@ -22280,6 +22280,16 @@
           }
         }
       }
+    },
+    "Finish Tailscale’s steps above.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала выполните шаги Tailscale выше."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
