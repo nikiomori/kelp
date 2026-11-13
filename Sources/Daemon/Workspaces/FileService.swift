@@ -38,14 +38,14 @@ struct FileService: Sendable {
     }
 
     /// A remote project's icon, kept in its folder here (`.kelp-icon/`, beside its marker): a kept one at once, looked for
-    /// again in the background; none kept, looked for now.
+    /// again in the background; none kept, looked for now. Only over a connection already open: drawing the sidebar
+    /// never dials a host (nil, or the kept one, until something connects).
     func icon(_ repo: String) throws -> String? {
         let repo = try absolute(repo)
         guard let remote = remotes.of(repo) else { throw RPCError.invalidParams("Not a remote project.") }
-        let kept = repo + "/.kelp-icon"
-        guard let name = FileManager.default.names(in: kept).first else {
-            return try findIcon(remote, keep: kept)
-        }
+        let kept = repo + "/.kelp-icon", name = FileManager.default.names(in: kept).first
+        guard remote.connection != nil else { return name.map { kept + "/" + $0 } }
+        guard let name else { return try findIcon(remote, keep: kept) }
         DispatchQueue.global(qos: .utility).async {
             Log.store.attempt("looking for \(remote.host)'s project icon") { _ = try findIcon(remote, keep: kept) }
         }

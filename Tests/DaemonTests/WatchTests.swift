@@ -434,3 +434,36 @@ private final class Heard: Sendable {
     #expect(try String(contentsOfFile: try #require(items[0].preview), encoding: .utf8) == "<p>one one</p>")
     _ = try await c.call(SessionKill(id: session.id))   // its tmux session on the "host" ends with it
 }
+
+/// A remote project's git and files are read when someone shows them, and then polled only over a connection that's
+/// already open: a poll never dials the host, nor does drawing its icon.
+@Test func pollsOfARemoteProjectNeverDial() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let there = try makeRepo(), host = "offline-\(UUID().uuidString.prefix(6))"
+    let repo: Repo = try await c.call(
+        "repo.addRemote", .obj(["host": .string(host), "path": .string(there)]), as: Repo.self)
+    let workspace = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
+    let log = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("ssh.log")
+    let down = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("down-" + host)
+    func ranOnHost() -> Int {   // commands sent, not `-O check`; this test's own folder names them
+        ((try? String(contentsOf: log, encoding: .utf8)) ?? "").split(separator: "\n")
+            .filter { !$0.hasPrefix("-O") && $0.contains(there) }.count
+    }
+    for topic in [WatchTopic.git, .files] {
+        let read = d.topic(Watches.Key(topic: topic, key: workspace.id)).read
+        FileManager.default.createFile(atPath: down.path, contents: nil)
+        #expect(await read(false).0 != nil, "\(topic): shown, it's read, connected or not")
+        let before = ranOnHost()
+        #expect(await read(false).0 == nil, "\(topic): a poll with no connection keeps what it showed")
+        #expect(ranOnHost() == before, "\(topic): and runs nothing there")
+        try FileManager.default.removeItem(at: down)
+        #expect(await read(false).0 != nil, "\(topic): connected again, it reads")
+    }
+    FileManager.default.createFile(atPath: down.path, contents: nil)
+    defer { try? FileManager.default.removeItem(at: down) }
+    let before = ranOnHost()
+    _ = try await c.call(RepoIcon(path: repo.path))
+    #expect(ranOnHost() == before, "drawing its icon dials nothing")
+}

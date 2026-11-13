@@ -2,6 +2,7 @@ import AgentData
 import Core
 import Foundation
 import GitKit
+import os
 
 // What `Watches` reads, asked as a client would ask it, and the records pushed as they change.
 
@@ -64,8 +65,9 @@ extension Daemon {
         let key = watch.key
         switch watch.topic {
         case .git:
+            let first = FirstRead()
             return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesStatus), backsOffFrom: 10) {
-                [self] _ in await gitRead(key)
+                [self] _ in await gitRead(key, first: first.take())
             }
         case .ports:
             return Watches.Topic(backsOffFrom: 10) { [self] _ in
@@ -128,8 +130,9 @@ extension Daemon {
             guard key.hasPrefix("/"), remotes.containing(key) == nil else { return Watches.Topic { _ in (nil, nil) } }
             return Watches.Topic(folder: Self.fileFolder(key)) { [self] _ in await fileRead(key) }
         case .files:
+            let first = FirstRead()
             return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesFileList), backsOffFrom: 10) {
-                [self] _ in await filesRead(key)
+                [self] _ in await filesRead(key, first: first.take())
             }
         case .artifacts: return artifactsTopic(key)
         case .databases:
@@ -188,10 +191,11 @@ extension Daemon {
         }
     }
 
-    private func gitRead(_ key: String) async -> (Data?, TimeInterval?) {
+    private func gitRead(_ key: String, first: Bool) async -> (Data?, TimeInterval?) {
         // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
         let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
         let remote = worktree.map { remotes.of($0.path) != nil } ?? false
+        guard await mayRead(worktree, first: first) else { return (nil, 10) }
         var event: GitEvent
         do {
             let changes = try await ask(GitStatus(id: key))
@@ -205,14 +209,24 @@ extension Daemon {
         return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
     }
 
-    private func filesRead(_ key: String) async -> (Data?, TimeInterval?) {
-        let remote = store.look("workspace \(key)") { try $0.worktree(key) }.map { remotes.of($0.path) != nil } ?? false
+    private func filesRead(_ key: String, first: Bool) async -> (Data?, TimeInterval?) {
+        let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
+        let remote = worktree.map { remotes.of($0.path) != nil } ?? false
+        guard await mayRead(worktree, first: first) else { return (nil, 10) }
         var event: FilesEvent
         do {
             event = FilesEvent(
                 worktree: key, paths: try await ask(FilesList(id: key)), ignored: try? await ask(FilesIgnored(id: key)))
         } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
         return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
+    }
+
+    /// Whether a watch of `worktree` reads now: always on this Mac; on a host over a connection already open, or on the
+    /// watch's first read, when someone just showed it. A poll never dials a host: until something connects (a terminal,
+    /// an agent, Connect), the panel keeps what it showed.
+    private func mayRead(_ worktree: Worktree?, first: Bool) async -> Bool {
+        guard !first, let remote = worktree.flatMap({ remotes.of($0.path) }) else { return true }
+        do { return try await offload { remote.connection != nil } } catch { return false }
     }
 
     /// A file's folder, as FSEvents names it (/tmp is /private/tmp), and its events that name it: the file itself may
@@ -336,4 +350,15 @@ extension WatchStop: Handled {
 
 extension Methods {
     static let watchMethods: [any Answered.Type] = [WatchStart.self, WatchStop.self]
+}
+
+/// A watch's first read, once: what someone just put on screen, which may connect to a host (`mayRead`).
+private final class FirstRead: Sendable {
+    private let left = OSAllocatedUnfairLock(initialState: true)
+    func take() -> Bool {
+        left.withLock {
+            defer { $0 = false }
+            return $0
+        }
+    }
 }
