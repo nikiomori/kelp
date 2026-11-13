@@ -29,19 +29,18 @@ extension AddonGroups {
         return out
     }
 
-    /// Needs a Look's line for the instruction files: their names, the worst finding and how many more there are, and
-    /// whether agents lose lines or soon will (`warn`: the warning colour).
-    static func instructionsText(_ files: [Addon]) -> (title: String, detail: String, warn: Bool) {
+    /// Needs a Look's line under the instruction files: the worst finding with its file's name and how many more there
+    /// are, and whether agents lose lines or soon will (`warn`: the warning colour).
+    static func instructionsText(_ files: [Addon]) -> (detail: String, warn: Bool) {
         func losing(_ file: Addon) -> Bool {
             (file.check?.cut ?? 0) > 0 || (file.check?.share ?? 0) >= InstructionCheck.near
         }
         let ordered = files.filter(losing) + files.filter { !losing($0) }
-        let all = ordered.flatMap { file in file.check.map { findings($0, name: file.name) } ?? [] }
-        let title = ordered.map(\.name).joined(separator: ", ")
-        guard let first = all.first else { return (title, "", false) }
+        let all = ordered.flatMap { file in
+            (file.check.map { findings($0, name: file.name) } ?? []).map { "\(file.name): \($0)" }
+        }
+        guard let first = all.first else { return ("", false) }
         let more = all.count - 1
-        return (
-            title, first + (more > 0 ? " · " + String(localized: "\(more) more") : ""), files.contains(where: losing)
-        )
+        return (first + (more > 0 ? " · " + String(localized: "\(more) more") : ""), files.contains(where: losing))
     }
 }

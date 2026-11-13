@@ -22721,26 +22721,6 @@
         }
       }
     },
-    "A chat is tidying them up": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чат наводит в них порядок"
-          }
-        }
-      }
-    },
-    "Tidying up in a chat": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Наводит порядок в чате"
-          }
-        }
-      }
-    },
     "Tidy Up with": {
       "localizations": {
         "ru": {
@@ -22751,32 +22731,172 @@
         }
       }
     },
-    "Compare with Before Tidy Up": {
+    "Before Tidy Up": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сравнить с тем, что было до порядка"
+            "value": "До порядка"
           }
         }
       }
     },
-    "Before Tidy Up: %@": {
+    "Only for the Project’s Code": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "До порядка: %@"
+            "value": "Только для кода проекта"
           }
         }
       }
     },
-    "An agent shortens them now: compare or undo afterwards": {
+    "An agent is shortening them": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агент сразу сократит их: потом можно сравнить или отменить"
+            "value": "Агент сокращает их"
+          }
+        }
+      }
+    },
+    "A chat is shortening them": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их сокращает чат"
+          }
+        }
+      }
+    },
+    "Nothing changed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего не изменилось"
+          }
+        }
+      }
+    },
+    "Tidied up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порядок наведён"
+          }
+        }
+      }
+    },
+    "%@ tokens every chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ токенов в каждом чате"
+          }
+        }
+      }
+    },
+    "Every change, file by file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждое изменение, файл за файлом"
+          }
+        }
+      }
+    },
+    "Put the files back as they were": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть файлы как были"
+          }
+        }
+      }
+    },
+    "Instructions every chat reads: %@ tokens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструкции, которые читает каждый чат: %@ токенов"
+          }
+        }
+      }
+    },
+    "An agent shortens them now: review or undo afterwards": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент сразу сократит их: потом можно посмотреть или отменить"
+          }
+        }
+      }
+    },
+    "%@ · %@ tokens a chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ токенов на чат"
+          }
+        }
+      }
+    },
+    "Keep Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оставить изменения"
+          }
+        }
+      }
+    },
+    "Put the instruction files back as they were?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть файлы инструкций как были?"
+          }
+        }
+      }
+    },
+    "Kelp puts back the copies it made before Tidy Up. What the agent wrote is kept beside them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp вернёт копии, сделанные перед наведением порядка. То, что написал агент, останется рядом с ними."
+          }
+        }
+      }
+    },
+    "Instructions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструкции"
+          }
+        }
+      }
+    },
+    "Undo…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить…"
           }
         }
       }

@@ -15,16 +15,20 @@ struct TidyUp {
 
     static var title: String { String(localized: "Tidy Up") }
 
-    /// The chat tidying up the workspace's files, while it's open: the button goes to it instead of starting another.
+    /// The chat tidying up the workspace's files, while it's open.
     static func chat(_ app: AppModel, _ worktreeId: String) -> Session? {
         app.sessions.first {
             $0.worktreeId == worktreeId && $0.titleManual && $0.title == title && $0.status != .exited
         }
     }
+    /// That chat while its agent works or asks: the line shows it instead of the result.
+    static func working(_ app: AppModel, _ worktreeId: String) -> Session? {
+        chat(app, worktreeId).flatMap { [.working, .waiting].contains($0.status) ? $0 : nil }
+    }
 
     /// The button: to the chat that's tidying up, else a new one with `agent` (nil: the default one).
     func run(agent: String? = nil) {
-        if agent == nil, let chat = Self.chat(app, worktreeId) {
+        if agent == nil, let chat = Self.working(app, worktreeId) {
             app.workbench.focus(session: chat.id)
             return
         }
@@ -50,12 +54,26 @@ struct TidyUp {
         return menu
     }
 
-    /// Compare with Before Tidy Up: the copy Kelp made against the file now (a memory index: its folders), in a tab.
-    static func compare(_ app: AppModel, _ file: Addon) {
-        guard let before = file.check?.before, let path = file.path else { return }
-        let now = file.name == "MEMORY.md" ? (path as NSString).deletingLastPathComponent : path
-        let command = ["git", "--no-pager", "diff", "--no-index", "--color=always", "--", before, now]
-            .map(ShellQuote.word).joined(separator: " ")
-        app.workbench.starter?.run(command: command, title: String(localized: "Before Tidy Up: \(file.name)"))
+    /// Review: every change against Kelp's copies, in the diff tab.
+    func review() { app.workbench.open(TabURI.diff(worktreeId, source: "tidy")) }
+
+    /// Keep Changes: the result leaves the panel; the copies stay in Kelp's home.
+    func keep(_ done: @escaping () -> Void) async {
+        guard await app.call(AddonsTidyEnd(worktreeId: worktreeId, undo: false)) != nil else { return }
+        done()
+    }
+
+    /// Undo: after a question, Kelp puts its copies back; what the agent wrote stays beside them.
+    func undo(_ done: @escaping () -> Void) async {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Put the instruction files back as they were?")
+        alert.informativeText = String(
+            localized: "Kelp puts back the copies it made before Tidy Up. What the agent wrote is kept beside them.")
+        alert.addButton(withTitle: String(localized: "Undo"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        guard await runSheet(alert) == .alertFirstButtonReturn,
+            await app.call(AddonsTidyEnd(worktreeId: worktreeId, undo: true)) != nil
+        else { return }
+        done()
     }
 }

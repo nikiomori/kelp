@@ -178,3 +178,24 @@ import Testing
         _ = try await w.c.call(AddonsTidy(worktreeId: wt.id, paths: [w.root.appendingPathComponent("none.md").path]))
     }
 }
+
+/// After an agent has tidied up, addons.list says what every chat reads now against before, the diff tab shows the
+/// change by file name, and Undo puts the copies back (keeping what the agent wrote) and ends the review.
+@Test func aTidyUpIsReviewedAndUndone() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let agents = URL(fileURLWithPath: wt.path).appendingPathComponent("AGENTS.md")
+    let long = (1...80).map { "- rule \($0), said at length so it costs tokens" }.joined(separator: "\n") + "\n"
+    try long.write(to: agents, atomically: true, encoding: .utf8)
+    _ = try await w.c.call(AddonsTidy(worktreeId: wt.id, paths: [agents.path]))
+    try "- rule 1\n".write(to: agents, atomically: true, encoding: .utf8)
+    let tidied = try #require(try await w.c.call(AddonsList(worktreeId: wt.id)).tidied)
+    #expect(tidied.changed == 1 && tidied.tokensNow < tidied.tokensBefore)
+    let diff = try await w.c.call(GitDiff(id: wt.id, source: "tidy"))
+    #expect(diff.map(\.path) == ["AGENTS.md"])
+    _ = try await w.c.call(AddonsTidyEnd(worktreeId: wt.id, undo: true))
+    #expect(try String(contentsOf: agents, encoding: .utf8) == long)
+    #expect(try await w.c.call(AddonsList(worktreeId: wt.id)).tidied == nil)
+    await #expect(throws: (any Error).self) { _ = try await w.c.call(AddonsTidyEnd(worktreeId: wt.id, undo: false)) }
+}

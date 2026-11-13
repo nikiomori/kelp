@@ -34,6 +34,10 @@ extension GitDiff: Handled {
         var dir = workspace.path
         let src: DiffSource
         switch source ?? "all" {
+        case "tidy":
+            // Tidy Up's copies against the files now: not the workspace's git, the instruction files Kelp kept.
+            guard let (run, info) = TidyRuns.open(id, root: scm.root) else { return [] }
+            return try TidyRuns.diff(run, info, remotes: scm.remotes).filter { file == nil || $0.path == file }
         case "turn": (dir, src) = try scm.turnDiff(session: session, turn: turn)
         case "unstaged": src = .unstaged
         case "staged": src = .staged

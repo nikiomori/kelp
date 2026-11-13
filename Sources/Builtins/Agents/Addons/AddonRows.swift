@@ -14,8 +14,10 @@ struct AddonRows {
     var onOpen: (String) -> Void = { _ in }
     /// Off Here: the keys to switch off for the project.
     var onOff: ([String]) -> Void = { _ in }
-    /// Tidy Up, or Show Chat while one tidies up.
+    /// Tidy Up, or Show Chat while one tidies up; then Review and Undo.
     var onTidy: () -> Void = {}
+    var onReview: () -> Void = {}
+    var onUndo: () -> Void = {}
     private static let most = 3
 
     func section(_ section: AddonLine.Section, count: Int) -> NSView {
@@ -107,7 +109,7 @@ struct AddonRows {
     /// Needs a Look: the name over what's wrong, in red, and a button that switches it off here.
     func problem(_ addon: Addon) -> NSView {
         let off = addon.key.flatMap { addon.off ? nil : [$0] } ?? []
-        let row = twoLines(addon.name, addon.problem ?? "", color: .textRed, button: offHere(off), mark: .textRed)
+        let row = twoLines(addon.name, addon.problem ?? "", color: .textRed, buttons: offHere(off), mark: .textRed)
         row.toolTip = [addon.problem, AddonGroups.tip(addon)].compactMap { $0 }.joined(separator: "\n")
         return row
     }
@@ -116,43 +118,67 @@ struct AddonRows {
     func unsigned(_ servers: [Addon]) -> NSView {
         let text = AddonGroups.unsignedText(servers)
         let row = twoLines(
-            text.title, text.detail, color: .secondaryLabelColor, button: offHere(servers.compactMap(\.key)),
+            text.title, text.detail, color: .secondaryLabelColor, buttons: offHere(servers.compactMap(\.key)),
             mark: .textOrange)
         row.toolTip = servers.map(\.name).joined(separator: ", ")
         return row
     }
 
-    /// Needs a Look: the project's instruction files, the worst of what's wrong with them, and Tidy Up (Show Chat
-    /// while a chat tidies them up).
-    func instructions(_ files: [Addon], tidying: Bool) -> NSView {
+    /// Needs a Look: the project's instruction files, in one of three states: what they cost every chat and the worst
+    /// of what's wrong (Tidy Up); an agent shortening them (Show Chat); what it saved (Review, Undo).
+    func instructions(_ files: [Addon], tidied: Tidied?, working: Bool) -> NSView {
+        let name = String(localized: "Instructions")
+        if working {
+            let show = button(String(localized: "Show Chat"), String(localized: "A chat is shortening them"), onTidy)
+            return twoLines(
+                name, String(localized: "An agent is shortening them"), color: .secondaryLabelColor, buttons: [show],
+                symbol: "ellipsis.circle", mark: .secondaryLabelColor)
+        }
+        if let tidied {
+            // Two buttons leave a narrow panel little room: the saving says it, "Instructions" is in the tip.
+            let saved = "\(shortTokens(tidied.tokensBefore)) → \(shortTokens(tidied.tokensNow))"
+            let review = button(String(localized: "Review"), String(localized: "Every change, file by file"), onReview)
+            let undo = button(String(localized: "Undo"), String(localized: "Put the files back as they were"), onUndo)
+            let row = twoLines(
+                tidied.changed == 0 ? String(localized: "Nothing changed") : String(localized: "Tidied up"),
+                String(localized: "\(saved) tokens every chat"),
+                color: .secondaryLabelColor, buttons: [review, undo], symbol: "checkmark.circle",
+                mark: .secondaryLabelColor, buttonsUnder: true)
+            row.toolTip = String(localized: "Instructions every chat reads: \(saved) tokens")
+            return row
+        }
         let text = AddonGroups.instructionsText(files)
-        let button = TextButton(tidying ? String(localized: "Show Chat") : TidyUp.title) { onTidy() }
-        button.toolTip =
-            tidying
-            ? String(localized: "A chat is tidying them up") : String(localized: "An agent shortens them now: compare or undo afterwards")
-        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let cost = files.compactMap(\.tokens).reduce(0, +)
+        let tidy = button(
+            TidyUp.title, String(localized: "An agent shortens them now: review or undo afterwards"), onTidy)
         let row = twoLines(
-            text.title, tidying ? String(localized: "Tidying up in a chat") : text.detail,
-            color: text.warn && !tidying ? .textOrange : .secondaryLabelColor, button: button, mark: .textOrange)
+            cost > 0 ? String(localized: "\(name) · \(shortTokens(cost)) tokens a chat") : name, text.detail,
+            color: text.warn ? .textOrange : .secondaryLabelColor, buttons: [tidy], mark: .textOrange)
         row.toolTip = files.map { file in
             ([file.name] + (file.check.map { AddonGroups.findings($0, name: file.name) } ?? [])).joined(separator: "\n")
         }.joined(separator: "\n\n")
         return row
     }
 
-    /// Off Here: switches the keys off for the project; nil when there's nothing to switch.
-    private func offHere(_ keys: [String]) -> TextButton? {
-        guard !keys.isEmpty else { return nil }
-        let button = TextButton(String(localized: "Off Here")) { onOff(keys) }
-        button.toolTip = String(localized: "Off in this project: new chats here don’t get it")
+    private func button(_ title: String, _ tip: String, _ action: @escaping () -> Void) -> TextButton {
+        let button = TextButton(title) { action() }
+        button.toolTip = tip
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
         return button
     }
 
+    /// Off Here: switches the keys off for the project; nil when there's nothing to switch.
+    private func offHere(_ keys: [String]) -> [TextButton] {
+        guard !keys.isEmpty else { return [] }
+        let tip = String(localized: "Off in this project: new chats here don’t get it")
+        return [button(String(localized: "Off Here"), tip) { onOff(keys) }]
+    }
+
     private func twoLines(
-        _ title: String, _ detail: String, color: NSColor, button: TextButton?, mark: NSColor
+        _ title: String, _ detail: String, color: NSColor, buttons: [TextButton],
+        symbol: String = "exclamationmark.triangle", mark: NSColor, buttonsUnder: Bool = false
     ) -> AddonCell {
-        let warning = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Needs a look")))
+        let warning = NSImageView(image: .symbol(symbol, String(localized: "Needs a look")))
         warning.symbolConfiguration = .chrome(Metrics.iconSmall)
         warning.contentTintColor = mark
         let words = NSStackView(views: [
@@ -163,7 +189,17 @@ struct AddonRows {
         words.alignment = .leading
         words.spacing = Metrics.lineGap
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return line([warning, words, NSView()] + [button].compactMap { $0 }, inset: Metrics.inset)
+        guard buttonsUnder else { return line([warning, words, NSView()] + buttons, inset: Metrics.inset) }
+        // A third line of their own, where a narrow panel has room for the words and the buttons both.
+        let row = NSStackView(views: buttons)
+        row.spacing = Metrics.gap
+        words.addArrangedSubview(row)
+        words.setCustomSpacing(Metrics.gap, after: words.arrangedSubviews[1])
+        warning.setContentHuggingPriority(.required, for: .horizontal)
+        let cell = line([warning, words, NSView()], inset: Metrics.inset)
+        cell.alignment = .top
+        cell.edgeInsets.top = Metrics.gap
+        return cell
     }
 
     /// The agents that get it, as their icons; nil when the list doesn't say.

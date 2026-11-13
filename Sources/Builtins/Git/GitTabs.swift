@@ -5,7 +5,7 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// "diff:<workspace>" (every change), "diff:<workspace>?commit=<hash>" (a commit's) or
+/// "diff:<workspace>" (every change), "diff:<workspace>?source=tidy" (Tidy Up's), "diff:<workspace>?commit=<hash>" or
 /// "diff:<workspace>?file=<path>[&source=unstaged|staged][&commit=<hash>]" (one file, like VS Code's diff editor:
 /// "name (Working Tree)", "name (Index)", "name (abc1234)").
 @MainActor
@@ -18,7 +18,9 @@ final class DiffTab: TabContent {
     var title: String {
         guard let file else {
             return commit.map { String($0.prefix(7)) }
-                ?? (source == .turn ? String(localized: "Last Turn") : String(localized: "Changes"))
+                ?? (source == .turn
+                    ? String(localized: "Last Turn")
+                    : source == .tidy ? DiffSource.tidy.title : String(localized: "Changes"))
         }
         let what =
             commit.map { String($0.prefix(7)) }
@@ -48,6 +50,8 @@ final class DiffTab: TabContent {
             controller.showCommit(commit)
         } else if source == .turn {
             controller.showLastTurn()
+        } else if source == .tidy {
+            controller.showTidy()
         }
         controller.show(worktree: worktreeId)
         // Its workspace's git, pushed when its files change (a commit's diff doesn't change): read the diff again if it

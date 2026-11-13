@@ -49,8 +49,9 @@ enum AddonLine: Equatable {
     case problem(Addon)
     /// In Needs a Look: the servers that wait for a sign-in and are on, as one line.
     case unsigned([Addon])
-    /// In Needs a Look: the project's instruction files that need a look, as one line with Tidy Up.
-    case instructions([Addon])
+    /// In Needs a Look: the project's instruction files that need a look, as one line with Tidy Up; or what the last
+    /// Tidy Up did, to review or undo.
+    case instructions([Addon], Tidied?)
 }
 
 /// What the panel lists, in its order, without AppKit: what needs a look, the servers (the person's and the
@@ -60,8 +61,10 @@ enum AddonGroups {
     static let folded: [Addon.Source] = [.account, .plugin, .agent]
 
     /// `toggled`: the groups the person folded or unfolded, against `openAtFirst` (against open while filtering).
-    static func lines(_ items: [Addon], toggled: Set<AddonGroup>, view: AddonView = .init()) -> [AddonLine] {
-        let lister = Lister(items: shown(items, view), toggled: toggled, view: view)
+    static func lines(
+        _ items: [Addon], toggled: Set<AddonGroup>, view: AddonView = .init(), tidied: Tidied? = nil
+    ) -> [AddonLine] {
+        let lister = Lister(items: shown(items, view), toggled: toggled, view: view, tidied: tidied)
         return lister.needsLook() + lister.servers() + lister.skills() + lister.instructions()
     }
 
@@ -111,6 +114,7 @@ enum AddonGroups {
 /// The lines of one listing: the items the view lets through, the groups folded by hand, the view's order.
 private struct Lister {
     let items: [Addon], toggled: Set<AddonGroup>, view: AddonView
+    var tidied: Tidied?
     private var filtering: Bool { !view.filter.trimmingCharacters(in: .whitespaces).isEmpty }
 
     func needsLook() -> [AddonLine] {
@@ -119,7 +123,7 @@ private struct Lister {
         let tidy = AddonGroups.tidied(items).filter { $0.check?.needsLook == true }
         let lines =
             problems.map(AddonLine.problem) + (unsigned.isEmpty ? [] : [.unsigned(unsigned)])
-            + (tidy.isEmpty ? [] : [.instructions(tidy)])
+            + (tidy.isEmpty && tidied == nil ? [] : [.instructions(tidy, tidied)])
         return lines.isEmpty ? [] : [.section(.needsLook, count: lines.count)] + lines
     }
 

@@ -36,7 +36,7 @@ extension DiffViewController {
                 ?? GitDiff(id: id, source: single.source.wire, file: single.file)
         }
         switch sourcePicked {
-        case .uncommitted, .unstaged, .staged, .branch: return GitDiff(id: id, source: sourcePicked.wire)
+        case .uncommitted, .unstaged, .staged, .branch, .tidy: return GitDiff(id: id, source: sourcePicked.wire)
         case .commit: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
         case .turn:
             // The agent whose turns the picker lists, not whichever has the focus by now.

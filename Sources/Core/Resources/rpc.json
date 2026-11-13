@@ -151,6 +151,10 @@
               "$ref" : "#/components/schemas/Addon"
             },
             "type" : "array"
+          },
+          "tidied" : {
+            "$ref" : "#/components/schemas/Tidied",
+            "description" : "The workspace's Tidy Up waiting for review: kept or undone (`addons.tidyEnd`), or a day old, it's gone."
           }
         },
         "required" : [
@@ -4642,6 +4646,26 @@
         ],
         "type" : "object"
       },
+      "Tidied" : {
+        "description" : "A Tidy Up's result: what every chat read of the files before it and reads now, in tokens, and how many of the files differ from Kelp's copies.",
+        "properties" : {
+          "changed" : {
+            "type" : "integer"
+          },
+          "tokensBefore" : {
+            "type" : "integer"
+          },
+          "tokensNow" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "changed",
+          "tokensBefore",
+          "tokensNow"
+        ],
+        "type" : "object"
+      },
       "Tmux.Session" : {
         "properties" : {
           "activity" : {
@@ -5801,6 +5825,34 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Ends the workspace's Tidy Up: `undo` puts every file back from Kelp's copies (what was there is kept beside them), else the changes stay. Either way the result leaves the panel.",
+      "name" : "addons.tidyEnd",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "undo",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       },
       "x-internal" : true

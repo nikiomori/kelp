@@ -109,7 +109,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         spaceToggle.target = self
         spaceToggle.action = #selector(spaceChanged)
         source.addItems(withTitles: DiffSource.allCases.map(\.title))
-        source.lastItem?.toolTip = String(
+        source.item(at: DiffSource.tidy.rawValue)?.isHidden = true
+        source.item(at: DiffSource.turn.rawValue)?.toolTip = String(
             localized: "What changed since the agent's last prompt, even with other agents in the same folder")
         source.target = self
         source.action = #selector(sourceChanged)
@@ -301,6 +302,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         if view.window == nil { stale = true } else { reload() }
     }
     func showLastTurn() { sourcePicked = .turn }
+    /// Tidy Up's review: its item, hidden from the menu otherwise, shows while it's picked.
+    func showTidy() {
+        source.item(at: DiffSource.tidy.rawValue)?.isHidden = false
+        sourcePicked = .tidy
+    }
     @objc private func sourceChanged() {
         askCommit = sourcePicked == .commit
         loads.asking += 1
@@ -328,6 +334,9 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
 /// (`GitDiff.source`, a diff tab's `source=`).
 enum DiffSource: Int, CaseIterable {
     case uncommitted, unstaged, staged, branch, commit, turn
+    /// Tidy Up's copies of the instruction files against the files now (Skills & MCP › Review): only in a tab opened
+    /// for it, not in the menu.
+    case tidy
 
     var wire: String {
         switch self {
@@ -337,6 +346,7 @@ enum DiffSource: Int, CaseIterable {
         case .branch: "branch"
         case .commit: "commit"
         case .turn: "turn"
+        case .tidy: "tidy"
         }
     }
 
@@ -353,6 +363,7 @@ enum DiffSource: Int, CaseIterable {
         case .branch: String(localized: "Branch vs base")
         case .commit: String(localized: "Commit…")
         case .turn: String(localized: "Agent's Last Turn")
+        case .tidy: String(localized: "Before Tidy Up")
         }
     }
 

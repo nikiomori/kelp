@@ -206,11 +206,14 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
         check: InstructionCheck(lines: 400, bytes: 9_000, maxLines: 200))
     #expect(AddonGroups.tidied([memory, agents, global]).map(\.name) == ["MEMORY.md", "AGENTS.md"])
     let lines = AddonGroups.lines([agents, memory, global], toggled: [])
-    #expect(lines.prefix(2) == [.section(.needsLook, count: 1), .instructions([agents, memory])])
+    #expect(lines.prefix(2) == [.section(.needsLook, count: 1), .instructions([agents, memory], nil)])
     let text = AddonGroups.instructionsText([agents, memory])
-    #expect(text.title == "MEMORY.md, AGENTS.md")
-    #expect(text.detail == "Claude doesn’t read its last 15 lines · 2 more")
+    #expect(text.detail == "MEMORY.md: Claude doesn’t read its last 15 lines · 2 more")
     #expect(text.warn)
     #expect(AddonGroups.findings(agents.check!, name: "AGENTS.md") == ["Mentions a file that’s gone"])
     #expect(!AddonGroups.instructionsText([agents]).warn)
+    // After a Tidy Up the line stays for its review, even with nothing left to find.
+    let tidied = Tidied(tokensBefore: 15_300, tokensNow: 3_100, changed: 4)
+    let after = AddonGroups.lines([], toggled: [], tidied: tidied)
+    #expect(after == [.section(.needsLook, count: 1), .instructions([], tidied)])
 }

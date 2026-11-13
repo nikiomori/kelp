@@ -13,6 +13,11 @@ extension DiffViewController {
     func reviewItems(_ m: NSMenu) {
         while m.numberOfItems > 1 { m.removeItem(at: 1) }   // the first is the pull-down's title
         let agents = app.catalog.installed(app.catalog.all).filter { $0.id != "shell" && $0.id != "custom" }
+        // Tidy Up's files aren't the project's code: the agent that tidied them reports on them itself.
+        guard sourcePicked != .tidy else {
+            m.addItem(withTitle: String(localized: "Only for the Project’s Code"), action: nil, keyEquivalent: "")
+            return
+        }
         guard !agents.isEmpty else {
             m.addItem(withTitle: String(localized: "No Agent Installed"), action: nil, keyEquivalent: "")
             return
@@ -89,7 +94,7 @@ extension DiffViewController {
                 String(localized: "the agent's turn: the files changed since it began"),
                 "git diff " + ShellQuote.word(tree) + "; git status --short"
             )
-        case .uncommitted:
+        case .uncommitted, .tidy:   // Tidy Up's diff offers no reviewer (`reviewItems`)
             return (
                 String(localized: "the uncommitted changes, new files included"), "git diff HEAD; git status --short"
             )

@@ -5,7 +5,7 @@ import Foundation
 /// the paths it names that are gone, and for Claude Code's memory index, its lines against the memory files.
 public enum InstructionChecks {
     /// Claude Code reads the first 200 lines or 25 000 bytes of MEMORY.md, whichever comes first.
-    static let memoryLines = 200, memoryBytes = 25_000
+    public static let memoryLines = 200, memoryBytes = 25_000
     /// Codex stops adding AGENTS.md files once they reach 32 KiB together.
     static let codexBytes = 32_768
     /// What Anthropic advises for a CLAUDE.md: longer, and agents follow it less.

@@ -45,7 +45,17 @@ extension AddonsList: Handled {
             all[index].check = InstructionChecks.check(path, cwd: chat?.cwd ?? worktree.path)
             all[index].check?.before = TidyRuns.before(path, root: sessions.root)
         }
-        return Addons(items: all, chat: loaded != nil, gone: gone)
+        return Addons(items: all, chat: loaded != nil, gone: gone, tidied: tidied(sessions))
+    }
+
+    /// The workspace's Tidy Up waiting for review, with what it saved.
+    private func tidied(_ sessions: Sessions) -> Tidied? {
+        guard let (run, info) = TidyRuns.open(worktreeId, root: sessions.root) else { return nil }
+        let changed: Int
+        do { changed = try TidyRuns.diff(run, info, remotes: sessions.remotes).count } catch { return nil }
+        return Tidied(
+            tokensBefore: TidyRuns.tokens(info, base: run.path + "/before"), tokensNow: TidyRuns.tokens(info, base: ""),
+            changed: changed)
     }
 }
 
@@ -163,6 +173,6 @@ extension AddonsInstall: Handled {
 extension Methods {
     static let addonMethods: [any Answered.Type] = [
         AddonsList.self, AddonsSet.self, AddonsAdd.self, AddonsRemove.self, AddonsEntry.self, AddonsTrash.self,
-        AddonsLink.self, AddonsInstall.self, AddonsTidy.self
+        AddonsLink.self, AddonsInstall.self, AddonsTidy.self, AddonsTidyEnd.self
     ]
 }

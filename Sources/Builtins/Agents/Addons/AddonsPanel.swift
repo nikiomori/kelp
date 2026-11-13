@@ -97,10 +97,12 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     override func viewDidLoad() {
         super.viewDidLoad()
         track(owner: self) { [weak self] in
-            // A Tidy Up chat starting or ending turns its button into Show Chat and back.
+            // A Tidy Up chat starting, working and stopping turns its line into Show Chat, then its result.
             [
                 self?.app.workbench.workspaceId, self?.chat?.id,
-                self.flatMap { TidyUp.chat($0.app, $0.app.workbench.workspaceId ?? "")?.id }
+                self.flatMap { TidyUp.chat($0.app, $0.app.workbench.workspaceId ?? "") }.map {
+                    $0.id + $0.status.rawValue
+                }
             ]
         } changed: { [weak self] _ in
             self?.reload()
@@ -180,7 +182,9 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private func relist() {
         let selected = lines.indices.contains(table.selectedRow) ? lines[table.selectedRow] : nil
         let filtering = !display.filter.isEmpty
-        lines = AddonGroups.lines(addons?.items ?? [], toggled: filtering ? toggledFiltering : toggled, view: display)
+        lines = AddonGroups.lines(
+            addons?.items ?? [], toggled: filtering ? toggledFiltering : toggled, view: display,
+            tidied: addons?.tidied)
         table.reloadData()
         if let selected, let row = lines.firstIndex(of: selected) {
             table.selectRowIndexes([row], byExtendingSelection: false)
@@ -255,6 +259,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch lines[row] {
         case .section: TextSize.of(Metrics.rowSection)
+        case .instructions(_, .some) where TidyUp.working(app, app.workbench.workspaceId ?? "") == nil:
+            TextSize.of(Metrics.rowTwoLine) + TextSize.of(Metrics.row)   // its buttons on a line of their own
         case .problem, .unsigned, .instructions: TextSize.of(Metrics.rowTwoLine)
         case .group, .item: TextSize.of(Metrics.row)
         }
@@ -265,7 +271,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         rows.onOff = { [weak self] keys in self?.flip(keys, on: false) }
         let items = addons?.items ?? []
         let workspace = app.workbench.workspaceId ?? ""
-        rows.onTidy = { [app] in TidyUp(app: app, worktreeId: workspace, items: items).run() }
+        let tidy = TidyUp(app: app, worktreeId: workspace, items: items)
+        rows.onTidy = { tidy.run() }
+        rows.onReview = { tidy.review() }
+        rows.onUndo = { [weak self] in Task { await tidy.undo { self?.reload() } } }
         return switch lines[row] {
         case .section(let section, let count): rows.section(section, count: count)
         case .group(let g, let count, let tokens, let open):
@@ -274,7 +283,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         case .item(let addon, let depth): rows.item(addon, depth: depth, width: tableView.bounds.width)
         case .problem(let addon): rows.problem(addon)
         case .unsigned(let servers): rows.unsigned(servers)
-        case .instructions(let files): rows.instructions(files, tidying: TidyUp.chat(app, workspace) != nil)
+        case .instructions(let files, let tidied):
+            rows.instructions(files, tidied: tidied, working: TidyUp.working(app, workspace) != nil)
         }
     }
 }

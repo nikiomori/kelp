@@ -132,10 +132,24 @@ public struct Addons: Codable, Sendable, Equatable {
     /// What the chat started with that isn't there any more (a skill deleted, a server taken out of the settings): it
     /// keeps them until it restarts.
     public var gone: [String]?
-    public init(items: [Addon], chat: Bool, gone: [String]? = nil) {
+    /// The workspace's Tidy Up waiting for review: kept or undone (`addons.tidyEnd`), or a day old, it's gone.
+    public var tidied: Tidied?
+    public init(items: [Addon], chat: Bool, gone: [String]? = nil, tidied: Tidied? = nil) {
         self.items = items
         self.chat = chat
         self.gone = gone
+        self.tidied = tidied
+    }
+}
+
+/// A Tidy Up's result: what every chat read of the files before it and reads now, in tokens, and how many of the
+/// files differ from Kelp's copies.
+public struct Tidied: Codable, Sendable, Equatable {
+    public var tokensBefore: Int, tokensNow: Int, changed: Int
+    public init(tokensBefore: Int, tokensNow: Int, changed: Int) {
+        self.tokensBefore = tokensBefore
+        self.tokensNow = tokensNow
+        self.changed = changed
     }
 }
 
@@ -283,6 +297,18 @@ public struct AddonsTidy: InternalMethod {
     public init(worktreeId: String, paths: [String]) {
         self.worktreeId = worktreeId
         self.paths = paths
+    }
+}
+
+/// Ends the workspace's Tidy Up: `undo` puts every file back from Kelp's copies (what was there is kept beside them),
+/// else the changes stay. Either way the result leaves the panel.
+public struct AddonsTidyEnd: InternalMethod {
+    public static let name = "addons.tidyEnd"
+    public typealias Result = Done
+    public var worktreeId: String, undo: Bool
+    public init(worktreeId: String, undo: Bool) {
+        self.worktreeId = worktreeId
+        self.undo = undo
     }
 }
 

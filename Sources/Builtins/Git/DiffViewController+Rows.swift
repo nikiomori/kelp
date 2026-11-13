@@ -70,7 +70,7 @@ extension DiffViewController {
         guard single == nil, let wid = worktreeId else { return nil }
         switch sourcePicked {
         case .commit: return DiffTab.uri(wid, file: path, commit: commitHash ?? "HEAD")
-        case .turn: return nil
+        case .turn, .tidy: return nil
         default: return DiffTab.uri(wid, file: path, source: sourcePicked)
         }
     }

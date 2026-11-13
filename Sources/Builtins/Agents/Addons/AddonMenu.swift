@@ -24,10 +24,15 @@ struct AddonMenu {
         case .group(let g, _, _, _):
             if let plugin = g.plugin { self.plugin(menu, plugin, key: g.key, off: AddonGroups.isOff(g, items)) }
         case .unsigned(let servers): offAll(menu, servers)
-        case .instructions:
-            menu.add(
-                String(localized: "Tidy Up with"),
-                submenu: TidyUp(app: app, worktreeId: worktreeId, items: items).agents())
+        case .instructions(_, let tidied):
+            let tidy = TidyUp(app: app, worktreeId: worktreeId, items: items)
+            if tidied == nil {
+                menu.add(String(localized: "Tidy Up with"), submenu: tidy.agents())
+            } else {
+                menu.add(String(localized: "Review Changes")) { tidy.review() }
+                menu.add(String(localized: "Keep Changes")) { Task { await tidy.keep(done) } }
+                menu.add(String(localized: "Undo…")) { Task { await tidy.undo(done) } }
+            }
         case .section: break
         }
         if menu.items.last?.isSeparatorItem == true { menu.removeItem(at: menu.numberOfItems - 1) }
@@ -37,10 +42,6 @@ struct AddonMenu {
         switch addon.kind {
         case .instructions:
             locate(menu, addon.path, open: String(localized: "Open"), folder: false)
-            if addon.check?.before != nil {
-                separate(menu)
-                menu.add(String(localized: "Compare with Before Tidy Up")) { TidyUp.compare(app, addon) }
-            }
         case .server: server(menu, addon)
         case .skill where addon.source == .plugin:
             if let path = addon.path { menu.add(String(localized: "Open SKILL.md")) { open(path) } }
