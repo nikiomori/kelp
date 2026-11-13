@@ -187,6 +187,24 @@ func keyFingerprint(_ lines: [String]) -> RemoteHostKey.Key? {
     return .init(fingerprint: String(words[1]), kind: kind)
 }
 
+extension HostCommands: Handled {
+    func handle(_ workspaces: Workspaces) throws -> [String] {
+        guard let worktree = try workspaces.store.worktree(worktreeId),
+            let remote = workspaces.remotes.of(worktree.path)
+        else { throw RPCError.invalidParams("Not a remote project's workspace.") }
+        let names = Set(commands.map { ($0 as NSString).lastPathComponent }.filter { !$0.isEmpty })
+        guard !names.isEmpty else { return [] }
+        // In its login shell, as an agent's command line is there (`RemoteHost.command`): nvm's PATH is in .bashrc.
+        let look =
+            "for c in " + names.sorted().map(ShellQuote.word).joined(separator: " ")
+            + #"; do command -v "$c" >/dev/null 2>&1 && echo "found:$c"; done; exit 0"#
+        let out = try remote.run(#"exec "$SHELL" -ilc "# + ShellQuote.word(look), timeLimit: 20)
+        return String(decoding: out, as: UTF8.self).split(whereSeparator: \.isNewline).compactMap {
+            $0.hasPrefix("found:") ? String($0.dropFirst(6)) : nil
+        }.filter(names.contains)
+    }
+}
+
 extension RemoteHostKey: Handled {
     func handle(_ remotes: Remotes) throws -> Result { scanKeys(remotes, host).flatMap { keyFingerprint($0.lines) } }
 }
@@ -209,6 +227,6 @@ extension RemoteTrustHost: Handled {
 extension Methods {
     static let remoteMethods: [any Answered.Type] = [
         RemoteListFolders.self, RepoAddRemote.self, FilesReadRemote.self, FilesWriteRemote.self, RemoteHostKey.self,
-        RemoteTrustHost.self
+        RemoteTrustHost.self, HostCommands.self
     ]
 }

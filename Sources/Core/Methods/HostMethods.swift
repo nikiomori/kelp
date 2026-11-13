@@ -176,6 +176,18 @@ public struct HostStats: Codable, Sendable, Equatable {
     }
 }
 
+/// Which of `commands` a remote workspace's host has, as its login shell finds them (where its agents start): what
+/// its agent menus offer. Asked over ssh, which connects if it must (someone opened the menu).
+public struct HostCommands: InternalMethod {
+    public static let name = "host.commands"
+    public typealias Result = [String]
+    public var worktreeId: String, commands: [String]
+    public init(worktreeId: String, commands: [String]) {
+        self.worktreeId = worktreeId
+        self.commands = commands
+    }
+}
+
 /// The key a host Kelp hasn't connected to before presents (ssh refused it: "Host key verification failed"), as ssh
 /// shows one: "SHA256:…" and its kind (ED25519). Asked of the host where ~/.ssh/config sends `host`; nil when it can't
 /// be (a jump host in between, no answer).

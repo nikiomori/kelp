@@ -9374,6 +9374,40 @@
       }
     },
     {
+      "description" : "Which of `commands` a remote workspace's host has, as its login shell finds them (where its agents start): what its agent menus offer. Asked over ssh, which connects if it must (someone opened the menu).",
+      "name" : "host.commands",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "commands",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "Closes the host's shared connection (`ssh -O exit`): agents in tmux there go on.",
       "name" : "host.disconnect",
       "paramStructure" : "by-name",

@@ -40,7 +40,8 @@ package enum NewTabChoices {
         let rank = { (agent: AgentManifest) in
             (agent.id == def ? 0 : 1, started.contains(agent.id) ? 0 : 1, agent.name.lowercased())
         }
-        return app.catalog.installed(app.catalog.all).sorted { rank($0) < rank($1) }
+        let here = app.workbench.workspaceId.flatMap(app.worktree)
+        return app.catalog.startable(in: here).sorted { rank($0) < rank($1) }
     }
 
     /// A terminal, a tmux session when there is tmux, and what extensions open, in the registry's order.

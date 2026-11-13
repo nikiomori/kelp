@@ -275,3 +275,16 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(ran.stdout == (Paths.real(NSHomeDirectory()) ?? NSHomeDirectory()) + "\nbox \(real)/src\n")
     #expect(!ran.stdout.contains(repo.path))
 }
+
+/// A remote workspace's agent menus offer what its host has, as its login shell finds the commands.
+@Test func aHostSaysWhichAgentsItHas() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (_, workspace, _) = try await remoteProject(c)
+    let found = try await c.call(
+        HostCommands(
+            worktreeId: workspace.id, commands: ["sh", "/usr/bin/true", "no-such-agent-\(UUID().uuidString.prefix(6))"])
+    )
+    #expect(Set(found) == ["sh", "true"])
+}

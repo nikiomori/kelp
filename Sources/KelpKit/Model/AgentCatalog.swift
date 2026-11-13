@@ -14,6 +14,17 @@ package struct AgentCatalog {
         return all.filter { ok.contains($0.id) }
     }
 
+    /// The agents a new tab in workspace `w` can start: on a remote project's host, those the host has (once it said;
+    /// asked as this is), else this Mac's. A terminal is always one.
+    func startable(in w: Worktree?) -> [AgentManifest] {
+        guard let w, let host = RemoteHost.of(w.path)?.host else { return installed(all) }
+        app.availability.refreshHost(host, workspace: w.id, commands: all.map(\.command))
+        guard let there = app.availability.onHost[host] else { return installed(all) }
+        return all.filter {
+            ["shell", "custom"].contains($0.id) || there.contains(($0.command as NSString).lastPathComponent)
+        }
+    }
+
     /// Built-in and user agent manifests plus agents contributed by extensions.
     package var all: [AgentManifest] {
         let base = app.agents
@@ -121,6 +132,21 @@ package final class AgentAvailability {
     @ObservationIgnored let app: AppModel
     init(app: AppModel) { self.app = app }
     private(set) package var ids = Set(UserDefaults.standard.stringArray(forKey: "agents.available") ?? [])
+    /// By remote host: the agents' commands it has (`HostCommands`), asked again five minutes on.
+    private(set) var onHost: [String: Set<String>] = [:]
+    @ObservationIgnored private var hostAsked: [String: Date] = [:]
+
+    func refreshHost(_ host: String, workspace: String, commands: [String]) {
+        guard Date().timeIntervalSince(hostAsked[host] ?? .distantPast) > 300 else { return }
+        hostAsked[host] = Date()
+        Task {
+            guard let found = await app.quiet(HostCommands(worktreeId: workspace, commands: commands)) else {
+                hostAsked[host] = nil   // not reached: asked again next time
+                return
+            }
+            onHost[host] = Set(found)
+        }
+    }
     @ObservationIgnored private var checkedAt = Date.distantPast
     @ObservationIgnored private var checking = false
     /// A forced check asked for while one runs: it runs once that one is done (an installer's end isn't dropped).
