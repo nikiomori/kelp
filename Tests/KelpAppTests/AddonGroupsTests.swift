@@ -52,6 +52,32 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     #expect(AddonGroups.lines([], toggled: []).isEmpty)
 }
 
+/// In a chat, what only other agents get leaves the chat's sections for Other Agents, a folded group for each; its
+/// trouble still needs a look. Its rows know the group they sit under.
+@Test func otherAgentsGetTheirOwnFoldedSection() {
+    var repl = server("node_repl", .yours, problem: "Doesn’t start")
+    repl.agents = ["codex"]
+    var shared = skill("tabbit", .yours)
+    shared.agents = ["claude", "codex"]
+    var gemini = skill("draw", .yours)
+    gemini.agents = ["gemini", "codex"]
+    let items = [repl, shared, gemini]
+    let codex = AddonGroup(kind: .skill, source: nil, agent: "codex")
+    let lines = AddonGroups.lines(items, toggled: [codex], agent: "claude")
+    #expect(
+        lines == [
+            .section(.needsLook, count: 1), .problem(repl),
+            .section(.skills, count: 1), .group(.init(kind: .skill, source: .yours), count: 1, tokens: nil, open: true),
+            .item(shared, depth: 1),
+            .section(.others, count: 2), .group(codex, count: 1, tokens: nil, open: true), .item(repl, depth: 1),
+            .group(.init(kind: .skill, source: nil, agent: "gemini"), count: 1, tokens: nil, open: false)
+        ])
+    #expect(AddonGroups.parent(of: 7, in: lines) == codex && AddonGroups.parent(of: 4, in: lines)?.source == .yours)
+    #expect(AddonGroups.parent(of: 1, in: lines) == nil)
+    // Without a chat every agent's things stay where they are.
+    #expect(!AddonGroups.lines(items, toggled: []).contains(.section(.others, count: 2)))
+}
+
 /// The plugins are one Plugins group; in it a line per plugin (heaviest first) with its switch, unfolding to its
 /// skills. One that's off (nothing of it loaded) is a line with nothing to unfold.
 @Test func addonPluginsAreOneGroupOfPluginLines() {
@@ -161,9 +187,12 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     let tip = Addon(
         kind: .skill, name: "x", source: .yours, about: "Does x", origin: "~/.agents/skills",
         copies: ["~/.claude/skills"])
-    #expect(AddonGroups.tip(tip) == "Does x\n~/.agents/skills\nAlso in ~/.claude/skills")
+    #expect(
+        AddonGroups.tip(tip) == "Does x\nOn this Mac, outside the project\n~/.agents/skills\nAlso in ~/.claude/skills")
     let fixed = Addon(kind: .skill, name: "x", source: .yours, fixed: ["cursor"])
-    #expect(AddonGroups.tip(fixed) { $0.capitalized } == "Always on in Cursor: no switch for one chat there")
+    #expect(
+        AddonGroups.tip(fixed) { $0.capitalized }
+            == "On this Mac, outside the project\nAlways on in Cursor: no switch for one chat there")
     var waiting = pluginSkill("sales", "x")
     #expect(!AddonGroups.waits(waiting))
     waiting.off = true

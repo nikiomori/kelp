@@ -432,6 +432,9 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Databases/DatabaseTab+Table.swift": (
             1, "a read says Reading… only past half a second: a quick one doesn't flicker"
         ),
+        "Builtins/Agents/Addons/AddonsPanel+Loading.swift": (
+            3, "a read shows past 150 ms and stays 400 ms, so a quick one doesn't flicker; a changed row's light fades"
+        ),
         "Builtins/Databases/DatabaseTab+Opening.swift": (
             1, "Connecting to … shows past half a second: a quick open doesn't flicker"
         ),

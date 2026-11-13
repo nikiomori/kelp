@@ -7,18 +7,22 @@ import WorkbenchKit
 
 /// Skills & MCP: what the chat looked at last in the workspace on screen gets besides the prompt (its skills, MCP
 /// servers and instruction files, as it reported them at its start), or what a new chat there would get when it has no
-/// record. Read when the panel shows, and again when the workspace or the chat changes. A switch is the project's:
-/// chats started from then on follow it, and the one on screen can be restarted to. A row opens its file.
+/// record. Read when the panel shows, and again when the workspace or the chat changes (`+Loading` shows the read). In
+/// a chat's own list what only other agents get sits apart. A switch is the project's: chats started from then on
+/// follow it, and the one on screen can be restarted to. A row opens its file.
 @MainActor
 final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate,
     NSSearchFieldDelegate
 {
     let app: AppModel
     let table = AddonTable()
-    private let empty = EmptyStateView()
-    private let face = NSImageView()
+    let empty = EmptyStateView()
+    let loadingView = LoadingView()
+    let face = AddonFace()
     private let chatTitle = NSTextField(labelWithString: "")
-    private let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
+    let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
+    let failureBar = NSStackView()
+    let failureLine = NSTextField(labelWithString: "")
     private let filter = NSSearchField()
     private lazy var filterBar = NSStackView(views: [filter])
     lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
@@ -26,13 +30,21 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
     lazy var add = IconButton(.symbol("plus"), tip: String(localized: "Add")) { [weak self] in self?.showAdd() }
     private(set) var addons: Addons?
-    private var lines: [AddonLine] = []
+    private(set) var lines: [AddonLine] = []
     /// The groups folded or unfolded by hand: view state, not kept. While filtering, a set of its own that starts empty
     /// with each new text (every group with a match open).
     private var toggled: Set<AddonGroup> = []
     private var toggledFiltering: Set<AddonGroup> = []
     private var shown = false
     private var loading: Task<Void, Never>?
+    var busy: Task<Void, Never>?
+    var busySince: Date?
+    /// The workspace and chat the list on screen was read for.
+    private var shownKey: String?
+    /// The agent whose chat's own list is on screen: what only others get sits apart.
+    private var listAgent: String?
+    /// Switches flipped and not answered yet, at the state asked for.
+    private var pending: [String: Bool] = [:]
     private let foot = NSStackView()
     private var laidOut: CGFloat = 0
     private let footNote = NSTextField(labelWithString: "")
@@ -71,13 +83,14 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         filterBar.isHidden = true
         weight.sizingOptions = [.intrinsicContentSize]
         weight.isHidden = true
-        let column = NSStackView(views: [header, filterBar, weight, scroll, makeFoot()])
+        let column = NSStackView(views: [header, makeFailureBar(), filterBar, weight, scroll, makeFoot()])
         column.orientation = .vertical
         column.spacing = 0
         for part in column.arrangedSubviews { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         let root = NSView()
         root.pin(column)
         empty.place(in: root, under: header)
+        loadingView.place(in: root, under: header)
         view = root
     }
 
@@ -124,6 +137,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         super.viewDidDisappear()
         shown = false
         loading?.cancel()
+        endBusy()
     }
 
     /// The agent chat looked at last in the workspace on screen (the focused tab when it's one), else its newest.
@@ -140,16 +154,42 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     func reload() {
         guard shown else { return }
         loading?.cancel()
-        guard let workspace = app.workbench.workspaceId else { return show(nil, error: nil, chat: nil) }
+        guard let workspace = app.workbench.workspaceId else { return show(nil, error: nil, chat: nil, key: nil) }
         let chat = chat
+        let key = workspace + "/" + (chat?.id ?? "")
+        // The bar names the chat at once: only the list waits for the daemon.
+        if key != shownKey { name(chat, newChat: true) }
+        beginBusy(stale: key != shownKey)
         loading = Task { [weak self, app] in
             let answer = await app.tryCall(AddonsList(worktreeId: workspace, session: chat?.id))
             guard !Task.isCancelled else { return }
-            self?.show(answer.value, error: answer.error, chat: chat)
+            await self?.settle()
+            guard !Task.isCancelled else { return }
+            self?.show(answer.value, error: answer.error, chat: chat, key: key)
         }
     }
 
-    private func show(_ value: Addons?, error: String?, chat: Session?) {
+    /// The bar: the chat's agent and name; else, when `newChat`, what a new chat gets.
+    private func name(_ chat: Session?, newChat: Bool) {
+        face.image = chat.flatMap { app.catalog.icon($0.agent, size: Metrics.appIcon) }
+        chatTitle.stringValue =
+            chat.map(app.catalog.displayName) ?? (newChat ? String(localized: "What a new chat gets") : "")
+    }
+
+    /// The answer for `key`. A failed read again of the same list keeps it, under a line that says so; another chat's
+    /// crossfades in; the same one's lights what changed.
+    private func show(_ value: Addons?, error: String?, chat: Session?, key: String?) {
+        endBusy()
+        pending = [:]
+        let same = key == shownKey && addons != nil
+        if let error, same {
+            failure(error)
+            return relist()
+        }
+        failure(nil)
+        if !same, addons != nil { table.enclosingScrollView?.crossfade(Motion.appear) }
+        let before = same ? lines : nil
+        shownKey = key
         addons = value
         if let error {
             empty.showError(String(localized: "Couldn’t read the skills and servers"), text: error)
@@ -162,13 +202,12 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         weight.isHidden = items.isEmpty || error != nil
         filterBar.isHidden = weight.isHidden
         weight.rootView = AddonWeight(
-            headline: AddonGroups.headline(items, chat: known), shares: known ? AddonGroups.weight(items) : [])
+            headline: AddonGroups.headline(items, chat: known), shares: known ? AddonGroups.weight(items) : [],
+            when: known ? chat.map { AddonGroups.loaded($0.createdAt) } : nil)
         // The chat when the list is its own record (or nothing came back), else what a new one would get.
         let named = value.map { $0.chat ? chat : nil } ?? chat
-        face.image = named.flatMap { app.catalog.icon($0.agent, size: Metrics.appIcon) }
-        face.isHidden = face.image == nil
-        chatTitle.stringValue =
-            named.map(app.catalog.displayName) ?? (value == nil ? "" : String(localized: "What a new chat gets"))
+        name(named, newChat: value != nil)
+        listAgent = known ? chat?.agent : nil
         // Something waits for a restart, and there's a chat to restart.
         shownChat = known ? chat : nil
         let gone = value?.gone ?? []
@@ -177,6 +216,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         footNote.stringValue = AddonGroups.footNote(gone: gone)
         footNote.toolTip = gone.isEmpty ? nil : gone.joined(separator: "\n")
         relist()
+        if let before { glow(changedFrom: before) }
     }
 
     /// The lines again, the selected one kept selected while it's still there.
@@ -185,7 +225,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         let filtering = !display.filter.isEmpty
         lines = AddonGroups.lines(
             addons?.items ?? [], toggled: filtering ? toggledFiltering : toggled, view: display,
-            tidied: addons?.tidied)
+            tidied: addons?.tidied, agent: listAgent)
         table.reloadData()
         if let selected, let row = lines.firstIndex(of: selected) {
             table.selectRowIndexes([row], byExtendingSelection: false)
@@ -202,6 +242,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     /// The project's switches, one after another, then the list again: the daemon says what they are now.
     func flip(_ keys: [String], on: Bool) {
         guard let workspace = app.workbench.workspaceId else { return }
+        for key in keys { pending[key] = on }
+        relist()
         AddonMenu(app: app, worktreeId: workspace, items: [], chat: nil) { [weak self] in self?.reload() }
             .set(keys, on: on)
     }
@@ -268,6 +310,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         var rows = AddonRows(app: app) { [weak self] key, on in self?.flip([key], on: on) }
+        rows.agent = listAgent
+        rows.pending = pending
         rows.onOpen = { [weak self] path in self?.open(path) }
         rows.onOff = { [weak self] keys in self?.flip(keys, on: false) }
         let items = addons?.items ?? []
@@ -282,7 +326,9 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         case .group(let g, let count, let tokens, let open):
             rows.group(
                 g, count: count, tokens: tokens, open: open, off: g.key == nil ? nil : AddonGroups.isOff(g, items))
-        case .item(let addon, let depth): rows.item(addon, depth: depth, width: tableView.bounds.width)
+        case .item(let addon, let depth):
+            rows.item(
+                addon, depth: depth, width: tableView.bounds.width, parent: AddonGroups.parent(of: row, in: lines))
         case .problem(let addon): rows.problem(addon)
         case .unsigned(let servers): rows.unsigned(servers)
         case .instructions(let files, let tidied):

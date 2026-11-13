@@ -2,19 +2,22 @@ import Core
 import Foundation
 
 /// A folded group of the Skills & MCP panel: one kind's items from one source, the servers that wait for a sign-in,
-/// all the plugins, or one plugin's skills.
+/// all the plugins, one plugin's skills, or what only another agent gets.
 struct AddonGroup: Hashable {
     var kind: Addon.Kind
     /// nil: the servers waiting for a sign-in, whatever brought them.
     var source: Addon.Source?
     /// One plugin's skills: a plugin goes on and off whole, so its line has the switch. It sits in the Plugins group.
     var plugin: String?
+    /// What only this other agent gets (its id): it never reaches the chat on screen. Its line names it by its catalog.
+    var agent: String?
 
     /// What `addons.set` takes for the whole group; nil when its items switch one by one.
     var key: String? { plugin.map { "plugin:\($0)" } }
 
     var title: String {
         if let plugin { return plugin }
+        if let agent { return agent }
         guard let source else { return String(localized: "Not signed in") }
         return switch source {
         case .kelp: String(localized: "Kelp")
@@ -39,7 +42,7 @@ struct AddonView: Equatable {
 
 /// One line of the panel's list.
 enum AddonLine: Equatable {
-    enum Section: Equatable { case needsLook, servers, skills, instructions }
+    enum Section: Equatable { case needsLook, servers, skills, instructions, others }
     case section(Section, count: Int)
     /// `tokens`: what its items weigh together; nil when none of theirs is known.
     case group(AddonGroup, count: Int, tokens: Int?, open: Bool)
@@ -55,17 +58,37 @@ enum AddonLine: Equatable {
 }
 
 /// What the panel lists, in its order, without AppKit: what needs a look, the servers (the person's and the
-/// project's one by one, the rest folded), the skills by who brought them, the instruction files.
+/// project's one by one, the rest folded), the skills by who brought them, the instruction files, and folded at the end
+/// what only other agents get.
 enum AddonGroups {
     static let skillSources: [Addon.Source] = [.project, .yours, .kelp, .plugin, .account, .agent]
     static let folded: [Addon.Source] = [.account, .plugin, .agent]
 
     /// `toggled`: the groups the person folded or unfolded, against `openAtFirst` (against open while filtering).
+    /// `agent`: the chat's on screen; what it never gets leaves the other sections for Other Agents.
     static func lines(
-        _ items: [Addon], toggled: Set<AddonGroup>, view: AddonView = .init(), tidied: Tidied? = nil
+        _ items: [Addon], toggled: Set<AddonGroup>, view: AddonView = .init(), tidied: Tidied? = nil,
+        agent: String? = nil
     ) -> [AddonLine] {
-        let lister = Lister(items: shown(items, view), toggled: toggled, view: view, tidied: tidied)
-        return lister.needsLook() + lister.servers() + lister.skills() + lister.instructions()
+        let all = shown(items, view)
+        let lister = Lister(
+            items: agent.map { a in all.filter { !elsewhere($0, a) } } ?? all, all: all, agent: agent,
+            toggled: toggled, view: view, tidied: tidied)
+        return lister.needsLook() + lister.servers() + lister.skills() + lister.instructions() + lister.others()
+    }
+
+    /// Only other agents get it: `agent`'s chats never do.
+    static func elsewhere(_ addon: Addon, _ agent: String) -> Bool {
+        !addon.agents.isEmpty && !addon.agents.contains(agent)
+    }
+
+    /// The group line a row sits under; nil for a row on its own.
+    static func parent(of row: Int, in lines: [AddonLine]) -> AddonGroup? {
+        guard lines.indices.contains(row), case .item(_, let depth) = lines[row], depth > 0 else { return nil }
+        for line in lines[..<row].reversed() {
+            if case .group(let g, _, _, _) = line, depth == 1 || g.plugin != nil { return g }
+        }
+        return nil
     }
 
     /// What the view lets through: what's off only when it shows, and only names the filter matches.
@@ -113,12 +136,15 @@ enum AddonGroups {
 
 /// The lines of one listing: the items the view lets through, the groups folded by hand, the view's order.
 private struct Lister {
-    let items: [Addon], toggled: Set<AddonGroup>, view: AddonView
+    /// `items`: what the chat's agent gets; `all`: with what only other agents get.
+    let items: [Addon], all: [Addon], agent: String?, toggled: Set<AddonGroup>, view: AddonView
     var tidied: Tidied?
     private var filtering: Bool { !view.filter.trimmingCharacters(in: .whitespaces).isEmpty }
 
     func needsLook() -> [AddonLine] {
-        // What's off for the project is dealt with: it stays in its own section, grey, and leaves this one.
+        // What's off for the project is dealt with: it stays in its own section, grey, and leaves this one. Another
+        // agent's trouble is still the project's: it shows here too.
+        let items = all
         let problems = items.filter { $0.problem != nil && !$0.off }, unsigned = AddonGroups.unsigned(items)
         let tidy = AddonGroups.tidied(items).filter { $0.check?.needsLook == true }
         let lines =
@@ -155,6 +181,19 @@ private struct Lister {
         let files = items.filter { $0.kind == .instructions }
         guard !files.isEmpty else { return [] }
         return [.section(.instructions, count: files.count)] + sorted(files).map { .item($0, depth: 0) }
+    }
+
+    /// What only other agents get, a folded group for each (by the first that gets it).
+    func others() -> [AddonLine] {
+        guard let agent else { return [] }
+        let list = all.filter { AddonGroups.elsewhere($0, agent) }
+        guard !list.isEmpty else { return [] }
+        var seen = Set<String>()
+        let agents = list.compactMap(\.agents.first).filter { seen.insert($0).inserted }
+        return [.section(.others, count: list.count)]
+            + agents.flatMap { id in
+                group(.init(kind: .skill, source: nil, agent: id), list.filter { $0.agents.first == id })
+            }
     }
 
     /// One Plugins group; in it a line per plugin with its switch, each unfolding to its skills. One that's off

@@ -26,6 +26,30 @@ enum AddonPart: CaseIterable, Equatable {
     }
 }
 
+/// Where a row comes from, as the mark on its right and a line of its tip.
+extension Addon.Source {
+    var symbol: String {
+        switch self {
+        case .project: "folder"
+        case .yours: "laptopcomputer"
+        case .account: "cloud"
+        case .plugin: "puzzlepiece.extension"
+        case .agent: "cube"
+        case .kelp: "leaf"
+        }
+    }
+    var words: String {
+        switch self {
+        case .project: String(localized: "In this project")
+        case .yours: String(localized: "On this Mac, outside the project")
+        case .account: String(localized: "From the agent’s account")
+        case .plugin: String(localized: "From a plugin")
+        case .agent: String(localized: "Built into the agent")
+        case .kelp: String(localized: "Kelp’s own")
+        }
+    }
+}
+
 /// The panel's words and numbers, without AppKit.
 extension AddonGroups {
     struct Share: Equatable {
@@ -81,7 +105,8 @@ extension AddonGroups {
 
     /// A row's tooltip: what it says about itself, where it is, its other copies.
     static func tip(_ addon: Addon, names: (String) -> String = { $0 }) -> String {
-        var lines = [addon.about, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }
+        var lines =
+            [addon.about, addon.source.words, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }
         if let check = addon.check {
             lines += findings(check, name: addon.name)
             lines.append(size(check) ?? String(localized: "\(check.lines) lines"))
@@ -108,6 +133,14 @@ extension AddonGroups {
             count += 1
         }
         return count
+    }
+
+    /// When a chat read what it holds, beside the weight: "loaded 14:20" today, "loaded Nov 6" before.
+    static func loaded(_ date: Date, now: Date = .now) -> String {
+        let when =
+            Calendar.current.isDate(date, inSameDayAs: now)
+            ? date.formatted(date: .omitted, time: .shortened) : date.formatted(.dateTime.month(.abbreviated).day())
+        return String(localized: "loaded \(when)")
     }
 
     /// Under the list while the chat is behind: what it still holds though it's gone, or that changes wait.

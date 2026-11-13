@@ -3,11 +3,16 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Skills & MCP panel's rows, drawn: a section's title with its count, a group's line (chevron, name, count and
-/// weight), an item (its kind's symbol, name, the agents that get it, what it costs), and what's wrong with one.
+/// The Skills & MCP panel's rows, drawn: a section's title with its count, a group's line (chevron, name, where it's
+/// from, count and weight), an item (its kind's symbol, name, the agents that get it when that says something, where
+/// it's from, what it costs), and what's wrong with one.
 @MainActor
 struct AddonRows {
     let app: AppModel
+    /// The agent of the chat on screen: a row only it gets needs no logo.
+    var agent: String?
+    /// Switches flipped and not answered yet: the state asked for, shown held until the list comes back.
+    var pending: [String: Bool] = [:]
     /// A switch was flipped: the key it stands for (`Addon.key`), and whether it's on now.
     var onSwitch: (String, Bool) -> Void = { _, _ in }
     /// A row's file to open: its button under the pointer.
@@ -28,9 +33,12 @@ struct AddonRows {
             case .servers: String(localized: "MCP Servers")
             case .skills: String(localized: "Skills")
             case .instructions: String(localized: "Instructions")
+            case .others: String(localized: "Other Agents")
             }
         let title = NSTextField.label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-        return line([title, digits(count.formatted()), NSView()], inset: Metrics.inset)
+        var views: [NSView] = [title, digits(count.formatted()), NSView()]
+        if section == .others { views.append(digits(String(localized: "not in this chat"))) }
+        return line(views, inset: Metrics.inset)
     }
 
     /// `off`: the group's own switch (a plugin's), nil for a group whose items switch one by one. A plugin's line sits
@@ -42,19 +50,24 @@ struct AddonRows {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .tertiaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
+        let title = g.agent.map { app.catalog.name($0) } ?? g.title
         let name = NSTextField.label(
-            g.title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
-        var views: [NSView] = [chevron, name, NSView()]
+            title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
+        var views: [NSView] = [chevron]
+        if let agent = g.agent { views += faces([agent]).map { [$0] } ?? [] }
+        views += [name, NSView()]
+        if let source = g.source, g.plugin == nil { views.append(scope(source)) }
         if count > 0 { views.append(digits(AddonGroups.countAndTokens(count, tokens))) }
-        if let off, let key = g.key { views.append(toggle(key, on: !off, name: g.title)) }
+        if let off, let key = g.key { views.append(toggle(key, on: !off, name: title)) }
         let row = line(views, inset: Self.inset(g.plugin == nil ? 0 : 1))
-        row.setAccessibilityLabel(g.title)
+        row.setAccessibilityLabel(title)
         return row
     }
 
-    /// `width`: the row's, so the name gets its room first and what's beside it only what's left. Under the pointer a
-    /// row with a file shows a button that opens it.
-    func item(_ addon: Addon, depth: Int, width: CGFloat) -> NSView {
+    /// `width`: the row's, so the name gets its room first and what's beside it only what's left. `parent`: the group
+    /// it sits under, which already says where it's from (an agent's group: whose it is). Under the pointer a row with a
+    /// file shows a button that opens it.
+    func item(_ addon: Addon, depth: Int, width: CGFloat, parent: AddonGroup? = nil) -> NSView {
         // A plugin's skill sits under its plugin's line: its name there is enough ("sales:call-prep" → "call-prep").
         let title = addon.source == .plugin ? addon.name.split(separator: ":").last.map(String.init) : nil
         let name = NSTextField.label(
@@ -74,10 +87,12 @@ struct AddonRows {
         if let key = addon.key, !key.hasPrefix("plugin:") {
             held.append(toggle(key, on: !addon.off, name: addon.name))
         }
-        // What a narrow panel drops, last first: who gets it, what it weighs.
+        // What a narrow panel drops, last first: who gets it, where it's from, what it weighs.
         var extras: [NSView] = []
         if let tokens = now ?? addon.tokens { extras.append(digits(shortTokens(tokens))) }
-        if let faces = faces(addon.agents) { extras.append(faces) }
+        if parent == nil || parent?.agent != nil { extras.append(scope(addon.source)) }
+        let implied = parent?.agent ?? agent
+        if addon.agents != [implied].compactMap({ $0 }), let faces = faces(addon.agents) { extras.append(faces) }
         let inset = Self.inset(depth)
         let mark = mark(addon)
         let open = addon.path.map { path in
@@ -109,11 +124,30 @@ struct AddonRows {
         return mark
     }
 
+    /// The switch; held (dimmed, a turning ring beside it) at the state asked for while the daemon answers.
     private func toggle(_ key: String, on: Bool, name: String) -> NSView {
-        let control = AddonSwitch(key: key, on: on, changed: onSwitch)
+        let asked = pending[key]
+        let control = AddonSwitch(key: key, on: asked ?? on, changed: onSwitch)
         control.setAccessibilityLabel(name)
         control.toolTip = on ? String(localized: "On in this project") : String(localized: "Off in this project")
-        return control
+        guard asked != nil else { return control }
+        control.isEnabled = false
+        let ring = StatusMark(size: Metrics.iconSmall)
+        ring.status = .working
+        let held = NSStackView(views: [ring, control])
+        held.spacing = Metrics.gap
+        held.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return held
+    }
+
+    /// Where it's from, as a quiet symbol; its words in the tooltip.
+    private func scope(_ source: Addon.Source) -> NSView {
+        let mark = NSImageView(image: .symbol(source.symbol, source.words))
+        mark.symbolConfiguration = .chrome(Metrics.iconSmall)
+        mark.contentTintColor = .tertiaryLabelColor
+        mark.toolTip = source.words
+        mark.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return mark
     }
 
     /// Needs a Look: the name over what's wrong, in red, and a button that switches it off here.
