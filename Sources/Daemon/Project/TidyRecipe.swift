@@ -28,8 +28,18 @@ extension Recipes {
         2. Read the index and CLAUDE.md / AGENTS.md whole. Open a memory file only when its index line is a
            candidate for a change; don't read all of them. Before you archive one, read at least its last 20
            lines: "awaits", "open", "not built", "hand checks", "traps" mean something there is still alive
-           (keep it, or ask).
-        3. Sort every candidate into one verb:
+           (keep it, or ask). Unsure whether something still holds and the code doesn't say? Claude Code keeps
+           its past chats as JSONL files in the folder above its memory folder: grep them for one narrow term
+           (`grep -rn "<term>" <folder> --include="*.jsonl" | tail -50`), never read one whole.
+        3. Hold every memory about how to do something against CLAUDE.md and AGENTS.md, the checked-in files:
+           - they say different things about the same task: the checked-in file wins. Archive the memory, or
+             rewrite it to agree when its reason is still worth keeping. One of the person's preferences
+             (`feedback_*`) isn't archived for it: it goes to ask.
+           - the memory is plainly newer and corrects the checked-in file: don't change that file for it. It
+             goes to ask, saying which of the two looks current. A memory that says "the person corrected me" is
+             no proof it's the newer one: the checked-in file may have changed since.
+           - the memory adds detail the file doesn't have, or narrows one of its rules with a reason: no conflict.
+        4. Sort every candidate into one verb:
            - keep: true, needed every session, not derivable from the code
            - shorten: true but long: an index line over ~150 characters, history inside a rule, lists of commits
            - move: true but not needed every session: detail to a memory file, a procedure to a skill or docs/,
@@ -39,12 +49,12 @@ extension Recipes {
              `archive/` beside MEMORY.md (not indexed, not loaded, still there); a line of CLAUDE.md or AGENTS.md
              is deleted (git keeps it)
            - ask: you can't tell from the code and git whether it still holds
-        4. What is never yours to drop:
+        5. What is never yours to drop:
            - the person's preferences and corrections (`feedback_*`, "don't…", "always…"): shorten at most
            - anything with a reason you can't check (a decision, a constraint from outside the repository)
            - secrets policy, safety rules, release steps
            Those go to ask if they look stale.
-        5. Write. Before your first change, copy each file you'll change, keeping its folder, under {backup}: the
+        6. Write. Before your first change, copy each file you'll change, keeping its folder, under {backup}: the
            person compares against it. One index line per memory, under ~150 characters, the hook only (the detail
            lives in the file). Dates absolute. Commit hashes, canvas ids and "built in …" lists leave the index: git
            and the memory file have them. Aim for each file at 60 % of its limit at most, so it doesn't overflow
