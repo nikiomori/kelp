@@ -96,6 +96,18 @@ extension AppDelegate {
         private func driveInput(_ env: [String: String]) {
             let app = self.app
             if let keys = env["KELP_TYPE"] { typeKeys(keys) }
+            // KELP_COMMAND="git.commitWithAgent|git.commit": commands by id, as their menu items run them, from
+            // KELP_CLICK_DELAY on and KELP_COMMAND_GAP seconds apart (0.8).
+            if let ids = env["KELP_COMMAND"]?.split(separator: "|") {
+                let start = env["KELP_CLICK_DELAY"].flatMap(Double.init) ?? 0.3
+                let gap = env["KELP_COMMAND_GAP"].flatMap(Double.init) ?? 0.8
+                for (i, id) in ids.map(String.init).enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + start + Double(i) * gap) {
+                        print("COMMAND", id, app.extensions.command(id) == nil ? "none" : "ran")
+                        app.extensions.command(id)?.run([:])
+                    }
+                }
+            }
             // KELP_CLICK="Workspace 2|calc.py": real mouse clicks (via NSApp.sendEvent) on visible text, 0.8 s apart.
             if let targets = env["KELP_CLICK"]?.split(separator: "|") {
                 let start = env["KELP_CLICK_DELAY"].flatMap(Double.init) ?? 0.3   // panels that load later need longer
