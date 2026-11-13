@@ -290,6 +290,10 @@ final class PaneView: NSView {
             }
             return
         }
+        // A file link a program on a remote project's host printed (OSC 8) names the host's file.
+        if url.isFileURL, TerminalPaths.openOnHost(url.path(percentEncoded: false), cwd: cwd, workspace: wid, in: app) {
+            return
+        }
         let option = NSEvent.modifierFlags.contains(.option)
         switch PreviewLinks.target(url) {
         case .web(let link):

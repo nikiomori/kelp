@@ -251,3 +251,16 @@ import Testing
     #expect(TerminalPaths.onHost("src/../../x.ts", root: root) == nil)
     #expect(TerminalPaths.onHost("hello", root: root) == nil)
 }
+
+/// A link to another file of a remote project's page is that project's file, on its host: its folder here holds only
+/// the marker, so it isn't looked for here.
+@MainActor @Test func aRemoteProjectsFileLinkIsItsFile() throws {
+    let folder = URL(fileURLWithPath: Paths.root.path).appendingPathComponent("remote/box/app-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try JSONEncoder().encode(RemoteHost(host: "box", path: "/srv/app"))
+        .write(to: folder.appendingPathComponent(RemoteHost.marker))
+    let other = folder.appendingPathComponent("docs/other.md")
+    #expect(PreviewLinks.target(other) == .file(other.standardizedFileURL.path))
+    #expect(PreviewLinks.target(folder.appendingPathComponent("../elsewhere.md")) == .refused)
+}

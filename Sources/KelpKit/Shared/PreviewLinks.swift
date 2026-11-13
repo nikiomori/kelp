@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import DesignKit
 import WebKit
 import WorkbenchKit
@@ -96,6 +97,9 @@ package final class PreviewLinks: NSObject, WKNavigationDelegate {
         case "http", "https": return .web(url.absoluteString)
         case "mailto": return .mail(url)
         case "file" where isPlainFile(url.resolvingSymlinksInPath()): return .file(url.resolvingSymlinksInPath().path)
+        // A remote project's file is on its host: its tab reads it from there, and nothing here runs.
+        case "file" where Remotes(home: Paths.root).containing(url.standardizedFileURL.path) != nil:
+            return .file(url.standardizedFileURL.path)
         default: return .refused
         }
     }
