@@ -225,3 +225,26 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     #expect(usage?.used == 250_010)
     _ = try await c.call(SessionKill(id: session.id))
 }
+
+/// A host's key as the trust question shows it: its fingerprint and kind, as ssh-keygen says them.
+@Test func aHostsKeyIsShownAsSshShowsIt() throws {
+    let dir = tmp(), key = dir.appendingPathComponent("k")
+    _ = try Subprocess.output(["/usr/bin/ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key.path], cwd: "/")
+    let pub = try String(contentsOf: dir.appendingPathComponent("k.pub"), encoding: .utf8)
+        .split(separator: " ").prefix(2).joined(separator: " ")
+    let shown = String(
+        decoding: try Subprocess.output(["/usr/bin/ssh-keygen", "-l", "-f", key.path + ".pub"], cwd: "/"), as: UTF8.self
+    )
+    let found = try #require(keyFingerprint(["[box]:2222 " + pub]))
+    #expect(shown.contains(found.fingerprint) && found.kind == "ED25519")
+}
+
+/// What isn't a host, as ssh would read an option, has no key to show or trust.
+@Test func aHostKeyIsAskedOnlyOfAHost() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    #expect(try await c.call(RemoteHostKey(host: "-oProxyCommand=x")) == nil)
+    await #expect(throws: RPCError.self) {
+        try await c.call(RemoteTrustHost(host: "-oProxyCommand=x", fingerprint: "SHA256:x"))
+    }
+}

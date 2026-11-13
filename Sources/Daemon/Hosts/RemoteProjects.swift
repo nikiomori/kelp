@@ -147,8 +147,68 @@ extension FilesWriteRemote: Handled {
     }
 }
 
+/// A host's keys as ssh-keyscan reads them where ~/.ssh/config sends `host` (`ssh -G`): its known_hosts lines, and
+/// the file ssh keeps them in.
+private func scanKeys(_ remotes: Remotes, _ host: String) -> (lines: [String], knownHosts: String)? {
+    func run(_ argv: [String], stdin: Data? = nil) -> String? {
+        Log.session.attempt("asking \(host)'s key") {
+            String(
+                decoding: try Subprocess.output(argv, cwd: NSHomeDirectory(), stdin: stdin, timeLimit: 15),
+                as: UTF8.self)
+        }
+    }
+    guard RemoteHost.isHost(host), let config = run([remotes.ssh, "-G", "--", host]) else { return nil }
+    var said: [String: String] = [:]
+    for line in config.split(separator: "\n") {
+        let words = line.split(separator: " ", maxSplits: 1).map(String.init)
+        if words.count == 2, said[words[0]] == nil { said[words[0]] = words[1] }
+    }
+    guard let name = said["hostname"], said["proxyjump"] == nil, said["proxycommand"] == nil,
+        let scanned = run(["/usr/bin/ssh-keyscan", "-T", "10", "-t", "ed25519", "-p", said["port"] ?? "22", name])
+    else { return nil }
+    let lines = scanned.split(separator: "\n").map(String.init).filter { !$0.hasPrefix("#") && !$0.isEmpty }
+    let known = (said["userknownhostsfile"]?.split(separator: " ").first.map(String.init) ?? "~/.ssh/known_hosts")
+    return lines.isEmpty ? nil : (lines, (known as NSString).expandingTildeInPath)
+}
+
+/// "SHA256:…" and the kind of the first of `lines`' keys, as ssh-keygen shows one.
+func keyFingerprint(_ lines: [String]) -> RemoteHostKey.Key? {
+    let out = Log.session.attempt("reading a host key's fingerprint") {
+        String(
+            decoding: try Subprocess.output(
+                ["/usr/bin/ssh-keygen", "-l", "-f", "-"], cwd: "/",
+                stdin: Data((lines.joined(separator: "\n") + "\n").utf8),
+                timeLimit: 10), as: UTF8.self)
+    }
+    // "256 SHA256:abc… [host]:22 (ED25519)"
+    guard let words = out?.split(separator: "\n").first?.split(separator: " "), words.count >= 3,
+        let kind = words.last?.trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+    else { return nil }
+    return .init(fingerprint: String(words[1]), kind: kind)
+}
+
+extension RemoteHostKey: Handled {
+    func handle(_ remotes: Remotes) throws -> Result { scanKeys(remotes, host).flatMap { keyFingerprint($0.lines) } }
+}
+
+extension RemoteTrustHost: Handled {
+    func handle(_ remotes: Remotes) throws -> Done {
+        guard let (lines, file) = scanKeys(remotes, host), keyFingerprint(lines)?.fingerprint == fingerprint else {
+            throw RPCError.invalidParams("\(host)'s key isn't the one shown any more: not trusted.")
+        }
+        let dir = (file as NSString).deletingLastPathComponent, fm = FileManager.default
+        try fm.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let had = fm.contents(atPath: file).map { String(decoding: $0, as: UTF8.self) } ?? ""
+        let text = had + (had.isEmpty || had.hasSuffix("\n") ? "" : "\n") + lines.joined(separator: "\n") + "\n"
+        try Data(text.utf8).write(to: URL(fileURLWithPath: file), options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file)
+        return Done()
+    }
+}
+
 extension Methods {
     static let remoteMethods: [any Answered.Type] = [
-        RemoteListFolders.self, RepoAddRemote.self, FilesReadRemote.self, FilesWriteRemote.self
+        RemoteListFolders.self, RepoAddRemote.self, FilesReadRemote.self, FilesWriteRemote.self, RemoteHostKey.self,
+        RemoteTrustHost.self
     ]
 }

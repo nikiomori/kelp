@@ -3500,6 +3500,21 @@
         ],
         "type" : "object"
       },
+      "RemoteHostKey.Key" : {
+        "properties" : {
+          "fingerprint" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "fingerprint",
+          "kind"
+        ],
+        "type" : "object"
+      },
       "RemoteListFolders.Folder" : {
         "properties" : {
           "git" : {
@@ -10662,6 +10677,27 @@
       "x-internal" : true
     },
     {
+      "description" : "The key a host Kelp hasn't connected to before presents (ssh refused it: \"Host key verification failed\"), as ssh shows one: \"SHA256:…\" and its kind (ED25519). Asked of the host where ~/.ssh/config sends `host`; nil when it can't be (a jump host in between, no answer).",
+      "name" : "remote.hostKey",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "host",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/RemoteHostKey.Key"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The folders in `path` on `host` (~ is the host's home), over the host's shared SSH connection: the folder's full path there, whether it's in a git repository, and its subfolders, hidden ones left out, each marked when it's a repository. A host Kelp can't reach fails here, with ssh's reason.",
       "name" : "remote.listFolders",
       "paramStructure" : "by-name",
@@ -10685,6 +10721,34 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/RemoteListFolders.Result"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Trusts `host`'s key, as answering ssh's \"yes\" does: asked of it again, and kept in ~/.ssh/known_hosts only when it's still the one shown (`fingerprint`).",
+      "name" : "remote.trustHost",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "fingerprint",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "host",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       },
       "x-internal" : true

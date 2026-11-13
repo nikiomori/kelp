@@ -167,6 +167,10 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
             let result = await app.tryCall(RemoteListFolders(host: hostName, path: folderPath))
             busy(false)
             guard let listing = result.value else {
+                // A host never connected to: its key, to trust as ssh's "yes" does, then connected again.
+                if result.error?.contains("Host key verification failed") == true, await trust(hostName) {
+                    return list(hostName, folderPath)
+                }
                 say(result.error, error: true)
                 return
             }
@@ -178,6 +182,20 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
             update()
             window?.makeFirstResponder(table)
         }
+    }
+
+    /// Asks whether to trust the key `hostName` presents, showing it; trusted, true.
+    private func trust(_ hostName: String) async -> Bool {
+        guard let key = await app.quiet(RemoteHostKey(host: hostName)) ?? nil,
+            await confirm(
+                String(localized: "Trust \(hostName)?"),
+                detail: String(
+                    localized:
+                        "Kelp hasn't connected to it before. Its key is \(key.fingerprint) (\(key.kind)): trust it only if that's the key you expect."
+                ),
+                action: String(localized: "Trust"))
+        else { return false }
+        return await app.call(RemoteTrustHost(host: hostName, fingerprint: key.fingerprint)) != nil
     }
 
     private func open(_ hostName: String, _ folderPath: String, init: Bool) {

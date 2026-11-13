@@ -23370,6 +23370,26 @@
           }
         }
       }
+    },
+    "Trust %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доверять %@?"
+          }
+        }
+      }
+    },
+    "Kelp hasn't connected to it before. Its key is %@ (%@): trust it only if that's the key you expect.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp ещё не подключался к нему. Его ключ — %@ (%@): доверяйте ему, только если это ожидаемый ключ."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

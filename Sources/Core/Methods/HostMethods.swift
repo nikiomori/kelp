@@ -176,6 +176,35 @@ public struct HostStats: Codable, Sendable, Equatable {
     }
 }
 
+/// The key a host Kelp hasn't connected to before presents (ssh refused it: "Host key verification failed"), as ssh
+/// shows one: "SHA256:…" and its kind (ED25519). Asked of the host where ~/.ssh/config sends `host`; nil when it can't
+/// be (a jump host in between, no answer).
+public struct RemoteHostKey: InternalMethod {
+    public static let name = "remote.hostKey"
+    public struct Key: Codable, Sendable, Equatable {
+        public var fingerprint: String, kind: String
+        public init(fingerprint: String, kind: String) {
+            self.fingerprint = fingerprint
+            self.kind = kind
+        }
+    }
+    public typealias Result = Key?
+    public var host: String
+    public init(host: String) { self.host = host }
+}
+
+/// Trusts `host`'s key, as answering ssh's "yes" does: asked of it again, and kept in ~/.ssh/known_hosts only when it's
+/// still the one shown (`fingerprint`).
+public struct RemoteTrustHost: InternalMethod {
+    public static let name = "remote.trustHost"
+    public typealias Result = Done
+    public var host: String, fingerprint: String
+    public init(host: String, fingerprint: String) {
+        self.host = host
+        self.fingerprint = fingerprint
+    }
+}
+
 /// The folders in `path` on `host` (~ is the host's home), over the host's shared SSH connection: the folder's full
 /// path there, whether it's in a git repository, and its subfolders, hidden ones left out, each marked when it's a
 /// repository. A host Kelp can't reach fails here, with ssh's reason.
