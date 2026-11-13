@@ -79,13 +79,16 @@ final class Workspaces: Sendable {
         seed.map { path.hasPrefix($0.appendingPathComponent("worktrees").path + "/") } == true
     }
 
-    /// Every project keeps at least one workspace; workspaces follow the folder's checked-out branch.
-    func syncMainWorkspaces() throws { try workspaceLock.withLock { try syncWorkspaces() } }
+    /// Every project keeps at least one workspace; workspaces follow the folder's checked-out branch. `only`: that
+    /// project's.
+    func syncMainWorkspaces(only: String? = nil) throws {
+        try workspaceLock.withLock { try syncWorkspaces(only: only) }
+    }
 
     /// The caller holds `workspaceLock`.
-    private func syncWorkspaces() throws {
-        let all = try store.worktrees(repo: nil)
-        for repo in try store.repos() {
+    private func syncWorkspaces(only: String? = nil) throws {
+        let all = try store.worktrees(repo: only)
+        for repo in try store.repos() where only == nil || repo.id == only {
             let workspaces = all.filter { isMain($0, repo) }
             // A remote project's branch is read over ssh: not on every sync (an unreachable host would stall each one for
             // its connect timeout). Its workspaces keep the branch they have; git.status and the like read it when asked.
@@ -133,8 +136,8 @@ final class Workspaces: Sendable {
             guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { continue }
             let fw = FileWatcher(root: dir, deliver: headQueue) { [weak self] paths in
                 let real = paths.filter { !$0.contains("/logs/") }
-                if real.contains(where: { $0.hasSuffix("/HEAD") }) {
-                    do { try self?.syncMainWorkspaces() } catch {
+                if Self.movesHead(real) {
+                    do { try self?.syncMainWorkspaces(only: id) } catch {
                         Log.store.error("workspaces didn't follow their branch: \(error)")
                     }
                 }
@@ -153,6 +156,10 @@ final class Workspaces: Sendable {
         }
         _ = gone   // their streams stop as they go, out of the lock
     }
+
+    /// Whether events in a project's .git moved its own HEAD, which its workspaces follow: not FETCH_HEAD, ORIG_HEAD, a
+    /// remote's HEAD, nor a linked worktree's (only the project's own folder's workspaces follow theirs).
+    static func movesHead(_ paths: [String]) -> Bool { paths.contains { $0.hasSuffix("/.git/HEAD") } }
 
     /// The daemon stops: the folders aren't followed any more.
     func stopWatching() {

@@ -5,13 +5,14 @@ import Foundation
 /// Thin wrapper over the system git: reading its output here, running it in GitKit.
 public enum Git {
     /// Whether file events can change what `git status` says: anything outside `.git/`, and inside it only what moves the
-    /// index, HEAD or a branch (lock and object files churn during every git command, a status of ours included).
+    /// index, HEAD or a branch (lock and object files churn during every git command, a status of ours included). Kelp's
+    /// own refs (refs/kelp/: a turn's snapshot, a pull request's head) move neither.
     public static func touchesStatus(_ paths: [String]) -> Bool {
         paths.contains { path in
             guard let range = path.range(of: "/.git/") else { return true }
             let rest = path[range.upperBound...]
             return rest == "index" || rest == "HEAD" || rest == "MERGE_HEAD" || rest == "packed-refs"
-                || rest.hasPrefix("refs/")
+                || (rest.hasPrefix("refs/") && !rest.hasPrefix("refs/kelp/"))
         }
     }
 

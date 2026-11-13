@@ -29,6 +29,19 @@ import os
     #expect(try s.repo(r.id)?.revision == 3)
 }
 
+/// A change that leaves a record as it was (a branch followed to where it is) writes nothing and tells no one.
+@Test func aChangeThatChangesNothingIsntOne() throws {
+    let s = try Store()
+    let r = try s.save(Repo(name: "demo", path: "/tmp/demo"))
+    let w = try s.save(Worktree(repoId: r.id, branch: "b", path: "/p"))
+    let told = OSAllocatedUnfairLock(initialState: 0)
+    s.changed.withLock { $0.tell = { _ in told.withLock { $0 += 1 } } }
+    #expect(try s.update(Worktree.self, w.id) { $0.branch = "b" }?.revision == w.revision)
+    #expect(try s.worktree(w.id)?.revision == w.revision && told.withLock { $0 } == 0)
+    #expect(try s.update(Worktree.self, w.id) { $0.branch = "c" }?.revision == (w.revision ?? 0) + 1)
+    #expect(told.withLock { $0 } == 1)
+}
+
 /// Two changes to one workspace at once (a rename and a PR link) both stay: neither saves back a copy read before the other.
 @Test func workspaceChangesAtTheSameTimeAllStay() async throws {
     let s = try Store()

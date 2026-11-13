@@ -166,3 +166,11 @@ import Testing
     #expect(try w.d.store.worktree(chatted.id)?.archived == true)
     for kept in [dirty, idle, old] { #expect(try w.d.store.worktree(kept.id)?.archived == false) }
 }
+
+/// Only the project's own HEAD moves its workspaces: git writes FETCH_HEAD and ORIG_HEAD on a fetch or a merge, and a
+/// remote's or a linked worktree's HEAD, without its folder switching branch.
+@Test func onlyTheProjectsOwnHeadMovesItsWorkspaces() {
+    #expect(Workspaces.movesHead(["/p/.git/index", "/p/.git/HEAD"]))
+    let others = ["FETCH_HEAD", "ORIG_HEAD", "refs/remotes/origin/HEAD", "worktrees/fix/HEAD"].map { "/p/.git/" + $0 }
+    #expect(!Workspaces.movesHead(others))
+}

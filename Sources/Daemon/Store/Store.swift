@@ -82,18 +82,21 @@ final class Store: Sendable {
     }
     /// Changes a record (a workspace, a session) in one write: read, change, save with nothing in between. Saving a copy
     /// read earlier would put back fields someone else changed meanwhile (a rename, a PR, archiving). Nil when it's gone.
+    /// A change that leaves it as it was isn't one: no new revision, no write, nothing told.
     @discardableResult
-    func update<R: FetchableRecord & PersistableRecord>(
+    func update<R: FetchableRecord & PersistableRecord & Equatable>(
         _: R.Type, _ id: String, _ change: (inout R) throws -> Void
     ) throws -> R? {
         try ordered.withLock {
-            let updated: R? = try db.write { database in
-                guard var record = try R.fetchOne(database, key: id) else { return nil }
+            let (record, changed): (R?, Bool) = try db.write { database in
+                guard var record = try R.fetchOne(database, key: id) else { return (nil, false) }
+                let before = record
                 try change(&record)
-                return try Self.revised(record, database).saved(database)
+                guard record != before else { return (record, false) }
+                return (try Self.revised(record, database).saved(database), true)
             }
-            if let updated { report(updated) }
-            return updated
+            if let record, changed { report(record) }
+            return record
         }
     }
     /// Only a row that's there: a session deleted meanwhile stays deleted (`save` would insert it again).

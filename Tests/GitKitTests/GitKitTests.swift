@@ -404,6 +404,7 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(Git.touchesStatus(["/r/.git/index", "/r/.git/objects/ab/cd"]))
     #expect(Git.touchesStatus(["/r/.git/refs/heads/main"]))
     #expect(!Git.touchesStatus(["/r/.git/index.lock", "/r/.git/objects/ab/cd", "/r/.git/FETCH_HEAD"]))
+    #expect(!Git.touchesStatus(["/r/.git/refs/kelp/turns/s1", "/r/.git/refs/kelp/pr/7"]))   // Kelp's own snapshots
 }
 
 @Test func diffHeaderPathsUnquote() {
