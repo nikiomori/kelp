@@ -30,6 +30,9 @@ extension FileTab {
         }
         menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path, lines: lines()) }
         menu.add(String(localized: "Copy Path and Line")) { FileActions(app).copyReference(path, lines: lines()) }
+        if inProject != nil {
+            menu.add(String(localized: "Last Change to This Line")) { [weak self] in self?.showLineOrigin() }
+        }
         menu.addItem(.separator())
         menu.add(String(localized: "Toggle Comment")) { [weak self] in self?.editor?.toggleComment() }
     }

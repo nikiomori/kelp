@@ -157,6 +157,13 @@ final class Store: Sendable {
             return Array(old)
         }
     }
+    /// The turns any agent began in `folder`, the oldest first: the last `limit`.
+    func turns(folder: String, limit: Int = 100) throws -> [SessionTurns.Mark] {
+        try db.read {
+            try SessionTurns.Mark.filter(Column("folder") == folder).order(Column("at").desc).limit(limit).fetchAll($0)
+        }
+        .reversed()
+    }
     /// The session's turns, the newest first.
     func turns(session: String) throws -> [SessionTurns.Mark] {
         try db.read { try SessionTurns.Mark.filter(Column("session") == session).order(Column("at").desc).fetchAll($0) }

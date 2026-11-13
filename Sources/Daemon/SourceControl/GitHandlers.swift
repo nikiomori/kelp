@@ -55,6 +55,28 @@ extension GitDiff: Handled {
     }
 }
 
+extension GitLineOrigin: Handled {
+    func handle(_ scm: SourceControl) throws -> Result {
+        let folder = try scm.store.worktree(named: worktreeId).path
+        let head = try Git.head(folder, remotes: scm.remotes)
+        // Only turns begun on this HEAD: older ones' changes are in commits now, which say who made them.
+        let marks = try scm.store.turns(folder: folder).filter { head != nil && $0.head == head }
+        let agents = try marks.map { mark in
+            let agent = try scm.store.session(mark.session)?.agent
+            return Log.store.attempt("an agent's name for a line's turn") {
+                try scm.sessions.setup.manifest(agent, command: nil).name
+            } ?? "Agent"
+        }
+        let steps = zip(marks, agents).map { (tree: $0.tree, author: $1, message: $0.prompt) }
+        guard let found = try Git.lineOrigin(folder, file: file, line: line, steps: steps, remotes: scm.remotes) else {
+            return nil
+        }
+        return Origin(
+            commit: found.commit, author: found.author, date: found.date, summary: found.summary,
+            turn: found.step.map { marks[$0] })
+    }
+}
+
 extension GitLog: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
         let workspace = try scm.store.worktree(named: id)
@@ -260,7 +282,8 @@ extension Methods {
     static let gitMethods: [any Answered.Type] = [
         GitStatus.self, GitBranches.self, GitLineStats.self, GitPush.self, GitDiff.self, GitLog.self, GitUnsynced.self,
         GitStage.self, GitUnstage.self, GitHunk.self, GitCommit.self, GitMerge.self, GitSwitch.self, GitGraph.self,
-        GitCommitFiles.self, GitCommitDetails.self, GitDiscard.self, GitDiscardHunk.self, GitUndoDiscard.self,
+        GitCommitFiles.self, GitCommitDetails.self, GitLineOrigin.self, GitDiscard.self, GitDiscardHunk.self,
+        GitUndoDiscard.self,
         GitRemoteOp.self, GitStash.self, GitWebURL.self, GitWebPages.self, FilesList.self, FilesIgnored.self,
         FilesSearch.self
     ]

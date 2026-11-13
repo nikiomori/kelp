@@ -171,6 +171,38 @@
         }
       }
     },
+    "Changed by %@, %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Changed by %1$@, %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменил %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "Committed by %@, %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Committed by %1$@, %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммит: %1$@, %2$@"
+          }
+        }
+      }
+    },
     "From each agent's own logs and /usage on this Mac": {
       "localizations": {
         "ru": {
@@ -187,6 +219,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "При этом темпе кончится около %@"
+          }
+        }
+      }
+    },
+    "Git doesn't track this line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git не отслеживает эту строку"
           }
         }
       }
@@ -231,6 +273,16 @@
         }
       }
     },
+    "Last Change to This Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последнее изменение строки"
+          }
+        }
+      }
+    },
     "Merge conflict %lld of %lld": {
       "localizations": {
         "en": {
@@ -263,6 +315,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не использовались"
+          }
+        }
+      }
+    },
+    "Not committed yet, and no agent's turn changed it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё не в коммите, и ни один ход агента её не менял"
           }
         }
       }
@@ -353,6 +415,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показать все %lld"
+          }
+        }
+      }
+    },
+    "Show Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать изменения"
           }
         }
       }

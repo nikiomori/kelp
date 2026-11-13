@@ -8,10 +8,10 @@ import WorkbenchKit
 @testable import BuiltinActivity
 @testable import BuiltinAgents
 @testable import BuiltinBrowser
-@testable import EditorKit
 @testable import BuiltinFiles
 @testable import BuiltinGit
 @testable import BuiltinIssues
+@testable import EditorKit
 @testable import KelpApp
 @testable import KelpKit
 
@@ -30,6 +30,29 @@ extension AppOfItsOwn {
         let tab = FileTab(uri: TabURI.file(p), app: rig.app)
         await tab.loading?.value
         return tab
+    }
+
+    /// The caret line's last change, as its menu says it: an agent's turn with its prompt, a commit, or nothing yet.
+    @Test func aLinesLastChangeIsToldInItsMenu() async throws {
+        let rig = try await AppRig(files: ["a.txt": "1\n2\n"])
+        defer { rig.done() }
+        try rig.write("a.txt", "one\n2\n")
+        let tab = await opened(rig.workspace.path + "/a.txt", in: rig)
+        let (wid, file) = try #require(tab.inProject)
+        #expect(wid == rig.workspace.id && file == "a.txt")
+        func titles(_ origin: GitLineOrigin.Origin?) -> [String] {
+            tab.lineOriginMenu(origin, worktree: wid, file: file).items.map(\.title).filter { !$0.isEmpty }
+        }
+        let fresh = try await rig.client.call(GitLineOrigin(worktreeId: wid, file: file, line: 1))
+        #expect(titles(fresh) == ["Not committed yet, and no agent's turn changed it", "Show Changes"])
+        let committed = try #require(try await rig.client.call(GitLineOrigin(worktreeId: wid, file: file, line: 2)))
+        #expect(titles(committed).first?.hasPrefix("Committed by ") == true && titles(committed).last == "Show Changes")
+        let mark = SessionTurns.Mark(
+            session: "gone", tree: "t", head: nil, folder: "", prompt: "fix the login\nand more")
+        let turn = GitLineOrigin.Origin(commit: "c", author: "Claude Code", date: .now, summary: "", turn: mark)
+        #expect(titles(turn).first?.hasPrefix("Changed by Claude Code, ") == true)
+        #expect(titles(turn).dropFirst().first == "“fix the login”" && !titles(turn).contains("Show Chat"))
+        #expect(titles(nil) == ["Git doesn't track this line"])
     }
 
     /// The close sheet says Save writes a deleted file at its old place again, and it does: it used to leave the tab open with

@@ -198,6 +198,35 @@ public struct GitAuthorAvatar: InternalMethod {
         self.email = email
     }
 }
+/// Who last changed a line of a file in workspace `worktreeId`, as the file is on disk: the agent's turn whose changes
+/// brought it (its changes shown as a commit made for them), else the commit, else nobody yet (`commit` nil).
+public struct GitLineOrigin: InternalMethod {
+    public static let name = "git.lineOrigin"
+    public var worktreeId: String, file: String
+    /// 1-based.
+    public var line: Int
+    public init(worktreeId: String, file: String, line: Int) {
+        self.worktreeId = worktreeId
+        self.file = file
+        self.line = line
+    }
+    public struct Origin: Codable, Sendable, Equatable {
+        /// What brought the line: a commit of the project's, or the one made for the turn's changes; nil when nothing did.
+        public var commit: String?
+        public var author: String, date: Date, summary: String
+        /// The agent's turn whose changes brought it.
+        public var turn: SessionTurns.Mark?
+        public init(commit: String?, author: String, date: Date, summary: String, turn: SessionTurns.Mark? = nil) {
+            self.commit = commit
+            self.author = author
+            self.date = date
+            self.summary = summary
+            self.turn = turn
+        }
+    }
+    /// Nil: the line or the file isn't in git's view.
+    public typealias Result = Origin?
+}
 /// What a commit's card shows beyond its graph row: the message's body, the author's email, how big the change is.
 public struct GitCommitDetails: RPCMethod {
     public static let name = "git.commitDetails"

@@ -2252,6 +2252,34 @@
         ],
         "type" : "object"
       },
+      "GitLineOrigin.Origin" : {
+        "properties" : {
+          "author" : {
+            "type" : "string"
+          },
+          "commit" : {
+            "description" : "What brought the line: a commit of the project's, or the one made for the turn's changes; nil when nothing did.",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "turn" : {
+            "$ref" : "#/components/schemas/SessionTurns.Mark",
+            "description" : "The agent's turn whose changes brought it."
+          }
+        },
+        "required" : [
+          "author",
+          "date",
+          "summary"
+        ],
+        "type" : "object"
+      },
       "GitLog.Entry" : {
         "properties" : {
           "hash" : {
@@ -8363,6 +8391,42 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "description" : "Who last changed a line of a file in workspace `worktreeId`, as the file is on disk: the agent's turn whose changes brought it (its changes shown as a commit made for them), else the commit, else nobody yet (`commit` nil).",
+      "name" : "git.lineOrigin",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "file",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "1-based.",
+          "name" : "line",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/GitLineOrigin.Origin"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "Lines added and removed in the working tree, by kind of file.",
