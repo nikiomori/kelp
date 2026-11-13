@@ -1,3 +1,4 @@
+import Agents
 import Core
 import Foundation
 import GitKit
@@ -362,4 +363,74 @@ private final class Heard: Sendable {
     #expect(try await waitFor(10) { event(fix.id)?.branchFiles == ["login.swift"] })
     #expect(try await waitFor(10) { event(base.id)?.changes != nil })
     #expect(event(base.id)?.branchFiles == nil)
+}
+
+/// A remote project's Claude Code publishes on the host, where no hook of Kelp's runs: the pages its conversation there
+/// names join the list in the project's folder here, each once, timed as the host stamped them, a file sent from the
+/// host left uncopied; another chat's stay its own.
+@Test func pagesPublishedOnAHostAreListed() async throws {
+    _ = localSSH
+    var claude = AgentManifest(id: "claude", name: "Claude Code", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
+    claude.sessionIdFlag = "--session-id"
+    claude.resumeIdFlag = "--resume"
+    let (d, c, _) = try daemon(agents: [claude])
+    defer { d.stop() }
+    let there = try makeRepo(), host = tmp()
+    d.agentUsage.conversations.hostClaude.withLock { $0 = ShellQuote.word(host.path) }
+    let repo: Repo = try await c.call("repo.addRemote", .obj(["host": "box", "path": .string(there)]), as: Repo.self)
+    let workspace = try #require(try await c.call("worktree.list", as: [Worktree].self).first { $0.repoId == repo.id })
+    let session = try await c.call(SessionCreate(worktreeId: workspace.id, agent: "claude"))
+    let folder = host.appendingPathComponent(
+        "projects/" + (try #require(Paths.real(there))).replacing(/[^A-Za-z0-9]/, with: "-"))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let transcript = folder.appendingPathComponent(session.id.lowercased() + ".jsonl")
+    func call(_ id: String, _ tool: String, _ input: String, at: String) -> String {
+        #"{"type":"assistant","timestamp":"\#(at)","message":{"content":[{"type":"tool_use","id":"\#(id)","#
+            + #""name":"mcp__claude-artifacts__\#(tool)","input":\#(input)}]}}"#
+    }
+    func answer(_ id: String, _ url: String, at: String) -> String {
+        #"{"type":"user","timestamp":"\#(at)","message":{"content":[{"type":"tool_result","tool_use_id":"\#(id)","#
+            + #""content":[{"type":"text","text":"{\"url\":\"\#(url)\"}"}]}]}}"#
+    }
+    func append(_ lines: [String]) throws {
+        let old = (try? String(contentsOf: transcript, encoding: .utf8)) ?? ""
+        try (old + lines.joined(separator: "\n") + "\n").write(to: transcript, atomically: true, encoding: .utf8)
+    }
+    let plan = "https://claude.ai/artifact/plan", files = "https://claude.ai/artifact/files"
+    try append([
+        #"{"type":"user","timestamp":"2026-11-13T10:00:00.000Z","message":{"content":"make a plan"}}"#,
+        call("a", "publish_version", #"{"title":"Plan","content":"<p>one</p>"}"#, at: "2026-11-13T10:00:05.000Z"),
+        answer("a", plan, at: "2026-11-13T10:00:07.250Z"),
+        call(
+            "b", "publish_files", #"{"title":"Files","files":[{"as":"index.html","path":"/etc/hosts"}]}"#,
+            at: "2026-11-13T10:00:08.000Z"),
+        answer("b", files, at: "2026-11-13T10:00:09.000Z")
+    ])
+    let heard = Heard()
+    heard.listen(c)
+    c.notify(WatchStart(.artifacts, workspace.id))   // the panel shows: its list asks the host
+    #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Files", "Plan"] })
+    var items = Artifacts.items(root: workspace.path)
+    #expect(items.map(\.url) == [files, plan])
+    #expect(items.allSatisfy { $0.session == session.id })
+    #expect(items[1].created == (try Date("2026-11-13T10:00:07Z", strategy: .iso8601)).timeIntervalSince1970)
+    #expect(items[0].preview == nil, "its file is on the host: /etc/hosts here is another file")
+    #expect(try String(contentsOfFile: try #require(items[1].preview), encoding: .utf8) == "<p>one</p>")
+
+    try await Task.sleep(for: .seconds(1))   // the reads its own writes start are over
+    // A later turn edits it: its end reads the list again; the edit is applied once, however often that happens.
+    try append([
+        call(
+            "c", "edit_version", #"{"edits":[{"old_text":"one","new_text":"one one"}]}"#,
+            at: "2026-11-13T10:05:00.000Z"),
+        answer("c", plan, at: "2026-11-13T10:05:01.000Z")
+    ])
+    d.sessions.keepArtifactVersions(session: session.id, worktree: workspace.id, prompt: "edit it")
+    #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.first?.url == plan })
+    d.sessions.keepArtifactVersions(session: session.id, worktree: workspace.id, prompt: "again")
+    try await Task.sleep(for: .seconds(1))   // that read, too
+    items = Artifacts.items(root: workspace.path)
+    #expect(items.count == 2 && items[0].url == plan)
+    #expect(try String(contentsOfFile: try #require(items[0].preview), encoding: .utf8) == "<p>one one</p>")
+    _ = try await c.call(SessionKill(id: session.id))   // its tmux session on the "host" ends with it
 }

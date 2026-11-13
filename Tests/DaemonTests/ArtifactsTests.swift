@@ -324,3 +324,21 @@ private func tempRoot() throws -> URL {
     #expect(abs((Artifacts.canvasTime(canvas.path, root: root.path) ?? 0) - (before + 5)) < 0.01)
     #expect(abs((Artifacts.items(root: root.path).first?.modified ?? 0) - (before + 5)) < 0.01)
 }
+
+/// What the host sends: the publishing lines alone, and with a time only those from the second after it on.
+@Test func aHostSendsOnlyNewPublishingLines() throws {
+    let file = tmp().appendingPathComponent("t.jsonl")
+    try [
+        #"{"timestamp":"2026-11-13T10:00:00.500Z","name":"mcp__claude-artifacts__publish_version"}"#,
+        #"{"timestamp":"2026-11-13T10:00:01.000Z","text":"nothing published"}"#,
+        #"{"timestamp":"2026-11-13T10:00:01.200Z","text":"https://claude.ai/artifact/x"}"#
+    ].joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+    func lines(_ since: Date?) throws -> Int {
+        let out = try Subprocess.output(
+            ["/bin/sh", "-c", "<" + ShellQuote.word(file.path) + " " + Artifacts.hostPublishes(since: since)], cwd: "/")
+        return String(decoding: out, as: UTF8.self).split(separator: "\n").count
+    }
+    #expect(try lines(nil) == 2)
+    #expect(try lines(try Date("2026-11-13T10:00:00Z", strategy: .iso8601)) == 1)
+    #expect(try lines(try Date("2026-11-13T10:00:01Z", strategy: .iso8601)) == 0)
+}

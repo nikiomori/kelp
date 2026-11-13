@@ -247,12 +247,12 @@ extension Artifacts {
         }
         var got = 0
         for (session, pages) in bySession {
-            let sent = transcript(session).map { publishes(of: Set(pages.compactMap(\.record.url)), in: $0) } ?? [:]
+            let sent = transcript(session).flatMap { small($0.path, limit: 512 << 20) }.map(published(inTranscript:))
             for (folder, record) in pages {
-                let calls = sent[record.url ?? ""] ?? []
+                let calls = (sent ?? []).filter { $0.url == record.url }
                 do {
                     for call in calls { try keepPage(call.page, in: folder) }
-                    if calls.contains(where: \.canvas), record.type == "page" {
+                    if calls.contains(where: { $0.type == Kind.design.rawValue }), record.type == "page" {
                         var design = record
                         design.type = Kind.design.rawValue
                         try save(design, in: folder)
@@ -264,13 +264,15 @@ extension Artifacts {
         return got
     }
 
-    /// The publishing calls in a transcript whose answers name one of `urls`, in order, by page. Lines are picked by
-    /// their bytes; only a publishing call or an answer naming a page is decoded.
-    static func publishes(of urls: Set<String>, in file: URL) -> [String: [(page: PublishedPage?, canvas: Bool)]] {
-        guard let data = small(file.path, limit: 512 << 20) else { return [:] }
+    /// The pages a transcript's publishing calls made or changed, in order, each as its hook would have told it
+    /// (`published(hook:)`), with when its answer came. Lines are picked by their bytes; only a publishing call or an
+    /// answer naming a page is decoded.
+    static func published(inTranscript data: Data) -> [Published] {
         let marks = (publishers + ["claude.ai/artifact/"]).map { Data($0.utf8) }
         var calls: [String: (tool: String, input: JSONValue?)] = [:]
-        var found: [String: [(page: PublishedPage?, canvas: Bool)]] = [:]
+        var found: [Published] = []
+        let stamp = ISO8601DateFormatter()   // "2026-11-13T10:20:30.123Z"
+        stamp.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         var start = data.startIndex
         while start < data.endIndex {
             let end = data[start...].firstIndex(of: 0x0A) ?? data.endIndex
@@ -280,20 +282,39 @@ extension Artifacts {
             let entry: JSONValue
             do { entry = try JSONDecoder().decode(JSONValue.self, from: line) } catch { continue }
             for part in entry["message"]?["content"]?.array ?? [] {
-                if part["type"]?.string == "tool_use", let id = part["id"]?.string, let tool = part["name"]?.string,
-                    publishers.contains(where: tool.hasSuffix)
-                {
+                if part["type"]?.string == "tool_use", let id = part["id"]?.string, let tool = part["name"]?.string {
                     calls[id] = (tool, part["input"])
                 } else if part["type"]?.string == "tool_result", let id = part["tool_use_id"]?.string,
-                    let call = calls[id]
+                    let call = calls[id],
+                    let page = published(
+                        hook: .object([
+                            "hook_event_name": "PostToolUse", "tool_name": .string(call.tool),
+                            "tool_input": call.input ?? .null, "tool_response": part["content"] ?? .null
+                        ]))
                 {
-                    let text = strings(in: part["content"] ?? .null)
-                    for url in urls where text.contains(where: { $0.contains(url) }) {
-                        found[url, default: []].append(sentPage(tool: call.tool, input: call.input))
-                    }
+                    let at = entry["timestamp"]?.string.flatMap(stamp.date(from:))
+                    found.append(Published(url: page.url, title: page.title, type: page.type, page: page.page, at: at))
                 }
             }
         }
         return found
+    }
+
+    /// sh reading a transcript on a host: the lines `published(inTranscript:)` decodes, stamped from `since`'s next
+    /// second on (Claude Code stamps each line in UTC, "2026-11-13T10:20:30.123Z", which sorts as text).
+    static func hostPublishes(since: Date?) -> String {
+        let grep =
+            "LC_ALL=C grep -F "
+            + (publishers + ["claude.ai/artifact/"]).map { "-e " + ShellQuote.word($0) }
+            .joined(separator: " ")
+        guard let since else { return grep }
+        let next = Date(timeIntervalSince1970: since.timeIntervalSince1970.rounded(.down) + 1)
+        let from = String(ISO8601DateFormatter().string(from: next).dropLast())   // without its "Z"
+        return grep + " | awk -v t=\(from) "
+            + ShellQuote.word(#"match($0, /"timestamp":"[^"]*"/) && substr($0, RSTART + 13, RLENGTH - 14) >= t"#)
+    }
+
+    struct Published {
+        var url: String, title: String, type: String, page: PublishedPage?, at: Date?
     }
 }

@@ -131,15 +131,7 @@ extension Daemon {
             return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesFileList), backsOffFrom: 10) {
                 [self] _ in await filesRead(key)
             }
-        case .artifacts:
-            return Watches.Topic(
-                // A design's canvas is drawn with the project's design system: a change to it moves the canvas too.
-                folder: workspaceFolder(key) { _ in
-                    { $0.contains { $0.contains("/\(Artifacts.folder)/") || $0.contains("/\(DesignSystem.folder)/") } }
-                }
-            ) {
-                [self] _ in (await artifacts(key), nil)
-            }
+        case .artifacts: return artifactsTopic(key)
         case .databases:
             // Its files are read again (a .env or compose file may have changed); what ran is in memory.
             return Watches.Topic(folder: workspaceFolder(key) { _ in { $0.contains(where: DatabaseFind.matters) } }) {
@@ -242,16 +234,33 @@ extension Daemon {
         return (line(event), nil)
     }
 
-    /// A workspace's artifacts, read on this Mac (a remote project's folder here holds only its marker). Every page
-    /// is read, so off the pool; a failed read sends nothing, and the panel keeps what it had rather than going empty.
-    /// Pages published before Kelp kept copies get theirs from their chats' transcripts after the list went out: what
-    /// that writes pushes it again, with previews.
+    /// Read when its folder's artifacts change: a remote project's folder too, where the pages its agents publish on the
+    /// host are kept (`pickUpHostArtifacts`). A design's canvas is drawn with the project's design system: a change to it
+    /// moves the canvas too.
+    private func artifactsTopic(_ key: String) -> Watches.Topic {
+        let root = store.look("workspace \(key)") { try $0.worktree(key) }?.path
+        let matters: @Sendable ([String]) -> Bool = {
+            $0.contains { $0.contains("/\(Artifacts.folder)/") || $0.contains("/\(DesignSystem.folder)/") }
+        }
+        return Watches.Topic(folder: root.map { ($0, matters) }) { [self] _ in (await artifacts(key), nil) }
+    }
+
+    /// A workspace's artifacts, as its folder here keeps them; a remote project's chats are asked on the host first for
+    /// pages they published there. Every page is read, so off the pool; a failed read sends nothing, and the panel keeps
+    /// what it had rather than going empty. Pages published before Kelp kept copies get theirs from their chats'
+    /// transcripts after the list went out: what that writes pushes it again, with previews.
     private func artifacts(_ key: String) async -> Data? {
-        let store = store, remotes = remotes
+        let store = store, remotes = remotes, sessions = sessions
         do {
             let (root, items) = try await offload {
-                try store.worktree(key).flatMap { worktree -> (String?, [ArtifactItem]) in
-                    remotes.of(worktree.path) == nil ? (worktree.path, Artifacts.items(root: worktree.path)) : (nil, [])
+                try store.worktree(key).map { worktree -> (String?, [ArtifactItem]) in
+                    guard remotes.of(worktree.path) != nil else {
+                        return (worktree.path, Artifacts.items(root: worktree.path))
+                    }
+                    for chat in try store.sessions() where chat.worktreeId == key && chat.agent == "claude" {
+                        try sessions.pickUpHostArtifacts(of: chat, in: worktree.path)
+                    }
+                    return (nil, Artifacts.items(root: worktree.path))
                 } ?? (nil, [])
             }
             if let root {

@@ -93,6 +93,11 @@ final class Conversations: Sendable {
     /// yet, and for Codex. Limit: Codex on a host isn't read (its rollout is found by this Mac's `lsof` and
     /// `~/.codex/sessions`); and without an id two agents in one folder read each other's.
     func remoteTail(of session: Session, on remote: RemoteHost) -> Data? {
+        remoteConversation(of: session, on: remote, read: "tail -c \(Self.remoteTailBytes)")
+    }
+
+    /// What `read` (sh reading the file on its stdin) prints of that conversation on the host.
+    func remoteConversation(of session: Session, on remote: RemoteHost, read: String) -> Data? {
         guard session.agent == "claude", remote.connection != nil else { return nil }
         let argv = session.argv
         let id = argv.lastIndex { $0 == "--session-id" || $0 == "--resume" }.flatMap { index in
@@ -100,14 +105,17 @@ final class Conversations: Sendable {
         }
         let out = Log.session.attempt("reading \(remote.host)'s conversation") {
             try remote.run(
-                Self.remoteTailScript(path: remote.path, id: id, claude: hostClaude.withLock { $0 }), timeLimit: 10)
+                Self.remoteTailScript(path: remote.path, id: id, claude: hostClaude.withLock { $0 }, read: read),
+                timeLimit: 10)
         }
         return out.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// For sh on the host: the folder as the host resolves it (a leading ~, a symlink), named as Claude Code names it
-    /// (each character that isn't a letter or a digit is "-"), then the file's end.
-    static func remoteTailScript(path: String, id: String?, claude: String) -> String {
+    /// (each character that isn't a letter or a digit is "-"), then the file's end (or what `read` prints of it).
+    static func remoteTailScript(
+        path: String, id: String?, claude: String, read: String = "tail -c \(remoteTailBytes)"
+    ) -> String {
         let named = id.flatMap { $0.wholeMatch(of: /[A-Za-z0-9-]+/) == nil ? nil : $0 }
         let file =
             named.map { #"f="$d/"# + $0 + #".jsonl""# }
@@ -115,7 +123,7 @@ final class Conversations: Sendable {
         return [
             "cd \(RemoteHost.cdArg(path)) || exit 0",
             "d=\(claude)/projects/\"$(pwd -P | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g')\"",
-            file, #"[ -n "$f" ] && [ -f "$f" ] && tail -c \#(remoteTailBytes) "$f""#, "exit 0"
+            file, #"[ -n "$f" ] && [ -f "$f" ] && <"$f" "# + read, "exit 0"
         ].joined(separator: "\n")
     }
 

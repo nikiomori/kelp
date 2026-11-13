@@ -4,13 +4,37 @@ import Foundation
 
 extension Sessions {
     /// A turn of `session` ended: the pages it made in its workspace keep how the turn left them, named by its prompt.
-    /// On this Mac only: a remote project's folder here holds only its marker.
+    /// In a remote project, whose folder here holds only its marker, its list is read again where it shows, which asks
+    /// the host for the pages the turn published (`pickUpHostArtifacts`).
     func keepArtifactVersions(session: String, worktree: String?, prompt: String) {
         Log.store.attempt("keeping the versions of \(session)'s artifacts") {
-            guard let workspace = try store.worktree(worktree ?? ""), remotes.of(workspace.path) == nil,
-                FileManager.default.fileExists(atPath: Artifacts.dir(root: workspace.path).path)
-            else { return }
+            guard let workspace = try store.worktree(worktree ?? "") else { return }
+            if remotes.of(workspace.path) != nil {
+                watches.touched(.init(topic: .artifacts, key: workspace.id), tag: UUID().uuidString)
+                return
+            }
+            guard FileManager.default.fileExists(atPath: Artifacts.dir(root: workspace.path).path) else { return }
             try Artifacts.keepVersions(root: workspace.path, session: session, label: prompt)
+        }
+    }
+
+    /// The pages a remote project's Claude Code published (no hook of Kelp's runs on the host): what its conversation
+    /// there says, read over the connection already open, from the second after the last one kept of it on. They're kept
+    /// in the project's folder here, which the panel lists. Only from the list's own read, one at a time (`Watches`): two
+    /// at once would both find a new page new.
+    func pickUpHostArtifacts(of session: Session, in root: String) throws {
+        guard let remote = remotes.of(root) else { return }
+        let since = Artifacts.list(root: root).filter { $0.record.session == session.id }
+            .map { $0.record.updated ?? $0.record.created }.max()
+        guard
+            let data = agentUsage.conversations.remoteConversation(
+                of: session, on: remote, read: Artifacts.hostPublishes(since: since))
+        else { return }
+        for page in Artifacts.published(inTranscript: data) {
+            let sent = page.page?.file == nil ? page.page : nil   // a file it sent is on the host
+            _ = try Artifacts.addNative(
+                url: page.url, title: page.title, type: page.type, root: root, session: session.id, page: sent,
+                now: page.at ?? Date())
         }
     }
 }
