@@ -25,13 +25,15 @@ public enum ProgramStatus {
         public var title: String?
         /// 0–100, while it works.
         public var progress: Int?
-        /// A dialog's hook payload, from a remote project's host (`Hooks.hostAsk`): what it asks, as a hook here says it.
-        public var hook: JSONValue?
+        /// From a remote project's host (`Hooks.hostReport`): what a dialog's or a failed turn's hook was told, and the
+        /// conversation the agent is in.
+        public var hook: JSONValue?, conv: String?
         public init(
             id: String? = nil, state: String, kind: String? = nil, msg: String? = nil, title: String? = nil,
-            progress: Int? = nil, hook: JSONValue? = nil
+            progress: Int? = nil, hook: JSONValue? = nil, conv: String? = nil
         ) {
             self.hook = hook
+            self.conv = conv
             self.id = id
             self.state = state
             self.kind = kind
@@ -71,7 +73,8 @@ public enum ProgramStatus {
         let kind = state == "blocked" ? pairs["kind"] : nil
         var report = Report(
             id: pairs["id"], state: state, kind: kind, msg: text("msg"), title: text("title"), progress: progress)
-        if state == "blocked", let hook = text("hook") {
+        report.conv = pairs["conv"].flatMap { UUID(uuidString: $0) == nil ? nil : $0 }
+        if state == "blocked" || state == "error", let hook = text("hook") {
             // One that doesn't read is as none: the row says what it can.
             do { report.hook = try JSONDecoder().decode(JSONValue.self, from: Data(hook.utf8)) } catch {}
         }

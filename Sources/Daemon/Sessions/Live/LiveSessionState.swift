@@ -60,6 +60,7 @@ extension LiveSession {
         var record: Session
         var detector: StatusDetector
         let hooked: Bool   // agents with hooks report their state themselves; others may through OSC 7501
+        let agent: AgentManifest   // how its argv names the conversation it continues (`following`)
         let selfNames: [String]   // what a title that only names the program or its folder contains (TerminalTitle.topic)
         let trail: StatusTrail
         let started = Date()
@@ -148,6 +149,7 @@ extension LiveSession {
             self.trail = trail
             detector = StatusDetector(manifest: manifest)
             hooked = manifest.hooks != nil
+            agent = manifest
             selfNames = [manifest.id, manifest.name, (record.cwd as NSString).lastPathComponent]
             autoAnswers = manifest.autoAnswers.compactMap { answer in
                 Log.session.attempt("\(manifest.id)'s auto-answer pattern") {

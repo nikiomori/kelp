@@ -31,8 +31,12 @@ import Testing
         return (try? String(contentsOf: tty, encoding: .utf8)) ?? ""
     }
     let wrapped = { (r: String) in "\u{1B}Ptmux;\u{1B}\u{1B}]7501;\(r)\u{07}\u{1B}\\" }
-    #expect(try run("Stop", #"{"background_tasks":[]}"#) == wrapped("state=done"))
-    #expect(try String(contentsOf: kept, encoding: .utf8) == "set-option -q @kelp_status state=done\n")
+    let id = "0f3c9a2e-5b7d-4e1a-9c2f-1a2b3c4d5e6f"
+    #expect(try run("Stop", #"{"session_id":"\#(id)","background_tasks":[]}"#) == wrapped("state=done:conv=\(id)"))
+    #expect(try String(contentsOf: kept, encoding: .utf8) == "set-option -q @kelp_status state=done:conv=\(id)\n")
+    #expect(try run("UserPromptSubmit", #"{"session_id": "\#(id)"}"#) == wrapped("state=working:conv=\(id)"))
+    let failed = #"{"error":"overloaded","last_assistant_message":"API Error: Overloaded"}"#
+    #expect(try run("StopFailure", failed) == wrapped("state=error:hook=" + Data(failed.utf8).base64EncodedString()))
     // A dialog says what it asks, so Kelp offers Allow / Deny; one too long for a report, its tool and file.
     let ask = #"{"tool_name":"Bash","tool_input":{"command":"rm -rf build"}}"#
     #expect(
@@ -51,10 +55,10 @@ import Testing
     #expect(try run("Stop", #"{"background_tasks": [{"id": "a", "type": "workflow"}]}"#) == "")
     #expect(
         try run("Stop", #"{"background_tasks":[{"id":"a","type":"shell"},{"id":"b","type":"memory"}]}"#)
-            == wrapped("state=done"))   // nothing wakes it
+            == wrapped("state=done:conv="))   // nothing wakes it
     #expect(
         try run("Stop", #"{"last_assistant_message":"\"type\":\"subagent\"","background_tasks":[]}"#)
-            == wrapped("state=done"))
+            == wrapped("state=done:conv="))
     let title = Data("Explore".utf8).base64EncodedString()
     #expect(
         try run("SubagentStart", #"{"agent_id":"a1","agent_type":"Explore"}"#)

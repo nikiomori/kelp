@@ -25,18 +25,23 @@ public enum Hooks {
     /// On a host each writes its own report (`hostSettingsJSON`). In this order: within a hook the first that matches
     /// comes first.
     static let listens: [Listen] = [
-        .init(hook: "Stop", here: "done", host: hostReport("state=done", unless: hostStopUnless)),
+        .init(hook: "Stop", here: "done", host: hostReport("state=done", unless: hostStopUnless, conv: true)),
         .init(hook: "Notification", here: "waiting"),
-        .init(hook: "UserPromptSubmit", here: "working", host: hostReport("state=working")),
-        .init(hook: "StopFailure", here: "done", host: hostReport("state=error")),
-        .init(hook: "PreToolUse", matcher: "AskUserQuestion", here: "waiting", host: hostAsk("question")),
+        .init(hook: "UserPromptSubmit", here: "working", host: hostReport("state=working", conv: true)),
+        .init(hook: "StopFailure", here: "done", host: hostReport("state=error", payload: true)),
+        .init(
+            hook: "PreToolUse", matcher: "AskUserQuestion", here: "waiting",
+            host: hostReport("state=blocked:kind=question", payload: true)),
         .init(hook: "PreToolUse", here: "command"),
         .init(hook: "PostToolUse", matcher: "AskUserQuestion", here: "working", host: hostReport("state=working")),
         .init(hook: "PostToolUse", here: "command"),
         .init(hook: "PostToolUseFailure", here: "command"),
         // A tool's end isn't the end of a dialog: another of its batch may be asking still, or a subagent's tool ended.
         .init(hook: "PostToolBatch", here: "command", host: hostReport("state=working", unless: hostSubagentsOwn)),
-        .init(hook: "PermissionRequest", here: "waiting", host: hostAsk("permission"), wait: 610),
+        .init(
+            hook: "PermissionRequest", here: "waiting",
+            host: hostReport("state=blocked:kind=permission", payload: true),
+            wait: 610),
         .init(hook: "Elicitation", here: "waiting", host: hostReport("state=blocked:kind=question")),
         .init(hook: "ElicitationResult", here: "working", host: hostReport("state=working")),
         .init(
@@ -69,10 +74,29 @@ public enum Hooks {
     }
 
     /// A hook's command on a host (`hostSettingsJSON`, `CodexHooks.hostEvents`): the report into the tmux session's
-    /// option and, through tmux, to the agent's tty. `unless`: shell that ends it first when the report doesn't hold.
-    public static func hostReport(_ report: String, unless: String = "") -> String {
-        hostStart + unless + "r='\(report)';tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + hostSend
+    /// option and, through tmux, to the agent's tty. `unless`: shell that ends it first when the report doesn't hold
+    /// (one reading the payload keeps it in `p`). `payload`: what the hook was told goes too (`hook=`, its JSON in
+    /// base64), so Kelp says what a dialog asks or why a turn failed as a hook here does; too long for one report, the
+    /// tool and its file. `conv`: the conversation it's in (`conv=`), which /clear or /resume changes.
+    public static func hostReport(_ report: String, unless: String = "", payload: Bool = false, conv: Bool = false)
+        -> String
+    {
+        guard payload || conv else {
+            return hostStart + unless + "r='\(report)';tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + hostSend
+        }
+        var script = hostStart + (unless.contains("p=$(") ? unless : unless + "p=$(cat);") + hostField
+        var fields = report
+        if payload {
+            script +=
+                #"h=$(printf %s "$p"|base64|tr -d '\n');[ ${#h} -le 2700 ]||h=$(printf '{"tool_name":"%s","tool_input":"#
+                + #"{"file_path":"%s"}}' "$(f tool_name)" "$(f file_path)"|base64|tr -d '\n');"#
+            fields += ":hook=$h"
+        }
+        if conv { fields += ":conv=$(f session_id)" }
+        return script + "r=\"\(fields)\";tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + hostSend
     }
+    /// `f key`: a string field of the payload in `p`.
+    static let hostField = #"f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};"#
     static let hostStart = #"[ -n "$TMUX" ]||exit 0;"#
     static let hostSend = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
     /// A Stop with work that wakes the agent still going isn't the end of the turn (`TurnEnd`); JSON escapes a reply's
@@ -82,21 +106,9 @@ public enum Hooks {
     /// What a subagent's tools do isn't its agent's: their hooks say nothing for it.
     static let hostSubagentsOwn = #"p=$(cat);case "$p" in *'"agent_id"'*)exit;;esac;"#
 
-    /// A dialog's report (`kind`: permission, question) with what the hook was told (`hook=`, its JSON in base64), so Kelp
-    /// words it as it does here (`permissionAsk`) and offers Allow / Deny or its answers. Too long for one report: the
-    /// tool and its file alone.
-    static func hostAsk(_ kind: String) -> String {
-        hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};"#
-            + #"h=$(printf %s "$p"|base64|tr -d '\n');[ ${#h} -le 2700 ]||h=$(printf '{"tool_name":"%s","tool_input":"#
-            + #"{"file_path":"%s"}}' "$(f tool_name)" "$(f file_path)"|base64|tr -d '\n');"#
-            + "r=\"state=blocked:kind=\(kind):hook=$h\";tmux set-option -q \(RemoteHost.statusOption) \"$r\";"
-            + hostSend
-    }
-
     /// A subagent's report goes on a line of its own: `agent_type` as its title, the one thing the hook knows of it.
     static func hostSubagent(_ report: String) -> String {
-        hostStart + #"p=$(cat);f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};r=\#(report);"#
-            + hostSend
+        hostStart + "p=$(cat);" + hostField + "r=\(report);" + hostSend
     }
 
     /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line: `listens` on

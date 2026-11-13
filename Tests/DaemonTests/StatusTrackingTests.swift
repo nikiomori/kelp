@@ -540,3 +540,26 @@ private func onHost() -> LiveSession.State {
     s.apply(.init(state: "working"))
     #expect(s.record.choices == nil && s.record.summary == "")
 }
+
+/// On a host, the conversation the agent is in comes with its turns: after /clear the one a wake brings back is the new
+/// one; a turn that failed says why.
+@Test func aHostsConversationAndFailureAreFollowed() throws {
+    var claude = AgentManifest(id: "claude", name: "Claude Code", command: "claude")
+    claude.sessionIdFlag = "--session-id"
+    claude.resumeIdFlag = "--resume"
+    var r = Session(cwd: "/", command: "claude", agent: "claude")
+    r.tmux = "kelp_agent"
+    r.argv = ["claude", "--session-id", "0f3c9a2e-5b7d-4e1a-9c2f-1a2b3c4d5e6f"]
+    var s = LiveSession.State(
+        record: r, manifest: claude, logSize: 0, callbacks: .init(), trail: .init(history: tmp(), session: "s"))
+    let new = "1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d"
+    s.apply(.init(state: "working", conv: new))
+    #expect(s.record.argv == ["claude", "--session-id", new])
+    let failed = try JSONDecoder().decode(
+        JSONValue.self,
+        from: Data(
+            #"{"hook_event_name":"StopFailure","error":"overloaded","last_assistant_message":"API Error: Overloaded"}"#
+                .utf8))
+    s.apply(.init(state: "error", hook: failed))
+    #expect(s.record.summary == "API Error: Overloaded")
+}

@@ -27,7 +27,7 @@ public enum CodexHooks {
     public static let hostEvents: [(name: String, label: String, command: String)] = [
         ("UserPromptSubmit", "user_prompt_submit", Hooks.hostReport("state=working")),
         ("PostToolUse", "post_tool_use", Hooks.hostReport("state=working")),
-        ("PermissionRequest", "permission_request", Hooks.hostAsk("permission")),
+        ("PermissionRequest", "permission_request", Hooks.hostReport("state=blocked:kind=permission", payload: true)),
         ("Stop", "stop", Hooks.hostReport("state=done"))
     ]
 
