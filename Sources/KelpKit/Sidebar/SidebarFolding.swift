@@ -161,6 +161,10 @@ extension SidebarController {
                 frame.origin.y += 4
                 frame.size.height -= 8
             }
+            // No Project's gap over its row stays outside its card, as the row's pill leaves it (SidebarRowView.gap).
+            let gap = serverGap(root)
+            frame.origin.y += gap
+            frame.size.height -= gap
             put(root.key, frame, ProjectCard.Look(color: color, plain: root.children.isEmpty))
         }
         endServer()
