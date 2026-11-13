@@ -22731,16 +22731,6 @@
         }
       }
     },
-    "An agent checks them, then reports": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Агент проверит их и пришлёт отчёт"
-          }
-        }
-      }
-    },
     "Tidying up in a chat": {
       "localizations": {
         "ru": {
@@ -22777,6 +22767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "До порядка: %@"
+          }
+        }
+      }
+    },
+    "An agent shortens them now: compare or undo afterwards": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент сразу сократит их: потом можно сравнить или отменить"
           }
         }
       }

@@ -53,7 +53,7 @@ extension AddonsTidy: Handled {
         let brief = run.appendingPathComponent("brief.md")
         let text = Recipes.render(
             "tidyInstructions", config: workspaces.trustedConfig(repo),
-            vars: ["instructionFiles": TidyRuns.described(files)])
+            vars: ["instructionFiles": TidyRuns.described(files), "before": run.appendingPathComponent("before").path])
         try text.write(to: brief, atomically: true, encoding: .utf8)
         return "Tidy up this project's instructions: \(TidyRuns.described(files)). Read \(brief.path) and follow it."
     }

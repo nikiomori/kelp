@@ -168,7 +168,8 @@ import Testing
     let index = memory.appendingPathComponent("MEMORY.md").path
     let prompt = try await w.c.call(AddonsTidy(worktreeId: wt.id, paths: [agents.path, index]))
     let brief = try #require(prompt.firstMatch(of: /Read (\S+brief\.md)/).map { String($0.1) })
-    #expect(try String(contentsOfFile: brief, encoding: .utf8).contains("Reply like:"))
+    let text = try String(contentsOfFile: brief, encoding: .utf8)
+    #expect(text.contains((brief as NSString).deletingLastPathComponent + "/before before you start"))
     #expect(prompt.contains("Claude Code's memory in \(memory.path)/"))
     #expect(TidyRuns.before(agents.path, root: w.root)?.hasSuffix("/before" + agents.path) == true)
     let kept = try #require(TidyRuns.before(index, root: w.root))

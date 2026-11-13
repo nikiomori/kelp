@@ -129,7 +129,7 @@ struct AddonRows {
         let button = TextButton(tidying ? String(localized: "Show Chat") : TidyUp.title) { onTidy() }
         button.toolTip =
             tidying
-            ? String(localized: "A chat is tidying them up") : String(localized: "An agent checks them, then reports")
+            ? String(localized: "A chat is tidying them up") : String(localized: "An agent shortens them now: compare or undo afterwards")
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
         let row = twoLines(
             text.title, tidying ? String(localized: "Tidying up in a chat") : text.detail,

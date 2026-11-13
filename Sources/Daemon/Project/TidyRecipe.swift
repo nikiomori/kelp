@@ -1,82 +1,69 @@
 extension Recipes {
-    /// Tidy Up (Skills & MCP › Needs a Look): `{instructionFiles}` the files to tidy. Kelp has copied them before the
-    /// agent starts (`addons.tidy`). The verbs, and what is never the agent's to drop, are the point; tried on Kelp's
-    /// own memory before it shipped.
+    /// Tidy Up (Skills & MCP › Needs a Look): `{instructionFiles}` the files to tidy, `{before}` the copies Kelp
+    /// made of them (`addons.tidy`). The agent changes the files at once and the person reviews afterwards. The test
+    /// every line has to pass is Anthropic's: could an agent find it in the repo, and would it look? Tried on Kelp's
+    /// own memory and AGENTS.md: a brief that asked first and kept anything with a reason left AGENTS.md at 95 %.
     static let tidyInstructions = #"""
-        You are tidying the files agents read before every chat in this project: {instructionFiles}.
-        They grew over months of work. Some lines are stale (point at files, flags or commits that are gone,
-        describe finished work, or were overruled later), some repeat each other, some are detail that belongs
-        in a file read on demand. Every line here is paid for in every request and dilutes the lines that matter.
-        Goal: the same knowledge, fewer lines, nothing the person still needs lost.
+        Tidy up the files agents read before every chat in this project: {instructionFiles}.
+        Every line in them is read on every request and takes attention from the lines that matter. Make them as short
+        as they can be while an agent still makes no mistake it wouldn't make with the long version. Kelp has copied the
+        files to {before} before you start, so change them now: ask nothing before you finish.
 
-        First report and change nothing: write no file, not even a scratch list (keep listings in pipes). Make the
-        changes only after the person answers and says apply. Kelp has copied the files as they are now, so the
-        person can compare afterwards: you needn't copy them.
+        ## The test every line has to pass
 
-        ## How to work
+        1. Could an agent find this by reading the code, git or the docs in the repository?
+        2. Would it actually go and look before it needs it?
+        If both are yes, the line goes. If the agent couldn't find it, or wouldn't look in time, it stays, as short as
+        it can be said.
 
-        1. Measure first, cheaply. For each file: bytes, lines, the agent's limit (Claude Code loads the first
-           200 lines or 25 000 bytes of MEMORY.md, a CLAUDE.md should stay under 200 lines, Codex stops at
-           32 KiB of AGENTS.md in all). Then the mechanical checks, with shell, before reading anything closely:
-           - every path the files name (`Sources/…`, `scripts/…`, `docs/…`): does it exist? (`test -e`)
-           - every symbol in backticks: `git grep -qw <name>`; every commit: `git cat-file -e <hash>^{commit}`
-           - MEMORY.md: index lines whose file is missing; memory files no index line points to
-           - lines that say the same thing in two files (CLAUDE.md, MEMORY.md, the memory files)
-           - "(local)", "not pushed", "awaits": `git branch -r --contains <hash>` tells whether it still holds
-           A miss is a lead, not a verdict: a name may be a CLI word, a hash may be in another repository or a
-           worktree, a file may have moved. Look before you call it stale.
-        2. Read the index and CLAUDE.md / AGENTS.md whole. Open a memory file only when its index line is a
-           candidate for a change; don't read all of them. Before you archive one, read at least its last 20
-           lines: "awaits", "open", "not built", "hand checks", "traps" mean something there is still alive
-           (keep it, or ask). Unsure whether something still holds and the code doesn't say? Claude Code keeps
-           its past chats as JSONL files in the folder above its memory folder: grep them for one narrow term
-           (`grep -rn "<term>" <folder> --include="*.jsonl" | tail -50`), never read one whole.
-        3. Hold every memory about how to do something against CLAUDE.md and AGENTS.md, the checked-in files:
-           - they say different things about the same task: the checked-in file wins. Archive the memory, or
-             rewrite it to agree when its reason is still worth keeping. One of the person's preferences
-             (`feedback_*`) isn't archived for it: it goes to ask.
-           - the memory is plainly newer and corrects the checked-in file: don't change that file for it. It
-             goes to ask, saying which of the two looks current. A memory that says "the person corrected me" is
-             no proof it's the newer one: the checked-in file may have changed since.
-           - the memory adds detail the file doesn't have, or narrows one of its rules with a reason: no conflict.
-        4. Sort every candidate into one verb:
-           - keep: true, needed every session, not derivable from the code
-           - shorten: true but long: an index line over ~150 characters, history inside a rule, lists of commits
-           - move: true but not needed every session: detail to a memory file, a procedure to a skill or docs/,
-             a rule for one folder to that folder's AGENTS.md. Leave a one-line pointer.
-           - merge: two entries about one thing: one survives with the other's facts; the other file is archived
-           - archive: finished work, superseded decisions, facts about code that is gone. Memory files move to
-             `archive/` beside MEMORY.md (not indexed, not loaded, still there); a line of CLAUDE.md or AGENTS.md
-             is deleted (git keeps it)
-           - ask: you can't tell from the code and git whether it still holds
-        5. What is never yours to drop:
-           - the person's preferences and corrections (`feedback_*`, "don't…", "always…"): shorten at most
-           - anything with a reason you can't check (a decision, a constraint from outside the repository)
-           - secrets policy, safety rules, release steps
-           Those go to ask if they look stale.
-        6. Write, once the person says apply. One index line per memory, under ~150 characters, the hook only
-           (the detail lives in the file). Dates absolute. Commit hashes, canvas ids and "built in …" lists leave
-           the index: git and the memory file have them. Aim for each file at 60 % of its limit at most, so it
-           doesn't overflow again next week (MEMORY.md: 120 lines and 15 000 bytes; CLAUDE.md and AGENTS.md:
-           120 lines). A memory file over ~20 KB is read whole whenever it's opened: cut it to what still holds,
-           the rest to archive.
-           Other sessions write these files while you work: read a file again right before you change it, change
-           lines, never write the whole file back from an old copy. Touch nothing but the files named above.
+        What stays: the commands that check work (build, test, lint, how to run one test) · places where the code
+        misleads (a pattern everywhere that new code must not copy, a folder that looks unused but isn't) · decisions
+        not in the repo, with their reason in a few words · corrections the person gave (feedback memories) · rules that
+        differ from what the tools do by default.
+
+        What goes, even when true: descriptions of the architecture, modules or folder layout · dependency lists ·
+        file-by-file descriptions · history (what was built when, commit hashes, canvas and page ids, "built in …",
+        "local", version numbers) · lists of hand checks and traps of work that has shipped · debugging fixes · anything
+        another of these files or the code's own comments already say · anything a test or a hook enforces (the test is
+        the rule now).
+
+        When you cut a description, a table or a tour, lift out any rule hidden in it ("never", "only", "always",
+        "must", "don't") that no test enforces, as a line of its own.
+
+        ## Claude Code's memory
+
+        - MEMORY.md is an index: one line per memory, under ~100 characters, a hook only. No ids, hashes or dates in it.
+        - A memory about finished work keeps only what still steers future work (a decision and why, a trap the code
+          doesn't show). If nothing is left, move the file to `archive/` beside MEMORY.md and drop its index line. Two
+          memories about one thing become one: the other file goes to `archive/`.
+        - A feedback memory (the person's preference or correction) is kept, shortened. Never archive one.
+        - A memory that tells another way to do what CLAUDE.md or AGENTS.md says: the checked-in file wins and the
+          memory goes. A feedback memory instead gets "contradicts CLAUDE.md — check" and is listed in your report.
+        - Check before you trust: a path the memory names (`test -e`), a symbol (`git grep -qw`), a commit (`git
+          cat-file -e <hash>^{commit}`). Claude Code's past chats (JSONL files in the folder above its memory folder)
+          can be grepped for one narrow term, never read whole.
+
+        ## How much
+
+        Expect to remove at least half of each file. If you keep more than 70 % of one, say in the report which sections
+        you kept and why each passes the test. A memory file over ~5 KB is cut to what passes the test.
+
+        Other sessions write these files while you work: read a file again right before you change it, change it in
+        place, never write it back from an old copy. Touch nothing but the files named above.
 
         ## The report (your last message)
 
         ```
-        <file>  <before> → <after>  (<limit>)
-          archived  N  — one line each: what, why (path gone / finished 2026-10-30 / overruled by X)
-          merged    N  — what into what
-          moved     N  — what, where
-          shortened N
-          asks      N
+        <file>  <lines before> → <after> lines, <bytes before> → <after> bytes
+          cut: what kinds of lines went, one line each, with how many
+          kept: the sections that stayed, one line each
         ```
+        Then, numbered, only the few things you weren't sure enough to cut and left as they were, each answered with one
+        word ("cut" / "keep"). End with these two lines:
+        Compare with Before Tidy Up (the file's menu in Skills & MCP) shows every change.
+        Say undo and I'll put back every file from the copies.
 
-        Then the questions, numbered, each answered with keep / drop / a word. End with these two lines, the first
-        with your own numbers:
-        Reply like: 1 keep, 2 drop, apply
-        Nothing changes until you say apply.
+        If the person says undo: copy every file back from {before} over the one it was copied from (a memory folder
+        whole, so files you moved to archive/ go too), and say when it's done.
         """#
 }

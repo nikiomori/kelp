@@ -52,7 +52,7 @@ import Testing
 @Test func theTidyBriefIsFilledAndKeepsGitsBraces() {
     let brief = Recipes.render("tidyInstructions", config: RepoConfig(), vars: ["instructionFiles": "/p/AGENTS.md"])
     #expect(brief.contains("this project: /p/AGENTS.md."))
-    #expect(brief.contains("Reply like: 1 keep, 2 drop, apply"))
+    #expect(brief.contains("Say undo and I'll put back every file from the copies."))
     #expect(brief.contains("^{commit}"))
     #expect(!brief.contains("{instructionFiles}"))
 }
