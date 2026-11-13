@@ -148,6 +148,9 @@ final class Routines: Sendable {
     @discardableResult
     private func begin(_ routine: Routine, due: Date, now: Date, workspaces: Workspaces) throws -> Routine.Run {
         let worktree = try workspace(routine, workspaces: workspaces)
+        // A remote project's agent starts over ssh in a tab nobody watches: a host that wants a password would hold it
+        // at the prompt. Connected first without one (a key's login), or the run says why it didn't start.
+        if let remote = workspaces.remotes.of(worktree.path), remote.connection == nil { try remote.connect() }
         let session = try SessionCreate(
             worktreeId: worktree.id, agent: routine.agent, model: routine.model, prompt: routine.prompt,
             title: "\(routine.name) · \(due.formatted(.dateTime.month(.abbreviated).day()))"

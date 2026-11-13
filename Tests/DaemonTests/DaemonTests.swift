@@ -13,13 +13,15 @@ let testRoot = TestIsolation.root
 
 /// `ssh` that runs the command here (the host is this Mac). One for the whole test process, made before anything reads
 /// a daemon (its `Remotes` reads KELP_SSH as it starts): two tests making their own could overwrite each other's. A file
-/// `down-<host>` beside it: that host has no shared connection open (`ssh -O check` fails).
+/// `down-<host>` beside it: that host has no shared connection open (`ssh -O check` fails); `unreachable-<host>`: it
+/// can't be reached (ssh fails, 255).
 let localSSH: String = {
     let shim = tmp().appendingPathComponent("ssh")
     try? """
     #!/bin/sh
     eval "h=\\${$#}"; case "$*" in *"-O check"*) [ -e "$(dirname "$0")/down-$h" ] && exit 255;; esac   # no connection to $h
-    while [ $# -gt 1 ]; do case "$1" in -o) shift 2;; -T|-tt|--) shift;; -O) printf '%s\\n' "$*" >> "$(dirname "$0")/ssh.log"; exit 0;; *) shift; break;; esac; done
+    while [ $# -gt 1 ]; do case "$1" in -o) shift 2;; -T|-tt|--) shift;; -O) printf '%s\\n' "$*" >> "$(dirname "$0")/ssh.log"; exit 0;; *) h=$1; shift; break;; esac; done
+    [ -e "$(dirname "$0")/unreachable-$h" ] && { echo "ssh: Could not resolve hostname $h" >&2; exit 255; }
     printf '%s\\n' "$1" >> "$(dirname "$0")/ssh.log"
     case "$1" in *cut-short*) head -c 3 | exec /bin/sh -c "$1";; esac   # a connection dropped part way through
     case "$1" in *slow-host*) if [ -e "$(dirname "$0")/slow-host" ]; then : > "$(dirname "$0")/slow-asked"; sleep 3; fi;; esac   # slow, when asked to be

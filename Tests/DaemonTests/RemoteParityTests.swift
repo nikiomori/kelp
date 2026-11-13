@@ -66,3 +66,29 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     _ = await d.topic(Watches.Key(topic: .git, key: workspace.id)).read(false)
     #expect(try d.store.worktree(workspace.id)?.branch == "feature")
 }
+
+/// A routine of a remote project doesn't leave its agent waiting for a password nobody sees: the host is connected
+/// first without one, and when that fails the run says why at once.
+@Test func aRemoteRoutineSaysWhyItsHostWasntReached() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon(agents: [AgentManifest(id: "bot", name: "Bot", command: "/bin/cat")])
+    defer { d.stop() }
+    let host = "flaky-\(UUID().uuidString.prefix(6))"
+    let (repo, _, _) = try await remoteProject(c, host: host)
+    let shim = URL(fileURLWithPath: localSSH).deletingLastPathComponent()
+    for mark in ["down-", "unreachable-"] {
+        FileManager.default.createFile(atPath: shim.appendingPathComponent(mark + host).path, contents: nil)
+    }
+    defer {
+        for mark in ["down-", "unreachable-"] {
+            try? FileManager.default.removeItem(at: shim.appendingPathComponent(mark + host))
+        }
+    }
+    let routine = try await c.call(
+        RoutineSet(routine: Routine(name: "Nightly", repoId: repo.id, agent: "bot", prompt: "x")))
+    await #expect {
+        try await c.call(RoutineRun(id: routine.id))
+    } throws: { error in
+        (error as? RPCError)?.message == "Can't reach \(host): ssh: Could not resolve hostname \(host)"
+    }
+}

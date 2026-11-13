@@ -223,11 +223,19 @@ extension RemoteHost {
             [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", "check", "--", host], path: "/usr/bin:/bin", timeout: 3)
     }
 
-    /// Opens the shared connection and leaves it there.
+    /// Opens the shared connection and leaves it there; ssh's own reason when it can't (a key it can't use, a host it
+    /// doesn't know, one that wants a password).
     func connect() throws {
-        guard Subprocess.printed([ssh] + sshArgs(tty: false) + ["true"], path: "/usr/bin:/bin", timeout: 20) != nil
-        else {
-            throw RPCError.invalidParams("Can't reach \(host).")
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = "/usr/bin:/bin"
+        let result = Log.session.attempt("connecting to \(host)") {
+            try Subprocess.run([ssh] + sshArgs(tty: false) + ["true"], cwd: NSHomeDirectory(), env: env, timeLimit: 20)
+        }
+        guard let result, result.status == 0, !result.timedOut else {
+            let said = result.flatMap {
+                String(decoding: $0.stderr, as: UTF8.self).split(whereSeparator: \.isNewline).last.map(String.init)
+            }
+            throw RPCError.invalidParams("Can't reach \(host)" + (said.map { ": " + $0 } ?? "."))
         }
     }
 
