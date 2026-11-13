@@ -78,7 +78,8 @@ enum Recipes {
             "Review {scope} as a careful second reviewer; `{command}` shows them. Don't change any file. For each real "
             + "problem (a bug, a case not handled, a security hole, a broken contract) leave a comment on its line: "
             + "`kelp comment add <file> <line> \"<what's wrong and why>\"`. Skip style. At the end say in one line how many you left.",
-        "issue": "Work on this issue.\n\n{title}\n\n{body}\n\n(Issue: {url})"
+        "issue": "Work on this issue.\n\n{title}\n\n{body}\n\n(Issue: {url})",
+        "tidyInstructions": tidyInstructions
     ]
     static func render(_ name: String, config: RepoConfig, vars: [String: String]) -> String {
         fill(config.recipes[name] ?? defaults[name] ?? "", framed(vars))

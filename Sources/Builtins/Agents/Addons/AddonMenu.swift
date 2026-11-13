@@ -31,7 +31,13 @@ struct AddonMenu {
 
     private func item(_ menu: NSMenu, _ addon: Addon) {
         switch addon.kind {
-        case .instructions: locate(menu, addon.path, open: String(localized: "Open"), folder: false)
+        case .instructions:
+            locate(menu, addon.path, open: String(localized: "Open"), folder: false)
+            separate(menu)
+            menu.add(String(localized: "Tidy Up with Agent…")) {
+                let tidy = TidyUp(app: app, worktreeId: worktreeId, files: items.filter { $0.kind == .instructions })
+                Task { await tidy.ask(picked: addon.path) }
+            }
         case .server: server(menu, addon)
         case .skill where addon.source == .plugin:
             if let path = addon.path { menu.add(String(localized: "Open SKILL.md")) { open(path) } }

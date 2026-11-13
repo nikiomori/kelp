@@ -51,12 +51,14 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
     /// The plugin it came with, by the id the agent installed it under ("sales@synced"): what its own
     /// `plugin uninstall` takes.
     public var plugin: String?
+    /// An instruction file's size against what its agents read of it, and what it names that's gone.
+    public var check: InstructionCheck?
 
     public init(
         kind: Kind, name: String, source: Source, about: String? = nil, origin: String? = nil, agents: [String] = [],
         loaded: Bool? = nil, problem: String? = nil, signIn: Bool = false, tokens: Int? = nil, copies: [String] = [],
         key: String? = nil, off: Bool = false, fixed: [String] = [], path: String? = nil, error: String? = nil,
-        plugin: String? = nil
+        plugin: String? = nil, check: InstructionCheck? = nil
     ) {
         self.kind = kind
         self.name = name
@@ -75,7 +77,49 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
         self.path = path
         self.error = error
         self.plugin = plugin
+        self.check = check
     }
+}
+
+/// How an instruction file holds up. Agents read it before every chat: what's stale there is paid for in every request,
+/// and what's past their limit they never see.
+public struct InstructionCheck: Codable, Sendable, Equatable {
+    public var lines: Int, bytes: Int
+    /// Where its agents stop reading (Claude Code: MEMORY.md's first 200 lines or 25 000 bytes; Codex: 32 KiB of
+    /// AGENTS.md), or the length their makers advise (200 lines); nil: none.
+    public var maxLines: Int?, maxBytes: Int?
+    /// Lines past where its agents stop reading: never seen.
+    public var cut: Int
+    /// Paths it names, in folders of the project that exist, that aren't there (a memory index: its memories' too).
+    public var dead: [String]
+    /// A memory index: its lines whose memory file is missing, and memory files no line of it names.
+    public var missing: Int, unlisted: Int
+
+    public init(
+        lines: Int, bytes: Int, maxLines: Int? = nil, maxBytes: Int? = nil, cut: Int = 0, dead: [String] = [],
+        missing: Int = 0, unlisted: Int = 0
+    ) {
+        self.lines = lines
+        self.bytes = bytes
+        self.maxLines = maxLines
+        self.maxBytes = maxBytes
+        self.cut = cut
+        self.dead = dead
+        self.missing = missing
+        self.unlisted = unlisted
+    }
+
+    /// How full it is against its limit, the fuller measure (1 = at the limit); nil without one.
+    public var share: Double? {
+        let parts = [maxLines.map { Double(lines) / Double($0) }, maxBytes.map { Double(bytes) / Double($0) }]
+        return parts.compactMap { $0 }.max()
+    }
+    /// Worth a look: lines not read, near its limit, or naming what's gone.
+    public var needsLook: Bool {
+        cut > 0 || (share ?? 0) >= Self.near || !dead.isEmpty || missing > 0 || unlisted > 0
+    }
+    /// From here on a file is near its limit: tidied before agents start losing lines.
+    public static let near = 0.8
 }
 
 /// What `addons.list` answers. `chat`: the list is what that chat reported at its start (Claude Code writes it down);

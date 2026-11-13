@@ -32,6 +32,10 @@
             },
             "type" : "array"
           },
+          "check" : {
+            "$ref" : "#/components/schemas/InstructionCheck",
+            "description" : "An instruction file's size against what its agents read of it, and what it names that's gone."
+          },
           "copies" : {
             "description" : "Other places the same one sits in (a second copy of a skill's folder).",
             "items" : {
@@ -2650,6 +2654,51 @@
           "database",
           "id",
           "known"
+        ],
+        "type" : "object"
+      },
+      "InstructionCheck" : {
+        "description" : "How an instruction file holds up. Agents read it before every chat: what's stale there is paid for in every request, and what's past their limit they never see.",
+        "properties" : {
+          "bytes" : {
+            "type" : "integer"
+          },
+          "cut" : {
+            "description" : "Lines past where its agents stop reading: never seen.",
+            "type" : "integer"
+          },
+          "dead" : {
+            "description" : "Paths it names, in folders of the project that exist, that aren't there (a memory index: its memories' too).",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "lines" : {
+            "type" : "integer"
+          },
+          "maxBytes" : {
+            "type" : "integer"
+          },
+          "maxLines" : {
+            "description" : "Where its agents stop reading (Claude Code: MEMORY.md's first 200 lines or 25 000 bytes; Codex: 32 KiB of AGENTS.md), or the length their makers advise (200 lines); nil: none.",
+            "type" : "integer"
+          },
+          "missing" : {
+            "description" : "A memory index: its lines whose memory file is missing, and memory files no line of it names.",
+            "type" : "integer"
+          },
+          "unlisted" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "bytes",
+          "cut",
+          "dead",
+          "lines",
+          "missing",
+          "unlisted"
         ],
         "type" : "object"
       },

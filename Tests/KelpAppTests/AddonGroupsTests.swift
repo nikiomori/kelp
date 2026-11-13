@@ -192,3 +192,17 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     let lines = AddonGroups.lines([broken], toggled: [])
     #expect(!lines.contains(.problem(broken)) && !lines.contains { $0 == .section(.needsLook, count: 1) })
 }
+
+@Test func instructionNoteSaysWhatAgentsLoseFirst() {
+    let memory = InstructionCheck(
+        lines: 131, bytes: 27_818, maxLines: 200, maxBytes: 25_000, cut: 15, dead: ["a/b.swift", "c/d.md"])
+    #expect(AddonGroups.checkNote(memory)?.text == "15 lines not loaded · 2 dead links")
+    #expect(AddonGroups.checkNote(memory)?.warn == true)
+    let near = InstructionCheck(lines: 170, bytes: 9_000, maxLines: 200)
+    #expect(AddonGroups.checkNote(near)?.text == "170 of 200 lines")
+    let stale = InstructionCheck(lines: 40, bytes: 2_000, maxLines: 200, dead: ["x/y.swift"])
+    #expect(AddonGroups.checkNote(stale)?.text == "1 dead link")
+    #expect(AddonGroups.checkNote(stale)?.warn == false)
+    #expect(AddonGroups.checkNote(InstructionCheck(lines: 40, bytes: 2_000, maxLines: 200)) == nil)
+    #expect(TidyUp.described(["/m/MEMORY.md", "/p/AGENTS.md"]).hasSuffix("beside it); /p/AGENTS.md"))
+}

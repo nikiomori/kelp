@@ -51,6 +51,13 @@ extension AddonsPanel {
             }
         }
         menu.add(String(localized: "Open Skills Folder"), submenu: folders)
+        if let wid = app.workbench.workspaceId, let files = addons?.items.filter({ $0.kind == .instructions }),
+            !files.isEmpty
+        {
+            menu.add(String(localized: "Tidy Up Instructions…")) { [app] in
+                Task { await TidyUp(app: app, worktreeId: wid, files: files).ask() }
+            }
+        }
         if shownChat != nil { menu.add(String(localized: "Restart This Chat")) { [weak self] in self?.restart() } }
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: more.bounds.height + Metrics.lineGap * 2), in: more)

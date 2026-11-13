@@ -22290,6 +22290,216 @@
           }
         }
       }
+    },
+    "%lld lines not loaded": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не загружено строк: %lld"
+          }
+        }
+      }
+    },
+    "%lld dead links": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мёртвых ссылок: %lld"
+          }
+        }
+      }
+    },
+    "%lld index lines without a file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строк индекса без файла: %lld"
+          }
+        }
+      }
+    },
+    "%lld memories not in the index": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записей памяти вне индекса: %lld"
+          }
+        }
+      }
+    },
+    "%@ of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ из %2$@"
+          }
+        }
+      }
+    },
+    "%lld of %lld lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строк: %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "%lld lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строк: %lld"
+          }
+        }
+      }
+    },
+    "Gone: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Больше нет: %@"
+          }
+        }
+      }
+    },
+    "Gone: %@ and %lld more": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Больше нет: %1$@ и ещё %2$lld"
+          }
+        }
+      }
+    },
+    "Tidy Up with Agent…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Навести порядок с агентом…"
+          }
+        }
+      }
+    },
+    "Tidy Up Instructions…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Навести порядок в инструкциях…"
+          }
+        }
+      }
+    },
+    "Tidy Up Instructions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порядок в инструкциях"
+          }
+        }
+      }
+    },
+    "Tidy Up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порядок"
+          }
+        }
+      }
+    },
+    "Show Me First": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала показать"
+          }
+        }
+      }
+    },
+    "Make Them Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сразу менять"
+          }
+        }
+      }
+    },
+    "Repeat every week": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторять каждую неделю"
+          }
+        }
+      }
+    },
+    "An agent checks every path, name and commit these files mention, then shortens, merges, moves or archives what no longer holds. Memories aren’t deleted: they move to an archive folder agents don’t load.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент проверит каждый путь, имя и коммит из этих файлов, затем сократит, сольёт, перенесёт или уберёт в архив то, что больше не верно. Память не удаляется: она уходит в папку архива, которую агенты не загружают."
+          }
+        }
+      }
+    },
+    "1 line not loaded": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не загружена 1 строка"
+          }
+        }
+      }
+    },
+    "1 dead link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мёртвая ссылка: 1"
+          }
+        }
+      }
+    },
+    "1 index line without a file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строка индекса без файла: 1"
+          }
+        }
+      }
+    },
+    "1 memory not in the index": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись памяти вне индекса: 1"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

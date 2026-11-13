@@ -47,3 +47,15 @@ import Testing
     #expect(text.components(separatedBy: "</untrusted>").count - 1 == 2)   // the check's frame and the log's, no more
     #expect(!text.lowercased().contains("</untrusted >") && !text.contains("< /untrusted>"))
 }
+
+/// Tidy Up's brief names the files, the mode and where the files go first; git's own braces (`^{commit}`) stay.
+@Test func theTidyBriefIsFilledAndKeepsGitsBraces() {
+    let brief = Recipes.render(
+        "tidyInstructions", config: RepoConfig(),
+        vars: ["instructionFiles": "/p/AGENTS.md", "mode": "report", "backup": "/k/tidy/<today>"])
+    #expect(brief.contains("this project: /p/AGENTS.md."))
+    #expect(brief.contains("Mode: report."))
+    #expect(brief.contains("under /k/tidy/<today>"))
+    #expect(brief.contains("^{commit}"))
+    #expect(!brief.contains("{instructionFiles}") && !brief.contains("{mode}") && !brief.contains("{backup}"))
+}

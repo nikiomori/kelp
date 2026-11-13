@@ -82,7 +82,27 @@ struct AddonRows {
         }
         let tip = AddonGroups.tip(addon) { app.catalog.name($0) }
         row.toolTip = tip.isEmpty ? addon.name : addon.name + "\n" + tip
-        return row
+        guard let note = addon.check.flatMap(AddonGroups.checkNote) else { return row }
+        return noted(row, note, from: inset + mark.fittingSize.width + Metrics.gap)
+    }
+
+    /// An instruction file that needs a look: its row over what's wrong, the whole width under its name, in the
+    /// warning colour when agents lose lines.
+    private func noted(_ row: AddonCell, _ note: (text: String, warn: Bool), from indent: CGFloat) -> AddonCell {
+        let detail = NSTextField.label(
+            note.text, font: .ui(TextSize.caption), color: note.warn ? .textOrange : .secondaryLabelColor)
+        detail.lineBreakMode = .byTruncatingTail
+        detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let under = NSStackView(views: [detail])
+        under.edgeInsets = NSEdgeInsets(top: 0, left: indent, bottom: 0, right: Metrics.inset)
+        let both = AddonCell(views: [row, under])
+        both.orientation = .vertical
+        both.alignment = .leading
+        both.spacing = Metrics.lineGap
+        for part in [row, under] { part.widthAnchor.constraint(equalTo: both.widthAnchor).isActive = true }
+        both.hovered = row.hovered
+        both.toolTip = row.toolTip
+        return both
     }
 
     /// The switch and the chat disagree until it restarts: a mark that fits the narrowest panel, its words in the tip.

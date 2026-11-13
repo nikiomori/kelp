@@ -252,6 +252,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         switch lines[row] {
         case .section: TextSize.of(Metrics.rowSection)
         case .problem, .unsigned: TextSize.of(Metrics.rowTwoLine)
+        case .item(let addon, _) where addon.check?.needsLook == true: TextSize.of(Metrics.rowTwoLine)
         case .group, .item: TextSize.of(Metrics.row)
         }
     }

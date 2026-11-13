@@ -39,6 +39,10 @@ extension AddonsList: Handled {
                 all[index].plugin = plugins[all[index].name]?.id
             }
         }
+        // What each instruction file says against what's on disk: read every time, the files change under the chats.
+        for index in all.indices where all[index].kind == .instructions {
+            all[index].check = all[index].path.flatMap { InstructionChecks.check($0, cwd: chat?.cwd ?? worktree.path) }
+        }
         return Addons(items: all, chat: loaded != nil, gone: gone)
     }
 }
