@@ -162,6 +162,7 @@ extension SidebarController {
             colorItem(menu, id)
             muteItem(menu, node.muteIds)
             browserItem(menu, id)
+            WorkspaceActions(app).addDevContainer(to: menu, repo)
             menu.addItem(.separator())
             WorkspaceActions.addLocate(to: menu, path: repo.path)
             menu.addItem(.separator())
@@ -179,6 +180,7 @@ extension SidebarController {
             menu.add(String(localized: "Rename…")) { AgentActions(app).rename(sid) }
             menu.add(String(localized: "Hand Off to"), submenu: AgentActions(app).handoffMenu(sid))
             AgentActions(app).addFork(to: menu, sid)
+            AgentActions(app).addMove(to: menu, sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
             if let session = model.session(sid),

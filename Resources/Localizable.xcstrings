@@ -81,6 +81,16 @@
         }
       }
     },
+    "%@'s new terminals and agents start in its dev container.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые терминалы и агенты проекта %@ запускаются в его dev container."
+          }
+        }
+      }
+    },
     "%lld agents with no list price": {
       "localizations": {
         "ru": {
@@ -187,6 +197,16 @@
         }
       }
     },
+    "Claude Code there signs in with CLAUDE_CODE_OAUTH_TOKEN in Settings › Agents.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code входит там через CLAUDE_CODE_OAUTH_TOKEN из Settings › Agents."
+          }
+        }
+      }
+    },
     "Committed by %@, %@": {
       "localizations": {
         "en": {
@@ -199,6 +219,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Коммит: %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "Continue On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить на"
           }
         }
       }
@@ -415,6 +445,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Цены — прайс API: по плану счёт другой."
+          }
+        }
+      }
+    },
+    "Run in Dev Container": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать в Dev Container"
           }
         }
       }

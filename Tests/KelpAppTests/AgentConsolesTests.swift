@@ -42,7 +42,22 @@ extension OneAtATime {
         #expect(area.layout.focusedGroup?.selectedTab?.uri == TabURI.session(mine.id))
     }
 
-    /// A chat offers Move to the copies of its project, by where they are; a project with none offers nothing.
+    /// A project of this Mac offers Run in Dev Container, checked while it does.
+    @Test func aProjectOffersToRunInItsDevContainer() async throws {
+        _ = NSApplication.shared   // the daemon refuses this key from a test's client: its banner needs an app
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        func item() -> NSMenuItem? {
+            let menu = NSMenu()
+            WorkspaceActions(rig.app).addDevContainer(to: menu, rig.project)
+            return menu.items.first { $0.title == "Run in Dev Container" }
+        }
+        #expect(item()?.state == .off)
+        rig.app.uiState[Repo.devContainerKey] = .array([.string(rig.project.id)])
+        #expect(item()?.state == .on)
+    }
+
+    /// A chat offers Continue On for the copies of its project, by where they are; a project with none offers nothing.
     @Test func aChatOffersItsProjectsCopiesToMoveTo() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
@@ -51,7 +66,7 @@ extension OneAtATime {
         func moves() -> [String]? {
             let menu = NSMenu()
             AgentActions(rig.app).addMove(to: menu, chat.id)
-            return menu.items.first { $0.title == "Move to" }?.submenu?.items.map(\.title)
+            return menu.items.first { $0.title == "Continue On" }?.submenu?.items.map(\.title)
         }
         #expect(moves() == nil)
         rig.app.repos.append(

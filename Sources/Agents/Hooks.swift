@@ -120,6 +120,21 @@ public enum Hooks {
         try settings(listens.compactMap { l in l.host.map { (l, $0, nil) } })
     }
 
+    /// The host's hooks for an agent in a project's dev container (`DevContainer`): no tmux there, so each writes its
+    /// report straight to the agent's terminal, which `docker exec -t` passes through to Kelp. Its tty from /proc (a
+    /// slim image may have no ps).
+    public static func containerSettingsJSON() throws -> String {
+        try settings(listens.compactMap { l in l.host.map { (l, inContainer($0), nil) } })
+    }
+    static func inContainer(_ host: String) -> String {
+        host.replacingOccurrences(of: hostStart, with: "")
+            .replacingOccurrences(of: "tmux set-option -q \(RemoteHost.statusOption) \"$r\";", with: "")
+            .replacingOccurrences(of: hostSend, with: containerSend)
+    }
+    static let containerSend =
+        #"t=$(readlink /proc/$PPID/fd/0 2>/dev/null)||t=/dev/$(ps -o tty= -p $PPID|tr -d ' ');"#
+        + #"printf '\033]7501;%s\007' "$r">"$t""#
+
     /// Notifications that ask the user nothing, by Claude Code's `notification_type`: the "waiting for your input" it repeats a
     /// minute after a turn ends (Qwen Code too), a login that went through, a background agent that finished, a push Claude
     /// sent, computer use starting or ending, a resume after a plan limit, a refusal fallback, a keychain that failed, a

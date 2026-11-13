@@ -56,11 +56,33 @@ final class SessionSetup: Sendable {
                 ?? remote.command(loginShell ? nil : onHost, envFile: envFile, exports: own)
             run = [remote.ssh] + remote.sshArgs(tty: true) + [command]
         }
+        let box = run == argv ? devContainer(cwd) : nil
+        if let box {
+            let (own, secret) = Self.hostEnv(manifest, env)
+            run = DevContainer.wrap(
+                try DevContainer.inside(argv, manifest), cwd: cwd, in: box,
+                readOnly: DevContainer.named(in: argv), env: Array(own.keys) + Array(secret.keys))
+        }
         guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
         let resolved = try LoginPath.resolve(exe)
         // Codex's hooks: here, not in the record, as the host's are, so a wake gets this kelpd's.
-        let hooks = tmux == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
+        let hooks = tmux == nil && box == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
         return [resolved] + hooks + run.dropFirst()
+    }
+
+    /// The workspace folder holding `cwd`, and its project's, when that project runs in its dev container and the
+    /// folder has one; nil: it runs here.
+    func devContainer(_ cwd: String) -> (folder: String, project: String)? {
+        guard remotes.of(cwd) == nil,
+            let on = store.look(
+                "the projects in dev containers", { try $0.daemonState(Repo.devContainerKey, as: [String].self) }),
+            !on.isEmpty,
+            let worktree = (store.look("the workspaces") { try $0.worktrees() } ?? [])
+                .filter({ Paths.inside(cwd, $0.path) }).max(by: { $0.path.count < $1.path.count }),
+            on.contains(worktree.repoId), DevContainer.configured(in: worktree.path),
+            let repo = store.look("a project", { try $0.repo(worktree.repoId) }) ?? nil
+        else { return nil }
+        return (worktree.path, repo.path)
     }
 
     /// What a program on a host gets of its environment here: its agent's settings and secrets (`secret`, sent apart),

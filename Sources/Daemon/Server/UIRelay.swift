@@ -121,9 +121,12 @@ extension StateSet: Handled {
     /// Which projects may run their own code in language servers and formatters, and which extensions may run commands:
     /// the user's say, in Kelp's window (as `scripts.trust`); an agent's call or a repository's script can't record it.
     var onlyFromKelp: String? {
-        key == ExtensionFiles.extensionTrustKey
-            ? "Only Kelp's window allows an extension to run commands."
-            : key.hasPrefix("lsp.") ? "Only Kelp's window can trust a project for language servers." : nil
+        switch key {
+        case ExtensionFiles.extensionTrustKey: "Only Kelp's window allows an extension to run commands."
+        case Repo.devContainerKey: "Only Kelp's window runs a project in its dev container."
+        case _ where key.hasPrefix("lsp."): "Only Kelp's window can trust a project for language servers."
+        default: nil
+        }
     }
     func handle(_ ui: UIStore) throws -> Done {
         // The trust is kept apart from the rest (`Store.trustKeys`): only this writes it, from Kelp's window.

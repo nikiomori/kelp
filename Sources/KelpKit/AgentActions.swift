@@ -107,7 +107,7 @@ package struct AgentActions {
         m.add(String(localized: "Fork Chat")) { fork(sid) }
     }
 
-    /// "Move to ▸ box": the chat goes on in its project's copy on another machine (a server, or this Mac), a branch
+    /// "Continue On ▸ box": the chat goes on in its project's copy on another machine (a server, or this Mac), a branch
     /// worktree there with its commits and uncommitted changes, briefed as Hand Off does; the one here pauses. The
     /// copies are the projects of the same name; the daemon checks they share their first commit.
     func addMove(to m: NSMenu, _ sid: String) {
@@ -121,7 +121,7 @@ package struct AgentActions {
             let place = RemoteHost.of(repo.path)?.host ?? String(localized: "This Mac")
             menu.add(place) { move(sid, to: repo.id, place: place) }
         }
-        m.add(String(localized: "Move to"), submenu: menu)
+        m.add(String(localized: "Continue On"), submenu: menu)
     }
 
     func move(_ sid: String, to repoId: String, place: String) {

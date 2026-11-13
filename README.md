@@ -124,6 +124,7 @@ An agent can start another beside it, say a review by a different model, and its
 <td valign="top">
 <b>Open over SSH</b><br/>
 Work in a project on another machine. With tmux on the host, a dropped connection doesn't stop its agents.
+<b>Continue On</b> moves a chat there, or back, with its branch and changes.
 </td>
 <td valign="top">
 <b>Extensions</b><br/>
@@ -135,7 +136,8 @@ Panels, commands, settings, themes and agents. A JSON file is enough, and the
 <td valign="top">
 <b>Machines</b><br/>
 Linux and macOS machines on Apple Virtualization, Android emulators, iOS simulators. Agents run commands there, in the
-project's folder at the same path, and tap the app on its screen.
+project's folder at the same path, and tap the app on its screen. A project with a `devcontainer.json` can run its
+terminals and agents in that container (its menu's Run in Dev Container; needs docker and the Dev Containers CLI).
 </td>
 <td valign="top">
 <b>Artifacts</b><br/>
