@@ -256,8 +256,8 @@ final class SessionSetup: Sendable {
         return expectedAndSettled ? manifest : out
     }
 
-    /// argv that brings back this session's own conversation. A remote one's conversations are on its host: the agent's
-    /// own "latest in this folder" finds it there.
+    /// argv that brings back this session's own conversation. A remote one's is on its host: resumed by its id once it's
+    /// there.
     func resumeArgv(_ rec: Session, _ manifest: AgentManifest) -> [String] {
         // pi and Grok, pinned: resumed by its id once it wrote its conversation; before its first message it has none
         // (resuming one would stop it at "No session found"), so it starts under the same id. On a host: pi's
@@ -273,6 +273,14 @@ final class SessionSetup: Sendable {
                 }
                     == true
             return written ? manifest.resuming(rec.argv) : rec.argv
+        }
+        // On a host, pinned with nothing typed yet: no conversation there to resume ("No conversation found"), so it
+        // starts under the same id.
+        if rec.agent == "claude", let remote = remotes.of(rec.cwd), let pin = manifest.sessionIdFlag,
+            let index = rec.argv.firstIndex(of: pin), index + 1 < rec.argv.count,
+            agentUsage.conversations.hostLacks(rec.argv[index + 1], on: remote)
+        {
+            return rec.argv
         }
         guard rec.agent == "claude", remotes.of(rec.cwd) == nil, let flag = manifest.resumeIdFlag,
             let pin = manifest.sessionIdFlag

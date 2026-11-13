@@ -1,3 +1,4 @@
+import Agents
 import Core
 import Foundation
 import Testing
@@ -28,4 +29,28 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     let shown = try await c.call(ScriptsList(worktreeId: workspace.id))
     #expect(shown.scripts == [.init(name: "hello", command: "echo hi")])
     _ = try await trustAsShown(c, .string(workspace.id))
+}
+
+/// A remote Claude Code's chat comes back with its conversation once the host has it; with nothing typed yet it starts
+/// under its id again rather than stop at "No conversation found".
+@Test func aRemoteChatResumesOnlyAConversationThere() async throws {
+    _ = localSSH
+    var claude = AgentManifest(id: "claude", name: "Claude Code", command: "/bin/bash", args: ["-c", "sleep 30", "x"])
+    claude.sessionIdFlag = "--session-id"
+    claude.resumeIdFlag = "--resume"
+    let (d, c, _) = try daemon(agents: [claude])
+    defer { d.stop() }
+    let host = tmp()
+    d.agentUsage.conversations.hostClaude.withLock { $0 = ShellQuote.word(host.path) }
+    let (_, workspace, there) = try await remoteProject(c)
+    let session = try await c.call(SessionCreate(worktreeId: workspace.id, agent: "claude"))
+    let manifest = try d.sessions.setup.manifest("claude", command: nil, fallbackArgv: session.argv)
+    #expect(!d.sessions.setup.resumeArgv(session, manifest).contains("--resume"))
+    let folder = host.appendingPathComponent(
+        "projects/" + (try #require(Paths.real(there))).replacing(/[^A-Za-z0-9]/, with: "-"))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try "{}\n".write(
+        to: folder.appendingPathComponent(session.id.lowercased() + ".jsonl"), atomically: true, encoding: .utf8)
+    #expect(d.sessions.setup.resumeArgv(session, manifest).contains("--resume"))
+    _ = try await c.call(SessionKill(id: session.id))
 }

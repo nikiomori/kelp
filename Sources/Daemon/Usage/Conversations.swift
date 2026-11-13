@@ -111,6 +111,14 @@ final class Conversations: Sendable {
         return out.flatMap { $0.isEmpty ? nil : $0 }
     }
 
+    /// Whether Claude Code's conversation `id` is surely not on `remote`'s host (asked over ssh, which connects if it
+    /// must: a wake or a restart does anyway); false when that can't be told.
+    func hostLacks(_ id: String, on remote: RemoteHost) -> Bool {
+        let script = Self.remoteTailScript(
+            path: remote.path, id: id, claude: hostClaude.withLock { $0 }, read: "head -c 1")
+        do { return try remote.run(script, timeLimit: 15).isEmpty } catch { return false }
+    }
+
     /// For sh on the host: the folder as the host resolves it (a leading ~, a symlink), named as Claude Code names it
     /// (each character that isn't a letter or a digit is "-"), then the file's end (or what `read` prints of it).
     static func remoteTailScript(
