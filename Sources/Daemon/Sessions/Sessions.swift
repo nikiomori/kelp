@@ -177,6 +177,12 @@ final class Sessions: Sendable {
         // A remote project's sessions run on its host (see `launchArgv`). Kelp's hooks and skills are files on this Mac,
         // so they stay out: status comes from what the agent reports, and from the screen.
         let local = remotes.of(cwd) == nil
+        // An account profile is a folder on this Mac: an agent on a host signs in there, as that host's.
+        if !local, launch.profile != nil, let host = remotes.of(cwd)?.host {
+            throw RPCError.invalidParams(
+                "Account profiles are for agents on this Mac: one on \(host) signs in there, in a terminal of the project."
+            )
+        }
         if local, case .settingsFlag(let flag)? = manifest.hooks {
             argv = try setup.withSettings(
                 argv, flag: flag, manifest: manifest, worktreeId: worktreeId, fresh: launch.argv == nil)

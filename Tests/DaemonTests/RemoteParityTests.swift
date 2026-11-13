@@ -248,3 +248,15 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
         try await c.call(RemoteTrustHost(host: "-oProxyCommand=x", fingerprint: "SHA256:x"))
     }
 }
+
+/// An account profile is a folder on this Mac: a chat on a host is refused one, saying so, rather than signed in to the
+/// host's own account under the profile's name.
+@Test func aRemoteChatTakesNoAccountProfile() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon(agents: [AgentManifest(id: "bot", name: "Bot", command: "/bin/cat")])
+    defer { d.stop() }
+    let (_, workspace, _) = try await remoteProject(c)
+    await #expect {
+        try await c.call(SessionCreate(worktreeId: workspace.id, agent: "bot", profile: "work"))
+    } throws: { ($0 as? RPCError)?.message.contains("Account profiles are for agents on this Mac") == true }
+}
