@@ -316,7 +316,7 @@ import os
     let m = AppModel(builtins: [])
     m.daemon.use(try RPCClient(socket: path))
     m.repos = [Repo(id: "r1", name: "one", path: "/one")]
-    let panel = TasksViewController(app: m)
+    let panel = TasksViewController(app: m, watch: PRWatch(app: m))
     panel.show(worktree: nil)
     _ = panel.view   // asks for All open
     panel.filter.selectItem(at: 1)

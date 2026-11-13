@@ -3015,6 +3015,27 @@
         ],
         "type" : "object"
       },
+      "PRsEvent" : {
+        "description" : "A project's open pull requests, or why they couldn't be read.",
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "prs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/GitHub.PullRequest"
+            },
+            "type" : "array"
+          },
+          "repo" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "repo"
+        ],
+        "type" : "object"
+      },
       "PairedPhone" : {
         "description" : "A phone paired with this Mac. `push`: it takes notifications.",
         "properties" : {
@@ -5288,7 +5309,8 @@
           "machineDetail",
           "artifacts",
           "databases",
-          "phone"
+          "phone",
+          "prs"
         ],
         "type" : "string"
       },
@@ -13349,6 +13371,13 @@
       "name" : "event.pr",
       "params" : {
         "$ref" : "#/components/schemas/PREvent"
+      }
+    },
+    {
+      "description" : "A project's open pull requests, or why they couldn't be read.",
+      "name" : "event.prs",
+      "params" : {
+        "$ref" : "#/components/schemas/PRsEvent"
       }
     },
     {

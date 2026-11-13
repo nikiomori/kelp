@@ -9,10 +9,13 @@ import SwiftUI
 @MainActor
 final class TasksViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
-    init(app: AppModel) {
+    let watch: PRWatch
+    init(app: AppModel, watch: PRWatch) {
         self.app = app
+        self.watch = watch
         super.init(nibName: nil, bundle: nil)
     }
+
     required init?(coder: NSCoder) { fatalError() }
     let source = PointerPopUpButton()
     let split = NSSplitView()
@@ -97,6 +100,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     private var viewer: String?
     /// The tab the last click opened: the next click puts its own there, unless a double-click kept it.
     var lastOpened: String?
+    /// PRs changed since their tab was last opened: a dot on the row.
+    private var unseen: Set<Int> = []
     private(set) var repoId: String?
     private var projectOwner: String?
     /// Bumped by every reload and every filter menu built: a reply for an older one (another project, list or filter)
@@ -150,6 +155,14 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         nameSources()   // the workspace came before the view: show(worktree:) left naming to here
         hideUnconnectedTrackers()
         showDetailPane(false)   // until a tracker's task is picked
+        // The project's open PRs as the daemon reads them again: the list follows, without a spinner.
+        track(owner: self, now: false) { [weak self] in
+            self.flatMap { $0.watch.prs($0.repoId) }
+        } changed: { [weak self] in
+            if let prs = $0 { self?.pushed(prs) }
+        }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(forgeChanged), name: PRWork.changed, object: nil)
     }
 
     private var laidOutWidth: CGFloat = 0
@@ -270,7 +283,34 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
 
-    @objc func reload() {
+    /// Open PRs read again while they're the list: shown in place, the row picked kept.
+    private func pushed(_ prs: [GitHub.PullRequest]) {
+        guard shown == .pulls, filter.indexOfSelectedItem == 0, !filter.isHidden else { return }
+        let picked = row(at: table.selectedRow).flatMap(Self.number)
+        unseen = PRWatch.unseen(prs)
+        rows = prs.map(Row.pr)
+        lines = lined(rows)
+        table.reloadData()
+        reselect(picked)
+        showEmpty(rows.isEmpty ? Source.pulls.none : nil)
+    }
+
+    /// The row of `number` picked again after the list was read again: the same tab, so nothing opens.
+    private func reselect(_ number: Int?) {
+        guard let number,
+            let index = lines.firstIndex(where: { line in
+                if case .row(let row) = line { Self.number(row) == number } else { false }
+            })
+        else { return }
+        table.selectRowIndexes([index], byExtendingSelection: false)
+    }
+    /// A merge, a PR or a group made from here: the list says so now, not in two minutes.
+    @objc private func forgeChanged() { load(quietly: true) }
+
+    @objc func reload() { load() }
+
+    /// `quietly`: a refresh nobody asked for, which says nothing while it reads and keeps the row picked.
+    func load(quietly: Bool = false) {
         reloads += 1
         let gen = reloads
         guard let repoId else {
@@ -287,11 +327,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             guard let self else { return }
             if rows.isEmpty {
                 showLoading()
-            } else {
+            } else if !quietly {
                 status.stringValue = String(localized: "Loading…")
             }
         }
         let src = shown, filterIndex = filter.indexOfSelectedItem
+        let picked = quietly ? row(at: table.selectedRow).flatMap(Self.number) : nil
         Task {
             defer { slow.cancel() }
             var rows: [Row] = []
@@ -299,8 +340,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 switch src {
                 case .pulls:
                     viewer = await Viewer.get(app)
-                    rows = try await app.get(GitHubPRs(repoId: repoId, filter: filterIndex == 1 ? "closed" : "open"))
-                        .map(Row.pr)
+                    let prs = try await app.get(
+                        GitHubPRs(repoId: repoId, filter: filterIndex == 1 ? "closed" : "open"))
+                    unseen = PRWatch.unseen(prs)
+                    rows = prs.map(Row.pr)
                 case .issues:
                     rows = try await app.get(GitHubIssues(repoId: repoId, filter: filterIndex == 1 ? "mine" : "open"))
                         .map(Row.issue)
@@ -364,7 +407,16 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 }
             }
             table.reloadData()
-            showDetail(nil)
+            if picked != nil { reselect(picked) } else { showDetail(nil) }
+        }
+    }
+
+    /// A PR's or an issue's number, which names it across a refresh.
+    private static func number(_ row: Row) -> Int? {
+        switch row {
+        case .pr(let pr): pr.number
+        case .issue(let issue): issue.number
+        case .linear, .jira, .item: nil
         }
     }
 
@@ -397,7 +449,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         switch row {
         case .pr(let pr):
             let folder = repoId.map { PRWork(app: app, repoId: $0, pr: pr).worktree != nil } ?? false
-            return ForgeRows.pr(pr, worktree: folder, unseen: false)
+            return ForgeRows.pr(pr, worktree: folder, unseen: unseen.contains(pr.number))
         case .issue(let issue):
             let working = app.worktrees.contains {
                 $0.repoId == repoId && $0.issue == "#\(issue.number)" && !$0.archived
@@ -438,7 +490,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     func tableViewSelectionDidChange(_ notification: Notification) {
         let picked = row(at: table.selectedRow)
         switch picked {
-        case .pr(let pr)?: open(.pr, pr.number)
+        case .pr(let pr)?:
+            open(.pr, pr.number)
+            PRWatch.saw(pr)
+            if unseen.remove(pr.number) != nil {
+                table.reloadData(forRowIndexes: [table.selectedRow], columnIndexes: [0])
+            }
         case .issue(let issue)?: open(.issue, issue.number)
         case .linear?, .jira?, .item?, nil: break
         }

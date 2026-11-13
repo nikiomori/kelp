@@ -80,7 +80,7 @@ private func rig() async throws -> World {
     let issue = try await r.c.call(GitHubIssueView(repoId: r.repo.id, issue: 3))
     #expect(issue.issue.author == "amy" && issue.comments.first?.body == "Seen it")
     _ = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "closed"]))
-    #expect(calls().filter { $0.hasPrefix("pr list") }.last?.contains("--state closed") == true)
+    #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("--state closed") })
 }
 
 @Test func issuesAskForMineOnlyWhenToldTo() async throws {

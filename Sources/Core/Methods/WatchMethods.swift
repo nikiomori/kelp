@@ -47,6 +47,8 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case databases
     /// The bridge to phones (`PhoneEvent`): read every 2 s while Settings › Phone shows. No key. Not for agents.
     case phone
+    /// A project's open pull requests (`PRsEvent`): read every 2 minutes while watched. Key: repo id.
+    case prs
 }
 
 /// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching
@@ -119,6 +121,17 @@ public struct CIEvent: RPCEvent, Equatable {
     public init(worktree: String, result: CIRunsList.Result? = nil, error: String? = nil) {
         self.worktree = worktree
         self.result = result
+        self.error = error
+    }
+}
+
+/// A project's open pull requests, or why they couldn't be read.
+public struct PRsEvent: RPCEvent, Equatable {
+    public static let name = "event.prs"
+    public var repo: String, prs: [GitHub.PullRequest]?, error: String?
+    public init(repo: String, prs: [GitHub.PullRequest]? = nil, error: String? = nil) {
+        self.repo = repo
+        self.prs = prs
         self.error = error
     }
 }

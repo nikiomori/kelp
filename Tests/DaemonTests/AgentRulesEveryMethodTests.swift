@@ -78,6 +78,8 @@ private func rows() async throws -> Rows {
         calls.map { (agent, $0(r.elsewhere.id), true, "a read looks at another's workspace") } + [
             (agent, WorktreeList(repoId: r.w.repo.id), true, "the project's workspaces"),
             (agent, RepoWorktreeSizes(id: r.w.repo.id), true, "and their sizes"),
+            (agent, GitHubPRView(repoId: r.w.repo.id, pr: 1), true, "a pull request of the project"),
+            (agent, GitHubIssueView(repoId: r.w.repo.id, issue: 1), true, "an issue of the project"),
             (agent, GitDiff(id: r.wt.id, session: r.theirs.id), false, "not a turn of a session the user started")
         ])
 }

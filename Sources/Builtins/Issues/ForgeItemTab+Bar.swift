@@ -145,6 +145,7 @@ struct IssueWork {
             else { return }
             app.upsert(made.session)
             app.workbench.focus(session: made.session.id)
+            NotificationCenter.default.post(name: PRWork.changed, object: nil)
         }
     }
 

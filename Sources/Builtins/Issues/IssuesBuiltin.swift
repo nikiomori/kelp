@@ -13,12 +13,14 @@ extension Builtins {
         "GitHub, Linear, Jira and Bitbucket: start work from an issue, review PRs.",
         icon: "checklist"
     ) { app in
-        let failed = FailedRuns(app: app)
+        let failed = FailedRuns(app: app), watch = PRWatch(app: app)
         return Contributions(
             panels: [
-                PanelSpec(id: "issues", title: "Issues & Pull Requests", icon: "checklist", extensionId: "kelp.issues")
-                {
-                    let tasks = TasksViewController(app: app)
+                PanelSpec(
+                    id: "issues", title: "Issues & Pull Requests", icon: "checklist", extensionId: "kelp.issues",
+                    badge: { watch.badge }
+                ) {
+                    let tasks = TasksViewController(app: app, watch: watch)
                     track(owner: tasks) {
                         app.workbench.workspaceId
                     } changed: { [weak tasks] in

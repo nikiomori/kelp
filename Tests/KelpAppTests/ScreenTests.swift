@@ -591,7 +591,8 @@ extension OneAtATime {
 /// No open pull requests: the panel starts empty, its list hidden, and an Issues list comes later. It used to get no height.
 @MainActor @Test func aListAfterAnEmptyStartTakesThePanel() throws {
     _ = testHome
-    let vc = TasksViewController(app: AppModel(builtins: Builtins.all))
+    let app = AppModel(builtins: Builtins.all)
+    let vc = TasksViewController(app: app, watch: PRWatch(app: app))
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 250, height: 800), styleMask: [.titled], backing: .buffered, defer: true)   // never shown
     window.contentViewController = vc
@@ -608,7 +609,8 @@ extension OneAtATime {
 /// back with no height, the details below it taking the whole panel.
 @MainActor @Test func theListComesBackAfterThePanelWasSqueezed() throws {
     _ = testHome
-    let vc = TasksViewController(app: AppModel(builtins: Builtins.all))
+    let app = AppModel(builtins: Builtins.all)
+    let vc = TasksViewController(app: app, watch: PRWatch(app: app))
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 250, height: 800), styleMask: [.titled], backing: .buffered, defer: true)   // never shown
     window.contentViewController = vc

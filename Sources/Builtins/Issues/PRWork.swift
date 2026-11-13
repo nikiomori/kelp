@@ -9,6 +9,8 @@ import WorkbenchKit
 @MainActor
 struct PRWork {
     let app: AppModel, repoId: String, pr: GitHub.PullRequest
+    /// Something done here changed what the list shows (a merge, a folder made): it reads again.
+    static let changed = Notification.Name("kelp.issues.changed")
 
     /// The PR's folder: on its own branch, or on `pr-<n>` when that name was taken by another branch
     /// (`Git.fetchPullRequest`); the project's own checkout only while it has the PR's branch out.
@@ -24,7 +26,9 @@ struct PRWork {
     /// Its folder, made on the PR's head when it has none (as New Group on Branch… › Pull Request makes it).
     func folder() async -> Worktree? {
         if let worktree { return worktree }
-        return await app.call(WorktreeCreate(repoId: repoId, branch: pr.headRefName, pr: pr.number))?.worktree
+        let made = await app.call(WorktreeCreate(repoId: repoId, branch: pr.headRefName, pr: pr.number))?.worktree
+        if made != nil { NotificationCenter.default.post(name: Self.changed, object: nil) }
+        return made
     }
 
     func openFolder() {
@@ -133,6 +137,7 @@ struct PRWork {
             let merge = GitHubPRMerge(worktreeId: wid, pr: pr.number, method: method, head: pr.headRefOid)
             if await app.call(merge) != nil {
                 Banner.show(String(localized: "Merged #\(pr.number)"))
+                NotificationCenter.default.post(name: Self.changed, object: nil)
                 done()
             }
         }

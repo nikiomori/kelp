@@ -34,6 +34,13 @@ extension Daemon {
         return pr.flatMap { line(PREvent(worktree: key, pr: $0)) }
     }
 
+    /// A project's open pull requests, for the Issues panel and its number: other people's change on the forge only.
+    private func prsRead(_ repo: String) async -> Data? {
+        do { return line(PRsEvent(repo: repo, prs: try await ask(GitHubPRs(repoId: repo, filter: "open")))) } catch {
+            return line(PRsEvent(repo: repo, error: error.rpcMessage))
+        }
+    }
+
     /// What only a branch group's folder holds (`GitEvent.only`, `dirty`); nothing to say for a project's own folder.
     private func ownWork(_ worktree: Worktree) async throws -> (Int?, Bool?) {
         guard let repo = try store.repo(worktree.repoId), repo.path != worktree.path else { return (nil, nil) }
@@ -90,6 +97,8 @@ extension Daemon {
             }
         case .pr:
             return Watches.Topic(backsOffFrom: 10) { [self] _ in (await prRead(key), 60) }
+        case .prs:
+            return Watches.Topic(backsOffFrom: 120) { [self] _ in (await prsRead(key), 120) }
         case .context:
             // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
             return Watches.Topic { [self] _ in
