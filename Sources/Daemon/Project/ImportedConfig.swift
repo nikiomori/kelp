@@ -3,7 +3,7 @@ import Foundation
 
 /// A project another tool set up first. Without a .kelp.yaml, Kelp reads that tool's file for the same things: the setup a
 /// new worktree gets, run / test and named commands, and the teardown, which becomes the `archive` command. So a project
-/// coming from Conductor, Codex, Cursor and the like works from its first worktree. It's trusted like a .kelp.yaml
+/// coming from Conductor, Codex, Cursor, an `.agents/` folder and the like works from its first worktree. It's trusted like a .kelp.yaml
 /// (`configAndTrust`), and the question names the file. The scripts expect their tool's variables (the main checkout, the
 /// worktree, its name, a port): those are set from Kelp's (`prelude`).
 /// Limits: Kelp doesn't run `archive` by itself when a workspace goes, it's a command to run by hand; a tool's personal
@@ -32,7 +32,32 @@ enum ImportedConfig {
                 return (file, text, config)
             }
         }
-        return nil
+        return agentsFolder(root)
+    }
+
+    /// The `.agents/` convention, `.delta/` overriding a file of it: `prepare`, a shell script run in each new checkout,
+    /// is the setup; `linked`, one ignored path a line, is linked from the main checkout (`shared`). Its `setup` prepares
+    /// a cloud machine, so it's left out. Last: a tool's own file says more.
+    static func agentsFolder(_ root: String) -> (file: String, text: String, config: RepoConfig)? {
+        func read(_ name: String) -> (file: String, text: String)? {
+            for file in [".delta/" + name, ".agents/" + name] {
+                if let data = FileManager.default.contents(atPath: root + "/" + file),
+                    let text = String(data: data, encoding: .utf8)
+                {
+                    return (file, text)
+                }
+            }
+            return nil
+        }
+        let prepare = read("prepare"), linked = read("linked")
+        var config = RepoConfig()
+        config.setup = steps(prepare?.text)
+        config.shared = (linked?.text ?? "").split(whereSeparator: \.isNewline).map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }.filter { !$0.isEmpty && !$0.hasPrefix("#") }.map { $0.hasPrefix("/") ? String($0.dropFirst()) : $0 }
+        guard let file = (prepare ?? linked)?.file, !Workspaces.asksNothing(config) else { return nil }
+        // Both files in the text: trust is asked again when either changes.
+        return (file, [prepare?.text, linked?.text].compactMap { $0 }.joined(separator: "\n"), config)
     }
 
     /// Codex keeps one file per environment: environment.toml first, then the others by name.

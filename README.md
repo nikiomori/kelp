@@ -240,7 +240,8 @@ two copies of an app run side by side.
 
 **Coming from another tool?** With no `.kelp.yaml`, Kelp reads the one the project already has: Conductor
 (`.conductor/settings.toml`, `conductor.json`), Codex (`.codex/environments/*.toml`), Cursor (`.cursor/worktrees.json`),
-Superset / Paradev, Emdash, JetBrains Air, Supacode, cmux. Their setup runs in each new worktree, their run and named
+Superset / Paradev, Emdash, JetBrains Air, Supacode, cmux, an `.agents/` folder (`prepare` is the setup, `linked` paths
+are linked from the main checkout). Their setup runs in each new worktree, their run and named
 commands go in the Run menu, and the teardown is the `archive` command there. Scripts get the variables they expect
 (`$CONDUCTOR_ROOT_PATH`, `$CONDUCTOR_PORT`…). VS Code's and Zed's tasks are in the Run menu as well.
 

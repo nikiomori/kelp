@@ -147,6 +147,30 @@ private func script(_ c: RepoConfig?, _ name: String) -> String? { c?.scripts.fi
     #expect(own.path == root + "/.kelp.yaml" && own.config.setup == "mine" && own.config.prelude.isEmpty)
 }
 
+/// An `.agents/` folder: its prepare script is the setup, its linked paths are shared; `.delta/` overrides a file of it,
+/// and a folder with only skills names nothing.
+@Test func anAgentsFoldersPrepareAndLinkedAreRead() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("agents-\(UUID().uuidString)").path
+    defer { _ = Log.session.attempt("removing the test folder") { try FileManager.default.removeItem(atPath: root) } }
+    func write(_ file: String, _ text: String) throws {
+        let u = URL(fileURLWithPath: root + "/" + file)
+        try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try text.write(to: u, atomically: true, encoding: .utf8)
+    }
+    try write(".agents/skills/x/SKILL.md", "---\nname: x\n---\n")
+    #expect(ImportedConfig.agentsFolder(root) == nil, "skills alone ask nothing")
+    try write(".agents/prepare", "#!/bin/sh\nset -eu\npnpm install\n")
+    try write(".agents/linked", "# Shared local configuration.\n/.env\n\nconfig/local.json\n")
+    let found = try #require(ImportedConfig.agentsFolder(root))
+    #expect(found.file == ".agents/prepare" && found.config.setup == "#!/bin/sh\nset -eu\npnpm install")
+    #expect(found.config.shared == [".env", "config/local.json"])
+    #expect(Workspaces.configFile(root).config.shared == [".env", "config/local.json"])
+    try write(".delta/linked", ".venv\n")
+    #expect(ImportedConfig.agentsFolder(root)?.config.shared == [".venv"])
+    try write("conductor.json", #"{"scripts": {"setup": "c"}}"#)
+    #expect(Workspaces.configFile(root).config.setup == "c", "a tool's own file wins")
+}
+
 /// An imported script finds its tool's variables, set from Kelp's own.
 @Test func importedScriptsGetTheirToolsVariables() throws {
     let c = try #require(ImportedConfig.conductorJSON(#"{"scripts": {"run": "x"}}"#, "/Users/me/my app"))
