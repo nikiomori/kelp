@@ -41,7 +41,8 @@ import Testing
     #expect(FileManager.default.fileExists(atPath: wt.path))
 }
 
-/// A remote project's worktree as an older Kelp made it (new ones are refused): on the host, beside its folder.
+/// A remote project's worktree as an older Kelp made it (a new one has a stand-in here,
+/// `aRemoteProjectsBranchGetsAWorktreeOnItsHost`): on the host, at the path its record names.
 private func remoteWorktree(_ d: Daemon, _ repo: Repo, _ branch: String) throws -> Worktree {
     let path = try Git.addWorktree(
         repo: repo.path, branch: branch, base: "main", into: Workspaces.worktreesDir(d.root, repo),
@@ -49,13 +50,4 @@ private func remoteWorktree(_ d: Daemon, _ repo: Repo, _ branch: String) throws 
     let w = Worktree(repoId: repo.id, branch: branch, path: path, note: "", base: "main")
     try d.store.save(w)
     return w
-}
-
-/// A remote project gets no new worktree: its git would run on this Mac, not the host.
-@Test func aRemoteProjectGetsNoNewWorktree() async throws {
-    _ = localSSH
-    let (d, c, _) = try daemon()
-    defer { d.stop() }
-    let repo = try await c.call(RepoAddRemote(host: "box", path: try makeRepo()))
-    await #expect(throws: RPCError.self) { _ = try await c.call(WorktreeCreate(repoId: repo.id, branch: "x")) }
 }

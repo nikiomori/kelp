@@ -204,11 +204,6 @@ final class Workspaces: Sendable {
     /// (`pr`). What its .kelp.yaml links, clones and starts waits for the user's trust in the file.
     func createBranchWorkspace(in repo: Repo, _ asked: WorktreeCreate) throws -> WorktreeCreate.Result {
         let note = asked.note, pr = asked.pr, existing = asked.existing == true
-        // Its git would run on this Mac, not the host: a remote project's workspaces all share its folder.
-        guard remotes.of(repo.path) == nil else {
-            throw RPCError.invalidParams(
-                "Remote projects work in their folder: branches in worktrees aren't available there yet.")
-        }
         // Opened without Git: said in words, not as git's refusal.
         do { _ = try Git.root(of: repo.path, remotes: remotes) } catch {
             throw RPCError.invalidParams("“\(repo.name)” isn't a Git repository, so it has no branches.")
@@ -237,9 +232,12 @@ final class Workspaces: Sendable {
         // own files (.env), and nothing of .kelp.yaml runs on it until the user says so (below).
         let checksOut = existing || pr != nil
         let fromPR = pr != nil || Git.holdsPullRequest(repo.path, at: checksOut ? branch : base, remotes: remotes)
-        let path = try Git.addWorktree(
-            repo: repo.path, branch: branch, base: base, into: into, copyFiles: repo.copyFiles,
-            existing: checksOut, copying: !fromPR, remotes: remotes)
+        let host = remotes.of(repo.path)
+        let path =
+            try host.map { try remoteWorktree(repo, $0, branch: branch, base: base, existing: checksOut) }
+            ?? Git.addWorktree(
+                repo: repo.path, branch: branch, base: base, into: into, copyFiles: repo.copyFiles,
+                existing: checksOut, copying: !fromPR, remotes: remotes)
         // "origin/x" checked out as the local "x" that follows it
         if existing, !Git.branchExists(repo.path, branch, remotes: remotes) {
             branch = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
@@ -255,13 +253,15 @@ final class Workspaces: Sendable {
         // Checked and used from one read. A pull request brings code the file's trust doesn't cover (an install script of
         // its author's): nothing runs on it until the user says so, nor on a branch made on top of one (`fromPR`).
         let read = configAndTrust(repo.path), cfg = read.config, trusted = read.trusted && !fromPR
-        if trusted {
+        if trusted, host == nil {   // Limit: a host's worktree gets no `shared` links or `clone` copies
             Git.linkShared(cfg.shared, repo: repo.path, worktree: path)
             for why in Git.cloneShared(cfg.clone, repo: repo.path, worktree: path) {
                 Log.session.error(
                     ".kelp.yaml clone left out \(why, privacy: .public): the worktree is on another volume, or the path is busy"
                 )
             }
+        }
+        if trusted {
             if asked.tabs != false {
                 for tab in cfg.tabs {
                     do {
@@ -320,12 +320,13 @@ final class Workspaces: Sendable {
             return
         }
         let branch = branchNow(of: workspace, in: repo)
-        // A remote project's folder is on its host: looked for there.
+        // A remote project's folder is on its host: looked for there, by the path its stand-in here names.
         let host = remotes.of(repo.path)   // the project's: its worktrees are on its host too
+        let there = remotes.of(workspace.path)?.path ?? workspace.path
         let exists =
             try host.map {
                 String(
-                    decoding: try $0.run("[ -e \(ShellQuote.word(workspace.path)) ] && echo yes || true"), as: UTF8.self
+                    decoding: try $0.run("[ -e \(ShellQuote.word(there)) ] && echo yes || true"), as: UTF8.self
                 )
                 .hasPrefix("yes")
             }
@@ -353,6 +354,11 @@ final class Workspaces: Sendable {
         }
         sessions.discard(try store.sessions().filter { $0.worktreeId == workspace.id })
         try store.delete(workspace)
+        if host != nil, remotes.of(workspace.path) != nil {   // its stand-in here: only the marker
+            Log.store.attempt("removing a remote worktree's folder here") {
+                try FileManager.default.removeItem(atPath: workspace.path)
+            }
+        }
         notify(ChangedEvent.worktree)
     }
 

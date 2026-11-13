@@ -247,6 +247,7 @@ extension Git {
         try checkRemovable(
             repo: repo, path: path, branch: branch, force: force, dropCommits: dropCommits, remotes: remotes)
         let host = remotes.of(repo), local = host == nil && remotes.of(path) == nil
+        let path = host != nil ? remotes.of(path)?.path ?? path : path   // a stand-in here: its folder on the host
         if host != nil || (local && FileManager.default.fileExists(atPath: path)) {
             // Only a folder git lists as this repo's worktree goes to the Trash (or aside on a host), whatever the record says.
             let real = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
@@ -323,6 +324,7 @@ extension Git {
     ) throws {
         let branch = branch.flatMap { branchExists(repo, $0, remotes: remotes) ? $0 : nil }
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
+        let path = remotes.of(repo) != nil ? remotes.of(path)?.path ?? path : path   // a stand-in: the host's folder
         // Only the folder it was in is there to follow links in to where git lists it (/tmp is /private/tmp).
         let local = remotes.of(repo) == nil
         let real = { (folder: String) in

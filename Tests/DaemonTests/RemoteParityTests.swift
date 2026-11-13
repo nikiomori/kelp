@@ -288,3 +288,24 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
     )
     #expect(Set(found) == ["sh", "true"])
 }
+
+/// A remote project's branch gets a worktree of its own on its host, beside the project's folder, with a stand-in here
+/// its git and agents go through; removed, the folder goes aside on the host, the branch and the stand-in with it.
+@Test func aRemoteProjectsBranchGetsAWorktreeOnItsHost() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let made = try await c.call(WorktreeCreate(repoId: repo.id, branch: "feature/x"))
+    let standIn = made.worktree.path, onHost = try #require(Paths.real(there)) + "-worktrees/feature-x"
+    #expect(d.remotes.of(standIn)?.path == onHost)
+    #expect(try Git.run(["branch", "--show-current"], cwd: onHost, remotes: .none) == "feature/x\n")
+    #expect(try Git.run(["branch", "--show-current"], cwd: standIn, remotes: d.remotes) == "feature/x\n")
+    try "new\n".write(toFile: onHost + "/n.txt", atomically: true, encoding: .utf8)
+    #expect(try await c.call(GitStatus(id: made.worktree.id)).map(\.path) == ["n.txt"])
+    try FileManager.default.removeItem(atPath: onHost + "/n.txt")
+    _ = try await c.call(WorktreeRemove(id: made.worktree.id))
+    #expect(!FileManager.default.fileExists(atPath: onHost) && !FileManager.default.fileExists(atPath: standIn))
+    #expect(!Git.branchExists(there, "feature/x", remotes: .none))
+    #expect(try await c.call(WorktreeList(repoId: repo.id)).count == 1)
+}

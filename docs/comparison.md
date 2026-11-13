@@ -39,7 +39,7 @@ None of the other apps was run for this page, except for the weight table, which
 | A second agent reviews the first | yes, **Review with** in the diff header [^review-with] | not checked | not checked | not checked | not checked | not checked |
 | Pull request with review threads in the app | no: create, CI, merge; threads are read and sent to an agent, not answered | not checked | not checked | not checked | yes [^paradev-readme] | not checked |
 | Phone | a web page Kelp serves itself, over Tailscale or your own address (docs/phone.md); `kelp agents` over SSH | iOS and Android apps [^orca-readme] | community apps [^herdr-phone] | not checked | iPhone and iPad, paid plan [^paradev-readme] | not checked |
-| Other machines | Open over SSH, tmux on the host | SSH worktrees [^orca-readme] | several SSH machines in one window [^herdr-readme] | `cmux ssh` [^cmux-readme] | remote hosts, paid plan [^paradev-readme] | remote projects [^zed-terminal] |
+| Other machines | Open over SSH, branches in worktrees there, tmux on the host | SSH worktrees [^orca-readme] | several SSH machines in one window [^herdr-readme] | `cmux ssh` [^cmux-readme] | remote hosts, paid plan [^paradev-readme] | remote projects [^zed-terminal] |
 | GitHub stars | 4 | 115,847 | 48,170 (app: 1,995) | 28,705 | 15,944 | 92,748 |
 
 "Not checked" means this page doesn't know. It doesn't mean "no".
@@ -144,7 +144,6 @@ Checked in Kelp's code on 5 November 2026:
 - One task across several repositories.
 - Git blame in the editor.
 - Answering or resolving a pull request's review threads, or submitting a review.
-- Branches in worktrees on a project opened over SSH.
 - A Vim mode in the editor.
 
 **Review with** and picking findings are on `main` as of 5 November 2026. They are not in v0.9.0 or the 4 November beta.
