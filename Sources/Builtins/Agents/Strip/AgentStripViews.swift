@@ -164,6 +164,8 @@ final class StripButton: PointerControl {
     /// The glow its state wants, kept while a flash shows another for a moment.
     private var calls: (color: NSColor?, breathing: Bool) = (nil, false)
     private var flashing: Timer?
+    /// What it was last told to show.
+    private var shown: (item: StripItem, open: Bool)?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -212,15 +214,18 @@ final class StripButton: PointerControl {
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
         if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
+        // A clear icon keeps the tile's shape.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            icon.layer?.backgroundColor = NSColor.fillHover.cgColor
+        }
+        // The same tile: its constraint swapped anyway laid the strip out again for every agent's news.
+        guard shown?.item != item || shown?.open != open else { return }
+        shown = (item, open)
         let status = StripModel.status(item.cell)
         // Every state has its mark in the tile's bite; working's is the spinning arc, so a strip of agents at work reads as
         // work going on, not as a row of Dock icons.
         mark.status = status
         if ciState != item.ci?.state { show(ci: item.ci?.state) }
-        // A clear icon keeps the tile's shape.
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            icon.layer?.backgroundColor = NSColor.fillHover.cgColor
-        }
         label.isHidden = !open
         trailing?.isActive = false
         trailing = trailingAnchor.constraint(

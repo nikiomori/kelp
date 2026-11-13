@@ -1,29 +1,30 @@
 import Foundation
 
 public enum Paths {
-    public static var root: URL {
+    /// Read once: nothing sets KELP_HOME after launch (tests set it as their bundle loads), and this is read for every
+    /// project name drawn, where reading the bundle's Info.plist each time held a workspace switch ~50 ms.
+    public static let root: URL = {
         // KELP_HOME picks another (tests, snapshots), but never Kelp's own for a build with its own home: one started from a
         // Kelp terminal inherits it (`open` passes the shell's on), and would restart that kelpd, ending its agents.
-        // getenv: ProcessInfo copies the whole environment on each read, and this is read everywhere.
         if let home = getenv("KELP_HOME").map({ URL(fileURLWithPath: String(cString: $0)) }),
             own == nil || home.standardizedFileURL.path != stable.path
         {
             return home
         }
         return own ?? stable
-    }
+    }()
     /// Kelp's home, for a build running on a home of its own: what that home starts as (`HomeSeed`).
     public static var seed: URL? { own?.path == root.path ? stable : nil }
     private static var stable: URL { home.appendingPathComponent(".kelp") }
     /// Kelp Beta and Kelp Dev name a home of their own (KelpHome, scripts/bundle.sh); so does any debug build.
-    private static var own: URL? {
+    private static let own: URL? = {
         #if DEBUG
             home.appendingPathComponent(".kelp-dev")
         #else
             (Bundle.main.object(forInfoDictionaryKey: "KelpHome") as? String).map { home.appendingPathComponent($0) }
         #endif
-    }
-    private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
+    }()
+    private static let home = FileManager.default.homeDirectoryForCurrentUser
     public static var socket: URL { root.appendingPathComponent("kelp.sock") }
     public static var agents: URL { root.appendingPathComponent("agents") }
     public static var extensions: URL { root.appendingPathComponent("extensions") }

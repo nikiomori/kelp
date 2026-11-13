@@ -315,3 +315,16 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     tile.update(item, open: false, app: rig.app)
     #expect(!tile.subviews.contains { $0 is CIMark })
 }
+
+/// The same tile told again changes nothing: a constraint swapped each time laid the strip out anew on every agent's news.
+@MainActor @Test func aTileToldTheSameLeavesItsLayout() async throws {
+    let rig = try await AppRig()
+    let item = StripItem(workspace: "w", name: "kelp", cell: .asks, session: "s", words: "Allow?", since: Date())
+    let tile = StripButton()
+    tile.update(item, open: true, app: rig.app)
+    let before = tile.constraints.map(ObjectIdentifier.init)
+    tile.update(item, open: true, app: rig.app)
+    #expect(tile.constraints.map(ObjectIdentifier.init) == before)
+    tile.update(item, open: false, app: rig.app)
+    #expect(tile.constraints.map(ObjectIdentifier.init) != before)
+}
