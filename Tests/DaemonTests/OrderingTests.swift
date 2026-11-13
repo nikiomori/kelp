@@ -277,7 +277,8 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
         "id": .string(s.id), "pane_id": .string(s.id), "event": "working", "state": "working", "summary": "x",
         "key": "k", "cwd": .string(workspace.path), "kind": "doc", "title": "x", "type": "page",
         "url": "https://claude.ai/artifact/quick",
-        "transcript": .string("/tmp/\(UUID().uuidString.lowercased()).jsonl")
+        "transcript": .string("/tmp/\(UUID().uuidString.lowercased()).jsonl"),
+        "worktreeId": .string(workspace.id), "files": .array(["x"]), "message": "x"
     ])
     for t in quick {
         let ordered = t.inOrder
