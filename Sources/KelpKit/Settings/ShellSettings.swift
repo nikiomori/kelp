@@ -1,3 +1,4 @@
+import AppKit
 import Core
 
 /// The shell's own settings: Appearance and General, read where the window, sidebar and inspector draw them. Their rows
@@ -114,10 +115,11 @@ extension Builtins {
             SettingKeys.language, "Language", .enum, "Takes effect the next time Kelp opens.",
             // Each language in its own words, so it can be found whichever language Kelp is in.
             options: ["system", "en", "ru"],
-            labels: ["system": String(localized: "Match System"), "en": "English", "ru": "Русский"]),
+            labels: ["system": String(localized: "Match System"), "en": "English", "ru": "Русский"],
+            icon: ("globe", NSColor(hex: 0x007AFF))),
         s(
             SettingKeys.confirmQuit, "Ask before quitting", .boolean,
-            "⌘Q and closing the window ask “Quit Kelp?” first.")
+            "⌘Q and closing the window ask “Quit Kelp?” first.", icon: ("power", NSColor(hex: 0x5856D6)))
     ]
 
     /// Appearance › Inspector: its panels and where their icons sit, here and in the icons' own right-click menu.

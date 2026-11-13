@@ -83,7 +83,7 @@ extension Builtins {
                 s(
                     SettingKeys.markdownMode, "Default Markdown mode", .enum,
                     options: ["preview", "edit", "split"], look: .segments, group: "Markdown")
-            ], order: 70, tint: NSColor(hex: 0x30B0C7), previews: ["": SettingSamples.editor])
+            ], order: 70, previews: ["": SettingSamples.editor])
     }
 }
 

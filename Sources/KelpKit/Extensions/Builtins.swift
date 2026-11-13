@@ -47,12 +47,13 @@ package enum Builtins {
         _ setting: Setting<Value>, _ title: String, _ type: SettingType, _ desc: String? = nil, help: String? = nil,
         options: [String]? = nil, labels: [String: String]? = nil, look: SettingLook? = nil, range: [Double]? = nil,
         group: String? = nil, hidden: Bool? = nil, requires: String? = nil, placeholder: String? = nil,
-        perLanguage: Bool? = nil, choices: SettingChoices? = nil
+        perLanguage: Bool? = nil, choices: SettingChoices? = nil, icon: (symbol: String, tint: NSColor)? = nil
     ) -> SettingSpec {
         SettingSpec(
             key: setting.key, title: title, type: type, default: setting.fallback.setting, description: desc,
             help: help, options: options, labels: labels, look: look, range: range, group: group, hidden: hidden,
-            requires: requires, placeholder: placeholder, perLanguage: perLanguage, choices: choices)
+            requires: requires, placeholder: placeholder, perLanguage: perLanguage, choices: choices,
+            icon: icon)
     }
 
     package static let appearance = Builtin(
@@ -65,7 +66,7 @@ package enum Builtins {
         contributions.settings = [
             SettingsSection(
                 id: "appearance", title: "Appearance", icon: "paintpalette",
-                specs: appearanceRows(app), order: 10, tint: NSColor(hex: 0x007AFF)),
+                specs: appearanceRows(app), order: 10),
             SettingsSection(
                 id: "general", title: "General", icon: "gearshape",
                 specs: generalRows, custom: { AnyView(GeneralSettings()) },

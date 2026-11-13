@@ -135,9 +135,9 @@ package struct SettingSpec: Codable, Identifiable {
     var title: String
     var type: SettingType
     var `default`: JSONValue?
-    /// One line under the title: what the name doesn't say.
+    /// What the name doesn't say, in a line: behind the ⓘ beside the title when there's no `help`, so a row is one line.
     var description: String?
-    /// The rest, behind a ⓘ beside the title (and found by search): the description stays a line, not a paragraph.
+    /// The longer say, behind the ⓘ in place of the description (and found by search).
     var help: String?
     var options: [String]?
     /// What each option is called where it's chosen ("needed" → "When Needed"), said where the setting is declared; an
@@ -161,6 +161,9 @@ package struct SettingSpec: Codable, Identifiable {
     var perLanguage: Bool?
     /// What the code declaring it knows of its choices (`SettingChoices`); never in a manifest.
     var choices: SettingChoices?
+    /// A tile before the title, only where a card's rows are about different things (General, the alerts, the skills);
+    /// never in a manifest. Orange and red only for "asks" and "failed", as everywhere in Kelp.
+    var icon: (symbol: String, tint: NSColor)?
     package var id: String { key }
 
     enum CodingKeys: String, CodingKey {
@@ -261,7 +264,6 @@ package struct SettingsSection: Identifiable {
         keywords: [String] = [],
         fillsPane: Bool = false,
         order: Int = 100,
-        tint: NSColor? = nil,
         previews: [String: @MainActor () -> AnyView] = [:]
     ) {
         self.id = id
@@ -272,7 +274,6 @@ package struct SettingsSection: Identifiable {
         self.keywords = keywords
         self.fillsPane = fillsPane
         self.order = order
-        self.tint = tint
         self.previews = previews
     }
     package let id: String, title: String, icon: String
@@ -283,8 +284,6 @@ package struct SettingsSection: Identifiable {
     var fillsPane: Bool
     /// Its place in Settings' list; an extension's sections come after Kelp's.
     var order: Int
-    /// Its tile's colour in Settings' list, as System Settings colours its panes (nil: grey, as an extension's are).
-    var tint: NSColor?
     /// Settings' language picker shows over it: some of its rows are read for each language's own files.
     var perLanguage: Bool { specs.contains { $0.perLanguage == true } }
     /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.

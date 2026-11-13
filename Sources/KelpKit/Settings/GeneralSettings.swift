@@ -20,13 +20,13 @@ struct GeneralSettings: View {
         Section("Updates") {
             if let controller = app.updates.controller {
                 Toggle(
-                    "Check for updates automatically",
                     isOn: Binding(
                         get: { checks },
                         set: {
                             checks = $0
                             controller.updater.automaticallyChecksForUpdates = $0
-                        }))
+                        })
+                ) { Self.row("arrow.down.circle.fill", 0x007AFF, Text("Check for updates automatically")) }
                 Toggle(
                     isOn: Binding(
                         get: { downloads },
@@ -35,13 +35,22 @@ struct GeneralSettings: View {
                             controller.updater.automaticallyDownloadsUpdates = $0
                         })
                 ) {
-                    Text("Download them in the background")
-                    Text("A pill over the sidebar says when one is ready; a quit installs it.")
+                    Self.row(
+                        "tray.and.arrow.down.fill", 0x34C759, Text("Download them in the background"),
+                        help: String(localized: "A pill over the sidebar says when one is ready; a quit installs it."))
                 }
                 .disabled(!checks)
-                LabeledContent(Self.name) { Button("Check Now") { controller.checkForUpdates(nil) } }
+                LabeledContent {
+                    Button("Check Now") { controller.checkForUpdates(nil) }
+                } label: {
+                    Self.row("shippingbox.fill", 0x8E8E93, Text(verbatim: Self.name))
+                }
             } else {
-                LabeledContent(Self.name) { Text("This build doesn't update itself.").foregroundStyle(.secondary) }
+                LabeledContent {
+                    Text("This build doesn't update itself.").foregroundStyle(.secondary)
+                } label: {
+                    Self.row("shippingbox.fill", 0x8E8E93, Text(verbatim: Self.name))
+                }
             }
         }
         .onAppear {
@@ -53,13 +62,13 @@ struct GeneralSettings: View {
                 LabeledContent {
                     Button("Open Login Items") { BackgroundItem.openSettings() }
                 } label: {
-                    Text("Agents keep running when Kelp quits")
-                    switch blocked {
-                    case true?:
+                    Self.row(
+                        "moon.fill", 0x5856D6, Text("Agents keep running when Kelp quits"),
+                        help: String(localized: "Kelp's background service runs them; macOS allows it in Login Items."))
+                    // Only when it's off: the one state that needs doing something about stays in view.
+                    if blocked == true {
                         Text("Off in Login Items: quitting or updating Kelp ends them.").foregroundStyle(
                             Color.textOrange)
-                    case false?: Text("On: Kelp's background service is allowed in Login Items.")
-                    case nil: Text("Checking…")
                     }
                 }
                 .task { blocked = await BackgroundItem.blocked }
@@ -67,9 +76,19 @@ struct GeneralSettings: View {
             LabeledContent {
                 Button("Restart…") { app.extensions.run("workbench.restartService") }
             } label: {
-                Text("Background service")
-                Text("Runs the agents and terminals. Restarting keeps them when it can.")
+                Self.row(
+                    "arrow.clockwise", 0x8E8E93, Text("Background service"),
+                    help: String(localized: "Runs the agents and terminals. Restarting keeps them when it can."))
             }
+        }
+    }
+
+    /// A row's title as the generated rows show it (`SettingRow`): its tile, and what it doesn't say behind a ⓘ.
+    private static func row(_ symbol: String, _ tint: Int, _ title: Text, help: String? = nil) -> some View {
+        HStack(spacing: Metrics.gap) {
+            SettingsIcon(symbol: symbol, tint: NSColor(hex: tint))
+            title
+            if let help { HelpMark(text: help) }
         }
     }
 }

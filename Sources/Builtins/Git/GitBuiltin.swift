@@ -95,7 +95,7 @@ extension Builtins {
                         s(
                             SettingKeys.ciPopover, "CI in the branch popover", .boolean,
                             "The newest run of each workflow; a click opens CI Runs.", group: "CI")
-                    ], order: 80, tint: NSColor(hex: 0xFF9500))
+                    ], order: 80)
             ],
             tabs: [
                 TabProvider(

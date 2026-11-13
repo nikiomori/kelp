@@ -23,6 +23,8 @@ enum SettingsWindow {
             created.isReleasedWhenClosed = false
             created.animationBehavior = .documentWindow   // the system's own open and close
             created.toolbarStyle = .unified
+            // The section's name is the toolbar's own big title (SettingsView), as Dia's settings.
+            created.titleVisibility = .hidden
             // ⌘, brings it back, so no minimize or zoom (HIG › Settings)
             created.standardWindowButton(.zoomButton)?.isEnabled = false
             let host = NSHostingController(rootView: SettingsView().environment(app))
@@ -42,6 +44,9 @@ enum SettingsWindow {
 struct SettingsView: View {
     @AppStorage("settings.section") private var selection = "appearance"
     @State private var query = ""
+    /// The sections opened before and after this one this time the window is open: ‹ and › (⌘[ ⌘]) walk them.
+    @State private var back: [String] = []
+    @State private var forward: [String] = []
     @Environment(AppModel.self) private var app
     private var registry: ExtensionRegistry { app.extensions }
 
@@ -54,25 +59,19 @@ struct SettingsView: View {
             ) {
                 Section {
                     ForEach(sections) { section in
-                        Label {
-                            Text(loc(section.title))
-                        } icon: {
-                            SettingsIcon(symbol: section.icon, tint: section.tint)
-                        }.tag(Optional(section.id))
+                        Label(loc(section.title), systemImage: section.icon).tag(Optional(section.id))
                     }
                 }
                 Section {
                     // A row of a ForEach, as the sections are: the list picks a row by the id that gives it, and a row
                     // standing alone with only a tag couldn't be picked.
                     ForEach(["extensions"], id: \.self) { id in
-                        Label {
-                            Text("Extensions")
-                        } icon: {
-                            SettingsIcon(symbol: "puzzlepiece.extension", tint: NSColor(hex: 0xA2845E))
-                        }.tag(Optional(id))
+                        Label("Extensions", systemImage: "puzzlepiece.extension").tag(Optional(id))
                     }
                 }
             }
+            // Plain symbols in the text's colour, as Dia's settings: the list is found by its words, not by tiles.
+            .listItemTint(.monochrome)
             .toolbar(removing: .sidebarToggle)   // a settings window keeps its sections in view (HIG › Settings)
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
         } detail: {
@@ -89,12 +88,29 @@ struct SettingsView: View {
             }
             .navigationTitle(title)
             .toolbar {
-                Button {
-                    app.workbench.showFile(Paths.root.appendingPathComponent("settings.json"))
-                } label: {
-                    Label("Open settings.json", systemImage: "curlybraces")
+                ToolbarItemGroup(placement: .navigation) {
+                    Button {
+                        walk(&back, &forward)
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                    }
+                    .keyboardShortcut("[", modifiers: .command).disabled(back.isEmpty)
+                    Button {
+                        walk(&forward, &back)
+                    } label: {
+                        Label("Forward", systemImage: "chevron.right")
+                    }
+                    .keyboardShortcut("]", modifiers: .command).disabled(forward.isEmpty)
                 }
-                .help("Edit settings.json in the editor")
+                SettingsTitle(text: title)
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        app.workbench.showFile(Paths.root.appendingPathComponent("settings.json"))
+                    } label: {
+                        Label("Open settings.json", systemImage: "curlybraces")
+                    }
+                    .help("Edit settings.json in the editor")
+                }
             }
         }
         .searchable(text: $query, placement: .sidebar, prompt: "Search settings")
@@ -116,23 +132,49 @@ struct SettingsView: View {
     }
 
     private func open(_ section: String) {
+        if section != current || !query.isEmpty {
+            back.append(current)
+            forward = []
+        }
+        selection = section
+        query = ""
+    }
+
+    /// One step back (or forward): this section goes on the other list.
+    private func walk(_ from: inout [String], _ to: inout [String]) {
+        guard let section = from.popLast() else { return }
+        to.append(current)
         selection = section
         query = ""
     }
 }
 
-/// A section's symbol on a coloured tile, as System Settings shows its panes: the one place colour tells things apart without
-/// meaning a state, so a section is found by eye. Like System Settings' tiles: a filled white glyph on a top-lit gradient.
-/// Each section says its colour (`SettingsSection.tint`): Apple's light-mode system colours in both modes, as System
-/// Settings keeps them (the dark-mode ones are neon on a tile). One that says none is grey, as General and Keyboard are
-/// in System Settings, and as an extension's sections are.
-private struct SettingsIcon: View {
-    let symbol: String, tint: NSColor?
+/// The section's name in the toolbar, big as Dia's settings show it, on the toolbar's ground (no glass of its own).
+private struct SettingsTitle: ToolbarContent {
+    let text: String
+    var body: some ToolbarContent {
+        if #available(macOS 26, *) {
+            ToolbarItem(placement: .navigation) { label }.sharedBackgroundVisibility(.hidden)
+            ToolbarSpacer(.flexible)   // settings.json's button at the far end, where it was beside the system's title
+        } else {
+            ToolbarItem(placement: .navigation) { label }
+        }
+    }
+    private var label: some View {
+        Text(text).font(.ui(TextSize.title, weight: .bold)).lineLimit(1).accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A row's symbol on a coloured tile (`SettingSpec.icon`), as Dia's and System Settings' rows show it, where a card's rows are
+/// about different things: a white glyph (filled where it has a `.fill`, named so) on a top-lit gradient. Apple's light-mode system colours in both modes, as
+/// System Settings keeps them (the dark-mode ones are neon on a tile).
+struct SettingsIcon: View {
+    let symbol: String, tint: NSColor
     var body: some View {
-        Image(systemName: symbol).symbolVariant(.fill).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
+        Image(systemName: symbol).font(.symbol(Metrics.iconSmall)).foregroundStyle(.white)
             .frame(width: Metrics.iconMenu, height: Metrics.iconMenu)
             .background(
-                Color(nsColor: tint ?? NSColor(hex: 0x8E8E93)).gradient,
+                Color(nsColor: tint).gradient,
                 in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
 }

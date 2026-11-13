@@ -4,8 +4,8 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// One row, typed by its spec; reads and writes settings.json through the daemon. The description is the control's own
-/// label, so macOS sets it, keeps it left of the control and reads it out with it.
+/// One row, typed by its spec; reads and writes settings.json through the daemon. One line: the title is the control's own
+/// label, so macOS sets it, keeps it left of the control and reads it out with it; what it doesn't say is behind its ⓘ.
 struct SettingRow: View {
     let spec: SettingSpec
     /// In search results: back to the row's section.
@@ -38,15 +38,11 @@ struct SettingRow: View {
             }
     }
 
-    @ViewBuilder private var label: some View {
-        title
-        if let summary = spec.description { Text(loc(summary)) }
-    }
-
     private var title: some View {
         HStack(spacing: Metrics.gap) {
+            if let icon = spec.icon { SettingsIcon(symbol: icon.symbol, tint: icon.tint) }
             Text(loc(spec.title))
-            if let help = spec.help { HelpMark(text: loc(help)) }
+            if let help = spec.help ?? spec.description { HelpMark(text: loc(help)) }
             if changed {
                 Circle().fill(Color.accentColor).frame(width: Metrics.gap, height: Metrics.gap).accessibilityLabel(
                     "Changed")
@@ -57,7 +53,7 @@ struct SettingRow: View {
     @ViewBuilder private var control: some View {
         switch spec.type {
         case .boolean:
-            Toggle(isOn: Binding(get: { bool() ?? false }, set: { put(.bool($0)) })) { label }
+            Toggle(isOn: Binding(get: { bool() ?? false }, set: { put(.bool($0)) })) { title }
         case .number where spec.options?.isEmpty == false:
             // A number with options is a choice (minutes…): a picker of those values, plus a hand-set one from settings.json.
             let current = number() ?? 0
@@ -69,7 +65,7 @@ struct SettingRow: View {
                         .tag(option)
                 }
             } label: {
-                label
+                title
             }
         case .number:
             // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
@@ -91,17 +87,28 @@ struct SettingRow: View {
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             } label: {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
-                if let summary = spec.description { Text(loc(summary)) }
             }
         case .enum where spec.look == .pictures:
-            VStack(alignment: .leading, spacing: Metrics.gapWide) {
-                TileHeading(title: { title }, about: spec.description.map(loc))
-                PictureGrid(
-                    key: spec.key, options: Self.shown(Self.options(spec, app), string() ?? ""),
-                    selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }),
-                    label: { Self.label(spec.key, $0, app) })
+            let options = Self.shown(Self.options(spec, app), string() ?? "")
+            let grid = PictureGrid(
+                key: spec.key, options: options,
+                selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }),
+                label: { Self.label(spec.key, $0, app) }, inline: options.count <= PictureGrid.inRow)
+            if grid.inline {
+                // Two or three beside the title, as a menu would be; the title at their top edge.
+                LabeledContent {
+                    grid.alignmentGuide(.firstTextBaseline) { $0[.top] }
+                } label: {
+                    title.alignmentGuide(.firstTextBaseline) { $0[.top] }
+                }
+                .padding(.vertical, Metrics.gapWide)
+            } else {
+                VStack(alignment: .leading, spacing: Metrics.gapWide) {
+                    title
+                    grid
+                }
+                .padding(.vertical, Metrics.lineGap)
             }
-            .padding(.vertical, Metrics.lineGap)
         case .enum where spec.look == .segments:
             // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
             let options = Self.shown(Self.options(spec, app), string() ?? "")
@@ -112,7 +119,7 @@ struct SettingRow: View {
                         get: { options.firstIndex(of: string() ?? "") ?? -1 },
                         set: { if options.indices.contains($0) { put(.string(options[$0])) } }))
             } label: {
-                label
+                title
             }
         case .enum:
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
@@ -120,34 +127,34 @@ struct SettingRow: View {
                     Text(Self.label(spec.key, $0, app)).tag($0)
                 }
             } label: {
-                label
+                title
             }
         case .panels:
-            InspectorPanelsRow(title: AnyView(title), about: spec.description.map(loc))
+            InspectorPanelsRow(title: AnyView(title))
         case .theme:
             ThemeGallery(
                 selection: Binding(get: { string() ?? "auto" }, set: { put(.string($0)) }),
-                heading: AnyView(TileHeading(title: { title }, about: spec.description.map(loc))))
+                heading: AnyView(title))
         case .color:
             ColorPicker(
                 selection: Binding(
                     get: { Color(hex: string() ?? "") ?? .accentColor },
                     set: { put(.string(NSColor($0).hexString)) })
-            ) { label }
+            ) { title }
         case .font:
             // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 Text("Default").tag("")
                 ForEach(Self.shown(Self.monospaced, string() ?? ""), id: \.self) { Text($0).tag($0) }
             } label: {
-                label
+                title
             }
         case .string, .unknown:
             LabeledContent {
                 SettingTextField(key: spec.key, language: language, placeholder: spec.placeholder.map(loc)).frame(
                     width: 220)
             } label: {
-                label
+                title
             }
         }
     }

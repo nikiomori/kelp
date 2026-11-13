@@ -68,7 +68,7 @@ extension Builtins {
                         s(
                             SettingKeys.databaseTimeout, "Seconds a read may take", .number,
                             "Postgres and MySQL stop a read past it.", range: [1, 300])
-                    ], keywords: ["SQL", "Postgres", "MySQL", "SQLite"], order: 75, tint: NSColor(hex: 0x5856D6))
+                    ], keywords: ["SQL", "Postgres", "MySQL", "SQLite"], order: 75)
             ],
             tabs: [
                 TabProvider(

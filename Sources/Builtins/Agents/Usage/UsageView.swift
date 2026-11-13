@@ -77,6 +77,13 @@ struct UsageView: View {
                         bars(resets: false)
                     }.padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gapWide)
                 }
+            } else if !ruled {
+                // Settings' preview is a row of the card: says why it's empty rather than leaving a blank strip.
+                Text(
+                    app.settings[SettingKeys.readPlans]
+                        ? String(localized: "No plan used yet: the limits show here once an agent has used some.")
+                        : String(localized: "Plan limits are off.")
+                ).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .fontDesign(app.themes.chromeDesign)

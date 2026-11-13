@@ -233,7 +233,6 @@ extension Builtins {
     static func phoneSection(_ app: AppModel) -> SettingsSection {
         SettingsSection(
             id: "phone", title: "Phone", icon: "iphone", specs: [], custom: { AnyView(PhoneSettings(app: app)) },
-            keywords: ["Phone", "iPhone", "Android", "Pair", "QR", "Remote", "Notifications"], order: 52,
-            tint: NSColor(hex: 0x34C759))
+            keywords: ["Phone", "iPhone", "Android", "Pair", "QR", "Remote", "Notifications"], order: 52)
     }
 }

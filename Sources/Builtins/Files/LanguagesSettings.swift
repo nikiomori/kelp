@@ -175,6 +175,6 @@ extension Builtins {
             custom: { AnyView(LanguagesSettings(app: app)) },
             keywords: ["Language Servers", "LSP", "Linters"] + languages.map { LanguageRows.name($0.id) }
                 + languages.flatMap(\.allServers).map(\.command),
-            fillsPane: true, order: 72, tint: NSColor(hex: 0x5856D6))
+            fillsPane: true, order: 72)
     }
 }

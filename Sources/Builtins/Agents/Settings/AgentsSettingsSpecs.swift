@@ -105,7 +105,7 @@ extension Builtins {
                         "local": String(localized: "Always on This Mac")
                     ])
             ] + skillSpecs, custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30,
-            tint: NSColor(hex: 0xAF52DE), previews: ["Plan limits": { AnyView(LimitsSample()) }])
+            previews: ["Plan limits": { AnyView(LimitsSample()) }])
     }
 
     /// Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
@@ -114,31 +114,41 @@ extension Builtins {
             s(
                 SettingKeys.skillExtensions, "Write Kelp extensions", .boolean,
                 "Ask Claude Code for a panel, tab or command: it knows how to make one.",
-                group: "Claude Code skills"),
+                group: "Claude Code skills",
+                icon: ("puzzlepiece.extension.fill", NSColor(hex: 0xA2845E))),
             s(
                 SettingKeys.skillSettings, "Change Kelp settings", .boolean,
-                "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills"),
+                "Claude Code reads and changes these settings when you ask.", group: "Claude Code skills",
+                icon: ("gearshape.fill", NSColor(hex: 0x8E8E93))),
             s(
                 SettingKeys.skillTerminals, "Run commands in Kelp tabs", .boolean,
                 "Tests and servers run in a tab you can watch; Claude Code reads what they print.",
-                group: "Claude Code skills"),
+                group: "Claude Code skills",
+                // A terminal's near-black, lifted in dark mode, where it sank.
+                icon: (
+                    "terminal.fill", .dynamic(light: NSColor(hex: 0x3A3A3C), dark: NSColor(white: 0.42, alpha: 1))
+                )),
             s(
                 SettingKeys.skillAgents, "Hand work to other agents", .boolean,
                 "Claude Code can start another agent with kelp and gets its result back.",
-                group: "Claude Code skills"),
+                group: "Claude Code skills",
+                icon: ("sparkles", NSColor(hex: 0xAF52DE))),
             s(
                 SettingKeys.skillArtifacts, "Make docs and reviews", .boolean,
                 "Claude Code puts a doc, or choices for you to pick from, on a page beside it.",
-                group: "Claude Code skills"),
+                group: "Claude Code skills",
+                icon: ("doc.text.fill", NSColor(hex: 0x30B0C7))),
             s(
                 SettingKeys.skillVM, "Run commands in Kelp machines", .boolean,
                 "Claude Code runs Linux builds, tests and servers in a machine of yours, not on this Mac.",
-                group: "Claude Code skills"),
+                group: "Claude Code skills",
+                icon: ("shippingbox.fill", NSColor(hex: 0x34C759))),
             s(
                 SettingKeys.skillDatabases, "Query the project's databases", .boolean,
                 "Claude Code reads your databases through Kelp, never their passwords; a change waits for "
                     + "your Allow.",
-                group: "Claude Code skills"),
+                group: "Claude Code skills",
+                icon: ("cylinder.split.1x2.fill", NSColor(hex: 0x5856D6))),
             s(
                 SettingKeys.skillBrowser, "Use pages in Kelp's browser", .enum,
                 "Your app in a tab beside it; a project can have its own.",
@@ -148,7 +158,8 @@ extension Builtins {
                 labels: [
                     "auto": String(localized: "In Web Projects"), "on": String(localized: "Always"),
                     "off": String(localized: "Never")
-                ], group: "Claude Code skills")
+                ], group: "Claude Code skills",
+                icon: ("safari.fill", NSColor(hex: 0x007AFF)))
         ]
     }
 
@@ -160,7 +171,8 @@ extension Builtins {
                 s(
                     SettingKeys.onWaiting, "When an agent needs you", .enum,
                     "Comes at once, even while you type.",
-                    options: ["off", "banner", "sound"], labels: alerts, look: .segments),
+                    options: ["off", "banner", "sound"], labels: alerts, look: .segments,
+                    icon: ("record.circle.fill", NSColor(hex: 0xFF9500))),
                 s(
                     SettingKeys.remindAfter, "Remind if an agent still waits", .enum,
                     "Once. Not after you opened it or muted its row.",
@@ -171,7 +183,8 @@ extension Builtins {
                 s(
                     SettingKeys.onFinish, "When an agent finishes", .enum,
                     "Turns shorter than the time below stay quiet.",
-                    options: ["off", "banner", "sound"], labels: alerts, look: .segments),
+                    options: ["off", "banner", "sound"], labels: alerts, look: .segments,
+                    icon: ("checkmark", NSColor(hex: 0x8E8E93))),
                 s(
                     SettingKeys.quietUnder, "Stay quiet for turns under", .number,
                     "Finished agents only; the row shows them either way.",
@@ -181,7 +194,7 @@ extension Builtins {
                     }, requires: SettingKeys.onFinish.key),
                 s(
                     SettingKeys.onError, "When an agent fails", .enum, options: ["off", "banner", "sound"],
-                    labels: alerts, look: .segments),
+                    labels: alerts, look: .segments, icon: ("xmark", NSColor(hex: 0xFF3B30))),
                 s(
                     SettingKeys.holdBanners, "Hold finished agents while I type", .boolean,
                     "They come as one when you stop; questions come at once.",
@@ -229,7 +242,7 @@ extension Builtins {
                     SettingKeys.phoneDetails, "Show what the agent says on the phone", .boolean,
                     "Off: the agent's and the workspace's names only. For the address above and for paired phones.",
                     group: "Phone")
-            ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50, tint: NSColor(hex: 0xFF3B30))
+            ], custom: { AnyView(TestNotificationRow(app: app)) }, order: 50)
     }
 
     /// Settings › Agent Catalog: every agent Kelp knows, on a page of its own.
@@ -238,7 +251,7 @@ extension Builtins {
             id: "catalog", title: "Agent Catalog", icon: "square.grid.2x2", specs: [],
             custom: { AnyView(AgentsSettings(app: app)) }, keywords: app.catalog.all.map(\.name),
             fillsPane: true,
-            order: 40, tint: NSColor(hex: 0x00C7BE))
+            order: 40)
     }
 
     /// Settings › Terminal.
@@ -265,8 +278,6 @@ extension Builtins {
                         "They keep running when Kelp quits or updates, on the host for a remote project. Closing the tab ends them. Needs tmux."
                 )
             ], order: 60,
-            // A terminal's near-black, lifted in dark mode, where it sank.
-            tint: .dynamic(light: NSColor(hex: 0x3A3A3C), dark: NSColor(white: 0.42, alpha: 1)),
             previews: ["": SettingSamples.terminal])
     }
 }

@@ -13,7 +13,8 @@ enum SettingPictures {
 }
 
 /// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
-/// row whatever their number, so tiles are one size across the page (the agents in the welcome too).
+/// row whatever their number, so tiles are one size across the page (the agents in the welcome too); two or three sit
+/// beside the row's title (`inline`), as Dia's Tab layout does.
 struct PictureGrid: View {
     let key: String
     let options: [String]
@@ -21,19 +22,29 @@ struct PictureGrid: View {
     let label: (String) -> String
     /// An option drawn by whoever shows the grid (the welcome's agents); nil: the setting's own drawing.
     var art: ((String) -> AnyView)?
+    /// Side by side at one tile's width, beside the title, in place of a grid under it.
+    var inline = false
     @Environment(AppModel.self) private var app
     /// The theme gallery's too: Kelp's five themes are one row.
     static let columns = 5
+    /// As many as fit beside a title.
+    static let inRow = 3
 
     var body: some View {
-        TileGrid {
-            ForEach(options, id: \.self) { choice in
-                PictureTile(name: label(choice), on: choice == selection, pick: { selection = choice }) {
-                    Group {
-                        if let art { art(choice) } else { PictureArt(key: key, option: choice) }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .fillHover))
+        if inline {
+            HStack(alignment: .top, spacing: Metrics.inset) { tiles.frame(width: PictureTile<EmptyView>.width) }
+        } else {
+            TileGrid { tiles }
+        }
+    }
+
+    private var tiles: some View {
+        ForEach(options, id: \.self) { choice in
+            PictureTile(name: label(choice), on: choice == selection, pick: { selection = choice }) {
+                Group {
+                    if let art { art(choice) } else { PictureArt(key: key, option: choice) }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .fillHover))
             }
         }
     }
@@ -58,6 +69,8 @@ struct PictureTile<Art: View>: View {
     @ViewBuilder let art: Art
     /// Themes and pictures alike, so a page of them is one grid.
     static var height: CGFloat { 64 }
+    /// One beside a row's title: a grid's at the window's own width.
+    static var width: CGFloat { 120 }
 
     var body: some View {
         Button(action: pick) {
@@ -72,21 +85,6 @@ struct PictureTile<Art: View>: View {
         }
         .buttonStyle(PointerCardStyle())
         .accessibilityLabel(name).accessibilityAddTraits(on ? .isSelected : [])
-    }
-}
-
-/// A picture row's or the theme gallery's heading: its title (with ⓘ and the changed dot) over what it covers.
-struct TileHeading<Title: View>: View {
-    @ViewBuilder let title: Title
-    let about: String?
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.lineGap) {
-            title
-            if let about {
-                Text(about).font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(
-                    horizontal: false, vertical: true)
-            }
-        }
     }
 }
 
@@ -283,7 +281,6 @@ struct CursorPicture: View {
 /// the icons' right-click menu; settings.json keeps the hidden ones (`workbench.inspector.hiddenPanels`).
 struct InspectorPanelsRow: View {
     let title: AnyView
-    let about: String?
     @Environment(AppModel.self) private var app
 
     var body: some View {
@@ -298,7 +295,7 @@ struct InspectorPanelsRow: View {
             }
             .map(\.element)
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
-            TileHeading(title: { title }, about: about)
+            title
             ForEach(panels, id: \.id) { panel in
                 Toggle(
                     isOn: Binding(

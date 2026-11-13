@@ -283,6 +283,16 @@
         }
       }
     },
+    "Kelp's background service runs them; macOS allows it in Login Items.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Их запускает фоновая служба Kelp; macOS разрешает её в объектах входа."
+          }
+        }
+      }
+    },
     "Last %lld days": {
       "localizations": {
         "ru": {
@@ -359,6 +369,16 @@
         }
       }
     },
+    "No plan used yet: the limits show here once an agent has used some.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "План ещё не расходовался: лимиты появятся здесь, когда агент что-то потратит."
+          }
+        }
+      }
+    },
     "No usage": {
       "localizations": {
         "ru": {
@@ -415,6 +435,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "По дням"
+          }
+        }
+      }
+    },
+    "Plan limits are off.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимиты плана выключены."
           }
         }
       }

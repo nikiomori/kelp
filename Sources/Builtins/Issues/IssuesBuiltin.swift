@@ -44,8 +44,7 @@ extension Builtins {
                 SettingsSection(
                     id: "integrations", title: "Integrations", icon: "link", specs: [],
                     custom: { AnyView(IntegrationsSettings(app: app)) },
-                    keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"], order: 90,
-                    tint: NSColor(hex: 0x34C759))
+                    keywords: ["GitHub", "GitLab", "Jira", "Bitbucket", "Linear"], order: 90)
             ],
             tabs: [
                 TabProvider(
