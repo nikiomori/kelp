@@ -14775,16 +14775,6 @@
         }
       }
     },
-    "The agents you use must be installed on that machine. Files open read-only.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нужные агенты должны быть установлены на той машине. Файлы открываются только для чтения."
-          }
-        }
-      }
-    },
     "The background service is still the previous version. Restart it to finish the update — running agent sessions will end. You can also do it later from the Kelp menu.": {
       "localizations": {
         "ru": {
@@ -23367,6 +23357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет связи с сервером"
+          }
+        }
+      }
+    },
+    "The agents you use must be installed on that machine.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужные агенты должны быть установлены на той машине."
           }
         }
       }

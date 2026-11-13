@@ -26,17 +26,38 @@ public struct RemoteHost: Codable, Sendable, Equatable {
             && host != ".."
     }
 
-    /// The `Host` names in ~/.ssh/config (patterns left out): what a host field offers.
-    public static func configHosts() -> [String] {
+    /// The `Host` names in ~/.ssh/config and the files it includes (patterns left out): what a host field offers.
+    public static func configHosts(_ file: String = NSHomeDirectory() + "/.ssh/config", depth: Int = 0) -> [String] {
         let text: String
-        do { text = try String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8) } catch {
-            return []
-        }
+        do { text = try String(contentsOfFile: file, encoding: .utf8) } catch { return [] }
+        var seen = Set<String>()
         return text.split(whereSeparator: \.isNewline).flatMap { line -> [String] in
-            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
-            guard words.first?.lowercased() == "host" else { return [] }
-            return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
+            let words = line.split { $0.isWhitespace || $0 == "=" }.map(String.init)
+            switch words.first?.lowercased() {
+            case "host":
+                return words.dropFirst().filter { !$0.contains("*") && !$0.contains("?") && !$0.hasPrefix("!") }
+            case "include" where depth < 4:   // ssh's own limit is 16; a loop stops here
+                return words.dropFirst().flatMap { pattern in
+                    // Relative to ~/.ssh, as ssh reads them (OrbStack's, config.d/*).
+                    let path =
+                        pattern.hasPrefix("/")
+                        ? pattern
+                        : pattern.hasPrefix("~/")
+                            ? NSHomeDirectory() + pattern.dropFirst() : NSHomeDirectory() + "/.ssh/" + pattern
+                    return matches(path).sorted().flatMap { configHosts($0, depth: depth + 1) }
+                }
+            default: return []
+            }
         }
+        .filter { seen.insert($0).inserted }
+    }
+
+    /// The files a pattern names (`*`, `?`), none for none.
+    private static func matches(_ pattern: String) -> [String] {
+        var found = glob_t()
+        defer { globfree(&found) }
+        guard glob(pattern, 0, nil, &found) == 0 else { return [] }
+        return (0..<Int(found.gl_pathc)).compactMap { found.gl_pathv[$0].map { String(cString: $0) } }
     }
 
     /// ssh's options for this host: the shared connection; no password prompts where nobody can answer them. A host gone

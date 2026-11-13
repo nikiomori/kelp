@@ -639,3 +639,17 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     // A whole number goes back as an int, as a row's default.
     #expect(size.fallback.setting == .int(13) && Setting<Double>("x", 1.5).fallback.setting == .double(1.5))
 }
+
+/// The hosts a host field offers: ~/.ssh/config's own, `Host=name` too, and those of the files it includes.
+@Test func sshConfigHostsFollowItsIncludes() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ssh-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(
+        at: dir.appendingPathComponent("config.d"), withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    try "Host b c *.internal\n  HostName 10.0.0.2\n".write(
+        to: dir.appendingPathComponent("config.d/work"), atomically: true, encoding: .utf8)
+    try "Include \(dir.path)/config.d/*\nInclude \(dir.path)/config\nHost=a\nHost !d\n".write(
+        to: dir.appendingPathComponent("config"), atomically: true, encoding: .utf8)
+    // A file that includes itself stops, and names each host once.
+    #expect(RemoteHost.configHosts(dir.appendingPathComponent("config").path) == ["b", "c", "a"])
+}

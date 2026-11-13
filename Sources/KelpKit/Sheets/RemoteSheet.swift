@@ -75,7 +75,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         let note = NSTextField(
             wrappingLabelWithString: String(
                 localized: "Agents and terminals run there, and git too, over one SSH connection. ")
-                + String(localized: "The agents you use must be installed on that machine. Files open read-only."))
+                + String(localized: "The agents you use must be installed on that machine."))
         for t in [note, status] {
             t.textColor = .secondaryLabelColor
             t.font = .ui(TextSize.caption)
