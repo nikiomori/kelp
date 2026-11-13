@@ -22,6 +22,7 @@ let usage = """
                                            and the last changes and hooks that led there
       terminal list | read <session> [bytes] | send <session> <text> [--no-enter]
       diff [--source unstaged|staged|all|branch] | commit <msg> | merge | push
+      commit add <file>… -m <subject> [-m <body>]   propose a commit; the user edits and makes it in Kelp
       comment add <file> <line[-line]> <text> | send <session>
       session restart|rename <id> [title]|handoff <id> [--agent a]
       terminal context <session>          bounded transcript (for pasting elsewhere)

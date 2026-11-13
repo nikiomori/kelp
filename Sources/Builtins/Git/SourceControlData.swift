@@ -22,6 +22,7 @@ extension SourceControlController {
         ciRow.show([], failure: nil)
         message.string = wid.flatMap { drafts[$0] } ?? ""
         messageChanged()
+        showAgentCommit()
         finishes += 1   // what the last one's button was saying isn't about this one
         confirmed = nil
         commitButton?.work = .none

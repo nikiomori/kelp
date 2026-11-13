@@ -223,7 +223,7 @@ final class FileCell: NSTableCellView, Hoverable {
     /// `shared`: the branches of other folders of the project that change this file too (`AppModel.sharedFiles`).
     init(
         _ f: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat, actions a: [RowAction],
-        shared: [String] = []
+        shared: [String] = [], commit: Int? = nil
     ) {
         actions = actionButtons(a)
         path = f.path
@@ -258,7 +258,13 @@ final class FileCell: NSTableCellView, Hoverable {
             mark.contentTintColor = .textOrange
         }
         mark.isHidden = tip == nil
-        pinRow(self, [icon, name, dir, NSView(), actions, mark, letterField], leading: indent + Metrics.inset)
+        // The plan's commit it goes into: the same number as its card over the button.
+        let number = NSTextField(labelWithString: commit.map(String.init) ?? "")
+        number.font = .uiDigits(TextSize.micro, weight: .semibold)
+        number.textColor = .secondaryLabelColor
+        number.isHidden = commit == nil
+        number.toolTip = commit.map { String(localized: "In commit \($0) of the plan") }
+        pinRow(self, [icon, name, dir, NSView(), actions, mark, number, letterField], leading: indent + Metrics.inset)
         toolTip = [f.path, tip].compactMap { $0 }.joined(separator: "\n")
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -280,18 +286,23 @@ final class NoteCell: NSTableCellView {
 /// The commit message: ⌘↩ commits, like VS Code.
 final class CommitTextView: NSTextView {
     var onCommit: (() -> Void)?
+    /// ⌥⌘↩: the agent writes it.
+    var onAgent: (() -> Void)?
     var onChange: (() -> Void)?
     private func isCommitKey(_ e: NSEvent) -> Bool {
         (e.keyCode == 36 || e.keyCode == 76) && e.modifierFlags.contains(.command)
     }
     override func performKeyEquivalent(with e: NSEvent) -> Bool {
         if window?.firstResponder === self, isCommitKey(e) {
-            onCommit?()
+            if e.modifierFlags.contains(.option), let onAgent { onAgent() } else { onCommit?() }
             return true
         }
         return super.performKeyEquivalent(with: e)
     }
-    override func keyDown(with e: NSEvent) { if isCommitKey(e) { onCommit?() } else { super.keyDown(with: e) } }
+    override func keyDown(with e: NSEvent) {
+        guard isCommitKey(e) else { return super.keyDown(with: e) }
+        if e.modifierFlags.contains(.option), let onAgent { onAgent() } else { onCommit?() }
+    }
     override func didChangeText() {
         super.didChangeText()
         onChange?()
@@ -299,7 +310,7 @@ final class CommitTextView: NSTextView {
 }
 
 /// The message field's rounded border; AppKit calls `updateLayer` again on every light / dark change.
-final class FieldBox: NSView {
+class FieldBox: NSView {
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
         layer?.cornerRadius = Metrics.radiusSM

@@ -595,6 +595,18 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
             "not in another's"
         ),
         (.session(mine.id), CommentSend(id: r.wt.id, session: term.id), false, "nor sent to a session it didn't start"),
+        (
+            .session(mine.id), CommitPlanAdd(worktreeId: r.wt.id, files: ["a"], message: "x", session: mine.id), true,
+            "an agent proposes a commit in its workspace"
+        ),
+        (
+            .session(mine.id), CommitPlanAdd(worktreeId: elsewhere.id, files: ["a"], message: "x", session: mine.id),
+            false, "not in another's"
+        ),
+        (
+            .session(mine.id), GitCommitPaths(worktreeId: r.wt.id, files: ["a"], message: "x"), false,
+            "the commit itself is the user's to make"
+        ),
         (typed, SessionRename(id: term.id, title: "x"), false, "nor rename the user's terminal"),
         (typed, font, true, "a look it may set"),
         (typed, WorktreeNote(id: made.id, note: "x"), true, "a typed agent works in a workspace it made"),

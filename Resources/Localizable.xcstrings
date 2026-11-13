@@ -22500,6 +22500,286 @@
           }
         }
       }
+    },
+    "Write the Message With": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Написать сообщение с помощью"
+          }
+        }
+      }
+    },
+    "No Agent Installed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты не установлены"
+          }
+        }
+      }
+    },
+    "Default Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель по умолчанию"
+          }
+        }
+      }
+    },
+    "Resolve the merge conflicts before asking for commits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала разрешите конфликты слияния, потом просите коммиты."
+          }
+        }
+      }
+    },
+    "Commit: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммит: %@"
+          }
+        }
+      }
+    },
+    "%@ proposed no commits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: ни одного коммита не предложено"
+          }
+        }
+      }
+    },
+    "Written by %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Написано: %@"
+          }
+        }
+      }
+    },
+    "Write a message for each commit first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала напишите сообщение для каждого коммита."
+          }
+        }
+      }
+    },
+    "%lld commits made": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделано коммитов: %lld"
+          }
+        }
+      }
+    },
+    "In Commit %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В коммите %lld"
+          }
+        }
+      }
+    },
+    "Move to Commit %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести в коммит %lld"
+          }
+        }
+      }
+    },
+    "Move to a New Commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести в новый коммит"
+          }
+        }
+      }
+    },
+    "Leave Out of the Commits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не включать в коммиты"
+          }
+        }
+      }
+    },
+    "Choose an Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать агента"
+          }
+        }
+      }
+    },
+    "Ask Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросить снова"
+          }
+        }
+      }
+    },
+    "Write the commit with %@ (⌥⌘↩)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Написать коммит с помощью %@ (⌥⌘↩)"
+          }
+        }
+      }
+    },
+    "%@ needs your answer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ждёт вашего ответа"
+          }
+        }
+      }
+    },
+    "%@ is reading %lld files…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ читает файлы: %lld…"
+          }
+        }
+      }
+    },
+    "Discard Plan": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить план"
+          }
+        }
+      }
+    },
+    "%lld commits by %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммитов: %lld, от %@"
+          }
+        }
+      }
+    },
+    "Remove This Commit (its files stay)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать этот коммит (файлы останутся)"
+          }
+        }
+      }
+    },
+    "%lld files: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы (%lld): %@"
+          }
+        }
+      }
+    },
+    "Make %lld Commits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать коммиты: %lld"
+          }
+        }
+      }
+    },
+    "Make the commits one by one, each with only its files (⌘↩ in a card)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать коммиты по одному, каждый только со своими файлами (⌘↩ в карточке)"
+          }
+        }
+      }
+    },
+    "Make %lld Commits & Push": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать коммиты (%lld) и отправить"
+          }
+        }
+      }
+    },
+    "Merge Into One Commit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объединить в один коммит"
+          }
+        }
+      }
+    },
+    "In commit %lld of the plan": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В коммите %lld по плану"
+          }
+        }
+      }
+    },
+    "Git: Write Commit with Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: написать коммит с помощью агента"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -139,7 +139,8 @@ extension SourceControlController {
             return FileCell(
                 file, icon: app.fileIcons.image((file.path as NSString).lastPathComponent),
                 letter: Self.letter(file, section),
-                indent: SectionCell.indent, actions: fileActions(file, section), shared: shared[file.path] ?? [])
+                indent: SectionCell.indent, actions: fileActions(file, section), shared: shared[file.path] ?? [],
+                commit: section == .merge ? nil : worktreeId.flatMap { plans[$0]?.number(of: file.path) })
         case .commit(let index):
             if more, !loadingMore, index >= commits.count - 30 { loadMore() }
             let commit = commits[index]

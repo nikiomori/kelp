@@ -38,11 +38,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
-    private let placeholder = NSTextField(labelWithString: "")
+    let placeholder = NSTextField(labelWithString: "")
+    var messageField: NSView?, messageScroll: NSView?
     private var messageHeight: NSLayoutConstraint?
     var commitButton: SplitPushButton?
     /// Beside Commit: its other ways (Commit & Push, Amend), or Push / Pull while it offers to sync.
-    private let commitMenu = NSMenu(), syncMenu = NSMenu()
+    private let commitMenu = NSMenu(), syncMenu = NSMenu(), planMenu = NSMenu()
     private var moreMenu: NSMenu?
     private var pullItem: NSMenuItem?
     var moreButton: NSButton?
@@ -74,6 +75,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var work: [String: Int] = [:]
     /// Commit messages being written in the workspaces not on screen.
     var drafts: [String: String] = [:]
+    /// An agent writing the commit, by workspace (AgentCommit.swift); the commits it proposed; the words it left.
+    var agentCommits: [String: AgentCommit] = [:]
+    var plans: [String: CommitPlan] = [:]
+    var notes: [String: AgentNote] = [:]
+    lazy var agentUI = AgentCommitControls(self)
     /// The pull, push or fetch running on the branch, whoever started it: what the button says, and whether the ↑ and ↓
     /// arrows pulse.
     var syncing: (title: String, push: Bool, pull: Bool)? {
@@ -181,6 +187,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         view = root
         updateHeader()   // NSButton's own "Button" title must not show while the branch loads
         if app.workbench.workspaceId == nil { showNoProject(true) }
+        followAgentCommits()
         track(owner: self) { [app] in
             app.workbench.workspaceId
         } changed: { [weak self] in
@@ -246,6 +253,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         message.isVerticallyResizable = true
         message.autoresizingMask = .width
         message.onCommit = { [weak self] in self?.commit(push: false, amend: false) }
+        message.onAgent = { [weak self] in self?.askLastAgent() }
         message.onChange = { [weak self] in self?.messageChanged() }
         let messageScroll = NSScrollView()
         messageScroll.documentView = message
@@ -257,6 +265,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         placeholder.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a long branch name truncates, not widens the panel
         let field = FieldBox()
         field.wantsLayer = true
+        messageField = field
+        self.messageScroll = messageScroll
         commitMenu.add(String(localized: "Commit & Push")) { [weak self] in self?.commit(push: true, amend: false) }
         commitMenu.add(String(localized: "Commit (Amend)")) { [weak self] in self?.commit(push: false, amend: true) }
         syncMenu.add(String(localized: "Push")) { [weak self] in
@@ -276,31 +286,43 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let buttons = cb
         cb.setContentHuggingPriority(.defaultLow, for: .horizontal)
         ciRow.onClick = { [weak self] in self?.openCI() }
-        let stack = NSStackView(views: [buttons, ciRow])
+        let ui = agentUI
+        let stack = NSStackView(views: [field, ui.note, ui.plan, buttons, ciRow])
         stack.orientation = .vertical
-        stack.spacing = 6   // a hidden CI line takes no room
+        stack.spacing = 8
+        stack.setCustomSpacing(4, after: field)   // the words under the field belong to it
+        stack.setCustomSpacing(6, after: buttons)   // a hidden CI line takes no room
         let box = NSView()
-        for x in [field, messageScroll, placeholder, stack] as [NSView] {
+        for x in [messageScroll, placeholder, ui.corner, ui.work] as [NSView] {
             x.translatesAutoresizingMaskIntoConstraints = false
-            box.addSubview(x)
+            field.addSubview(x)
         }
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        box.addSubview(stack)
         let heightConstraint = messageScroll.heightAnchor.constraint(equalToConstant: 30)
         messageHeight = heightConstraint
+        // The agent's logo and chevron sit in the field's top corner; while it reads, its line takes the text's place.
         NSLayoutConstraint.activate([
-            field.topAnchor.constraint(equalTo: box.topAnchor),
-            field.leadingAnchor.constraint(equalTo: box.leadingAnchor),
-            field.trailingAnchor.constraint(equalTo: box.trailingAnchor),
             messageScroll.topAnchor.constraint(equalTo: field.topAnchor, constant: 1),
             messageScroll.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -1),
             messageScroll.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: 2),
-            messageScroll.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -2), heightConstraint,
+            messageScroll.trailingAnchor.constraint(equalTo: ui.corner.leadingAnchor), heightConstraint,
+            ui.corner.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -3),
+            ui.corner.topAnchor.constraint(equalTo: field.topAnchor, constant: 4),
+            field.heightAnchor.constraint(greaterThanOrEqualToConstant: 32),
+            ui.work.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: 9),
+            ui.work.trailingAnchor.constraint(equalTo: field.trailingAnchor, constant: -4),
+            ui.work.topAnchor.constraint(equalTo: field.topAnchor, constant: 5),
             placeholder.leadingAnchor.constraint(equalTo: messageScroll.leadingAnchor, constant: 9),
             placeholder.topAnchor.constraint(equalTo: messageScroll.topAnchor, constant: 7),
             placeholder.trailingAnchor.constraint(lessThanOrEqualTo: messageScroll.trailingAnchor, constant: -8),
-            stack.topAnchor.constraint(equalTo: field.bottomAnchor, constant: 8),
+            stack.topAnchor.constraint(equalTo: box.topAnchor),
             stack.bottomAnchor.constraint(equalTo: box.bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: box.trailingAnchor),
+            field.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            ui.note.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            ui.plan.widthAnchor.constraint(equalTo: stack.widthAnchor),
             buttons.widthAnchor.constraint(equalTo: stack.widthAnchor),
             ciRow.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
@@ -320,15 +342,17 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     func updateCommitButton() {
         placeholder.stringValue = String(localized: "Message")   // ⌘↩ and what a commit takes are in Commit's tooltip
         guard let cb = commitButton else { return }
-        let next = changes.isEmpty ? nextStep : nil
+        let plan = worktreeId.flatMap { plans[$0] }
+        let next = changes.isEmpty && plan == nil ? nextStep : nil
         // What a commit takes: the staged files, or all of them when none are staged.
         let files = changes.filter { $0.staged && !$0.conflicted }.count
         let count = files > 0 ? files : changes.count
+        let make = plan.map { String(localized: "Make \($0.commits.count) Commits") }
         cb.say(
-            syncing?.title ?? confirmed ?? next
+            syncing?.title ?? confirmed ?? next ?? make
                 ?? (count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files")))
         let idle = next == nil && syncing == nil && confirmed == nil
-        moreMenu = next == nil ? commitMenu : syncMenu
+        moreMenu = plan != nil ? planMenu : next == nil ? commitMenu : syncMenu
         pullItem?.isHidden = info?.upstream == nil
         cb.action = next == nil ? #selector(commitPressed) : #selector(sync)
         let branch = info?.current ?? "HEAD"
@@ -336,19 +360,36 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             files > 0
             ? String(localized: "Commit the staged files on “\(branch)” (⌘↩ in the message)")
             : String(localized: "Commit all changes on “\(branch)” (⌘↩ in the message)")
-        cb.toolTip = next == nil ? what : info?.upstream.map { String(localized: "Pull from and push to \($0)") }
+        cb.toolTip =
+            plan != nil
+            ? String(localized: "Make the commits one by one, each with only its files (⌘↩ in a card)")
+            : next == nil ? what : info?.upstream.map { String(localized: "Pull from and push to \($0)") }
         // Saying what it's doing or did, it reads as lit, not switched off, and does nothing when pressed.
         let saying = syncing != nil || confirmed != nil
         if saying { cb.action = nil }
         cb.isEnabled = saying || (!busy && (!changes.isEmpty || next != nil))   // with no message, Commit opens a page to write one
+        // The agent's words are coming: what to commit isn't written yet.
+        if worktreeId.map({ agentCommits[$0] != nil }) == true { cb.isEnabled = false }
         cb.arrow.isEnabled = !saying && cb.isEnabled
         bar.update(info, changes: changes.count, busy: busy)
         cb.primary = idle && !changes.isEmpty
+        agentUI.corner.alphaValue = busy || changes.isEmpty ? 0.4 : 1   // nothing to write about, or a commit going in
+        agentUI.logo.isEnabled = !busy && !changes.isEmpty
     }
 
     @objc private func showCommitMenu() {
         guard let arrow = commitButton?.arrow else { return }
+        if let count = worktreeId.flatMap({ plans[$0] })?.commits.count { fillPlanMenu(count) }
         moreMenu?.popUp(positioning: nil, at: NSPoint(x: 0, y: arrow.bounds.height + 4), in: arrow)
+    }
+
+    /// The plan's other ways: push after, one commit of it all, or none of it.
+    private func fillPlanMenu(_ count: Int) {
+        planMenu.removeAllItems()
+        planMenu.add(String(localized: "Make \(count) Commits & Push")) { [weak self] in self?.makeCommits(push: true) }
+        planMenu.add(String(localized: "Merge Into One Commit")) { [weak self] in self?.editPlan { $0.merge() } }
+        planMenu.addItem(.separator())
+        planMenu.add(String(localized: "Discard Plan")) { [weak self] in self?.discardPlan() }
     }
 
     /// With nothing to commit, the button offers what's left, as in VS Code: sync the commits the remote doesn't

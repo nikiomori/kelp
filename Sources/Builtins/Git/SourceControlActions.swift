@@ -143,6 +143,7 @@ extension SourceControlController {
 
     /// `wid`'s message went in as a commit: its text is over, wherever it's being kept.
     private func sent(_ wid: String) {
+        notes[wid] = nil
         guard wid == worktreeId else {
             drafts[wid] = nil
             return
@@ -156,6 +157,7 @@ extension SourceControlController {
 
     func commit(push: Bool, amend: Bool) {
         let text = message.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !amend, let wid = worktreeId, plans[wid] != nil { return makeCommits(push: push) }
         guard let wid = worktreeId, !busy, !changes.isEmpty || amend else {
             NSSound.beep()
             return
@@ -318,6 +320,7 @@ extension SourceControlController {
             if let root = app.worktree(worktreeId)?.path {
                 menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(root + "/" + file.path) }
             }
+            if section != .merge, let plan = worktreeId.flatMap({ plans[$0] }) { planItems(menu, file.path, plan) }
             menu.addItem(.separator())
             menu.add(String(localized: "Copy Path")) {
                 copyText(file.path)

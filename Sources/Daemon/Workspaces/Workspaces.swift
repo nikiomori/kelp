@@ -21,6 +21,9 @@ final class Workspaces: Sendable {
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
     let routines: Routines   // agents on a schedule, each in a workspace of its own
     let databases: Databases   // their projects' databases (db.*): what agents may do with them, what they ran
+    /// The commits agents proposed (`kelp commit add`), by workspace, until the window takes them: in memory, as a
+    /// message being written is.
+    let commitPlans = OSAllocatedUnfairLock(initialState: [String: [PlannedCommit]]())
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root

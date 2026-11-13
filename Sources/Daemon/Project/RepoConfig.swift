@@ -63,6 +63,13 @@ enum Recipes {
     static let defaults: [String: String] = [
         "commit":
             "Write a concise commit message for these staged changes and run `git commit` with it.\n\n{stagedPatch}",
+        "commitPlan":
+            "Plan commits for {scope}; `{command}` shows them. Don't commit, stage or change any file. "
+            + "Write the messages the way this repository's history does (`git log -20 --format=%B`). "
+            + "Split only changes that are unrelated; one commit is fine. For each commit, oldest first, run "
+            + "`kelp commit add <file>… -m \"<subject>\" -m \"<body>\"` with every file it takes, whole. "
+            + "Leave out files that shouldn't be committed (secrets, logs, build output). "
+            + "Stop when every commit is added.{hint}",
         "fixCommit":
             "`git commit` failed (hooks or checks). Fix the problems, re-stage, and commit again.\n\nError:\n{error}",
         "fixPush":

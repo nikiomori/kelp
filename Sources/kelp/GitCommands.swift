@@ -11,6 +11,13 @@ extension Main {
                     "\(f.path)  "
                         + (f.tooLarge == true ? "(too large to count here)" : "+\(f.additions) -\(f.deletions)"))
             }
+        case ("commit", "add") where args.contains("-m"):   // without -m, "add …" is a message, as it always was
+            let (files, message) = planned(args)
+            let count = try await c.call(
+                CommitPlanAdd(
+                    worktreeId: try await currentWorktreeID(c), files: files, message: message,
+                    session: ProcessInfo.processInfo.environment["KELP_SESSION"]))
+            print("Commit \(count) proposed: the user looks it over in Kelp's Source Control and makes it.")
         case ("commit", _):
             show(
                 try await c.call(
@@ -36,6 +43,20 @@ extension Main {
                         session: try await session(c, args.first ?? ""))))
         default: print(usage)
         }
+    }
+
+    /// `kelp commit add <file>… -m <subject> [-m <body>]`: the files, and the message's paragraphs as git joins them.
+    static func planned(_ args: [String]) -> (files: [String], message: String) {
+        var files: [String] = [], parts: [String] = []
+        var it = args.makeIterator()
+        while let a = it.next() {
+            if a == "-m" {
+                if let part = it.next() { parts.append(part) }
+            } else {
+                files.append(a)
+            }
+        }
+        return (files, parts.joined(separator: "\n\n"))
     }
 
     /// `github …`, `linear …`.

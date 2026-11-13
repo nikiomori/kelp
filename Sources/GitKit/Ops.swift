@@ -41,6 +41,32 @@ extension Git {
         return try line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
     }
 
+    /// A commit of exactly `files` as they are on disk (`git commit --only`): new ones are added, deletions go in,
+    /// and whatever else is staged stays staged for a later commit.
+    @discardableResult
+    public static func commit(_ path: String, files: [String], message: String, remotes: Remotes) throws -> String {
+        guard !files.isEmpty else { throw GitError.refused("A commit needs at least one file.") }
+        let paths = literal(files)
+        do {
+            try run(["add", "-A", "--"] + paths, cwd: path, remotes: remotes)
+        } catch {
+            // A deletion already staged matches nothing, on disk or in the index, and fails the whole add: one by one.
+            for one in paths { try run(["add", "-A", "--", one], cwd: path, ok: [0, 128], remotes: remotes) }
+        }
+        try run(["commit", "-q", "-m", message, "--"] + paths, cwd: path, remotes: remotes)
+        return try line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
+    }
+
+    /// The last `count` commits undone, their changes left staged; refused once HEAD isn't `head` any more (another
+    /// commit came since, or a branch switch), so the undo never takes someone else's commit with it.
+    public static func undoCommits(_ path: String, head: String, count: Int, remotes: Remotes) throws {
+        let now = try line(["rev-parse", "HEAD"], cwd: path, remotes: remotes)
+        guard count > 0, !head.isEmpty, now.hasPrefix(head) else {
+            throw GitError.refused("Other commits came since; nothing was undone.")
+        }
+        try run(["reset", "-q", "--soft", "HEAD~\(count)"], cwd: path, remotes: remotes)
+    }
+
     public struct MergeResult: Sendable, Equatable {
         public var merged: Bool
         public var conflicts: [String]

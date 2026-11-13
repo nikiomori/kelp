@@ -3159,6 +3159,25 @@
         ],
         "type" : "object"
       },
+      "PlannedCommit" : {
+        "description" : "One commit of a plan: the files it takes, whole, and its message (subject, a blank line, the body).",
+        "properties" : {
+          "files" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "files",
+          "message"
+        ],
+        "type" : "object"
+      },
       "PortBusyEvent" : {
         "description" : "A run couldn't start: what it printed says `port` is taken.",
         "properties" : {
@@ -6529,6 +6548,75 @@
       }
     },
     {
+      "description" : "An agent proposes one more commit for `worktreeId`'s changes → how many it has proposed so far.",
+      "name" : "commit.plan.add",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "files",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "message",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "The session it comes from (`KELP_SESSION`), whose agent the panel names.",
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "integer"
+        }
+      }
+    },
+    {
+      "description" : "The commits proposed for `worktreeId` since the last take, oldest first; the daemon forgets them.",
+      "name" : "commit.plan.take",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/PlannedCommit"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "False when Kelp's switch in Login Items is off: macOS then ends the daemon and its agents with the app. Asked here, not in the CLI: a `kelp` linked onto the PATH can't tell which app it belongs to, and kelpd runs from inside it.",
       "name" : "daemon.backgroundAllowed",
       "paramStructure" : "by-name",
@@ -7720,6 +7808,43 @@
       }
     },
     {
+      "description" : "A commit of exactly `files` as they are on disk (new and deleted ones too), whatever else is staged, which stays staged → the new commit's short hash.",
+      "name" : "git.commitPaths",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "files",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "message",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      }
+    },
+    {
       "description" : "`source`: all (default) | unstaged | staged | branch (against `base`, else the project's) | commit | turn (`session`'s last).",
       "name" : "git.diff",
       "paramStructure" : "by-name",
@@ -8213,6 +8338,40 @@
           "required" : false,
           "schema" : {
             "type" : "boolean"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      }
+    },
+    {
+      "description" : "The last `count` commits undone, their changes kept staged (`git reset --soft`): only while HEAD is still `head`.",
+      "name" : "git.undoCommits",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "count",
+          "required" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
+          "name" : "head",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         }
       ],

@@ -44,6 +44,8 @@ enum AgentRules {
         // the pages it makes for the user (`kelp artifact new|add`, its hook after a tool published one)
         ArtifactNew.self, ArtifactAdd.self,
         PaneReportAgent.self, UsageReport.self, CommentAdd.self, CommentSend.self,
+        // the commits it proposes (`kelp commit add`): the user edits them and Kelp makes them, never the agent
+        CommitPlanAdd.self,
         // staging or unstaging a hunk writes the index: in its own workspaces only
         GitHunk.self,
         // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces

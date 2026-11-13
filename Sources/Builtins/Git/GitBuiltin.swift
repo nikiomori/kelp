@@ -13,7 +13,7 @@ extension Builtins {
         icon: "arrow.triangle.branch"
     ) { app in
         let changed = ChangedFiles(app: app)
-        let panel = LivePanel()
+        let panel: LivePanel = app.part { LivePanel() }   // the one the panel on screen was built with, every reload
         return Contributions(
             panels: [
                 PanelSpec(
@@ -45,6 +45,12 @@ extension Builtins {
                     } else if let workspace = app.workbench.workspaceId {
                         app.workbench.open(CommitMessageTab.uri(workspace))
                     }
+                },
+                CommandSpec(id: "git.commitWithAgent", title: "Git: Write Commit with Agent") { _ in
+                    // Its words show in the panel's Message field: with the panel not on screen, the panel comes first.
+                    guard let controller = panel.controller, controller.worktreeId == app.workbench.workspaceId
+                    else { return app.workbench.showPanel("git.changes") }
+                    controller.askLastAgent()
                 },
                 CommandSpec(id: "git.pull", title: "Git: Pull", key: "opt+cmd+x") { _ in
                     remote(app, panel, "pull", String(localized: "Pulled")) { $0.pullPressed() }
@@ -103,6 +109,8 @@ extension Builtins {
                     })
             ],
             // A merged PR's switch in its project's menu.
+            // An agent writing a commit has no tab and no row until its Show.
+            sessionHidden: [{ panel.controller?.hiddenAgentSessions ?? [] }],
             rowMenu: [
                 { row, menu in
                     guard case .project(let id) = row, let folder = app.gitFolder(project: id) else { return }
@@ -134,6 +142,8 @@ extension Builtins {
 
 /// The Source Control panel once it's built (it's built when first shown).
 @MainActor
+/// The Source Control panel on screen, for the commands that go through it: one per app, since `contribute` runs again
+/// on every registry reload while the panel built first stays.
 private final class LivePanel { weak var controller: SourceControlController? }
 
 @MainActor

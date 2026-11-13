@@ -263,7 +263,8 @@ extension Daemon {
     /// Every method the daemon answers, by name: one list, so none is answered twice (a second entry traps at launch).
     static let methods: [String: any Answered.Type] = {
         let all: [any Answered.Type] =
-            [DaemonInfo.self] + Methods.addonMethods + Methods.commentMethods + Methods.daemonMethods
+            [DaemonInfo.self] + Methods.addonMethods + Methods.commentMethods + Methods.commitPlanMethods
+            + Methods.daemonMethods
             + Methods.databaseApplyMethods
             + Methods.databaseMethods + Methods.databaseHealthMethods + Methods.databaseImportMethods
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
