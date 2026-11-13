@@ -1,6 +1,376 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    " · %@%lld%% on the %lld days before (%@)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · %1$@%2$lld%% к предыдущим %3$lld дн. (%4$@)"
+          }
+        }
+      }
+    },
+    " · nothing the %lld days before": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · за предыдущие %lld дн. ничего"
+          }
+        }
+      }
+    },
+    " · resets %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · сброс %@"
+          }
+        }
+      }
+    },
+    "%@ %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ from cache": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ из кэша"
+          }
+        }
+      }
+    },
+    "%@ in the last 12 months · %lld active days": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ за последние 12 месяцев · активных дней: %2$lld"
+          }
+        }
+      }
+    },
+    "%@ report no plan limits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не сообщают лимитов плана."
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%lld agents with no list price": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агентов без цены: %lld"
+          }
+        }
+      }
+    },
+    "About %lld%% at reset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Около %lld%% к сбросу"
+          }
+        }
+      }
+    },
+    "At API prices": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По ценам API"
+          }
+        }
+      }
+    },
+    "By month": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По месяцам"
+          }
+        }
+      }
+    },
+    "Cache reads": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтение кэша"
+          }
+        }
+      }
+    },
+    "Cache writes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись в кэш"
+          }
+        }
+      }
+    },
+    "From each agent's own logs and /usage on this Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из логов и /usage каждого агента на этом Mac"
+          }
+        }
+      }
+    },
+    "Full around %@ at this pace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При этом темпе кончится около %@"
+          }
+        }
+      }
+    },
+    "Input": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ввод"
+          }
+        }
+      }
+    },
+    "Last %lld days": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последние %lld дн."
+          }
+        }
+      }
+    },
+    "Last 7 days %@ · today %@ · this 5-hour block %@, at API prices": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За 7 дней %1$@ · сегодня %2$@ · текущий 5-часовой блок %3$@, по ценам API"
+          }
+        }
+      }
+    },
+    "Last 7 days %@ · today %@, at API prices": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За 7 дней %1$@ · сегодня %2$@, по ценам API"
+          }
+        }
+      }
+    },
+    "No usage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не использовались"
+          }
+        }
+      }
+    },
+    "Not used in this time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не использовался за это время"
+          }
+        }
+      }
+    },
+    "Only %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только %@"
+          }
+        }
+      }
+    },
+    "Output": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вывод"
+          }
+        }
+      }
+    },
+    "Per day": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По дням"
+          }
+        }
+      }
+    },
+    "Plans": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Планы"
+          }
+        }
+      }
+    },
+    "Prices are API list prices: a plan bills differently.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цены — прайс API: по плану счёт другой."
+          }
+        }
+      }
+    },
+    "Share of cost": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доля стоимости"
+          }
+        }
+      }
+    },
+    "Show All %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать все %lld"
+          }
+        }
+      }
+    },
+    "Show Fewer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свернуть"
+          }
+        }
+      }
+    },
+    "Tokens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Токены"
+          }
+        }
+      }
+    },
+    "Used up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исчерпан"
+          }
+        }
+      }
+    },
+    "Used up · back %@, in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исчерпан · вернётся %1$@, через %2$@"
+          }
+        }
+      }
+    },
+    "Where the cost goes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На что уходят деньги"
+          }
+        }
+      }
+    },
+    "Which agents are counted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Какие агенты учтены"
+          }
+        }
+      }
+    },
+    "as it reports": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "по его данным"
+          }
+        }
+      }
+    },
+    "avg %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "среднее %@"
+          }
+        }
+      }
+    },
     "clicks": {
       "extractionState": "manual",
       "localizations": {
@@ -8,6 +378,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "нажимает"
+          }
+        }
+      }
+    },
+    "no list price": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет цены"
+          }
+        }
+      }
+    },
+    "now · the tick is where an even pace would be": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сейчас · штрих — где была бы шкала при ровном темпе"
+          }
+        }
+      }
+    },
+    "per active day · %lld of %lld days": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в активный день · %1$lld из %2$lld дн."
+          }
+        }
+      }
+    },
+    "read %@ ago": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прочитано %@ назад"
+          }
+        }
+      }
+    },
+    "read just now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прочитано только что"
+          }
+        }
+      }
+    },
+    "the dashed line is the average": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "пунктир — среднее"
+          }
+        }
+      }
+    },
+    "tokens · %@ read from cache": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "токенов · %@ из кэша"
           }
         }
       }
