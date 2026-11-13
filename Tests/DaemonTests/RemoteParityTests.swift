@@ -1,6 +1,7 @@
 import Agents
 import Core
 import Foundation
+import GitKit
 import Testing
 
 @testable import Daemon
@@ -53,4 +54,15 @@ func remoteProject(_ c: RPCClient, host: String = "box") async throws -> (
         to: folder.appendingPathComponent(session.id.lowercased() + ".jsonl"), atomically: true, encoding: .utf8)
     #expect(d.sessions.setup.resumeArgv(session, manifest).contains("--resume"))
     _ = try await c.call(SessionKill(id: session.id))
+}
+
+/// A remote project's workspace follows the branch checked out on its host, as its git is read (no file events there).
+@Test func aRemoteWorkspaceFollowsItsHostsBranch() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (_, workspace, there) = try await remoteProject(c)
+    try Git.run(["switch", "-q", "-c", "feature"], cwd: there, remotes: .none)
+    _ = await d.topic(Watches.Key(topic: .git, key: workspace.id)).read(false)
+    #expect(try d.store.worktree(workspace.id)?.branch == "feature")
 }

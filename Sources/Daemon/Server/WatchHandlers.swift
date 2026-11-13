@@ -205,6 +205,13 @@ extension Daemon {
                 event.branchFiles = try await branchFiles(worktree)
                 (event.only, event.dirty) = try await ownWork(worktree)
             }
+            // A remote project's branch has no file events to follow: its workspace takes the one git just read.
+            if remote, let worktree, let current = event.branches?.current, current != worktree.branch {
+                let store = store
+                Log.store.attempt("following \(worktree.path)'s branch") {
+                    _ = try store.update(Worktree.self, worktree.id) { $0.branch = current }
+                }
+            }
         } catch { event = GitEvent(worktree: key, error: error.rpcMessage) }
         return (line(event), remote ? 10 : nil)   // Limit: a remote folder is read every 10 s while watched
     }
