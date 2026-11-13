@@ -165,6 +165,7 @@ private func assistant(
     #expect(
         abs(Pricing.cost(model: "claude-opus-5-5[1m]", tokens: TokenCounts(input: 500, output: 100)) - 0.004) < 1e-12)
     #expect(Pricing.cost(model: "claude-opus-4-8", tokens: TokenCounts(input: 1_000_000)) == 5)
+    #expect(Pricing.of("claude-opus-5-5")?.cacheRead == 0.2 && Pricing.of("openrouter/free") == nil)
     #expect(Pricing.cost(model: "claude-sonnet-4-6", tokens: TokenCounts(input: 1_000_000)) == 3)
     #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(input: 1_000_000)) == 2)
     #expect(Pricing.cost(model: "claude-fable-5-1", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.25)

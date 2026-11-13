@@ -4925,6 +4925,10 @@
           "cost" : {
             "type" : "number"
           },
+          "costs" : {
+            "$ref" : "#/components/schemas/UsageAgents.Costs",
+            "description" : "Its cost by kind of token, over the models with a list price (nil: none had one)."
+          },
           "id" : {
             "type" : "string"
           },
@@ -4960,6 +4964,30 @@
           "output",
           "projects",
           "tokens"
+        ],
+        "type" : "object"
+      },
+      "UsageAgents.Costs" : {
+        "description" : "What each kind of token cost, priced as the API would.",
+        "properties" : {
+          "cacheRead" : {
+            "type" : "number"
+          },
+          "cacheWrite" : {
+            "type" : "number"
+          },
+          "input" : {
+            "type" : "number"
+          },
+          "output" : {
+            "type" : "number"
+          }
+        },
+        "required" : [
+          "cacheRead",
+          "cacheWrite",
+          "input",
+          "output"
         ],
         "type" : "object"
       },
@@ -5017,6 +5045,13 @@
           "ownPrice" : {
             "items" : {
               "type" : "string"
+            },
+            "type" : "array"
+          },
+          "previous" : {
+            "description" : "The same number of days before `since`, by agent (`name` is its id); nil past the year the logs are read for.",
+            "items" : {
+              "$ref" : "#/components/schemas/UsageReport.Group"
             },
             "type" : "array"
           },
@@ -13004,6 +13039,14 @@
           "required" : false,
           "schema" : {
             "type" : "integer"
+          }
+        },
+        {
+          "description" : "Only what was used in this project (a name from `projects`).",
+          "name" : "project",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         }
       ],

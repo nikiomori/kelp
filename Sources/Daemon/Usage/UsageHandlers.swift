@@ -57,8 +57,14 @@ extension UsageReport: Handled {
 /// What every agent used, by day and agent, agent, model and project.
 extension UsageAgents: Handled {
     func handle(_ usage: AgentUsage) throws -> Result {
-        let since = AgentUsage.since(days: days)
-        let rows = usage.agentRows(since: since), project = usage.projects()
+        let since = AgentUsage.since(days: self.days), span = max(1, min(371, self.days ?? 30))
+        let project = usage.projects()
+        // The span before it too, for "on the 30 days before" (not past the year the logs are read for).
+        let compared = 2 * span <= 371
+        var all = usage.agentRows(since: compared ? AgentUsage.since(days: 2 * span) : since)
+        if let only = self.project { all = all.filter { project($0.row.cwd) == only } }
+        let first = UsageIndex.day(since)
+        let rows = all.filter { $0.row.day >= first }
         func group(_ key: (AgentUsage.AgentRow) -> String) -> [UsageReport.Group] { AgentUsage.groups(rows, by: key) }
         let days = Dictionary(grouping: rows) { [$0.row.day, $0.agent] }.map { key, rs in
             Day(
@@ -69,18 +75,21 @@ extension UsageAgents: Handled {
         let agents = Dictionary(grouping: rows, by: \.agent).map { id, rs in
             // a group is never empty
             let tokens = rs.dropFirst().reduce(rs[0].row.tally.tokens) { $0 + $1.row.tally.tokens }
+            let costs = rs.compactMap { AgentUsage.costs($0.row.model, $0.row.tally.tokens, $0.row.tally.cost) }
             return Agent(
                 id: id, cost: rs.reduce(0) { $0 + $1.row.tally.cost }, tokens: tokens.total, input: tokens.input,
                 output: tokens.output,
                 cacheWrite: tokens.cacheWrite, cacheRead: tokens.cacheRead,
-                models: AgentUsage.groups(rs) { $0.row.model }, projects: AgentUsage.groups(rs) { project($0.row.cwd) })
+                models: AgentUsage.groups(rs) { $0.row.model }, projects: AgentUsage.groups(rs) { project($0.row.cwd) },
+                costs: costs.first.map { costs.dropFirst().reduce($0, +) })
         }
         .sorted { ($0.cost, $0.tokens) > ($1.cost, $1.tokens) }
         return Result(
             days: days, agents: agents, models: group { $0.row.model }, projects: group { project($0.row.cwd) },
             since: since.timeIntervalSince1970,
             counted: UsageFormat.allCases.map(\.rawValue) + AgentDatabases.agents,
-            ownPrice: UsageFormat.allCases.filter(\.ownPrice).map(\.rawValue) + AgentDatabases.ownPrice)
+            ownPrice: UsageFormat.allCases.filter(\.ownPrice).map(\.rawValue) + AgentDatabases.ownPrice,
+            previous: compared ? AgentUsage.groups(all.filter { $0.row.day < first }) { $0.agent } : nil)
     }
 }
 
@@ -104,6 +113,21 @@ extension AgentUsage {
             named[cwd] = name
             return name
         }
+    }
+
+    /// A row's cost split by kind of token in the shares its list price gives them (so they add up to its cost, the hour
+    /// writes and long prompts included); nil for a model without one.
+    static func costs(_ model: String, _ t: TokenCounts, _ cost: Double) -> UsageAgents.Costs? {
+        guard let price = Pricing.of(model) else { return nil }
+        let parts = [
+            Double(t.input) * price.input, Double(t.output) * price.output, Double(t.cacheWrite) * price.cacheWrite,
+            Double(t.cacheRead) * price.cacheRead
+        ]
+        let sum = parts.reduce(0, +)
+        guard sum > 0 else { return nil }
+        let k = cost / sum
+        return UsageAgents.Costs(
+            input: parts[0] * k, output: parts[1] * k, cacheWrite: parts[2] * k, cacheRead: parts[3] * k)
     }
 
     /// Sums `rows` by a key, most expensive first (then most tokens: a model with no list price costs 0).

@@ -1,3 +1,4 @@
+import AgentData
 import Agents
 import Core
 import Foundation
@@ -202,6 +203,13 @@ import Testing
     let agents = try await d.handle("usage.agents", .obj(["days": 1]), conn: -1)
     let claude = agents["agents"]?.array?.first { $0["id"]?.string == "claude" }
     #expect(claude?["tokens"]?.int == 8 && claude?["input"]?.int == 3 && claude?["output"]?.int == 5)
+    // "m" has no list price: no split by kind; the day before is compared, and nothing was used then.
+    #expect(claude?["costs"] == nil && agents["previous"]?.array?.contains { $0["name"]?.string == "claude" } == false)
+    // Narrowed to a project: the folder's name when it's no Kelp project.
+    let inApp = try await d.handle("usage.agents", .obj(["days": 1, "project": "app"]), conn: -1)
+    #expect(inApp["agents"]?.array?.first { $0["id"]?.string == "claude" }?["tokens"]?.int == 8)
+    let elsewhere = try await d.handle("usage.agents", .obj(["days": 1, "project": "nope"]), conn: -1)
+    #expect(elsewhere["agents"]?.array?.contains { $0["id"]?.string == "claude" } == false)
     // Whose logs it reads and whose price is its own: the Usage tab's "keeps no counts" and "as it reports".
     #expect(agents["counted"]?.array?.first?.string == "claude")
     #expect(
@@ -209,6 +217,14 @@ import Testing
     await #expect(throws: RPCError.invalidParams("session required")) {
         try await d.handle("history.resume", .null, conn: -1)
     }
+}
+
+/// A cost split by kind of token in its list price's shares, adding up to the cost; nothing for a model without one.
+@Test func usageCostsByKind() throws {
+    let tokens = TokenCounts(input: 1_000_000, output: 1_000_000, cacheRead: 10_000_000)
+    let split = try #require(AgentUsage.costs("claude-opus-5-5", tokens, 26))   // 4 + 20 + 2 at list prices
+    #expect(abs(split.input - 4) < 1e-9 && abs(split.output - 20) < 1e-9 && abs(split.cacheRead - 2) < 1e-9)
+    #expect(split.cacheWrite == 0 && AgentUsage.costs("openrouter/free", tokens, 0) == nil)
 }
 
 /// A typed call and the same request written by hand (the CLI, an older app) get the same answer.

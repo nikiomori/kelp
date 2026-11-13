@@ -134,9 +134,11 @@ public struct UsageAgents: InternalMethod {
         public var id: String, cost: Double, tokens: Int
         public var input: Int, output: Int, cacheWrite: Int, cacheRead: Int
         public var models: [UsageReport.Group], projects: [UsageReport.Group]
+        /// Its cost by kind of token, over the models with a list price (nil: none had one).
+        public var costs: Costs?
         public init(
             id: String, cost: Double, tokens: Int, input: Int, output: Int, cacheWrite: Int, cacheRead: Int,
-            models: [UsageReport.Group], projects: [UsageReport.Group]
+            models: [UsageReport.Group], projects: [UsageReport.Group], costs: Costs? = nil
         ) {
             self.id = id
             self.cost = cost
@@ -147,6 +149,22 @@ public struct UsageAgents: InternalMethod {
             self.cacheRead = cacheRead
             self.models = models
             self.projects = projects
+            self.costs = costs
+        }
+    }
+    /// What each kind of token cost, priced as the API would.
+    public struct Costs: Codable, Sendable, Equatable {
+        public var input: Double, output: Double, cacheWrite: Double, cacheRead: Double
+        public init(input: Double, output: Double, cacheWrite: Double, cacheRead: Double) {
+            self.input = input
+            self.output = output
+            self.cacheWrite = cacheWrite
+            self.cacheRead = cacheRead
+        }
+        public static func + (a: Costs, b: Costs) -> Costs {
+            Costs(
+                input: a.input + b.input, output: a.output + b.output, cacheWrite: a.cacheWrite + b.cacheWrite,
+                cacheRead: a.cacheRead + b.cacheRead)
         }
     }
     public struct Result: Codable, Sendable, Equatable {
@@ -156,9 +174,11 @@ public struct UsageAgents: InternalMethod {
         /// The agents whose logs are read, in a fixed order (one not here keeps no counts on this Mac), and those whose
         /// own figure is the cost (the rest are priced from list prices). Nil from a kelpd before they were said.
         public var counted: [String]?, ownPrice: [String]?
+        /// The same number of days before `since`, by agent (`name` is its id); nil past the year the logs are read for.
+        public var previous: [UsageReport.Group]?
         public init(
             days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double,
-            counted: [String]? = nil, ownPrice: [String]? = nil
+            counted: [String]? = nil, ownPrice: [String]? = nil, previous: [UsageReport.Group]? = nil
         ) {
             self.days = days
             self.agents = agents
@@ -167,8 +187,14 @@ public struct UsageAgents: InternalMethod {
             self.since = since
             self.counted = counted
             self.ownPrice = ownPrice
+            self.previous = previous
         }
     }
     public var days: Int?
-    public init(days: Int? = nil) { self.days = days }
+    /// Only what was used in this project (a name from `projects`).
+    public var project: String?
+    public init(days: Int? = nil, project: String? = nil) {
+        self.days = days
+        self.project = project
+    }
 }

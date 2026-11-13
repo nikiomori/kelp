@@ -259,7 +259,7 @@ public final class UsageIndex: Sendable {
 
     static let assistant = Data("\"type\":\"assistant\"".utf8), marker = Data("\"output_tokens\"".utf8)
     static func day(_ time: TimeInterval) -> String { day(Date(timeIntervalSince1970: time)) }
-    static func day(_ date: Date) -> String {
+    public static func day(_ date: Date) -> String {
         Date.ISO8601FormatStyle(timeZone: .current).year().month().day().format(date)
     }   // local "yyyy-MM-dd"
 }

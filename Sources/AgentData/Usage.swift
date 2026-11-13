@@ -2,6 +2,12 @@ import Foundation
 
 public struct TokenCounts: Codable, Sendable, Equatable {
     public var input = 0, output = 0, cacheWrite = 0, cacheRead = 0
+    public init(input: Int = 0, output: Int = 0, cacheWrite: Int = 0, cacheRead: Int = 0) {
+        self.input = input
+        self.output = output
+        self.cacheWrite = cacheWrite
+        self.cacheRead = cacheRead
+    }
     public var total: Int { input + output + cacheWrite + cacheRead }
     public static func + (lhs: Self, rhs: Self) -> Self {
         Self(
@@ -50,10 +56,15 @@ public struct Pricing: Sendable, Equatable {
         ("gpt-5", .init(input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125))
     ]
 
+    /// A model's list price; nil for one without (a router path, a free model).
+    public static func of(_ model: String) -> Pricing? {
+        let id = model.lowercased()
+        return table.first { id.contains($0.match) }?.price
+    }
+
     /// One call's cost, 0 for unknown models. A write kept for an hour costs twice the input rate.
     public static func cost(model: String, tokens: TokenCounts, hourWrites: Int = 0) -> Double {
-        let id = model.lowercased()
-        guard let price = table.first(where: { id.contains($0.match) })?.price else { return 0 }
+        guard let price = of(model) else { return 0 }
         let cost = price.cost(tokens) + Double(hourWrites) * (2 * price.input - price.cacheWrite) / 1_000_000
         return tokens.input + tokens.cacheWrite + tokens.cacheRead > price.longPrompt ? cost * 5 : cost
     }
