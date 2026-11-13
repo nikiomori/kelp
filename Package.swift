@@ -19,7 +19,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.0.0"),
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
-        .package(url: "https://github.com/CodeEditApp/CodeEditLanguages", from: "0.1.20"),
+        // Exact: 0.1.21 takes its highlight and fold queries from nvim-treesitter, which EditorKit's captures don't read
+        .package(url: "https://github.com/CodeEditApp/CodeEditLanguages", exact: "0.1.20"),
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter", from: "0.25.0"),
         .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.9.0"),
         // Postgres and MySQL spoken by kelpd itself: no psql or mysql needed on the Mac
