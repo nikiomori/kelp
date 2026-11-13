@@ -34,9 +34,6 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     private var trackingArea: NSTrackingArea?
     var echoWatch: Timer?
 
-    /// True once a terminal has started libghostty (so appearance changes don't start it just to apply).
-    public static var isLoaded: Bool { GhosttyRuntime.started }
-
     /// Runs `command` (through the login shell, like Ghostty) in `cwd` with extra environment.
     public init(command: String, cwd: String, env: [String: String] = [:]) {
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 500))

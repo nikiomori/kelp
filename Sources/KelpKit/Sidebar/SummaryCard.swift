@@ -8,9 +8,7 @@ import SwiftUI
 @MainActor
 final class SummaryCard {
     private let app: AppModel
-    private let popover = NSPopover()
-    private let pending = Debounce()
-    private var warmUntil = Date.distantPast
+    private let card = HoverPopover()
     /// The count whose card is up.
     private(set) var kind: SummaryKind?
     /// It opened or closed: the rows it lists light up while it's there.
@@ -18,57 +16,38 @@ final class SummaryCard {
 
     init(app: AppModel) {
         self.app = app
-        popover.behavior = .applicationDefined
-        popover.animates = false
+        card.onClose = { [weak self] in
+            guard let self, kind != nil else { return }
+            kind = nil
+            changed()
+        }
     }
 
-    /// The pointer came onto a count (`segment`) or left it (nil).
+    /// The pointer came onto a count (`segment`) or left it (nil): the card stays while the pointer is in it, its rows are
+    /// for clicking.
     func hover(_ segment: SummarySegment?, _ counts: SummaryCounts) {
-        guard let segment else {
-            pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
-            return
-        }
-        let warm = popover.isShown || Date() < warmUntil
-        pending.after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen) { [weak self, weak segment] in
+        guard let segment else { return card.closeSoon(unlessInside: true) }
+        card.open { [weak self, weak segment] in
             if let segment, segment.hovering { self?.show(segment, counts) }
         }
     }
 
     /// What it lists changed while it's up.
     func refresh(_ counts: SummaryCounts) {
-        guard let kind, popover.isShown else { return }
+        guard let kind, card.isShown else { return }
         guard !counts[kind].isEmpty else { return close() }
-        (popover.contentViewController as? NSHostingController<SummaryCardView>)?.rootView = view(kind, counts)
+        (card.popover.contentViewController as? NSHostingController<SummaryCardView>)?.rootView = view(kind, counts)
     }
 
-    func close() {
-        pending.cancel()
-        if popover.isShown {
-            warmUntil = Date().addingTimeInterval(0.8)
-            popover.close()
-        }
-        if kind != nil {
-            kind = nil
-            changed()
-        }
-    }
+    func close() { card.close() }
 
     private func show(_ segment: SummarySegment, _ counts: SummaryCounts) {
         guard segment.window != nil, !counts[segment.kind].isEmpty else { return close() }
         let host = NSHostingController(rootView: view(segment.kind, counts))
         host.sizingOptions = .preferredContentSize
-        popover.contentViewController = host
-        popover.show(relativeTo: segment.bounds, of: segment, preferredEdge: .minY)
+        card.show(host, relativeTo: segment.bounds, of: segment, edge: .minY)
         kind = segment.kind
         changed()
-    }
-
-    /// The pointer went into the card, whose rows are for clicking: it stays until the pointer leaves.
-    private func closeUnlessInside() {
-        guard popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true else {
-            return close()
-        }
-        pending.after(Motion.hoverClose) { [weak self] in self?.closeUnlessInside() }
     }
 
     private func view(_ kind: SummaryKind, _ counts: SummaryCounts) -> SummaryCardView {
@@ -131,7 +110,11 @@ struct SummaryCardView: View {
             Text(heading).font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
                 .padding(.horizontal, 4).padding(.bottom, 4)
             ForEach(rows) { row in
-                Button { open(row.id) } label: { line(row) }.buttonStyle(PointerButtonStyle())
+                Button {
+                    open(row.id)
+                } label: {
+                    line(row)
+                }.buttonStyle(PointerButtonStyle())
             }
             Divider().padding(.vertical, 4)
             Text(foot).font(.ui(TextSize.caption)).foregroundStyle(.secondary).padding(.horizontal, 4)

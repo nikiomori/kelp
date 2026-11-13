@@ -1,15 +1,14 @@
 import AppKit
 
 public final class ClosureButton: NSButton {
-    private var handler: (() -> Void)?
-    public convenience init(title: String, action: @escaping () -> Void) {
+    private var handler: ClosureTarget?   // target is weak: the button keeps it
+    public convenience init(title: String, action: @escaping @MainActor () -> Void) {
         self.init(frame: .zero)
         self.title = title
-        handler = action
-        target = self
-        self.action = #selector(fire)
+        handler = ClosureTarget(action)
+        target = handler
+        self.action = #selector(ClosureTarget.fire)
     }
-    @objc private func fire() { handler?() }
 }
 
 /// A menu item's or control's action as a closure; AppKit sends actions on the main thread.

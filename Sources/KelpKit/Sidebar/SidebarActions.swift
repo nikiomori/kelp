@@ -35,11 +35,6 @@ extension SidebarController {
 
     func newChat(_ repo: String) { app.workbench.newChat(repo: repo) }
 
-    /// A remote project's branches would need its git on the host: there it works in its folder.
-    private func onThisMac(_ project: String) -> Bool {
-        app.repo(project).map { RemoteHost.of($0.path) == nil } ?? false
-    }
-
     /// Where a chat can go: among the screens of its folder. One on a branch has its own files and stays.
     func moveItems(_ menu: NSMenu, chat sid: String) {
         let app = self.app
