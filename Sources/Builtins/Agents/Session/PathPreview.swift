@@ -42,9 +42,12 @@ enum TerminalPaths {
     /// app: a program printed the path, and a .command file (or any script) would run there — from a cloned repo,
     /// without Gatekeeper's check.
     static func open(
-        _ token: String, cwd: String, elsewhere: [String] = [], flags: NSEvent.ModifierFlags, in app: AppModel
+        _ token: String, cwd: String, elsewhere: [String] = [], workspace: String? = nil, flags: NSEvent.ModifierFlags,
+        in app: AppModel
     ) -> Bool {
-        guard let found = resolve(token, cwd: cwd, elsewhere: elsewhere) else { return false }
+        guard let found = resolve(token, cwd: cwd, elsewhere: elsewhere) else {
+            return openOnHost(token, cwd: cwd, workspace: workspace, in: app)
+        }
         if flags.contains(.option) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: found.path)])
             return true
@@ -52,6 +55,56 @@ enum TerminalPaths {
         app.workbench.open(TabURI.file(found.path) + (found.line.map { "#L\($0)" } ?? ""))
         return true
     }
+}
+
+extension TerminalPaths {
+    /// In a remote project's terminal a path names the host's file: from its folder there, or by its path on the host.
+    /// Opened once the project lists it (asked of the host: a click may), its tab read from there. Never hovered: the
+    /// preview reads the file here.
+    static func openOnHost(_ token: String, cwd: String, workspace: String?, in app: AppModel) -> Bool {
+        guard let workspace, let remote = RemoteHost.of(cwd), let (path, line) = onHost(token, root: remote.path)
+        else { return false }
+        let uri = TabURI.file(cwd + "/" + path) + (line.map { "#L\($0)" } ?? "")
+        Task {
+            guard await app.quiet(FilesList(id: workspace))?.contains(path) == true else {
+                return Banner.show(String(localized: "No file “\(path)” in \(remote.host):\(remote.path)."))
+            }
+            app.workbench.open(uri)
+        }
+        return true
+    }
+
+    /// A token as a path in the project whose folder is `root` on its host, from that folder: one relative to it (a
+    /// diff's "a/…" too) or under it; nil for a word, a path elsewhere, or one that climbs out.
+    static func onHost(_ token: String, root: String) -> (path: String, line: Int?)? {
+        var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
+        while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }
+        if text.hasPrefix("@") { text.removeFirst() }
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        let line = parts.count > 1 ? Int(parts[1]) : nil
+        var path = String(parts.first ?? "")
+        if path.hasPrefix(root + "/") {
+            path.removeFirst(root.count + 1)
+        } else if path.hasPrefix("/") || path.hasPrefix("~") {
+            return nil
+        } else if path.hasPrefix("a/") || path.hasPrefix("b/") {
+            path.removeFirst(2)
+        }
+        var kept: [Substring] = []
+        for part in path.split(separator: "/") where part != "." {
+            if part != ".." {
+                kept.append(part)
+            } else if kept.popLast() == nil {
+                return nil   // out of the project
+            }
+        }
+        path = kept.joined(separator: "/")
+        guard path.contains("/") || path.contains(".") else { return nil }   // a word, not a path
+        return (path, line)
+    }
+
+    /// A file of a remote project, dropped on a terminal: its path on the host, which is what a program there can open.
+    static func onHost(_ path: String) -> String { Remotes(home: Paths.root).containing(path)?.remotePath ?? path }
 }
 
 /// The popover the terminal shows for a path under the pointer.

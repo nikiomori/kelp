@@ -236,3 +236,18 @@ import Testing
     let late = c.take(t.addingTimeInterval(2))   // long after
     #expect(!none && own && !again && !late)
 }
+
+/// A path a program on a remote project's host prints names the host's file: from the project's folder there, or under
+/// it by its full path; nothing elsewhere, nor out of it.
+@MainActor @Test func aHostsPathIsTheProjectsFile() {
+    let root = "/srv/app"
+    #expect(TerminalPaths.onHost("src/x.ts:12", root: root)! == ("src/x.ts", 12))
+    #expect(TerminalPaths.onHost("/srv/app/src/x.ts.", root: root)! == ("src/x.ts", nil))
+    #expect(TerminalPaths.onHost("b/src/x.ts", root: root)! == ("src/x.ts", nil))
+    #expect(TerminalPaths.onHost("@README.md", root: root)! == ("README.md", nil))
+    #expect(TerminalPaths.onHost("/etc/hosts", root: root) == nil)
+    #expect(TerminalPaths.onHost("~/x.md", root: root) == nil)
+    #expect(TerminalPaths.onHost("../other/x.ts", root: root) == nil)
+    #expect(TerminalPaths.onHost("src/../../x.ts", root: root) == nil)
+    #expect(TerminalPaths.onHost("hello", root: root) == nil)
+}

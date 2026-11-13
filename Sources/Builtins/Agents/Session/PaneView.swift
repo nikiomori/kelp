@@ -134,7 +134,7 @@ final class PaneView: NSView {
                 ))
         }
         terminal.onOpenPath = { token, flags in
-            TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), flags: flags, in: app)
+            TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), workspace: wid, flags: flags, in: app)
         }
         terminal.onHoverWord = { [weak self, weak terminal] tokens, rect in
             guard let self, let terminal else { return }
@@ -279,7 +279,9 @@ final class PaneView: NSView {
     static func openLink(_ url: URL, cwd: String, elsewhere: [String], workspace wid: String? = nil, in app: AppModel) {
         if url.scheme == nil {
             let path = url.path(percentEncoded: false)
-            if !TerminalPaths.open(path, cwd: cwd, elsewhere: elsewhere, flags: NSEvent.modifierFlags, in: app) {
+            if !TerminalPaths.open(
+                path, cwd: cwd, elsewhere: elsewhere, workspace: wid, flags: NSEvent.modifierFlags, in: app)
+            {
                 Banner.show(
                     String(
                         localized:
@@ -394,7 +396,7 @@ final class PaneView: NSView {
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
-        var paths = (pb.readObjects(forClasses: [NSURL.self]) as? [URL])?.map(\.path) ?? []
+        var paths = (pb.readObjects(forClasses: [NSURL.self]) as? [URL])?.map { TerminalPaths.onHost($0.path) } ?? []
         if paths.isEmpty, let png = TerminalPaste.savedImage(pb) { paths = [png] }
         if paths.isEmpty, let text = pb.string(forType: .string) {
             insert(text)
