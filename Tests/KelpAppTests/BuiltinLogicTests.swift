@@ -38,11 +38,49 @@ import os
     #expect(FileNode.find("src/nope.swift", in: tree) == nil)
 }
 
-@MainActor @Test func aPullRequestsChecksReadFailingFirst() {
-    #expect(TasksViewController.checksText(.init(passed: 3, failed: 1, pending: 2)).contains("1 failing"))
-    #expect(TasksViewController.checksText(.init(passed: 3, pending: 2)).contains("2 pending"))
-    #expect(TasksViewController.checksText(.init(passed: 3)).contains("passed"))
-    #expect(TasksViewController.checksText(.init()) == "")
+/// The list puts first the PR of the branch on screen, then what waits for your review, yours, the rest; a single
+/// part needs no heading.
+@MainActor @Test func pullRequestsComeInTheOrderYouActOnThem() {
+    func pr(_ number: Int, by author: String, branch: String = "x", asked: [String]? = nil) -> GitHub.PullRequest {
+        var pr = GitHub.PullRequest(
+            number: number, title: "T", url: "", author: author, headRefName: branch, isDraft: false, state: "OPEN",
+            checks: .init())
+        pr.reviewRequests = asked
+        return pr
+    }
+    let prs = [pr(1, by: "bo"), pr(2, by: "me"), pr(3, by: "bo", asked: ["me"]), pr(4, by: "me", branch: "here")]
+    let parts = ForgeRows.sections(prs, viewer: "me", branch: "here")
+    #expect(parts.map { $0.1.map(\.number) } == [[4], [3], [2], [1]])
+    #expect(parts.allSatisfy { $0.0 != nil })
+    let one = ForgeRows.sections([pr(1, by: "bo"), pr(2, by: "cy")], viewer: "me", branch: nil)
+    #expect(one.count == 1 && one[0].0 == nil)
+}
+
+/// The tab's blue button: yours with a failing check is fixed, someone else's reviewed, an approved clean one merged.
+@MainActor @Test func aPullRequestsNextStepDependsOnWhoseItIs() {
+    var pr = GitHub.PullRequest(
+        number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN",
+        checks: .init(failed: 1))
+    #expect(PRWork.next(pr, mine: true) == .fix)
+    #expect(PRWork.next(pr, mine: false) == .review)
+    pr.checks = .init(passed: 2)
+    pr.reviewDecision = "CHANGES_REQUESTED"
+    #expect(PRWork.next(pr, mine: true) == .answer)
+    pr.reviewDecision = "APPROVED"
+    pr.mergeState = "CLEAN"
+    #expect(PRWork.next(pr, mine: false) == .merge)
+    pr.mergeState = "DIRTY"
+    #expect(PRWork.next(pr, mine: true) == .wait)
+    pr.state = "MERGED"
+    #expect(PRWork.next(pr, mine: true) == .wait)
+}
+
+/// "pr:<project>/<n>" names its project and number; a project id with a slash in it keeps it.
+@MainActor @Test func aForgeTabsURINamesItsProjectAndNumber() {
+    let uri = ForgeItemTab.uri(.issue, repoId: "C534", number: 43)
+    #expect(ForgeItemTab.parse(uri)?.kind == .issue && ForgeItemTab.parse(uri)?.number == 43)
+    #expect(ForgeItemTab.parse("pr:a/b/7")?.repoId == "a/b")
+    #expect(ForgeItemTab.parse("pr:abc") == nil && ForgeItemTab.title("pr:r/49") == "#49")
 }
 
 @MainActor @Test func aMissingOrSignedOutCLISaysHowToFixIt() {
@@ -90,15 +128,15 @@ import os
     var pr = GitHub.PullRequest(
         number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN",
         reviewDecision: "REVIEW_REQUIRED", checks: .init(failed: 1))
-    #expect(TasksViewController.mergeBlock(pr) == nil)   // GitHub hasn't said
+    #expect(PRWork.mergeBlock(pr) == nil)   // GitHub hasn't said
     pr.mergeState = "BLOCKED"
-    #expect(TasksViewController.mergeBlock(pr) == "It needs an approving review.")
+    #expect(PRWork.mergeBlock(pr) == "It needs an approving review.")
     pr.reviewDecision = "APPROVED"
-    #expect(TasksViewController.mergeBlock(pr) == "Required checks failed.")
+    #expect(PRWork.mergeBlock(pr) == "Required checks failed.")
     pr.mergeState = "DIRTY"
-    #expect(TasksViewController.mergeBlock(pr)?.contains("conflicts") == true)
+    #expect(PRWork.mergeBlock(pr)?.contains("conflicts") == true)
     pr.mergeState = "CLEAN"
-    #expect(TasksViewController.mergeBlock(pr) == nil)
+    #expect(PRWork.mergeBlock(pr) == nil)
 }
 
 /// A status read off the screen looks like a guess: a ring of dashes, and says so.

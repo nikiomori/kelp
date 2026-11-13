@@ -30,7 +30,16 @@ private let fakeGh: (log: String, script: String) = {
           "project list") echo '{"projects":[{"closed":false,"id":"PVT_1","number":3,"owner":{"login":"acme"},"title":"Roadmap","url":"https://github.com/orgs/acme/projects/3"}],"totalCount":1}';;
           "project item-list") echo '{"items":[{"content":{"type":"Issue","url":"https://github.com/acme/r/issues/5"},"id":"I1","status":"In Progress","title":"Login"},\
         {"content":{"type":"DraftIssue"},"id":"I2","title":"Idea"}],"totalCount":2}';;
-          "pr view") echo '{"reviews":[{"id":"R1","author":{"login":"bob"},"body":"Please rename","state":"CHANGES_REQUESTED"}]}';;
+          "pr view") case "$*" in
+                       *baseRefName*) echo '{"author":{"login":"ada"},"headRefName":"feat/x","isDraft":false,\
+        "number":7,"state":"OPEN","title":"Add login","url":"https://github.com/o/r/pull/7","body":"Adds it","baseRefName":"main",\
+        "files":[{"path":"a.swift","additions":3,"deletions":1}],\
+        "comments":[{"author":{"login":"bob"},"body":"Nice","createdAt":"2026-10-20T10:00:00Z"}],"reviews":[]}';;
+                       *) echo '{"reviews":[{"id":"R1","author":{"login":"bob"},"body":"Please rename","state":"CHANGES_REQUESTED"}]}';;
+                     esac;;
+          "issue view") echo '{"assignees":[],"body":"Steps","labels":[],"number":3,"state":"OPEN","title":"Crash",\
+        "url":"https://github.com/o/r/issues/3","author":{"login":"amy"},\
+        "comments":[{"author":{"login":"ada"},"body":"Seen it","createdAt":"2026-10-21T10:00:00Z"}]}';;
           "api --paginate") echo '[[{"path":"a.swift","line":3,"original_line":3,"body":"nit","user":{"login":"amy"},"html_url":"https://github.com/o/r/pull/7#r1"}]]';;
           "api user") echo ada;;
           *) echo "unexpected: $*" >&2; exit 1;;
@@ -58,6 +67,20 @@ private func rig() async throws -> World {
         prs.count == 1 && prs[0]["number"]?.int == 7 && prs[0]["author"]?.string == "ada"
             && prs[0]["reviewDecision"]?.string == "APPROVED")
     #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("--json") })
+}
+
+/// A PR's and an issue's own tab: what they say, what the PR changes, and the conversation.
+@Test func aPullRequestAndAnIssueAreReadWhole() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let pr = try await r.c.call(GitHubPRView(repoId: r.repo.id, pr: 7))
+    #expect(pr.body == "Adds it" && pr.baseRefName == "main" && pr.files.first?.additions == 3)
+    #expect(pr.comments.map(\.author) == ["bob"] && pr.pr.number == 7)
+    #expect(calls().contains { $0.hasPrefix("pr view 7") && $0.contains("files") })
+    let issue = try await r.c.call(GitHubIssueView(repoId: r.repo.id, issue: 3))
+    #expect(issue.issue.author == "amy" && issue.comments.first?.body == "Seen it")
+    _ = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "closed"]))
+    #expect(calls().filter { $0.hasPrefix("pr list") }.last?.contains("--state closed") == true)
 }
 
 @Test func issuesAskForMineOnlyWhenToldTo() async throws {

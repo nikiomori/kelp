@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// GitHub PRs / issues / Projects and Linear tasks for the selected project, with the actions that close the loop:
-/// issue → worktree + agent, failed check / review comments → agent, PR merge, Linear state.
+/// GitHub PRs / issues / Projects, Linear and Jira tasks for the selected project. A PR or an issue opens in a tab of
+/// its own (`ForgeItemTab`), where its actions are; a tracker's task shows below the list, with its state.
 @MainActor
 final class TasksViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
@@ -54,8 +54,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         /// The filter menu's own items (Linear adds its teams to them, Projects its boards once they're read).
         var filters: [String] {
             switch self {
-            case .pulls:
-                [String(localized: "All open"), String(localized: "Mine"), String(localized: "Review requested")]
+            case .pulls: [String(localized: "Open"), String(localized: "Recently Closed")]
             case .issues: [String(localized: "All open"), String(localized: "Assigned to me")]
             case .linear: [String(localized: "My issues")]
             case .jira: [String(localized: "My open issues"), String(localized: "Custom JQL…")]
@@ -83,8 +82,21 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             }
         }
     }
-    var shown: Source { Source(rawValue: source.indexOfSelectedItem) ?? .pulls }
+    var shown: Source { Source(rawValue: source.selectedTag()) ?? .pulls }
     var rows: [Row] = []
+    /// What the table shows: the rows, with headings over the parts of a list of PRs.
+    enum Line {
+        case heading(String), row(Row)
+    }
+    var lines: [Line] = []
+    func row(at index: Int) -> Row? {
+        guard lines.indices.contains(index), case .row(let row) = lines[index] else { return nil }
+        return row
+    }
+    /// Who gh is signed in as, and the branch on screen: which PRs are yours, wait for you, or are this branch's.
+    private var viewer: String?
+    /// The tab the last click opened: the next click puts its own there, unless a double-click kept it.
+    var lastOpened: String?
     private(set) var repoId: String?
     private var projectOwner: String?
     /// Bumped by every reload and every filter menu built: a reply for an older one (another project, list or filter)
@@ -93,8 +105,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     private var jiraJQL = "project = ENG AND statusCategory != Done ORDER BY priority DESC"
 
     override func loadView() {
-        source.addItems(withTitles: Source.allCases.map(\.title))
-        source.selectItem(at: 0)
+        for item in Source.allCases {
+            source.addItem(withTitle: item.title)
+            source.lastItem?.tag = item.rawValue
+        }
+        source.selectItem(withTag: Source.pulls.rawValue)
         source.target = self
         source.action = #selector(sourceChanged)
         filter.target = self
@@ -102,8 +117,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let bar = makeBar()
 
         let ts = table.plainList("t")
-        table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
+        table.target = self
+        table.doubleAction = #selector(keepOpened)
         table.delegate = self
         table.menu = NSMenu()
         table.menu?.delegate = self
@@ -132,10 +148,26 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         view = root
         sourceChanged()
         nameSources()   // the workspace came before the view: show(worktree:) left naming to here
+        hideUnconnectedTrackers()
+        showDetailPane(false)   // until a tracker's task is picked
     }
 
+    private var laidOutWidth: CGFloat = 0
     override func viewDidLayout() {
         super.viewDidLayout()
+        placeDivider()
+        // Titles wrap at the panel's width: another width, other heights.
+        if abs(table.bounds.width - laidOutWidth) > 1 {
+            laidOutWidth = table.bounds.width
+            table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<lines.count))
+        }
+    }
+
+    /// A tracker's task, which shows below the list: the details' half of the split; anything else, the list alone.
+    func showDetailPane(_ on: Bool) {
+        guard split.arrangedSubviews.count > 1, split.arrangedSubviews[1].isHidden == on else { return }
+        split.arrangedSubviews[1].isHidden = !on
+        dividerPlaced = false
         placeDivider()
     }
 
@@ -143,7 +175,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     /// rest. Again whenever the list was squeezed to less than a row: auto-hide moves the panel into its floater and back,
     /// a moment with no height that the list, the part that gives way, came back from with none.
     func placeDivider() {
-        guard !split.isHidden, split.bounds.height > 100 else { return }
+        guard !split.isHidden, split.arrangedSubviews.last?.isHidden == false, split.bounds.height > 100 else { return }
         split.layoutSubtreeIfNeeded()   // its panes' heights for its height now, not the last one
         let squeezed = (split.arrangedSubviews.first?.frame.height ?? 0) < table.rowHeight
         guard !dividerPlaced || squeezed else { return }
@@ -169,6 +201,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard isViewLoaded else { return }
         // Another project: drop its rows now, or Merge on one before the reload would act on a PR number in this repo.
         rows = []
+        lines = []
         table.reloadData()
         showDetail(nil)
         reload()
@@ -180,12 +213,32 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else { return }
         Task {
             let forge = await app.quiet(GitHubForge(repoId: repoId))   // the list's own load says what failed
-            source.item(at: Source.pulls.rawValue)?.title =
+            source.menu?.item(withTag: Source.pulls.rawValue)?.title =
                 forge == "gitlab" ? String(localized: "Merge Requests") : Source.pulls.title
         }
     }
 
+    /// Linear and Jira only once they're connected; the menu's last item says where to connect them.
+    private func hideUnconnectedTrackers() {
+        Task {
+            let linear = await app.quiet(LinearStatus())?.connected ?? false   // unknown: as if not connected
+            let jira = await app.quiet(JiraStatus())?.connected ?? false
+            for (tracker, on) in [(Source.linear, linear), (Source.jira, jira)] where !on {
+                if let item = source.menu?.item(withTag: tracker.rawValue) { source.menu?.removeItem(item) }
+            }
+            guard !linear || !jira else { return }
+            source.menu?.addItem(.separator())
+            source.addItem(withTitle: String(localized: "Connect Linear or Jira…"))
+            source.lastItem?.tag = -1
+        }
+    }
+
     @objc private func sourceChanged() {
+        guard source.selectedTag() >= 0 else {   // "Connect…": Settings, and the list stays what it was
+            source.selectItem(withTag: Source.pulls.rawValue)
+            app.extensions.run("workbench.openSettings", ["section": .string("integrations")])
+            return
+        }
         filter.removeAllItems()
         menus += 1
         let menu = menus
@@ -222,6 +275,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         let gen = reloads
         guard let repoId else {
             rows = []
+            lines = []
             table.reloadData()
             source.isHidden = true
             filter.isHidden = true   // nothing to choose among yet
@@ -244,10 +298,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             do {
                 switch src {
                 case .pulls:
-                    rows = try await app.get(
-                        GitHubPRs(repoId: repoId, filter: ["open", "mine", "review"][max(0, filterIndex)])
-                    )
-                    .map(Row.pr)
+                    viewer = await Viewer.get(app)
+                    rows = try await app.get(GitHubPRs(repoId: repoId, filter: filterIndex == 1 ? "closed" : "open"))
+                        .map(Row.pr)
                 case .issues:
                     rows = try await app.get(GitHubIssues(repoId: repoId, filter: filterIndex == 1 ? "mine" : "open"))
                         .map(Row.issue)
@@ -279,6 +332,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 // Switched project, list or filter meanwhile: these rows belong to the old one.
                 guard gen == reloads else { return }
                 self.rows = rows
+                lines = lined(rows)
                 filter.isHidden = false
                 // Empty because of the filter isn't the same as empty: say which, and offer the way back.
                 let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
@@ -294,6 +348,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 showAll.isHidden = true
                 let message = (error as? RPCError)?.message ?? "\(error)"
                 self.rows = []
+                lines = []
                 status.stringValue = ""
                 // The source stays: Linear and Jira need no remote.
                 filter.isHidden = src.needsRemote && Forge.noRemote(message) != nil
@@ -313,17 +368,55 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
-    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+    /// PRs in their parts (`ForgeRows.sections`), the rest as they came.
+    private func lined(_ rows: [Row]) -> [Line] {
+        let prs = rows.compactMap { if case .pr(let pr) = $0 { pr } else { nil } }
+        guard !prs.isEmpty, prs.count == rows.count else { return rows.map(Line.row) }
+        let branch = app.worktree(app.workbench.workspaceId)?.branch
+        return ForgeRows.sections(prs, viewer: viewer, branch: branch).flatMap { title, part in
+            (title.map { [Line.heading($0)] } ?? []) + part.map { Line.row(.pr($0)) }
+        }
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int { lines.count }
+    func tableView(_ tableView: NSTableView, heightOfRow index: Int) -> CGFloat {
+        guard let row = row(at: index) else { return TextSize.of(Metrics.rowSection) }
+        let width = max(80, table.bounds.width - ForgeRows.titleMargin)
+        switch row {
+        case .pr(let pr): return ForgeRows.height(title: pr.title, width: width)
+        case .issue(let issue): return ForgeRows.height(title: issue.title, width: width)
+        case .linear, .jira, .item: return TextSize.of(Metrics.rowTwoLine)
+        }
+    }
+    func tableView(_ tableView: NSTableView, shouldSelectRow index: Int) -> Bool { row(at: index) != nil }
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row index: Int) -> NSView? {
+        guard let row = row(at: index) else {
+            if case .heading(let text) = lines[index] { return ForgeRows.heading(text) }
+            return nil
+        }
+        switch row {
+        case .pr(let pr):
+            let folder = repoId.map { PRWork(app: app, repoId: $0, pr: pr).worktree != nil } ?? false
+            return ForgeRows.pr(pr, worktree: folder, unseen: false)
+        case .issue(let issue):
+            let working = app.worktrees.contains {
+                $0.repoId == repoId && $0.issue == "#\(issue.number)" && !$0.archived
+            }
+            return ForgeRows.issue(issue, working: working)
+        case .linear, .jira, .item: return trackerCell(row)
+        }
+    }
+
+    /// A tracker's task, a project's item: its title and a line under it.
+    private func trackerCell(_ row: Row) -> NSView {
         let (title, sub): (String, String) =
-            switch rows[row] {
-            case .pr(let pr):
-                ("#\(pr.number)  \(pr.title)", "\(pr.author) · \(pr.headRefName)\(Self.checksText(pr.checks))")
-            case .issue(let issue): ("#\(issue.number)  \(issue.title)", issue.labels.joined(separator: ", "))
+            switch row {
             case .linear(let issue): ("\(issue.identifier)  \(issue.title)", "\(issue.state.name) · \(issue.team.name)")
             case .jira(let issue):
                 ("\(issue.key)  \(issue.title)", "\(issue.status) · \(issue.type) · \(issue.project)")
             case .item(let item): (item.title, "\(item.status ?? String(localized: "No status")) · \(item.type)")
+            case .pr(let pr): ("#\(pr.number)  \(pr.title)", pr.author)
+            case .issue(let issue): ("#\(issue.number)  \(issue.title)", "")
             }
         let t1 = NSTextField(labelWithString: title)
         t1.font = .ui(TextSize.body, weight: .medium)
@@ -341,14 +434,31 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         return stack
     }
-    static func checksText(_ checks: GitHub.PullRequest.Checks) -> String {
-        if checks.failed > 0 { return String(localized: " · ✕ \(checks.failed) failing") }
-        if checks.pending > 0 { return String(localized: " · ◌ \(checks.pending) pending") }
-        return checks.passed > 0 ? String(localized: " · ✓ checks passed") : ""
-    }
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableViewSelectionDidChange(_ notification: Notification) {
-        showDetail(table.selectedRow >= 0 ? rows[table.selectedRow] : nil)
+        let picked = row(at: table.selectedRow)
+        switch picked {
+        case .pr(let pr)?: open(.pr, pr.number)
+        case .issue(let issue)?: open(.issue, issue.number)
+        case .linear?, .jira?, .item?, nil: break
+        }
+        let tracker =
+            picked.map { if case .pr = $0 { false } else if case .issue = $0 { false } else { true } } ?? false
+        showDetailPane(tracker)
+        showDetail(tracker ? picked : nil)
     }
+
+    /// In a tab where the last click's was, unless that one was kept (a double-click) or closed since.
+    private func open(_ kind: ForgeItemTab.Kind, _ number: Int) {
+        guard let repoId else { return }
+        let uri = ForgeItemTab.uri(kind, repoId: repoId, number: number)
+        guard uri != lastOpened else { return }
+        if let old = lastOpened { app.workbench.closeTab(uri: old, remember: false) }
+        app.workbench.open(uri, focus: false)
+        lastOpened = uri
+    }
+
+    /// A double-click keeps the tab: the next click opens one of its own.
+    @objc private func keepOpened() { lastOpened = nil }
 
 }

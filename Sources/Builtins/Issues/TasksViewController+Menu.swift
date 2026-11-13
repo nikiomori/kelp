@@ -41,27 +41,48 @@ extension TasksViewController {
     // MARK: right-click
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        guard rows.indices.contains(table.clickedRow) else { return }
-        let row = rows[table.clickedRow]
-        if let brief = Self.brief(row) {
-            menu.add(String(localized: "Start Agent on This")) { [weak self] in
-                self?.startTask(ref: brief.ref, title: brief.title, body: brief.body, url: brief.url)
+        guard let row = row(at: table.clickedRow), let repoId else { return }
+        switch row {
+        case .pr(let pr):
+            let work = PRWork(app: app, repoId: repoId, pr: pr)
+            menu.add(String(localized: "Open in New Tab")) { [app] in
+                app.workbench.open(ForgeItemTab.uri(.pr, repoId: repoId, number: pr.number))
+            }
+            menu.add(
+                work.worktree == nil
+                    ? String(localized: "Open in Its Own Folder") : String(localized: "Open Its Folder")
+            ) {
+                work.openFolder()
+            }
+            menu.add(String(localized: "Review with Agent")) {
+                work.review(base: self.app.repo(repoId)?.baseBranch ?? "main")
+            }
+        case .issue(let issue):
+            menu.add(String(localized: "Open in New Tab")) { [app] in
+                app.workbench.open(ForgeItemTab.uri(.issue, repoId: repoId, number: issue.number))
+            }
+            menu.add(String(localized: "Start on Own Branch")) { [app] in
+                IssueWork(app: app, repoId: repoId).startOnBranch(issue)
+            }
+            menu.add(String(localized: "Start Here")) { [app] in IssueWork(app: app, repoId: repoId).startHere(issue) }
+        case .linear, .jira, .item:
+            if let brief = Self.brief(row) {
+                menu.add(String(localized: "Start Agent on This")) { [weak self] in
+                    self?.startTask(ref: brief.ref, title: brief.title, body: brief.body, url: brief.url)
+                }
             }
         }
         guard let url = row.url else { return }
-        menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
         menu.addItem(.separator())
-        menu.add(String(localized: "Copy Link")) {
-            copyText(url)
-        }
+        menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
+        menu.add(String(localized: "Copy Link")) { copyText(url) }
     }
-    /// What an agent starts from, for the rows it can start on.
+    /// What an agent starts from, for a tracker's task.
     private static func brief(_ row: Row) -> (ref: String, title: String, body: String, url: String)? {
         switch row {
-        case .issue(let issue): ("#\(issue.number)", issue.title, issue.body, issue.url)
         case .linear(let issue): (issue.identifier, issue.title, issue.description ?? "", issue.url)
         case .jira(let issue): (issue.key, issue.title, issue.description, issue.url)
-        case .pr, .item: nil
+        case .pr, .issue, .item: nil
         }
     }
 }

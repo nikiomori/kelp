@@ -48,7 +48,15 @@ extension Builtins {
             tabs: [
                 TabProvider(
                     schemes: ["cilog"], make: { CILogTab(uri: $0, app: app) },
-                    placeholder: { (CILogTab.title($0), .symbol("doc.text"), nil) })
+                    placeholder: { (CILogTab.title($0), .symbol("doc.text"), nil) }),
+                TabProvider(
+                    schemes: ["pr", "issue"], make: { ForgeItemTab(uri: $0, app: app) },
+                    placeholder: {
+                        (
+                            ForgeItemTab.title($0),
+                            .symbol($0.hasPrefix("pr:") ? "arrow.triangle.pull" : "smallcircle.filled.circle"), nil
+                        )
+                    })
             ]
         )
     }

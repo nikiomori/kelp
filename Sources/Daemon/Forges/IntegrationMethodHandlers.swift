@@ -206,13 +206,13 @@ extension GitHubReviewComments: Handled {
     }
 }
 extension GitHubPRView: Handled {
-    func handle(_ forges: Forges) throws -> GitHub.PRView {
-        try GitHub.pullRequestView(cwd: forges.store.repoPath(worktreeId: nil, repoId: repoId).1, number: pr)
+    func handle(_ work: ForgeWork) throws -> GitHub.PRView {
+        try GitHub.pullRequestView(cwd: work.workspaces.store.repoPath(worktreeId: nil, repoId: repoId).1, number: pr)
     }
 }
 extension GitHubIssueView: Handled {
-    func handle(_ forges: Forges) throws -> GitHub.IssueView {
-        try GitHub.issueView(cwd: forges.store.repoPath(worktreeId: nil, repoId: repoId).1, number: issue)
+    func handle(_ work: ForgeWork) throws -> GitHub.IssueView {
+        try GitHub.issueView(cwd: work.workspaces.store.repoPath(worktreeId: nil, repoId: repoId).1, number: issue)
     }
 }
 extension GitHubProjects: Handled {
