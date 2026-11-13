@@ -2,7 +2,7 @@
 
 Kelp's phone page is served by Kelp itself (Settings › Phone), and a phone usually reaches the Mac over Tailscale
 or a tunnel of your own. A relay is for when neither fits: a server with a public HTTPS address that the Mac keeps a
-connection open to, so no Mac needs an address of its own. This is the whole of it: one file, Node 22, no
+connection open to, so no Mac needs an address of its own. This is the whole of it: one file, Node 26, no
 dependencies.
 
 ```sh

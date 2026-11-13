@@ -53,7 +53,7 @@ jobs:
                 $T/libexec/swift/pm/swiftpm-testing-helper --test-bundle-path $B --build-system swiftbuild $B --testing-library swift-testing
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo xcode-select -s /Applications/Xcode_$XCODE.app
       # SwiftPM keys its manifest cache by the whole environment, and a runner's differs in every step (GITHUB_SHA, the
       # step's own files): every `swift` compiled each package's manifest again, 12 s on three cores. This one is the same,
@@ -71,14 +71,14 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       # libghostty takes ~12 min to build: once per build-ghostty.sh (it pins GHOSTTY_COMMIT).
       - id: ghostty
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh', 'scripts/ghostty-patches/**') }}" }
       - if: steps.ghostty.outputs.cache-hit != 'true'
         run: scripts/build-ghostty.sh
       - if: steps.ghostty.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with: { path: Vendor/GhosttyKit.xcframework, key: "ghostty-${{ hashFiles('scripts/build-ghostty.sh', 'scripts/ghostty-patches/**') }}" }
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: .build
           key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
@@ -95,18 +95,18 @@ jobs:
         if: matrix.cache == 'tests'
         run: scripts/ui-smoke.sh ui-smoke
       - if: always() && matrix.cache == 'tests'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with: { name: ui-smoke, path: ui-smoke, if-no-files-found: ignore }
       # Saved even when a test failed, for the next push to build on. repositories is 3.5 GB of clones nothing reads again.
       - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
         run: rm -rf .build/repositories
       - if: always() && steps.build.outcome == 'success' && github.event_name == 'push'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .build
           key: build-${{ env.XCODE }}-${{ matrix.cache }}-${{ github.sha }}
   lint:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: brew install swiftlint && swiftlint --quiet

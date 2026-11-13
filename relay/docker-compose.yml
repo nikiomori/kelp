@@ -1,7 +1,7 @@
 # A phone relay of your own (README.md). Put HTTPS in front of it (Caddy, nginx, a tunnel): a phone's page needs it.
 services:
   relay:
-    image: node:22-alpine
+    image: node:26-alpine
     restart: unless-stopped
     user: "1000:1000"
     mem_limit: 384m        # about 25 KB a connected Mac over 50 MB
