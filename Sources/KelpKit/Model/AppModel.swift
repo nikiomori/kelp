@@ -257,18 +257,20 @@ package final class AppModel {
     private func refreshOnce() async {
         // Assign only what changed: every assignment re-renders the views that read it. Quiet: a failed read keeps the
         // lists on screen, and a dropped connection says so itself (and refreshes again once it's back).
-        let records = recordEvents
+        // The four lists asked at once (one after another, launch waited for the sum), applied in the same order.
+        let records = recordEvents, before = sessionEvents
         func newer() -> Set<String> { Set(recordEvents.keys.filter { recordEvents[$0] != records[$0] }) }
-        if let listed = await quiet(RepoList()) {
+        async let repoList = quiet(RepoList()), worktreeList = quiet(WorktreeList())
+        async let sessionList = quiet(SessionList()), routineList = quiet(RoutineList())
+        if let listed = await repoList {
             let merged = Self.merge(list: listed, local: repos, newer: newer())
             if merged != repos { repos = merged }
         }
-        if let listed = await quiet(WorktreeList()) {
+        if let listed = await worktreeList {
             let merged = Self.merge(list: listed, local: worktrees, newer: newer())
             if merged != worktrees { worktrees = merged }
         }
-        let before = sessionEvents
-        if let listed = await quiet(SessionList()) {
+        if let listed = await sessionList {
             let merged = Self.merge(
                 list: listed, local: sessions, newer: Set(sessionEvents.keys.filter { sessionEvents[$0] != before[$0] })
             )
@@ -276,7 +278,7 @@ package final class AppModel {
             if merged != sessions { sessions = merged }
             for (now, was) in missed { notifier?.statusChanged(now, was) }
         }
-        if let routines = await quiet(RoutineList()) { land(routines) }
+        if let routines = await routineList { land(routines) }
         syncContextWatches()
         recordEvents = [:]
         sessionEvents = [:]
